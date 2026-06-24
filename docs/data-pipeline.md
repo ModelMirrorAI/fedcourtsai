@@ -91,6 +91,39 @@ choke `git` even under LFS (one tree entry per pointer), so history is packed
 into a handful of large artifacts instead. This is the evolution
 [data-model.md](data-model.md) already anticipates.
 
+Note the split is by **data kind**, not just size. The corpus of *facts*
+(snapshots + the packed historical rows) and the aggregate *leaderboard metrics*
+live in DVC; the per-case **agent judgments** (`prediction.json`,
+`evaluation.json`, `reasoning.md`) stay in plain git — they are tiny, they are the
+inputs aggregated *into* the metrics rather than metrics themselves, and keeping
+the reasoning as readable text preserves the PR-diff review loop (the explainability
+trail a reviewer actually reads).
+
+### Credentials for the DVC remote
+
+The DVC remote is a **private S3 bucket** the maintainer provisions out of band
+(issue #17) — distinct from the *public* CourtListener bulk-data S3 that **seed**
+reads from. Workflows authenticate with **GitHub OIDC**, not static keys: each
+job that touches the remote runs `aws-actions/configure-aws-credentials` (pinned
+to a commit SHA) to assume an IAM role, reading `AWS_ROLE_TO_ASSUME` and
+`AWS_REGION` as variables on the `runner` environment. The committed `.dvc/config`
+holds **no credentials** (see [SECURITY.md](../SECURITY.md)).
+
+Access mirrors each workflow's role in the pipeline:
+
+| Workflow                   | Access     | Why                                  |
+|----------------------------|------------|--------------------------------------|
+| `run-seed`, `run-pull`     | read-write | corpus writers (`dvc push`)          |
+| `run-predict`, `run-evaluate` | read-only | retrieval consumers (`dvc pull`)  |
+| `ci`                       | none       | gate stays offline/fast              |
+
+A single IAM role is provisioned today, so every wired job assumes the same role
+and the read-write/read-only distinction is enforced by the **role's IAM policy**,
+not the workflow (a separate read-only principal can be added later). The OIDC
+wiring (`permissions: id-token: write` + the credentials step) is already in place;
+the `.dvc/config` remote, the `dvc[s3]` dependency, and the actual `dvc push`/`dvc
+pull` steps land with the DVC scaffolding (#5) and seed-backfill (#7).
+
 ### Corpus schema (sketch)
 
 Each corpus row is a normalized, **labeled** record so it serves both consumers:
