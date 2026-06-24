@@ -28,7 +28,8 @@ without `environment: runner` sees repo/org-level values only.
    - `CLAUDE_CODE_OAUTH_TOKEN` — Claude Code auth.
    - `OPENAI_API_KEY` — Codex auth.
    - `COURTLISTENER_API_TOKEN` — CourtListener REST/MCP token (**add this**).
-3. Run the **bootstrap-labels** workflow once to create the `run:*` labels.
+3. Create the `run:*` labels (`run:dev`, `run:seed`, `run:pull`, `run:predict`,
+   `run:evaluate`) once — e.g. via `gh label create` or the repo's Labels UI.
 4. Allow the App to push to `main` (branch protection bypass or no protection on
    `main` for the App) so `run-pull` can commit snapshots.
 
