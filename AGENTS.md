@@ -24,14 +24,14 @@ Every `run:*` task runs inside a GitHub Actions runner — a fresh, **ephemeral,
 non-interactive** container. Two consequences shape everything you do:
 
 - **No interactive input.** There is no human at a terminal. You cannot ask a
-  question and wait for an answer, request confirmation, or pause for approval. If
-  you are blocked, under-specified, or need a decision, your only channel is to
-  **leave it in writing where a maintainer will see it**, using whatever your run
-  grants you: a comment on the PR you open (`gh pr comment`) or its description in
-  `run:dev`; your reasoning/notes doc (`reasoning.md` / `evaluation.md`) in
-  `run:predict` / `run:evaluate`; the run log otherwise. Then make the most
-  conservative reasonable choice and finish — never stall waiting for a reply that
-  cannot come.
+  question and wait for an answer, request confirmation, or pause for approval.
+  Every `run:*` job hands the agent a **scoped GitHub token**, so when you are
+  blocked, under-specified, or need a decision you can **leave it in writing where
+  a maintainer will see it**: comment on the triggering issue
+  (`gh issue comment <n>`) or on the PR you open (`gh pr comment`). For
+  `run:predict` / `run:evaluate`, also record durable reasoning in your output doc
+  (`reasoning.md` / `evaluation.md`). Then make the most conservative reasonable
+  choice and finish — never stall waiting for a reply that cannot come.
 - **The runner is thrown away.** Its filesystem (and any caches, scratch files, or
   local "memory") is discarded when the job ends. Work survives **only if it is
   pushed off the runner** before you finish:
@@ -108,8 +108,8 @@ named in your run (under `.github/prompts/`).
 
 You are headless (see "Where you run") — there is no one to ask in real time. If
 the request is ambiguous or under-specified, make the most conservative reasonable
-choice **and say so in writing** so a maintainer can follow up — in whatever
-channel your run grants (the PR description or `gh pr comment` in `run:dev`; your
-`reasoning.md` / `evaluation.md` in `run:predict` / `run:evaluate`). Do not wait
-for a live answer. Prefer a small, correct, well-tested change over a large
-speculative one.
+choice **and say so in writing** so a maintainer can follow up: comment on the
+triggering issue (`gh issue comment <n>`) or the PR (`gh pr comment`), and record
+durable reasoning in your `reasoning.md` / `evaluation.md` where the task has one.
+Do not wait for a live answer. Prefer a small, correct, well-tested change over a
+large speculative one.

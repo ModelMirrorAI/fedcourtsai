@@ -57,9 +57,10 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   `predictions/$PREDICTOR_ID/$RUN_ID/` path. Never edit the snapshot, the event,
   another predictor's output, or any other file.
 - **You run headless** (in CI, no interactive input). If the snapshot is missing
-  or the event is malformed, do not stall waiting for input — explain the problem
-  in `reasoning.md` and finish; the workflow surfaces the result. Make the most
-  conservative reasonable call rather than guessing widely.
+  or the event is malformed, do not stall waiting for input — always explain the
+  problem in `reasoning.md`, and if your run provides a GitHub token (Claude Code
+  runs do) post a brief note on the triggering issue with `gh issue comment`, then
+  finish. Make the most conservative reasonable call rather than guessing widely.
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure `uv run fedcourts validate data` would pass for your
   files (correct schema, well-formed JSON).
