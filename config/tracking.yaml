@@ -1,7 +1,33 @@
-# Global tracking settings for the scheduled pull and predict fan-out.
+# Global tracking settings for the seed (backfill), pull (refresh), and predict
+# fan-out. See docs/data-pipeline.md for the full design. These keys are the
+# contract the seed/pull workflows read; treat them as the single place to tune
+# scope and the CourtListener API budget.
+
+# seed = historical backfill from CourtListener BULK data (no API budget).
+# Runs daily until the backlog is loaded, then quarterly reconciliation.
+seed:
+  # Source: CourtListener quarterly bulk-data snapshots (public S3).
+  source: bulk
+  # Cases materialized per scheduled run (CI-time / PR-size guardrail, not API).
+  max_cases_per_run: 2000
+  # Committed cursor tracking per-court backfill progress (resumable rebuild).
+  cursor: config/seed-progress.yaml
+
+# pull = forward freshness from the rate-limited REST API. Owns the API budget.
 pull:
-  # Max dockets refreshed per scheduled run (cost / rate-limit guardrail).
-  max_cases_per_run: 50
+  # CourtListener per-token budget (mirrors FEDCOURTS_COURTLISTENER_* / issue #1).
+  # The governor keeps a run under these ceilings.
+  api_per_minute: 5
+  api_per_hour: 50
+  api_per_day: 125
+  # Max dockets refreshed per scheduled run (~3 requests each; stays under 50/hr).
+  max_cases_per_run: 15
+  # Refresh order: stalest first, so a large active set rotates within budget.
+  rotation: oldest_last_pulled_first
+  # Don't spend budget re-fetching closed / resolved cases.
+  skip_closed: true
+  # Discover newly-filed dockets in the tracked courts since the last run.
+  discover_new_filings: true
   # Only trigger run-predict when a pull detects new docket activity.
   predict_on_change_only: true
 
@@ -16,8 +42,9 @@ evaluate:
   require_outcome: true
 
 courts:
-  # Courts of interest, by CourtListener court id. Informational for now; the
-  # set of tracked cases is defined by what has been seeded under data/cases/.
+  # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
+  # court id. seed backfills history for these; pull keeps them current. District
+  # courts are intentionally out of scope for now.
   - scotus
   - ca1
   - ca2
