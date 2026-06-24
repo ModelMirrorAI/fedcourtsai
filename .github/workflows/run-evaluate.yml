@@ -62,6 +62,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # assume the AWS role for the DVC S3 remote (read-only)
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -83,9 +84,18 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
+      # Assume the least-privilege AWS role via GitHub OIDC so retrieval steps can
+      # `dvc pull` the historical corpus from the S3 remote. No static keys; the
+      # role ARN and region come from the `runner` environment (see issue #17).
+      - name: Configure AWS credentials (DVC S3 remote, read-only)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
       - name: Evaluate with Claude Code
         if: matrix.engine == 'claude-code'
-        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1
+        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}

@@ -40,7 +40,7 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       - name: Develop with Claude Code
-        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1
+        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
         env:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
