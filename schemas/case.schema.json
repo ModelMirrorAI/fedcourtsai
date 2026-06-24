@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "CaseStatus": {
+      "enum": [
+        "active",
+        "closed",
+        "paused"
+      ],
+      "title": "CaseStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``case.yaml`` \u2014 canonical metadata for one tracked docket.",
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "case_name": {
+      "default": "",
+      "title": "Case Name",
+      "type": "string"
+    },
+    "court_id": {
+      "title": "Court Id",
+      "type": "string"
+    },
+    "courtlistener_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Courtlistener Url"
+    },
+    "docket_id": {
+      "title": "Docket Id",
+      "type": "integer"
+    },
+    "docket_number": {
+      "default": "",
+      "title": "Docket Number",
+      "type": "string"
+    },
+    "last_pulled": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Pulled"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/CaseStatus",
+      "default": "active"
+    },
+    "tracked_since": {
+      "format": "date",
+      "title": "Tracked Since",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "court_id",
+    "docket_id",
+    "tracked_since"
+  ],
+  "title": "TrackedCase",
+  "type": "object"
+}
