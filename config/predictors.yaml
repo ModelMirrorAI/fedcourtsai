@@ -1,0 +1,30 @@
+# Predictor registry — the routing table for `run-predict`.
+# Each enabled entry becomes one matrix job; all of them predict the same event
+# independently and their outputs are scored against each other by `run-evaluate`.
+# Adding a competing predictor is a one-line change here (and, later, the output
+# of the automated hypothesis-generation harness).
+#
+# Fields validate against schemas/predictor_config.schema.json.
+#   id:          unique, filesystem-safe; names the output directory
+#   engine:      claude-code | codex
+#   model:       optional model override (else the engine default)
+#   prompt:      repo-relative path to the prompt template
+#   enabled:     skipped when false
+predictors:
+  - id: claude-baseline
+    engine: claude-code
+    model: null
+    prompt: .github/prompts/predict.md
+    enabled: true
+    description: >-
+      Baseline Claude Code predictor. Reads the case snapshot and event, emits a
+      calibrated grant/deny probability, panel votes, and a reasoning document.
+
+  - id: codex-baseline
+    engine: codex
+    model: null
+    prompt: .github/prompts/predict.md
+    enabled: true
+    description: >-
+      Baseline Codex predictor using the same prompt for an apples-to-apples
+      comparison against claude-baseline.
