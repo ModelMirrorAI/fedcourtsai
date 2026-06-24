@@ -1,8 +1,9 @@
 # Architecture
 
-fedcourtsai is a **label-driven pipeline** of GitHub Actions over a **git-versioned
-data store**, with **multiple competing coding agents** producing predictions and
-evaluations.
+fedcourtsai is a **label-driven pipeline** of GitHub Actions over two stores — a
+**packed raw-fact corpus** (DVC/S3, written identically by seed and pull) and a
+**git-versioned ledger** of derived outcomes, predictions, and evaluations — with
+**multiple competing coding agents** producing the predictions and evaluations.
 
 ## Components
 
@@ -18,7 +19,9 @@ evaluations.
 - **Prompts (`.github/prompts/`)** — engine-agnostic task instructions shared by
   Claude Code and Codex.
 - **Config (`config/`)** — the predictor/evaluator registries and tracking knobs.
-- **Data (`data/`)** — the versioned record of cases, predictions, evaluations.
+- **Data (`data/`)** — the git ledger of derived outcomes, predictions, and
+  evaluations. Raw facts (dockets, snapshots, judges, case and event metadata)
+  live in the DVC/S3 corpus, not here.
 
 ## Why this shape
 
@@ -28,8 +31,10 @@ evaluations.
 - **The registry is the source of truth for "which agents exist."** Adding a
   competitor is a one-line config change. This is the seam the future
   hypothesis-generation harness plugs into.
-- **Files in git** give free history, diffing, review, and rollback, and let agents
-  load full context for one case from one directory.
+- **Files in git** for the derived ledger give free history, diffing, review, and
+  rollback, and let agents load everything concluded about one event from one
+  directory. Bulk raw facts would choke git, so they live in a packed corpus
+  instead — one format shared by seed and pull.
 
 ## Future: automated predictor research
 
