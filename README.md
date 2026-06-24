@@ -51,29 +51,27 @@ agents and `run-evaluate` is the tournament that ranks them.
 
 ## Data model
 
-Data is versioned as files committed to git, organized **case-centrically** so
-everything about a single predictable event lives together:
+State lives in two stores, split by kind. **Raw facts** — dockets, snapshots,
+judges, case and event metadata — go into a packed **corpus** (Parquet or SQLite
+under DVC/S3), written identically by `seed` and `pull`. **Derived artifacts** are
+versioned as files in git, organized **case-centrically** so everything we
+conclude about a single predictable event lives together:
 
 ```
-data/cases/<court_id>/<docket_id>/
-  case.yaml                      # tracked-case metadata
-  record/
-    docket.json                  # canonical current docket (from CourtListener)
-    snapshots/<YYYY-MM-DD>.json  # immutable point-in-time inputs for predictors
-  events/<event_id>/
-    event.yaml                   # what we predict (a motion's disposition, …)
-    outcome.json                 # ground truth, once the event resolves
-    predictions/<predictor_id>/<run_id>/
-      prediction.json            # quantitative: granted 1/0, P(granted), votes
-      reasoning.md               # qualitative: predicted reasoning
-    evaluations/<evaluator_id>/<predictor_id>/<run_id>/
-      evaluation.json
-      evaluation.md
+data/cases/<court_id>/<docket_id>/events/<event_id>/
+  outcome.json                   # ground truth, once the event resolves
+  predictions/<predictor_id>/<run_id>/
+    prediction.json              # quantitative: granted 1/0, P(granted), votes
+    reasoning.md                 # qualitative: predicted reasoning
+  evaluations/<evaluator_id>/<predictor_id>/<run_id>/
+    evaluation.json
+    evaluation.md
 ```
 
-Every artifact validates against a pydantic model in `fedcourtsai.schemas`
+Every git artifact validates against a pydantic model in `fedcourtsai.schemas`
 (exported to `schemas/*.schema.json`). See [`docs/data-model.md`](docs/data-model.md)
-for the rationale and alternatives considered.
+for the rationale and [`docs/data-pipeline.md`](docs/data-pipeline.md) for the
+corpus.
 
 ## Develop
 
@@ -93,12 +91,18 @@ uv run mypy
 uv run pytest
 ```
 
-To seed/pull locally you need a free CourtListener API token:
+The `seed` and `pull` CLI commands are single-docket helpers that fetch one case
+from the CourtListener REST API, so they need a free API token:
 
 ```bash
 export FEDCOURTS_COURTLISTENER_API_TOKEN=...   # https://www.courtlistener.com/help/api/rest/
-uv run fedcourts seed --court ca9 --docket <docket_id>
+uv run fedcourts seed --court ca9 --docket <docket_id>   # fetch one docket, start tracking
+uv run fedcourts pull --court ca9 --docket <docket_id>   # refresh one tracked docket
 ```
+
+The pipeline's `run-seed` workflow is a different path: it backfills the
+historical corpus from CourtListener **bulk data** (no API budget). See
+[`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## For AI agents
 
