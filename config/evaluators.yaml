@@ -1,0 +1,19 @@
+# Evaluator registry — the routing table for `run-evaluate`.
+# Each enabled evaluator scores EVERY predictor's prediction for a resolved
+# event (evaluator x predictor fan-out). Quantitative scores (correctness,
+# Brier, vote accuracy) are computed identically in code; evaluators add the
+# qualitative judgment of the predicted reasoning.
+evaluators:
+  - id: claude-judge
+    engine: claude-code
+    model: null
+    prompt: .github/prompts/evaluate.md
+    enabled: true
+    description: Claude Code evaluator scoring reasoning quality against the outcome.
+
+  - id: codex-judge
+    engine: codex
+    model: null
+    prompt: .github/prompts/evaluate.md
+    enabled: true
+    description: Codex evaluator, for cross-checking the Claude evaluator.
