@@ -1,0 +1,143 @@
+name: run-predict
+
+# Triggered by `run:predict` (created by run-pull, or applied manually). Fans out
+# over every enabled predictor x open event and runs the matching coding agent.
+# The agent only writes files; the workflow commits and opens one PR per cell.
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: run-predict-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.event.label.name == 'run:predict'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_jobs: ${{ steps.plan.outputs.has_jobs }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - name: Build predictor x event matrix
+        id: plan
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<'PY' > request.json
+          import json, os, re, sys
+          m = re.search(r"```json\s*(\{.*?\})\s*```", os.environ.get("ISSUE_BODY", ""), re.S)
+          if not m:
+              sys.exit("No ```json {court,docket,events} block found in the issue body.")
+          print(m.group(1))
+          PY
+          court=$(jq -r '.court' request.json)
+          docket=$(jq -r '.docket' request.json)
+          run_id=$(date -u +%Y%m%dT%H%M%SZ)
+          events=$(jq -r '.events[]?' request.json | sed 's/^/--event /' | tr '\n' ' ')
+          matrix=$(uv run fedcourts predict-matrix --court "$court" --docket "$docket" --run-id "$run_id" $events)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          if [ "$(echo "$matrix" | jq '.include | length')" -gt 0 ]; then
+            echo "has_jobs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_jobs=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  predict:
+    needs: plan
+    if: needs.plan.outputs.has_jobs == 'true'
+    runs-on: ubuntu-latest
+    environment: runner
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Predict with Claude Code
+        if: matrix.engine == 'claude-code'
+        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
+            for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables.
+            Write ONLY the prediction.json and reasoning.md files. Do not commit,
+            push, or open a PR — the workflow handles git.
+          claude_args: |
+            --max-turns 30
+
+      - name: Predict with Codex
+        if: matrix.engine == 'codex'
+        uses: openai/codex-action@10cb888d2ed3b99867f7e7ccff174a861a75aeb6 # v1
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ matrix.prompt }}
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+
+      - name: Validate and open PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          uv run fedcourts validate data
+          git config user.name "fedcourts-bot"
+          git config user.email "bot@users.noreply.github.com"
+          gh auth setup-git
+          branch="predict/${EVENT_ID}-${PREDICTOR_ID}-${RUN_ID}"
+          git checkout -b "$branch"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "::warning::${PREDICTOR_ID} produced no changes for ${EVENT_ID}; skipping PR."
+            exit 0
+          fi
+          git commit -m "predict(${PREDICTOR_ID}): ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "predict(${PREDICTOR_ID}): ${COURT_ID}/${DOCKET_ID} — ${EVENT_ID}" \
+            --body "Automated prediction by \`${PREDICTOR_ID}\` (run \`${RUN_ID}\`) for event \`${EVENT_ID}\`."
