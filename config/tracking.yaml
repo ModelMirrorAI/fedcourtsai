@@ -1,0 +1,34 @@
+# Global tracking settings for the scheduled pull and predict fan-out.
+pull:
+  # Max dockets refreshed per scheduled run (cost / rate-limit guardrail).
+  max_cases_per_run: 50
+  # Only trigger run-predict when a pull detects new docket activity.
+  predict_on_change_only: true
+
+predict:
+  # Hard cap on concurrent predictor matrix jobs.
+  max_parallel: 4
+  # Skip events already resolved (an outcome.json exists).
+  skip_resolved: true
+
+evaluate:
+  # Only evaluate events that have a realized outcome.json.
+  require_outcome: true
+
+courts:
+  # Courts of interest, by CourtListener court id. Informational for now; the
+  # set of tracked cases is defined by what has been seeded under data/cases/.
+  - scotus
+  - ca1
+  - ca2
+  - ca3
+  - ca4
+  - ca5
+  - ca6
+  - ca7
+  - ca8
+  - ca9
+  - ca10
+  - ca11
+  - cadc
+  - cafc
