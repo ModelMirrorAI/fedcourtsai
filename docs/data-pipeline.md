@@ -81,11 +81,13 @@ in different stores — but the split is by **kind**, not by phase. Both seed an
 pull write the *same* corpus through the *same* ingestion core:
 
 1. **Raw facts → the corpus.** Dockets, snapshots, judges, case metadata and
-   tracking state, and event definitions go into a **packed, queryable store**
-   (Parquet shards or a SQLite DB) versioned with **DVC** (data in the DVC remote,
-   pointer + cursor in git). One format, written identically whether a row comes
-   from bulk CSV (seed) or the REST API (pull). DVC also versions pipeline
-   **metrics** (back-test results, leaderboards).
+   tracking state, and event definitions go into a **packed, queryable store** —
+   a single **SQLite** database, `corpus/corpus.db` — versioned with **DVC** (the
+   blob in the DVC remote, the `corpus.db.dvc` pointer + load cursor in git). One
+   format, written identically whether a row comes from bulk CSV (seed) or the
+   REST API (pull) through the shared ingestion seam in `fedcourtsai.corpus`. DVC
+   also versions pipeline **metrics** (`metrics/`, registered in `dvc.yaml`):
+   back-test results and leaderboards.
 2. **Derived judgments → git.** Outcomes, predictions, evaluations, and their
    reasoning are tiny, critical, and worth reading in a diff, so they stay in
    plain git under `data/`, where the schema/`validate`/PR-review machinery
@@ -106,8 +108,10 @@ distinct from the *public* CourtListener bulk-data S3 that **seed** reads from.
 Workflows authenticate with **GitHub OIDC**, not static keys: each job that
 touches the remote runs `aws-actions/configure-aws-credentials` (pinned to a
 commit SHA) to assume an IAM role, reading the role ARN and region from the
-`runner` environment. The committed `.dvc/config` holds **no credentials** (see
-[SECURITY.md](../SECURITY.md)).
+`runner` environment. The committed `.dvc/config` holds **no credentials and no
+bucket URL** — it only names the default remote (`storage`); the URL is supplied
+out of band into the gitignored `.dvc/config.local` (`dvc remote add --local -d
+storage …`) before any push/pull. See [SECURITY.md](../SECURITY.md).
 
 Access mirrors each workflow's role in the pipeline:
 
@@ -123,19 +127,24 @@ workflow (a separate read-only principal can be added later). The OIDC wiring
 (`permissions: id-token: write` + the credentials step) grants each job its access
 without any long-lived key.
 
-### Corpus schema (sketch)
+### Corpus schema
 
 Each corpus row is a normalized, **labeled** record so it serves both consumers:
 
 ```
 case_id, court, docket_number, date_filed, date_decided,
-disposition (outcome label), judges[], nature/topic,
-citations[], opinion_text/summary
+disposition (outcome label), judges[], topic (nature/subject),
+citations[], opinion_text, summary
 # embedding[] — later upgrade for semantic retrieval
 ```
 
 Carrying `disposition` makes the corpus a ready-made **back-testing** set, and
-the structured columns make it **queryable** for retrieval.
+the structured columns make it **queryable** for retrieval. The schema is
+defined and enforced in [`fedcourtsai.corpus`](../src/fedcourtsai/corpus.py)
+(`CorpusRow` + the `cases` table); see [corpus/README.md](../corpus/README.md)
+for the column reference. The SQLite format is internal — the stable contract
+is the row schema, whose ids and `Disposition` vocabulary are shared with the
+ledger models in `fedcourtsai.schemas`.
 
 ### Consumers of the historical corpus
 

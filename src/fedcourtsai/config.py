@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     data_root: Path = Path("data")
     config_root: Path = Path("config")
+    corpus_root: Path = Path("corpus")
+    metrics_root: Path = Path("metrics")
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
     request_timeout: float = 30.0

@@ -14,7 +14,7 @@ from typing import Annotated
 import typer
 import yaml
 
-from . import ids
+from . import corpus, ids
 from .config import get_settings
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
@@ -103,6 +103,18 @@ def pull(
     with _client() as client:
         result = pull_case(client, settings.data_root, court, docket)
     typer.echo(f"{result.case_id} changed={result.changed} snapshot={result.snapshot}")
+
+
+@app.command("corpus-info")
+def corpus_info() -> None:
+    """Show the packed corpus location and row count (run after `dvc pull`)."""
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.")
+        return
+    with corpus.connect(db_path) as conn:
+        typer.echo(f"corpus {db_path}: {corpus.count(conn)} row(s)")
 
 
 @app.command()
