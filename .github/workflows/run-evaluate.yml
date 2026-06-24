@@ -103,7 +103,7 @@ jobs:
           claude_args: |
             --model claude-opus-4-8
             --max-turns 120
-            --dangerously-skip-permissions
+            --permission-mode bypassPermissions
 
       - name: Evaluate with Codex
         if: matrix.engine == 'codex'
@@ -117,7 +117,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ matrix.prompt }}
-          model: gpt-5.5-codex
+          model: gpt-5.5
           effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
