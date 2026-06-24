@@ -22,6 +22,8 @@ from tenacity import (
     wait_exponential,
 )
 
+from .ratelimit import RateLimiter, default_rate_limiter
+
 JsonDict = dict[str, Any]
 
 
@@ -31,11 +33,14 @@ class CourtListenerClient:
         base_url: str = "https://www.courtlistener.com/api/rest/v4/",
         api_token: str | None = None,
         timeout: float = 30.0,
+        rate_limiter: RateLimiter | None = None,
     ) -> None:
         headers = {"Accept": "application/json"}
         if api_token:
             headers["Authorization"] = f"Token {api_token}"
         self._client = httpx.Client(base_url=base_url, headers=headers, timeout=timeout)
+        # Throttle to CourtListener's per-token budget unless a limiter is supplied.
+        self._rate_limiter = rate_limiter if rate_limiter is not None else default_rate_limiter()
 
     def __enter__(self) -> CourtListenerClient:
         return self
@@ -58,6 +63,9 @@ class CourtListenerClient:
         reraise=True,
     )
     def _get(self, path: str, params: JsonDict | None = None) -> JsonDict:
+        # Block here so retries (this method re-runs on retry) also count against
+        # the budget — every outbound request passes through this throttle.
+        self._rate_limiter.acquire()
         resp = self._client.get(path, params=params)
         resp.raise_for_status()
         data: JsonDict = resp.json()
