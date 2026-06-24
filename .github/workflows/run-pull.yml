@@ -28,6 +28,7 @@ jobs:
     permissions:
       contents: write
       issues: write
+      id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
     steps:
       - name: Mint app token
         id: app-token
@@ -46,6 +47,15 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+
+      # Assume the least-privilege AWS role via GitHub OIDC so pull can `dvc push`
+      # fresh forward facts into the corpus on the S3 remote. No static keys; the
+      # role ARN and region come from the `runner` environment (see issue #17).
+      - name: Configure AWS credentials (DVC S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Refresh tracked dockets
         env:

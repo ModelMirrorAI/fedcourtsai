@@ -23,6 +23,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
     steps:
       - name: Mint app token
         id: app-token
@@ -39,6 +40,15 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+
+      # Assume the least-privilege AWS role via GitHub OIDC so seed can `dvc push`
+      # the packed historical corpus to the S3 remote. No static keys; the role
+      # ARN and region come from the `runner` environment (see issue #17).
+      - name: Configure AWS credentials (DVC S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Parse and validate request
         env:
@@ -65,7 +75,7 @@ jobs:
         run: uv run fedcourts seed --court "$COURT_ID" --docket "$DOCKET_ID"
 
       - name: Define events with Claude Code
-        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1
+        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
         env:
           COURT_ID: ${{ env.COURT_ID }}
           DOCKET_ID: ${{ env.DOCKET_ID }}

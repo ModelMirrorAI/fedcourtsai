@@ -11,6 +11,12 @@
   Codex action proxies `OPENAI_API_KEY` so the CLI never holds it; the Claude
   action handles `CLAUDE_CODE_OAUTH_TOKEN` similarly. The lower-sensitivity
   CourtListener token is passed as a scoped step env only where needed.
+- **No static cloud keys — OIDC for the DVC remote.** Workflows that touch the
+  private S3 bucket behind the DVC remote assume a least-privilege IAM role via
+  GitHub OIDC (`aws-actions/configure-aws-credentials`, SHA-pinned;
+  `permissions: id-token: write`), reading the role ARN/region from the `runner`
+  environment. No long-lived AWS keys exist, and `.dvc/config` carries no
+  credentials. See [docs/data-pipeline.md](docs/data-pipeline.md).
 - **Label triggers are maintainer-gated** — only users with triage/write access
   can apply labels, which is the trust boundary for `run:*`.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
