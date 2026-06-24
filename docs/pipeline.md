@@ -7,20 +7,28 @@ stage.
 | Label          | Workflow         | Trigger(s)                          | Engine(s)            |
 |----------------|------------------|-------------------------------------|----------------------|
 | `run:dev`      | `run-dev`        | issue labeled                       | Claude Code          |
-| `run:seed`     | `run-seed`       | issue labeled                       | Claude Code + script |
-| `run:pull`     | `run-pull`       | daily schedule, label, manual       | script               |
+| `run:seed`     | `run-seed`       | tracking issue + daily schedule     | script (bulk data)   |
+| `run:pull`     | `run-pull`       | daily schedule, label, manual       | script + agent       |
 | `run:predict`  | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex  |
 | `run:evaluate` | `run-evaluate`   | issue labeled                       | Claude Code + Codex  |
+
+**seed** loads the historical backlog from CourtListener **bulk data** and runs
+daily until complete (then quarterly); **pull** keeps the active set current from
+the rate-limited **REST API** and owns the 125/day budget. The full design —
+sources, budget boundary, two-tier storage, and the historical corpus — is in
+[data-pipeline.md](data-pipeline.md).
 
 ## Cascade
 
 ```
-run:seed → seed dockets (PR) ─merge→
+run:seed (daily until done) → backfill bulk corpus chunk → PR + progress comment
    daily / run:pull → run-pull → commit snapshots to main
+                                 ├─ refresh active cases (oldest-first, budget-capped)
+                                 ├─ discover new filings → onboard + define events
+                                 ├─ detect resolution → write outcome.json
                                  └─ for each changed case with open events:
                                     create issue (run:predict)  ← APP TOKEN
        run:predict → plan (build matrix) → predict[matrix] → PR per predictor×event
-   (outcome.json lands via a later pull / seed-style update)
        run:evaluate → plan → evaluate[matrix] → PR per evaluator×event
 ```
 

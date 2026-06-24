@@ -1,0 +1,10 @@
+# Blank issues stay enabled so maintainers can file dev/backlog issues freely;
+# the forms above cover the data-production (seed/pull) entry points.
+blank_issues_enabled: true
+contact_links:
+  - name: "Pipeline & data design"
+    url: "https://github.com/ModelMirrorAI/fedcourtsai/blob/main/docs/data-pipeline.md"
+    about: "How seed and pull work — read before opening a data issue."
+  - name: "Repository conventions (AGENTS.md)"
+    url: "https://github.com/ModelMirrorAI/fedcourtsai/blob/main/AGENTS.md"
+    about: "Branch-and-PR workflow, the local gate, and the data contract."
