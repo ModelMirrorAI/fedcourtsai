@@ -55,6 +55,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     environment: runner
     permissions:
       contents: write
@@ -98,7 +99,9 @@ jobs:
             Write ONLY the prediction.json and reasoning.md files. Do not commit,
             push, or open a PR — the workflow handles git.
           claude_args: |
-            --max-turns 30
+            --model claude-opus-4-8
+            --max-turns 120
+            --dangerously-skip-permissions
 
       - name: Predict with Codex
         if: matrix.engine == 'codex'
@@ -113,6 +116,8 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ matrix.prompt }}
+          model: gpt-5.5-codex
+          effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
 
