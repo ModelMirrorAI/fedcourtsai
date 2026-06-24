@@ -1,0 +1,84 @@
+name: run-pull
+
+# Refresh tracked dockets. Runs on a daily schedule, on manual dispatch, or when
+# an issue is labeled `run:pull`. Deterministic (no agent): re-fetches each
+# tracked docket, writes fresh dated snapshots, and commits them DIRECTLY to main
+# (they are CourtListener facts, not agent output — see docs/pipeline.md). For
+# each case whose docket changed and still has open events, it opens a
+# `run:predict` issue. All git/issue writes use the GitHub App token so the
+# resulting issues/commits trigger downstream workflows.
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: run-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    if: github.event_name != 'issues' || github.event.label.name == 'run:pull'
+    runs-on: ubuntu-latest
+    environment: runner
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        # Persist the App token so refreshed snapshots can be pushed back to main;
+        # this job uploads no artifacts, so credential leakage is not a concern.
+        with: # zizmor: ignore[artipacked]
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Refresh tracked dockets
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+        run: uv run fedcourts pull-all --out predict-queue.json --limit 50
+
+      - name: Commit snapshots to main
+        run: |
+          git config user.name "fedcourts-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No docket changes to commit."
+          else
+            git commit -m "pull: refresh docket snapshots ($(date -u +%Y-%m-%d))"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Open run:predict issues for changed cases
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          count=$(jq 'length' predict-queue.json)
+          echo "Queued $count case(s) for prediction."
+          for i in $(seq 0 $((count - 1))); do
+            court=$(jq -r ".[$i].court" predict-queue.json)
+            docket=$(jq -r ".[$i].docket" predict-queue.json)
+            events=$(jq -c ".[$i].events" predict-queue.json)
+            body=$(jq -n --arg c "$court" --argjson d "$docket" --argjson e "$events" \
+              '{court: $c, docket: $d, events: $e}')
+            gh issue create --repo "$REPO" \
+              --title "predict: ${court}/${docket}" \
+              --body "$(printf '```json\n%s\n```\n' "$body")" \
+              --label "run:predict"
+          done
