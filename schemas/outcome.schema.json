@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "Disposition": {
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "JudgeVote": {
+      "additionalProperties": false,
+      "properties": {
+        "judge": {
+          "title": "Judge",
+          "type": "string"
+        },
+        "vote": {
+          "$ref": "#/$defs/Disposition"
+        }
+      },
+      "required": [
+        "judge",
+        "vote"
+      ],
+      "title": "JudgeVote",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``outcome.json`` \u2014 realized ground truth, written once an event resolves.",
+  "properties": {
+    "actual_disposition": {
+      "$ref": "#/$defs/Disposition"
+    },
+    "actual_granted": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Actual Granted",
+      "type": "integer"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "resolved_at": {
+      "format": "date",
+      "title": "Resolved At",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Docket entry id or citation",
+      "title": "Source"
+    },
+    "votes": {
+      "items": {
+        "$ref": "#/$defs/JudgeVote"
+      },
+      "title": "Votes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "resolved_at",
+    "actual_disposition",
+    "actual_granted"
+  ],
+  "title": "Outcome",
+  "type": "object"
+}

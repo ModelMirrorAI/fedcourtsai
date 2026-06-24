@@ -1,0 +1,102 @@
+{
+  "additionalProperties": false,
+  "description": "``evaluation.json`` \u2014 one evaluator scoring one predictor's prediction.",
+  "properties": {
+    "brier_score": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Brier Score"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "correct": {
+      "description": "1 if disposition matched outcome",
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Correct",
+      "type": "integer"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evaluator_id": {
+      "title": "Evaluator Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "notes_doc": {
+      "default": "evaluation.md",
+      "title": "Notes Doc",
+      "type": "string"
+    },
+    "predictor_id": {
+      "title": "Predictor Id",
+      "type": "string"
+    },
+    "reasoning_quality": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reasoning Quality"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "vote_accuracy": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vote Accuracy"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "predictor_id",
+    "evaluator_id",
+    "run_id",
+    "created_at",
+    "correct"
+  ],
+  "title": "Evaluation",
+  "type": "object"
+}

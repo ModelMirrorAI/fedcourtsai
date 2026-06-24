@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "Disposition": {
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "JudgeVote": {
+      "additionalProperties": false,
+      "properties": {
+        "judge": {
+          "title": "Judge",
+          "type": "string"
+        },
+        "vote": {
+          "$ref": "#/$defs/Disposition"
+        }
+      },
+      "required": [
+        "judge",
+        "vote"
+      ],
+      "title": "JudgeVote",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``prediction.json`` \u2014 one predictor's quantitative output for an event.",
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "engine": {
+      "$ref": "#/$defs/Engine"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "granted": {
+      "description": "Binary outcome prediction, 1=granted",
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Granted",
+      "type": "integer"
+    },
+    "input_snapshot": {
+      "description": "Repo-relative path to the snapshot used as input",
+      "title": "Input Snapshot",
+      "type": "string"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "predicted_disposition": {
+      "$ref": "#/$defs/Disposition"
+    },
+    "predictor_id": {
+      "title": "Predictor Id",
+      "type": "string"
+    },
+    "probability": {
+      "description": "P(granted)",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Probability",
+      "type": "number"
+    },
+    "reasoning_doc": {
+      "default": "reasoning.md",
+      "title": "Reasoning Doc",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "votes": {
+      "items": {
+        "$ref": "#/$defs/JudgeVote"
+      },
+      "title": "Votes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "predictor_id",
+    "engine",
+    "run_id",
+    "created_at",
+    "input_snapshot",
+    "granted",
+    "probability",
+    "predicted_disposition"
+  ],
+  "title": "Prediction",
+  "type": "object"
+}
