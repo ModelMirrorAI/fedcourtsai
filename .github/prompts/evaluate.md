@@ -57,6 +57,10 @@ For each predictor you score, write to
 
 - Stay in your lane: write **only** under your own `evaluations/$EVALUATOR_ID/...`
   paths. Never edit predictions, outcomes, snapshots, or another evaluator's output.
+- **You run headless** (in CI, no interactive input). If `outcome.json` or a
+  prediction is missing or malformed, do not stall waiting for input — explain it
+  in `evaluation.md` and finish; the workflow surfaces the result. Make the most
+  conservative reasonable call rather than guessing widely.
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure `uv run fedcourts validate data` would pass for your
   files.

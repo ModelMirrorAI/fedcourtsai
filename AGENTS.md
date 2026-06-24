@@ -18,6 +18,32 @@ in any given run:
    update artifacts under `data/`. Do **not** change pipeline code to make your
    task easier, and never weaken validation, CI, lint, type, or security checks.
 
+## Where you run: headless in CI
+
+Every `run:*` task runs inside a GitHub Actions runner — a fresh, **ephemeral,
+non-interactive** container. Two consequences shape everything you do:
+
+- **No interactive input.** There is no human at a terminal. You cannot ask a
+  question and wait for an answer, request confirmation, or pause for approval. If
+  you are blocked, under-specified, or need a decision, your only channel is to
+  **leave it in writing where a maintainer will see it**, using whatever your run
+  grants you: a comment on the PR you open (`gh pr comment`) or its description in
+  `run:dev`; your reasoning/notes doc (`reasoning.md` / `evaluation.md`) in
+  `run:predict` / `run:evaluate`; the run log otherwise. Then make the most
+  conservative reasonable choice and finish — never stall waiting for a reply that
+  cannot come.
+- **The runner is thrown away.** Its filesystem (and any caches, scratch files, or
+  local "memory") is discarded when the job ends. Work survives **only if it is
+  pushed off the runner** before you finish:
+  - **Code, docs, config, schemas → GitHub.** Persist via a branch + PR. In
+    `run:dev` you do this yourself (using the GitHub App token). In `run:predict` /
+    `run:evaluate` / `run:seed` you only *write files into the working tree* and
+    the workflow commits, pushes, and opens the PR — so do **not** push yourself.
+  - **Corpus / large historical data → the DVC remote.** Bulk data lives in the
+    S3-backed DVC remote, not git, and persists only via `dvc push` (the seed/pull
+    workflows own this). A data file left in the working tree but never pushed to
+    the remote is lost with the runner. See `docs/data-pipeline.md`.
+
 ## The golden rules
 
 - **Branch and PR.** Never commit to `main`. Create a branch, do the work, open
@@ -80,6 +106,10 @@ named in your run (under `.github/prompts/`).
 
 ## If you are blocked
 
-Prefer a small, correct, well-tested change over a large speculative one. If the
-request is ambiguous or under-specified, say so in the PR description and make the
-most conservative reasonable choice rather than guessing widely.
+You are headless (see "Where you run") — there is no one to ask in real time. If
+the request is ambiguous or under-specified, make the most conservative reasonable
+choice **and say so in writing** so a maintainer can follow up — in whatever
+channel your run grants (the PR description or `gh pr comment` in `run:dev`; your
+`reasoning.md` / `evaluation.md` in `run:predict` / `run:evaluate`). Do not wait
+for a live answer. Prefer a small, correct, well-tested change over a large
+speculative one.

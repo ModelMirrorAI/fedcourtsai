@@ -62,6 +62,14 @@ jobs:
             && uv run pytest && uv run fedcourts validate data`; regenerate schemas
             if you changed the models), and open one focused PR against main with a
             conventional-commit title. Never commit to main directly.
+
+            You are running HEADLESS in GitHub Actions: there is no interactive
+            input and the runner is discarded when the job ends. If the task is
+            ambiguous or you are blocked, make the most conservative reasonable
+            choice and surface the open question in the PR description (or a
+            comment on the PR you open with `gh pr comment`) — do not wait for a
+            reply. Your work persists only via the branch and PR you push;
+            uncommitted changes are lost.
           claude_args: |
             --model claude-opus-4-8
             --max-turns 120

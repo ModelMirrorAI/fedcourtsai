@@ -109,7 +109,8 @@ jobs:
             prediction for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment
             variables against its outcome.json. Write ONLY the evaluation.json and
             evaluation.md files. Do not commit, push, or open a PR — the workflow
-            handles git.
+            handles git. You run headless with no interactive input; if blocked,
+            explain it in evaluation.md and finish rather than waiting for a reply.
           claude_args: |
             --model claude-opus-4-8
             --max-turns 120

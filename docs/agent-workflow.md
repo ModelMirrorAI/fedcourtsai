@@ -1,5 +1,13 @@
 # Agent development workflow
 
+Agents run **headless inside GitHub Actions** — no interactive prompts and an
+ephemeral runner. If you need input or hit a blocker, surface it in writing in
+whatever channel your run grants (the PR description / `gh pr comment` in
+`run:dev`; your reasoning/notes doc in `run:predict` / `run:evaluate`) and make a
+conservative choice; you can't wait for a live answer. Nothing on the runner
+persists unless it is pushed off it: code via a branch + PR, corpus data via
+`dvc push`. See AGENTS.md ("Where you run") for the full contract.
+
 Every agent (and human) change lands the same way.
 
 1. **Branch off `main`.** Never commit to `main`.
