@@ -51,10 +51,26 @@ single event's story across the repo and complicates evaluation. We chose
 co-location; cross-cutting leaderboards are produced by globbing/indexing instead
 (cheap, and a natural future `fedcourts report` command).
 
+## Two-tier storage (active set + historical corpus)
+
+The layout above is the **active tier**: a small, curated set of cases we are
+actively predicting on, kept as human-viewable files in plain git so diffs are
+reviewable and the `validate` gate applies. The **pull** phase maintains it.
+
+The historical backlog (all of SCOTUS + the 13 circuits) is far too large to hold
+as per-case files — millions of YAML files would choke `git` even under LFS. It
+lives in a second, **packed tier**: a normalized, **labeled**, queryable corpus
+(Parquet shards or SQLite) versioned with **DVC** (data in the DVC remote, a
+pointer + load cursor in git). The **seed** phase builds it from CourtListener
+bulk data. Each corpus row carries the realized `disposition`, so the corpus
+doubles as a back-testing set and as a retrieval source for prediction context.
+See [data-pipeline.md](data-pipeline.md) for the corpus schema and how seed/pull
+produce each tier.
+
 ## Storage evolution
 
-Files-in-git is the right call now (history, review, simplicity). If/when the
-dataset outgrows it, candidates without changing the logical model: keep raw
-snapshots as the source of truth but add a derived **SQLite or Parquet index**
-(built in CI) for analytics; or move large blobs to **DVC/Git-LFS** while keeping
-JSON/YAML metadata in git. The pydantic models stay the contract regardless.
+Files-in-git is the right call for the **active tier** (history, review,
+simplicity). The packed historical tier follows the same candidates this doc has
+always anticipated: a derived **SQLite or Parquet index** for analytics, and
+**DVC/Git-LFS** for large blobs while keeping JSON/YAML metadata in git. The
+pydantic models stay the contract regardless.

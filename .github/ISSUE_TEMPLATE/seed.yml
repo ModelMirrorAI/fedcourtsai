@@ -1,0 +1,49 @@
+name: "Seed — historical backfill tracker"
+description: "Long-lived tracker for loading the historical backlog (bulk data) for SCOTUS + the federal circuits."
+title: "seed: historical backfill — SCOTUS + federal circuits"
+labels: ["run:seed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the **single, long-lived tracking issue** for the seed phase. The
+        `run-seed` workflow loads the historical backlog from CourtListener
+        **bulk data** (it does *not* spend the REST API budget), runs daily until
+        the backlog is complete, comments progress here after each chunk, and
+        opens a PR per chunk. **Keep this issue open until the backfill is
+        complete.** See [docs/data-pipeline.md](../blob/main/docs/data-pipeline.md).
+  - type: input
+    id: bulk_snapshot
+    attributes:
+      label: "Bulk snapshot in use"
+      description: "Which quarterly CourtListener bulk-data snapshot this backfill is loading from."
+      placeholder: "e.g. 2026-03-31"
+    validations:
+      required: false
+  - type: checkboxes
+    id: courts
+    attributes:
+      label: "Per-court backfill progress"
+      description: "The workflow checks a court off once its history is fully loaded into the corpus."
+      options:
+        - label: "scotus"
+        - label: "ca1"
+        - label: "ca2"
+        - label: "ca3"
+        - label: "ca4"
+        - label: "ca5"
+        - label: "ca6"
+        - label: "ca7"
+        - label: "ca8"
+        - label: "ca9"
+        - label: "ca10"
+        - label: "ca11"
+        - label: "cadc"
+        - label: "cafc"
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Notes / blockers"
+      description: "Anything noteworthy about this backfill run (gaps in bulk data, courts needing reconciliation, etc.)."
+    validations:
+      required: false
