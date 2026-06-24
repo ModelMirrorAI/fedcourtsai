@@ -1,0 +1,26 @@
+name: bootstrap-labels
+
+# One-time (re-runnable) setup: create the run:* labels that drive the pipeline.
+# See docs/security.md step 3. Manually triggered by a maintainer.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create run:* labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          create() { gh label create "$1" --color "$2" --description "$3" --force --repo "$REPO"; }
+          create "run:dev"      "1d76db" "Pipeline development task (Claude Code)"
+          create "run:seed"     "0e8a16" "Seed dockets from CourtListener and track them"
+          create "run:pull"     "5319e7" "Refresh tracked dockets (also runs on a schedule)"
+          create "run:predict"  "fbca04" "Predict open events with competing predictors"
+          create "run:evaluate" "b60205" "Score predictions against realized outcomes"
