@@ -109,8 +109,10 @@ defines the branch-and-PR workflow every agent follows. `CLAUDE.md` points to it
 
 ```
 src/fedcourtsai/    library: CourtListener client, schemas, paths, registry, CLI
-config/             predictor & evaluator registries, tracking settings
+config/             predictor & evaluator registries, tracking + seed cursor
 data/               tracked cases (versioned)
+corpus/             packed historical corpus (Parquet shards, DVC-tracked)
+metrics/            back-test / leaderboard metrics, wired via `dvc metrics`
 schemas/            JSON Schema exported from the pydantic models
 docs/               architecture, data model, pipeline, security
 .github/workflows/  the label-driven pipeline + CI + workflow linting

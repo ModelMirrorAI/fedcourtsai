@@ -120,9 +120,30 @@ Access mirrors each workflow's role in the pipeline:
 A single IAM role is provisioned today, so every wired job assumes the same role
 and the read-write/read-only distinction is enforced by the **role's IAM policy**,
 not the workflow (a separate read-only principal can be added later). The OIDC
-wiring (`permissions: id-token: write` + the credentials step) is already in place;
-the `.dvc/config` remote, the `dvc[s3]` dependency, and the actual `dvc push`/`dvc
-pull` steps land with the DVC scaffolding (#5) and seed-backfill (#7).
+wiring (`permissions: id-token: write` + the credentials step) is already in place.
+The DVC scaffolding (#5) lands the rest: the credential-free `.dvc/config` remote,
+the `dvc[s3]` toolchain as an opt-in extra (`uv sync --extra dvc`, so the offline
+gate stays light), and the `corpus/` + `metrics/` layout. The actual `dvc
+push`/`dvc pull` steps wire into the workflows with seed-backfill (#7). Concrete
+remote-setup steps live in [SECURITY.md](../SECURITY.md#dvc-remote-setup).
+
+### On-disk scaffolding (landed in #5)
+
+```
+.dvc/config                  credential-free remote pointer (telemetry off)
+corpus/                      packed historical tier — Parquet shards, DVC-tracked
+  shards/<court>.parquet     blobs in the remote (gitignored); shards.dvc in git
+  README.md
+metrics/                     aggregate metrics, wired via `dvc metrics`
+  backtest.json              back-test summary (starts empty)
+  leaderboard.json           per-predictor ranking (starts empty)
+dvc.yaml                     registers the metric files for `dvc metrics show/diff`
+config/seed-progress.yaml    the resumable backfill cursor (pointer + cursor in git)
+```
+
+`corpus/` paths and the cursor location are resolved through
+`fedcourtsai.corpus.CorpusLayout`; the row and cursor shapes are
+`fedcourtsai.schemas.CorpusRow` / `SeedProgress` (exported to `schemas/`).
 
 ### Corpus schema (sketch)
 

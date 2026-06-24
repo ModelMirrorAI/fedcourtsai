@@ -136,6 +136,65 @@ class Evaluation(_Strict):
     notes_doc: str = "evaluation.md"
 
 
+class CorpusRow(_Strict):
+    """One normalized, labeled record in the packed historical corpus.
+
+    Produced by ``seed`` from CourtListener bulk data and stored in bulk as
+    Parquet shards under ``corpus/`` (DVC-tracked), **not** as per-row files —
+    this model is the column contract for those shards. Each row carries its
+    outcome label (``disposition``) so the corpus doubles as a back-test set, and
+    the structured columns make it queryable for retrieval. See
+    ``docs/data-pipeline.md`` and ``corpus/README.md``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    court: str
+    docket_number: str = ""
+    date_filed: date | None = None
+    date_decided: date | None = None
+    disposition: Disposition | None = Field(
+        default=None, description="Outcome label; None while the matter is unresolved"
+    )
+    judges: list[str] = Field(default_factory=list)
+    nature_topic: str | None = Field(
+        default=None, description="Nature of suit / topic classification"
+    )
+    citations: list[str] = Field(default_factory=list)
+    opinion_summary: str | None = Field(
+        default=None, description="Opinion text or a generated summary"
+    )
+    embedding: list[float] | None = Field(
+        default=None, description="Optional semantic embedding; a later retrieval upgrade"
+    )
+
+
+class CourtCursor(_Strict):
+    """Per-court backfill progress for one court in the seed cursor."""
+
+    court: str
+    rows_loaded: int = Field(default=0, ge=0)
+    last_date_filed: date | None = Field(
+        default=None, description="High-water mark: newest date_filed loaded so far"
+    )
+    complete: bool = False
+
+
+class SeedProgress(_Strict):
+    """``config/seed-progress.yaml`` — resumable cursor for the bulk backfill.
+
+    Records what the corpus has loaded per court so the daily seed run resumes
+    cleanly and the corpus is rebuildable after a fresh clone (pointer + cursor in
+    git, blobs in the DVC remote).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    bulk_snapshot: str | None = Field(
+        default=None, description="Identifier of the quarterly bulk snapshot last processed"
+    )
+    courts: list[CourtCursor] = Field(default_factory=list)
+
+
 class PredictorConfig(_Strict):
     """An entry in ``config/predictors.yaml``."""
 
@@ -175,4 +234,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluation": Evaluation,
     "predictor_config": PredictorConfig,
     "evaluator_config": EvaluatorConfig,
+    "corpus_row": CorpusRow,
+    "seed_progress": SeedProgress,
 }

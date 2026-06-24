@@ -1,0 +1,8 @@
+# The packed historical corpus is DVC-managed: the data blobs are pushed to the
+# DVC remote and never committed to git. Only the `.dvc` pointer files (e.g.
+# `shards.dvc`), this ignore, and `README.md` live in git. See docs/data-pipeline.md.
+/shards
+*.parquet
+*.sqlite
+*.sqlite3
+*.db

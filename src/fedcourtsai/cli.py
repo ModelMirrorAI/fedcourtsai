@@ -16,6 +16,7 @@ import yaml
 
 from . import ids
 from .config import get_settings
+from .corpus import CorpusLayout
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
@@ -139,6 +140,20 @@ def paths(
         ep = cp.event(event)
         typer.echo(f"event.yaml  {ep.event_file}")
         typer.echo(f"outcome     {ep.outcome}")
+
+
+@app.command("corpus-paths")
+def corpus_paths(
+    court: Annotated[str, typer.Option(help="Optional court id to resolve its shard path.")] = "",
+) -> None:
+    """Print the DVC-tracked corpus / metrics / cursor locations. Useful in scripts."""
+    layout = CorpusLayout()
+    typer.echo(f"corpus      {layout.corpus_dir}")
+    typer.echo(f"shards      {layout.shards_dir}")
+    typer.echo(f"metrics     {layout.metrics_dir}")
+    typer.echo(f"cursor      {layout.cursor}")
+    if court:
+        typer.echo(f"shard       {layout.shard(court)}")
 
 
 @app.command("open-events")

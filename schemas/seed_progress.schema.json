@@ -1,0 +1,76 @@
+{
+  "$defs": {
+    "CourtCursor": {
+      "additionalProperties": false,
+      "description": "Per-court backfill progress for one court in the seed cursor.",
+      "properties": {
+        "complete": {
+          "default": false,
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "court": {
+          "title": "Court",
+          "type": "string"
+        },
+        "last_date_filed": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "High-water mark: newest date_filed loaded so far",
+          "title": "Last Date Filed"
+        },
+        "rows_loaded": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Rows Loaded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "court"
+      ],
+      "title": "CourtCursor",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``config/seed-progress.yaml`` \u2014 resumable cursor for the bulk backfill.\n\nRecords what the corpus has loaded per court so the daily seed run resumes\ncleanly and the corpus is rebuildable after a fresh clone (pointer + cursor in\ngit, blobs in the DVC remote).",
+  "properties": {
+    "bulk_snapshot": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Identifier of the quarterly bulk snapshot last processed",
+      "title": "Bulk Snapshot"
+    },
+    "courts": {
+      "items": {
+        "$ref": "#/$defs/CourtCursor"
+      },
+      "title": "Courts",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "title": "SeedProgress",
+  "type": "object"
+}

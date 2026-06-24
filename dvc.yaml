@@ -1,0 +1,7 @@
+# DVC project file. Top-level `metrics:` registers the aggregate metric files so
+# `dvc metrics show` / `dvc metrics diff` work across commits. These small JSON
+# files are committed to git (the readable leaderboard/back-test trail); the bulk
+# historical corpus lives in the DVC remote via `corpus/shards.dvc`.
+metrics:
+  - metrics/backtest.json
+  - metrics/leaderboard.json

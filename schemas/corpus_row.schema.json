@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "Disposition": {
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One normalized, labeled record in the packed historical corpus.\n\nProduced by ``seed`` from CourtListener bulk data and stored in bulk as\nParquet shards under ``corpus/`` (DVC-tracked), **not** as per-row files \u2014\nthis model is the column contract for those shards. Each row carries its\noutcome label (``disposition``) so the corpus doubles as a back-test set, and\nthe structured columns make it queryable for retrieval. See\n``docs/data-pipeline.md`` and ``corpus/README.md``.",
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "citations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "court": {
+      "title": "Court",
+      "type": "string"
+    },
+    "date_decided": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Date Decided"
+    },
+    "date_filed": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Date Filed"
+    },
+    "disposition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Disposition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Outcome label; None while the matter is unresolved"
+    },
+    "docket_number": {
+      "default": "",
+      "title": "Docket Number",
+      "type": "string"
+    },
+    "embedding": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional semantic embedding; a later retrieval upgrade",
+      "title": "Embedding"
+    },
+    "judges": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Judges",
+      "type": "array"
+    },
+    "nature_topic": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Nature of suit / topic classification",
+      "title": "Nature Topic"
+    },
+    "opinion_summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Opinion text or a generated summary",
+      "title": "Opinion Summary"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "court"
+  ],
+  "title": "CorpusRow",
+  "type": "object"
+}

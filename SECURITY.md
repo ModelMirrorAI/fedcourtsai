@@ -17,6 +17,34 @@
   `permissions: id-token: write`), reading the role ARN/region from the `runner`
   environment. No long-lived AWS keys exist, and `.dvc/config` carries no
   credentials. See [docs/data-pipeline.md](docs/data-pipeline.md).
+
+## DVC remote setup
+
+The packed historical [corpus](corpus/README.md) and the
+[metrics](metrics/README.md) are versioned with DVC. The committed `.dvc/config`
+holds only the remote **URL** — never a key, token, or session credential:
+
+```ini
+['remote "storage"']
+    url = s3://fedcourtsai-dvc/store
+```
+
+- **Bucket** — a *private* S3 (or S3-compatible) bucket the maintainer provisions
+  out of band (issue #17), distinct from the *public* CourtListener bulk-data
+  bucket that `seed` reads from. Point the remote at it with
+  `dvc remote modify storage url s3://<bucket>/<prefix>` if the default name
+  changes; commit the result.
+- **Credentials** — supplied only at runtime by `aws-actions/configure-aws-credentials`
+  (GitHub OIDC → a least-privilege IAM role). Locally, use a normal AWS profile
+  (`AWS_PROFILE` / `aws sso login`); DVC reads it via `s3fs`/boto. Never run
+  `dvc remote modify --local storage access_key_id …` against the committed config.
+- **Access mirrors role** — `run-seed`/`run-pull` get read-write (corpus writers,
+  `dvc push`); `run-predict`/`run-evaluate` get read-only (`dvc pull`); the `ci`
+  gate gets none and stays offline. The split is enforced by the IAM role's
+  policy (a single role today). The `dvc[s3]` toolchain is an opt-in extra
+  (`uv sync --extra dvc`) so the offline gate never installs it.
+- **Telemetry off** — `core.analytics = false` in `.dvc/config` disables DVC's
+  anonymous usage reporting.
 - **Label triggers are maintainer-gated** — only users with triage/write access
   can apply labels, which is the trust boundary for `run:*`.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent

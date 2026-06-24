@@ -1,0 +1,7 @@
+[core]
+    remote = storage
+    analytics = false
+    autostage = true
+['remote "storage"']
+    url = s3://fedcourtsai-dvc/store
+    version_aware = true

@@ -1,0 +1,64 @@
+# Seed backfill cursor (the corpus "cursor in git"). Records what the packed
+# historical corpus has loaded per court so the daily seed run resumes cleanly and
+# the corpus rebuilds from a fresh clone. Validated by fedcourtsai.schemas.SeedProgress
+# (schemas/seed_progress.schema.json). The seed-backfill workflow updates this as it
+# processes bulk-data chunks; it starts empty (nothing loaded yet).
+bulk_snapshot: null
+courts:
+- complete: false
+  court: scotus
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca1
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca2
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca3
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca4
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca5
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca6
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca7
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca8
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca9
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca10
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: ca11
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: cadc
+  last_date_filed: null
+  rows_loaded: 0
+- complete: false
+  court: cafc
+  last_date_filed: null
+  rows_loaded: 0
+schema_version: '1.0'
