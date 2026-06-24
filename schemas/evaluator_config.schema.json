@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex"
+      ],
+      "title": "Engine",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An entry in ``config/evaluators.yaml``.",
+  "properties": {
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "engine": {
+      "$ref": "#/$defs/Engine"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "prompt": {
+      "title": "Prompt",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "engine",
+    "prompt"
+  ],
+  "title": "EvaluatorConfig",
+  "type": "object"
+}
