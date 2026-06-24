@@ -15,17 +15,17 @@ stage.
 **seed** loads the historical backlog from CourtListener **bulk data** and runs
 daily until complete (then quarterly); **pull** keeps the active set current from
 the rate-limited **REST API** and owns the 125/day budget. The full design —
-sources, budget boundary, two-tier storage, and the historical corpus — is in
-[data-pipeline.md](data-pipeline.md).
+sources, budget boundary, the corpus/ledger storage split, and the historical
+corpus — is in [data-pipeline.md](data-pipeline.md).
 
 ## Cascade
 
 ```
 run:seed (daily until done) → backfill bulk corpus chunk → PR + progress comment
-   daily / run:pull → run-pull → commit snapshots to main
+   daily / run:pull → run-pull → push fresh facts + snapshots to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ discover new filings → onboard + define events
-                                 ├─ detect resolution → write outcome.json
+                                 ├─ detect resolution → write outcome.json (git ledger)
                                  └─ for each changed case with open events:
                                     create issue (run:predict)  ← APP TOKEN
        run:predict → plan (build matrix) → predict[matrix] → PR per predictor×event
@@ -58,6 +58,8 @@ and apply `run:predict` (or `run:evaluate`).
 
 ## Snapshot sequencing
 
-`run-pull` commits factual snapshots **directly to main** (they are CourtListener
-data, not agent output) so that `run-predict`, triggered immediately after, reads
-them from main. Agent outputs (predictions, evaluations) always go through PRs.
+`run-pull` pushes factual snapshots **to the corpus** (`dvc push`) before it
+queues `run:predict`, so `run-predict` — a read-only corpus consumer (`dvc pull`)
+— sees the snapshot it must predict from. Raw facts never go through PRs (they are
+CourtListener data, not agent output); agent outputs (predictions, evaluations)
+always do.

@@ -14,9 +14,10 @@ in any given run:
 
 1. **Pipeline development** (`run:dev`): change the Python package, workflows,
    docs, schemas, or prompts. Do **not** touch `data/`.
-2. **Data production** (`run:seed` / `run:predict` / `run:evaluate`): produce or
-   update artifacts under `data/`. Do **not** change pipeline code to make your
-   task easier, and never weaken validation, CI, lint, type, or security checks.
+2. **Data production** (`run:seed` / `run:pull` / `run:predict` / `run:evaluate`):
+   produce or update data — the raw-fact corpus (DVC/S3) and/or the derived
+   artifacts under `data/`. Do **not** change pipeline code to make your task
+   easier, and never weaken validation, CI, lint, type, or security checks.
 
 ## The golden rules
 
@@ -30,10 +31,10 @@ in any given run:
   the docket record, or snapshots.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
-- **Predict from the snapshot.** Predictors reason from the committed
-  `record/snapshots/<date>.json` only. Do not invent facts or fetch new docket
-  facts mid-prediction. (You may use the CourtListener MCP server for *legal
-  context* like precedent — never for new case facts.)
+- **Predict from the snapshot.** Predictors reason only from the point-in-time
+  snapshot the workflow provisions from the corpus. Do not invent facts or fetch
+  new docket facts mid-prediction. (You may use the CourtListener MCP server for
+  *legal context* like precedent — never for new case facts.)
 - **No secrets in code or data.** Never print, log, or write API tokens. They
   arrive only as environment variables.
 
@@ -61,22 +62,32 @@ If you changed the pydantic models, regenerate schemas and commit them:
 - Writes go through `fedcourtsai.serialize` (sorted, newline-terminated) to keep
   diffs minimal.
 - Conventional-commit style PR titles, e.g. `predict(claude-baseline): ca9/123 — evt-...`.
+- **Docs describe the current design, not its history.** No issue numbers, no
+  changelog, no "we used to / now we" — write what is true now and just enough to
+  orient a new reader.
+- **Close issues from the PR.** When a PR completes everything an issue asks for,
+  put `Closes #<n>` in the PR description so the merge closes it. The PR
+  description is the one place an issue number belongs.
+- **Keep environment variables out of PR and issue text.** Don't reproduce a
+  var's name or value in prose, even when it isn't secret (e.g. the var holding
+  the DVC remote's S3 URL); refer to it by its role. Secrets never appear anywhere.
 
 ## Data model (summary)
 
+Two stores, split by kind. **Raw facts** — dockets, snapshots, judges, case and
+tracking metadata, event definitions — live in a packed **corpus** (Parquet or
+SQLite under DVC), written identically by `seed` and `pull`. **Derived artifacts**
+live in git under `data/`, keyed by case and event:
+
 ```
-data/cases/<court_id>/<docket_id>/
-  case.yaml
-  record/{docket.json, snapshots/<YYYY-MM-DD>.json}
-  events/<event_id>/
-    event.yaml
-    outcome.json
-    predictions/<predictor_id>/<run_id>/{prediction.json, reasoning.md}
-    evaluations/<evaluator_id>/<predictor_id>/<run_id>/{evaluation.json, evaluation.md}
+data/cases/<court_id>/<docket_id>/events/<event_id>/
+  outcome.json
+  predictions/<predictor_id>/<run_id>/{prediction.json, reasoning.md}
+  evaluations/<evaluator_id>/<predictor_id>/<run_id>/{evaluation.json, evaluation.md}
 ```
 
-Full rationale: `docs/data-model.md`. Task-specific instructions: the prompt file
-named in your run (under `.github/prompts/`).
+Full rationale: `docs/data-model.md` and `docs/data-pipeline.md`. Task-specific
+instructions: the prompt file named in your run (under `.github/prompts/`).
 
 ## If you are blocked
 

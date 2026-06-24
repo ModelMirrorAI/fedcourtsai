@@ -1,27 +1,41 @@
 # Data model
 
-All state is versioned files under `data/`, validated by the pydantic models in
-`fedcourtsai.schemas` (exported to `schemas/*.schema.json`). A complete, valid
-example lives under `examples/cases/` and is checked by CI.
+The project's state lives in two stores, split by **kind of data**:
 
-## Layout (case-centric)
+- **The corpus** — all *raw facts*: dockets, point-in-time snapshots, judges,
+  case metadata and tracking state, and event definitions. A packed, queryable
+  store (Parquet shards or SQLite) versioned with **DVC** (data in the DVC
+  remote, a pointer + load cursor in git). Both `seed` and `pull` write it, in
+  one shared format through one shared ingestion core.
+- **The ledger** — the small, *derived* artifacts under `data/`: outcomes,
+  predictions, and evaluations, plus the reasoning that explains them. Plain git,
+  validated by the pydantic models in `fedcourtsai.schemas` (exported to
+  `schemas/*.schema.json`) and reviewed in PRs. A complete, valid example lives
+  under `examples/cases/` and is checked by CI.
+
+The line is deliberate: raw facts are bulk and regenerable, so they live in the
+packed corpus; derived judgments are tiny, critical, and worth reading in a diff,
+so they live in git.
+
+## The ledger layout (case-centric)
+
+Everything in git is keyed by `case_id` / `event_id`, so a single event's story
+sits in one subtree:
 
 ```
-data/cases/<court_id>/<docket_id>/
-  case.yaml                       # TrackedCase: metadata + tracking status
-  record/
-    docket.json                   # canonical current docket (CourtListener)
-    snapshots/<YYYY-MM-DD>.json    # immutable point-in-time prediction inputs
-  events/<event_id>/
-    event.yaml                    # PredictableEvent: what we predict
-    outcome.json                  # Outcome: ground truth, once resolved
-    predictions/<predictor_id>/<run_id>/
-      prediction.json             # Prediction: granted 1/0, P(granted), votes
-      reasoning.md                # predicted reasoning (qualitative)
-    evaluations/<evaluator_id>/<predictor_id>/<run_id>/
-      evaluation.json             # Evaluation: correctness, Brier, vote acc, quality
-      evaluation.md               # qualitative critique
+data/cases/<court_id>/<docket_id>/events/<event_id>/
+  outcome.json                    # Outcome: realized ground truth, once resolved
+  predictions/<predictor_id>/<run_id>/
+    prediction.json               # Prediction: granted 1/0, P(granted), votes
+    reasoning.md                  # predicted reasoning (qualitative)
+  evaluations/<evaluator_id>/<predictor_id>/<run_id>/
+    evaluation.json               # Evaluation: correctness, Brier, vote acc, quality
+    evaluation.md                 # qualitative critique
 ```
+
+The raw facts an event is predicted from — its docket, the snapshot, the event
+definition itself — live in the corpus, not here. Predictors and evaluators read
+them from the corpus, provisioned read-only for their run.
 
 ## Identifiers
 
@@ -32,45 +46,37 @@ data/cases/<court_id>/<docket_id>/
 
 Always derive these via `fedcourtsai.ids`/`fedcourtsai.paths`; never hand-build.
 
-## Why case-centric (and the alternative)
+## Why case-centric
 
-Everything about one predictable event — the snapshot it was predicted from, every
-predictor's prediction, the realized outcome, and every evaluation — lives under
-one `events/<event_id>/` directory. Benefits:
+Everything derived about one event — every predictor's prediction, the realized
+outcome, and every evaluation — lives under one `events/<event_id>/` directory:
 
 - **Evaluation context is local.** An evaluator reads one directory to see all
   predictors' outputs plus the outcome.
 - **Diffs are local.** A new prediction touches only its own run directory.
-- **Agent context loading is simple.** "Everything about this case" is one subtree.
+- **Context loading is simple.** "Everything we've concluded about this event" is
+  one subtree.
 
-**Predictions from different predictors live together** under
-`events/<event_id>/predictions/<predictor_id>/`, rather than in a separate
-per-predictor top-level tree. The alternative — a parallel `predictions/` tree
-keyed by predictor — makes cross-predictor leaderboards a flat scan but scatters a
-single event's story across the repo and complicates evaluation. We chose
-co-location; cross-cutting leaderboards are produced by globbing/indexing instead
-(cheap, and a natural future `fedcourts report` command).
+Predictions from different predictors live together under
+`events/<event_id>/predictions/<predictor_id>/` rather than in a separate
+per-predictor tree. Co-locating keeps one event's story in one place; the cost is
+that a cross-predictor leaderboard is a glob/index rather than a flat scan — a
+cheap trade, served by a `fedcourts report` command.
 
-## Two-tier storage (active set + historical corpus)
+## The corpus (raw facts)
 
-The layout above is the **active tier**: a small, curated set of cases we are
-actively predicting on, kept as human-viewable files in plain git so diffs are
-reviewable and the `validate` gate applies. The **pull** phase maintains it.
+The historical backlog (all of SCOTUS + the 13 circuits) and the fresh facts
+`pull` fetches are far too large to hold as per-case files — millions of YAML
+files would choke `git` even under LFS. They land instead in one packed,
+normalized, **labeled** corpus, written identically by `seed` (from CourtListener
+bulk data) and `pull` (from the REST API). Each row carries the realized
+`disposition`, so the corpus doubles as a back-testing set and a retrieval source
+for prediction context.
 
-The historical backlog (all of SCOTUS + the 13 circuits) is far too large to hold
-as per-case files — millions of YAML files would choke `git` even under LFS. It
-lives in a second, **packed tier**: a normalized, **labeled**, queryable corpus
-(Parquet shards or SQLite) versioned with **DVC** (data in the DVC remote, a
-pointer + load cursor in git). The **seed** phase builds it from CourtListener
-bulk data. Each corpus row carries the realized `disposition`, so the corpus
-doubles as a back-testing set and as a retrieval source for prediction context.
-See [data-pipeline.md](data-pipeline.md) for the corpus schema and how seed/pull
-produce each tier.
-
-## Storage evolution
-
-Files-in-git is the right call for the **active tier** (history, review,
-simplicity). The packed historical tier follows the same candidates this doc has
-always anticipated: a derived **SQLite or Parquet index** for analytics, and
-**DVC/Git-LFS** for large blobs while keeping JSON/YAML metadata in git. The
-pydantic models stay the contract regardless.
+The pydantic models are the contract for the ledger; the corpus is governed by
+its own normalized schema. The packed store may be Parquet shards or a SQLite DB
+under DVC — the references the ledger relies on (ids, dispositions) stay stable
+regardless. See [data-pipeline.md](data-pipeline.md) for the corpus schema and
+how seed and pull produce it.
+</content>
+</invoke>

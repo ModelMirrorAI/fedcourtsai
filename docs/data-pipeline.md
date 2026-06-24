@@ -52,62 +52,62 @@ cadence:
 | Steady state    | drops to **quarterly** reconciliation   | stays **daily**                   |
 
 They share an **ingestion core** (a normalization layer where an API docket JSON
-and a bulk CSV row both become the same `TrackedCase` / `docket.json` / corpus
-row, reusing `serialize` and `store`), shared dedup/cursor utilities, and shared
-PR plumbing. **Unify the library, not the job.** Keeping the jobs separate keeps
-the budget boundary crisp (pull owns the token; seed never touches it) and keeps
-operational status legible.
+and a bulk CSV row both become the same normalized corpus row, reusing `serialize`
+and `store`), shared dedup/cursor utilities, and shared PR plumbing. **Unify the
+library and the data, not the job.** Both ends write the same corpus, in the same
+format, through the same APIs; keeping the jobs separate only keeps the budget
+boundary crisp (pull owns the token; seed never touches it) and operational status
+legible.
 
 ```
                 shared core (pipeline ingest + store + serialize)
    API docket JSON ─┐
-   bulk CSV row    ─┴─►  TrackedCase / docket.json / corpus row
+   bulk CSV row    ─┴─►  one normalized corpus row
    ┌───────────────────────┐
    │ SEED (daily→quarterly) │ bulk S3 ─► packed corpus (DVC) ─► back-testing, retrieval
    │  no agent, no budget   │ cursor + run:seed tracking issue
    └───────────────────────┘
    ┌───────────────────────┐
    │ PULL (daily, forever)  │ REST API (125/day governor)
-   │  refresh + discover    │ ─► active cases in data/cases/ (plain git, PR-reviewed)
-   │  + outcome detect      │ ─► queue run:predict ; onboard new filings ; outcome.json
+   │  refresh + discover    │ ─► same packed corpus (DVC): fresh facts + snapshots
+   │  + outcome detect      │ ─► outcome.json + run:predict handoff in the git ledger
    └───────────────────────┘
 ```
 
-## Two-tier storage
+## Storage: one corpus, one ledger
 
-The active set and the historical mass have different access patterns, so they
-live in different stores:
+Raw facts and derived judgments have different shapes and lifetimes, so they live
+in different stores — but the split is by **kind**, not by phase. Both seed and
+pull write the *same* corpus through the *same* ingestion core:
 
-1. **Active, curated prediction targets** → plain-git, human-viewable
-   `data/cases/<court>/<docket>/{case.yaml, event.yaml, snapshots/…}`. A small
-   set with reviewable diffs — exactly what the schema/`validate`/PR-review
-   machinery is built for.
-2. **Historical corpus** → a **packed, queryable store** (Parquet shards or a
-   SQLite DB) versioned with **DVC** (data in the DVC remote, pointer + cursor in
-   git). DVC also versions pipeline **metrics** (back-test results, leaderboards).
+1. **Raw facts → the corpus.** Dockets, snapshots, judges, case metadata and
+   tracking state, and event definitions go into a **packed, queryable store**
+   (Parquet shards or a SQLite DB) versioned with **DVC** (data in the DVC remote,
+   pointer + cursor in git). One format, written identically whether a row comes
+   from bulk CSV (seed) or the REST API (pull). DVC also versions pipeline
+   **metrics** (back-test results, leaderboards).
+2. **Derived judgments → git.** Outcomes, predictions, evaluations, and their
+   reasoning are tiny, critical, and worth reading in a diff, so they stay in
+   plain git under `data/`, where the schema/`validate`/PR-review machinery
+   applies. See [data-model.md](data-model.md).
 
-The rule is **pack, don't proliferate**: millions of per-case YAML files would
-choke `git` even under LFS (one tree entry per pointer), so history is packed
-into a handful of large artifacts instead. This is the evolution
-[data-model.md](data-model.md) already anticipates.
-
-Note the split is by **data kind**, not just size. The corpus of *facts*
-(snapshots + the packed historical rows) and the aggregate *leaderboard metrics*
-live in DVC; the per-case **agent judgments** (`prediction.json`,
-`evaluation.json`, `reasoning.md`) stay in plain git — they are tiny, they are the
-inputs aggregated *into* the metrics rather than metrics themselves, and keeping
-the reasoning as readable text preserves the PR-diff review loop (the explainability
-trail a reviewer actually reads).
+The rule is **pack, don't proliferate**: millions of per-case files would choke
+`git` even under LFS (one tree entry per pointer), so all facts — historical and
+fresh alike — go into a handful of large artifacts in one shared format. Keeping
+both ends of the pipeline on the same structures, schema, and APIs is the point:
+seed and pull differ on *source* and *budget*, not on how a fact is shaped or
+stored. The reasoning stays readable text in git because that diff is the
+explainability trail a reviewer actually reads.
 
 ### Credentials for the DVC remote
 
-The DVC remote is a **private S3 bucket** the maintainer provisions out of band
-(issue #17) — distinct from the *public* CourtListener bulk-data S3 that **seed**
-reads from. Workflows authenticate with **GitHub OIDC**, not static keys: each
-job that touches the remote runs `aws-actions/configure-aws-credentials` (pinned
-to a commit SHA) to assume an IAM role, reading `AWS_ROLE_TO_ASSUME` and
-`AWS_REGION` as variables on the `runner` environment. The committed `.dvc/config`
-holds **no credentials** (see [SECURITY.md](../SECURITY.md)).
+The DVC remote is a **private S3 bucket** the maintainer provisions out of band —
+distinct from the *public* CourtListener bulk-data S3 that **seed** reads from.
+Workflows authenticate with **GitHub OIDC**, not static keys: each job that
+touches the remote runs `aws-actions/configure-aws-credentials` (pinned to a
+commit SHA) to assume an IAM role, reading the role ARN and region from the
+`runner` environment. The committed `.dvc/config` holds **no credentials** (see
+[SECURITY.md](../SECURITY.md)).
 
 Access mirrors each workflow's role in the pipeline:
 
@@ -117,12 +117,11 @@ Access mirrors each workflow's role in the pipeline:
 | `run-predict`, `run-evaluate` | read-only | retrieval consumers (`dvc pull`)  |
 | `ci`                       | none       | gate stays offline/fast              |
 
-A single IAM role is provisioned today, so every wired job assumes the same role
-and the read-write/read-only distinction is enforced by the **role's IAM policy**,
-not the workflow (a separate read-only principal can be added later). The OIDC
-wiring (`permissions: id-token: write` + the credentials step) is already in place;
-the `.dvc/config` remote, the `dvc[s3]` dependency, and the actual `dvc push`/`dvc
-pull` steps land with the DVC scaffolding (#5) and seed-backfill (#7).
+A single IAM role is provisioned, so every wired job assumes the same role and the
+read-write/read-only distinction is enforced by the **role's IAM policy**, not the
+workflow (a separate read-only principal can be added later). The OIDC wiring
+(`permissions: id-token: write` + the credentials step) grants each job its access
+without any long-lived key.
 
 ### Corpus schema (sketch)
 
@@ -175,13 +174,14 @@ to support them.
   past one run's capacity, each case is simply refreshed every few days.
 - **Three jobs over the shared core:**
   1. **Refresh** active known cases (existing `pull_case`), writing fresh dated
-     snapshots and queuing `run:predict` for changed cases with open events.
+     snapshots to the corpus and queuing `run:predict` for changed cases with open
+     events.
   2. **Discover** newly-filed cases since the last run (CourtListener search by
-     court + `date_filed`) → onboard as an active `data/cases/` entry and define
-     predictable `event.yaml`(s).
-  3. **Detect resolution** of tracked open events → write `outcome.json`
-     deterministically when the disposition is machine-readable, else open an
-     agent reconcile issue to confirm. This is what feeds `run:evaluate`.
+     court + `date_filed`) → onboard into the corpus as a tracked case and define
+     its predictable event(s).
+  3. **Detect resolution** of tracked open events → write `outcome.json` to the
+     git ledger deterministically when the disposition is machine-readable, else
+     open an agent reconcile issue to confirm. This is what feeds `run:evaluate`.
 - **Quarterly bulk reconciliation is seed's job** — the completeness backstop for
   anything daily pull could not reach within the budget.
 
