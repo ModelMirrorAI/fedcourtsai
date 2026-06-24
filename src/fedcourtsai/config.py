@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
     request_timeout: float = 30.0
+    # CourtListener per-token rate limits (issue #1); override via FEDCOURTS_* env.
+    courtlistener_rpm: int = 5
+    courtlistener_rph: int = 50
+    courtlistener_rpd: int = 125
 
 
 def get_settings() -> Settings:
