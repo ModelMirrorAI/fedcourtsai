@@ -136,6 +136,37 @@ class Evaluation(_Strict):
     notes_doc: str = "evaluation.md"
 
 
+class CorpusRow(_Strict):
+    """One row of the packed historical corpus (the DVC-versioned store).
+
+    Unlike the per-case artifacts above, this is **not** written under
+    ``data/cases/``; millions of these are packed into a handful of large
+    artifacts rather than proliferating per-case files (see
+    ``docs/data-pipeline.md``). It is a normalized, *labeled* record: carrying
+    ``disposition`` makes the corpus a ready-made back-testing set, and the
+    structured columns keep it queryable for retrieval. Both ingestion sources
+    (the REST API and bulk CSV) project to this one shape via
+    ``fedcourtsai.pipeline.ingest``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    court_id: str
+    docket_id: int
+    docket_number: str = ""
+    case_name: str = ""
+    date_filed: date | None = None
+    date_decided: date | None = None
+    disposition: Disposition | None = Field(
+        default=None, description="Outcome label, when the docket is resolved"
+    )
+    judges: list[str] = Field(default_factory=list)
+    nature_of_suit: str | None = Field(default=None, description="Nature/topic of the case")
+    citations: list[str] = Field(default_factory=list)
+    summary: str | None = Field(default=None, description="Opinion text or summary, when available")
+    source_url: str | None = None
+
+
 class PredictorConfig(_Strict):
     """An entry in ``config/predictors.yaml``."""
 
@@ -173,6 +204,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "prediction": Prediction,
     "outcome": Outcome,
     "evaluation": Evaluation,
+    "corpus_row": CorpusRow,
     "predictor_config": PredictorConfig,
     "evaluator_config": EvaluatorConfig,
 }

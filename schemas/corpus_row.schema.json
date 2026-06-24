@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "Disposition": {
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One row of the packed historical corpus (the DVC-versioned store).\n\nUnlike the per-case artifacts above, this is **not** written under\n``data/cases/``; millions of these are packed into a handful of large\nartifacts rather than proliferating per-case files (see\n``docs/data-pipeline.md``). It is a normalized, *labeled* record: carrying\n``disposition`` makes the corpus a ready-made back-testing set, and the\nstructured columns keep it queryable for retrieval. Both ingestion sources\n(the REST API and bulk CSV) project to this one shape via\n``fedcourtsai.pipeline.ingest``.",
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "case_name": {
+      "default": "",
+      "title": "Case Name",
+      "type": "string"
+    },
+    "citations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "court_id": {
+      "title": "Court Id",
+      "type": "string"
+    },
+    "date_decided": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Date Decided"
+    },
+    "date_filed": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Date Filed"
+    },
+    "disposition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Disposition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Outcome label, when the docket is resolved"
+    },
+    "docket_id": {
+      "title": "Docket Id",
+      "type": "integer"
+    },
+    "docket_number": {
+      "default": "",
+      "title": "Docket Number",
+      "type": "string"
+    },
+    "judges": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Judges",
+      "type": "array"
+    },
+    "nature_of_suit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Nature/topic of the case",
+      "title": "Nature Of Suit"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Url"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Opinion text or summary, when available",
+      "title": "Summary"
+    }
+  },
+  "required": [
+    "case_id",
+    "court_id",
+    "docket_id"
+  ],
+  "title": "CorpusRow",
+  "type": "object"
+}
