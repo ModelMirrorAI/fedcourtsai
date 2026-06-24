@@ -1,0 +1,40 @@
+name: ci
+
+# The local gate, enforced on every PR and on pushes to main. Mirrors the
+# commands in AGENTS.md so "green CI" and "passes the local gate" mean the same
+# thing. Uses no secrets, so it does not declare the `runner` environment.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - name: ruff format
+        run: uv run ruff format --check .
+      - name: ruff check
+        run: uv run ruff check .
+      - name: mypy
+        run: uv run mypy
+      - name: pytest
+        run: uv run pytest
+      - name: validate data
+        run: uv run fedcourts validate data
+      - name: schema drift
+        run: |
+          uv run fedcourts export-schemas schemas
+          git diff --exit-code schemas
