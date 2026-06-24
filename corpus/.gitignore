@@ -1,0 +1,7 @@
+# The corpus data blob is DVC-managed: the database lives in the DVC remote and
+# only the small `corpus.db.dvc` pointer (created on first ingest) is committed
+# to git. Never commit the blob itself or its SQLite sidecar files.
+/corpus.db
+/corpus.db-wal
+/corpus.db-shm
+*.parquet

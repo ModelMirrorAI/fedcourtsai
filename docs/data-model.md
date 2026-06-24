@@ -4,9 +4,10 @@ The project's state lives in two stores, split by **kind of data**:
 
 - **The corpus** — all *raw facts*: dockets, point-in-time snapshots, judges,
   case metadata and tracking state, and event definitions. A packed, queryable
-  store (Parquet shards or SQLite) versioned with **DVC** (data in the DVC
-  remote, a pointer + load cursor in git). Both `seed` and `pull` write it, in
-  one shared format through one shared ingestion core.
+  store — a single **SQLite** database (`corpus/corpus.db`) — versioned with
+  **DVC** (the blob in the DVC remote, a pointer + load cursor in git). Both
+  `seed` and `pull` write it, in one shared format through one shared ingestion
+  core (`fedcourtsai.corpus`).
 - **The ledger** — the small, *derived* artifacts under `data/`: outcomes,
   predictions, and evaluations, plus the reasoning that explains them. Plain git,
   validated by the pydantic models in `fedcourtsai.schemas` (exported to
@@ -74,9 +75,8 @@ bulk data) and `pull` (from the REST API). Each row carries the realized
 for prediction context.
 
 The pydantic models are the contract for the ledger; the corpus is governed by
-its own normalized schema. The packed store may be Parquet shards or a SQLite DB
-under DVC — the references the ledger relies on (ids, dispositions) stay stable
-regardless. See [data-pipeline.md](data-pipeline.md) for the corpus schema and
-how seed and pull produce it.
-</content>
-</invoke>
+its own normalized schema (`CorpusRow` in `fedcourtsai.corpus`). The packed store
+is a SQLite DB under DVC, but the format is internal — the references the ledger
+relies on (ids, dispositions) stay stable regardless. See
+[data-pipeline.md](data-pipeline.md) and [corpus/README.md](../corpus/README.md)
+for the corpus schema and how seed and pull produce it.
