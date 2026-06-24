@@ -16,7 +16,7 @@ import yaml
 
 from . import ids
 from .config import get_settings
-from .courtlistener import CourtListenerClient
+from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
 from .pipeline.pull import pull_case
@@ -35,6 +35,9 @@ def _client() -> CourtListenerClient:
         base_url=s.courtlistener_base_url,
         api_token=s.courtlistener_api_token,
         timeout=s.request_timeout,
+        rate_limiter=default_rate_limiter(
+            s.courtlistener_rpm, s.courtlistener_rph, s.courtlistener_rpd
+        ),
     )
 
 
