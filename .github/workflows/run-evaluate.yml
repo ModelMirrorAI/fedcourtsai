@@ -57,6 +57,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     environment: runner
     permissions:
       contents: write
@@ -100,7 +101,9 @@ jobs:
             evaluation.md files. Do not commit, push, or open a PR — the workflow
             handles git.
           claude_args: |
-            --max-turns 30
+            --model claude-opus-4-8
+            --max-turns 120
+            --permission-mode bypassPermissions
 
       - name: Evaluate with Codex
         if: matrix.engine == 'codex'
@@ -114,6 +117,8 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ matrix.prompt }}
+          model: gpt-5.5
+          effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
 
