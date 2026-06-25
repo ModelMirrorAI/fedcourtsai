@@ -22,11 +22,13 @@ class Settings(BaseSettings):
     metrics_root: Path = Path("metrics")
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
-    # Seed reads CourtListener's *public bulk-data* CSV (no API token). May be the
-    # bulk-data *directory* (e.g. `.../bulk-data/`) — seed then resolves the latest
-    # `dockets-YYYY-MM-DD` file and follows new snapshots automatically — or a
-    # pinned file URL. Injected from the runner env; absent, `seed-backfill` no-ops.
+    # Seed reads CourtListener's *public bulk-data* CSV (no API token). Point this
+    # at the bulk-data **base** directory and the backfill auto-discovers the latest
+    # snapshot from the bucket listing; an explicit `.csv.bz2` file URL is honored as
+    # a manual pin. Injected from the runner env; absent, `seed-backfill` no-ops.
     courtlistener_bulk_url: str | None = None
+    # Optional snapshot pin (e.g. `2026-03-31`) for a reproducible run; empty means
+    # auto-discover the latest published snapshot.
     seed_snapshot: str | None = None
     request_timeout: float = 30.0
     # CourtListener per-token rate limits (issue #1); override via FEDCOURTS_* env.

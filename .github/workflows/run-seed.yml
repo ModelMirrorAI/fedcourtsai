@@ -83,13 +83,12 @@ jobs:
 
       - name: Load the next bulk chunk into the corpus
         env:
-          # Public CourtListener bulk snapshot — no API token. Set this to the
-          # bulk-data DIRECTORY (e.g. .../bulk-data/); seed resolves the latest
-          # dockets-YYYY-MM-DD file and follows new snapshots with no re-pin (its
-          # date becomes the snapshot id). A pinned file URL also works, in which
-          # case SEED_SNAPSHOT names the snapshot (else it defaults to the quarter).
+          # Public CourtListener bulk snapshot — no API token. Point this at the
+          # bulk-data base directory; the backfill lists the bucket and loads the
+          # latest snapshot on its own (its publication date becomes the snapshot
+          # id). To reproduce a specific snapshot, pin FEDCOURTS_SEED_SNAPSHOT
+          # locally; CI always auto-discovers.
           FEDCOURTS_COURTLISTENER_BULK_URL: ${{ vars.COURTLISTENER_BULK_URL }}
-          FEDCOURTS_SEED_SNAPSHOT: ${{ vars.SEED_SNAPSHOT }}
         run: uv run fedcourts seed-backfill --report seed-report.json
 
       - name: Push the corpus blob to the DVC remote
