@@ -23,7 +23,7 @@ from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
-from .pipeline.seed import CourtListenerBulkSource, backfill, quarter_id
+from .pipeline.seed import CourtListenerBulkSource, backfill, resolve_dockets_source
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition
 from .serialize import write_json, write_raw_json
@@ -191,10 +191,12 @@ def seed_backfill(
         )
         raise typer.Exit(code=2)
 
-    snapshot_id = settings.seed_snapshot or quarter_id(date.today())
-    source = CourtListenerBulkSource(
-        snapshot_id, url=settings.courtlistener_bulk_url, timeout=settings.request_timeout
+    snapshot_id, dockets_url = resolve_dockets_source(
+        settings.courtlistener_bulk_url,
+        snapshot=settings.seed_snapshot,
+        timeout=settings.request_timeout,
     )
+    source = CourtListenerBulkSource(snapshot_id, url=dockets_url, timeout=settings.request_timeout)
     try:
         rep = backfill(
             source,

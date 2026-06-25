@@ -26,6 +26,9 @@ fedcourts seed-backfill [--max-cases N] [--report PATH]
 - `config/seed-progress.yaml` → the cursor (created on first run if absent).
 - `seed.max_cases_per_run` (config) — default chunk size; `--max-cases` overrides.
 - The current CourtListener **bulk** snapshot (public S3/HTTP; **no API token**).
+  The command is pointed at the bulk-data **base** directory and lists the bucket
+  to resolve the latest published snapshot itself; a snapshot id may be pinned to
+  reproduce a specific run.
 
 **Does**
 1. Load (or initialize) the cursor.

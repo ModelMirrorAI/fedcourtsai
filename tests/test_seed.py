@@ -1,14 +1,20 @@
 from datetime import date
 from pathlib import Path
 
+import httpx
+import pytest
+
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.seed import (
     BulkSource,
     CourtChunk,
     CourtListenerBulkSource,
     backfill,
+    bulk_file_url,
+    discover_latest_snapshot,
     load_cursor,
     quarter_id,
+    resolve_dockets_source,
     save_cursor,
 )
 from fedcourtsai.schemas import CourtProgress, SeedProgress
@@ -238,6 +244,119 @@ def test_courtlistener_bulk_source_cleanup_only_owned(tmp_path: Path) -> None:
     source.fetch_court_chunk("ca9", offset=0, limit=1)
     source.cleanup()  # did not download this cache, so it must survive
     assert csv_path.exists()
+
+
+# --- snapshot discovery --------------------------------------------------------
+
+_S3_NS = "http://s3.amazonaws.com/doc/2006-03-01/"
+
+
+def _s3_xml(
+    entries: list[tuple[str, int]], *, truncated: bool = False, next_token: str | None = None
+) -> str:
+    """Render an S3 ListObjectsV2 response, namespaced like the real bucket."""
+    items = "".join(f"<Contents><Key>{k}</Key><Size>{s}</Size></Contents>" for k, s in entries)
+    tok = f"<NextContinuationToken>{next_token}</NextContinuationToken>" if next_token else ""
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<ListBucketResult xmlns="{_S3_NS}">'
+        f"<IsTruncated>{'true' if truncated else 'false'}</IsTruncated>"
+        f"{items}{tok}</ListBucketResult>"
+    )
+
+
+def _bucket(objects: list[tuple[str, int]]) -> httpx.Client:
+    """A client backed by an in-memory bucket; filters keys by the prefix param."""
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        prefix = request.url.params.get("prefix", "")
+        entries = [(k, s) for k, s in objects if k.startswith(prefix)]
+        return httpx.Response(200, text=_s3_xml(entries))
+
+    return httpx.Client(transport=httpx.MockTransport(handle))
+
+
+def test_discover_picks_newest_nonplaceholder() -> None:
+    snap = discover_latest_snapshot(
+        "https://host/bulk-data/",
+        client=_bucket(
+            [
+                ("bulk-data/dockets-2025-12-31.csv.bz2", 4_000_000),
+                ("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000),
+                ("bulk-data/dockets-2026-06-30.csv.bz2", 14),  # placeholder — skipped
+            ]
+        ),
+    )
+    assert snap == "2026-03-31"
+
+
+def test_discover_intersects_tables() -> None:
+    # opinion-clusters lags (no 2026-03-31), so the newest common date wins.
+    snap = discover_latest_snapshot(
+        "https://host/bulk-data/",
+        tables=("dockets", "opinion-clusters"),
+        client=_bucket(
+            [
+                ("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000),
+                ("bulk-data/dockets-2025-12-31.csv.bz2", 5_000_000),
+                ("bulk-data/opinion-clusters-2025-12-31.csv.bz2", 5_000_000),
+            ]
+        ),
+    )
+    assert snap == "2025-12-31"
+
+
+def test_discover_follows_pagination() -> None:
+    page1 = [("bulk-data/dockets-2025-12-31.csv.bz2", 5_000_000)]
+    page2 = [("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000)]
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("continuation-token"):
+            return httpx.Response(200, text=_s3_xml(page2))
+        return httpx.Response(200, text=_s3_xml(page1, truncated=True, next_token="TOKEN"))
+
+    client = httpx.Client(transport=httpx.MockTransport(handle))
+    assert discover_latest_snapshot("https://host/bulk-data/", client=client) == "2026-03-31"
+
+
+def test_discover_raises_when_nothing_published() -> None:
+    with pytest.raises(ValueError):
+        discover_latest_snapshot("https://host/bulk-data/", client=_bucket([]))
+
+
+def test_bulk_file_url_builds_table_path() -> None:
+    assert (
+        bulk_file_url("https://host/bulk-data/", "dockets", "2026-03-31")
+        == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
+    )
+
+
+def test_resolve_explicit_file_url_is_a_pin() -> None:
+    snap, url = resolve_dockets_source("https://host/bulk-data/dockets-2026-03-31.csv.bz2")
+    assert snap == "2026-03-31"
+    assert url == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
+
+
+def test_resolve_explicit_snapshot_overrides_filename() -> None:
+    snap, _ = resolve_dockets_source(
+        "https://host/bulk-data/dockets-2026-03-31.csv.bz2", snapshot="pinned"
+    )
+    assert snap == "pinned"
+
+
+def test_resolve_base_url_pin_skips_discovery() -> None:
+    # No client: a discovery attempt would hit the network, so the pin must short it.
+    snap, url = resolve_dockets_source("https://host/bulk-data/", snapshot="2026-03-31")
+    assert (snap, url) == ("2026-03-31", "https://host/bulk-data/dockets-2026-03-31.csv.bz2")
+
+
+def test_resolve_base_url_discovers_latest() -> None:
+    snap, url = resolve_dockets_source(
+        "https://host/bulk-data/",
+        client=_bucket([("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000)]),
+    )
+    assert snap == "2026-03-31"
+    assert url == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
 
 
 def test_max_cases_zero_is_a_noop(tmp_path: Path) -> None:
