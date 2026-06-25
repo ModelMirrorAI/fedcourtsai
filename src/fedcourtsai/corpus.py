@@ -89,6 +89,11 @@ class CorpusEvent(BaseModel):
     kind: EventKind
     title: str = ""
     description: str | None = None
+    docket_entry_id: int | None = Field(
+        default=None,
+        description="CourtListener id of the docket entry this event is pinned to, "
+        "when derived from a specific filing; None for case-level events.",
+    )
     decision_target: str = "disposition"
     opened_at: date | None = Field(default=None, description="When the event became predictable.")
     resolved: bool = False
@@ -136,6 +141,7 @@ CREATE TABLE IF NOT EXISTS events (
     kind            TEXT NOT NULL,
     title           TEXT NOT NULL DEFAULT '',
     description     TEXT,
+    docket_entry_id INTEGER,
     decision_target TEXT NOT NULL DEFAULT 'disposition',
     opened_at       TEXT,
     resolved        INTEGER NOT NULL DEFAULT 0,
@@ -317,6 +323,7 @@ _EVENT_COLUMNS = (
     "kind",
     "title",
     "description",
+    "docket_entry_id",
     "decision_target",
     "opened_at",
     "resolved",
@@ -331,6 +338,7 @@ def _event_to_record(event: CorpusEvent) -> dict[str, object]:
         "kind": event.kind,
         "title": event.title,
         "description": event.description,
+        "docket_entry_id": event.docket_entry_id,
         "decision_target": event.decision_target,
         "opened_at": event.opened_at.isoformat() if event.opened_at else None,
         "resolved": int(event.resolved),
@@ -345,6 +353,7 @@ def _event_from_record(record: sqlite3.Row) -> CorpusEvent:
         kind=record["kind"],
         title=record["title"],
         description=record["description"],
+        docket_entry_id=record["docket_entry_id"],
         decision_target=record["decision_target"],
         opened_at=date.fromisoformat(record["opened_at"]) if record["opened_at"] else None,
         resolved=bool(record["resolved"]),
