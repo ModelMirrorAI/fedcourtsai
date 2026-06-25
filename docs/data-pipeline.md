@@ -145,6 +145,10 @@ prevent that:
   directly. Serialized by the lock, every run pulls the latest committed pointer
   before mutating, so it always builds on its predecessor's writes. Neither writer
   goes through a long-lived PR whose stale base could revert the other on merge.
+  If the default branch advanced for an unrelated reason between checkout and push
+  (e.g. a `run:predict` / `run:evaluate` PR merged), the commit is rebased onto the
+  new tip and the push retried — the lock means the pointer itself never conflicts,
+  so this is a clean fast-forward, not a corpus merge.
 
 ### Corpus schema
 

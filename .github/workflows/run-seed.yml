@@ -115,7 +115,20 @@ jobs:
           snapshot=$(jq -r '.snapshot' seed-report.json)
           loaded=$(jq -r '.loaded_this_run' seed-report.json)
           git commit -m "seed(backfill): ${snapshot} +${loaded} case(s)"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # The default branch may have advanced since checkout (e.g. a run:predict
+          # / run:evaluate PR merged). The corpus-write lock keeps the other corpus
+          # writer out, so the pointer never conflicts; rebase our commit onto the
+          # latest tip and retry so the push is always a fast-forward.
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "::warning::push rejected (default branch advanced); retry ${attempt}"
+            sleep 3
+          done
+          echo "::error::could not push the corpus pointer after 3 attempts"
+          exit 1
 
       - name: Comment progress on the tracking issue
         env:
