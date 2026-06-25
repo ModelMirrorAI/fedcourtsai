@@ -51,6 +51,11 @@ class PullConfig(BaseModel):
     max_cases_per_run: int = Field(default=15, ge=0)
     # Don't spend budget re-fetching closed / resolved cases.
     skip_closed: bool = True
+    # Discover newly-filed dockets in the tracked courts since the last run.
+    discover_new_filings: bool = True
+    # Hard cap on new dockets onboarded per run (its own slice of the budget,
+    # separate from the refresh cap above).
+    max_new_cases_per_run: int = Field(default=10, ge=0)
 
 
 def load_pull_config(config_root: Path) -> PullConfig:
@@ -62,3 +67,16 @@ def load_pull_config(config_root: Path) -> PullConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return PullConfig.model_validate((data or {}).get("pull", {}))
+
+
+def load_courts(config_root: Path) -> list[str]:
+    """The tracked courts from ``config_root/tracking.yaml`` (``courts:``).
+
+    The scope ``seed`` backfills and ``pull`` keeps current. Returns an empty
+    list if the file or its ``courts`` key is absent, so callers degrade to a
+    no-op rather than crashing on missing config.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    courts = (data or {}).get("courts", []) or []
+    return [str(c).strip() for c in courts if str(c).strip()]
