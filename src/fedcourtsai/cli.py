@@ -20,7 +20,6 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
 from .pipeline.pull import pull_case
-from .pipeline.seed import seed_case
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS
 from .serialize import write_raw_json
@@ -81,28 +80,44 @@ def export_schemas(
     typer.echo(f"Exported {len(EXPORTABLE_MODELS)} schema(s) to {out}")
 
 
+def _fetch_one_docket(court: str, docket: int) -> None:
+    """Fetch one docket via REST and ingest it into the corpus (onboard/refresh)."""
+    settings = get_settings()
+    db = corpus.corpus_db_path(settings.corpus_root)
+    with _client() as client:
+        result = pull_case(client, db, settings.data_root, court, docket)
+    typer.echo(f"{result.case_id} changed={result.changed} snapshot={result.snapshot}")
+
+
 @app.command()
 def seed(
     court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
     docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
 ) -> None:
-    """Pull a docket from CourtListener and start tracking it."""
-    settings = get_settings()
-    with _client() as client:
-        case = seed_case(client, settings.data_root, court, docket)
-    typer.echo(f"Seeded {case.case_id}: {case.case_name}")
+    """Onboard one docket from the CourtListener REST API into the corpus.
+
+    Deterministic single-docket ingestion of raw facts (what ``run-seed`` runs):
+    fetches the docket and upserts its normalized row into the corpus through the
+    shared ingestion core. ``pull`` refreshes an already-onboarded docket. The
+    historical mass is loaded separately by the bulk-data backfill — a planned
+    expansion of this path; see ``docs/data-pipeline.md``.
+    """
+    _fetch_one_docket(court, docket)
 
 
 @app.command()
 def pull(
-    court: Annotated[str, typer.Option(help="CourtListener court id.")],
+    court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
     docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
 ) -> None:
-    """Refresh one tracked docket and report whether it changed."""
-    settings = get_settings()
-    with _client() as client:
-        result = pull_case(client, settings.data_root, court, docket)
-    typer.echo(f"{result.case_id} changed={result.changed} snapshot={result.snapshot}")
+    """Refresh one docket from the CourtListener REST API and report changes.
+
+    The forward-freshness counterpart to ``seed``: re-fetches the docket,
+    re-ingests it into the corpus through the shared core, and reports whether it
+    changed since the last pull (the signal that downstream ``run-predict``
+    should run).
+    """
+    _fetch_one_docket(court, docket)
 
 
 @app.command("corpus-info")
@@ -141,16 +156,19 @@ def paths(
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Optional event id to resolve event paths.")] = "",
 ) -> None:
-    """Print resolved on-disk paths for a case (or event). Useful in scripts."""
+    """Print resolved paths for a case (or event). Useful in scripts.
+
+    Raw facts live in the packed corpus, not per-case git files; git holds only
+    the derived ledger (events, outcomes, predictions, evaluations).
+    """
     settings = get_settings()
     cp = CasePaths(settings.data_root, court, docket)
-    typer.echo(f"case_id     {ids.case_id(court, docket)}")
-    typer.echo(f"case.yaml   {cp.case_file}")
-    typer.echo(f"docket.json {cp.docket}")
+    typer.echo(f"case_id   {ids.case_id(court, docket)}")
+    typer.echo(f"corpus    {corpus.corpus_db_path(settings.corpus_root)}")
     if event:
         ep = cp.event(event)
-        typer.echo(f"event.yaml  {ep.event_file}")
-        typer.echo(f"outcome     {ep.outcome}")
+        typer.echo(f"event     {ep.event_file}")
+        typer.echo(f"outcome   {ep.outcome}")
 
 
 @app.command("open-events")
@@ -173,10 +191,11 @@ def pull_all(
 ) -> None:
     """Refresh all tracked cases; emit a queue of changed cases with open events."""
     settings = get_settings()
+    db = corpus.corpus_db_path(settings.corpus_root)
     queue: list[dict[str, object]] = []
     with _client() as client:
-        for court, docket in iter_tracked_cases(settings.data_root)[:limit]:
-            result = pull_case(client, settings.data_root, court, docket)
+        for court, docket in iter_tracked_cases(db)[:limit]:
+            result = pull_case(client, db, settings.data_root, court, docket)
             events = open_events(settings.data_root, court, docket)
             if result.changed and events:
                 queue.append({"court": court, "docket": docket, "events": events})
