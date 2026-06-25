@@ -68,6 +68,20 @@ def test_most_restrictive_window_wins() -> None:
     assert clock.sleeps == [60.0]
 
 
+def test_capped_run_fits_within_the_hourly_budget() -> None:
+    # The governor caps a run at pull.max_cases_per_run (15) dockets at ~3 requests
+    # each. Driving those 45 requests through the published limiter must keep the
+    # whole run inside one hour — proving the cap stays under the 50/hr ceiling.
+    clock = FakeClock()
+    limiter = default_rate_limiter(time_fn=clock.time, sleep_fn=clock.sleep)
+    requests_per_run = 15 * 3
+    assert requests_per_run <= DEFAULT_PER_HOUR
+    for _ in range(requests_per_run):
+        limiter.acquire()
+    assert clock.now < 3600.0  # completes within the hour window
+    assert sum(clock.sleeps) < 3600.0
+
+
 def test_default_limiter_uses_published_limits() -> None:
     clock = FakeClock()
     limiter = default_rate_limiter(time_fn=clock.time, sleep_fn=clock.sleep)

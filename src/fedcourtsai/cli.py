@@ -15,7 +15,7 @@ import typer
 import yaml
 
 from . import corpus, ids
-from .config import get_settings
+from .config import get_settings, load_pull_config
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
@@ -23,7 +23,7 @@ from .pipeline.pull import pull_case
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS
 from .serialize import write_raw_json
-from .store import iter_tracked_cases, open_events, resolved_events
+from .store import cases_due_for_pull, open_events, resolved_events
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -187,21 +187,37 @@ def pull_all(
     out: Annotated[Path, typer.Option(help="Write the predict queue JSON here.")] = Path(
         "predict-queue.json"
     ),
-    limit: Annotated[int, typer.Option(help="Max cases to refresh this run.")] = 50,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            help="Optional lower cap on cases to refresh this run; cannot exceed "
+            "pull.max_cases_per_run."
+        ),
+    ] = None,
 ) -> None:
-    """Refresh all tracked cases; emit a queue of changed cases with open events."""
+    """Refresh the stalest tracked cases within budget; queue changed open cases.
+
+    The API-budget governor: rotation picks the oldest-``last_pulled``-first slice
+    of the active set (skipping closed/resolved cases), capped at
+    ``pull.max_cases_per_run`` from ``config/tracking.yaml``. ``--limit`` may only
+    lower that cap for a one-off run, never raise it, so a run provably stays
+    within the CourtListener budget.
+    """
     settings = get_settings()
+    pull_cfg = load_pull_config(settings.config_root)
+    cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     db = corpus.corpus_db_path(settings.corpus_root)
+    due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
     queue: list[dict[str, object]] = []
     with _client() as client:
-        for court, docket in iter_tracked_cases(db)[:limit]:
+        for court, docket in due:
             result = pull_case(client, db, settings.data_root, court, docket)
             events = open_events(settings.data_root, court, docket)
             if result.changed and events:
                 queue.append({"court": court, "docket": docket, "events": events})
             typer.echo(f"{result.case_id} changed={result.changed} open_events={len(events)}")
     out.write_text(json.dumps(queue) + "\n")
-    typer.echo(f"Queued {len(queue)} case(s) for prediction -> {out}")
+    typer.echo(f"Refreshed {len(due)}/{cap} case(s); queued {len(queue)} for prediction -> {out}")
 
 
 @app.command("predict-matrix")

@@ -63,6 +63,11 @@ class CorpusRow(BaseModel):
     citations: list[str] = Field(default_factory=list)
     opinion_text: str | None = None
     summary: str | None = None
+    last_pulled: date | None = Field(
+        default=None,
+        description="Tracking state: date `pull` last refreshed this case via REST; "
+        "None until first pulled. Drives the budget governor's rotation.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
 
@@ -78,10 +83,13 @@ CREATE TABLE IF NOT EXISTS cases (
     topic         TEXT,
     citations     TEXT NOT NULL DEFAULT '[]',
     opinion_text  TEXT,
-    summary       TEXT
+    summary       TEXT,
+    last_pulled   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
+-- The governor rotates oldest-last_pulled-first over the unresolved set.
+CREATE INDEX IF NOT EXISTS idx_cases_last_pulled ON cases(last_pulled);
 """
 
 _COLUMNS = (
@@ -96,6 +104,7 @@ _COLUMNS = (
     "citations",
     "opinion_text",
     "summary",
+    "last_pulled",
 )
 
 
@@ -125,6 +134,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "citations": json.dumps(row.citations, sort_keys=True),
         "opinion_text": row.opinion_text,
         "summary": row.summary,
+        "last_pulled": row.last_pulled.isoformat() if row.last_pulled else None,
     }
 
 
@@ -143,6 +153,7 @@ def _from_record(record: sqlite3.Row) -> CorpusRow:
         citations=json.loads(record["citations"]),
         opinion_text=record["opinion_text"],
         summary=record["summary"],
+        last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
     )
 
 
@@ -153,7 +164,14 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     ``pull`` can both write a case without producing duplicates.
     """
     placeholders = ", ".join("?" for _ in _COLUMNS)
-    updates = ", ".join(f"{c}=excluded.{c}" for c in _COLUMNS if c != "case_id")
+    # `last_pulled` only ever advances: a write that does not carry a fresh stamp
+    # (e.g. a bulk seed re-ingest) must keep the timestamp a prior pull recorded,
+    # so the governor does not see a refreshed case as never-pulled.
+    updates = ", ".join(
+        (f"{c}=COALESCE(excluded.{c}, cases.{c})" if c == "last_pulled" else f"{c}=excluded.{c}")
+        for c in _COLUMNS
+        if c != "case_id"
+    )
     sql = (
         f"INSERT INTO cases ({', '.join(_COLUMNS)}) VALUES ({placeholders}) "
         f"ON CONFLICT(case_id) DO UPDATE SET {updates}"
@@ -200,3 +218,33 @@ def iter_rows(
     cur = conn.execute(f"SELECT * FROM cases{where} ORDER BY case_id", params)
     for record in cur:
         yield _from_record(record)
+
+
+def rotation_for_pull(
+    conn: sqlite3.Connection,
+    *,
+    limit: int,
+    skip_closed: bool = True,
+) -> list[CorpusRow]:
+    """The next ``limit`` cases ``pull`` should refresh, stalest first.
+
+    The CourtListener REST budget caps a run at a handful of dockets, so the
+    governor refreshes the **oldest-``last_pulled``-first** slice of the active
+    set and lets a large active set rotate over several days. Never-pulled cases
+    (``last_pulled IS NULL``) are the stalest and sort ahead of any dated stamp;
+    ``case_id`` breaks ties so the order is deterministic.
+
+    With ``skip_closed`` (the default) a case that is **closed or resolved** —
+    one carrying a realized ``disposition`` or a ``date_decided`` — is excluded,
+    so no budget is spent re-fetching a docket whose outcome is already known.
+    """
+    if limit <= 0:
+        return []
+    where = " WHERE disposition IS NULL AND date_decided IS NULL" if skip_closed else ""
+    cur = conn.execute(
+        f"SELECT * FROM cases{where} "
+        "ORDER BY last_pulled IS NOT NULL, last_pulled ASC, case_id ASC "
+        "LIMIT ?",
+        (limit,),
+    )
+    return [_from_record(record) for record in cur]
