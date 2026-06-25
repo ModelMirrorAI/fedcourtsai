@@ -4,8 +4,11 @@ The forward-frontier counterpart to ``pull_case`` (which *refreshes* known
 dockets). For each tracked court it asks the CourtListener REST API for dockets
 filed since that court's discovery watermark, routes each new docket through the
 shared ingestion core (:mod:`fedcourtsai.pipeline.ingest`) into the unified
-corpus, records the docket's predictable event definition(s) as corpus rows, and
-advances the watermark — all *raw facts*, none of it per-case git files.
+corpus, runs the deterministic event-definition stage
+(:mod:`fedcourtsai.pipeline.events`) to record its predictable event
+definition(s) as corpus rows, and advances the watermark — all *raw facts*, none
+of it per-case git files. Entries the extractor cannot confidently classify are
+collected on the result so the caller can open an agent reconcile issue.
 
 Two budget guards keep a run inside the CourtListener API ceiling: a hard cap on
 new dockets per run (``max_new``), and ascending ``date_filed`` ordering so a run
@@ -23,7 +26,8 @@ from typing import Protocol
 
 from .. import corpus
 from ..courtlistener import CourtListenerClient
-from .ingest import default_event, from_api_docket, to_corpus_row
+from .events import AmbiguousEntry, extract_events
+from .ingest import from_api_docket, to_corpus_row
 
 
 class _DocketSearch(Protocol):
@@ -49,6 +53,7 @@ class DiscoverResult:
 
     courts: list[CourtDiscovery] = field(default_factory=list)
     case_ids: list[str] = field(default_factory=list)
+    ambiguous: list[AmbiguousEntry] = field(default_factory=list)
 
     @property
     def total(self) -> int:
@@ -83,12 +88,15 @@ def discover_cases(
 
             since = corpus.get_discovery_watermark(conn, court) or default_since
             dockets = client.iter_dockets(court, since, max_results=remaining)
-            rows = [from_api_docket(d) for d in dockets]
-            if not rows:
+            if not dockets:
                 continue
+            rows = [from_api_docket(d) for d in dockets]
 
             corpus.upsert_rows(conn, [to_corpus_row(r) for r in rows])
-            corpus.upsert_events(conn, [default_event(r) for r in rows])
+            for docket in dockets:
+                extraction = extract_events(docket)
+                corpus.upsert_events(conn, extraction.events)
+                result.ambiguous.extend(extraction.ambiguous)
 
             watermark = max((r.date_filed for r in rows if r.date_filed is not None), default=since)
             corpus.set_discovery_watermark(conn, court, watermark)
