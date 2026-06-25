@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "CourtProgress": {
+      "additionalProperties": false,
+      "description": "Per-court entry in the seed cursor \u2014 how far the backfill has loaded.",
+      "properties": {
+        "complete": {
+          "default": false,
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Rows consumed from this court's bulk stream",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Rows for this court in the snapshot, once the stream ends",
+          "title": "Total"
+        }
+      },
+      "title": "CourtProgress",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``config/seed-progress.yaml`` \u2014 the resumable seed-backfill cursor.\n\nGit-tracked so the historical backfill is rebuildable after a fresh clone and\na maintainer can read progress in a diff. ``seed-backfill`` reads it at the\nstart of each run and writes the bumped cursor at the end.",
+  "properties": {
+    "courts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CourtProgress"
+      },
+      "title": "Courts",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Bulk snapshot id currently being loaded, e.g. `2026-Q2`",
+      "title": "Snapshot"
+    }
+  },
+  "title": "SeedProgress",
+  "type": "object"
+}

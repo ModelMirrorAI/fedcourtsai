@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from fedcourtsai.config import PullConfig, load_courts, load_pull_config
+from fedcourtsai.config import (
+    PullConfig,
+    SeedConfig,
+    load_courts,
+    load_pull_config,
+    load_seed_config,
+)
 
 
 def _write_tracking(root: Path, body: str) -> None:
@@ -66,3 +72,19 @@ def test_load_pull_config_defaults_when_file_missing(tmp_path: Path) -> None:
 def test_load_pull_config_defaults_when_section_absent(tmp_path: Path) -> None:
     _write_tracking(tmp_path, "seed:\n  source: bulk\n")
     assert load_pull_config(tmp_path) == PullConfig()
+
+
+def test_load_seed_config_reads_backfill_keys(tmp_path: Path) -> None:
+    _write_tracking(
+        tmp_path,
+        "seed:\n  source: bulk\n  max_cases_per_run: 2000\n  cursor: config/seed-progress.yaml\n",
+    )
+    cfg = load_seed_config(tmp_path)
+    assert cfg.max_cases_per_run == 2000
+    assert cfg.cursor == Path("config/seed-progress.yaml")
+
+
+def test_load_seed_config_defaults_when_missing(tmp_path: Path) -> None:
+    cfg = load_seed_config(tmp_path / "absent")
+    assert cfg == SeedConfig()
+    assert cfg.max_cases_per_run == 2000

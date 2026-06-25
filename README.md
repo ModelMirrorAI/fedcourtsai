@@ -93,8 +93,7 @@ uv run pytest
 
 `seed` and `pull` are single-docket REST helpers that fetch one case from the
 CourtListener REST API into the corpus through the shared ingestion core, so they
-need a free API token. `seed` onboards a docket (deterministic ingestion of raw
-facts — what the `run-seed` workflow runs); `pull` refreshes one and reports
+need a free API token. `seed` onboards a docket; `pull` refreshes one and reports
 whether it changed:
 
 ```bash
@@ -103,9 +102,17 @@ uv run fedcourts seed --court ca9 --docket <docket_id>   # onboard one docket in
 uv run fedcourts pull --court ca9 --docket <docket_id>   # refresh one docket; report changes
 ```
 
-The historical mass is loaded separately by the bulk-data backfill (CourtListener
-**bulk data**, no API budget) — a planned expansion of the `seed` path that writes
-the *same* corpus through the *same* core. See
+The historical mass is loaded by `seed-backfill`, what the `run-seed` workflow
+runs: deterministic, no-agent ingestion of CourtListener **bulk data** (no API
+token, no API budget) into the *same* corpus through the *same* core. It loads
+one chunk of the tracked courts per run against a resumable cursor
+(`config/seed-progress.yaml`), daily until complete:
+
+```bash
+uv run fedcourts seed-backfill --report seed-report.json   # load the next bulk chunk
+```
+
+See [`docs/seed-backfill.md`](docs/seed-backfill.md) and
 [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## For AI agents
