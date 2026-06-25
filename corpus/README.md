@@ -44,8 +44,13 @@ source.
 | `citations`     | json array      |                                              |
 | `opinion_text`  | text            | full opinion text                            |
 | `summary`       | text            | short form for retrieval                     |
+| `last_pulled`   | date            | tracking state: when `pull` last refreshed it |
 
-`embedding[]` (semantic retrieval) is a later upgrade and is not stored yet.
+`last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
+on every refresh and the budget governor rotates the oldest-`last_pulled`-first
+slice of the unresolved set within the API budget (see
+[docs/data-pipeline.md](../docs/data-pipeline.md)). `embedding[]` (semantic
+retrieval) is a later upgrade and is not stored yet.
 
 ## Working with it locally
 

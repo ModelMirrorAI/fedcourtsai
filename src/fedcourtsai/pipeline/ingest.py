@@ -218,12 +218,16 @@ def merge_rows(rows: Iterable[CorpusRow]) -> list[CorpusRow]:
     return list(by_case.values())
 
 
-def to_corpus_row(row: CorpusRow) -> corpus.CorpusRow:
+def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.CorpusRow:
     """Project a normalized ingestion row onto the packed-corpus storage row.
 
     The ingestion model carries provenance the storage model does not need
     (``source``, ``schema_version``, ``docket_id`` — recoverable from
     ``case_id``); ``nature_of_suit`` maps onto the store's ``topic`` column.
+
+    ``last_pulled`` is pull-time tracking state (not a docket fact), so it is
+    supplied by the caller: ``pull`` stamps the refresh date, while bulk seed
+    leaves it ``None`` (the upsert preserves any timestamp a prior pull set).
     """
     return corpus.CorpusRow(
         case_id=row.case_id,
@@ -236,15 +240,20 @@ def to_corpus_row(row: CorpusRow) -> corpus.CorpusRow:
         topic=row.nature_of_suit,
         citations=row.citations,
         summary=row.summary,
+        last_pulled=last_pulled,
     )
 
 
-def upsert_to_corpus(db_path: Path, rows: Iterable[CorpusRow]) -> int:
+def upsert_to_corpus(
+    db_path: Path, rows: Iterable[CorpusRow], *, last_pulled: date | None = None
+) -> int:
     """Upsert normalized rows into the packed SQLite corpus at ``db_path``.
 
     Idempotent by ``case_id`` (last write wins), so re-ingesting a docket — by
-    ``seed`` or ``pull`` — overwrites its row rather than duplicating it.
+    ``seed`` or ``pull`` — overwrites its row rather than duplicating it. When
+    ``pull`` passes ``last_pulled`` it stamps the refresh date onto every row in
+    this batch, advancing the governor's rotation key.
     """
-    store_rows = [to_corpus_row(row) for row in merge_rows(rows)]
+    store_rows = [to_corpus_row(row, last_pulled=last_pulled) for row in merge_rows(rows)]
     with corpus.connect(db_path) as conn:
         return corpus.upsert_rows(conn, store_rows)
