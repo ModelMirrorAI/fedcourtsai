@@ -21,7 +21,7 @@ corpus — is in [data-pipeline.md](data-pipeline.md).
 ## Cascade
 
 ```
-run:seed (daily until done) → backfill bulk corpus chunk → PR + progress comment
+run:seed (daily until done) → backfill bulk corpus chunk → commit + progress comment
    daily / run:pull → run-pull → push fresh facts + snapshots to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ discover new filings → onboard + define events

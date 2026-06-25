@@ -22,8 +22,11 @@ on:
 
 permissions: {}
 
+# Shared with run-seed: both workflows write the single corpus.db pointer, so they
+# run under ONE lock to serialize corpus writers and prevent lost updates (#42).
+# cancel-in-progress is false so a queued run waits rather than being dropped.
 concurrency:
-  group: run-pull
+  group: corpus-write
   cancel-in-progress: false
 
 jobs:
