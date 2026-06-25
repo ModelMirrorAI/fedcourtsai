@@ -26,10 +26,12 @@ import bz2
 import csv
 import gzip
 import io
+import json
 import os
 import re
+import sqlite3
 import tempfile
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -245,6 +247,22 @@ def quarter_id(d: date) -> str:
 _QUARTER_LAST_DAY = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
 
 
+def sibling_bulk_url(dockets_url: str, table: str) -> str | None:
+    """The URL of a sibling bulk file (e.g. ``opinion-clusters``) next to dockets.
+
+    CourtListener names each table's bulk file ``<table>-<snapshot>.csv.bz2`` in
+    one directory, so a sibling table's URL is the dockets URL with its leading
+    ``dockets`` filename token swapped for ``table``. Returns ``None`` when the
+    dockets URL does not follow that naming (a manually pinned, non-standard URL),
+    in which case the join simply has no sibling to read and those fields stay
+    blank — the backfill still loads the docket spine.
+    """
+    head, sep, name = dockets_url.rpartition("/")
+    if not name.startswith("dockets"):
+        return None
+    return f"{head}{sep}{table}{name[len('dockets') :]}"
+
+
 def snapshot_date(snapshot_id: str) -> date | None:
     """The bulk snapshot's as-of date, derived from a quarter id like ``2026-Q2``.
 
@@ -262,39 +280,223 @@ def snapshot_date(snapshot_id: str) -> date | None:
     return date(int(m.group(1)), month, day)
 
 
+# Rows inserted per executemany batch while staging the GB-scale bulk files.
+_STAGE_BATCH = 5000
+
+_STAGING_SCHEMA = """
+CREATE TABLE IF NOT EXISTS meta (snapshot_id TEXT NOT NULL);
+-- One row per tracked docket; the raw CSV record is kept verbatim as JSON so the
+-- normalizer sees every column and a new upstream column needs no migration here.
+CREATE TABLE IF NOT EXISTS dockets (
+    id       INTEGER PRIMARY KEY,
+    court_id TEXT NOT NULL,
+    row      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_dockets_court ON dockets(court_id, id);
+-- One (latest) opinion cluster per docket, carrying just the fields the corpus
+-- lifts. Keyed on the docket foreign key so Phase B is a one-to-one LEFT JOIN.
+CREATE TABLE IF NOT EXISTS clusters (
+    docket_id   INTEGER PRIMARY KEY,
+    cluster_id  INTEGER NOT NULL,
+    disposition TEXT,
+    summary     TEXT,
+    judges      TEXT
+);
+"""
+
+# opinion-cluster columns lifted into the served docket row, under the names the
+# normalizer (`ingest._normalize`) already reads.
+_CLUSTER_FIELDS = ("disposition", "summary", "judges")
+
+
 @dataclass
 class CourtListenerBulkSource:
-    """Streams a CourtListener public bulk-data CSV, filtered to one court.
+    """A staged, multi-table join over CourtListener public bulk-data CSVs.
 
-    A bulk snapshot is a single combined CSV per table (one file for *all*
-    courts), so a court's "stream" is the subsequence of rows whose court id
-    matches. The file is fetched once per run to a local cache, then scanned
-    locally per court — a multi-court run does not re-download it. Network access
-    is confined to :meth:`_ensure_local`; the parse/filter logic is pure.
+    A bulk snapshot is one combined CSV *per table* (dockets, opinion-clusters, …),
+    each sorted by its own primary key rather than the join key — so a row's full
+    fact set is spread across files that cannot be co-iterated. This source resolves
+    that with a two-phase staged join behind the :class:`BulkSource` seam:
 
-    The exact bulk file ``url`` (and its ``snapshot_id``) are supplied by the
-    caller from the runner env, since CourtListener names snapshots by date; the
-    layout assumed here (CSV with a court-id column, optional ``.bz2``/``.gz``
-    compression inferred from the url) may need tuning when wired to live data.
+    - **Phase A — stage once** (:meth:`_ensure_staged`, heavy, on the first fetch):
+      stream ``dockets`` filtered to the tracked ``courts`` into a local SQLite,
+      then stream ``opinion-clusters`` keeping only rows whose ``docket_id`` is in
+      that set (the latest cluster per docket wins), into a table keyed on the join
+      key. The staging DB is tagged with ``snapshot_id``; pointing ``staging_path``
+      at a path the workflow caches lets daily runs *reuse* it instead of
+      re-streaming, and a snapshot change rebuilds it.
+    - **Phase B — serve chunks** (:meth:`fetch_court_chunk`, cheap, per run): a
+      single indexed SQL ``LEFT JOIN`` aliasing the cluster columns to the names the
+      normalizer reads, ordered by docket id with ``LIMIT``/``OFFSET``.
+
+    URLs (and ``snapshot_id``) come from the caller (the runner env names snapshots
+    by date). ``clusters_url`` is optional: without it the docket spine still loads
+    and the joined fields stay blank. ``*_cache`` inject local files in place of a
+    download (tests, or a pre-fetched file); network access is confined to
+    :meth:`_ensure_local`.
     """
 
     snapshot_id: str
-    url: str
+    dockets_url: str
+    courts: Sequence[str]
+    clusters_url: str | None = None
     court_field: str = "court_id"
     timeout: float = 30.0
     client: httpx.Client | None = None
-    cache_path: Path | None = None
-    _owned_cache: bool = field(default=False, init=False)
+    staging_path: Path | None = None
+    dockets_cache: Path | None = None
+    clusters_cache: Path | None = None
+    _conn: sqlite3.Connection | None = field(default=None, init=False)
+    _db_path: Path | None = field(default=None, init=False)
+    _owned_db: bool = field(default=False, init=False)
+    _owned_files: list[Path] = field(default_factory=list, init=False)
 
-    def _ensure_local(self) -> Path:
-        if self.cache_path is not None and self.cache_path.exists():
-            return self.cache_path
+    # --- Phase B: serve chunks (cheap, per run) --------------------------------
+
+    def fetch_court_chunk(self, court: str, *, offset: int, limit: int) -> CourtChunk:
+        conn = self._ensure_staged()
+        target = ids.slugify(court)
+        (total,) = conn.execute(
+            "SELECT COUNT(*) FROM dockets WHERE court_id = ?", (target,)
+        ).fetchone()
+        cur = conn.execute(
+            "SELECT d.row AS row, c.disposition AS disposition, c.summary AS summary, "
+            "c.judges AS judges "
+            "FROM dockets d LEFT JOIN clusters c ON c.docket_id = d.id "
+            "WHERE d.court_id = ? ORDER BY d.id LIMIT ? OFFSET ?",
+            (target, limit, offset),
+        )
+        rows = [self._merge(r) for r in cur.fetchall()]
+        reached_end = offset + len(rows) >= total
+        return CourtChunk(rows=rows, reached_end=reached_end, total=total)
+
+    @staticmethod
+    def _merge(row: sqlite3.Row) -> Mapping[str, Any]:
+        """Overlay the joined cluster fields onto the raw docket record."""
+        record = dict(json.loads(row["row"]))
+        for field_name in _CLUSTER_FIELDS:
+            value = row[field_name]
+            if value is not None:
+                record[field_name] = value
+        return record
+
+    # --- Phase A: stage once (heavy, on snapshot change) -----------------------
+
+    def _ensure_staged(self) -> sqlite3.Connection:
+        if self._conn is not None:
+            return self._conn
+        path = self.staging_path
+        if path is None:
+            fd, name = tempfile.mkstemp(suffix=".staging.db")
+            os.close(fd)
+            path = Path(name)
+            self._owned_db = True
+        self._db_path = path
+        conn = sqlite3.connect(path)
+        conn.row_factory = sqlite3.Row
+        conn.executescript(_STAGING_SCHEMA)
+        if not self._snapshot_matches(conn):
+            self._build_staging(conn)
+        self._conn = conn
+        return conn
+
+    def _snapshot_matches(self, conn: sqlite3.Connection) -> bool:
+        meta = conn.execute("SELECT snapshot_id FROM meta LIMIT 1").fetchone()
+        return meta is not None and meta[0] == self.snapshot_id
+
+    def _build_staging(self, conn: sqlite3.Connection) -> None:
+        conn.execute("DELETE FROM dockets")
+        conn.execute("DELETE FROM clusters")
+        conn.execute("DELETE FROM meta")
+        docket_ids = self._stage_dockets(conn)
+        if self.clusters_url is not None:
+            self._stage_clusters(conn, docket_ids)
+        conn.execute("INSERT INTO meta(snapshot_id) VALUES (?)", (self.snapshot_id,))
+        conn.commit()
+
+    def _stage_dockets(self, conn: sqlite3.Connection) -> set[int]:
+        targets = {ids.slugify(c) for c in self.courts}
+        path = self._ensure_local(self.dockets_url, self.dockets_cache)
+        docket_ids: set[int] = set()
+        batch: list[tuple[int, str, str]] = []
+        with self._open_text(path, self.dockets_url) as fh:
+            for row in csv.DictReader(fh):
+                raw = (row.get(self.court_field) or "").strip()
+                if not raw:
+                    continue
+                court = ids.slugify(raw)
+                if court not in targets:
+                    continue
+                docket_id = _as_int(row.get("id"))
+                if docket_id is None:
+                    continue
+                docket_ids.add(docket_id)
+                batch.append((docket_id, court, json.dumps(row, sort_keys=True)))
+                if len(batch) >= _STAGE_BATCH:
+                    self._insert_dockets(conn, batch)
+                    batch.clear()
+        self._insert_dockets(conn, batch)
+        return docket_ids
+
+    @staticmethod
+    def _insert_dockets(conn: sqlite3.Connection, batch: Sequence[tuple[int, str, str]]) -> None:
+        if batch:
+            conn.executemany(
+                "INSERT OR REPLACE INTO dockets(id, court_id, row) VALUES (?, ?, ?)", batch
+            )
+
+    def _stage_clusters(self, conn: sqlite3.Connection, docket_ids: set[int]) -> None:
+        assert self.clusters_url is not None
+        path = self._ensure_local(self.clusters_url, self.clusters_cache)
+        batch: list[tuple[int, int, str | None, str | None, str | None]] = []
+        with self._open_text(path, self.clusters_url) as fh:
+            for row in csv.DictReader(fh):
+                docket_id = _as_int(row.get("docket_id"))
+                if docket_id is None or docket_id not in docket_ids:
+                    continue
+                batch.append(
+                    (
+                        docket_id,
+                        _as_int(row.get("id")) or 0,
+                        _clean_cell(row.get("disposition")),
+                        _clean_cell(row.get("summary")),
+                        _clean_cell(row.get("judges")),
+                    )
+                )
+                if len(batch) >= _STAGE_BATCH:
+                    self._upsert_clusters(conn, batch)
+                    batch.clear()
+        self._upsert_clusters(conn, batch)
+
+    @staticmethod
+    def _upsert_clusters(
+        conn: sqlite3.Connection,
+        batch: Sequence[tuple[int, int, str | None, str | None, str | None]],
+    ) -> None:
+        # One cluster per docket: a later, higher-id cluster (the most recent
+        # disposition) wins; an earlier one never clobbers it.
+        if batch:
+            conn.executemany(
+                "INSERT INTO clusters(docket_id, cluster_id, disposition, summary, judges) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(docket_id) DO UPDATE SET "
+                "cluster_id = excluded.cluster_id, disposition = excluded.disposition, "
+                "summary = excluded.summary, judges = excluded.judges "
+                "WHERE excluded.cluster_id > clusters.cluster_id",
+                batch,
+            )
+
+    # --- IO (network confined here) --------------------------------------------
+
+    def _ensure_local(self, url: str, cache: Path | None) -> Path:
+        if cache is not None and cache.exists():
+            return cache
         fd, name = tempfile.mkstemp(suffix=".bulk")
         os.close(fd)
         path = Path(name)
         client = self.client or httpx.Client(timeout=self.timeout, follow_redirects=True)
         try:
-            with client.stream("GET", self.url) as resp:
+            with client.stream("GET", url) as resp:
                 resp.raise_for_status()
                 with path.open("wb") as fh:
                     for block in resp.iter_bytes():
@@ -302,40 +504,49 @@ class CourtListenerBulkSource:
         finally:
             if self.client is None:
                 client.close()
-        self.cache_path = path
-        self._owned_cache = True
+        self._owned_files.append(path)
         return path
 
-    def _open_text(self, path: Path) -> IO[str]:
-        if self.url.endswith(".bz2"):
+    @staticmethod
+    def _open_text(path: Path, url: str) -> IO[str]:
+        if url.endswith(".bz2"):
             return io.TextIOWrapper(bz2.open(path, "rb"), encoding="utf-8", newline="")
-        if self.url.endswith(".gz"):
+        if url.endswith(".gz"):
             return io.TextIOWrapper(gzip.open(path, "rb"), encoding="utf-8", newline="")
         return open(path, encoding="utf-8", newline="")
 
-    def _iter_court_rows(self, fh: IO[str], court: str) -> Iterator[Mapping[str, Any]]:
-        target = ids.slugify(court)
-        for row in csv.DictReader(fh):
-            raw = (row.get(self.court_field) or "").strip()
-            if raw and ids.slugify(raw) == target:
-                yield row
-
-    def fetch_court_chunk(self, court: str, *, offset: int, limit: int) -> CourtChunk:
-        path = self._ensure_local()
-        rows: list[Mapping[str, Any]] = []
-        reached_end = True
-        with self._open_text(path) as fh:
-            for i, row in enumerate(self._iter_court_rows(fh, court)):
-                if i < offset:
-                    continue
-                if len(rows) >= limit:
-                    reached_end = False
-                    break
-                rows.append(row)
-        return CourtChunk(rows=rows, reached_end=reached_end)
-
     def cleanup(self) -> None:
-        """Remove the downloaded cache file (only one this source created)."""
-        if self._owned_cache and self.cache_path is not None:
-            self.cache_path.unlink(missing_ok=True)
-            self._owned_cache = False
+        """Drop everything this source created; leave injected/cached files alone.
+
+        Closes the staging connection and removes the downloaded source files and a
+        *temporary* staging DB. A caller-supplied ``staging_path`` is preserved so a
+        later run can reuse it; injected ``*_cache`` files are never touched.
+        """
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+        for path in self._owned_files:
+            path.unlink(missing_ok=True)
+        self._owned_files.clear()
+        if self._owned_db and self._db_path is not None:
+            self._db_path.unlink(missing_ok=True)
+            self._owned_db = False
+
+
+def _as_int(value: Any) -> int | None:
+    """Parse a CSV cell to ``int``, or ``None`` if blank or non-numeric."""
+    text = value.strip() if isinstance(value, str) else value
+    if text in (None, ""):
+        return None
+    try:
+        return int(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clean_cell(value: Any) -> str | None:
+    """Trim a CSV cell to a non-empty string, or ``None`` for a blank."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
