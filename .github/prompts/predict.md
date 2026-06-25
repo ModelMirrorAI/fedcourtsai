@@ -22,11 +22,22 @@ Run `uv run fedcourts paths --court "$COURT_ID" --docket "$DOCKET_ID" --event
 
 ## Inputs (read-only)
 
-The workflow provisions these from the corpus (raw facts live in the DVC/S3
-corpus, not git); read them where the workflow places them for your run:
+Read in this order. The **stable** inputs are byte-identical on every run and are
+served from the prompt cache; read them *before* the per-case inputs so the
+cached prefix stays as long as possible (don't interleave case facts with them).
 
-1. The **event definition** for `$EVENT_ID` — what to predict.
-2. The **latest snapshot** for this case. **Predict only from this snapshot.** Do
+**Stable — read first:**
+
+1. `AGENTS.md` — the canonical contract.
+2. This prompt and `schemas/prediction.schema.json` — your task and the exact
+   output contract.
+
+**Per-case — read last, right before you write.** The workflow provisions these
+from the corpus (raw facts live in the DVC/S3 corpus, not git); read them where
+the workflow places them for your run:
+
+3. The **event definition** for `$EVENT_ID` — what to predict.
+4. The **latest snapshot** for this case. **Predict only from this snapshot.** Do
    not fetch new docket facts or invent facts. You may consult the CourtListener
    MCP server for *legal context* (precedent, standards of review) — never for new
    facts about this case.
