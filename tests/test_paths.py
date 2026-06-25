@@ -19,3 +19,14 @@ def test_event_layout() -> None:
         "data/cases/ca9/123/events/evt-motion-stay/evaluations/"
         "codex-judge/claude-baseline/r1/evaluation.json"
     )
+
+
+def test_usage_layout() -> None:
+    ep = CasePaths(Path("data"), "ca9", 123).event("evt-motion-stay")
+    assert ep.prediction_usage("claude-baseline", "r1") == Path(
+        "data/cases/ca9/123/events/evt-motion-stay/predictions/claude-baseline/r1/usage.json"
+    )
+    # Evaluate usage is keyed by evaluator x run, a level above the predictor dirs.
+    assert ep.evaluation_usage("codex-judge", "r1") == Path(
+        "data/cases/ca9/123/events/evt-motion-stay/evaluations/codex-judge/r1/usage.json"
+    )

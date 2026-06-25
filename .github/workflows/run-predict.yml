@@ -97,6 +97,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Predict with Claude Code
+        id: predict_claude
         if: matrix.engine == 'claude-code'
         uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
         env:
@@ -124,6 +125,7 @@ jobs:
             --permission-mode bypassPermissions
 
       - name: Predict with Codex
+        id: predict_codex
         if: matrix.engine == 'codex'
         uses: openai/codex-action@10cb888d2ed3b99867f7e7ccff174a861a75aeb6 # v1
         env:
@@ -133,6 +135,8 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # Pin the session log to a known dir so the usage-capture step can read it.
+          CODEX_HOME: ${{ github.workspace }}/.codex
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ matrix.prompt }}
@@ -140,6 +144,36 @@ jobs:
           effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
+
+      # Record measured token usage + estimated cost next to the prediction so a
+      # maintainer can sum it into a real $/run (docs/budget.md). Best-effort: the
+      # engine logs are read here, never the agent's word, and a miss must not
+      # fail the prediction — hence continue-on-error.
+      - name: Capture model usage
+        if: steps.predict_claude.conclusion == 'success' || steps.predict_codex.conclusion == 'success'
+        continue-on-error: true
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          ENGINE: ${{ matrix.engine }}
+          MODEL: ${{ matrix.model }}
+          CLAUDE_EXECUTION_FILE: ${{ steps.predict_claude.outputs.execution_file }}
+          CODEX_HOME: ${{ github.workspace }}/.codex
+        run: |
+          args=(record-usage
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
+            --run-id "$RUN_ID" --engine "$ENGINE"
+            --role predictor --actor "$PREDICTOR_ID")
+          if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
+          if [ "$ENGINE" = "claude-code" ]; then
+            args+=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+          else
+            args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
+          fi
+          uv run fedcourts "${args[@]}"
 
       - name: Validate and open PR
         env:

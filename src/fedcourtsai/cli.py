@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -25,10 +25,18 @@ from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.seed import CourtListenerBulkSource, backfill, quarter_id
+from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import load_evaluators, load_predictors
-from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition
+from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition, Engine, ModelUsage, UsageRole
 from .serialize import write_json, write_raw_json
-from .store import cases_due_for_pull, iter_evaluations, open_events, resolved_events
+from .store import (
+    cases_due_for_pull,
+    iter_evaluations,
+    iter_usage,
+    open_events,
+    resolved_events,
+)
+from .usage import parse_claude_usage, parse_codex_usage
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -95,6 +103,149 @@ def leaderboard(
         f"leaderboard: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) -> {destination}"
     )
+
+
+def _resolve_token_counts(
+    explicit: TokenCounts,
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+) -> TokenCounts | None:
+    """Token counts from an engine log if given, else the explicit overrides.
+
+    Returns ``None`` when a log source was named but carried no usage — the
+    signal for the caller to skip writing rather than record false zeros.
+    """
+    if claude_execution_file is not None:
+        return parse_claude_usage(claude_execution_file)
+    if codex_sessions_dir is not None:
+        return parse_codex_usage(codex_sessions_dir)
+    return explicit
+
+
+@app.command("record-usage")
+def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex).")],
+    role: Annotated[UsageRole, typer.Option(help="predictor (predict) | evaluator (evaluate).")],
+    actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
+    model: Annotated[
+        str | None, typer.Option(help="Model run; defaults to the engine's default model.")
+    ] = None,
+    input_tokens: Annotated[int, typer.Option(help="Fresh input tokens (override).")] = 0,
+    output_tokens: Annotated[int, typer.Option(help="Output tokens (override).")] = 0,
+    cache_read_tokens: Annotated[int, typer.Option(help="Cached input tokens (override).")] = 0,
+    cache_creation_tokens: Annotated[int, typer.Option(help="Cache-write tokens (override).")] = 0,
+    claude_execution_file: Annotated[
+        Path | None, typer.Option(help="Claude Code execution_file JSON to read usage from.")
+    ] = None,
+    codex_sessions_dir: Annotated[
+        Path | None, typer.Option(help="Codex sessions dir (CODEX_HOME/sessions) to read usage.")
+    ] = None,
+    created_at: Annotated[
+        str, typer.Option(help="ISO timestamp; defaults to the run id's timestamp.")
+    ] = "",
+) -> None:
+    """Record one run's measured token usage and estimated cost to ``usage.json``.
+
+    Reads token counts from the engine's own log (``--claude-execution-file`` or
+    ``--codex-sessions-dir``) or from the explicit ``--*-tokens`` overrides,
+    applies the central rates in ``fedcourtsai.pricing`` (kept in sync with
+    ``docs/budget.md``), and writes the validated artifact next to the run's
+    prediction or evaluation output. Best-effort: exits non-zero without writing
+    if no usage can be determined, so a capture step can warn and move on rather
+    than fail the run or commit false zeros.
+    """
+    settings = get_settings()
+    counts = _resolve_token_counts(
+        TokenCounts(input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens),
+        claude_execution_file,
+        codex_sessions_dir,
+    )
+    if counts is None or counts.total_tokens == 0:
+        typer.echo("No model usage found; nothing recorded.", err=True)
+        raise typer.Exit(code=3)
+
+    resolved_model = model or DEFAULT_MODELS.get(engine.value)
+    if resolved_model is None or resolved_model not in MODEL_RATES:
+        known = ", ".join(sorted(MODEL_RATES))
+        typer.echo(f"No rate for model '{resolved_model}'; known models: {known}", err=True)
+        raise typer.Exit(code=2)
+
+    if created_at:
+        when = datetime.fromisoformat(created_at)
+    else:
+        try:
+            when = ids.parse_run_id(run_id)
+        except ValueError as exc:
+            typer.echo(f"run-id '{run_id}' is not a timestamp; pass --created-at.", err=True)
+            raise typer.Exit(code=2) from exc
+
+    record = ModelUsage(
+        case_id=ids.case_id(court, docket),
+        event_id=event,
+        run_id=run_id,
+        role=role,
+        actor_id=actor,
+        engine=engine,
+        model=resolved_model,
+        created_at=when,
+        input_tokens=counts.input_tokens,
+        output_tokens=counts.output_tokens,
+        cache_read_input_tokens=counts.cache_read_input_tokens,
+        cache_creation_input_tokens=counts.cache_creation_input_tokens,
+        estimated_cost_usd=estimate_cost_usd(resolved_model, counts),
+    )
+    event_paths = CasePaths(settings.data_root, court, docket).event(event)
+    destination = (
+        event_paths.prediction_usage(actor, run_id)
+        if role == UsageRole.predictor
+        else event_paths.evaluation_usage(actor, run_id)
+    )
+    write_json(destination, record)
+    typer.echo(
+        f"usage: {actor} {counts.total_tokens} tok ~${record.estimated_cost_usd:.4f} "
+        f"-> {destination}"
+    )
+
+
+@app.command("usage-summary")
+def usage_summary() -> None:
+    """Sum recorded ``usage.json`` into an actual \\$/run, as JSON on stdout.
+
+    Aggregates every ``usage.json`` under ``data/`` — overall totals and a
+    per-actor (predictor/evaluator) breakdown with mean cost per run — so a
+    maintainer can replace the planning assumption in ``docs/budget.md`` with the
+    measured figure. Pure roll-up; persists nothing.
+    """
+    settings = get_settings()
+    records = iter_usage(settings.data_root)
+
+    def _agg(rows: list[ModelUsage]) -> dict[str, object]:
+        runs = len(rows)
+        cost = sum(r.estimated_cost_usd for r in rows)
+        return {
+            "runs": runs,
+            "input_tokens": sum(r.input_tokens for r in rows),
+            "output_tokens": sum(r.output_tokens for r in rows),
+            "cache_read_input_tokens": sum(r.cache_read_input_tokens for r in rows),
+            "cache_creation_input_tokens": sum(r.cache_creation_input_tokens for r in rows),
+            "estimated_cost_usd": round(cost, 6),
+            "mean_cost_usd_per_run": round(cost / runs, 6) if runs else 0.0,
+        }
+
+    by_actor: dict[str, list[ModelUsage]] = {}
+    for record in records:
+        by_actor.setdefault(record.actor_id, []).append(record)
+    summary = {
+        "overall": _agg(records),
+        "by_actor": {
+            actor: {"role": rows[0].role, **_agg(rows)} for actor, rows in sorted(by_actor.items())
+        },
+    }
+    typer.echo(json.dumps(summary, indent=2, sort_keys=True))
 
 
 @app.command("export-schemas")
