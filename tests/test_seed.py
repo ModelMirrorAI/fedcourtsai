@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 
@@ -12,10 +11,11 @@ from fedcourtsai.pipeline.seed import (
     CourtChunk,
     CourtListenerBulkSource,
     backfill,
-    is_bulk_file_url,
+    bulk_file_url,
+    discover_latest_snapshot,
     load_cursor,
     quarter_id,
-    resolve_latest_dockets,
+    resolve_dockets_source,
     save_cursor,
     sibling_bulk_url,
     snapshot_date,
@@ -230,8 +230,8 @@ def test_snapshot_date_maps_quarter_to_last_day() -> None:
 
 
 def test_snapshot_date_reads_iso_dated_snapshot_id() -> None:
-    # An auto-resolved id is the dockets file's publication date verbatim, the
-    # most accurate "complete as of" date for the discovery-frontier handoff.
+    # An auto-discovered id is the bulk file's publication date verbatim (the CI
+    # default), the most accurate "complete as of" date for the frontier handoff.
     assert snapshot_date("2026-03-31") == date(2026, 3, 31)
     assert snapshot_date("2025-12-02") == date(2025, 12, 2)
     assert snapshot_date("2026-13-01") is None  # not a real calendar date
@@ -253,6 +253,23 @@ def test_backfill_hands_off_snapshot_date_as_watermark(tmp_path: Path) -> None:
         # so the first forward pull searches from the snapshot, not from today.
         assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 6, 30)
         assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 6, 30)
+
+
+def test_backfill_hands_off_iso_snapshot_date_as_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # Auto-discovery yields an ISO snapshot id; the frontier handoff must work for
+    # it just as for a quarter label (else CI's default mode hands off nothing).
+    backfill(
+        FakeBulkSource("2026-03-31", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 3, 31)
+        assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 3, 31)
 
 
 def test_backfill_no_watermark_until_court_complete(tmp_path: Path) -> None:
@@ -529,6 +546,119 @@ def test_backfill_event_definition_is_idempotent(tmp_path: Path) -> None:
         assert corpus.event_count(conn) == 8
 
 
+# --- snapshot discovery --------------------------------------------------------
+
+_S3_NS = "http://s3.amazonaws.com/doc/2006-03-01/"
+
+
+def _s3_xml(
+    entries: list[tuple[str, int]], *, truncated: bool = False, next_token: str | None = None
+) -> str:
+    """Render an S3 ListObjectsV2 response, namespaced like the real bucket."""
+    items = "".join(f"<Contents><Key>{k}</Key><Size>{s}</Size></Contents>" for k, s in entries)
+    tok = f"<NextContinuationToken>{next_token}</NextContinuationToken>" if next_token else ""
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>'
+        f'<ListBucketResult xmlns="{_S3_NS}">'
+        f"<IsTruncated>{'true' if truncated else 'false'}</IsTruncated>"
+        f"{items}{tok}</ListBucketResult>"
+    )
+
+
+def _bucket(objects: list[tuple[str, int]]) -> httpx.Client:
+    """A client backed by an in-memory bucket; filters keys by the prefix param."""
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        prefix = request.url.params.get("prefix", "")
+        entries = [(k, s) for k, s in objects if k.startswith(prefix)]
+        return httpx.Response(200, text=_s3_xml(entries))
+
+    return httpx.Client(transport=httpx.MockTransport(handle))
+
+
+def test_discover_picks_newest_nonplaceholder() -> None:
+    snap = discover_latest_snapshot(
+        "https://host/bulk-data/",
+        client=_bucket(
+            [
+                ("bulk-data/dockets-2025-12-31.csv.bz2", 4_000_000),
+                ("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000),
+                ("bulk-data/dockets-2026-06-30.csv.bz2", 14),  # placeholder — skipped
+            ]
+        ),
+    )
+    assert snap == "2026-03-31"
+
+
+def test_discover_intersects_tables() -> None:
+    # opinion-clusters lags (no 2026-03-31), so the newest common date wins.
+    snap = discover_latest_snapshot(
+        "https://host/bulk-data/",
+        tables=("dockets", "opinion-clusters"),
+        client=_bucket(
+            [
+                ("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000),
+                ("bulk-data/dockets-2025-12-31.csv.bz2", 5_000_000),
+                ("bulk-data/opinion-clusters-2025-12-31.csv.bz2", 5_000_000),
+            ]
+        ),
+    )
+    assert snap == "2025-12-31"
+
+
+def test_discover_follows_pagination() -> None:
+    page1 = [("bulk-data/dockets-2025-12-31.csv.bz2", 5_000_000)]
+    page2 = [("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000)]
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("continuation-token"):
+            return httpx.Response(200, text=_s3_xml(page2))
+        return httpx.Response(200, text=_s3_xml(page1, truncated=True, next_token="TOKEN"))
+
+    client = httpx.Client(transport=httpx.MockTransport(handle))
+    assert discover_latest_snapshot("https://host/bulk-data/", client=client) == "2026-03-31"
+
+
+def test_discover_raises_when_nothing_published() -> None:
+    with pytest.raises(ValueError):
+        discover_latest_snapshot("https://host/bulk-data/", client=_bucket([]))
+
+
+def test_bulk_file_url_builds_table_path() -> None:
+    assert (
+        bulk_file_url("https://host/bulk-data/", "dockets", "2026-03-31")
+        == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
+    )
+
+
+def test_resolve_explicit_file_url_is_a_pin() -> None:
+    snap, url = resolve_dockets_source("https://host/bulk-data/dockets-2026-03-31.csv.bz2")
+    assert snap == "2026-03-31"
+    assert url == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
+
+
+def test_resolve_explicit_snapshot_overrides_filename() -> None:
+    snap, _ = resolve_dockets_source(
+        "https://host/bulk-data/dockets-2026-03-31.csv.bz2", snapshot="pinned"
+    )
+    assert snap == "pinned"
+
+
+def test_resolve_base_url_pin_skips_discovery() -> None:
+    # No client: a discovery attempt would hit the network, so the pin must short it.
+    snap, url = resolve_dockets_source("https://host/bulk-data/", snapshot="2026-03-31")
+    assert (snap, url) == ("2026-03-31", "https://host/bulk-data/dockets-2026-03-31.csv.bz2")
+
+
+def test_resolve_base_url_discovers_latest() -> None:
+    snap, url = resolve_dockets_source(
+        "https://host/bulk-data/",
+        client=_bucket([("bulk-data/dockets-2026-03-31.csv.bz2", 5_000_000)]),
+    )
+    assert snap == "2026-03-31"
+    assert url == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
+
+
 def test_max_cases_zero_is_a_noop(tmp_path: Path) -> None:
     cursor = tmp_path / "seed-progress.yaml"
     report = backfill(
@@ -540,83 +670,3 @@ def test_max_cases_zero_is_a_noop(tmp_path: Path) -> None:
     )
     assert report.loaded_this_run == 0
     assert report.complete is False
-
-
-# --- resolving the latest bulk file from a bucket prefix -----------------------
-
-_BUCKET = "https://com-courtlistener-storage.s3.us-west-2.amazonaws.com"
-
-
-def _s3_listing(keys: list[str], *, next_token: str | None = None) -> str:
-    """A minimal S3 ListObjectsV2 XML body for the given keys."""
-    contents = "".join(f"<Contents><Key>{k}</Key></Contents>" for k in keys)
-    truncated = "true" if next_token else "false"
-    token = f"<NextContinuationToken>{next_token}</NextContinuationToken>" if next_token else ""
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">'
-        f"<IsTruncated>{truncated}</IsTruncated>{token}{contents}</ListBucketResult>"
-    )
-
-
-def _mock_client(handle: Callable[[httpx.Request], httpx.Response]) -> httpx.Client:
-    return httpx.Client(transport=httpx.MockTransport(handle), follow_redirects=True)
-
-
-def test_is_bulk_file_url_distinguishes_file_from_prefix() -> None:
-    assert is_bulk_file_url(f"{_BUCKET}/bulk-data/dockets-2026-03-31.csv.bz2")
-    assert is_bulk_file_url("https://x/y/dockets.csv.gz")
-    assert is_bulk_file_url("https://x/y/export.csv")
-    assert not is_bulk_file_url(f"{_BUCKET}/bulk-data/")
-    assert not is_bulk_file_url(f"{_BUCKET}/bulk-data")
-
-
-def test_resolve_latest_dockets_picks_newest_by_date() -> None:
-    seen: dict[str, str] = {}
-
-    def handle(request: httpx.Request) -> httpx.Response:
-        seen.update(dict(request.url.params))
-        body = _s3_listing(
-            [
-                "bulk-data/dockets-2025-12-31.csv.bz2",
-                "bulk-data/dockets-2026-03-31.csv.bz2",  # newest
-                "bulk-data/dockets-2025-09-04.csv.bz2",
-                "bulk-data/opinion-clusters-2026-03-31.csv.bz2",  # not a dockets file
-            ]
-        )
-        return httpx.Response(200, text=body)
-
-    with _mock_client(handle) as client:
-        url, snapshot_id = resolve_latest_dockets(f"{_BUCKET}/bulk-data/", client=client)
-
-    assert url == f"{_BUCKET}/bulk-data/dockets-2026-03-31.csv.bz2"
-    assert snapshot_id == "2026-03-31"
-    # Listing is scoped to the dockets prefix so unrelated tables aren't paged in.
-    assert seen["prefix"] == "bulk-data/dockets-"
-    assert seen["list-type"] == "2"
-
-
-def test_resolve_latest_dockets_follows_pagination() -> None:
-    pages = {
-        None: _s3_listing(["bulk-data/dockets-2025-12-31.csv.bz2"], next_token="page2"),
-        "page2": _s3_listing(["bulk-data/dockets-2026-03-31.csv.bz2"]),
-    }
-
-    def handle(request: httpx.Request) -> httpx.Response:
-        token = request.url.params.get("continuation-token")
-        return httpx.Response(200, text=pages[token])
-
-    with _mock_client(handle) as client:
-        url, snapshot_id = resolve_latest_dockets(f"{_BUCKET}/bulk-data/", client=client)
-
-    # The newest key lives on the second page, so pagination must be followed.
-    assert snapshot_id == "2026-03-31"
-    assert url.endswith("dockets-2026-03-31.csv.bz2")
-
-
-def test_resolve_latest_dockets_raises_when_no_dockets_file() -> None:
-    def handle(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text=_s3_listing([]))
-
-    with _mock_client(handle) as client, pytest.raises(ValueError, match=r"No dockets-.*file"):
-        resolve_latest_dockets(f"{_BUCKET}/bulk-data/", client=client)
