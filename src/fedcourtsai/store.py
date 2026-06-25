@@ -13,6 +13,8 @@ import yaml
 
 from . import corpus
 from .paths import CasePaths
+from .schemas import Evaluation
+from .serialize import read_model
 
 
 def iter_tracked_cases(corpus_db_path: Path) -> list[tuple[str, int]]:
@@ -81,3 +83,18 @@ def resolved_events(data_root: Path, court_id: str, docket_id: int) -> list[str]
     if not events_dir.exists():
         return []
     return [outcome.parent.name for outcome in sorted(events_dir.glob("*/outcome.json"))]
+
+
+def iter_evaluations(data_root: Path) -> list[Evaluation]:
+    """Every ``evaluation.json`` in the derived ledger, in stable path order.
+
+    Walks ``data/cases/<court>/<docket>/events/<event>/evaluations/<evaluator>/
+    <predictor>/<run>/evaluation.json`` and validates each against the schema, so
+    the leaderboard aggregates only well-formed rows. Returns nothing if the
+    ledger does not exist yet (reading must not create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    pattern = "*/*/events/*/evaluations/*/*/*/evaluation.json"
+    return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
