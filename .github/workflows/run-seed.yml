@@ -1,9 +1,10 @@
 name: run-seed
 
 # Triggered by `run:seed`. Deterministically pulls a docket from CourtListener
-# (`fedcourts seed`), then runs Claude Code to define the predictable event.yaml
-# file(s) from the seeded snapshot. The agent writes files only; the workflow
-# validates, commits to a branch, and opens one PR.
+# (`fedcourts seed`); the workflow validates, commits to a branch, and opens one
+# PR. No agent: per docs/data-pipeline.md seed is deterministic ingestion of raw
+# facts only. Predictable-event definition is a separate, corpus-driven stage on
+# the forward/pull path (the "Discover" job, #8) — not seed's job.
 on:
   issues:
     types: [labeled]
@@ -74,23 +75,6 @@ jobs:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
         run: uv run fedcourts seed --court "$COURT_ID" --docket "$DOCKET_ID"
 
-      - name: Define events with Claude Code
-        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
-        env:
-          COURT_ID: ${{ env.COURT_ID }}
-          DOCKET_ID: ${{ env.DOCKET_ID }}
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            Read .github/prompts/seed.md and AGENTS.md, then define the predictable
-            events for the just-seeded docket in the COURT_ID/DOCKET_ID environment
-            variables. Write ONLY event.yaml files; do not commit, push, or open a
-            PR — the workflow handles git.
-          claude_args: |
-            --model claude-opus-4-8
-            --max-turns 120
-            --permission-mode bypassPermissions
-
       - name: Validate and open PR
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -110,4 +94,4 @@ jobs:
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
             --title "seed: ${COURT_ID}/${DOCKET_ID}" \
-            --body "Seeded docket \`${COURT_ID}/${DOCKET_ID}\` from CourtListener and defined its predictable events."
+            --body "Seeded docket \`${COURT_ID}/${DOCKET_ID}\` from CourtListener (raw facts only; predictable events are defined later on the forward/pull path)."

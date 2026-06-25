@@ -23,7 +23,7 @@ trigger the next stage. Several stages delegate to agentic coding tools
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
-| `run:seed`     | `run-seed`      | Pull initial dockets from CourtListener and start tracking them      | Script + Claude Code |
+| `run:seed`     | `run-seed`      | Pull initial dockets from CourtListener and start tracking them      | Script |
 | `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script (agent only if ambiguous) |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex |
