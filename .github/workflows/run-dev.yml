@@ -31,6 +31,12 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
+          # Lets the dev agent push edits under .github/workflows/ itself. Without
+          # this the App token is rejected by GitHub on any workflow-file change,
+          # so such edits have to be hand-applied by a maintainer (see #56, #59).
+          # NOTE: requires the GitHub App installation to also hold the "Workflows"
+          # write permission; this mint can only narrow what the App already has.
+          permission-workflows: write
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
