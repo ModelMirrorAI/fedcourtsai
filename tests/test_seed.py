@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.pipeline.ingest import from_bulk_row
 from fedcourtsai.pipeline.seed import (
     BulkSource,
     CourtChunk,
@@ -16,8 +17,10 @@ from fedcourtsai.pipeline.seed import (
     quarter_id,
     resolve_dockets_source,
     save_cursor,
+    sibling_bulk_url,
+    snapshot_date,
 )
-from fedcourtsai.schemas import CourtProgress, SeedProgress
+from fedcourtsai.schemas import CourtProgress, Disposition, SeedProgress
 
 
 def _row(court: str, docket: int) -> dict[str, str]:
@@ -217,33 +220,306 @@ def test_quarter_id() -> None:
     assert quarter_id(date(2026, 12, 31)) == "2026-Q4"
 
 
-def test_courtlistener_bulk_source_filters_skips_and_ends(tmp_path: Path) -> None:
-    csv_path = tmp_path / "dockets.csv"
-    csv_path.write_text(
+def test_snapshot_date_maps_quarter_to_last_day() -> None:
+    assert snapshot_date("2026-Q1") == date(2026, 3, 31)
+    assert snapshot_date("2026-Q2") == date(2026, 6, 30)
+    assert snapshot_date("2026-Q3") == date(2026, 9, 30)
+    assert snapshot_date("2026-Q4") == date(2026, 12, 31)
+    # A non-quarter id yields no frontier (seed then hands nothing off).
+    assert snapshot_date("2026-03-31") is None
+    assert snapshot_date("not-a-quarter") is None
+
+
+def test_backfill_hands_off_snapshot_date_as_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # Complete both courts' backfill in one run.
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        # Each completed court's discovery watermark is the snapshot's as-of date,
+        # so the first forward pull searches from the snapshot, not from today.
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 6, 30)
+        assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 6, 30)
+
+
+def test_backfill_no_watermark_until_court_complete(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # Budget stops mid-ca1 (4 of 5 rows), so neither court is complete this run.
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=4,
+    )
+    with corpus.connect(db) as conn:
+        # No frontier handed off until a court's backfill is "complete as of" it.
+        assert corpus.get_discovery_watermark(conn, "ca1") is None
+        assert corpus.get_discovery_watermark(conn, "ca2") is None
+
+
+def test_seed_does_not_lower_a_later_forward_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # A forward pull has already advanced ca1 past the snapshot date.
+    with corpus.connect(db) as conn:
+        corpus.set_discovery_watermark(conn, "ca1", date(2026, 8, 1))
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 8, 1)  # not rewound
+        assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 6, 30)  # newly seeded
+
+
+def test_non_quarter_snapshot_hands_off_no_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    backfill(
+        FakeBulkSource("nightly-2026-06-25", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") is None
+        assert corpus.get_discovery_watermark(conn, "ca2") is None
+
+
+def test_bulk_source_stages_and_serves_court_chunks(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text(
         "id,court_id,docket_number\n"
         "1,ca9,9-1\n"
-        "2,ca1,1-1\n"  # different court — filtered out
+        "2,ca1,1-1\n"  # untracked court — filtered out of staging
         "3,ca9,9-2\n"
         "4,ca9,9-3\n"
     )
-    source = CourtListenerBulkSource("2026-Q2", url="dockets.csv", cache_path=csv_path)
+    source = CourtListenerBulkSource(
+        "2026-Q2", dockets_url="dockets.csv", courts=["ca9"], dockets_cache=dockets
+    )
+    try:
+        first = source.fetch_court_chunk("ca9", offset=0, limit=2)
+        assert [r["id"] for r in first.rows] == ["1", "3"]  # ca1 row skipped
+        assert first.reached_end is False
+        assert first.total == 3  # staging knows the per-court count cheaply
 
-    first = source.fetch_court_chunk("ca9", offset=0, limit=2)
-    assert [r["id"] for r in first.rows] == ["1", "3"]  # ca1 row skipped
-    assert first.reached_end is False
+        rest = source.fetch_court_chunk("ca9", offset=2, limit=2)
+        assert [r["id"] for r in rest.rows] == ["4"]
+        assert rest.reached_end is True
+        assert rest.total == 3
+    finally:
+        source.cleanup()
 
-    rest = source.fetch_court_chunk("ca9", offset=2, limit=2)
-    assert [r["id"] for r in rest.rows] == ["4"]
-    assert rest.reached_end is True
+
+def test_bulk_source_joins_opinion_cluster_fields(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id,docket_number\n1,ca9,9-1\n2,ca9,9-2\n")
+    clusters = tmp_path / "opinion-clusters.csv"
+    clusters.write_text(
+        "id,docket_id,disposition,summary,judges\n"
+        "10,1,Affirmed; motion granted,The panel affirmed.,Smith; Lee\n"
+        "999,9999,Reversed,unrelated,Doe\n"  # docket not tracked — ignored
+    )
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        clusters_url="opinion-clusters.csv",
+        dockets_cache=dockets,
+        clusters_cache=clusters,
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+
+    by_id = {r["id"]: r for r in chunk.rows}
+    assert by_id["1"]["disposition"] == "Affirmed; motion granted"
+    assert by_id["1"]["summary"] == "The panel affirmed."
+    assert by_id["1"]["judges"] == "Smith; Lee"
+    # No cluster for docket 2 → the joined fields stay blank (as today).
+    assert by_id["2"].get("disposition") is None
+
+    # The served row flows through the shared normalizer to fill the corpus fields.
+    row = from_bulk_row(by_id["1"])
+    assert row.disposition == Disposition.granted
+    assert row.summary == "The panel affirmed."
+    assert row.judges == ["Lee", "Smith"]  # split on ';', deduped, sorted
 
 
-def test_courtlistener_bulk_source_cleanup_only_owned(tmp_path: Path) -> None:
-    csv_path = tmp_path / "dockets.csv"
-    csv_path.write_text("id,court_id\n1,ca9\n")
-    source = CourtListenerBulkSource("2026-Q2", url="dockets.csv", cache_path=csv_path)
+def test_bulk_source_keeps_latest_cluster_per_docket(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id\n1,ca9\n")
+    clusters = tmp_path / "opinion-clusters.csv"
+    clusters.write_text(
+        "id,docket_id,disposition,summary,judges\n"
+        "5,1,Denied,old summary,A\n"
+        "8,1,Granted,new summary,B\n"  # higher cluster id — the later disposition wins
+    )
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        clusters_url="opinion-clusters.csv",
+        dockets_cache=dockets,
+        clusters_cache=clusters,
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+    assert chunk.rows[0]["disposition"] == "Granted"
+    assert chunk.rows[0]["summary"] == "new summary"
+
+
+def test_bulk_source_without_clusters_loads_spine_blank(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id,docket_number\n1,ca9,9-1\n")
+    source = CourtListenerBulkSource(
+        "2026-Q2", dockets_url="dockets.csv", courts=["ca9"], dockets_cache=dockets
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+    assert chunk.rows[0].get("disposition") is None  # no sibling to join
+
+
+def test_staging_is_reused_across_sources_for_same_snapshot(tmp_path: Path) -> None:
+    staging = tmp_path / "stage.db"
+    full = tmp_path / "full.csv"
+    full.write_text("id,court_id\n1,ca9\n2,ca9\n")
+    src1 = CourtListenerBulkSource(
+        "2026-Q2", dockets_url="full.csv", courts=["ca9"], staging_path=staging, dockets_cache=full
+    )
+    src1.fetch_court_chunk("ca9", offset=0, limit=10)
+    src1.cleanup()  # a caller-owned staging_path survives cleanup
+    assert staging.exists()
+
+    # A second source on the SAME snapshot reuses the staged DB and never reads the
+    # (now empty) source file it is pointed at.
+    empty = tmp_path / "empty.csv"
+    empty.write_text("id,court_id\n")
+    src2 = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="empty.csv",
+        courts=["ca9"],
+        staging_path=staging,
+        dockets_cache=empty,
+    )
+    try:
+        chunk = src2.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        src2.cleanup()
+    assert chunk.total == 2  # served from the reused staging, not the empty file
+
+
+def test_staging_rebuilds_on_snapshot_change(tmp_path: Path) -> None:
+    staging = tmp_path / "stage.db"
+    full = tmp_path / "full.csv"
+    full.write_text("id,court_id\n1,ca9\n2,ca9\n")
+    src1 = CourtListenerBulkSource(
+        "2026-Q2", dockets_url="full.csv", courts=["ca9"], staging_path=staging, dockets_cache=full
+    )
+    src1.fetch_court_chunk("ca9", offset=0, limit=10)
+    src1.cleanup()
+
+    # A newer snapshot supersedes the staged DB: it is rebuilt from the new file.
+    empty = tmp_path / "empty.csv"
+    empty.write_text("id,court_id\n")
+    src2 = CourtListenerBulkSource(
+        "2026-Q3",
+        dockets_url="empty.csv",
+        courts=["ca9"],
+        staging_path=staging,
+        dockets_cache=empty,
+    )
+    try:
+        chunk = src2.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        src2.cleanup()
+    assert chunk.total == 0  # rebuilt empty for the new snapshot
+
+
+def test_bulk_source_cleanup_preserves_injected_files(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id\n1,ca9\n")
+    source = CourtListenerBulkSource(
+        "2026-Q2", dockets_url="dockets.csv", courts=["ca9"], dockets_cache=dockets
+    )
     source.fetch_court_chunk("ca9", offset=0, limit=1)
-    source.cleanup()  # did not download this cache, so it must survive
-    assert csv_path.exists()
+    source.cleanup()  # injected (not downloaded), so it must survive
+    assert dockets.exists()
+
+
+def test_sibling_bulk_url_derives_or_declines() -> None:
+    assert (
+        sibling_bulk_url("https://x/y/dockets-2026-03-31.csv.bz2", "opinion-clusters")
+        == "https://x/y/opinion-clusters-2026-03-31.csv.bz2"
+    )
+    assert (
+        sibling_bulk_url("https://x/dockets.csv.gz", "opinion-clusters")
+        == "https://x/opinion-clusters.csv.gz"
+    )
+    # A non-standard pinned URL has no derivable sibling.
+    assert sibling_bulk_url("https://x/custom-export.csv", "opinion-clusters") is None
+
+
+def test_backfill_defines_baseline_events(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    report = backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    # No bulk entries, so each docket gets exactly its baseline event and none is
+    # ambiguous — the historical backfill is now visible to prediction.
+    assert report.ambiguous == 0
+    with corpus.connect(db) as conn:
+        assert corpus.event_count(conn) == 8  # one per seeded docket (5 + 3)
+        events = corpus.events_for_case(conn, "ca1/0")
+        assert [(e.event_id, e.kind, e.resolved) for e in events] == [
+            ("evt-appeal-disposition", "appeal", False)
+        ]
+
+
+def test_backfill_event_definition_is_idempotent(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    backfill(
+        FakeBulkSource("2026-Q1", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    # A newer snapshot reloads every row from the top; events re-upsert in place
+    # rather than duplicating (the (case_id, event_id) primary key absorbs them).
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.event_count(conn) == 8
 
 
 # --- snapshot discovery --------------------------------------------------------

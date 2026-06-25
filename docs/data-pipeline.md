@@ -192,10 +192,23 @@ corpus shaped to support it.
   `.github/ISSUE_TEMPLATE/seed.yml`) plus a daily schedule.
 - **Each run** (deterministic, no agent, no API secret): read the committed
   **cursor** → process the next chunk of the bulk snapshot for the target courts
-  → write/append the DVC corpus → commit the corpus pointer + cursor bump directly
-  to the default branch (under the shared `corpus-write` lock — see Corpus-writer
-  coordination) → **comment progress on the tracking issue** (per-court % and
-  remaining).
+  → run the **event-definition stage** over each ingested docket so it carries its
+  predictable event(s) (see below) → write/append the DVC corpus → commit the
+  corpus pointer + cursor bump directly to the default branch (under the shared
+  `corpus-write` lock — see Corpus-writer coordination) → **comment progress on the
+  tracking issue** (per-court % and remaining).
+- **Multi-table staged join:** each fact a corpus row carries lives in a different
+  bulk file — the docket spine in `dockets`, the realized `disposition`, opinion
+  `summary`, and `judges` in `opinion-clusters` — and each file is sorted by its own
+  primary key, not the join key, so they cannot be co-iterated. The bulk source
+  resolves this in two phases behind the `BulkSource` seam, so the cursor, driver,
+  and report are unchanged. *Phase A* (heavy, only when the snapshot changes) streams
+  `dockets` filtered to the tracked courts into a local staging SQLite, then streams
+  `opinion-clusters` keeping only rows whose `docket_id` is in that set (latest
+  cluster per docket wins). *Phase B* (cheap, per run) serves each chunk as one
+  indexed `LEFT JOIN`, aliasing the cluster columns to the names the ingestion core
+  reads. Pointing the staging path at a cached location lets daily runs reuse the
+  staged DB instead of re-streaming the GB-scale files.
 - **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
   loaded per court, so "daily until complete" resumes cleanly and the backfill is
   rebuildable after a fresh clone.
@@ -231,7 +244,12 @@ corpus shaped to support it.
      with open events.
   2. **Discover** newly-filed cases since the last run (CourtListener search by
      court + `date_filed`) → onboard into the corpus as a tracked case and run the
-     **event-definition stage** to record its predictable event(s).
+     **event-definition stage** to record its predictable event(s). Each court is
+     searched from its **discovery watermark** (per-court tracking state in the
+     corpus): the newest `date_filed` onboarded so far, seeded by `seed` to the
+     bulk snapshot's date (see *Discovery frontier*). The watermark only moves
+     forward, so a run that finds nothing still records the date it searched from
+     and the next run resumes there — never resetting to the start default.
   3. **Detect resolution** of tracked open events → write `outcome.json` to the
      git ledger deterministically when the disposition is machine-readable, else
      open an agent reconcile issue to confirm. This is what feeds `run:evaluate`.
@@ -242,15 +260,24 @@ corpus shaped to support it.
 
 Defining the **predictable events** of a docket is its own stage, decoupled from
 ingestion (`fedcourtsai.pipeline.events`), so it runs once over an ingested docket
-regardless of how the case entered (bulk `seed` or forward `pull`). It is
-classification, not analysis: every event is pinned to a single docket entry with
-a closed `kind` enum (`motion` / `petition` / `appeal` / `order`), so the stage
-maps qualifying docket entries → event definitions (`kind`, `docket_entry_id`,
-`opened_at`, `description`) and writes them as corpus rows.
+regardless of how the case entered (bulk `seed` or forward `pull`). Both entry
+paths call the **same** `extract_events`, differing only in a normalization seam
+(`from_bulk_row` for seed's CSV rows, `from_api_docket` for pull's REST objects),
+so a seeded and a discovered docket yield identical event rows for the same input.
+It is classification, not analysis: every event is pinned to a single docket entry
+with a closed `kind` enum (`motion` / `petition` / `appeal` / `order`), so the
+stage maps qualifying docket entries → event definitions (`kind`,
+`docket_entry_id`, `opened_at`, `description`) and writes them as corpus rows.
 
 - **Baseline.** Every docket carries the one thing always worth predicting — the
   disposition of the appeal, or the petition at SCOTUS — even when no entries are
   machine-readable.
+- **Baseline-only when there are no entries.** Entry-pinned events
+  (`motion` / `petition` / `order`) are produced only where the source actually
+  carries the docket entries. Bulk seed rows often do not, so a seeded docket gets
+  its baseline event alone; a later forward `pull` refresh, which fetches the full
+  entries, enriches the case with the finer-grained events. The baseline always
+  stands so no seeded docket is left with nothing to predict.
 - **Predictable / unresolved** = the request entry has no *later disposing order
   referencing it* (citing its docket-entry number). When a disposing order does
   reference it, the event is recorded `resolved`; with no citation the stage does
@@ -261,9 +288,38 @@ maps qualifying docket entries → event definitions (`kind`, `docket_entry_id`,
   deterministic-first / agent-fallback split resolution detection uses. The
   default path runs no agent.
 
+## Discovery frontier — the seed → pull hand-off
+
+Forward discovery searches each court from a per-court **discovery watermark** held
+in the corpus (tracking state, never git `data/`). For the hand-off from the bulk
+backfill to the live frontier to be gap-free, three rules hold:
+
+- **Seed establishes the frontier.** A bulk snapshot is "complete as of" the day
+  CourtListener regenerated it (the last day of its quarter). So when a court's
+  backfill completes, `seed` seeds that court's discovery watermark to the
+  **snapshot's date** (derived from the quarter id, e.g. `2026-Q2` → `2026-06-30`).
+  The first forward `pull` then discovers everything filed **since the snapshot**,
+  not since today — closing the snapshot→today gap that would otherwise be onboarded
+  by nothing.
+- **The watermark only moves forward.** A write older than the stored value is
+  ignored, so a later forward watermark always wins over seed's hand-off, and a
+  re-run (or a quarterly reconciliation against the same snapshot) never rewinds it.
+- **A no-results run still advances it.** A discovery pass that finds no new dockets
+  records the date it searched from, so the next run resumes there instead of
+  resetting to the start default. (It advances only to a date already searched, so
+  it can never skip a real filing.) Without this a court that keeps finding nothing
+  would restart from "today" every run — a steady-state hole, not a one-time miss.
+
+A court should normally be **seeded** (or have `--since` passed to `discover`)
+before its first forward discovery, so its frontier is meaningful. The `today`
+default is only a last resort for a court with neither a watermark nor a completed
+seed; on its own it discovers nothing useful.
+
 ## Steady state
 
 Once backfill completes: history sits in the DVC corpus (refreshed quarterly from
-bulk); pull keeps the live frontier current daily within the API budget. The
-result is that, each day after pull runs, the tracked data is **complete as of
-that day**.
+bulk); pull keeps the live frontier current daily within the API budget. Because
+seed hands off the snapshot date as the initial discovery watermark, the first
+forward pull onboards everything filed since the snapshot, so there is no gap
+between the backfill and the live frontier. The result is that, each day after pull
+runs, the tracked data is **complete as of that day**.

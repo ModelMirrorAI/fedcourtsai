@@ -24,7 +24,12 @@ from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
-from .pipeline.seed import CourtListenerBulkSource, backfill, resolve_dockets_source, quarter_id
+from .pipeline.seed import (
+    CourtListenerBulkSource,
+    backfill,
+    resolve_dockets_source,
+    sibling_bulk_url,
+)
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition, Engine, ModelUsage, UsageRole
@@ -348,7 +353,17 @@ def seed_backfill(
         snapshot=settings.seed_snapshot,
         timeout=settings.request_timeout,
     )
-    source = CourtListenerBulkSource(snapshot_id, url=dockets_url, timeout=settings.request_timeout)
+    # The dockets file is the case spine; opinion-clusters (a sibling bulk file)
+    # enrich each row with disposition/summary/judges via the staged join. A
+    # non-standard pinned dockets URL has no derivable sibling, so the spine still
+    # loads and those fields stay blank.
+    source = CourtListenerBulkSource(
+        snapshot_id,
+        dockets_url=dockets_url,
+        courts=courts,
+        clusters_url=sibling_bulk_url(dockets_url, "opinion-clusters"),
+        timeout=settings.request_timeout,
+    )
     try:
         rep = backfill(
             source,
@@ -557,7 +572,10 @@ def discover(
         str,
         typer.Option(
             help="ISO date to start a never-discovered court from (default: today). "
-            "Courts with a stored watermark resume from it regardless."
+            "Courts with a stored watermark resume from it regardless. Normally a "
+            "court is seeded first (seed hands off the snapshot date as its initial "
+            "watermark), so pass --since only for a never-seeded court; the today "
+            "default is a last resort that discovers nothing useful on its own."
         ),
     ] = "",
     limit: Annotated[

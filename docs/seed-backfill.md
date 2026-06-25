@@ -37,11 +37,35 @@ fedcourts seed-backfill [--max-cases N] [--report PATH]
 3. For the next court(s) with remaining work: stream the bulk rows, skip those
    already consumed (per the cursor offset), take up to `max_cases`, normalize
    each through the shared ingestion core (`fedcourtsai.pipeline.ingest`, bulk-CSV
-   path → `CorpusRow`) and `corpus.upsert_rows` into `corpus/corpus.db`.
-4. Advance the cursor; write the report.
+   path → `CorpusRow`) and `corpus.upsert_rows` into `corpus/corpus.db`. A row's
+   facts span several bulk files (the docket spine in `dockets`; `disposition`,
+   `summary`, and `judges` in `opinion-clusters`), so the source stages them once
+   per snapshot into a local SQLite and serves each chunk as an indexed join — see
+   the staged-join note in [data-pipeline.md](data-pipeline.md) §Seed.
+4. Run the **event-definition stage** (`fedcourtsai.pipeline.events.extract_events`,
+   the same one forward discovery uses) over each ingested docket and
+   `corpus.upsert_events` the result, so every seeded docket carries at least its
+   **baseline** predictable event (the appeal/petition disposition). Bulk rows
+   rarely carry docket entries, so the richer entry-pinned events
+   (`motion` / `petition` / `order`) appear only where the bulk data includes the
+   entries; elsewhere the baseline stands and a later `pull` refresh enriches the
+   case. This is idempotent — re-loading a snapshot during a quarterly
+   reconciliation re-upserts the same events in place. An entry the classifier
+   cannot place is recorded (not guessed) for a later agent reconcile and surfaced
+   as a count on the report, never crashing the chunk.
+5. **Hand off the discovery frontier.** When a court's backfill completes, set its
+   **discovery watermark** (corpus tracking state) to the snapshot's date —
+   derived from the quarter id (`2026-Q2` → `2026-06-30`, the last day CourtListener
+   regenerated it). The first forward `pull` then discovers everything filed since
+   the snapshot, not since today, closing the snapshot→today gap. The watermark only
+   moves forward, so a later forward watermark always wins and a re-run never rewinds
+   it; a snapshot id that is not a quarter label hands off nothing. See
+   [data-pipeline.md](data-pipeline.md) §Discovery frontier.
+6. Advance the cursor; write the report.
 
-**Writes (only these two paths)**
+**Writes (only these two paths, plus corpus tracking state)**
 - `corpus/corpus.db` — the SQLite blob (DVC-managed; the workflow handles DVC).
+  Holds both the raw rows/events and the per-court discovery watermark above.
 - `config/seed-progress.yaml` — the bumped cursor.
 
 **Returns** — exit 0 on success; idempotent (re-running after completion loads 0).
