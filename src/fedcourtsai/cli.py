@@ -21,7 +21,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
-from .pipeline.pull import pull_case
+from .pipeline.pull import pull_case, pull_cases
 from .pipeline.seed import CourtListenerBulkSource, backfill, quarter_id
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition
@@ -349,9 +349,6 @@ def pull_all(
     pull_cfg = load_pull_config(settings.config_root)
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     db = corpus.corpus_db_path(settings.corpus_root)
-    predict_queue: list[dict[str, object]] = []
-    evaluate_queue: list[dict[str, object]] = []
-    reconcile_queue: list[dict[str, object]] = []
     with _client() as client:
         if pull_cfg.discover_new_filings:
             disc = discover_cases(
@@ -364,32 +361,13 @@ def pull_all(
             typer.echo(f"Discovered {disc.total} new case(s) before refresh")
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
-        for court, docket in due:
-            result = pull_case(client, db, settings.data_root, court, docket)
-            events = open_events(settings.data_root, court, docket)
-            if result.changed and events:
-                predict_queue.append({"court": court, "docket": docket, "events": events})
-            if result.resolved:
-                evaluate_queue.append({"court": court, "docket": docket, "events": result.resolved})
-            if result.reconcile:
-                reconcile_queue.append(
-                    {
-                        "court": court,
-                        "docket": docket,
-                        "events": [r.event_id for r in result.reconcile],
-                        "reason": result.reconcile[0].reason,
-                    }
-                )
-            typer.echo(
-                f"{result.case_id} changed={result.changed} open_events={len(events)} "
-                f"resolved={len(result.resolved)} reconcile={len(result.reconcile)}"
-            )
-    out.write_text(json.dumps(predict_queue) + "\n")
-    evaluate_out.write_text(json.dumps(evaluate_queue) + "\n")
-    reconcile_out.write_text(json.dumps(reconcile_queue) + "\n")
+        queues = pull_cases(client, db, settings.data_root, due)
+    out.write_text(json.dumps(queues.predict) + "\n")
+    evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
+    reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
     typer.echo(
-        f"Refreshed {len(due)}/{cap} case(s); queued {len(predict_queue)} predict, "
-        f"{len(evaluate_queue)} evaluate, {len(reconcile_queue)} reconcile."
+        f"Refreshed {len(due)}/{cap} case(s); queued {len(queues.predict)} predict, "
+        f"{len(queues.evaluate)} evaluate, {len(queues.reconcile)} reconcile."
     )
 
 

@@ -16,7 +16,8 @@ docket-entry change). Both ``seed`` and ``pull`` drive this function.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from .. import ids
 from ..courtlistener import CourtListenerClient
 from ..paths import CasePaths
 from ..serialize import write_raw_json
+from ..store import open_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .outcome import ReconcileRequest, resolve_case
 
@@ -82,3 +84,54 @@ def pull_case(
         resolved=sorted(resolution.outcomes),
         reconcile=list(resolution.reconciles),
     )
+
+
+@dataclass
+class PullQueues:
+    """The three downstream handoffs a ``pull-all`` run produces.
+
+    Each entry is a JSON-serializable mapping shaped exactly as the ``run-pull``
+    workflow consumes it (the ``jq`` fields in ``run-pull.yml``): ``predict`` and
+    ``evaluate`` entries carry ``court`` / ``docket`` / ``events``; ``reconcile``
+    adds the agent-facing ``reason``.
+    """
+
+    predict: list[dict[str, object]] = field(default_factory=list)
+    evaluate: list[dict[str, object]] = field(default_factory=list)
+    reconcile: list[dict[str, object]] = field(default_factory=list)
+
+
+def pull_cases(
+    client: CourtListenerClient,
+    corpus_db_path: Path,
+    data_root: Path,
+    due: Iterable[tuple[str, int]],
+) -> PullQueues:
+    """Refresh each due case and sort it into the predict / evaluate / reconcile queues.
+
+    The per-case half of ``pull-all``: for every ``(court, docket)`` the rotation
+    governor selected, refresh the docket (:func:`pull_case`, which also detects
+    resolution), then route the result — a *changed* case with open events to
+    ``predict``, a case that gained an ``outcome.json`` this run to ``evaluate``,
+    and a case that appears decided but could not be recorded deterministically to
+    ``reconcile``. Case selection (discovery + rotation) stays with the caller, so
+    this seam composes the same way the CLI's ``pull-all`` does.
+    """
+    queues = PullQueues()
+    for court, docket in due:
+        result = pull_case(client, corpus_db_path, data_root, court, docket)
+        events = open_events(data_root, court, docket)
+        if result.changed and events:
+            queues.predict.append({"court": court, "docket": docket, "events": events})
+        if result.resolved:
+            queues.evaluate.append({"court": court, "docket": docket, "events": result.resolved})
+        if result.reconcile:
+            queues.reconcile.append(
+                {
+                    "court": court,
+                    "docket": docket,
+                    "events": [r.event_id for r in result.reconcile],
+                    "reason": result.reconcile[0].reason,
+                }
+            )
+    return queues
