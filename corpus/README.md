@@ -31,20 +31,33 @@ Each row is a normalized, **labeled** record. It carries the realized
 `disposition`, so the corpus doubles as a back-testing set and a retrieval
 source.
 
-| Column          | Type            | Notes                                        |
-|-----------------|-----------------|----------------------------------------------|
-| `case_id`       | text (PK)       | `<court_id>/<docket_id>`                      |
-| `court`         | text            | CourtListener court id                        |
-| `docket_number` | text            |                                              |
-| `date_filed`    | date            |                                              |
-| `date_decided`  | date            |                                              |
-| `disposition`   | text            | realized outcome label; null while unresolved |
-| `judges`        | json array      | judge names                                  |
-| `topic`         | text            | nature of suit / subject-matter topic         |
-| `citations`     | json array      |                                              |
-| `opinion_text`  | text            | full opinion text                            |
-| `summary`       | text            | short form for retrieval                     |
-| `last_pulled`   | date            | tracking state: when `pull` last refreshed it |
+| Column                | Type            | Notes                                        |
+|-----------------------|-----------------|----------------------------------------------|
+| `case_id`             | text (PK)       | `<court_id>/<docket_id>`                      |
+| `court`               | text            | CourtListener court id                        |
+| `docket_number`       | text            |                                              |
+| `date_filed`          | date            |                                              |
+| `date_decided`        | date            |                                              |
+| `disposition`         | text            | realized outcome label; null while unresolved |
+| `judges`              | json array      | judge names (flat retrieval key)             |
+| `panel`               | json array      | structured panel: `{name, seniority}` per judge |
+| `parties`             | json array      | party names on the docket                     |
+| `attorneys`           | json array      | attorney names of record                      |
+| `topic`               | text            | nature of suit / subject-matter topic         |
+| `citations`           | json array      |                                              |
+| `citation_count`      | integer         | times the decision has been cited            |
+| `precedential_status` | text            | Published / Unpublished / Errata             |
+| `opinion_text`        | text            | full opinion text                            |
+| `summary`             | text            | short form for retrieval                     |
+| `last_pulled`         | date            | tracking state: when `pull` last refreshed it |
+
+`judges` and `panel` describe the same bench from different angles: `judges` is the
+flat name list retrieval matches on (overlap with a `PriorQuery`), while `panel`
+carries the structured detail — each judge's authoritative `name` and `seniority`,
+resolved against the `people-db-people` directory during the staged join. The
+multi-valued sibling facts (`panel`, `parties`, `attorneys`) come from bulk files
+joined on `docket_id`; see the staged join in
+[docs/data-pipeline.md](../docs/data-pipeline.md).
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
