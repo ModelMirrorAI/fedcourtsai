@@ -240,6 +240,50 @@ def test_courtlistener_bulk_source_cleanup_only_owned(tmp_path: Path) -> None:
     assert csv_path.exists()
 
 
+def test_backfill_defines_baseline_events(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    report = backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    # No bulk entries, so each docket gets exactly its baseline event and none is
+    # ambiguous — the historical backfill is now visible to prediction.
+    assert report.ambiguous == 0
+    with corpus.connect(db) as conn:
+        assert corpus.event_count(conn) == 8  # one per seeded docket (5 + 3)
+        events = corpus.events_for_case(conn, "ca1/0")
+        assert [(e.event_id, e.kind, e.resolved) for e in events] == [
+            ("evt-appeal-disposition", "appeal", False)
+        ]
+
+
+def test_backfill_event_definition_is_idempotent(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    backfill(
+        FakeBulkSource("2026-Q1", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    # A newer snapshot reloads every row from the top; events re-upsert in place
+    # rather than duplicating (the (case_id, event_id) primary key absorbs them).
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.event_count(conn) == 8
+
+
 def test_max_cases_zero_is_a_noop(tmp_path: Path) -> None:
     cursor = tmp_path / "seed-progress.yaml"
     report = backfill(

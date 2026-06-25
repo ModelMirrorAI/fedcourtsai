@@ -192,10 +192,11 @@ corpus shaped to support it.
   `.github/ISSUE_TEMPLATE/seed.yml`) plus a daily schedule.
 - **Each run** (deterministic, no agent, no API secret): read the committed
   **cursor** → process the next chunk of the bulk snapshot for the target courts
-  → write/append the DVC corpus → commit the corpus pointer + cursor bump directly
-  to the default branch (under the shared `corpus-write` lock — see Corpus-writer
-  coordination) → **comment progress on the tracking issue** (per-court % and
-  remaining).
+  → run the **event-definition stage** over each ingested docket so it carries its
+  predictable event(s) (see below) → write/append the DVC corpus → commit the
+  corpus pointer + cursor bump directly to the default branch (under the shared
+  `corpus-write` lock — see Corpus-writer coordination) → **comment progress on the
+  tracking issue** (per-court % and remaining).
 - **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
   loaded per court, so "daily until complete" resumes cleanly and the backfill is
   rebuildable after a fresh clone.
@@ -242,15 +243,24 @@ corpus shaped to support it.
 
 Defining the **predictable events** of a docket is its own stage, decoupled from
 ingestion (`fedcourtsai.pipeline.events`), so it runs once over an ingested docket
-regardless of how the case entered (bulk `seed` or forward `pull`). It is
-classification, not analysis: every event is pinned to a single docket entry with
-a closed `kind` enum (`motion` / `petition` / `appeal` / `order`), so the stage
-maps qualifying docket entries → event definitions (`kind`, `docket_entry_id`,
-`opened_at`, `description`) and writes them as corpus rows.
+regardless of how the case entered (bulk `seed` or forward `pull`). Both entry
+paths call the **same** `extract_events`, differing only in a normalization seam
+(`from_bulk_row` for seed's CSV rows, `from_api_docket` for pull's REST objects),
+so a seeded and a discovered docket yield identical event rows for the same input.
+It is classification, not analysis: every event is pinned to a single docket entry
+with a closed `kind` enum (`motion` / `petition` / `appeal` / `order`), so the
+stage maps qualifying docket entries → event definitions (`kind`,
+`docket_entry_id`, `opened_at`, `description`) and writes them as corpus rows.
 
 - **Baseline.** Every docket carries the one thing always worth predicting — the
   disposition of the appeal, or the petition at SCOTUS — even when no entries are
   machine-readable.
+- **Baseline-only when there are no entries.** Entry-pinned events
+  (`motion` / `petition` / `order`) are produced only where the source actually
+  carries the docket entries. Bulk seed rows often do not, so a seeded docket gets
+  its baseline event alone; a later forward `pull` refresh, which fetches the full
+  entries, enriches the case with the finer-grained events. The baseline always
+  stands so no seeded docket is left with nothing to predict.
 - **Predictable / unresolved** = the request entry has no *later disposing order
   referencing it* (citing its docket-entry number). When a disposing order does
   reference it, the event is recorded `resolved`; with no citation the stage does
