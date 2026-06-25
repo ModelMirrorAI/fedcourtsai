@@ -35,7 +35,18 @@ fedcourts seed-backfill [--max-cases N] [--report PATH]
    already consumed (per the cursor offset), take up to `max_cases`, normalize
    each through the shared ingestion core (`fedcourtsai.pipeline.ingest`, bulk-CSV
    path → `CorpusRow`) and `corpus.upsert_rows` into `corpus/corpus.db`.
-4. Advance the cursor; write the report.
+4. Run the **event-definition stage** (`fedcourtsai.pipeline.events.extract_events`,
+   the same one forward discovery uses) over each ingested docket and
+   `corpus.upsert_events` the result, so every seeded docket carries at least its
+   **baseline** predictable event (the appeal/petition disposition). Bulk rows
+   rarely carry docket entries, so the richer entry-pinned events
+   (`motion` / `petition` / `order`) appear only where the bulk data includes the
+   entries; elsewhere the baseline stands and a later `pull` refresh enriches the
+   case. This is idempotent — re-loading a snapshot during a quarterly
+   reconciliation re-upserts the same events in place. An entry the classifier
+   cannot place is recorded (not guessed) for a later agent reconcile and surfaced
+   as a count on the report, never crashing the chunk.
+5. Advance the cursor; write the report.
 
 **Writes (only these two paths)**
 - `corpus/corpus.db` — the SQLite blob (DVC-managed; the workflow handles DVC).
