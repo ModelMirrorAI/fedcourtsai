@@ -136,6 +136,44 @@ class Evaluation(_Strict):
     notes_doc: str = "evaluation.md"
 
 
+class LeaderboardEntry(_Strict):
+    """One predictor's standings, aggregated across the evaluations ledger."""
+
+    predictor_id: str
+    rank: int = Field(ge=1, description="1-based standing; 1 is best")
+    events_scored: int = Field(ge=0, description="Distinct (case, event) pairs scored")
+    evaluations: int = Field(ge=0, description="Total evaluations counted for this predictor")
+    evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
+    accuracy: float = Field(ge=0.0, le=1.0, description="Mean correctness across evaluations")
+    mean_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean Brier score where reported (lower is better)",
+    )
+    mean_vote_accuracy: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
+    )
+    mean_reasoning_quality: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Mean evaluator reasoning-quality score"
+    )
+
+
+class Leaderboard(_Strict):
+    """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
+
+    A deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:
+    one entry per predictor, ranked best-first. Computed by ``fedcourts
+    leaderboard``; carries no timestamp so the same ledger always serializes
+    identically.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    predictors_ranked: int = Field(ge=0, description="Number of predictors on the board")
+    evaluations_total: int = Field(ge=0, description="Total evaluations aggregated")
+    entries: list[LeaderboardEntry] = Field(default_factory=list)
+
+
 class CourtProgress(_Strict):
     """Per-court entry in the seed cursor — how far the backfill has loaded."""
 
@@ -201,6 +239,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "outcome.json": Outcome,
     "evaluation.json": Evaluation,
     "seed-progress.yaml": SeedProgress,
+    "leaderboard.json": Leaderboard,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -212,4 +251,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "predictor_config": PredictorConfig,
     "evaluator_config": EvaluatorConfig,
     "seed_progress": SeedProgress,
+    "leaderboard": Leaderboard,
 }
