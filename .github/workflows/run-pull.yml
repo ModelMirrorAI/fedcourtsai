@@ -22,8 +22,11 @@ on:
 
 permissions: {}
 
+# Shared with run-seed: both workflows write the single corpus.db pointer, so they
+# run under ONE lock to serialize corpus writers and prevent lost updates (#42).
+# cancel-in-progress is false so a queued run waits rather than being dropped.
 concurrency:
-  group: run-pull
+  group: corpus-write
   cancel-in-progress: false
 
 jobs:
@@ -102,6 +105,7 @@ jobs:
 
       - name: Commit snapshots and corpus pointer to main
         run: |
+          set -euo pipefail
           git config user.name "fedcourts-bot"
           git config user.email "bot@users.noreply.github.com"
           # Raw facts go straight to main: dated docket snapshots under data/ and
@@ -109,10 +113,23 @@ jobs:
           git add data/ corpus/corpus.db.dvc
           if git diff --cached --quiet; then
             echo "No docket or corpus changes to commit."
-          else
-            git commit -m "pull: refresh docket snapshots + corpus ($(date -u +%Y-%m-%d))"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+            exit 0
           fi
+          git commit -m "pull: refresh docket snapshots + corpus ($(date -u +%Y-%m-%d))"
+          # The default branch may have advanced since checkout (e.g. a run:predict
+          # / run:evaluate PR merged). The corpus-write lock keeps the other corpus
+          # writer out, so the pointer never conflicts; rebase our commit onto the
+          # latest tip and retry so the push is always a fast-forward.
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "::warning::push rejected (default branch advanced); retry ${attempt}"
+            sleep 3
+          done
+          echo "::error::could not push refreshed snapshots after 3 attempts"
+          exit 1
 
       - name: Open run:predict issues for changed cases
         env:

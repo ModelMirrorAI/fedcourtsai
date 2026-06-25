@@ -94,8 +94,11 @@ Per-run order:
 3. `fedcourts seed-backfill --report seed-report.json` — mutate the blob + cursor.
 4. `dvc add corpus/corpus.db` — refresh the `corpus/corpus.db.dvc` pointer.
 5. `dvc push` — upload the new blob to S3.
-6. Commit **`corpus/corpus.db.dvc` + `config/seed-progress.yaml`** to a branch and
-   open one PR (pointer + cursor only; the blob never enters git).
+6. Commit **`corpus/corpus.db.dvc` + `config/seed-progress.yaml`** directly to the
+   default branch (pointer + cursor only; the blob never enters git). Seed and pull
+   share the `corpus-write` concurrency lock and both commit straight to the default
+   branch, so each run builds on the latest pointer — see the corpus-writer
+   coordination model in [data-pipeline.md](data-pipeline.md).
 7. Comment progress on the tracking issue from `seed-report.json`.
 
 ## 4. Triggers & the tracking issue (workflow, local)
@@ -105,7 +108,7 @@ on:
   schedule:    [{ cron: "23 6 * * *" }]   # daily, staggered from run-pull (07:17)
   workflow_dispatch:
   issues:      { types: [labeled] }        # gate: label.name == 'run:seed'
-concurrency: { group: run-seed, cancel-in-progress: false }
+concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with run-pull
 ```
 
 - **One** long-lived `run:seed` **tracking issue** is open at a time (opened from
@@ -115,9 +118,9 @@ concurrency: { group: run-seed, cancel-in-progress: false }
   `gh issue list --label run:seed --state open --json number --jq '.[0].number'`.
   Comment each run; on `complete: true` post a final summary (a maintainer closes
   it). Convention: never more than one open `run:seed` issue.
-- Job permissions: `contents: write` (commit pointer+cursor, push branch),
-  `pull-requests: write` (PR), `issues: write` (comment), `id-token: write` (AWS
-  OIDC for DVC). App token minted with contents/PR/issues write.
+- Job permissions: `contents: write` (commit pointer+cursor to the default branch),
+  `issues: write` (comment), `id-token: write` (AWS OIDC for DVC). App token minted
+  with contents/issues write.
 
 ## Build order
 
