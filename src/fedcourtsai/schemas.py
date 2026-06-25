@@ -159,6 +159,16 @@ class SeedProgress(_Strict):
         default=None, description="Bulk snapshot id currently being loaded, e.g. `2026-Q2`"
     )
     courts: dict[str, CourtProgress] = Field(default_factory=dict)
+    completed: bool = Field(
+        default=False,
+        description=(
+            "Human sign-off that this snapshot's backfill is finished. The backfill "
+            "never sets it; run-seed opens a completion PR that flips it true, and "
+            "merging that PR (which closes the tracking issue) is the acknowledgement. "
+            "Distinct from the per-court `complete` flags, which the backfill sets "
+            "automatically as each court's stream is exhausted."
+        ),
+    )
 
 
 class PredictorConfig(_Strict):

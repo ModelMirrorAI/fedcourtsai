@@ -48,7 +48,7 @@ cadence:
 | Source          | bulk S3 CSV                             | REST API                          |
 | Lifecycle       | finite — runs daily **until complete**  | perpetual — runs daily forever    |
 | Budget          | ~0 API                                  | owns the 125/day budget           |
-| Reporting       | comments on a `run:seed` tracking issue | headless cron                     |
+| Reporting       | long-lived `run:seed` issue, closed by a completion PR | short-lived `pull-run` issue per run |
 | Steady state    | drops to **quarterly** reconciliation   | stays **daily**                   |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a normalization
@@ -199,8 +199,13 @@ corpus shaped to support it.
 - **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
   loaded per court, so "daily until complete" resumes cleanly and the backfill is
   rebuildable after a fresh clone.
-- **Completion:** when the cursor is complete the issue can close; the workflow
-  then no-ops until the next quarterly bulk snapshot and performs a
+- **Completion:** on the run that exhausts every court, the workflow opens a
+  one-time **completion PR** that flips the cursor's `completed` sign-off flag.
+  Merging that PR is the maintainer's acknowledgement and **closes the tracking
+  issue** (`Closes #…`); the PR carries no corpus (the blob already streamed to the
+  default branch chunk-by-chunk, so parking it on a branch would reintroduce the
+  lost-update the `corpus-write` lock removed). Afterwards the workflow no-ops until
+  the next quarterly bulk snapshot, which resets `completed` and starts a
   **reconciliation** pass.
 
 ## Pull — forward freshness
@@ -208,6 +213,10 @@ corpus shaped to support it.
 - **Trigger:** daily cron (staggered from other jobs), `workflow_dispatch`, or a
   `run:pull` issue for on-demand/reconcile work (see
   `.github/ISSUE_TEMPLATE/pull.yml`).
+- **Per-run tracking:** each run opens a short-lived `pull-run` issue at the start,
+  posts a summary (handoffs opened, whether snapshots were committed), and closes it
+  on success — left open as a record if the run fails. The `pull-run` label is
+  deliberately distinct from `run:pull` so the tracking issue never re-fires pull.
 - **Budget governor:** a per-run cap (~15 dockets ≈ 45 requests, under the 50/hr
   ceiling) with **oldest-`last_pulled`-first rotation** and **skip closed/resolved**
   cases. As the active set grows past one run's capacity, each case is simply

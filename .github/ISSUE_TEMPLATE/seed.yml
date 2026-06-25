@@ -11,7 +11,9 @@ body:
         **bulk data** (it does *not* spend the REST API budget), runs daily until
         the backlog is complete, comments progress here after each chunk, and
         commits each chunk's corpus pointer + cursor straight to the default
-        branch. **Keep this issue open until the backfill is complete.** See
+        branch. When every court is loaded, the workflow opens a **completion PR**
+        that flips the cursor's `completed` flag; **merging that PR closes this
+        issue** — no need to close it by hand. See
         [docs/data-pipeline.md](../blob/main/docs/data-pipeline.md).
   - type: input
     id: bulk_snapshot

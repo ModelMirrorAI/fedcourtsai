@@ -11,8 +11,11 @@ name: run-pull
 # a `run:predict` issue for each changed case with open events, a `run:evaluate`
 # issue for each case that gained an outcome, and a `run:pull` reconcile issue for
 # each case that appears decided but whose outcome an agent must confirm by hand.
-# All git/issue writes use the GitHub App token so the resulting issues/commits
-# trigger downstream workflows.
+# Each run opens a short-lived `pull-run` tracking issue at the start, posts a
+# summary to it, and closes it when the run finishes successfully (left open as a
+# record if the run fails). All git/issue writes use the GitHub App token so the
+# resulting issues/commits trigger downstream workflows; the `pull-run` label is
+# deliberately distinct from run:pull so the tracking issue does not re-fire pull.
 on:
   schedule:
     - cron: "17 7 * * *"
@@ -47,6 +50,26 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
           permission-issues: write
+
+      - name: Open the daily run issue
+        id: run-issue
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # `pull-run` is a NON-triggering label by design: labeling an issue with
+          # run:pull would re-fire this workflow (issues: labeled) in a loop. Create
+          # it idempotently so a fresh repo's first run does not fail on a missing label.
+          gh label create pull-run --repo "$REPO" --force \
+            --color 1d76db --description "Daily run-pull refresh log (open while a run is in flight)"
+          today=$(date -u +%Y-%m-%d)
+          url=$(gh issue create --repo "$REPO" \
+            --title "pull: daily refresh — ${today}" \
+            --label pull-run \
+            --body "Daily \`run-pull\` refresh in progress. A summary is posted here and this issue is closed when the run finishes successfully; it is left open as a record if the run fails.")
+          echo "number=${url##*/}" >> "$GITHUB_OUTPUT"
+          echo "Opened pull-run issue: ${url}"
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         # Persist the App token so refreshed snapshots can be pushed back to main;
@@ -104,6 +127,7 @@ jobs:
           uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
 
       - name: Commit snapshots and corpus pointer to main
+        id: commit
         run: |
           set -euo pipefail
           git config user.name "fedcourts-bot"
@@ -113,6 +137,7 @@ jobs:
           git add data/ corpus/corpus.db.dvc
           if git diff --cached --quiet; then
             echo "No docket or corpus changes to commit."
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "pull: refresh docket snapshots + corpus ($(date -u +%Y-%m-%d))"
@@ -123,6 +148,7 @@ jobs:
           for attempt in 1 2 3; do
             git pull --rebase origin "${GITHUB_REF_NAME}"
             if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "committed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "::warning::push rejected (default branch advanced); retry ${attempt}"
@@ -199,3 +225,25 @@ jobs:
               --body "$body" \
               --label "run:pull"
           done
+
+      - name: Summarize and close the daily run issue
+        if: success() && steps.run-issue.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ steps.run-issue.outputs.number }}
+          COMMITTED: ${{ steps.commit.outputs.committed }}
+        run: |
+          set -euo pipefail
+          predict=$(jq 'length' predict-queue.json)
+          evaluate=$(jq 'length' evaluate-queue.json)
+          reconcile=$(jq 'length' reconcile-queue.json)
+          if [ "${COMMITTED:-false}" = "true" ]; then
+            snap="Committed refreshed docket snapshots + corpus pointer to the default branch."
+          else
+            snap="No docket or corpus changes this run."
+          fi
+          body=$(printf '### ✅ Daily pull refresh complete\n\n%s\n\nHandoffs this run:\n- run:predict issues opened: **%s**\n- run:evaluate issues opened: **%s**\n- ambiguous outcomes flagged for reconcile: **%s**\n' \
+            "$snap" "$predict" "$evaluate" "$reconcile")
+          gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
+          gh issue close "$ISSUE" --repo "$REPO" --reason completed

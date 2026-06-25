@@ -170,6 +170,37 @@ def test_cursor_roundtrips(tmp_path: Path) -> None:
     assert load_cursor(cursor) == progress
 
 
+def test_completed_is_the_human_gate_not_machine_state(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # Even once every court's stream is exhausted, the backfill leaves `completed`
+    # false: it is the maintainer's sign-off (flipped by the run-seed completion
+    # PR), never set automatically — see SeedProgress.completed.
+    report = backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    assert report.complete is True
+    assert load_cursor(cursor).completed is False
+
+    # A maintainer acknowledges by merging the PR; a fresh snapshot supersedes the
+    # cursor, so the acknowledgement must reset — the new backfill is not done.
+    acknowledged = load_cursor(cursor)
+    acknowledged.completed = True
+    save_cursor(cursor, acknowledged)
+    backfill(
+        FakeBulkSource("2026-Q3", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=2,
+    )
+    assert load_cursor(cursor).completed is False
+
+
 def test_load_cursor_missing_is_fresh(tmp_path: Path) -> None:
     assert load_cursor(tmp_path / "absent.yaml") == SeedProgress()
 
