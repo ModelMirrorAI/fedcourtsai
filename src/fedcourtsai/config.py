@@ -22,9 +22,10 @@ class Settings(BaseSettings):
     metrics_root: Path = Path("metrics")
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
-    # Seed reads CourtListener's *public bulk-data* CSV (no API token). The exact
-    # snapshot file URL and its id are injected from the runner env when the
-    # backfill workflow wires in real data; absent, `seed-backfill` no-ops.
+    # Seed reads CourtListener's *public bulk-data* CSV (no API token). May be the
+    # bulk-data *directory* (e.g. `.../bulk-data/`) — seed then resolves the latest
+    # `dockets-YYYY-MM-DD` file and follows new snapshots automatically — or a
+    # pinned file URL. Injected from the runner env; absent, `seed-backfill` no-ops.
     courtlistener_bulk_url: str | None = None
     seed_snapshot: str | None = None
     request_timeout: float = 30.0

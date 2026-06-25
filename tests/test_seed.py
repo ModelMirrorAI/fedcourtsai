@@ -1,5 +1,9 @@
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+
+import httpx
+import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.ingest import from_bulk_row
@@ -8,8 +12,10 @@ from fedcourtsai.pipeline.seed import (
     CourtChunk,
     CourtListenerBulkSource,
     backfill,
+    is_bulk_file_url,
     load_cursor,
     quarter_id,
+    resolve_latest_dockets,
     save_cursor,
     sibling_bulk_url,
     snapshot_date,
@@ -219,9 +225,16 @@ def test_snapshot_date_maps_quarter_to_last_day() -> None:
     assert snapshot_date("2026-Q2") == date(2026, 6, 30)
     assert snapshot_date("2026-Q3") == date(2026, 9, 30)
     assert snapshot_date("2026-Q4") == date(2026, 12, 31)
-    # A non-quarter id yields no frontier (seed then hands nothing off).
-    assert snapshot_date("2026-03-31") is None
+    # A non-quarter, non-date id yields no frontier (seed hands nothing off).
     assert snapshot_date("not-a-quarter") is None
+
+
+def test_snapshot_date_reads_iso_dated_snapshot_id() -> None:
+    # An auto-resolved id is the dockets file's publication date verbatim, the
+    # most accurate "complete as of" date for the discovery-frontier handoff.
+    assert snapshot_date("2026-03-31") == date(2026, 3, 31)
+    assert snapshot_date("2025-12-02") == date(2025, 12, 2)
+    assert snapshot_date("2026-13-01") is None  # not a real calendar date
 
 
 def test_backfill_hands_off_snapshot_date_as_watermark(tmp_path: Path) -> None:
@@ -527,3 +540,83 @@ def test_max_cases_zero_is_a_noop(tmp_path: Path) -> None:
     )
     assert report.loaded_this_run == 0
     assert report.complete is False
+
+
+# --- resolving the latest bulk file from a bucket prefix -----------------------
+
+_BUCKET = "https://com-courtlistener-storage.s3.us-west-2.amazonaws.com"
+
+
+def _s3_listing(keys: list[str], *, next_token: str | None = None) -> str:
+    """A minimal S3 ListObjectsV2 XML body for the given keys."""
+    contents = "".join(f"<Contents><Key>{k}</Key></Contents>" for k in keys)
+    truncated = "true" if next_token else "false"
+    token = f"<NextContinuationToken>{next_token}</NextContinuationToken>" if next_token else ""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">'
+        f"<IsTruncated>{truncated}</IsTruncated>{token}{contents}</ListBucketResult>"
+    )
+
+
+def _mock_client(handle: Callable[[httpx.Request], httpx.Response]) -> httpx.Client:
+    return httpx.Client(transport=httpx.MockTransport(handle), follow_redirects=True)
+
+
+def test_is_bulk_file_url_distinguishes_file_from_prefix() -> None:
+    assert is_bulk_file_url(f"{_BUCKET}/bulk-data/dockets-2026-03-31.csv.bz2")
+    assert is_bulk_file_url("https://x/y/dockets.csv.gz")
+    assert is_bulk_file_url("https://x/y/export.csv")
+    assert not is_bulk_file_url(f"{_BUCKET}/bulk-data/")
+    assert not is_bulk_file_url(f"{_BUCKET}/bulk-data")
+
+
+def test_resolve_latest_dockets_picks_newest_by_date() -> None:
+    seen: dict[str, str] = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params))
+        body = _s3_listing(
+            [
+                "bulk-data/dockets-2025-12-31.csv.bz2",
+                "bulk-data/dockets-2026-03-31.csv.bz2",  # newest
+                "bulk-data/dockets-2025-09-04.csv.bz2",
+                "bulk-data/opinion-clusters-2026-03-31.csv.bz2",  # not a dockets file
+            ]
+        )
+        return httpx.Response(200, text=body)
+
+    with _mock_client(handle) as client:
+        url, snapshot_id = resolve_latest_dockets(f"{_BUCKET}/bulk-data/", client=client)
+
+    assert url == f"{_BUCKET}/bulk-data/dockets-2026-03-31.csv.bz2"
+    assert snapshot_id == "2026-03-31"
+    # Listing is scoped to the dockets prefix so unrelated tables aren't paged in.
+    assert seen["prefix"] == "bulk-data/dockets-"
+    assert seen["list-type"] == "2"
+
+
+def test_resolve_latest_dockets_follows_pagination() -> None:
+    pages = {
+        None: _s3_listing(["bulk-data/dockets-2025-12-31.csv.bz2"], next_token="page2"),
+        "page2": _s3_listing(["bulk-data/dockets-2026-03-31.csv.bz2"]),
+    }
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        token = request.url.params.get("continuation-token")
+        return httpx.Response(200, text=pages[token])
+
+    with _mock_client(handle) as client:
+        url, snapshot_id = resolve_latest_dockets(f"{_BUCKET}/bulk-data/", client=client)
+
+    # The newest key lives on the second page, so pagination must be followed.
+    assert snapshot_id == "2026-03-31"
+    assert url.endswith("dockets-2026-03-31.csv.bz2")
+
+
+def test_resolve_latest_dockets_raises_when_no_dockets_file() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=_s3_listing([]))
+
+    with _mock_client(handle) as client, pytest.raises(ValueError, match=r"No dockets-.*file"):
+        resolve_latest_dockets(f"{_BUCKET}/bulk-data/", client=client)
