@@ -13,7 +13,7 @@ import yaml
 
 from . import corpus
 from .paths import CasePaths
-from .schemas import Evaluation
+from .schemas import Evaluation, ModelUsage
 from .serialize import read_model
 
 
@@ -98,3 +98,22 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
         return []
     pattern = "*/*/events/*/evaluations/*/*/*/evaluation.json"
     return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
+
+
+def iter_usage(data_root: Path) -> list[ModelUsage]:
+    """Every ``usage.json`` in the derived ledger, in stable path order.
+
+    Predict usage lives at ``predictions/<predictor>/<run>/usage.json`` and
+    evaluate usage at ``evaluations/<evaluator>/<run>/usage.json``; both are
+    matched and validated so a cost roll-up sees only well-formed rows. Returns
+    nothing if the ledger does not exist yet (reading must not create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    patterns = (
+        "*/*/events/*/predictions/*/*/usage.json",
+        "*/*/events/*/evaluations/*/*/usage.json",
+    )
+    paths = sorted(path for pattern in patterns for path in cases_dir.glob(pattern))
+    return [read_model(path, ModelUsage) for path in paths]

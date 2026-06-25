@@ -39,3 +39,15 @@ def run_id(now: datetime | None = None) -> str:
     """
     now = now or datetime.now(UTC)
     return now.strftime("%Y%m%dT%H%M%SZ")
+
+
+_RUN_ID_FMT = "%Y%m%dT%H%M%SZ"
+
+
+def parse_run_id(value: str) -> datetime:
+    """Inverse of :func:`run_id`: a UTC-aware datetime from a run-id timestamp.
+
+    Raises ``ValueError`` if ``value`` is not a ``YYYYMMDDThhmmssZ`` stamp, so
+    callers can fall back to an explicit timestamp.
+    """
+    return datetime.strptime(value, _RUN_ID_FMT).replace(tzinfo=UTC)
