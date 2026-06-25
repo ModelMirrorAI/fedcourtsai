@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "BacktestEntry": {
+      "additionalProperties": false,
+      "description": "One predictor's standings over the historical back-test set.",
+      "properties": {
+        "accuracy": {
+          "description": "Fraction whose predicted disposition matched the known label",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "events_scored": {
+          "description": "Resolved corpus events replayed for this predictor",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "granted_accuracy": {
+          "description": "Fraction whose binary granted/denied projection matched the outcome",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Granted Accuracy",
+          "type": "number"
+        },
+        "mean_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+          "title": "Mean Brier Score"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "rank": {
+          "description": "1-based standing; 1 is best",
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "rank",
+        "events_scored",
+        "accuracy",
+        "granted_accuracy"
+      ],
+      "title": "BacktestEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/backtest.json`` \u2014 predictors replayed against resolved corpus events.\n\nThe back-test harness hides each resolved event's ``disposition``, replays\nevery predictor against the remaining facts, and scores the prediction\nagainst the known label. Deterministic and offline \u2014 a pure function of the\ncorpus, with no clock or randomness \u2014 so the same corpus always serializes\nidentically. Computed by ``fedcourts backtest``; empty (zero counts) until a\ncorpus with outcome labels is present.",
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/BacktestEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "events_scored": {
+      "description": "Size of the resolved-event back-test set",
+      "minimum": 0,
+      "title": "Events Scored",
+      "type": "integer"
+    },
+    "predictors_evaluated": {
+      "description": "Number of predictors on the board",
+      "minimum": 0,
+      "title": "Predictors Evaluated",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "predictors_evaluated",
+    "events_scored"
+  ],
+  "title": "Backtest",
+  "type": "object"
+}
