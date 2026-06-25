@@ -34,7 +34,11 @@ fedcourts seed-backfill [--max-cases N] [--report PATH]
 3. For the next court(s) with remaining work: stream the bulk rows, skip those
    already consumed (per the cursor offset), take up to `max_cases`, normalize
    each through the shared ingestion core (`fedcourtsai.pipeline.ingest`, bulk-CSV
-   path → `CorpusRow`) and `corpus.upsert_rows` into `corpus/corpus.db`.
+   path → `CorpusRow`) and `corpus.upsert_rows` into `corpus/corpus.db`. A row's
+   facts span several bulk files (the docket spine in `dockets`; `disposition`,
+   `summary`, and `judges` in `opinion-clusters`), so the source stages them once
+   per snapshot into a local SQLite and serves each chunk as an indexed join — see
+   the staged-join note in [data-pipeline.md](data-pipeline.md) §Seed.
 4. Run the **event-definition stage** (`fedcourtsai.pipeline.events.extract_events`,
    the same one forward discovery uses) over each ingested docket and
    `corpus.upsert_events` the result, so every seeded docket carries at least its
