@@ -1,9 +1,10 @@
 # DVC pipeline file. The `leaderboard` stage rolls the git `data/` evaluations
-# ledger up into `metrics/leaderboard.json` so `dvc metrics show` / `dvc metrics
-# diff` track predictor standings across runs. `metrics/backtest.json` is still
-# produced out of band (the back-test harness lands separately) and is declared
-# as a bare metric until then. Both metric files are small and worth reading in a
-# diff, so they are git-tracked (not pushed to the remote like the corpus blob).
+# ledger up into `metrics/leaderboard.json`, and the `backtest` stage replays the
+# reference predictors over the resolved corpus into `metrics/backtest.json`, so
+# `dvc metrics show` / `dvc metrics diff` track both predictor standings and
+# historical back-test quality across runs. Both metric files are small and worth
+# reading in a diff, so they are git-tracked (not pushed to the remote like the
+# corpus blob).
 stages:
   leaderboard:
     cmd: uv run fedcourts leaderboard
@@ -15,5 +16,12 @@ stages:
       - metrics/leaderboard.json:
           cache: false
 
-metrics:
-  - metrics/backtest.json
+  backtest:
+    cmd: uv run fedcourts backtest
+    deps:
+      - corpus/corpus.db
+      - src/fedcourtsai/backtest.py
+      - src/fedcourtsai/corpus.py
+    metrics:
+      - metrics/backtest.json:
+          cache: false
