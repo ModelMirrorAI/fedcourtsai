@@ -9,7 +9,9 @@ a rotation that stops skipping resolved cases — would land silently in CI.
 
 This test wires them together against a single ``tmp_path`` corpus using the same
 in-memory fakes the unit suites use, and asserts the **composition** the units do
-not: that seeded rows are what ``pull`` later rotates over, that ``pull-all``
+not: that seed defines each docket's predictable event(s) in the shared corpus,
+that seeded rows are what ``pull`` later rotates over, that a seed-defined event
+is what a later resolution attaches an ``outcome.json`` to, that ``pull-all``
 emits the three queue payloads ``run-pull.yml`` consumes, that the
 deterministic-first / agent-fallback outcome split runs through the real
 ``pull`` + ``outcome`` code paths, and that oldest-first / skip-resolved rotation
@@ -72,15 +74,29 @@ def _docket(docket_id: int, court: str = "ca9", **kw: Any) -> dict[str, Any]:
     }
 
 
-def _open_event(data_root: Path, court: str, docket: int) -> None:
-    """Write an open ``event.yaml`` into the git ledger so outcome detection runs."""
-    event = PredictableEvent(
-        event_id=_EVENT_ID,
-        case_id=f"{court}/{docket}",
-        kind=EventKind.appeal,
-        title="Appeal disposition",
-    )
-    write_yaml(CasePaths(data_root, court, docket).event(_EVENT_ID).event_file, event)
+def _materialize_open_events(data_root: Path, db: Path, court: str, docket: int) -> list[str]:
+    """Project a seeded case's corpus events into the git ledger as open events.
+
+    Outcome detection reads ``event.yaml`` from the ledger, so this mirrors the
+    forward materialization step: it takes the predictable events *seed* recorded
+    in the corpus and writes the matching ``event.yaml`` files. Returns the event
+    ids written, proving the resolution below attaches to a seed-defined event
+    rather than a hand-authored one.
+    """
+    with corpus.connect(db) as conn:
+        events = corpus.events_for_case(conn, f"{court}/{docket}")
+    assert events, f"seed defined no events for {court}/{docket}"
+    for ev in events:
+        write_yaml(
+            CasePaths(data_root, court, docket).event(ev.event_id).event_file,
+            PredictableEvent(
+                event_id=ev.event_id,
+                case_id=ev.case_id,
+                kind=EventKind(ev.kind),
+                title=ev.title,
+            ),
+        )
+    return [ev.event_id for ev in events]
 
 
 def _seed_courts() -> dict[str, list[dict[str, str]]]:
@@ -109,6 +125,12 @@ def test_seed_fills_shared_corpus_without_signing_off(tmp_path: Path) -> None:
     assert final.complete is True
     with corpus.connect(db) as conn:
         assert corpus.count(conn) == 8  # both courts fully loaded into the shared corpus
+        # Seed defines events too: every seeded docket carries its baseline
+        # predictable event, so the historical backfill is visible to prediction.
+        assert corpus.event_count(conn) == 8
+        baseline = corpus.events_for_case(conn, "ca1/0")
+        assert [e.event_id for e in baseline] == [_EVENT_ID]
+        assert baseline[0].kind == EventKind.appeal and baseline[0].resolved is False
     # Completion is reported, but the maintainer sign-off flag (#47) is not flipped
     # automatically — only the completion PR sets it.
     assert load_cursor(cursor).completed is False
@@ -127,9 +149,11 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     seed = FakeBulkSource("2026-Q2", {"ca9": [_row("ca9", i) for i in (1, 2, 3)]})
     backfill(seed, cursor_path=cursor, courts=["ca9"], corpus_db_path=db, max_cases=100)
 
-    # Each case has one open predictable event in the git ledger.
+    # The open predictable event each case carries is the one *seed* defined in the
+    # corpus — materialized into the ledger so a later resolution has it to attach
+    # an outcome to (without seed defining events, there would be none).
     for docket in (1, 2, 3):
-        _open_event(data_root, "ca9", docket)
+        assert _materialize_open_events(data_root, db, "ca9", docket) == [_EVENT_ID]
 
     # ca9/1: machine-readable disposition → deterministic outcome (evaluate).
     # ca9/2: decided but only "affirmed" → ambiguous → reconcile, no outcome.
