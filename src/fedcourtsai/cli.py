@@ -18,6 +18,7 @@ import yaml
 from . import corpus, ids
 from .config import get_settings, load_courts, load_pull_config, load_seed_config
 from .courtlistener import CourtListenerClient, default_rate_limiter
+from .leaderboard import build_leaderboard
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
@@ -25,8 +26,8 @@ from .pipeline.pull import pull_case, pull_cases
 from .pipeline.seed import CourtListenerBulkSource, backfill, quarter_id
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition
-from .serialize import write_raw_json
-from .store import cases_due_for_pull, open_events, resolved_events
+from .serialize import write_json, write_raw_json
+from .store import cases_due_for_pull, iter_evaluations, open_events, resolved_events
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -68,6 +69,31 @@ def validate(
         typer.echo(f"\n{len(errors)} invalid / {checked} checked", err=True)
         raise typer.Exit(code=1)
     typer.echo(f"OK: {checked} artifact(s) valid")
+
+
+@app.command()
+def leaderboard(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/leaderboard.json)."),
+    ] = None,
+) -> None:
+    """Rank predictors from the evaluations ledger into ``metrics/leaderboard.json``.
+
+    Deterministic and offline: aggregates every committed ``evaluation.json``
+    under ``data/`` into one best-first standing per predictor — accuracy, mean
+    Brier score, mean vote accuracy, a reasoning-quality summary, and counts —
+    and writes it through the shared serializer for minimal diffs. Reruns over an
+    unchanged ledger reproduce the file byte for byte.
+    """
+    settings = get_settings()
+    board = build_leaderboard(iter_evaluations(settings.data_root))
+    destination = out if out is not None else settings.metrics_root / "leaderboard.json"
+    write_json(destination, board)
+    typer.echo(
+        f"leaderboard: {board.predictors_ranked} predictor(s) from "
+        f"{board.evaluations_total} evaluation(s) -> {destination}"
+    )
 
 
 @app.command("export-schemas")

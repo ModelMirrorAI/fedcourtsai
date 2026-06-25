@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "LeaderboardEntry": {
+      "additionalProperties": false,
+      "description": "One predictor's standings, aggregated across the evaluations ledger.",
+      "properties": {
+        "accuracy": {
+          "description": "Mean correctness across evaluations",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "evaluations": {
+          "description": "Total evaluations counted for this predictor",
+          "minimum": 0,
+          "title": "Evaluations",
+          "type": "integer"
+        },
+        "evaluators": {
+          "description": "Distinct evaluators that scored this predictor",
+          "minimum": 0,
+          "title": "Evaluators",
+          "type": "integer"
+        },
+        "events_scored": {
+          "description": "Distinct (case, event) pairs scored",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "mean_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier score where reported (lower is better)",
+          "title": "Mean Brier Score"
+        },
+        "mean_reasoning_quality": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean evaluator reasoning-quality score",
+          "title": "Mean Reasoning Quality"
+        },
+        "mean_vote_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean panel-vote accuracy where reported",
+          "title": "Mean Vote Accuracy"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "rank": {
+          "description": "1-based standing; 1 is best",
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "rank",
+        "events_scored",
+        "evaluations",
+        "evaluators",
+        "accuracy"
+      ],
+      "title": "LeaderboardEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first. Computed by ``fedcourts\nleaderboard``; carries no timestamp so the same ledger always serializes\nidentically.",
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/LeaderboardEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "evaluations_total": {
+      "description": "Total evaluations aggregated",
+      "minimum": 0,
+      "title": "Evaluations Total",
+      "type": "integer"
+    },
+    "predictors_ranked": {
+      "description": "Number of predictors on the board",
+      "minimum": 0,
+      "title": "Predictors Ranked",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "predictors_ranked",
+    "evaluations_total"
+  ],
+  "title": "Leaderboard",
+  "type": "object"
+}
