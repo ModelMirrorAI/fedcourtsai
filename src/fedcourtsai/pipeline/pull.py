@@ -25,6 +25,7 @@ from ..courtlistener import CourtListenerClient
 from ..paths import CasePaths
 from ..serialize import write_raw_json
 from .ingest import from_api_docket, upsert_to_corpus
+from .outcome import ReconcileRequest, resolve_case
 
 
 @dataclass
@@ -32,6 +33,10 @@ class PullResult:
     case_id: str
     changed: bool
     snapshot: Path
+    # Outcome detection (`pull`'s third job): events resolved deterministically
+    # this refresh, and those that appear decided but need an agent to reconcile.
+    resolved: list[str]
+    reconcile: list[ReconcileRequest]
 
 
 def _latest_snapshot(paths: CasePaths) -> Path | None:
@@ -61,12 +66,19 @@ def pull_case(
     today = date.today()
     write_raw_json(paths.snapshot(today.isoformat()), fresh)
 
+    row = from_api_docket(fresh)
     # Stamp the corpus tracking state so the budget governor can rotate this case
     # to the back of the oldest-`last_pulled`-first queue on the next run.
-    upsert_to_corpus(corpus_db_path, [from_api_docket(fresh)], last_pulled=today)
+    upsert_to_corpus(corpus_db_path, [row], last_pulled=today)
+
+    # Detect resolution of any open events: write outcome.json deterministically
+    # when the disposition is machine-readable, else flag for agent reconcile.
+    resolution = resolve_case(data_root, row, court_id, docket_id)
 
     return PullResult(
         case_id=ids.case_id(court_id, docket_id),
         changed=changed,
         snapshot=paths.snapshot(today.isoformat()),
+        resolved=sorted(resolution.outcomes),
+        reconcile=list(resolution.reconciles),
     )

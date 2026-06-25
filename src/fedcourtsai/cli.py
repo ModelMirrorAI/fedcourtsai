@@ -88,7 +88,10 @@ def _fetch_one_docket(court: str, docket: int) -> None:
     db = corpus.corpus_db_path(settings.corpus_root)
     with _client() as client:
         result = pull_case(client, db, settings.data_root, court, docket)
-    typer.echo(f"{result.case_id} changed={result.changed} snapshot={result.snapshot}")
+    typer.echo(
+        f"{result.case_id} changed={result.changed} snapshot={result.snapshot} "
+        f"resolved={len(result.resolved)} reconcile={len(result.reconcile)}"
+    )
 
 
 @app.command()
@@ -251,6 +254,12 @@ def pull_all(
     out: Annotated[Path, typer.Option(help="Write the predict queue JSON here.")] = Path(
         "predict-queue.json"
     ),
+    evaluate_out: Annotated[
+        Path, typer.Option(help="Write the evaluate queue JSON here (newly resolved events).")
+    ] = Path("evaluate-queue.json"),
+    reconcile_out: Annotated[
+        Path, typer.Option(help="Write the reconcile queue JSON here (decided but not readable).")
+    ] = Path("reconcile-queue.json"),
     limit: Annotated[
         int | None,
         typer.Option(
@@ -259,29 +268,56 @@ def pull_all(
         ),
     ] = None,
 ) -> None:
-    """Refresh the stalest tracked cases within budget; queue changed open cases.
+    """Refresh the stalest tracked cases within budget; queue downstream handoffs.
 
     The API-budget governor: rotation picks the oldest-``last_pulled``-first slice
     of the active set (skipping closed/resolved cases), capped at
     ``pull.max_cases_per_run`` from ``config/tracking.yaml``. ``--limit`` may only
     lower that cap for a one-off run, never raise it, so a run provably stays
     within the CourtListener budget.
+
+    Each refresh also detects resolution of open events, writing ``outcome.json``
+    deterministically. The command writes three queues for the workflow to act on:
+    ``predict`` (changed cases with open events), ``evaluate`` (cases that gained
+    an ``outcome.json`` this run), and ``reconcile`` (cases that appear decided but
+    whose outcome an agent must confirm by hand).
     """
     settings = get_settings()
     pull_cfg = load_pull_config(settings.config_root)
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     db = corpus.corpus_db_path(settings.corpus_root)
     due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
-    queue: list[dict[str, object]] = []
+    predict_queue: list[dict[str, object]] = []
+    evaluate_queue: list[dict[str, object]] = []
+    reconcile_queue: list[dict[str, object]] = []
     with _client() as client:
         for court, docket in due:
             result = pull_case(client, db, settings.data_root, court, docket)
             events = open_events(settings.data_root, court, docket)
             if result.changed and events:
-                queue.append({"court": court, "docket": docket, "events": events})
-            typer.echo(f"{result.case_id} changed={result.changed} open_events={len(events)}")
-    out.write_text(json.dumps(queue) + "\n")
-    typer.echo(f"Refreshed {len(due)}/{cap} case(s); queued {len(queue)} for prediction -> {out}")
+                predict_queue.append({"court": court, "docket": docket, "events": events})
+            if result.resolved:
+                evaluate_queue.append({"court": court, "docket": docket, "events": result.resolved})
+            if result.reconcile:
+                reconcile_queue.append(
+                    {
+                        "court": court,
+                        "docket": docket,
+                        "events": [r.event_id for r in result.reconcile],
+                        "reason": result.reconcile[0].reason,
+                    }
+                )
+            typer.echo(
+                f"{result.case_id} changed={result.changed} open_events={len(events)} "
+                f"resolved={len(result.resolved)} reconcile={len(result.reconcile)}"
+            )
+    out.write_text(json.dumps(predict_queue) + "\n")
+    evaluate_out.write_text(json.dumps(evaluate_queue) + "\n")
+    reconcile_out.write_text(json.dumps(reconcile_queue) + "\n")
+    typer.echo(
+        f"Refreshed {len(due)}/{cap} case(s); queued {len(predict_queue)} predict, "
+        f"{len(evaluate_queue)} evaluate, {len(reconcile_queue)} reconcile."
+    )
 
 
 @app.command("predict-matrix")
