@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
@@ -70,3 +71,13 @@ def test_changed_docket_is_detected(tmp_path: Path) -> None:
     assert _pull(FakeClient(DOCKET, []), tmp_path).changed is True
     new_entry = [{"id": 2, "description": "Order granting stay"}]
     assert _pull(FakeClient(DOCKET, new_entry), tmp_path).changed is True
+
+
+def test_pull_stamps_last_pulled_in_corpus(tmp_path: Path) -> None:
+    # Each refresh stamps today's date so the governor can rotate this case back.
+    _pull(FakeClient(DOCKET, []), tmp_path)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "ca9/64512345")
+    assert row is not None
+    assert row.last_pulled == date.today()

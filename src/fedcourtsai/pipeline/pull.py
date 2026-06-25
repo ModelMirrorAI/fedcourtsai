@@ -58,13 +58,15 @@ def pull_case(
     prior = _latest_snapshot(paths)
     changed = prior is None or json.loads(prior.read_text()) != fresh
 
-    today = date.today().isoformat()
-    write_raw_json(paths.snapshot(today), fresh)
+    today = date.today()
+    write_raw_json(paths.snapshot(today.isoformat()), fresh)
 
-    upsert_to_corpus(corpus_db_path, [from_api_docket(fresh)])
+    # Stamp the corpus tracking state so the budget governor can rotate this case
+    # to the back of the oldest-`last_pulled`-first queue on the next run.
+    upsert_to_corpus(corpus_db_path, [from_api_docket(fresh)], last_pulled=today)
 
     return PullResult(
         case_id=ids.case_id(court_id, docket_id),
         changed=changed,
-        snapshot=paths.snapshot(today),
+        snapshot=paths.snapshot(today.isoformat()),
     )
