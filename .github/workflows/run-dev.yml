@@ -42,6 +42,7 @@ jobs:
       - name: Develop with Claude Code
         uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
         env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         with:
@@ -49,10 +50,12 @@ jobs:
           github_token: ${{ steps.app-token.outputs.token }}
           prompt: |
             Read .github/prompts/dev.md and AGENTS.md, then complete the `run:dev`
-            development task described in the issue (its title is in the ISSUE_TITLE
-            env var and its body in ISSUE_BODY). Follow the branch-and-PR workflow
-            yourself: create a branch off main, make the change, pass the local gate,
-            and open one focused PR against main. Never commit to main directly.
+            development task described in the issue (number in ISSUE_NUMBER, title in
+            ISSUE_TITLE, body in ISSUE_BODY). This issue may have been re-labeled to
+            resume earlier work: before branching, read the issue comments and check
+            for an existing branch/PR for it, and update that PR in place rather than
+            opening a second one — dev.md has the exact steps. Follow the branch-and-PR
+            workflow yourself, pass the local gate, and never commit to main directly.
           claude_args: |
             --model claude-opus-4-8
             --max-turns 120
