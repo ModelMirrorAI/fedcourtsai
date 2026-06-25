@@ -111,12 +111,27 @@ def test_zero_budget_is_noop(tmp_path: Path) -> None:
     assert client.calls == []
 
 
-def test_court_with_no_new_filings_is_skipped(tmp_path: Path) -> None:
+def test_court_with_no_new_filings_records_searched_frontier(tmp_path: Path) -> None:
     client = FakeSearch({"ca9": []})
     result = _discover(client, tmp_path)
     assert result.total == 0
-    assert result.courts == []
-    # An empty court must not write a watermark (nothing onboarded).
+    assert result.courts == []  # nothing onboarded, so no per-court line
+    # A court that finds nothing still records the date it searched from, so the
+    # next run resumes there instead of resetting to default_since.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
-        assert corpus.get_discovery_watermark(conn, "ca9") is None
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 1)
+
+
+def test_empty_run_does_not_reset_watermark_to_default(tmp_path: Path) -> None:
+    # First run onboards a docket (watermark -> 2026-06-09).
+    client = FakeSearch({"ca9": [_docket(1, "ca9", "2026-06-09")]})
+    _discover(client, tmp_path)
+    # Second run finds nothing, even with an *earlier* default_since: it must
+    # resume from the stored watermark, never rewind to default_since.
+    client._by_court["ca9"] = []
+    _discover(client, tmp_path, default_since=date(2026, 6, 1))
+    assert client.calls[-1][1] == date(2026, 6, 9)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 9)

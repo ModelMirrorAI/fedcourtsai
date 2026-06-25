@@ -10,6 +10,7 @@ from fedcourtsai.pipeline.seed import (
     load_cursor,
     quarter_id,
     save_cursor,
+    snapshot_date,
 )
 from fedcourtsai.schemas import CourtProgress, SeedProgress
 
@@ -209,6 +210,84 @@ def test_quarter_id() -> None:
     assert quarter_id(date(2026, 6, 25)) == "2026-Q2"
     assert quarter_id(date(2026, 1, 1)) == "2026-Q1"
     assert quarter_id(date(2026, 12, 31)) == "2026-Q4"
+
+
+def test_snapshot_date_maps_quarter_to_last_day() -> None:
+    assert snapshot_date("2026-Q1") == date(2026, 3, 31)
+    assert snapshot_date("2026-Q2") == date(2026, 6, 30)
+    assert snapshot_date("2026-Q3") == date(2026, 9, 30)
+    assert snapshot_date("2026-Q4") == date(2026, 12, 31)
+    # A non-quarter id yields no frontier (seed then hands nothing off).
+    assert snapshot_date("2026-03-31") is None
+    assert snapshot_date("not-a-quarter") is None
+
+
+def test_backfill_hands_off_snapshot_date_as_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # Complete both courts' backfill in one run.
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        # Each completed court's discovery watermark is the snapshot's as-of date,
+        # so the first forward pull searches from the snapshot, not from today.
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 6, 30)
+        assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 6, 30)
+
+
+def test_backfill_no_watermark_until_court_complete(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # Budget stops mid-ca1 (4 of 5 rows), so neither court is complete this run.
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=4,
+    )
+    with corpus.connect(db) as conn:
+        # No frontier handed off until a court's backfill is "complete as of" it.
+        assert corpus.get_discovery_watermark(conn, "ca1") is None
+        assert corpus.get_discovery_watermark(conn, "ca2") is None
+
+
+def test_seed_does_not_lower_a_later_forward_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # A forward pull has already advanced ca1 past the snapshot date.
+    with corpus.connect(db) as conn:
+        corpus.set_discovery_watermark(conn, "ca1", date(2026, 8, 1))
+    backfill(
+        FakeBulkSource("2026-Q2", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 8, 1)  # not rewound
+        assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 6, 30)  # newly seeded
+
+
+def test_non_quarter_snapshot_hands_off_no_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    backfill(
+        FakeBulkSource("nightly-2026-06-25", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") is None
+        assert corpus.get_discovery_watermark(conn, "ca2") is None
 
 
 def test_courtlistener_bulk_source_filters_skips_and_ends(tmp_path: Path) -> None:

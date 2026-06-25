@@ -232,7 +232,12 @@ corpus shaped to support it.
      with open events.
   2. **Discover** newly-filed cases since the last run (CourtListener search by
      court + `date_filed`) → onboard into the corpus as a tracked case and run the
-     **event-definition stage** to record its predictable event(s).
+     **event-definition stage** to record its predictable event(s). Each court is
+     searched from its **discovery watermark** (per-court tracking state in the
+     corpus): the newest `date_filed` onboarded so far, seeded by `seed` to the
+     bulk snapshot's date (see *Discovery frontier*). The watermark only moves
+     forward, so a run that finds nothing still records the date it searched from
+     and the next run resumes there — never resetting to the start default.
   3. **Detect resolution** of tracked open events → write `outcome.json` to the
      git ledger deterministically when the disposition is machine-readable, else
      open an agent reconcile issue to confirm. This is what feeds `run:evaluate`.
@@ -271,9 +276,38 @@ stage maps qualifying docket entries → event definitions (`kind`,
   deterministic-first / agent-fallback split resolution detection uses. The
   default path runs no agent.
 
+## Discovery frontier — the seed → pull hand-off
+
+Forward discovery searches each court from a per-court **discovery watermark** held
+in the corpus (tracking state, never git `data/`). For the hand-off from the bulk
+backfill to the live frontier to be gap-free, three rules hold:
+
+- **Seed establishes the frontier.** A bulk snapshot is "complete as of" the day
+  CourtListener regenerated it (the last day of its quarter). So when a court's
+  backfill completes, `seed` seeds that court's discovery watermark to the
+  **snapshot's date** (derived from the quarter id, e.g. `2026-Q2` → `2026-06-30`).
+  The first forward `pull` then discovers everything filed **since the snapshot**,
+  not since today — closing the snapshot→today gap that would otherwise be onboarded
+  by nothing.
+- **The watermark only moves forward.** A write older than the stored value is
+  ignored, so a later forward watermark always wins over seed's hand-off, and a
+  re-run (or a quarterly reconciliation against the same snapshot) never rewinds it.
+- **A no-results run still advances it.** A discovery pass that finds no new dockets
+  records the date it searched from, so the next run resumes there instead of
+  resetting to the start default. (It advances only to a date already searched, so
+  it can never skip a real filing.) Without this a court that keeps finding nothing
+  would restart from "today" every run — a steady-state hole, not a one-time miss.
+
+A court should normally be **seeded** (or have `--since` passed to `discover`)
+before its first forward discovery, so its frontier is meaningful. The `today`
+default is only a last resort for a court with neither a watermark nor a completed
+seed; on its own it discovers nothing useful.
+
 ## Steady state
 
 Once backfill completes: history sits in the DVC corpus (refreshed quarterly from
-bulk); pull keeps the live frontier current daily within the API budget. The
-result is that, each day after pull runs, the tracked data is **complete as of
-that day**.
+bulk); pull keeps the live frontier current daily within the API budget. Because
+seed hands off the snapshot date as the initial discovery watermark, the first
+forward pull onboards everything filed since the snapshot, so there is no gap
+between the backfill and the live frontier. The result is that, each day after pull
+runs, the tracked data is **complete as of that day**.

@@ -27,6 +27,7 @@ import csv
 import gzip
 import io
 import os
+import re
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -178,9 +179,24 @@ def backfill(
             cp.complete = True
             cp.total = chunk.total if chunk.total is not None else cp.offset
 
-    if events:
+    frontier = snapshot_date(source.snapshot_id)
+    completed = [c for c in courts if progress.courts.get(c, CourtProgress()).complete]
+    if events or (frontier is not None and completed):
         with corpus.connect(corpus_db_path) as conn:
-            corpus.upsert_events(conn, events)
+            if events:
+                corpus.upsert_events(conn, events)
+            # Hand the discovery frontier off to forward pull. A court whose
+            # backfill is complete is "complete as of" the snapshot's date, so its
+            # discovery watermark seeds to that date; the first forward `pull` then
+            # discovers everything filed since the snapshot, not since today —
+            # closing the snapshot→today gap. ``set_discovery_watermark`` only
+            # moves forward, so a later forward watermark always wins and a re-run
+            # (or a quarterly reconciliation against the same snapshot) never
+            # rewinds it. A snapshot id that is not a quarter label yields no date,
+            # so no frontier is handed off (the court keeps falling back to today).
+            if frontier is not None:
+                for court in completed:
+                    corpus.set_discovery_watermark(conn, court, frontier)
 
     save_cursor(cursor_path, progress)
     return _report(progress, courts, loaded_this_run, ambiguous)
@@ -224,6 +240,26 @@ def _report(
 def quarter_id(d: date) -> str:
     """Quarter label, e.g. ``2026-Q2``, used as a default snapshot id."""
     return f"{d.year}-Q{(d.month - 1) // 3 + 1}"
+
+
+_QUARTER_LAST_DAY = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
+
+
+def snapshot_date(snapshot_id: str) -> date | None:
+    """The bulk snapshot's as-of date, derived from a quarter id like ``2026-Q2``.
+
+    CourtListener regenerates the public bulk export on the last day of March,
+    June, September, and December, so a quarter id maps to that quarter's final
+    calendar day — the date the snapshot is "complete as of" and therefore the
+    discovery frontier seed hands to forward pull. Returns ``None`` for an id that
+    is not a ``YYYY-Qn`` quarter label; seed then cannot establish a frontier from
+    it, and the court falls back to discovery's last-resort default.
+    """
+    m = re.fullmatch(r"(\d{4})-Q([1-4])", snapshot_id)
+    if m is None:
+        return None
+    month, day = _QUARTER_LAST_DAY[int(m.group(2))]
+    return date(int(m.group(1)), month, day)
 
 
 @dataclass
