@@ -46,10 +46,19 @@ fedcourts seed-backfill [--max-cases N] [--report PATH]
    reconciliation re-upserts the same events in place. An entry the classifier
    cannot place is recorded (not guessed) for a later agent reconcile and surfaced
    as a count on the report, never crashing the chunk.
-5. Advance the cursor; write the report.
+5. **Hand off the discovery frontier.** When a court's backfill completes, set its
+   **discovery watermark** (corpus tracking state) to the snapshot's date —
+   derived from the quarter id (`2026-Q2` → `2026-06-30`, the last day CourtListener
+   regenerated it). The first forward `pull` then discovers everything filed since
+   the snapshot, not since today, closing the snapshot→today gap. The watermark only
+   moves forward, so a later forward watermark always wins and a re-run never rewinds
+   it; a snapshot id that is not a quarter label hands off nothing. See
+   [data-pipeline.md](data-pipeline.md) §Discovery frontier.
+6. Advance the cursor; write the report.
 
-**Writes (only these two paths)**
+**Writes (only these two paths, plus corpus tracking state)**
 - `corpus/corpus.db` — the SQLite blob (DVC-managed; the workflow handles DVC).
+  Holds both the raw rows/events and the per-court discovery watermark above.
 - `config/seed-progress.yaml` — the bumped cursor.
 
 **Returns** — exit 0 on success; idempotent (re-running after completion loads 0).

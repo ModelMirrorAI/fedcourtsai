@@ -18,19 +18,23 @@ deterministic-first / agent-fallback outcome split runs through the real
 holds across two rounds over the shared corpus.
 """
 
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
 from fedcourtsai import corpus
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import pull_cases
-from fedcourtsai.pipeline.seed import backfill, load_cursor
+from fedcourtsai.pipeline.seed import backfill, load_cursor, snapshot_date
 from fedcourtsai.schemas import EventKind, PredictableEvent
 from fedcourtsai.serialize import write_yaml
 from fedcourtsai.store import cases_due_for_pull
 
-# Reuse the seed-side fake exactly as the unit suite defines it (issue #49).
+# Reuse the per-stage fakes exactly as the unit suites define them (issues #49, #55).
+from tests.test_discover import FakeSearch
+from tests.test_discover import _docket as _search_docket
 from tests.test_seed import FakeBulkSource, _row
 
 _EVENT_ID = "evt-appeal-disposition"
@@ -134,6 +138,56 @@ def test_seed_fills_shared_corpus_without_signing_off(tmp_path: Path) -> None:
     # Completion is reported, but the maintainer sign-off flag (#47) is not flipped
     # automatically — only the completion PR sets it.
     assert load_cursor(cursor).completed is False
+
+
+# --- 1b. seed → discovery frontier hand-off ------------------------------------
+
+
+def test_seed_hands_discovery_frontier_to_pull(tmp_path: Path) -> None:
+    """Seed sets the frontier from the snapshot date; discovery resumes from it.
+
+    Composition the units don't: that the completed backfill's discovery watermark
+    lands at the snapshot's as-of date, that a later forward discovery starts there
+    (not at today's last-resort default, which would onboard nothing across the
+    snapshot→today gap), and that an empty discovery run never rewinds it.
+    """
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+
+    # A dated bulk snapshot (2023-Q1) backfills ca9 to completion.
+    backfill(
+        FakeBulkSource("2023-Q1", {"ca9": [_row("ca9", i) for i in range(3)]}),
+        cursor_path=cursor,
+        courts=["ca9"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    snapshot = snapshot_date("2023-Q1")
+    assert snapshot == date(2023, 3, 31)
+    with corpus.connect(db) as conn:
+        # Hand-off: the completed court's watermark is the snapshot's as-of date.
+        assert corpus.get_discovery_watermark(conn, "ca9") == snapshot
+
+    # Forward discovery defaulting to "today" would search from 2026 and find
+    # nothing; the seed hand-off makes it search from the 2023 snapshot and pick up
+    # an April-2023 filing the bulk snapshot was too early to include.
+    search = FakeSearch({"ca9": [_search_docket(900, "ca9", "2023-04-15")]})
+    today = date(2026, 6, 25)
+    result = discover_cases(
+        cast(CourtListenerClient, search), db, ["ca9"], max_new=10, default_since=today
+    )
+    assert search.calls[-1][1] == snapshot  # searched from the snapshot, not today
+    assert "ca9/900" in result.case_ids
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2023, 4, 15)
+
+    # A second discovery run that finds nothing must not rewind to default_since:
+    # it advances/holds at the date it searched from (the stored watermark).
+    empty = FakeSearch({"ca9": []})
+    discover_cases(cast(CourtListenerClient, empty), db, ["ca9"], max_new=10, default_since=today)
+    assert empty.calls[-1][1] == date(2023, 4, 15)
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2023, 4, 15)
 
 
 # --- 2 + 3. pull → corpus + queues, and the outcome cascade --------------------

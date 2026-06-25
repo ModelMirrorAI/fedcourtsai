@@ -74,7 +74,10 @@ def discover_cases(
     (the budget governor's discovery cap). For each new docket it upserts the
     normalized corpus row, records its default predictable event, and advances
     the court's watermark to the newest ``date_filed`` it onboarded. A court with
-    no watermark yet starts from ``default_since``.
+    no watermark yet starts from ``default_since`` — normally the snapshot date
+    seed handed off, or ``--since`` for a never-seeded court (``today`` is only the
+    last resort). A court that finds nothing still records the date it searched
+    from, so it resumes there rather than resetting to ``default_since`` next run.
     """
     result = DiscoverResult()
     if max_new <= 0:
@@ -89,6 +92,14 @@ def discover_cases(
             since = corpus.get_discovery_watermark(conn, court) or default_since
             dockets = client.iter_dockets(court, since, max_results=remaining)
             if not dockets:
+                # No new filings — but still record the frontier we searched from,
+                # so the next run resumes from ``since`` instead of resetting to
+                # ``default_since`` (a court that keeps finding nothing would
+                # otherwise restart from "today" every run — a steady-state hole,
+                # not a one-time miss). ``since`` is a date already searched
+                # (``date_filed >= since``), so re-searching from it next run
+                # cannot skip a real filing; the watermark only ever moves forward.
+                corpus.set_discovery_watermark(conn, court, since)
                 continue
             rows = [from_api_docket(d) for d in dockets]
 

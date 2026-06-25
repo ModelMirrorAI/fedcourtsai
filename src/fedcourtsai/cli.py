@@ -555,7 +555,10 @@ def discover(
         str,
         typer.Option(
             help="ISO date to start a never-discovered court from (default: today). "
-            "Courts with a stored watermark resume from it regardless."
+            "Courts with a stored watermark resume from it regardless. Normally a "
+            "court is seeded first (seed hands off the snapshot date as its initial "
+            "watermark), so pass --since only for a never-seeded court; the today "
+            "default is a last resort that discovers nothing useful on its own."
         ),
     ] = "",
     limit: Annotated[
