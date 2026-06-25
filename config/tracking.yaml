@@ -28,6 +28,9 @@ pull:
   skip_closed: true
   # Discover newly-filed dockets in the tracked courts since the last run.
   discover_new_filings: true
+  # Hard cap on new dockets onboarded per discovery run (its own slice of the
+  # budget, separate from max_cases_per_run above).
+  max_new_cases_per_run: 10
   # Only trigger run-predict when a pull detects new docket activity.
   predict_on_change_only: true
 
