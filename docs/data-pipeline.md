@@ -197,6 +197,18 @@ corpus shaped to support it.
   corpus pointer + cursor bump directly to the default branch (under the shared
   `corpus-write` lock — see Corpus-writer coordination) → **comment progress on the
   tracking issue** (per-court % and remaining).
+- **Multi-table staged join:** each fact a corpus row carries lives in a different
+  bulk file — the docket spine in `dockets`, the realized `disposition`, opinion
+  `summary`, and `judges` in `opinion-clusters` — and each file is sorted by its own
+  primary key, not the join key, so they cannot be co-iterated. The bulk source
+  resolves this in two phases behind the `BulkSource` seam, so the cursor, driver,
+  and report are unchanged. *Phase A* (heavy, only when the snapshot changes) streams
+  `dockets` filtered to the tracked courts into a local staging SQLite, then streams
+  `opinion-clusters` keeping only rows whose `docket_id` is in that set (latest
+  cluster per docket wins). *Phase B* (cheap, per run) serves each chunk as one
+  indexed `LEFT JOIN`, aliasing the cluster columns to the names the ingestion core
+  reads. Pointing the staging path at a cached location lets daily runs reuse the
+  staged DB instead of re-streaming the GB-scale files.
 - **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
   loaded per court, so "daily until complete" resumes cleanly and the backfill is
   rebuildable after a fresh clone.
