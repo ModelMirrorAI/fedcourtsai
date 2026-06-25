@@ -10,8 +10,9 @@ body:
         `run-seed` workflow loads the historical backlog from CourtListener
         **bulk data** (it does *not* spend the REST API budget), runs daily until
         the backlog is complete, comments progress here after each chunk, and
-        opens a PR per chunk. **Keep this issue open until the backfill is
-        complete.** See [docs/data-pipeline.md](../blob/main/docs/data-pipeline.md).
+        commits each chunk's corpus pointer + cursor straight to the default
+        branch. **Keep this issue open until the backfill is complete.** See
+        [docs/data-pipeline.md](../blob/main/docs/data-pipeline.md).
   - type: input
     id: bulk_snapshot
     attributes:

@@ -3,10 +3,10 @@ name: run-seed
 # Deterministic, NO-AGENT historical backfill. Loads the next chunk of the
 # CourtListener PUBLIC bulk-data snapshot (not the rate-limited REST API, so it
 # spends no API budget) into the packed corpus via `fedcourts seed-backfill`,
-# pushes the corpus blob to the DVC S3 remote, opens one PR per chunk (corpus
-# pointer + cursor bump), and comments per-court progress on the long-lived
-# run:seed tracking issue. Runs daily until the backlog is complete, then
-# reconciles quarterly when a new bulk snapshot drops. See docs/seed-backfill.md
+# pushes the corpus blob to the DVC S3 remote, commits the corpus pointer + cursor
+# bump DIRECTLY to the default branch, and comments per-court progress on the
+# long-lived run:seed tracking issue. Runs daily until the backlog is complete,
+# then reconciles quarterly when a new bulk snapshot drops. See docs/seed-backfill.md
 # and docs/data-pipeline.md.
 on:
   schedule:
@@ -17,8 +17,11 @@ on:
 
 permissions: {}
 
+# Shared with run-pull: both workflows write the single corpus.db pointer, so they
+# run under ONE lock to serialize corpus writers and prevent lost updates (#42).
+# cancel-in-progress is false so a queued run waits rather than being dropped.
 concurrency:
-  group: run-seed
+  group: corpus-write
   cancel-in-progress: false
 
 jobs:
@@ -28,8 +31,7 @@ jobs:
     timeout-minutes: 60
     environment: runner
     permissions:
-      contents: write # commit the corpus pointer + cursor, push the chunk branch
-      pull-requests: write # open the per-chunk PR
+      contents: write # commit the corpus pointer + cursor straight to the default branch
       issues: write # comment progress on the tracking issue
       id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
     steps:
@@ -40,7 +42,6 @@ jobs:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
-          permission-pull-requests: write
           permission-issues: write
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -91,20 +92,21 @@ jobs:
           # resolves against the remote.
           uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
 
-      - name: Open the chunk PR (corpus pointer + cursor)
-        id: pr
+      - name: Commit the corpus pointer + cursor to the default branch
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
           git config user.name "fedcourts-bot"
           git config user.email "bot@users.noreply.github.com"
+          # persist-credentials is false on checkout, so authenticate the push via
+          # the App token's git credential helper.
           gh auth setup-git
-          branch="seed/backfill-${RUN_ID}"
-          git checkout -b "$branch"
           # Only the small pointer + cursor enter git; the blob lives in the remote.
+          # Commit straight to the default branch (like run-pull) so every corpus
+          # writer always builds on the latest committed pointer — see the shared
+          # `corpus-write` lock above and #42. The blob was pushed first, so the
+          # committed pointer always resolves against the remote.
           git add corpus/corpus.db.dvc config/seed-progress.yaml
           if git diff --cached --quiet; then
             echo "No corpus/cursor change this run; nothing to commit."
@@ -113,10 +115,20 @@ jobs:
           snapshot=$(jq -r '.snapshot' seed-report.json)
           loaded=$(jq -r '.loaded_this_run' seed-report.json)
           git commit -m "seed(backfill): ${snapshot} +${loaded} case(s)"
-          git push origin "$branch"
-          gh pr create --base main --head "$branch" \
-            --title "seed(backfill): ${snapshot} historical corpus chunk (+${loaded})" \
-            --body "Automated bulk seed-backfill chunk: corpus pointer + cursor bump (the blob is pushed to the DVC remote, not git). Per-court progress is on the tracking issue. Merge advances the cursor so the next daily run continues."
+          # The default branch may have advanced since checkout (e.g. a run:predict
+          # / run:evaluate PR merged). The corpus-write lock keeps the other corpus
+          # writer out, so the pointer never conflicts; rebase our commit onto the
+          # latest tip and retry so the push is always a fast-forward.
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "::warning::push rejected (default branch advanced); retry ${attempt}"
+            sleep 3
+          done
+          echo "::error::could not push the corpus pointer after 3 attempts"
+          exit 1
 
       - name: Comment progress on the tracking issue
         env:

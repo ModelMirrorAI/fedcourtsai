@@ -128,6 +128,28 @@ workflow (a separate read-only principal can be added later). The OIDC wiring
 (`permissions: id-token: write` + the credentials step) grants each job its access
 without any long-lived key.
 
+### Corpus-writer coordination
+
+`corpus/corpus.db` is one mutable SQLite blob behind one DVC pointer
+(`corpus/corpus.db.dvc`), and **two** workflows write it — `run-seed` (backfill /
+reconcile) and `run-pull` (forward refresh + discovery). A blob has no merge, so
+the pointer is last-writer-wins: if the two ran concurrently, or built on
+divergent bases, the second commit would silently drop the other's rows. Two rules
+prevent that:
+
+- **One lock.** Both workflows share the `corpus-write` concurrency group
+  (`cancel-in-progress: false`), so corpus writers never run simultaneously — a
+  second run queues until the first finishes.
+- **Both commit straight to the default branch.** Each run does `dvc pull → mutate
+  → dvc add → dvc push → commit the pointer (+ cursor / snapshots)` and pushes
+  directly. Serialized by the lock, every run pulls the latest committed pointer
+  before mutating, so it always builds on its predecessor's writes. Neither writer
+  goes through a long-lived PR whose stale base could revert the other on merge.
+  If the default branch advanced for an unrelated reason between checkout and push
+  (e.g. a `run:predict` / `run:evaluate` PR merged), the commit is rebased onto the
+  new tip and the push retried — the lock means the pointer itself never conflicts,
+  so this is a clean fast-forward, not a corpus merge.
+
 ### Corpus schema
 
 Each corpus row is a normalized, **labeled** record so it serves both consumers:
@@ -164,8 +186,10 @@ to support them.
   `.github/ISSUE_TEMPLATE/seed.yml`) plus a daily schedule.
 - **Each run** (deterministic, no agent, no API secret): read the committed
   **cursor** → process the next chunk of the bulk snapshot for the target courts
-  → write/append the DVC corpus → open a PR (corpus pointer + cursor bump) →
-  **comment progress on the tracking issue** (per-court % and remaining).
+  → write/append the DVC corpus → commit the corpus pointer + cursor bump directly
+  to the default branch (under the shared `corpus-write` lock — see Corpus-writer
+  coordination) → **comment progress on the tracking issue** (per-court % and
+  remaining).
 - **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
   loaded per court, so "daily until complete" resumes cleanly and the backfill is
   rebuildable after a fresh clone.
