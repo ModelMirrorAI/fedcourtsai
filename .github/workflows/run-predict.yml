@@ -108,8 +108,24 @@ jobs:
           RUN_ID: ${{ matrix.run_id }}
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
         with:
+          # Auth is the Claude Max subscription (OAuth) today. To move to the
+          # Anthropic API later, replace this line with
+          # `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`; the cache
+          # settings below already cover that switch.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.agent-token.outputs.token }}
+          # Prompt caching is automatic: the stable prefix (AGENTS.md + the
+          # prompt template + schema) is cached across the run's tool-use turns.
+          # OAuth requests the 1-hour cache TTL for free; setting it explicitly
+          # keeps that TTL (and the cache-read discount priced in
+          # fedcourtsai.pricing) once auth moves to an API key — whose default
+          # would otherwise fall to 5 minutes and expire the cache mid-run.
+          settings: |
+            {
+              "env": {
+                "ENABLE_PROMPT_CACHING_1H": "1"
+              }
+            }
           prompt: |
             Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
             for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables.
