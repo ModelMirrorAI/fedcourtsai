@@ -173,12 +173,18 @@ ledger models in `fedcourtsai.schemas`.
 
 - **Back-testing** — replay current predictors against historical *resolved*
   events (outcome hidden at predict time), score against the known disposition.
-- **Retrieval** — at prediction time a model queries for a handful of *relevant*
-  priors (by court / judges / topic / posture / citation; semantic search once
-  embeddings land) rather than loading the bulk set into context.
+- **Retrieval** — at prediction time a model pulls a handful of *relevant*
+  priors instead of loading the bulk set into context. Structured retrieval is
+  implemented today as `fedcourts query` (and the `corpus.retrieve_priors`
+  library API): exact-match filters on court / topic / disposition plus
+  overlap filters on judges and citations, ranked by how much each prior shares
+  and defaulting to resolved (labeled) cases. Procedural **posture** is not a
+  case-level column — it is carried by a case's predictable-event `kind` — so it
+  is not yet a query filter; semantic / embedding similarity lands on the same
+  query seam once embeddings are stored.
 
-Both are **future** consumers; this doc only commits to producing a corpus shaped
-to support them.
+Back-testing is a **future** consumer; this doc only commits to producing a
+corpus shaped to support it.
 
 ## Seed — historical backfill
 
