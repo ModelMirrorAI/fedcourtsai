@@ -3,9 +3,9 @@ from pathlib import Path
 from fedcourtsai.config import (
     PullConfig,
     SeedConfig,
+    load_courts,
     load_pull_config,
     load_seed_config,
-    load_tracked_courts,
 )
 
 
@@ -29,8 +29,37 @@ def test_load_pull_config_reads_governor_keys(tmp_path: Path) -> None:
 
 def test_load_pull_config_ignores_unmodeled_keys(tmp_path: Path) -> None:
     # tracking.yaml carries many tuning keys the governor does not model.
-    _write_tracking(tmp_path, "pull:\n  max_cases_per_run: 9\n  discover_new_filings: true\n")
+    _write_tracking(
+        tmp_path, "pull:\n  max_cases_per_run: 9\n  rotation: oldest_last_pulled_first\n"
+    )
     assert load_pull_config(tmp_path).max_cases_per_run == 9
+
+
+def test_load_pull_config_reads_discovery_keys(tmp_path: Path) -> None:
+    _write_tracking(
+        tmp_path,
+        "pull:\n  discover_new_filings: false\n  max_new_cases_per_run: 4\n",
+    )
+    cfg = load_pull_config(tmp_path)
+    assert cfg.discover_new_filings is False
+    assert cfg.max_new_cases_per_run == 4
+
+
+def test_discovery_defaults(tmp_path: Path) -> None:
+    cfg = load_pull_config(tmp_path / "absent")
+    assert cfg.discover_new_filings is True
+    assert cfg.max_new_cases_per_run == 10
+
+
+def test_load_courts_reads_scope(tmp_path: Path) -> None:
+    _write_tracking(tmp_path, "courts:\n  - scotus\n  - ca9\n  - ca1\n")
+    assert load_courts(tmp_path) == ["scotus", "ca9", "ca1"]
+
+
+def test_load_courts_empty_when_absent(tmp_path: Path) -> None:
+    assert load_courts(tmp_path / "absent") == []
+    _write_tracking(tmp_path, "pull:\n  max_cases_per_run: 1\n")
+    assert load_courts(tmp_path) == []
 
 
 def test_load_pull_config_defaults_when_file_missing(tmp_path: Path) -> None:
@@ -59,12 +88,3 @@ def test_load_seed_config_defaults_when_missing(tmp_path: Path) -> None:
     cfg = load_seed_config(tmp_path / "absent")
     assert cfg == SeedConfig()
     assert cfg.max_cases_per_run == 2000
-
-
-def test_load_tracked_courts(tmp_path: Path) -> None:
-    _write_tracking(tmp_path, "courts:\n  - scotus\n  - ca9\n")
-    assert load_tracked_courts(tmp_path) == ["scotus", "ca9"]
-
-
-def test_load_tracked_courts_empty_when_absent(tmp_path: Path) -> None:
-    assert load_tracked_courts(tmp_path / "absent") == []

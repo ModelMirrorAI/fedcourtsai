@@ -1,12 +1,14 @@
 name: run-pull
 
 # Refresh tracked dockets. Runs on a daily schedule, on manual dispatch, or when
-# an issue is labeled `run:pull`. Deterministic (no agent): re-fetches each
-# tracked docket, writes fresh dated snapshots, and commits them DIRECTLY to main
-# (they are CourtListener facts, not agent output — see docs/pipeline.md). For
-# each case whose docket changed and still has open events, it opens a
-# `run:predict` issue. All git/issue writes use the GitHub App token so the
-# resulting issues/commits trigger downstream workflows.
+# an issue is labeled `run:pull`. Deterministic (no agent): discovers newly-filed
+# cases and re-fetches each tracked docket, ingesting the raw facts into the
+# DVC-managed corpus (pulled from / pushed back to the S3 remote) and writing fresh
+# dated snapshots. The dated snapshots and the small corpus pointer are committed
+# DIRECTLY to main (they are CourtListener facts, not agent output — see
+# docs/data-pipeline.md). For each case whose docket changed and still has open
+# events, it opens a `run:predict` issue. All git/issue writes use the GitHub App
+# token so the resulting issues/commits trigger downstream workflows.
 on:
   schedule:
     - cron: "17 7 * * *"
@@ -57,20 +59,49 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      # Define the remote's bucket URL out of band into the gitignored
+      # .dvc/config.local (never committed; see SECURITY.md). Boto3 picks up the
+      # OIDC-assumed credentials from the environment.
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+
+      - name: Pull the current corpus from the DVC remote
+        run: |
+          # First run has no committed pointer yet, so dvc pull would fail — guard
+          # it. Discovery and the rotation governor read prior corpus state (the
+          # discovery watermark and per-case last_pulled), so it must be restored.
+          if [ -f corpus/corpus.db.dvc ]; then
+            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          else
+            echo "No corpus pointer yet; starting a fresh corpus."
+          fi
+
       - name: Refresh tracked dockets
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
         run: uv run fedcourts pull-all --out predict-queue.json --limit 50
 
-      - name: Commit snapshots to main
+      - name: Push the corpus blob to the DVC remote
+        run: |
+          # pull-all wrote fresh facts, discovered filings, and bumped tracking
+          # state in corpus/corpus.db. Push the blob before committing the pointer
+          # so the committed pointer always resolves against the remote.
+          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+
+      - name: Commit snapshots and corpus pointer to main
         run: |
           git config user.name "fedcourts-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add data/
+          # Raw facts go straight to main: dated docket snapshots under data/ and
+          # the small corpus pointer (the blob itself lives in the DVC remote).
+          git add data/ corpus/corpus.db.dvc
           if git diff --cached --quiet; then
-            echo "No docket changes to commit."
+            echo "No docket or corpus changes to commit."
           else
-            git commit -m "pull: refresh docket snapshots ($(date -u +%Y-%m-%d))"
+            git commit -m "pull: refresh docket snapshots + corpus ($(date -u +%Y-%m-%d))"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 

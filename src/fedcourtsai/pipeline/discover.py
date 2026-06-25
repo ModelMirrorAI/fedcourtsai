@@ -1,0 +1,99 @@
+"""``run-pull`` forward discovery: pick up cases filed after the seed backfill.
+
+The forward-frontier counterpart to ``pull_case`` (which *refreshes* known
+dockets). For each tracked court it asks the CourtListener REST API for dockets
+filed since that court's discovery watermark, routes each new docket through the
+shared ingestion core (:mod:`fedcourtsai.pipeline.ingest`) into the unified
+corpus, records the docket's predictable event definition(s) as corpus rows, and
+advances the watermark — all *raw facts*, none of it per-case git files.
+
+Two budget guards keep a run inside the CourtListener API ceiling: a hard cap on
+new dockets per run (``max_new``), and ascending ``date_filed`` ordering so a run
+that hits the cap still advances the watermark monotonically and the next run
+resumes from where it stopped, gap-free. Derived judgments (outcomes,
+predictions, evaluations) are never written here — they belong to the git ledger.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+from typing import Protocol
+
+from .. import corpus
+from ..courtlistener import CourtListenerClient
+from .ingest import default_event, from_api_docket, to_corpus_row
+
+
+class _DocketSearch(Protocol):
+    """The slice of :class:`CourtListenerClient` discovery needs (eases testing)."""
+
+    def iter_dockets(
+        self, court: str, date_filed_gte: date, *, max_results: int
+    ) -> list[dict[str, object]]: ...
+
+
+@dataclass
+class CourtDiscovery:
+    """What discovery found for one court this run."""
+
+    court: str
+    onboarded: int
+    watermark: date
+
+
+@dataclass
+class DiscoverResult:
+    """Aggregate outcome of a discovery pass across the tracked courts."""
+
+    courts: list[CourtDiscovery] = field(default_factory=list)
+    case_ids: list[str] = field(default_factory=list)
+
+    @property
+    def total(self) -> int:
+        return len(self.case_ids)
+
+
+def discover_cases(
+    client: CourtListenerClient | _DocketSearch,
+    corpus_db_path: Path,
+    courts: list[str],
+    *,
+    max_new: int,
+    default_since: date,
+) -> DiscoverResult:
+    """Discover and onboard newly-filed dockets across ``courts``, within budget.
+
+    Walks the courts in order, onboarding at most ``max_new`` dockets in total
+    (the budget governor's discovery cap). For each new docket it upserts the
+    normalized corpus row, records its default predictable event, and advances
+    the court's watermark to the newest ``date_filed`` it onboarded. A court with
+    no watermark yet starts from ``default_since``.
+    """
+    result = DiscoverResult()
+    if max_new <= 0:
+        return result
+
+    with corpus.connect(corpus_db_path) as conn:
+        for court in courts:
+            remaining = max_new - result.total
+            if remaining <= 0:
+                break
+
+            since = corpus.get_discovery_watermark(conn, court) or default_since
+            dockets = client.iter_dockets(court, since, max_results=remaining)
+            rows = [from_api_docket(d) for d in dockets]
+            if not rows:
+                continue
+
+            corpus.upsert_rows(conn, [to_corpus_row(r) for r in rows])
+            corpus.upsert_events(conn, [default_event(r) for r in rows])
+
+            watermark = max((r.date_filed for r in rows if r.date_filed is not None), default=since)
+            corpus.set_discovery_watermark(conn, court, watermark)
+
+            result.courts.append(CourtDiscovery(court, len(rows), watermark))
+            result.case_ids.extend(r.case_id for r in rows)
+
+    return result

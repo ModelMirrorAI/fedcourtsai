@@ -6,6 +6,7 @@ import pytest
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
+    default_event,
     from_api_docket,
     from_bulk_row,
     merge_rows,
@@ -13,7 +14,7 @@ from fedcourtsai.pipeline.ingest import (
     to_corpus_row,
     upsert_to_corpus,
 )
-from fedcourtsai.schemas import Disposition
+from fedcourtsai.schemas import Disposition, EventKind
 
 # Equivalent facts about one docket, shaped the way each upstream source delivers
 # them: the API as a JSON object (court as a hyperlink, panel as nested judges),
@@ -128,6 +129,26 @@ def test_upsert_to_corpus_persists_rows(tmp_path: Path) -> None:
     assert upsert_to_corpus(db, rows) == 2
     with corpus.connect(db) as conn:
         assert {r.case_id for r in corpus.iter_rows(conn)} == {"ca9/64512345", "ca1/9"}
+
+
+def test_default_event_for_appeal() -> None:
+    event = default_event(from_api_docket(API_DOCKET))
+    assert event.case_id == "ca9/64512345"
+    assert event.court == "ca9"
+    assert event.kind == EventKind.appeal
+    assert event.event_id == "evt-appeal-disposition"
+    assert event.title == "Doe v. Roe"
+    assert event.opened_at == date(2021, 3, 1)
+    # API_DOCKET carries a disposition, so the event is already resolved.
+    assert event.resolved is True
+
+
+def test_default_event_for_scotus_is_a_petition() -> None:
+    event = default_event(from_bulk_row({"id": "5", "court_id": "scotus"}))
+    assert event.kind == EventKind.petition
+    assert event.event_id == "evt-petition-disposition"
+    assert event.resolved is False  # no disposition yet
+    assert event.title == "scotus/5"  # falls back to case_id when unnamed
 
 
 def test_upsert_to_corpus_is_idempotent_by_case(tmp_path: Path) -> None:

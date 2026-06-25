@@ -11,6 +11,7 @@ Docs: https://www.courtlistener.com/help/api/rest/
 
 from __future__ import annotations
 
+from datetime import date
 from types import TracebackType
 from typing import Any
 
@@ -90,3 +91,49 @@ class CourtListenerClient:
                 break
             page += 1
         return results
+
+    def list_dockets(
+        self,
+        court: str,
+        date_filed_gte: date,
+        page: int = 1,
+        order_by: str = "date_filed",
+    ) -> JsonDict:
+        """List a court's dockets filed on or after ``date_filed_gte`` (one page).
+
+        Forward discovery: the REST analogue of scanning the bulk export for
+        new filings. Ascending ``date_filed`` order is the default so a caller
+        consuming results under a budget advances a watermark monotonically.
+        """
+        return self._get(
+            "dockets/",
+            {
+                "court": court,
+                "date_filed__gte": date_filed_gte.isoformat(),
+                "order_by": order_by,
+                "page": page,
+            },
+        )
+
+    def iter_dockets(
+        self,
+        court: str,
+        date_filed_gte: date,
+        *,
+        max_results: int,
+        order_by: str = "date_filed",
+    ) -> list[JsonDict]:
+        """Page through new filings for a court, stopping once ``max_results`` is hit.
+
+        ``max_results`` is a hard cap so discovery stays inside the API budget:
+        no more pages are fetched than needed to fill it.
+        """
+        results: list[JsonDict] = []
+        page = 1
+        while len(results) < max_results:
+            payload = self.list_dockets(court, date_filed_gte, page=page, order_by=order_by)
+            results.extend(payload.get("results", []))
+            if not payload.get("next"):
+                break
+            page += 1
+        return results[:max_results]
