@@ -59,9 +59,15 @@ beside its output; `fedcourts usage-summary` rolls those up into an actual \$/ru
 Once enough real runs have accumulated, update the assumption above from that
 figure. Note the two big discounts that apply to it:
 
-- **Prompt caching** — the stable prefix (AGENTS.md + prompt template) is
-  identical across runs; cached reads bill at ~0.1×. Keep that prefix byte-stable
-  to capture it.
+- **Prompt caching** — automatic on both engines. The stable prefix (AGENTS.md +
+  the prompt template + schema) is byte-identical across runs and is read before
+  any per-case facts, so it is served from cache across a run's many tool-use
+  turns; cached reads bill at ~0.1× and cache writes at ~1.25× (both in
+  `fedcourtsai.pricing`, and recorded per run in `usage.json`). Keep that prefix
+  byte-stable to capture it. The predict and evaluate workflows request the
+  1-hour cache TTL explicitly: it is free on the Claude Max subscription and keeps
+  the cache from expiring mid-run should Claude auth move to the Anthropic API,
+  whose default TTL is only 5 minutes.
 - **Batch API (Claude)** — 50% off for non-latency-sensitive work
   (back-testing, bulk re-scoring). Live pull-triggered predictions are
   latency-sensitive and stay on-demand.

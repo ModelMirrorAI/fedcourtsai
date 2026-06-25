@@ -9,26 +9,32 @@ a rotation that stops skipping resolved cases — would land silently in CI.
 
 This test wires them together against a single ``tmp_path`` corpus using the same
 in-memory fakes the unit suites use, and asserts the **composition** the units do
-not: that seeded rows are what ``pull`` later rotates over, that ``pull-all``
+not: that seed defines each docket's predictable event(s) in the shared corpus,
+that seeded rows are what ``pull`` later rotates over, that a seed-defined event
+is what a later resolution attaches an ``outcome.json`` to, that ``pull-all``
 emits the three queue payloads ``run-pull.yml`` consumes, that the
 deterministic-first / agent-fallback outcome split runs through the real
 ``pull`` + ``outcome`` code paths, and that oldest-first / skip-resolved rotation
 holds across two rounds over the shared corpus.
 """
 
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
 from fedcourtsai import corpus
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import pull_cases
-from fedcourtsai.pipeline.seed import backfill, load_cursor
+from fedcourtsai.pipeline.seed import backfill, load_cursor, snapshot_date
 from fedcourtsai.schemas import EventKind, PredictableEvent
 from fedcourtsai.serialize import write_yaml
 from fedcourtsai.store import cases_due_for_pull
 
-# Reuse the seed-side fake exactly as the unit suite defines it (issue #49).
+# Reuse the per-stage fakes exactly as the unit suites define them (issues #49, #55).
+from tests.test_discover import FakeSearch
+from tests.test_discover import _docket as _search_docket
 from tests.test_seed import FakeBulkSource, _row
 
 _EVENT_ID = "evt-appeal-disposition"
@@ -72,15 +78,29 @@ def _docket(docket_id: int, court: str = "ca9", **kw: Any) -> dict[str, Any]:
     }
 
 
-def _open_event(data_root: Path, court: str, docket: int) -> None:
-    """Write an open ``event.yaml`` into the git ledger so outcome detection runs."""
-    event = PredictableEvent(
-        event_id=_EVENT_ID,
-        case_id=f"{court}/{docket}",
-        kind=EventKind.appeal,
-        title="Appeal disposition",
-    )
-    write_yaml(CasePaths(data_root, court, docket).event(_EVENT_ID).event_file, event)
+def _materialize_open_events(data_root: Path, db: Path, court: str, docket: int) -> list[str]:
+    """Project a seeded case's corpus events into the git ledger as open events.
+
+    Outcome detection reads ``event.yaml`` from the ledger, so this mirrors the
+    forward materialization step: it takes the predictable events *seed* recorded
+    in the corpus and writes the matching ``event.yaml`` files. Returns the event
+    ids written, proving the resolution below attaches to a seed-defined event
+    rather than a hand-authored one.
+    """
+    with corpus.connect(db) as conn:
+        events = corpus.events_for_case(conn, f"{court}/{docket}")
+    assert events, f"seed defined no events for {court}/{docket}"
+    for ev in events:
+        write_yaml(
+            CasePaths(data_root, court, docket).event(ev.event_id).event_file,
+            PredictableEvent(
+                event_id=ev.event_id,
+                case_id=ev.case_id,
+                kind=EventKind(ev.kind),
+                title=ev.title,
+            ),
+        )
+    return [ev.event_id for ev in events]
 
 
 def _seed_courts() -> dict[str, list[dict[str, str]]]:
@@ -109,9 +129,65 @@ def test_seed_fills_shared_corpus_without_signing_off(tmp_path: Path) -> None:
     assert final.complete is True
     with corpus.connect(db) as conn:
         assert corpus.count(conn) == 8  # both courts fully loaded into the shared corpus
+        # Seed defines events too: every seeded docket carries its baseline
+        # predictable event, so the historical backfill is visible to prediction.
+        assert corpus.event_count(conn) == 8
+        baseline = corpus.events_for_case(conn, "ca1/0")
+        assert [e.event_id for e in baseline] == [_EVENT_ID]
+        assert baseline[0].kind == EventKind.appeal and baseline[0].resolved is False
     # Completion is reported, but the maintainer sign-off flag (#47) is not flipped
     # automatically — only the completion PR sets it.
     assert load_cursor(cursor).completed is False
+
+
+# --- 1b. seed → discovery frontier hand-off ------------------------------------
+
+
+def test_seed_hands_discovery_frontier_to_pull(tmp_path: Path) -> None:
+    """Seed sets the frontier from the snapshot date; discovery resumes from it.
+
+    Composition the units don't: that the completed backfill's discovery watermark
+    lands at the snapshot's as-of date, that a later forward discovery starts there
+    (not at today's last-resort default, which would onboard nothing across the
+    snapshot→today gap), and that an empty discovery run never rewinds it.
+    """
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+
+    # A dated bulk snapshot (2023-Q1) backfills ca9 to completion.
+    backfill(
+        FakeBulkSource("2023-Q1", {"ca9": [_row("ca9", i) for i in range(3)]}),
+        cursor_path=cursor,
+        courts=["ca9"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    snapshot = snapshot_date("2023-Q1")
+    assert snapshot == date(2023, 3, 31)
+    with corpus.connect(db) as conn:
+        # Hand-off: the completed court's watermark is the snapshot's as-of date.
+        assert corpus.get_discovery_watermark(conn, "ca9") == snapshot
+
+    # Forward discovery defaulting to "today" would search from 2026 and find
+    # nothing; the seed hand-off makes it search from the 2023 snapshot and pick up
+    # an April-2023 filing the bulk snapshot was too early to include.
+    search = FakeSearch({"ca9": [_search_docket(900, "ca9", "2023-04-15")]})
+    today = date(2026, 6, 25)
+    result = discover_cases(
+        cast(CourtListenerClient, search), db, ["ca9"], max_new=10, default_since=today
+    )
+    assert search.calls[-1][1] == snapshot  # searched from the snapshot, not today
+    assert "ca9/900" in result.case_ids
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2023, 4, 15)
+
+    # A second discovery run that finds nothing must not rewind to default_since:
+    # it advances/holds at the date it searched from (the stored watermark).
+    empty = FakeSearch({"ca9": []})
+    discover_cases(cast(CourtListenerClient, empty), db, ["ca9"], max_new=10, default_since=today)
+    assert empty.calls[-1][1] == date(2023, 4, 15)
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2023, 4, 15)
 
 
 # --- 2 + 3. pull → corpus + queues, and the outcome cascade --------------------
@@ -127,9 +203,11 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     seed = FakeBulkSource("2026-Q2", {"ca9": [_row("ca9", i) for i in (1, 2, 3)]})
     backfill(seed, cursor_path=cursor, courts=["ca9"], corpus_db_path=db, max_cases=100)
 
-    # Each case has one open predictable event in the git ledger.
+    # The open predictable event each case carries is the one *seed* defined in the
+    # corpus — materialized into the ledger so a later resolution has it to attach
+    # an outcome to (without seed defining events, there would be none).
     for docket in (1, 2, 3):
-        _open_event(data_root, "ca9", docket)
+        assert _materialize_open_events(data_root, db, "ca9", docket) == [_EVENT_ID]
 
     # ca9/1: machine-readable disposition → deterministic outcome (evaluate).
     # ca9/2: decided but only "affirmed" → ambiguous → reconcile, no outcome.

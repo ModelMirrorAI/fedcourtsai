@@ -2,6 +2,7 @@ from datetime import date
 from typing import Any
 
 from fedcourtsai.pipeline.events import extract_events
+from fedcourtsai.pipeline.ingest import from_bulk_row
 from fedcourtsai.schemas import EventKind
 
 
@@ -151,3 +152,28 @@ def test_recap_document_description_is_classified() -> None:
 def test_entry_without_id_is_skipped() -> None:
     result = extract_events(_docket([{"description": "MOTION for stay", "entry_number": 1}]))
     assert [e.event_id for e in result.events] == ["evt-appeal-disposition"]
+
+
+def test_bulk_normalize_seam_yields_same_events_as_api() -> None:
+    # The seed seam (`normalize=from_bulk_row`) over a bulk CSV row with no
+    # entries gives the same baseline event a discovered docket would — one
+    # extractor, two sources.
+    bulk_row = {"id": "555", "court_id": "ca9", "case_name": "Doe v. Roe"}
+    seeded = extract_events(bulk_row, normalize=from_bulk_row)
+    assert [e.event_id for e in seeded.events] == ["evt-appeal-disposition"]
+    assert seeded.events[0].case_id == "ca9/555"
+    assert seeded.ambiguous == []
+
+
+def test_bulk_normalize_seam_classifies_entries_when_present() -> None:
+    # When a bulk source *does* carry docket entries, the same seam produces the
+    # entry-pinned events too — the bulk row shape only changes normalization.
+    bulk_row = {
+        "id": "555",
+        "court_id": "ca9",
+        "case_name": "Doe v. Roe",
+        "docket_entries": [_entry(7, "MOTION to dismiss for lack of jurisdiction", number=7)],
+    }
+    result = extract_events(bulk_row, normalize=from_bulk_row)
+    motions = _by_kind(result.events)[EventKind.motion]
+    assert any(e.docket_entry_id == 7 for e in motions)

@@ -30,14 +30,14 @@ agent.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
 from .. import corpus, ids
 from ..schemas import EventKind
-from .ingest import default_event, from_api_docket
+from .ingest import CorpusRow, default_event, from_api_docket
 
 # --- docket-entry classification ----------------------------------------------
 
@@ -172,7 +172,11 @@ def _referenced_numbers(text: str) -> set[int]:
     return {int(m.group(1)) for m in _REFERENCE_RE.finditer(text)}
 
 
-def extract_events(docket: Mapping[str, Any]) -> EventExtraction:
+def extract_events(
+    docket: Mapping[str, Any],
+    *,
+    normalize: Callable[[Mapping[str, Any]], CorpusRow] = from_api_docket,
+) -> EventExtraction:
     """Derive the predictable events defined by one docket.
 
     Always includes the case-level baseline event (the appeal/petition
@@ -181,8 +185,16 @@ def extract_events(docket: Mapping[str, Any]) -> EventExtraction:
     order cites the entry's number. Entries that read like a request but match
     more than one ``kind`` are returned as :attr:`EventExtraction.ambiguous`
     rather than guessed.
+
+    ``normalize`` is the seam over the entry path: forward ``pull`` discovery
+    hands API docket objects (the default, :func:`from_api_docket`), while bulk
+    ``seed`` hands CSV rows (:func:`from_bulk_row`). Both normalize to the same
+    :class:`CorpusRow`, so one extractor serves both sources and a seeded docket
+    yields the same event shape as a discovered one. Entry-pinned events still
+    require ``docket_entries``; a bulk row that carries none gets the baseline
+    event alone, and a later ``pull`` refresh can enrich it.
     """
-    row = from_api_docket(docket)
+    row = normalize(docket)
     result = EventExtraction(events=[default_event(row)])
 
     raw_entries = docket.get("docket_entries")
