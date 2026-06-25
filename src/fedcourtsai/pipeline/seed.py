@@ -38,9 +38,10 @@ import httpx
 import yaml
 from pydantic import BaseModel
 
-from .. import ids
+from .. import corpus, ids
 from ..schemas import CourtProgress, SeedProgress
 from ..serialize import write_yaml
+from .events import AmbiguousEntry, extract_events
 from .ingest import from_bulk_row, upsert_to_corpus
 
 
@@ -89,6 +90,9 @@ class SeedReport(BaseModel):
     complete: bool
     loaded_this_run: int
     courts: list[CourtReport]
+    ambiguous: int = 0
+    """Bulk entries the deterministic event classifier could not place; recorded
+    (not guessed) for a later agent reconcile, mirroring forward discovery."""
 
 
 # --- cursor IO -----------------------------------------------------------------
@@ -134,14 +138,21 @@ def backfill(
     Reads the cursor, reconciles against the live snapshot id if it changed, then
     walks the tracked courts in order, loading each court's next rows (skipping
     those already consumed) through the shared ingestion core into the packed
-    corpus until the per-run ``max_cases`` budget is spent. Advances and writes
-    the cursor. Idempotent: re-running after completion loads zero rows.
+    corpus until the per-run ``max_cases`` budget is spent. Each ingested chunk
+    then runs the deterministic event-definition stage
+    (:mod:`fedcourtsai.pipeline.events`) so every seeded docket carries its
+    predictable event(s) — at minimum the baseline disposition — exactly as
+    forward discovery records them. Advances and writes the cursor. Idempotent:
+    re-running after completion loads zero rows, and re-ingesting a docket
+    re-upserts its events in place.
     """
     progress = load_cursor(cursor_path)
     if progress.snapshot != source.snapshot_id:
         progress = _reconcile(progress, source.snapshot_id)
 
     loaded_this_run = 0
+    events: list[corpus.CorpusEvent] = []
+    ambiguous: list[AmbiguousEntry] = []
     for court in courts:
         cp = progress.courts.setdefault(court, CourtProgress())
         if cp.complete:
@@ -152,6 +163,13 @@ def backfill(
         chunk = source.fetch_court_chunk(court, offset=cp.offset, limit=remaining)
         if chunk.rows:
             upsert_to_corpus(corpus_db_path, [from_bulk_row(r) for r in chunk.rows])
+            for raw in chunk.rows:
+                # Same event-definition stage discovery runs (discover.py), so a
+                # seeded and a discovered docket yield identical event rows. Bulk
+                # rows rarely carry entries, so most get the baseline event alone.
+                extraction = extract_events(raw, normalize=from_bulk_row)
+                events.extend(extraction.events)
+                ambiguous.extend(extraction.ambiguous)
             cp.offset += len(chunk.rows)
             loaded_this_run += len(chunk.rows)
         if chunk.total is not None:
@@ -160,11 +178,20 @@ def backfill(
             cp.complete = True
             cp.total = chunk.total if chunk.total is not None else cp.offset
 
+    if events:
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.upsert_events(conn, events)
+
     save_cursor(cursor_path, progress)
-    return _report(progress, courts, loaded_this_run)
+    return _report(progress, courts, loaded_this_run, ambiguous)
 
 
-def _report(progress: SeedProgress, courts: Sequence[str], loaded_this_run: int) -> SeedReport:
+def _report(
+    progress: SeedProgress,
+    courts: Sequence[str],
+    loaded_this_run: int,
+    ambiguous: Sequence[AmbiguousEntry] = (),
+) -> SeedReport:
     lines: list[CourtReport] = []
     for court in courts:
         cp = progress.courts.get(court, CourtProgress())
@@ -187,6 +214,7 @@ def _report(progress: SeedProgress, courts: Sequence[str], loaded_this_run: int)
         complete=complete,
         loaded_this_run=loaded_this_run,
         courts=lines,
+        ambiguous=len(ambiguous),
     )
 
 
