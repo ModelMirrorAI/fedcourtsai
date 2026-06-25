@@ -1,0 +1,5 @@
+outs:
+- md5: 3867db6c2c2bdc6a2f1e88eab14297c5
+  size: 274432
+  hash: md5
+  path: corpus.db
