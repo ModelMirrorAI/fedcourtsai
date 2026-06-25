@@ -24,7 +24,12 @@ from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
-from .pipeline.seed import CourtListenerBulkSource, backfill, quarter_id, sibling_bulk_url
+from .pipeline.seed import (
+    CourtListenerBulkSource,
+    backfill,
+    resolve_dockets_source,
+    sibling_bulk_url,
+)
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition, Engine, ModelUsage, UsageRole
@@ -343,12 +348,15 @@ def seed_backfill(
         )
         raise typer.Exit(code=2)
 
-    snapshot_id = settings.seed_snapshot or quarter_id(date.today())
+    snapshot_id, dockets_url = resolve_dockets_source(
+        settings.courtlistener_bulk_url,
+        snapshot=settings.seed_snapshot,
+        timeout=settings.request_timeout,
+    )
     # The dockets file is the case spine; opinion-clusters (a sibling bulk file)
     # enrich each row with disposition/summary/judges via the staged join. A
     # non-standard pinned dockets URL has no derivable sibling, so the spine still
     # loads and those fields stay blank.
-    dockets_url = settings.courtlistener_bulk_url
     source = CourtListenerBulkSource(
         snapshot_id,
         dockets_url=dockets_url,

@@ -31,11 +31,13 @@ import os
 import re
 import sqlite3
 import tempfile
-from collections.abc import Mapping, Sequence
+import xml.etree.ElementTree as ET
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import IO, Any, Protocol, runtime_checkable
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import yaml
@@ -242,6 +244,109 @@ def _report(
 def quarter_id(d: date) -> str:
     """Quarter label, e.g. ``2026-Q2``, used as a default snapshot id."""
     return f"{d.year}-Q{(d.month - 1) // 3 + 1}"
+
+
+# --- snapshot discovery (resolve the latest bulk snapshot from the bucket) ------
+
+# Public bulk-data naming convention: ``<table>-YYYY-MM-DD.csv.(bz2|gz)``.
+_SNAPSHOT_RE = re.compile(r"-(\d{4}-\d{2}-\d{2})\.csv\.(?:bz2|gz)$")
+# A partial-generation run leaves tiny placeholder objects (an empty bz2 is ~14
+# bytes); require a real payload so discovery never picks a stub snapshot.
+_MIN_SNAPSHOT_BYTES = 1024
+# S3 ListObjectsV2 XML uses a default namespace; ``{*}`` matches it either way.
+_S3_NS = "{*}"
+
+
+def _iter_bucket(client: httpx.Client, origin: str, prefix: str) -> Iterator[tuple[str, int]]:
+    """Yield ``(key, size)`` for every object under ``prefix``, paging as needed."""
+    token: str | None = None
+    while True:
+        params = {"list-type": "2", "prefix": prefix}
+        if token is not None:
+            params["continuation-token"] = token
+        resp = client.get(origin, params=params)
+        resp.raise_for_status()
+        root = ET.fromstring(resp.text)
+        for contents in root.findall(f"{_S3_NS}Contents"):
+            key = contents.findtext(f"{_S3_NS}Key")
+            size = contents.findtext(f"{_S3_NS}Size")
+            if key is not None and size is not None:
+                yield key, int(size)
+        if root.findtext(f"{_S3_NS}IsTruncated") == "true":
+            token = root.findtext(f"{_S3_NS}NextContinuationToken")
+        else:
+            return
+
+
+def discover_latest_snapshot(
+    base_url: str,
+    *,
+    tables: Sequence[str] = ("dockets",),
+    client: httpx.Client | None = None,
+    timeout: float = 30.0,
+    min_bytes: int = _MIN_SNAPSHOT_BYTES,
+) -> str:
+    """Return the most recent snapshot date published for *every* table.
+
+    Lists the public bulk-data bucket under ``base_url`` and returns the latest
+    ``YYYY-MM-DD`` carrying a non-placeholder file for each table in ``tables``
+    (their intersection), so a multi-table run never references a table that lagged
+    during the quarterly regeneration. Raises :class:`ValueError` if no snapshot is
+    published for all of them.
+    """
+    split = urlsplit(base_url)
+    origin = urlunsplit((split.scheme, split.netloc, "", "", ""))
+    prefix = split.path.lstrip("/")
+    if prefix and not prefix.endswith("/"):
+        prefix += "/"
+    owned = client is None
+    client = client or httpx.Client(timeout=timeout, follow_redirects=True)
+    try:
+        per_table: list[set[str]] = []
+        for table in tables:
+            dates: set[str] = set()
+            for key, size in _iter_bucket(client, origin, f"{prefix}{table}-"):
+                if size < min_bytes:
+                    continue
+                m = _SNAPSHOT_RE.search(key)
+                if m is not None:
+                    dates.add(m.group(1))
+            per_table.append(dates)
+    finally:
+        if owned:
+            client.close()
+    common = set.intersection(*per_table) if per_table else set()
+    if not common:
+        raise ValueError(f"No bulk snapshot published for all of {list(tables)} under {base_url}")
+    return max(common)  # ISO dates sort lexicographically == chronologically
+
+
+def bulk_file_url(base_url: str, table: str, snapshot: str, *, ext: str = "csv.bz2") -> str:
+    """Build the bulk file URL for ``table`` at ``snapshot`` under ``base_url``."""
+    return f"{base_url.rstrip('/')}/{table}-{snapshot}.{ext}"
+
+
+def resolve_dockets_source(
+    bulk_url: str,
+    *,
+    snapshot: str | None = None,
+    timeout: float = 30.0,
+    client: httpx.Client | None = None,
+) -> tuple[str, str]:
+    """Resolve ``(snapshot_id, dockets_url)`` from the configured bulk URL.
+
+    ``bulk_url`` is normally the bulk-data **base** directory: the latest snapshot
+    is auto-discovered (unless ``snapshot`` pins one for a reproducible run) and the
+    dockets file URL is built from it. An explicit ``.csv`` file URL is honored
+    as-is — a manual pin — with its snapshot taken from the filename (or
+    ``snapshot`` when given).
+    """
+    if bulk_url.rstrip("/").endswith((".csv.bz2", ".csv.gz", ".csv")):
+        m = _SNAPSHOT_RE.search(bulk_url)
+        snap = snapshot or (m.group(1) if m else quarter_id(date.today()))
+        return snap, bulk_url
+    snap = snapshot or discover_latest_snapshot(bulk_url, timeout=timeout, client=client)
+    return snap, bulk_file_url(bulk_url, "dockets", snap)
 
 
 _QUARTER_LAST_DAY = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
