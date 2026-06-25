@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -15,11 +16,12 @@ import typer
 import yaml
 
 from . import corpus, ids
-from .config import get_settings, load_pull_config
+from .config import get_settings, load_pull_config, load_seed_config, load_tracked_courts
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
 from .pipeline.pull import pull_case
+from .pipeline.seed import CourtListenerBulkSource, backfill, quarter_id
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS
 from .serialize import write_raw_json
@@ -118,6 +120,68 @@ def pull(
     should run).
     """
     _fetch_one_docket(court, docket)
+
+
+@app.command("seed-backfill")
+def seed_backfill(
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            help="Optional lower cap on cases to load this run; cannot exceed "
+            "seed.max_cases_per_run."
+        ),
+    ] = None,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Write progress JSON here for the tracking-issue comment."),
+    ] = None,
+) -> None:
+    """Load the next chunk of CourtListener bulk data into the corpus (no agent).
+
+    The deterministic historical backfill: reads the committed cursor
+    (``config/seed-progress.yaml``), streams the next slice of the public bulk
+    snapshot for the tracked courts (``config/tracking.yaml``), normalizes each
+    row through the shared ingestion core into the packed corpus, and advances the
+    cursor — all without spending the CourtListener REST budget. ``--max-cases``
+    may only lower the per-run cap, never raise it. Idempotent: re-running after
+    completion loads zero rows.
+    """
+    settings = get_settings()
+    seed_cfg = load_seed_config(settings.config_root)
+    courts = load_tracked_courts(settings.config_root)
+    cap = (
+        seed_cfg.max_cases_per_run
+        if max_cases is None
+        else min(max_cases, seed_cfg.max_cases_per_run)
+    )
+    if not settings.courtlistener_bulk_url:
+        typer.echo(
+            "No bulk snapshot URL configured; seed-backfill has no source to load and is a no-op.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    snapshot_id = settings.seed_snapshot or quarter_id(date.today())
+    source = CourtListenerBulkSource(
+        snapshot_id, url=settings.courtlistener_bulk_url, timeout=settings.request_timeout
+    )
+    try:
+        rep = backfill(
+            source,
+            cursor_path=seed_cfg.cursor,
+            courts=courts,
+            corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
+            max_cases=cap,
+        )
+    finally:
+        source.cleanup()
+
+    if report is not None:
+        write_raw_json(report, rep.model_dump(mode="json"))
+    typer.echo(
+        f"seed-backfill snapshot={rep.snapshot} loaded_this_run={rep.loaded_this_run} "
+        f"complete={rep.complete}"
+    )
 
 
 @app.command("corpus-info")
