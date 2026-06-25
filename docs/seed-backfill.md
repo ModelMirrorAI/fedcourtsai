@@ -39,9 +39,11 @@ fedcourts seed-backfill [--max-cases N] [--report PATH]
    each through the shared ingestion core (`fedcourtsai.pipeline.ingest`, bulk-CSV
    path → `CorpusRow`) and `corpus.upsert_rows` into `corpus/corpus.db`. A row's
    facts span several bulk files (the docket spine in `dockets`; `disposition`,
-   `summary`, and `judges` in `opinion-clusters`), so the source stages them once
-   per snapshot into a local SQLite and serves each chunk as an indexed join — see
-   the staged-join note in [data-pipeline.md](data-pipeline.md) §Seed.
+   `summary`, `judges`, `precedential_status`, and `citation_count` in
+   `opinion-clusters`; `parties` / `attorneys` name lists; and the panel's judge
+   names + seniority resolved from `people-db-people`), so the source stages them
+   once per snapshot into a local SQLite and serves each chunk as an indexed join —
+   see the staged-join note in [data-pipeline.md](data-pipeline.md) §Seed.
 4. Run the **event-definition stage** (`fedcourtsai.pipeline.events.extract_events`,
    the same one forward discovery uses) over each ingested docket and
    `corpus.upsert_events` the result, so every seeded docket carries at least its

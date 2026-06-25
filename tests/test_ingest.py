@@ -27,11 +27,21 @@ API_DOCKET = {
     "date_filed": "2021-03-01",
     "date_terminated": "2022-06-15",
     "nature_of_suit": "Civil Rights",
-    "panel": [{"name_full": "Jane Smith"}, {"name_full": "Alan Lee"}],
+    "panel": [
+        {"name_full": "Jane Smith", "seniority": "active"},
+        {"name_full": "Alan Lee", "seniority": "senior"},
+    ],
+    "parties": [{"name": "United States"}, {"name": "Jane Roe"}],
+    "attorneys": [{"name": "A. Counsel"}],
     "disposition": "Motion granted in part and denied in part",
+    "precedential_status": "Published",
+    "citation_count": 5,
     "citations": ["12 F.4th 100"],
 }
 
+# The same facts as the bulk export delivers them: flat CSV strings, and the
+# multi-valued siblings already shaped by the staged join — a resolved panel JSON
+# and the `;`/JSON-array name lists the join serves.
 BULK_ROW = {
     "id": "64512345",
     "court_id": "ca9",
@@ -41,7 +51,13 @@ BULK_ROW = {
     "date_terminated": "2022-06-15",
     "nature_of_suit": "Civil Rights",
     "judges": "Alan Lee|Jane Smith",
+    "panel": '[{"name": "Jane Smith", "seniority": "active"}, '
+    '{"name": "Alan Lee", "seniority": "senior"}]',
+    "parties": '["Jane Roe", "United States"]',
+    "attorneys": '["A. Counsel"]',
     "disposition": "Motion granted in part and denied in part",
+    "precedential_status": "Published",
+    "citation_count": "5",
     "citations": "12 F.4th 100",
 }
 
@@ -66,6 +82,26 @@ def test_normalized_fields() -> None:
     assert row.nature_of_suit == "Civil Rights"
     assert row.judges == ["Alan Lee", "Jane Smith"]  # sorted, deduplicated
     assert row.citations == ["12 F.4th 100"]
+    # Enriched sibling facts: structured panel (name + seniority), parties, attorneys,
+    # and the opinion-cluster scalars.
+    assert row.panel == [
+        corpus.PanelMember(name="Jane Smith", seniority="active"),
+        corpus.PanelMember(name="Alan Lee", seniority="senior"),
+    ]
+    assert row.parties == ["Jane Roe", "United States"]  # sorted, deterministic
+    assert row.attorneys == ["A. Counsel"]
+    assert row.precedential_status == "Published"
+    assert row.citation_count == 5
+
+
+def test_panel_names_fold_into_judges_when_free_text_blank() -> None:
+    # A bulk row whose only judge signal is the resolved panel still fills `judges`.
+    row = from_bulk_row(
+        {"id": "1", "court_id": "ca9", "panel": '[{"name": "Pat Quinn"}, {"name": "Dana Vu"}]'}
+    )
+    assert row.judges == ["Dana Vu", "Pat Quinn"]
+    assert [m.name for m in row.panel] == ["Pat Quinn", "Dana Vu"]
+    assert row.panel[0].seniority is None  # absent in the directory → None
 
 
 def test_court_id_from_url_and_field_agree() -> None:
@@ -121,6 +157,28 @@ def test_to_corpus_row_projects_onto_store_schema() -> None:
     assert store_row.topic == "Civil Rights"  # nature_of_suit -> topic
     assert store_row.judges == ["Alan Lee", "Jane Smith"]
     assert store_row.disposition == Disposition.granted_in_part
+    # Enriched fields carry through to the storage row.
+    assert store_row.parties == ["Jane Roe", "United States"]
+    assert store_row.attorneys == ["A. Counsel"]
+    assert store_row.precedential_status == "Published"
+    assert store_row.citation_count == 5
+    assert store_row.panel[0] == corpus.PanelMember(name="Jane Smith", seniority="active")
+
+
+def test_enriched_fields_round_trip_through_the_corpus(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    upsert_to_corpus(db, [from_api_docket(API_DOCKET)])
+    with corpus.connect(db) as conn:
+        fetched = corpus.get_row(conn, "ca9/64512345")
+    assert fetched is not None
+    assert fetched.parties == ["Jane Roe", "United States"]
+    assert fetched.attorneys == ["A. Counsel"]
+    assert fetched.precedential_status == "Published"
+    assert fetched.citation_count == 5
+    assert fetched.panel == [
+        corpus.PanelMember(name="Jane Smith", seniority="active"),
+        corpus.PanelMember(name="Alan Lee", seniority="senior"),
+    ]
 
 
 def test_upsert_to_corpus_persists_rows(tmp_path: Path) -> None:
