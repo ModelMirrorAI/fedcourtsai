@@ -56,7 +56,10 @@ retrieval) is a later upgrade and is not stored yet.
 
 The things the pipeline predicts about a case — e.g. the disposition of an
 appeal — are raw facts too, so they live in the corpus, not as per-case
-`event.yaml` files. `pull` records one or more events when it discovers a docket.
+`event.yaml` files. The deterministic event-definition stage
+(`fedcourtsai.pipeline.events`) records one or more events for a docket by
+classifying its docket entries; see
+[docs/data-pipeline.md](../docs/data-pipeline.md).
 
 | Column            | Type        | Notes                                       |
 |-------------------|-------------|---------------------------------------------|
@@ -66,6 +69,7 @@ appeal — are raw facts too, so they live in the corpus, not as per-case
 | `kind`            | text        | motion / petition / appeal / order          |
 | `title`           | text        |                                             |
 | `description`     | text        |                                             |
+| `docket_entry_id` | integer     | docket entry the event is pinned to; null for case-level |
 | `decision_target` | text        | what is predicted (default `disposition`)   |
 | `opened_at`       | date        | when the event became predictable           |
 | `resolved`        | integer     | 0 while open, 1 once resolved               |

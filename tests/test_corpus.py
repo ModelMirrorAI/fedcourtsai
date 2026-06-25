@@ -210,6 +210,23 @@ def test_event_roundtrips(tmp_path: Path) -> None:
     assert fetched == [event]
 
 
+def test_event_docket_entry_id_roundtrips(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    event = _event(event_id="evt-motion-stay", kind=EventKind.motion, docket_entry_id=987)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [event])
+        fetched = corpus.events_for_case(conn, "ca9/123")
+    assert fetched[0].docket_entry_id == 987
+
+
+def test_event_docket_entry_id_defaults_to_none(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event()])
+        fetched = corpus.events_for_case(conn, "ca9/123")
+    assert fetched[0].docket_entry_id is None
+
+
 def test_events_upsert_is_idempotent_by_case_and_event(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
