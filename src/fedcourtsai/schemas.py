@@ -231,7 +231,9 @@ class SeedProgress(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     snapshot: str | None = Field(
-        default=None, description="Bulk snapshot id currently being loaded, e.g. `2026-Q2`"
+        default=None,
+        description="Bulk snapshot id currently being loaded, e.g. `2026-03-31` (an "
+        "auto-resolved file date) or `2026-Q2` (a manually pinned quarter)",
     )
     courts: dict[str, CourtProgress] = Field(default_factory=dict)
     completed: bool = Field(
