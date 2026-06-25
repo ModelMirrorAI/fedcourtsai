@@ -83,8 +83,10 @@ jobs:
 
       - name: Load the next bulk chunk into the corpus
         env:
-          # Public CourtListener bulk snapshot — no API token. The exact file URL
-          # and its snapshot id are provided out of band (CL names them by date).
+          # Public CourtListener bulk snapshot — no API token. Point this at the
+          # bulk-data base directory; the backfill lists the bucket and loads the
+          # latest snapshot on its own. The snapshot pin is optional (empty =
+          # auto-discover the latest); set it only to reproduce a specific snapshot.
           FEDCOURTS_COURTLISTENER_BULK_URL: ${{ vars.COURTLISTENER_BULK_URL }}
           FEDCOURTS_SEED_SNAPSHOT: ${{ vars.SEED_SNAPSHOT }}
         run: uv run fedcourts seed-backfill --report seed-report.json
