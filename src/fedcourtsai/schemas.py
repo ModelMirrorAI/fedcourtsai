@@ -211,6 +211,47 @@ class Leaderboard(_Strict):
     entries: list[LeaderboardEntry] = Field(default_factory=list)
 
 
+class BacktestEntry(_Strict):
+    """One predictor's standings over the historical back-test set."""
+
+    predictor_id: str
+    rank: int = Field(ge=1, description="1-based standing; 1 is best")
+    events_scored: int = Field(
+        ge=0, description="Resolved corpus events replayed for this predictor"
+    )
+    accuracy: float = Field(
+        ge=0.0, le=1.0, description="Fraction whose predicted disposition matched the known label"
+    )
+    granted_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Fraction whose binary granted/denied projection matched the outcome",
+    )
+    mean_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+    )
+
+
+class Backtest(_Strict):
+    """``metrics/backtest.json`` — predictors replayed against resolved corpus events.
+
+    The back-test harness hides each resolved event's ``disposition``, replays
+    every predictor against the remaining facts, and scores the prediction
+    against the known label. Deterministic and offline — a pure function of the
+    corpus, with no clock or randomness — so the same corpus always serializes
+    identically. Computed by ``fedcourts backtest``; empty (zero counts) until a
+    corpus with outcome labels is present.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    predictors_evaluated: int = Field(ge=0, description="Number of predictors on the board")
+    events_scored: int = Field(ge=0, description="Size of the resolved-event back-test set")
+    entries: list[BacktestEntry] = Field(default_factory=list)
+
+
 class CourtProgress(_Strict):
     """Per-court entry in the seed cursor — how far the backfill has loaded."""
 
@@ -231,7 +272,9 @@ class SeedProgress(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     snapshot: str | None = Field(
-        default=None, description="Bulk snapshot id currently being loaded, e.g. `2026-Q2`"
+        default=None,
+        description="Bulk snapshot id currently being loaded, e.g. `2026-03-31` (an "
+        "auto-resolved file date) or `2026-Q2` (a manually pinned quarter)",
     )
     courts: dict[str, CourtProgress] = Field(default_factory=dict)
     completed: bool = Field(
@@ -277,6 +320,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "evaluation.json": Evaluation,
     "seed-progress.yaml": SeedProgress,
     "leaderboard.json": Leaderboard,
+    "backtest.json": Backtest,
     "usage.json": ModelUsage,
 }
 
@@ -290,5 +334,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluator_config": EvaluatorConfig,
     "seed_progress": SeedProgress,
     "leaderboard": Leaderboard,
+    "backtest": Backtest,
     "usage": ModelUsage,
 }

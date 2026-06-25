@@ -171,8 +171,10 @@ ledger models in `fedcourtsai.schemas`.
 
 ### Consumers of the historical corpus
 
-- **Back-testing** — replay current predictors against historical *resolved*
-  events (outcome hidden at predict time), score against the known disposition.
+- **Back-testing** — replay predictors against historical *resolved* events
+  (outcome hidden at predict time), score against the known disposition. Run by
+  `fedcourts backtest` (the `backtest` DVC stage), a deterministic offline replay
+  that writes `metrics/backtest.json`; see [`fedcourtsai.backtest`](../src/fedcourtsai/backtest.py).
 - **Retrieval** — at prediction time a model pulls a handful of *relevant*
   priors instead of loading the bulk set into context. Structured retrieval is
   implemented today as `fedcourts query` (and the `corpus.retrieve_priors`
@@ -183,8 +185,12 @@ ledger models in `fedcourtsai.schemas`.
   is not yet a query filter; semantic / embedding similarity lands on the same
   query seam once embeddings are stored.
 
-Back-testing is a **future** consumer; this doc only commits to producing a
-corpus shaped to support it.
+The back-test harness scores each predictor on disposition accuracy, binary
+granted accuracy, and the Brier score of P(granted). It runs over a
+`Backtester` seam: two reference baselines (a constant floor and a
+corpus-retrieval majority vote) run entirely offline so the metric is real
+today, and the configured agentic predictors plug into the same seam and are
+replayed out of band, exactly as `run-predict` runs them live.
 
 ## Seed — historical backfill
 

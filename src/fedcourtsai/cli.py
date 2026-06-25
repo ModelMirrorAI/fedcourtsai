@@ -17,6 +17,7 @@ import typer
 import yaml
 
 from . import corpus, ids
+from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .config import get_settings, load_courts, load_pull_config, load_seed_config
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .leaderboard import build_leaderboard
@@ -107,6 +108,46 @@ def leaderboard(
     typer.echo(
         f"leaderboard: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) -> {destination}"
+    )
+
+
+@app.command()
+def backtest(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/backtest.json)."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Restrict the back-test set to one CourtListener court id.")
+    ] = "",
+    limit: Annotated[
+        int | None, typer.Option(help="Cap the back-test set to the first N resolved events.")
+    ] = None,
+) -> None:
+    """Replay the reference predictors over resolved corpus events into ``metrics/backtest.json``.
+
+    The corpus doubles as a back-test set: each resolved event's outcome is
+    hidden, every reference predictor is replayed against the remaining facts,
+    and the prediction is scored against the known disposition. Deterministic and
+    offline — a pure function of the corpus — so reruns reproduce the file byte
+    for byte. Writes an empty zero-count report when the corpus is absent (run
+    after `dvc pull`) or carries no resolved events.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    destination = out if out is not None else settings.metrics_root / "backtest.json"
+    if not db_path.exists():
+        report = run_backtest([], [])
+        write_json(destination, report)
+        typer.echo(f"No corpus at {db_path} — wrote empty back-test report -> {destination}")
+        return
+    with corpus.connect(db_path) as conn:
+        items = select_backtest_set(conn, court=court or None, limit=limit)
+        report = run_backtest(default_backtesters(conn), items)
+    write_json(destination, report)
+    typer.echo(
+        f"backtest: {report.predictors_evaluated} predictor(s) over "
+        f"{report.events_scored} resolved event(s) -> {destination}"
     )
 
 
@@ -350,7 +391,6 @@ def seed_backfill(
 
     snapshot_id, dockets_url = resolve_dockets_source(
         settings.courtlistener_bulk_url,
-        snapshot=settings.seed_snapshot,
         timeout=settings.request_timeout,
     )
     # The dockets file is the case spine; sibling bulk files enrich each row via the

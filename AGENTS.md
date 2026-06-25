@@ -74,10 +74,13 @@ uv run ruff check .
 uv run mypy
 uv run pytest
 uv run fedcourts validate data
+uv run fedcourts export-schemas schemas
+git diff --exit-code schemas   # CI fails if the committed schemas drift
 ```
 
-If you changed the pydantic models, regenerate schemas and commit them:
-`uv run fedcourts export-schemas schemas` (CI fails if they drift).
+The last two lines mirror CI's schema-drift check: any change to a pydantic
+model's fields **or field descriptions** regenerates `schemas/` — commit the
+result, or the gate fails.
 
 ## Conventions
 

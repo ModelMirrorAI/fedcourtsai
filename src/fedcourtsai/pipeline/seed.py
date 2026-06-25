@@ -329,23 +329,21 @@ def bulk_file_url(base_url: str, table: str, snapshot: str, *, ext: str = "csv.b
 def resolve_dockets_source(
     bulk_url: str,
     *,
-    snapshot: str | None = None,
     timeout: float = 30.0,
     client: httpx.Client | None = None,
 ) -> tuple[str, str]:
     """Resolve ``(snapshot_id, dockets_url)`` from the configured bulk URL.
 
     ``bulk_url`` is normally the bulk-data **base** directory: the latest snapshot
-    is auto-discovered (unless ``snapshot`` pins one for a reproducible run) and the
-    dockets file URL is built from it. An explicit ``.csv`` file URL is honored
-    as-is — a manual pin — with its snapshot taken from the filename (or
-    ``snapshot`` when given).
+    is auto-discovered and the dockets file URL is built from it. An explicit
+    ``.csv`` file URL is honored as-is — a manual pin — with its snapshot taken
+    from the filename.
     """
     if bulk_url.rstrip("/").endswith((".csv.bz2", ".csv.gz", ".csv")):
         m = _SNAPSHOT_RE.search(bulk_url)
-        snap = snapshot or (m.group(1) if m else quarter_id(date.today()))
+        snap = m.group(1) if m else quarter_id(date.today())
         return snap, bulk_url
-    snap = snapshot or discover_latest_snapshot(bulk_url, timeout=timeout, client=client)
+    snap = discover_latest_snapshot(bulk_url, timeout=timeout, client=client)
     return snap, bulk_file_url(bulk_url, "dockets", snap)
 
 
@@ -369,15 +367,29 @@ def sibling_bulk_url(dockets_url: str, table: str) -> str | None:
 
 
 def snapshot_date(snapshot_id: str) -> date | None:
-    """The bulk snapshot's as-of date, derived from a quarter id like ``2026-Q2``.
+    """The bulk snapshot's as-of date — the discovery frontier seed hands to pull.
 
-    CourtListener regenerates the public bulk export on the last day of March,
-    June, September, and December, so a quarter id maps to that quarter's final
-    calendar day — the date the snapshot is "complete as of" and therefore the
-    discovery frontier seed hands to forward pull. Returns ``None`` for an id that
-    is not a ``YYYY-Qn`` quarter label; seed then cannot establish a frontier from
-    it, and the court falls back to discovery's last-resort default.
+    Two id shapes carry a date:
+
+    - ``YYYY-MM-DD`` — an auto-discovered snapshot id *is* the bulk file's
+      publication date (see :func:`discover_latest_snapshot`), which is the most
+      accurate "complete as of" date available and the default in CI.
+    - ``YYYY-Qn`` — a manually pinned quarter label maps to that quarter's final
+      calendar day, since CourtListener regenerates the export on the last day of
+      March/June/September/December.
+
+    The date is what each completed court's discovery watermark seeds to, so the
+    first forward ``pull`` searches from the snapshot rather than from today,
+    closing the snapshot→today gap. Returns ``None`` for any other id (e.g. a
+    one-off nightly label); seed then cannot establish a frontier and the court
+    falls back to discovery's last-resort default.
     """
+    iso = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", snapshot_id)
+    if iso is not None:
+        try:
+            return date(int(iso[1]), int(iso[2]), int(iso[3]))
+        except ValueError:
+            return None
     m = re.fullmatch(r"(\d{4})-Q([1-4])", snapshot_id)
     if m is None:
         return None
