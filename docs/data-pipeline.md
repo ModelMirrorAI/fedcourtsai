@@ -191,13 +191,36 @@ to support them.
      corpus through the shared core and queuing `run:predict` for changed cases
      with open events.
   2. **Discover** newly-filed cases since the last run (CourtListener search by
-     court + `date_filed`) → onboard into the corpus as a tracked case and define
-     its predictable event(s).
+     court + `date_filed`) → onboard into the corpus as a tracked case and run the
+     **event-definition stage** to record its predictable event(s).
   3. **Detect resolution** of tracked open events → write `outcome.json` to the
      git ledger deterministically when the disposition is machine-readable, else
      open an agent reconcile issue to confirm. This is what feeds `run:evaluate`.
 - **Quarterly bulk reconciliation is seed's job** — the completeness backstop for
   anything daily pull could not reach within the budget.
+
+## Event definition — deterministic, corpus-driven
+
+Defining the **predictable events** of a docket is its own stage, decoupled from
+ingestion (`fedcourtsai.pipeline.events`), so it runs once over an ingested docket
+regardless of how the case entered (bulk `seed` or forward `pull`). It is
+classification, not analysis: every event is pinned to a single docket entry with
+a closed `kind` enum (`motion` / `petition` / `appeal` / `order`), so the stage
+maps qualifying docket entries → event definitions (`kind`, `docket_entry_id`,
+`opened_at`, `description`) and writes them as corpus rows.
+
+- **Baseline.** Every docket carries the one thing always worth predicting — the
+  disposition of the appeal, or the petition at SCOTUS — even when no entries are
+  machine-readable.
+- **Predictable / unresolved** = the request entry has no *later disposing order
+  referencing it* (citing its docket-entry number). When a disposing order does
+  reference it, the event is recorded `resolved`; with no citation the stage does
+  not guess, so the event stays predictable.
+- **Deterministic first, agent only if ambiguous.** An entry that reads like a
+  request but matches more than one `kind` is surfaced for an agent reconcile
+  issue (`.github/ISSUE_TEMPLATE/pull.yml`) rather than classified — the same
+  deterministic-first / agent-fallback split resolution detection uses. The
+  default path runs no agent.
 
 ## Steady state
 
