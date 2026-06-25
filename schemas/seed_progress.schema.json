@@ -38,6 +38,12 @@
   "additionalProperties": false,
   "description": "``config/seed-progress.yaml`` \u2014 the resumable seed-backfill cursor.\n\nGit-tracked so the historical backfill is rebuildable after a fresh clone and\na maintainer can read progress in a diff. ``seed-backfill`` reads it at the\nstart of each run and writes the bumped cursor at the end.",
   "properties": {
+    "completed": {
+      "default": false,
+      "description": "Human sign-off that this snapshot's backfill is finished. The backfill never sets it; run-seed opens a completion PR that flips it true, and merging that PR (which closes the tracking issue) is the acknowledgement. Distinct from the per-court `complete` flags, which the backfill sets automatically as each court's stream is exhausted.",
+      "title": "Completed",
+      "type": "boolean"
+    },
     "courts": {
       "additionalProperties": {
         "$ref": "#/$defs/CourtProgress"
