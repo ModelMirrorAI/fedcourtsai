@@ -1,16 +1,17 @@
 """Resolves the on-disk layout for cases, events, predictions, and evaluations.
 
-The layout is **case-centric**: everything about a single predictable event —
-the snapshot it was predicted from, every predictor's prediction, the realized
-outcome, and every evaluation — lives together under one event directory. This
-keeps the full context for an evaluation in one place and keeps git diffs local
-to the thing that changed.
+The layout is **case-centric**: everything derived about a single predictable
+event — every predictor's prediction, the realized outcome, and every evaluation
+— lives together under one event directory. This keeps the full context for an
+evaluation in one place and keeps git diffs local to the thing that changed.
+
+Raw facts (the docket, judges, case metadata) live in the packed corpus
+(`fedcourtsai.corpus`), not in git. The one git raw-fact file that remains is the
+dated point-in-time ``snapshot``, kept transitionally so ``pull`` can detect
+docket changes the normalized corpus row does not capture.
 
     data/cases/<court_id>/<docket_id>/
-        case.yaml
-        record/
-            docket.json
-            snapshots/<YYYY-MM-DD>.json
+        record/snapshots/<YYYY-MM-DD>.json   # transitional point-in-time snapshot
         events/<event_id>/
             event.yaml
             outcome.json

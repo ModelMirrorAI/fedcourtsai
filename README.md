@@ -23,7 +23,7 @@ trigger the next stage. Several stages delegate to agentic coding tools
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
-| `run:seed`     | `run-seed`      | Pull initial dockets from CourtListener and start tracking them      | Script |
+| `run:seed`     | `run-seed`      | Ingest initial dockets from CourtListener into the corpus            | Script |
 | `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script (agent only if ambiguous) |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex |
@@ -91,17 +91,21 @@ uv run mypy
 uv run pytest
 ```
 
-The `seed` and `pull` CLI commands are single-docket helpers that fetch one case
-from the CourtListener REST API, so they need a free API token:
+`seed` and `pull` are single-docket REST helpers that fetch one case from the
+CourtListener REST API into the corpus through the shared ingestion core, so they
+need a free API token. `seed` onboards a docket (deterministic ingestion of raw
+facts — what the `run-seed` workflow runs); `pull` refreshes one and reports
+whether it changed:
 
 ```bash
 export FEDCOURTS_COURTLISTENER_API_TOKEN=...   # https://www.courtlistener.com/help/api/rest/
-uv run fedcourts seed --court ca9 --docket <docket_id>   # fetch one docket, start tracking
-uv run fedcourts pull --court ca9 --docket <docket_id>   # refresh one tracked docket
+uv run fedcourts seed --court ca9 --docket <docket_id>   # onboard one docket into the corpus
+uv run fedcourts pull --court ca9 --docket <docket_id>   # refresh one docket; report changes
 ```
 
-The pipeline's `run-seed` workflow is a different path: it backfills the
-historical corpus from CourtListener **bulk data** (no API budget). See
+The historical mass is loaded separately by the bulk-data backfill (CourtListener
+**bulk data**, no API budget) — a planned expansion of the `seed` path that writes
+the *same* corpus through the *same* core. See
 [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## For AI agents
