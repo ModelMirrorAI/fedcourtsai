@@ -33,6 +33,30 @@ def iter_tracked_cases(corpus_db_path: Path) -> list[tuple[str, int]]:
     return found
 
 
+def _case_pair(case_id: str) -> tuple[str, int] | None:
+    """Split a ``<court_id>/<docket_id>`` case id into a ``(court, docket)`` pair."""
+    court_id, _, docket_raw = case_id.partition("/")
+    return (court_id, int(docket_raw)) if docket_raw.isdigit() else None
+
+
+def cases_due_for_pull(
+    corpus_db_path: Path, *, limit: int, skip_closed: bool = True
+) -> list[tuple[str, int]]:
+    """The ``(court, docket)`` cases ``pull`` should refresh this run, stalest first.
+
+    The budget governor: returns at most ``limit`` cases from the active set in
+    oldest-``last_pulled``-first order (skipping closed/resolved cases by
+    default), so a run provably touches no more than ``limit`` dockets and a
+    large active set rotates over successive days. Empty if the corpus does not
+    exist yet (reading must not create it).
+    """
+    if not corpus_db_path.exists():
+        return []
+    with corpus.connect(corpus_db_path) as conn:
+        rows = corpus.rotation_for_pull(conn, limit=limit, skip_closed=skip_closed)
+    return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]
+
+
 def open_events(data_root: Path, court_id: str, docket_id: int) -> list[str]:
     """Event ids that are unresolved (``resolved: false`` and no ``outcome.json``).
 
