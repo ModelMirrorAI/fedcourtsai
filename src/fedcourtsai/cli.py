@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import Annotated
@@ -18,7 +19,7 @@ import yaml
 from . import corpus, ids
 from .config import get_settings, load_courts, load_pull_config, load_seed_config
 from .courtlistener import CourtListenerClient, default_rate_limiter
-from .matrix import evaluate_matrix, predict_matrix
+from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
@@ -413,37 +414,91 @@ def discover(
     typer.echo(f"Discovered {result.total}/{cap} new case(s) across {len(courts)} court(s)")
 
 
+def _resolve_cases(
+    cases: list[CaseRequest], default_events: Callable[[str, int], list[str]]
+) -> list[CaseRequest]:
+    """Fill in each case's default events when the request listed none."""
+    return [
+        c if c.events else CaseRequest(c.court, c.docket, tuple(default_events(c.court, c.docket)))
+        for c in cases
+    ]
+
+
+def _requested_cases(
+    body_file: Path | None, court: str, docket: int | None, event: list[str] | None
+) -> list[CaseRequest]:
+    """Cases to fan out over, from a batch body file or single-case flags.
+
+    ``--body-file`` (one ``{court, docket, events}`` object or a JSON array of
+    them) is the multi-case path the workflows use. The single-case
+    ``--court``/``--docket``/``--event`` flags are kept for back-compat and
+    ad-hoc invocations.
+    """
+    if body_file is not None:
+        return parse_cases(body_file.read_text())
+    if court and docket is not None:
+        return [CaseRequest(court, docket, tuple(event or ()))]
+    raise typer.BadParameter("provide --body-file, or both --court and --docket.")
+
+
 @app.command("predict-matrix")
 def predict_matrix_cmd(
-    court: Annotated[str, typer.Option()],
-    docket: Annotated[int, typer.Option()],
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
+    body_file: Annotated[
+        Path | None,
+        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Single-case court id (ignored with --body-file).")
+    ] = "",
+    docket: Annotated[
+        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
+    ] = None,
     event: Annotated[
-        list[str] | None, typer.Option(help="Event id(s); defaults to all open events.")
+        list[str] | None, typer.Option(help="Single-case event id(s); default: all open events.")
     ] = None,
 ) -> None:
-    """Emit the predictor x event GitHub Actions matrix as compact JSON."""
+    """Emit the predictor x case x event GitHub Actions matrix as compact JSON.
+
+    A case with no listed ``events`` defaults to that case's open events.
+    """
     settings = get_settings()
-    events = event or open_events(settings.data_root, court, docket)
-    matrix = predict_matrix(settings.config_root / "predictors.yaml", court, docket, events, run_id)
+    cases = _resolve_cases(
+        _requested_cases(body_file, court, docket, event),
+        lambda c, d: open_events(settings.data_root, c, d),
+    )
+    matrix = predict_matrix(settings.config_root / "predictors.yaml", cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
 @app.command("evaluate-matrix")
 def evaluate_matrix_cmd(
-    court: Annotated[str, typer.Option()],
-    docket: Annotated[int, typer.Option()],
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
+    body_file: Annotated[
+        Path | None,
+        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Single-case court id (ignored with --body-file).")
+    ] = "",
+    docket: Annotated[
+        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
+    ] = None,
     event: Annotated[
-        list[str] | None, typer.Option(help="Event id(s); defaults to all resolved events.")
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: all resolved events."),
     ] = None,
 ) -> None:
-    """Emit the evaluator x event GitHub Actions matrix as compact JSON."""
+    """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
+
+    A case with no listed ``events`` defaults to that case's resolved events.
+    """
     settings = get_settings()
-    events = event or resolved_events(settings.data_root, court, docket)
-    matrix = evaluate_matrix(
-        settings.config_root / "evaluators.yaml", court, docket, events, run_id
+    cases = _resolve_cases(
+        _requested_cases(body_file, court, docket, event),
+        lambda c, d: resolved_events(settings.data_root, c, d),
     )
+    matrix = evaluate_matrix(settings.config_root / "evaluators.yaml", cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 

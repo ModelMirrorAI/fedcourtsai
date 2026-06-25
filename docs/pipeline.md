@@ -47,19 +47,35 @@ See `docs/security.md` for the one-time App setup.
 
 ## The predict/evaluate matrix
 
-`plan` parses the issue body's ` ```json {court,docket,events} ``` ` block and runs
+`plan` parses the issue body's ` ```json ``` ` case block and runs
 `fedcourts predict-matrix` / `evaluate-matrix`, which expands the **registry ×
-events** into a GitHub Actions matrix. Each matrix cell routes to Claude Code or
-Codex by the entry's `engine`. The agent writes files only; a uniform step
-validates, commits to a branch, and opens one PR.
+cases × events** into a GitHub Actions matrix. Each matrix cell routes to Claude
+Code or Codex by the entry's `engine`. The agent writes files only; a uniform
+step validates, commits to a branch, and opens one PR. The workflow's
+`strategy.max-parallel` throttles the whole fan-out, however many cases it spans.
 
-To trigger prediction/evaluation manually, open an issue whose body contains:
+To trigger prediction/evaluation for **one** case, open an issue whose body
+contains a single object and apply `run:predict` (or `run:evaluate`):
 
     ```json
     {"court": "ca9", "docket": 64512345, "events": ["evt-motion-stay"]}
     ```
 
-and apply `run:predict` (or `run:evaluate`).
+To trigger **many** cases from one issue (e.g. a whole SCOTUS long-conference
+list of petitions), use a JSON array of the same objects:
+
+    ```json
+    [
+      {"court": "scotus", "docket": 24001, "events": ["evt-petition-cert"]},
+      {"court": "scotus", "docket": 24002, "events": ["evt-petition-cert"]}
+    ]
+    ```
+
+`events` is optional per case: omit it (or pass `[]`) to target the case's
+default events — its **open** events for `run:predict`, its **resolved** events
+for `run:evaluate`, so already-resolved events are skipped. Every listed case is
+multiplied by the registry and its events to produce one matrix cell — and one
+PR — per predictor/evaluator × case × event.
 
 ## Snapshot sequencing
 
