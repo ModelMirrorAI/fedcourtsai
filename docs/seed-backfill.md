@@ -62,6 +62,9 @@ artifact.
 
 ```yaml
 snapshot: "2026-Q2"          # bulk snapshot id currently being loaded
+completed: false             # maintainer sign-off; flipped true only by the
+                             # completion PR (never by the backfill). Distinct
+                             # from the per-court `complete` flags below.
 courts:
   ca9:
     offset: 12000            # rows consumed from this court's bulk stream
@@ -100,6 +103,11 @@ Per-run order:
    branch, so each run builds on the latest pointer — see the corpus-writer
    coordination model in [data-pipeline.md](data-pipeline.md).
 7. Comment progress on the tracking issue from `seed-report.json`.
+8. When `seed-report.json` reports `complete: true`, open a one-time **completion
+   PR** that flips the cursor's `completed` flag (through the model, so the file
+   stays schema-valid) with `Closes #<tracker>` in the body. The PR carries only
+   the flag — no corpus. Deduped: skip if `completed: true` is already on the
+   default branch or a completion PR for the snapshot is open.
 
 ## 4. Triggers & the tracking issue (workflow, local)
 
@@ -116,11 +124,13 @@ concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with r
   first run and marks the issue to comment on.
 - `schedule`/`workflow_dispatch` runs have no triggering issue, so resolve it:
   `gh issue list --label run:seed --state open --json number --jq '.[0].number'`.
-  Comment each run; on `complete: true` post a final summary (a maintainer closes
-  it). Convention: never more than one open `run:seed` issue.
+  Comment each run; on `complete: true` post a final summary and open the
+  completion PR (step 8) whose merge **closes the tracker**. Convention: never
+  more than one open `run:seed` issue.
 - Job permissions: `contents: write` (commit pointer+cursor to the default branch),
-  `issues: write` (comment), `id-token: write` (AWS OIDC for DVC). App token minted
-  with contents/issues write.
+  `issues: write` (comment), `pull-requests: write` (open the completion PR),
+  `id-token: write` (AWS OIDC for DVC). App token minted with
+  contents/issues/pull-requests write.
 
 ## Build order
 

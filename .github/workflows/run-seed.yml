@@ -5,9 +5,11 @@ name: run-seed
 # spends no API budget) into the packed corpus via `fedcourts seed-backfill`,
 # pushes the corpus blob to the DVC S3 remote, commits the corpus pointer + cursor
 # bump DIRECTLY to the default branch, and comments per-court progress on the
-# long-lived run:seed tracking issue. Runs daily until the backlog is complete,
-# then reconciles quarterly when a new bulk snapshot drops. See docs/seed-backfill.md
-# and docs/data-pipeline.md.
+# long-lived run:seed tracking issue. Runs daily until the backlog is complete;
+# on the run that exhausts every court it opens a one-time completion PR that
+# flips the cursor's `completed` sign-off flag — merging it closes the tracker.
+# Then it reconciles quarterly when a new bulk snapshot drops. See
+# docs/seed-backfill.md and docs/data-pipeline.md.
 on:
   schedule:
     - cron: "23 6 * * *" # daily, staggered from run-pull (07:17)
@@ -33,6 +35,7 @@ jobs:
     permissions:
       contents: write # commit the corpus pointer + cursor straight to the default branch
       issues: write # comment progress on the tracking issue
+      pull-requests: write # open the backfill-completion PR (closes the tracker on merge)
       id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
     steps:
       - name: Mint app token
@@ -43,6 +46,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
           permission-issues: write
+          permission-pull-requests: write # open the one-time backfill-completion PR
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -192,3 +196,99 @@ jobs:
               if new != body:
                   gh("issue", "edit", issue, "--repo", repo, "--body", new)
           PY
+
+      - name: Open the backfill-completion PR when the backlog is done
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The corpus streams to the default branch chunk-by-chunk; completion is
+          # acknowledged out of band by a maintainer merging a PR that flips the
+          # cursor's `completed` flag (which closes the tracker). The PR carries NO
+          # corpus — parking the blob on a branch would reintroduce the lost-update
+          # the shared corpus-write lock removed (#42). One-shot and deduped.
+          complete=$(jq -r '.complete' seed-report.json)
+          if [ "$complete" != "true" ]; then
+            echo "Backfill not complete yet; no completion PR."
+            exit 0
+          fi
+          snapshot=$(jq -r '.snapshot' seed-report.json)
+          branch="seed/backfill-complete-${snapshot}"
+
+          # Without an open tracker there is nothing to close — bail rather than
+          # open an orphan PR.
+          tracker=$(gh issue list --repo "$REPO" --label run:seed --state open \
+            --json number --jq '.[0].number')
+          if [ -z "$tracker" ]; then
+            echo "::warning::Backfill complete but no open run:seed tracker; skipping completion PR."
+            exit 0
+          fi
+
+          # Dedupe the one-shot acknowledgement: skip if a maintainer already merged
+          # it (flag on the default branch) or a completion PR is already open.
+          git fetch origin "${GITHUB_REF_NAME}"
+          if git show "origin/${GITHUB_REF_NAME}:config/seed-progress.yaml" | grep -qx 'completed: true'; then
+            echo "Backfill already acknowledged on the default branch; nothing to do."
+            exit 0
+          fi
+          if [ -n "$(gh pr list --repo "$REPO" --state open --head "$branch" --json number --jq '.[0].number')" ]; then
+            echo "Completion PR already open for ${snapshot}."
+            exit 0
+          fi
+
+          git config user.name "fedcourts-bot"
+          git config user.email "bot@users.noreply.github.com"
+          # persist-credentials is false on checkout; authenticate via the App token.
+          gh auth setup-git
+          git switch -c "$branch" "origin/${GITHUB_REF_NAME}"
+
+          # Flip the sign-off flag THROUGH the model so the cursor stays schema-valid
+          # (it is gate-validated and strict), and render the PR body in one pass.
+          TRACKER="$tracker" uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from fedcourtsai.pipeline.seed import load_cursor, save_cursor
+
+          cursor_path = Path("config/seed-progress.yaml")
+          cursor = load_cursor(cursor_path)
+          cursor.completed = True
+          save_cursor(cursor_path, cursor)
+
+          rep = json.loads(Path("seed-report.json").read_text())
+          rows = ["| Court | Loaded | Total | % |", "|-------|-------:|------:|--:|"]
+          for c in rep["courts"]:
+              total = c["total"] if c["total"] is not None else "?"
+              pct = "?" if c["percent"] is None else f"{c['percent']}%"
+              rows.append(f"| {c['court']} | {c['loaded']} | {total} | {pct} |")
+          body = "\n".join(
+              [
+                  f"The historical backfill for snapshot `{rep['snapshot']}` is complete: "
+                  "every tracked court's bulk stream is exhausted and its facts are already "
+                  "committed to the default branch.",
+                  "",
+                  "This PR only flips the cursor's `completed` sign-off flag — it carries no "
+                  "corpus (the blob streamed in chunk-by-chunk under the corpus-write lock). "
+                  "Merging it records the acknowledgement and closes the tracker.",
+                  "",
+                  *rows,
+                  "",
+                  f"Closes #{os.environ['TRACKER']}",
+              ]
+          )
+          Path("pr-body.md").write_text(body + "\n")
+          PY
+
+          if git diff --quiet config/seed-progress.yaml; then
+            echo "Cursor already acknowledges completion; nothing to commit."
+            exit 0
+          fi
+          git add config/seed-progress.yaml
+          git commit -m "seed(backfill): acknowledge ${snapshot} backfill complete"
+          # Dedicated bot ack branch: --force only ever matters if a prior completion
+          # PR for this same snapshot was closed unmerged, leaving the branch behind.
+          git push --force origin "HEAD:refs/heads/${branch}"
+          gh pr create --repo "$REPO" --base "${GITHUB_REF_NAME}" --head "$branch" \
+            --title "seed: backfill complete — ${snapshot}" --body-file pr-body.md
