@@ -36,7 +36,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import IO, Any, Protocol, runtime_checkable
+from typing import IO, Any, NamedTuple, Protocol, runtime_checkable
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -412,18 +412,34 @@ CREATE TABLE IF NOT EXISTS dockets (
 CREATE INDEX IF NOT EXISTS idx_dockets_court ON dockets(court_id, id);
 -- One (latest) opinion cluster per docket, carrying just the fields the corpus
 -- lifts. Keyed on the docket foreign key so Phase B is a one-to-one LEFT JOIN.
+-- `panel` is the people-db-resolved [{name, seniority}] JSON for the cluster.
 CREATE TABLE IF NOT EXISTS clusters (
-    docket_id   INTEGER PRIMARY KEY,
-    cluster_id  INTEGER NOT NULL,
-    disposition TEXT,
-    summary     TEXT,
-    judges      TEXT
+    docket_id           INTEGER PRIMARY KEY,
+    cluster_id          INTEGER NOT NULL,
+    disposition         TEXT,
+    summary             TEXT,
+    judges              TEXT,
+    precedential_status TEXT,
+    citation_count      INTEGER,
+    panel               TEXT
 );
+-- Many-to-one name rows per docket (a docket has several parties / attorneys);
+-- Phase B aggregates them to a JSON array. Indexed on the join key.
+CREATE TABLE IF NOT EXISTS parties (
+    docket_id INTEGER NOT NULL,
+    name      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_parties_docket ON parties(docket_id);
+CREATE TABLE IF NOT EXISTS attorneys (
+    docket_id INTEGER NOT NULL,
+    name      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attorneys_docket ON attorneys(docket_id);
 """
 
-# opinion-cluster columns lifted into the served docket row, under the names the
-# normalizer (`ingest._normalize`) already reads.
-_CLUSTER_FIELDS = ("disposition", "summary", "judges")
+# Scalar opinion-cluster columns overlaid (when present) onto the served docket
+# row, under the names the normalizer (`ingest._normalize`) already reads.
+_CLUSTER_FIELDS = ("disposition", "summary", "judges", "precedential_status", "citation_count")
 
 
 @dataclass
@@ -437,32 +453,42 @@ class CourtListenerBulkSource:
 
     - **Phase A — stage once** (:meth:`_ensure_staged`, heavy, on the first fetch):
       stream ``dockets`` filtered to the tracked ``courts`` into a local SQLite,
-      then stream ``opinion-clusters`` keeping only rows whose ``docket_id`` is in
-      that set (the latest cluster per docket wins), into a table keyed on the join
-      key. The staging DB is tagged with ``snapshot_id``; pointing ``staging_path``
-      at a path the workflow caches lets daily runs *reuse* it instead of
-      re-streaming, and a snapshot change rebuilds it.
+      then stream each sibling table keeping only rows whose ``docket_id`` is in
+      that set — ``opinion-clusters`` (latest cluster per docket wins, its judge
+      panel resolved against the people directory), and the many-per-docket
+      ``parties`` / ``attorneys`` name lists. The staging DB is tagged with
+      ``snapshot_id``; pointing ``staging_path`` at a path the workflow caches lets
+      daily runs *reuse* it instead of re-streaming, and a snapshot change rebuilds it.
     - **Phase B — serve chunks** (:meth:`fetch_court_chunk`, cheap, per run): a
-      single indexed SQL ``LEFT JOIN`` aliasing the cluster columns to the names the
-      normalizer reads, ordered by docket id with ``LIMIT``/``OFFSET``.
+      single indexed SQL ``LEFT JOIN`` aliasing the cluster columns — and aggregating
+      the parties / attorneys names to JSON arrays — to the names the normalizer
+      reads, ordered by docket id with ``LIMIT``/``OFFSET``.
 
     URLs (and ``snapshot_id``) come from the caller (the runner env names snapshots
-    by date). ``clusters_url`` is optional: without it the docket spine still loads
-    and the joined fields stay blank. ``*_cache`` inject local files in place of a
-    download (tests, or a pre-fetched file); network access is confined to
-    :meth:`_ensure_local`.
+    by date). Each sibling URL is optional: a missing one simply leaves its fields
+    blank and the docket spine still loads. Adding a new sibling table is the
+    pattern shown here — a staging table, a stage step, and a Phase-B projection —
+    not a change to the cursor, driver, or report. ``*_cache`` inject local files in
+    place of a download (tests, or a pre-fetched file); network access is confined
+    to :meth:`_ensure_local`.
     """
 
     snapshot_id: str
     dockets_url: str
     courts: Sequence[str]
     clusters_url: str | None = None
+    parties_url: str | None = None
+    attorneys_url: str | None = None
+    people_url: str | None = None
     court_field: str = "court_id"
     timeout: float = 30.0
     client: httpx.Client | None = None
     staging_path: Path | None = None
     dockets_cache: Path | None = None
     clusters_cache: Path | None = None
+    parties_cache: Path | None = None
+    attorneys_cache: Path | None = None
+    people_cache: Path | None = None
     _conn: sqlite3.Connection | None = field(default=None, init=False)
     _db_path: Path | None = field(default=None, init=False)
     _owned_db: bool = field(default=False, init=False)
@@ -477,8 +503,16 @@ class CourtListenerBulkSource:
             "SELECT COUNT(*) FROM dockets WHERE court_id = ?", (target,)
         ).fetchone()
         cur = conn.execute(
-            "SELECT d.row AS row, c.disposition AS disposition, c.summary AS summary, "
-            "c.judges AS judges "
+            "SELECT d.row AS row, "
+            "c.disposition AS disposition, c.summary AS summary, c.judges AS judges, "
+            "c.precedential_status AS precedential_status, c.citation_count AS citation_count, "
+            "c.panel AS panel, "
+            "(SELECT json_group_array(name) FROM "
+            "   (SELECT DISTINCT name FROM parties WHERE docket_id = d.id ORDER BY name)) "
+            "   AS parties, "
+            "(SELECT json_group_array(name) FROM "
+            "   (SELECT DISTINCT name FROM attorneys WHERE docket_id = d.id ORDER BY name)) "
+            "   AS attorneys "
             "FROM dockets d LEFT JOIN clusters c ON c.docket_id = d.id "
             "WHERE d.court_id = ? ORDER BY d.id LIMIT ? OFFSET ?",
             (target, limit, offset),
@@ -489,9 +523,14 @@ class CourtListenerBulkSource:
 
     @staticmethod
     def _merge(row: sqlite3.Row) -> Mapping[str, Any]:
-        """Overlay the joined cluster fields onto the raw docket record."""
+        """Overlay the joined sibling fields onto the raw docket record.
+
+        Scalar cluster fields and the resolved ``panel`` JSON are overlaid only
+        when present; the ``parties`` / ``attorneys`` aggregates are always a JSON
+        array (``[]`` when none), which the normalizer reads straight through.
+        """
         record = dict(json.loads(row["row"]))
-        for field_name in _CLUSTER_FIELDS:
+        for field_name in (*_CLUSTER_FIELDS, "panel", "parties", "attorneys"):
             value = row[field_name]
             if value is not None:
                 record[field_name] = value
@@ -522,12 +561,17 @@ class CourtListenerBulkSource:
         return meta is not None and meta[0] == self.snapshot_id
 
     def _build_staging(self, conn: sqlite3.Connection) -> None:
-        conn.execute("DELETE FROM dockets")
-        conn.execute("DELETE FROM clusters")
-        conn.execute("DELETE FROM meta")
+        for table in ("dockets", "clusters", "parties", "attorneys", "meta"):
+            conn.execute(f"DELETE FROM {table}")
         docket_ids = self._stage_dockets(conn)
         if self.clusters_url is not None:
-            self._stage_clusters(conn, docket_ids)
+            self._stage_clusters(conn, docket_ids, self._load_people())
+        if self.parties_url is not None:
+            self._stage_entities(conn, "parties", self.parties_url, self.parties_cache, docket_ids)
+        if self.attorneys_url is not None:
+            self._stage_entities(
+                conn, "attorneys", self.attorneys_url, self.attorneys_cache, docket_ids
+            )
         conn.execute("INSERT INTO meta(snapshot_id) VALUES (?)", (self.snapshot_id,))
         conn.commit()
 
@@ -562,10 +606,12 @@ class CourtListenerBulkSource:
                 "INSERT OR REPLACE INTO dockets(id, court_id, row) VALUES (?, ?, ?)", batch
             )
 
-    def _stage_clusters(self, conn: sqlite3.Connection, docket_ids: set[int]) -> None:
+    def _stage_clusters(
+        self, conn: sqlite3.Connection, docket_ids: set[int], people: Mapping[str, _Person]
+    ) -> None:
         assert self.clusters_url is not None
         path = self._ensure_local(self.clusters_url, self.clusters_cache)
-        batch: list[tuple[int, int, str | None, str | None, str | None]] = []
+        batch: list[_ClusterRow] = []
         with self._open_text(path, self.clusters_url) as fh:
             for row in csv.DictReader(fh):
                 docket_id = _as_int(row.get("docket_id"))
@@ -578,6 +624,9 @@ class CourtListenerBulkSource:
                         _clean_cell(row.get("disposition")),
                         _clean_cell(row.get("summary")),
                         _clean_cell(row.get("judges")),
+                        _clean_cell(row.get("precedential_status")),
+                        _as_int(row.get("citation_count")),
+                        _resolve_panel(row.get("panel"), people),
                     )
                 )
                 if len(batch) >= _STAGE_BATCH:
@@ -585,20 +634,82 @@ class CourtListenerBulkSource:
                     batch.clear()
         self._upsert_clusters(conn, batch)
 
-    @staticmethod
-    def _upsert_clusters(
+    def _load_people(self) -> dict[str, _Person]:
+        """Build the ``person_id -> (name, seniority)`` directory the panel resolves against.
+
+        Streamed once into memory (the people directory is small relative to the
+        GB-scale dockets/clusters files); ``None`` URL yields an empty directory, so
+        the cluster panel simply stays unresolved and the join falls back to the
+        free-text ``judges`` cell. Names prefer the precomposed ``name_full``,
+        falling back to ``name_first``/``name_last``.
+        """
+        if self.people_url is None:
+            return {}
+        path = self._ensure_local(self.people_url, self.people_cache)
+        directory: dict[str, _Person] = {}
+        with self._open_text(path, self.people_url) as fh:
+            for row in csv.DictReader(fh):
+                person_id = _clean_cell(row.get("id"))
+                if person_id is None:
+                    continue
+                name = _clean_cell(row.get("name_full")) or _join_name(
+                    row.get("name_first"), row.get("name_last")
+                )
+                if name is None:
+                    continue
+                directory[person_id] = _Person(name, _clean_cell(row.get("seniority")))
+        return directory
+
+    def _stage_entities(
+        self,
         conn: sqlite3.Connection,
-        batch: Sequence[tuple[int, int, str | None, str | None, str | None]],
+        table: str,
+        url: str,
+        cache: Path | None,
+        docket_ids: set[int],
     ) -> None:
+        """Stage a many-per-docket name table (``parties`` / ``attorneys``).
+
+        Each row contributes one ``(docket_id, name)`` pair for a tracked docket;
+        Phase B aggregates them. ``table`` is an internal constant, never user input.
+        """
+        path = self._ensure_local(url, cache)
+        batch: list[tuple[int, str]] = []
+        with self._open_text(path, url) as fh:
+            for row in csv.DictReader(fh):
+                docket_id = _as_int(row.get("docket_id"))
+                if docket_id is None or docket_id not in docket_ids:
+                    continue
+                name = _clean_cell(row.get("name") or row.get("name_full"))
+                if name is None:
+                    continue
+                batch.append((docket_id, name))
+                if len(batch) >= _STAGE_BATCH:
+                    self._insert_entities(conn, table, batch)
+                    batch.clear()
+        self._insert_entities(conn, table, batch)
+
+    @staticmethod
+    def _insert_entities(
+        conn: sqlite3.Connection, table: str, batch: Sequence[tuple[int, str]]
+    ) -> None:
+        if batch:
+            conn.executemany(f"INSERT INTO {table}(docket_id, name) VALUES (?, ?)", batch)
+
+    @staticmethod
+    def _upsert_clusters(conn: sqlite3.Connection, batch: Sequence[_ClusterRow]) -> None:
         # One cluster per docket: a later, higher-id cluster (the most recent
         # disposition) wins; an earlier one never clobbers it.
         if batch:
             conn.executemany(
-                "INSERT INTO clusters(docket_id, cluster_id, disposition, summary, judges) "
-                "VALUES (?, ?, ?, ?, ?) "
+                "INSERT INTO clusters(docket_id, cluster_id, disposition, summary, judges, "
+                "precedential_status, citation_count, panel) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(docket_id) DO UPDATE SET "
                 "cluster_id = excluded.cluster_id, disposition = excluded.disposition, "
-                "summary = excluded.summary, judges = excluded.judges "
+                "summary = excluded.summary, judges = excluded.judges, "
+                "precedential_status = excluded.precedential_status, "
+                "citation_count = excluded.citation_count, panel = excluded.panel "
                 "WHERE excluded.cluster_id > clusters.cluster_id",
                 batch,
             )
@@ -648,6 +759,49 @@ class CourtListenerBulkSource:
         if self._owned_db and self._db_path is not None:
             self._db_path.unlink(missing_ok=True)
             self._owned_db = False
+
+
+class _Person(NamedTuple):
+    """A people-db directory entry the cluster panel resolves against."""
+
+    name: str
+    seniority: str | None
+
+
+# A staged opinion-cluster row: docket_id, cluster_id, then the lifted fields.
+_ClusterRow = tuple[
+    int, int, str | None, str | None, str | None, str | None, int | None, str | None
+]
+
+
+def _join_name(first: Any, last: Any) -> str | None:
+    """Compose a full name from first/last parts, or ``None`` if both are blank."""
+    parts = [p.strip() for p in (first, last) if isinstance(p, str) and p.strip()]
+    return " ".join(parts) or None
+
+
+def _resolve_panel(raw: Any, people: Mapping[str, _Person]) -> str | None:
+    """Resolve a cluster's ``;``-delimited person ids to panel JSON, or ``None``.
+
+    Each id is looked up in the people directory and emitted as ``{name, seniority}``,
+    deduplicated by name and order-preserving; an id absent from the directory is
+    dropped. Returns a JSON array string for the staged ``panel`` column, or ``None``
+    when nothing resolves (so the join leaves the field blank).
+    """
+    if raw is None:
+        return None
+    members: list[dict[str, str | None]] = []
+    seen: set[str] = set()
+    for token in str(raw).replace("|", ";").split(";"):
+        person_id = token.strip()
+        if not person_id:
+            continue
+        person = people.get(person_id)
+        if person is None or person.name in seen:
+            continue
+        seen.add(person.name)
+        members.append({"name": person.name, "seniority": person.seniority})
+    return json.dumps(members, sort_keys=True) if members else None
 
 
 def _as_int(value: Any) -> int | None:

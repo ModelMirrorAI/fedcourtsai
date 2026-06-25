@@ -393,15 +393,19 @@ def seed_backfill(
         settings.courtlistener_bulk_url,
         timeout=settings.request_timeout,
     )
-    # The dockets file is the case spine; opinion-clusters (a sibling bulk file)
-    # enrich each row with disposition/summary/judges via the staged join. A
-    # non-standard pinned dockets URL has no derivable sibling, so the spine still
-    # loads and those fields stay blank.
+    # The dockets file is the case spine; sibling bulk files enrich each row via the
+    # staged join — opinion-clusters (disposition/summary/judges/precedential-status/
+    # citation-count + the people-resolved panel), and the parties / attorneys name
+    # lists. A non-standard pinned dockets URL has no derivable siblings, so the
+    # spine still loads and those fields stay blank.
     source = CourtListenerBulkSource(
         snapshot_id,
         dockets_url=dockets_url,
         courts=courts,
         clusters_url=sibling_bulk_url(dockets_url, "opinion-clusters"),
+        parties_url=sibling_bulk_url(dockets_url, "parties"),
+        attorneys_url=sibling_bulk_url(dockets_url, "attorneys"),
+        people_url=sibling_bulk_url(dockets_url, "people-db-people"),
         timeout=settings.request_timeout,
     )
     try:

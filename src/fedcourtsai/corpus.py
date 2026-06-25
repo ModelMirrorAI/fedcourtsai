@@ -41,6 +41,22 @@ def corpus_db_path(corpus_root: Path) -> Path:
     return corpus_root / CORPUS_DB_FILENAME
 
 
+class PanelMember(BaseModel):
+    """One judge on a decided case's panel, resolved against the people directory.
+
+    The flat ``judges`` name list drives retrieval overlap; this carries the
+    structured detail a name string cannot — the authoritative ``name`` and the
+    judge's ``seniority`` (active / senior / chief / …) at decision time — for
+    the sibling people-db bulk file the staged join resolves the cluster panel
+    against. ``seniority`` is ``None`` when the directory does not record it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    seniority: str | None = None
+
+
 class CorpusRow(BaseModel):
     """One normalized, labeled raw-fact record in the corpus.
 
@@ -59,8 +75,25 @@ class CorpusRow(BaseModel):
         default=None, description="Realized outcome label; None while unresolved."
     )
     judges: list[str] = Field(default_factory=list)
+    panel: list[PanelMember] = Field(
+        default_factory=list,
+        description="Structured panel (name + seniority) resolved from the people directory; "
+        "the joined detail behind the flat `judges` names.",
+    )
+    parties: list[str] = Field(
+        default_factory=list, description="Party names on the docket (plaintiffs, appellants, …)."
+    )
+    attorneys: list[str] = Field(
+        default_factory=list, description="Attorney names of record on the docket."
+    )
     topic: str | None = Field(default=None, description="Nature of suit / subject-matter topic.")
     citations: list[str] = Field(default_factory=list)
+    citation_count: int | None = Field(
+        default=None, description="Times the decision has been cited (importance signal)."
+    )
+    precedential_status: str | None = Field(
+        default=None, description="Published / Unpublished / Errata — the opinion's status."
+    )
     opinion_text: str | None = None
     summary: str | None = None
     last_pulled: date | None = Field(
@@ -115,18 +148,23 @@ class DiscoveryWatermark(BaseModel):
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS cases (
-    case_id       TEXT PRIMARY KEY,
-    court         TEXT NOT NULL,
-    docket_number TEXT NOT NULL DEFAULT '',
-    date_filed    TEXT,
-    date_decided  TEXT,
-    disposition   TEXT,
-    judges        TEXT NOT NULL DEFAULT '[]',
-    topic         TEXT,
-    citations     TEXT NOT NULL DEFAULT '[]',
-    opinion_text  TEXT,
-    summary       TEXT,
-    last_pulled   TEXT
+    case_id             TEXT PRIMARY KEY,
+    court               TEXT NOT NULL,
+    docket_number       TEXT NOT NULL DEFAULT '',
+    date_filed          TEXT,
+    date_decided        TEXT,
+    disposition         TEXT,
+    judges              TEXT NOT NULL DEFAULT '[]',
+    panel               TEXT NOT NULL DEFAULT '[]',
+    parties             TEXT NOT NULL DEFAULT '[]',
+    attorneys           TEXT NOT NULL DEFAULT '[]',
+    topic               TEXT,
+    citations           TEXT NOT NULL DEFAULT '[]',
+    citation_count      INTEGER,
+    precedential_status TEXT,
+    opinion_text        TEXT,
+    summary             TEXT,
+    last_pulled         TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -164,8 +202,13 @@ _COLUMNS = (
     "date_decided",
     "disposition",
     "judges",
+    "panel",
+    "parties",
+    "attorneys",
     "topic",
     "citations",
+    "citation_count",
+    "precedential_status",
     "opinion_text",
     "summary",
     "last_pulled",
@@ -194,8 +237,13 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "date_decided": row.date_decided.isoformat() if row.date_decided else None,
         "disposition": row.disposition,
         "judges": json.dumps(row.judges, sort_keys=True),
+        "panel": json.dumps([m.model_dump() for m in row.panel], sort_keys=True),
+        "parties": json.dumps(row.parties, sort_keys=True),
+        "attorneys": json.dumps(row.attorneys, sort_keys=True),
         "topic": row.topic,
         "citations": json.dumps(row.citations, sort_keys=True),
+        "citation_count": row.citation_count,
+        "precedential_status": row.precedential_status,
         "opinion_text": row.opinion_text,
         "summary": row.summary,
         "last_pulled": row.last_pulled.isoformat() if row.last_pulled else None,
@@ -213,8 +261,13 @@ def _from_record(record: sqlite3.Row) -> CorpusRow:
         ),
         disposition=record["disposition"],
         judges=json.loads(record["judges"]),
+        panel=[PanelMember(**m) for m in json.loads(record["panel"])],
+        parties=json.loads(record["parties"]),
+        attorneys=json.loads(record["attorneys"]),
         topic=record["topic"],
         citations=json.loads(record["citations"]),
+        citation_count=record["citation_count"],
+        precedential_status=record["precedential_status"],
         opinion_text=record["opinion_text"],
         summary=record["summary"],
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),

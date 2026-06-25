@@ -422,6 +422,100 @@ def test_bulk_source_without_clusters_loads_spine_blank(tmp_path: Path) -> None:
     assert chunk.rows[0].get("disposition") is None  # no sibling to join
 
 
+def test_bulk_source_joins_cluster_scalar_fields(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id\n1,ca9\n")
+    clusters = tmp_path / "opinion-clusters.csv"
+    clusters.write_text(
+        "id,docket_id,disposition,precedential_status,citation_count\n10,1,Affirmed,Published,42\n"
+    )
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        clusters_url="opinion-clusters.csv",
+        dockets_cache=dockets,
+        clusters_cache=clusters,
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+    row = from_bulk_row(chunk.rows[0])
+    assert row.precedential_status == "Published"
+    assert row.citation_count == 42
+
+
+def test_bulk_source_resolves_judge_panel_from_people(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id\n1,ca9\n")
+    clusters = tmp_path / "opinion-clusters.csv"
+    # The cluster's panel is a `;`-delimited list of people-db person ids.
+    clusters.write_text("id,docket_id,panel\n10,1,1001;1002;9999\n")
+    people = tmp_path / "people-db-people.csv"
+    people.write_text(
+        "id,name_first,name_last,name_full,seniority\n"
+        "1001,,,Jane Smith,active\n"
+        "1002,Alan,Lee,,senior\n"  # name composed from parts when name_full is blank
+    )
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        clusters_url="opinion-clusters.csv",
+        people_url="people-db-people.csv",
+        dockets_cache=dockets,
+        clusters_cache=clusters,
+        people_cache=people,
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+    row = from_bulk_row(chunk.rows[0])
+    # 9999 is absent from the directory → dropped; order preserved from the panel.
+    assert row.panel == [
+        corpus.PanelMember(name="Jane Smith", seniority="active"),
+        corpus.PanelMember(name="Alan Lee", seniority="senior"),
+    ]
+    assert row.judges == ["Alan Lee", "Jane Smith"]  # panel names fold into judges
+
+
+def test_bulk_source_aggregates_parties_and_attorneys(tmp_path: Path) -> None:
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id\n1,ca9\n2,ca9\n")
+    parties = tmp_path / "parties.csv"
+    parties.write_text(
+        "docket_id,name\n"
+        "1,United States\n"
+        "1,Jane Roe\n"
+        "1,Jane Roe\n"  # duplicate collapses
+        "2,Acme Corp\n"
+        "9999,Ignored Party\n"  # untracked docket
+    )
+    attorneys = tmp_path / "attorneys.csv"
+    attorneys.write_text("docket_id,name\n1,A. Counsel\n")
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        parties_url="parties.csv",
+        attorneys_url="attorneys.csv",
+        dockets_cache=dockets,
+        parties_cache=parties,
+        attorneys_cache=attorneys,
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+    by_id = {r["id"]: from_bulk_row(r) for r in chunk.rows}
+    assert by_id["1"].parties == ["Jane Roe", "United States"]  # deduped, sorted
+    assert by_id["1"].attorneys == ["A. Counsel"]
+    assert by_id["2"].parties == ["Acme Corp"]
+    assert by_id["2"].attorneys == []  # no attorneys for docket 2
+
+
 def test_staging_is_reused_across_sources_for_same_snapshot(tmp_path: Path) -> None:
     staging = tmp_path / "stage.db"
     full = tmp_path / "full.csv"
