@@ -1,0 +1,196 @@
+"""Outcome detection: turn a resolved docket into ``outcome.json`` (or a reconcile ask).
+
+This is ``pull``'s third job (see ``docs/data-pipeline.md``): once a refresh
+re-ingests a docket through the shared core, decide whether any of the case's
+**open** predictable events have now been decided, and record the ground truth
+that ``run-evaluate`` scores against.
+
+The corpus row carries only **case-level** facts — the docket's
+``date_decided`` and a normalized ``disposition`` — so detection reasons at the
+case level and is deliberately conservative:
+
+- **Deterministic write.** When the docket appears decided, the disposition is
+  *machine-readable* (a concrete :class:`Disposition`, not the ``other`` catch-all
+  or ``None``), there is a decision date to stamp as ``resolved_at``, and the case
+  has exactly **one** open event, the event's outcome is unambiguous: write
+  ``outcome.json`` and mark the event resolved.
+- **Reconcile otherwise.** Anything ambiguous — an unreadable/absent disposition,
+  no decision date, or more than one open event the case-level disposition cannot
+  be attributed to — produces a :class:`ReconcileRequest` so an agent (via a
+  ``run:pull`` reconcile issue, ``.github/ISSUE_TEMPLATE/pull.yml``) confirms and
+  records it by hand. Nothing is written on a guess.
+
+The pure decision (:func:`detect_resolution`) is separated from the ledger write
+(:func:`record_outcomes`) so the logic is testable without a filesystem.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+
+from ..paths import CasePaths
+from ..schemas import Disposition, Outcome, PredictableEvent
+from ..serialize import read_model, write_json, write_yaml
+from ..store import open_events
+from .ingest import CorpusRow
+
+# Dispositions that count as a granted (1) binary outcome; a partial grant still
+# granted relief, so it lands on the granted side of the binary target.
+_GRANTED: frozenset[Disposition] = frozenset({Disposition.granted, Disposition.granted_in_part})
+
+
+def granted_flag(disposition: Disposition) -> int:
+    """Project a disposition onto the binary ``actual_granted`` target (1=granted)."""
+    return int(disposition in _GRANTED)
+
+
+def is_machine_readable(disposition: Disposition | None) -> bool:
+    """Whether a disposition is a concrete label we can record without a human.
+
+    ``None`` (no disposition) and :attr:`Disposition.other` (the normalizer's
+    catch-all for text it could not classify) are *not* machine-readable — they
+    mean "decided, but we do not know how", which is the reconcile path.
+    """
+    return disposition is not None and disposition != Disposition.other
+
+
+def appears_decided(row: CorpusRow) -> bool:
+    """Whether the refreshed docket now looks resolved.
+
+    A decision date (``date_terminated``/``date_decided`` upstream) or any
+    disposition at all is the signal that the matter is no longer pending.
+    """
+    return row.date_decided is not None or row.disposition is not None
+
+
+@dataclass(frozen=True)
+class ReconcileRequest:
+    """An open event that appears decided but cannot be recorded deterministically.
+
+    Carried out of the library so the workflow can open a ``run:pull`` reconcile
+    issue; ``reason`` explains to the agent why automatic recording was declined.
+    """
+
+    case_id: str
+    court_id: str
+    docket_id: int
+    event_id: str
+    disposition: Disposition | None
+    date_decided: date | None
+    reason: str
+
+
+@dataclass(frozen=True)
+class Resolution:
+    """The outcome of detection for one case in one refresh.
+
+    ``outcomes`` maps each deterministically-resolved event id to the
+    :class:`Outcome` to write; ``reconciles`` lists the events left for an agent.
+    """
+
+    outcomes: dict[str, Outcome] = field(default_factory=dict)
+    reconciles: tuple[ReconcileRequest, ...] = ()
+
+
+def _build_outcome(row: CorpusRow, event_id: str) -> Outcome:
+    """Construct the ground-truth ``Outcome`` from a decided, machine-readable row."""
+    assert row.disposition is not None and row.date_decided is not None
+    return Outcome(
+        case_id=row.case_id,
+        event_id=event_id,
+        resolved_at=row.date_decided,
+        actual_disposition=row.disposition,
+        actual_granted=granted_flag(row.disposition),
+        source=row.citations[0] if row.citations else None,
+    )
+
+
+def detect_resolution(
+    row: CorpusRow,
+    court_id: str,
+    docket_id: int,
+    open_event_ids: list[str],
+) -> Resolution:
+    """Decide how each open event resolves, given the refreshed corpus row.
+
+    Pure: no I/O. Returns deterministic outcomes to write and reconcile requests
+    for the rest. An undecided docket, or one with no open events, resolves to an
+    empty :class:`Resolution` (nothing to do).
+    """
+    if not open_event_ids or not appears_decided(row):
+        return Resolution()
+
+    readable = is_machine_readable(row.disposition) and row.date_decided is not None
+    if readable and len(open_event_ids) == 1:
+        event_id = open_event_ids[0]
+        return Resolution(outcomes={event_id: _build_outcome(row, event_id)})
+
+    if not is_machine_readable(row.disposition):
+        reason = "docket appears decided but its disposition is not machine-readable"
+    elif row.date_decided is None:
+        reason = "disposition is machine-readable but the docket carries no decision date"
+    else:
+        reason = (
+            f"docket decided ({row.disposition}) but {len(open_event_ids)} events are open; "
+            "the case-level disposition cannot be attributed to one event"
+        )
+    reconciles = tuple(
+        ReconcileRequest(
+            case_id=row.case_id,
+            court_id=court_id,
+            docket_id=docket_id,
+            event_id=event_id,
+            disposition=row.disposition,
+            date_decided=row.date_decided,
+            reason=reason,
+        )
+        for event_id in open_event_ids
+    )
+    return Resolution(reconciles=reconciles)
+
+
+def record_outcomes(
+    data_root: Path,
+    court_id: str,
+    docket_id: int,
+    resolution: Resolution,
+) -> list[str]:
+    """Write each deterministic ``outcome.json`` and mark its event resolved.
+
+    Returns the event ids written, sorted. Idempotent: an event whose
+    ``outcome.json`` already exists is filtered out upstream by
+    :func:`open_events`, so a re-run never duplicates or overwrites a recorded
+    outcome.
+    """
+    case = CasePaths(data_root, court_id, docket_id)
+    written: list[str] = []
+    for event_id, outcome in sorted(resolution.outcomes.items()):
+        event_paths = case.event(event_id)
+        write_json(event_paths.outcome, outcome)
+        # Keep the event record internally consistent: an event with a realized
+        # outcome is, by definition, resolved.
+        event = read_model(event_paths.event_file, PredictableEvent)
+        if not event.resolved:
+            write_yaml(event_paths.event_file, event.model_copy(update={"resolved": True}))
+        written.append(event_id)
+    return written
+
+
+def resolve_case(
+    data_root: Path,
+    row: CorpusRow,
+    court_id: str,
+    docket_id: int,
+) -> Resolution:
+    """Detect and record resolution for one freshly-refreshed case.
+
+    Reads the case's open events, decides each (:func:`detect_resolution`), writes
+    the deterministic outcomes (:func:`record_outcomes`), and returns the full
+    :class:`Resolution` so the caller can queue reconcile issues for the rest.
+    """
+    open_event_ids = open_events(data_root, court_id, docket_id)
+    resolution = detect_resolution(row, court_id, docket_id, open_event_ids)
+    record_outcomes(data_root, court_id, docket_id, resolution)
+    return resolution

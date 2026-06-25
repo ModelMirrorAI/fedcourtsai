@@ -2,13 +2,17 @@ name: run-pull
 
 # Refresh tracked dockets. Runs on a daily schedule, on manual dispatch, or when
 # an issue is labeled `run:pull`. Deterministic (no agent): discovers newly-filed
-# cases and re-fetches each tracked docket, ingesting the raw facts into the
-# DVC-managed corpus (pulled from / pushed back to the S3 remote) and writing fresh
-# dated snapshots. The dated snapshots and the small corpus pointer are committed
-# DIRECTLY to main (they are CourtListener facts, not agent output — see
-# docs/data-pipeline.md). For each case whose docket changed and still has open
-# events, it opens a `run:predict` issue. All git/issue writes use the GitHub App
-# token so the resulting issues/commits trigger downstream workflows.
+# cases, re-fetches each tracked docket, and detects resolution of open events —
+# writing `outcome.json` when the disposition is machine-readable — ingesting the
+# raw facts into the DVC-managed corpus (pulled from / pushed back to the S3
+# remote) and writing fresh dated snapshots. The dated snapshots, the new outcomes,
+# and the small corpus pointer are committed DIRECTLY to main (they are
+# CourtListener facts, not agent output — see docs/data-pipeline.md). It then opens
+# a `run:predict` issue for each changed case with open events, a `run:evaluate`
+# issue for each case that gained an outcome, and a `run:pull` reconcile issue for
+# each case that appears decided but whose outcome an agent must confirm by hand.
+# All git/issue writes use the GitHub App token so the resulting issues/commits
+# trigger downstream workflows.
 on:
   schedule:
     - cron: "17 7 * * *"
@@ -81,7 +85,12 @@ jobs:
       - name: Refresh tracked dockets
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
-        run: uv run fedcourts pull-all --out predict-queue.json --limit 50
+        run: |
+          uv run fedcourts pull-all \
+            --out predict-queue.json \
+            --evaluate-out evaluate-queue.json \
+            --reconcile-out reconcile-queue.json \
+            --limit 50
 
       - name: Push the corpus blob to the DVC remote
         run: |
@@ -122,4 +131,54 @@ jobs:
               --title "predict: ${court}/${docket}" \
               --body "$(printf '```json\n%s\n```\n' "$body")" \
               --label "run:predict"
+          done
+
+      - name: Open run:evaluate issues for newly resolved events
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          count=$(jq 'length' evaluate-queue.json)
+          echo "Queued $count case(s) for evaluation."
+          for i in $(seq 0 $((count - 1))); do
+            court=$(jq -r ".[$i].court" evaluate-queue.json)
+            docket=$(jq -r ".[$i].docket" evaluate-queue.json)
+            events=$(jq -c ".[$i].events" evaluate-queue.json)
+            body=$(jq -n --arg c "$court" --argjson d "$docket" --argjson e "$events" \
+              '{court: $c, docket: $d, events: $e}')
+            gh issue create --repo "$REPO" \
+              --title "evaluate: ${court}/${docket}" \
+              --body "$(printf '```json\n%s\n```\n' "$body")" \
+              --label "run:evaluate"
+          done
+
+      - name: Open run:pull reconcile issues for ambiguous outcomes
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          count=$(jq 'length' reconcile-queue.json)
+          echo "Queued $count case(s) for outcome reconcile."
+          # Dedupe against open reconcile issues so a still-unresolved case does not
+          # spawn a fresh issue every run (and never loops on the run:pull trigger).
+          open_titles=$(gh issue list --repo "$REPO" --state open --label "run:pull" \
+            --limit 200 --json title --jq '.[].title')
+          for i in $(seq 0 $((count - 1))); do
+            court=$(jq -r ".[$i].court" reconcile-queue.json)
+            docket=$(jq -r ".[$i].docket" reconcile-queue.json)
+            events=$(jq -c ".[$i].events" reconcile-queue.json)
+            reason=$(jq -r ".[$i].reason" reconcile-queue.json)
+            title="pull: ${court}/${docket} — reconcile outcome"
+            if grep -Fxq "$title" <<<"$open_titles"; then
+              echo "Skipping existing reconcile issue: $title"
+              continue
+            fi
+            block=$(jq -n --arg c "$court" --argjson d "$docket" --argjson e "$events" \
+              '{court: $c, docket: $d, events: $e}')
+            body=$(printf 'A refresh detected this case as decided, but its outcome could not be recorded deterministically:\n\n> %s\n\nConfirm the disposition from the docket and record `outcome.json` for each event below.\n\n```json\n%s\n```\n' \
+              "$reason" "$block")
+            gh issue create --repo "$REPO" \
+              --title "$title" \
+              --body "$body" \
+              --label "run:pull"
           done
