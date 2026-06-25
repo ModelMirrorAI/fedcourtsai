@@ -1,0 +1,12 @@
+completed: false
+courts:
+  ca1:
+    complete: false
+    offset: 0
+    total: null
+  scotus:
+    complete: false
+    offset: 2000
+    total: null
+schema_version: '1.0'
+snapshot: '2026-03-31'

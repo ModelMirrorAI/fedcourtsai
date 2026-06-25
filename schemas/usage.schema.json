@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "UsageRole": {
+      "description": "Which agentic stage a usage record belongs to.",
+      "enum": [
+        "predictor",
+        "evaluator"
+      ],
+      "title": "UsageRole",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``usage.json`` \u2014 measured model token usage and estimated cost for one run.\n\nWritten per ``run:predict`` / ``run:evaluate`` matrix cell (predictor x event\nfor predict, evaluator x event for evaluate) alongside that cell's prediction\nor evaluation output. Token buckets follow the Claude convention:\n``input_tokens`` is fresh input, with cached reads and cache writes counted\nseparately so ``estimated_cost_usd`` can apply the right rate to each (see\n``fedcourtsai.pricing``). Summing these across runs replaces the planning\nassumption in ``docs/budget.md`` with a measured \\$/run.",
+  "properties": {
+    "actor_id": {
+      "description": "The predictor_id (predict) or evaluator_id (evaluate)",
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "cache_creation_input_tokens": {
+      "default": 0,
+      "description": "Input written to cache",
+      "minimum": 0,
+      "title": "Cache Creation Input Tokens",
+      "type": "integer"
+    },
+    "cache_read_input_tokens": {
+      "default": 0,
+      "description": "Input served from cache",
+      "minimum": 0,
+      "title": "Cache Read Input Tokens",
+      "type": "integer"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "engine": {
+      "$ref": "#/$defs/Engine"
+    },
+    "estimated_cost_usd": {
+      "description": "On-demand USD estimate from the budget-doc rates",
+      "minimum": 0.0,
+      "title": "Estimated Cost Usd",
+      "type": "number"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "input_tokens": {
+      "description": "Fresh (uncached) input tokens",
+      "minimum": 0,
+      "title": "Input Tokens",
+      "type": "integer"
+    },
+    "model": {
+      "description": "Model the cost rates were applied to (resolved, never null)",
+      "title": "Model",
+      "type": "string"
+    },
+    "output_tokens": {
+      "minimum": 0,
+      "title": "Output Tokens",
+      "type": "integer"
+    },
+    "role": {
+      "$ref": "#/$defs/UsageRole",
+      "description": "Which stage produced the usage"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "run_id",
+    "role",
+    "actor_id",
+    "engine",
+    "model",
+    "created_at",
+    "input_tokens",
+    "output_tokens",
+    "estimated_cost_usd"
+  ],
+  "title": "ModelUsage",
+  "type": "object"
+}

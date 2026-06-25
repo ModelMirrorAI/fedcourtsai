@@ -51,8 +51,13 @@ priors, then writes its artifacts over several tool-use turns. Effective token
 usage is therefore much larger than the visible artifacts. Planning assumption:
 **~200K effective input + ~12K output per run**, which is **≈ $1–2 per run** on
 either engine before discounts. This is the single most sensitive number in the
-budget — replace it with **measured per-run usage from the first real runs**, and
-note the two big discounts that apply to it:
+budget — replace it with **measured per-run usage from the first real runs**.
+
+Every predict/evaluate run now records its measured tokens and an estimated cost
+(at the rates in this section, kept in `fedcourtsai.pricing`) to a `usage.json`
+beside its output; `fedcourts usage-summary` rolls those up into an actual \$/run.
+Once enough real runs have accumulated, update the assumption above from that
+figure. Note the two big discounts that apply to it:
 
 - **Prompt caching** — the stable prefix (AGENTS.md + prompt template) is
   identical across runs; cached reads bill at ~0.1×. Keep that prefix byte-stable
