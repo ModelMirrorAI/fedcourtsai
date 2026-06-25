@@ -350,7 +350,6 @@ def seed_backfill(
 
     snapshot_id, dockets_url = resolve_dockets_source(
         settings.courtlistener_bulk_url,
-        snapshot=settings.seed_snapshot,
         timeout=settings.request_timeout,
     )
     # The dockets file is the case spine; opinion-clusters (a sibling bulk file)
