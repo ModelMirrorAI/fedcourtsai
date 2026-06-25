@@ -1,29 +1,36 @@
 name: run-seed
 
-# Triggered by `run:seed`. Deterministically pulls a docket from CourtListener
-# (`fedcourts seed`); the workflow validates, commits to a branch, and opens one
-# PR. No agent: per docs/data-pipeline.md seed is deterministic ingestion of raw
-# facts only. Predictable-event definition is a separate, corpus-driven stage on
-# the forward/pull path (the "Discover" job, #8) — not seed's job.
+# Deterministic, NO-AGENT historical backfill. Loads the next chunk of the
+# CourtListener PUBLIC bulk-data snapshot (not the rate-limited REST API, so it
+# spends no API budget) into the packed corpus via `fedcourts seed-backfill`,
+# pushes the corpus blob to the DVC S3 remote, opens one PR per chunk (corpus
+# pointer + cursor bump), and comments per-court progress on the long-lived
+# run:seed tracking issue. Runs daily until the backlog is complete, then
+# reconciles quarterly when a new bulk snapshot drops. See docs/seed-backfill.md
+# and docs/data-pipeline.md.
 on:
+  schedule:
+    - cron: "23 6 * * *" # daily, staggered from run-pull (07:17)
+  workflow_dispatch:
   issues:
     types: [labeled]
 
 permissions: {}
 
 concurrency:
-  group: run-seed-${{ github.event.issue.number }}
+  group: run-seed
   cancel-in-progress: false
 
 jobs:
   seed:
-    if: github.event.label.name == 'run:seed'
+    if: github.event_name != 'issues' || github.event.label.name == 'run:seed'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: runner
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write # commit the corpus pointer + cursor, push the chunk branch
+      pull-requests: write # open the per-chunk PR
+      issues: write # comment progress on the tracking issue
       id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
     steps:
       - name: Mint app token
@@ -34,6 +41,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
+          permission-issues: write
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -42,56 +50,133 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # Assume the least-privilege AWS role via GitHub OIDC so seed can `dvc push`
-      # the packed historical corpus to the S3 remote. No static keys; the role
-      # ARN and region come from the `runner` environment (see issue #17).
+      # Assume the least-privilege AWS role via GitHub OIDC so seed can pull and
+      # push the packed corpus on the S3-backed DVC remote. No static keys; the
+      # role ARN and region come from the `runner` environment.
       - name: Configure AWS credentials (DVC S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Parse and validate request
+      # Define the remote's bucket URL out of band into the gitignored
+      # .dvc/config.local (never committed; see SECURITY.md). Boto3 picks up the
+      # OIDC-assumed credentials from the environment.
+      - name: Configure the DVC remote
         env:
-          ISSUE_BODY: ${{ github.event.issue.body }}
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+
+      - name: Pull the current corpus from the DVC remote
         run: |
-          python - <<'PY'
-          import json, os, re, sys
-          m = re.search(r"```json\s*(\{.*?\})\s*```", os.environ.get("ISSUE_BODY", ""), re.S)
-          if not m:
-              sys.exit("No ```json {court,docket} block found in the issue body.")
-          req = json.loads(m.group(1))
-          court, docket = str(req["court"]), str(req["docket"])
-          if not re.fullmatch(r"[a-z0-9]+", court):
-              sys.exit(f"Invalid court id: {court!r}")
-          if not re.fullmatch(r"[0-9]+", docket):
-              sys.exit(f"Invalid docket id: {docket!r}")
-          with open(os.environ["GITHUB_ENV"], "a") as fh:
-              fh.write(f"COURT_ID={court}\nDOCKET_ID={docket}\n")
-          PY
+          # First run has no committed pointer yet, so dvc pull would fail — guard it.
+          if [ -f corpus/corpus.db.dvc ]; then
+            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          else
+            echo "No corpus pointer yet; starting a fresh corpus."
+          fi
 
-      - name: Seed docket
+      - name: Load the next bulk chunk into the corpus
         env:
-          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
-        run: uv run fedcourts seed --court "$COURT_ID" --docket "$DOCKET_ID"
+          # Public CourtListener bulk snapshot — no API token. The exact file URL
+          # and its snapshot id are provided out of band (CL names them by date).
+          FEDCOURTS_COURTLISTENER_BULK_URL: ${{ vars.COURTLISTENER_BULK_URL }}
+          FEDCOURTS_SEED_SNAPSHOT: ${{ vars.SEED_SNAPSHOT }}
+        run: uv run fedcourts seed-backfill --report seed-report.json
 
-      - name: Validate and open PR
+      - name: Push the corpus blob to the DVC remote
+        run: |
+          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+          # Push the blob before opening the PR so the committed pointer always
+          # resolves against the remote.
+          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+
+      - name: Open the chunk PR (corpus pointer + cursor)
+        id: pr
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          uv run fedcourts validate data
+          set -euo pipefail
           git config user.name "fedcourts-bot"
           git config user.email "bot@users.noreply.github.com"
           gh auth setup-git
-          branch="seed/${COURT_ID}-${DOCKET_ID}"
+          branch="seed/backfill-${RUN_ID}"
           git checkout -b "$branch"
-          git add data/
+          # Only the small pointer + cursor enter git; the blob lives in the remote.
+          git add corpus/corpus.db.dvc config/seed-progress.yaml
           if git diff --cached --quiet; then
-            echo "::warning::seed of ${COURT_ID}/${DOCKET_ID} produced no changes; skipping PR."
+            echo "No corpus/cursor change this run; nothing to commit."
             exit 0
           fi
-          git commit -m "seed: ${COURT_ID}/${DOCKET_ID}"
+          snapshot=$(jq -r '.snapshot' seed-report.json)
+          loaded=$(jq -r '.loaded_this_run' seed-report.json)
+          git commit -m "seed(backfill): ${snapshot} +${loaded} case(s)"
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
-            --title "seed: ${COURT_ID}/${DOCKET_ID}" \
-            --body "Seeded docket \`${COURT_ID}/${DOCKET_ID}\` from CourtListener (raw facts only; predictable events are defined later on the forward/pull path)."
+            --title "seed(backfill): ${snapshot} historical corpus chunk (+${loaded})" \
+            --body "Automated bulk seed-backfill chunk: corpus pointer + cursor bump (the blob is pushed to the DVC remote, not git). Per-court progress is on the tracking issue. Merge advances the cursor so the next daily run continues."
+
+      - name: Comment progress on the tracking issue
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_FROM_EVENT: ${{ github.event.issue.number }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+
+          repo = os.environ["REPO"]
+          issue = os.environ.get("ISSUE_FROM_EVENT") or ""
+
+
+          def gh(*args: str, check: bool = True) -> str:
+              return subprocess.run(
+                  ["gh", *args], capture_output=True, text=True, check=check
+              ).stdout.strip()
+
+
+          if not issue:
+              # Scheduled / dispatch runs have no triggering issue: resolve the single
+              # open run:seed tracker (convention: never more than one open at a time).
+              issue = gh(
+                  "issue", "list", "--repo", repo, "--label", "run:seed",
+                  "--state", "open", "--json", "number", "--jq", ".[0].number",
+              )
+          if not issue:
+              print("::warning::No open run:seed tracking issue; skipping progress comment.")
+              raise SystemExit(0)
+
+          report = json.loads(open("seed-report.json").read())
+          done = {c["court"] for c in report["courts"] if c["complete"]}
+
+          lines = []
+          head = "✅ Seed backfill complete" if report["complete"] else "Seed backfill progress"
+          lines.append(f"### {head} — snapshot `{report['snapshot']}`")
+          lines.append("")
+          lines.append(f"Loaded **{report['loaded_this_run']}** case(s) this run.")
+          lines.append("")
+          lines.append("| Court | Loaded | Total | % | Done |")
+          lines.append("|-------|-------:|------:|--:|:----:|")
+          for c in report["courts"]:
+              total = c["total"] if c["total"] is not None else "?"
+              pct = "?" if c["percent"] is None else f"{c['percent']}%"
+              tick = "✅" if c["complete"] else ""
+              lines.append(f"| {c['court']} | {c['loaded']} | {total} | {pct} | {tick} |")
+          gh("issue", "comment", issue, "--repo", repo, "--body", "\n".join(lines))
+
+          # Check off completed courts in the tracker's checklist, leaving any
+          # operator notes untouched (only flips `- [ ] court` -> `- [x] court`).
+          if done:
+              body = gh("issue", "view", issue, "--repo", repo, "--json", "body", "--jq", ".body")
+              def tick(line: str) -> str:
+                  m = re.match(r"^(\s*- )\[ \](\s+)(\S+)\s*$", line)
+                  return f"{m.group(1)}[x]{m.group(2)}{m.group(3)}" if m and m.group(3) in done else line
+              new = "\n".join(tick(line) for line in body.splitlines())
+              if new != body:
+                  gh("issue", "edit", issue, "--repo", repo, "--body", new)
+          PY

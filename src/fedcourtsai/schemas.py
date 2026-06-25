@@ -136,6 +136,31 @@ class Evaluation(_Strict):
     notes_doc: str = "evaluation.md"
 
 
+class CourtProgress(_Strict):
+    """Per-court entry in the seed cursor — how far the backfill has loaded."""
+
+    offset: int = Field(default=0, ge=0, description="Rows consumed from this court's bulk stream")
+    total: int | None = Field(
+        default=None, ge=0, description="Rows for this court in the snapshot, once the stream ends"
+    )
+    complete: bool = False
+
+
+class SeedProgress(_Strict):
+    """``config/seed-progress.yaml`` — the resumable seed-backfill cursor.
+
+    Git-tracked so the historical backfill is rebuildable after a fresh clone and
+    a maintainer can read progress in a diff. ``seed-backfill`` reads it at the
+    start of each run and writes the bumped cursor at the end.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    snapshot: str | None = Field(
+        default=None, description="Bulk snapshot id currently being loaded, e.g. `2026-Q2`"
+    )
+    courts: dict[str, CourtProgress] = Field(default_factory=dict)
+
+
 class PredictorConfig(_Strict):
     """An entry in ``config/predictors.yaml``."""
 
@@ -165,6 +190,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "prediction.json": Prediction,
     "outcome.json": Outcome,
     "evaluation.json": Evaluation,
+    "seed-progress.yaml": SeedProgress,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -175,4 +201,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluation": Evaluation,
     "predictor_config": PredictorConfig,
     "evaluator_config": EvaluatorConfig,
+    "seed_progress": SeedProgress,
 }
