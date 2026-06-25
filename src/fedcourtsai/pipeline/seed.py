@@ -31,11 +31,13 @@ import os
 import re
 import sqlite3
 import tempfile
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import IO, Any, Protocol, runtime_checkable
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 import yaml
@@ -264,20 +266,104 @@ def sibling_bulk_url(dockets_url: str, table: str) -> str | None:
 
 
 def snapshot_date(snapshot_id: str) -> date | None:
-    """The bulk snapshot's as-of date, derived from a quarter id like ``2026-Q2``.
+    """The bulk snapshot's as-of date — the discovery frontier seed hands to pull.
 
-    CourtListener regenerates the public bulk export on the last day of March,
-    June, September, and December, so a quarter id maps to that quarter's final
-    calendar day — the date the snapshot is "complete as of" and therefore the
-    discovery frontier seed hands to forward pull. Returns ``None`` for an id that
-    is not a ``YYYY-Qn`` quarter label; seed then cannot establish a frontier from
-    it, and the court falls back to discovery's last-resort default.
+    Two id shapes carry a date:
+
+    - ``YYYY-MM-DD`` — an auto-resolved snapshot id *is* the dockets file's
+      publication date (see :func:`resolve_latest_dockets`), which is the most
+      accurate "complete as of" date available.
+    - ``YYYY-Qn`` — a manually pinned quarter label maps to that quarter's final
+      calendar day, since CourtListener regenerates the export on the last day of
+      March/June/September/December.
+
+    Returns ``None`` for any other id (e.g. a one-off nightly label); seed then
+    cannot establish a frontier and the court falls back to discovery's default.
     """
+    iso = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", snapshot_id)
+    if iso is not None:
+        try:
+            return date(int(iso[1]), int(iso[2]), int(iso[3]))
+        except ValueError:
+            return None
     m = re.fullmatch(r"(\d{4})-Q([1-4])", snapshot_id)
     if m is None:
         return None
     month, day = _QUARTER_LAST_DAY[int(m.group(2))]
     return date(int(m.group(1)), month, day)
+
+
+# --- resolving the latest bulk file from a bucket prefix ------------------------
+
+# S3 ListObjectsV2 XML namespace; stable across the API's lifetime.
+_S3_NS = {"s3": "http://s3.amazonaws.com/doc/2006-03-01/"}
+# Suffixes that mark a URL as a concrete bulk *file* rather than a bucket prefix.
+_BULK_FILE_SUFFIXES = (".csv.bz2", ".csv.gz", ".csv")
+# A dockets bulk object: ``.../dockets-YYYY-MM-DD.csv[.bz2|.gz]``. The date sorts
+# lexicographically (zero-padded ISO), so the max key is the newest snapshot.
+_DOCKETS_KEY = re.compile(r"(?:^|/)dockets-(\d{4}-\d{2}-\d{2})\.csv(?:\.bz2|\.gz)?$")
+
+
+def is_bulk_file_url(url: str) -> bool:
+    """True when ``url`` names a bulk *file*, not a bucket prefix/directory."""
+    return url.endswith(_BULK_FILE_SUFFIXES)
+
+
+def resolve_latest_dockets(
+    base_url: str, *, client: httpx.Client | None = None, timeout: float = 30.0
+) -> tuple[str, str]:
+    """Resolve the newest ``dockets-YYYY-MM-DD.csv.bz2`` under an S3 bulk prefix.
+
+    ``base_url`` is the public bucket *directory* (e.g. ``.../bulk-data/``). Lists
+    the bucket for ``dockets-`` objects, picks the latest date, and returns
+    ``(file_url, snapshot_id)`` with ``snapshot_id`` that file's ``YYYY-MM-DD``
+    date. Each daily run re-resolves, so when CourtListener publishes a new
+    snapshot the id changes and the cursor reconciles onto it automatically — the
+    backfill follows successive snapshots with no operator re-pin. Raises
+    :class:`ValueError` when the listing yields no dockets file.
+    """
+    parts = urlsplit(base_url)
+    endpoint = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+    prefix = parts.path.lstrip("/")
+    if prefix and not prefix.endswith("/"):
+        prefix += "/"
+    keys = _list_bucket_keys(endpoint, prefix + "dockets-", client=client, timeout=timeout)
+    dated = [(m.group(1), key) for key in keys if (m := _DOCKETS_KEY.search(key))]
+    if not dated:
+        raise ValueError(
+            f"No dockets-*.csv file found under {base_url!r}; point "
+            "FEDCOURTS_COURTLISTENER_BULK_URL at the bulk-data directory or a file URL."
+        )
+    snapshot_id, key = max(dated)
+    return f"{endpoint}/{key}", snapshot_id
+
+
+def _list_bucket_keys(
+    endpoint: str, prefix: str, *, client: httpx.Client | None, timeout: float
+) -> list[str]:
+    """Every object key under ``prefix`` via S3 ListObjectsV2 (paginated)."""
+    owns = client is None
+    http = client or httpx.Client(timeout=timeout, follow_redirects=True)
+    keys: list[str] = []
+    token: str | None = None
+    try:
+        while True:
+            params = {"list-type": "2", "prefix": prefix}
+            if token is not None:
+                params["continuation-token"] = token
+            resp = http.get(f"{endpoint}/", params=params)
+            resp.raise_for_status()
+            root = ET.fromstring(resp.text)
+            keys.extend(e.text for e in root.findall("s3:Contents/s3:Key", _S3_NS) if e.text)
+            if root.findtext("s3:IsTruncated", default="false", namespaces=_S3_NS) != "true":
+                break
+            token = root.findtext("s3:NextContinuationToken", namespaces=_S3_NS)
+            if not token:
+                break
+    finally:
+        if owns:
+            http.close()
+    return keys
 
 
 # Rows inserted per executemany batch while staging the GB-scale bulk files.
