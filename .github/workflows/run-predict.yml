@@ -27,23 +27,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
-      - name: Build predictor x event matrix
+      - name: Build predictor x case x event matrix
         id: plan
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          python - <<'PY' > request.json
-          import json, os, re, sys
-          m = re.search(r"```json\s*(\{.*?\})\s*```", os.environ.get("ISSUE_BODY", ""), re.S)
-          if not m:
-              sys.exit("No ```json {court,docket,events} block found in the issue body.")
-          print(m.group(1))
-          PY
-          court=$(jq -r '.court' request.json)
-          docket=$(jq -r '.docket' request.json)
+          python -c "import os, pathlib; pathlib.Path('issue-body.md').write_text(os.environ.get('ISSUE_BODY', ''))"
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
-          events=$(jq -r '.events[]?' request.json | sed 's/^/--event /' | tr '\n' ' ')
-          matrix=$(uv run fedcourts predict-matrix --court "$court" --docket "$docket" --run-id "$run_id" $events)
+          matrix=$(uv run fedcourts predict-matrix --body-file issue-body.md --run-id "$run_id")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           if [ "$(echo "$matrix" | jq '.include | length')" -gt 0 ]; then
             echo "has_jobs=true" >> "$GITHUB_OUTPUT"
