@@ -179,9 +179,13 @@ to support them.
   `run:pull` issue for on-demand/reconcile work (see
   `.github/ISSUE_TEMPLATE/pull.yml`).
 - **Budget governor:** a per-run cap (~15 dockets ≈ 45 requests, under the 50/hr
-  ceiling) with **oldest-`last_pulled`-first rotation** (the field already exists
-  on `TrackedCase`) and **skip closed/resolved** cases. As the active set grows
-  past one run's capacity, each case is simply refreshed every few days.
+  ceiling) with **oldest-`last_pulled`-first rotation** and **skip closed/resolved**
+  cases. As the active set grows past one run's capacity, each case is simply
+  refreshed every few days. The rotation key `last_pulled` is **per-case tracking
+  state in the corpus** — raw facts, tracking state included, live in the corpus,
+  not git — so the governor adds and maintains that column (the old
+  `TrackedCase.last_pulled` git field was removed when seed/pull moved their raw
+  output into the corpus).
 - **Three jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), ingesting fresh facts into the
      corpus through the shared core and queuing `run:predict` for changed cases
