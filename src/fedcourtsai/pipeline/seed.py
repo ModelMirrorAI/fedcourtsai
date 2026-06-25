@@ -329,23 +329,21 @@ def bulk_file_url(base_url: str, table: str, snapshot: str, *, ext: str = "csv.b
 def resolve_dockets_source(
     bulk_url: str,
     *,
-    snapshot: str | None = None,
     timeout: float = 30.0,
     client: httpx.Client | None = None,
 ) -> tuple[str, str]:
     """Resolve ``(snapshot_id, dockets_url)`` from the configured bulk URL.
 
     ``bulk_url`` is normally the bulk-data **base** directory: the latest snapshot
-    is auto-discovered (unless ``snapshot`` pins one for a reproducible run) and the
-    dockets file URL is built from it. An explicit ``.csv`` file URL is honored
-    as-is — a manual pin — with its snapshot taken from the filename (or
-    ``snapshot`` when given).
+    is auto-discovered and the dockets file URL is built from it. An explicit
+    ``.csv`` file URL is honored as-is — a manual pin — with its snapshot taken
+    from the filename.
     """
     if bulk_url.rstrip("/").endswith((".csv.bz2", ".csv.gz", ".csv")):
         m = _SNAPSHOT_RE.search(bulk_url)
-        snap = snapshot or (m.group(1) if m else quarter_id(date.today()))
+        snap = m.group(1) if m else quarter_id(date.today())
         return snap, bulk_url
-    snap = snapshot or discover_latest_snapshot(bulk_url, timeout=timeout, client=client)
+    snap = discover_latest_snapshot(bulk_url, timeout=timeout, client=client)
     return snap, bulk_file_url(bulk_url, "dockets", snap)
 
 

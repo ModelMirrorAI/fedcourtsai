@@ -637,19 +637,6 @@ def test_resolve_explicit_file_url_is_a_pin() -> None:
     assert url == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
 
 
-def test_resolve_explicit_snapshot_overrides_filename() -> None:
-    snap, _ = resolve_dockets_source(
-        "https://host/bulk-data/dockets-2026-03-31.csv.bz2", snapshot="pinned"
-    )
-    assert snap == "pinned"
-
-
-def test_resolve_base_url_pin_skips_discovery() -> None:
-    # No client: a discovery attempt would hit the network, so the pin must short it.
-    snap, url = resolve_dockets_source("https://host/bulk-data/", snapshot="2026-03-31")
-    assert (snap, url) == ("2026-03-31", "https://host/bulk-data/dockets-2026-03-31.csv.bz2")
-
-
 def test_resolve_base_url_discovers_latest() -> None:
     snap, url = resolve_dockets_source(
         "https://host/bulk-data/",
