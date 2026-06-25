@@ -77,6 +77,20 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
+      - name: Mint agent comment token
+        id: agent-token
+        # Least-privilege token the agent itself uses to comment on the triggering
+        # issue/PR. No contents:write — the agent only writes files locally and the
+        # workflow (app-token above) does the commit/PR, so a prompt injection in
+        # docket text cannot push code with this token.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
@@ -104,12 +118,16 @@ jobs:
           RUN_ID: ${{ matrix.run_id }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.agent-token.outputs.token }}
           prompt: |
             Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
             prediction for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment
             variables against its outcome.json. Write ONLY the evaluation.json and
             evaluation.md files. Do not commit, push, or open a PR — the workflow
-            handles git.
+            handles git. You run headless with no interactive input; if you are
+            blocked, post a brief note on the triggering issue
+            (#${{ github.event.issue.number }}) with `gh issue comment` and explain
+            it in evaluation.md, then finish — do not wait for a reply.
           claude_args: |
             --model claude-opus-4-8
             --max-turns 120

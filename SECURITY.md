@@ -11,6 +11,16 @@
   Codex action proxies `OPENAI_API_KEY` so the CLI never holds it; the Claude
   action handles `CLAUDE_CODE_OAUTH_TOKEN` similarly. The lower-sensitivity
   CourtListener token is passed as a scoped step env only where needed.
+- **Agents get a least-privilege GitHub App token, never a static one.** So a
+  headless agent can post progress/questions on the triggering issue/PR, the
+  `run:predict` / `run:evaluate` agent steps receive a separate short-lived App
+  installation token from `actions/create-github-app-token`, scoped
+  `contents: read` + `issues` + `pull-requests: write` — **comment-only**. The
+  *workflow* (a distinct `contents: write` app-token) does the commit/PR, so a
+  prompt injection in docket text cannot push code with the agent's token. The
+  `run:dev` agent, which commits and opens its own PR, keeps its own
+  `contents` + `pull-requests: write` token. Issue and docket text stay untrusted
+  input (treated as data, not instructions).
 - **No static cloud keys — OIDC for the DVC remote.** Workflows that touch the
   private S3 bucket behind the DVC remote assume a least-privilege IAM role via
   GitHub OIDC (`aws-actions/configure-aws-credentials`, SHA-pinned;
