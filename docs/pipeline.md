@@ -25,9 +25,13 @@ run:seed (daily until done) → backfill bulk corpus chunk → PR + progress com
    daily / run:pull → run-pull → push fresh facts + snapshots to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ discover new filings → onboard + define events
-                                 ├─ detect resolution → write outcome.json (git ledger)
-                                 └─ for each changed case with open events:
-                                    create issue (run:predict)  ← APP TOKEN
+                                 ├─ detect resolution → write outcome.json when the
+                                 │  disposition is machine-readable (git ledger)
+                                 └─ create issues  ← APP TOKEN
+                                    ├─ run:predict   (changed case with open events)
+                                    ├─ run:evaluate  (case that gained an outcome)
+                                    └─ run:pull      (decided but not machine-readable
+                                                      → agent reconciles by hand)
        run:predict → plan (build matrix) → predict[matrix] → PR per predictor×event
        run:evaluate → plan → evaluate[matrix] → PR per evaluator×event
 ```
