@@ -1,8 +1,19 @@
-# DVC pipeline file. For now it only registers metrics so `dvc metrics show`
-# and `dvc metrics diff` track back-test results and leaderboards as they land.
-# These metric files are small and worth reading in a diff, so they are
-# git-tracked (not pushed to the remote like the corpus blob). Pipeline stages
-# that compute them will be added with the back-test / leaderboard workflows.
+# DVC pipeline file. The `leaderboard` stage rolls the git `data/` evaluations
+# ledger up into `metrics/leaderboard.json` so `dvc metrics show` / `dvc metrics
+# diff` track predictor standings across runs. `metrics/backtest.json` is still
+# produced out of band (the back-test harness lands separately) and is declared
+# as a bare metric until then. Both metric files are small and worth reading in a
+# diff, so they are git-tracked (not pushed to the remote like the corpus blob).
+stages:
+  leaderboard:
+    cmd: uv run fedcourts leaderboard
+    deps:
+      - data/cases
+      - src/fedcourtsai/leaderboard.py
+      - src/fedcourtsai/store.py
+    metrics:
+      - metrics/leaderboard.json:
+          cache: false
+
 metrics:
   - metrics/backtest.json
-  - metrics/leaderboard.json
