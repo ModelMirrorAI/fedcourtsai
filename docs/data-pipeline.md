@@ -51,9 +51,10 @@ cadence:
 | Reporting       | comments on a `run:seed` tracking issue | headless cron                     |
 | Steady state    | drops to **quarterly** reconciliation   | stays **daily**                   |
 
-They share an **ingestion core** (a normalization layer where an API docket JSON
-and a bulk CSV row both become the same normalized corpus row, reusing `serialize`
-and `store`), shared dedup/cursor utilities, and shared PR plumbing. **Unify the
+They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a normalization
+layer where an API docket JSON and a bulk CSV row both become the same normalized
+row, then upsert into the packed corpus in `fedcourtsai.corpus`), shared
+dedup/cursor utilities, and shared PR plumbing. **Unify the
 library and the data, not the job.** Both ends write the same corpus, in the same
 format, through the same APIs; keeping the jobs separate only keeps the budget
 boundary crisp (pull owns the token; seed never touches it) and operational status
@@ -182,9 +183,9 @@ to support them.
   on `TrackedCase`) and **skip closed/resolved** cases. As the active set grows
   past one run's capacity, each case is simply refreshed every few days.
 - **Three jobs over the shared core:**
-  1. **Refresh** active known cases (existing `pull_case`), writing fresh dated
-     snapshots to the corpus and queuing `run:predict` for changed cases with open
-     events.
+  1. **Refresh** active known cases (`pull_case`), ingesting fresh facts into the
+     corpus through the shared core and queuing `run:predict` for changed cases
+     with open events.
   2. **Discover** newly-filed cases since the last run (CourtListener search by
      court + `date_filed`) → onboard into the corpus as a tracked case and define
      its predictable event(s).

@@ -13,8 +13,9 @@ stored (see ``docs/data-pipeline.md``).
 Both delegate to one private normalizer, so equivalent inputs from the two
 sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`.
 
-Writes go through :mod:`fedcourtsai.serialize` (sorted, newline-terminated) and
-the corpus is located and streamed through :mod:`fedcourtsai.store`.
+Normalized rows are persisted into the single packed corpus — the SQLite store
+defined in :mod:`fedcourtsai.corpus` — via :func:`upsert_to_corpus`, so ``seed``
+and ``pull`` both land facts in one place through one seam.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from typing import Any, Final, Literal
 from dateutil import parser as date_parser
 from pydantic import BaseModel, ConfigDict, Field
 
-from .. import ids, serialize, store
+from .. import corpus, ids
 from ..schemas import Disposition
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
@@ -217,11 +218,33 @@ def merge_rows(rows: Iterable[CorpusRow]) -> list[CorpusRow]:
     return list(by_case.values())
 
 
-def read_corpus(path: Path) -> list[CorpusRow]:
-    """Load and validate every row from the packed corpus at ``path``."""
-    return [CorpusRow.model_validate(record) for record in store.iter_corpus_records(path)]
+def to_corpus_row(row: CorpusRow) -> corpus.CorpusRow:
+    """Project a normalized ingestion row onto the packed-corpus storage row.
+
+    The ingestion model carries provenance the storage model does not need
+    (``source``, ``schema_version``, ``docket_id`` — recoverable from
+    ``case_id``); ``nature_of_suit`` maps onto the store's ``topic`` column.
+    """
+    return corpus.CorpusRow(
+        case_id=row.case_id,
+        court=row.court,
+        docket_number=row.docket_number,
+        date_filed=row.date_filed,
+        date_decided=row.date_decided,
+        disposition=row.disposition,
+        judges=row.judges,
+        topic=row.nature_of_suit,
+        citations=row.citations,
+        summary=row.summary,
+    )
 
 
-def write_corpus(path: Path, rows: Iterable[CorpusRow]) -> None:
-    """Write rows to the packed corpus, one per case, in stable sorted order."""
-    serialize.write_jsonl(path, merge_rows(rows))
+def upsert_to_corpus(db_path: Path, rows: Iterable[CorpusRow]) -> int:
+    """Upsert normalized rows into the packed SQLite corpus at ``db_path``.
+
+    Idempotent by ``case_id`` (last write wins), so re-ingesting a docket — by
+    ``seed`` or ``pull`` — overwrites its row rather than duplicating it.
+    """
+    store_rows = [to_corpus_row(row) for row in merge_rows(rows)]
+    with corpus.connect(db_path) as conn:
+        return corpus.upsert_rows(conn, store_rows)

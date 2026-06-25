@@ -3,18 +3,17 @@ from pathlib import Path
 
 import pytest
 
+from fedcourtsai import corpus
 from fedcourtsai.pipeline.ingest import (
-    CorpusRow,
     CorpusSource,
     from_api_docket,
     from_bulk_row,
     merge_rows,
     normalize_disposition,
-    read_corpus,
-    write_corpus,
+    to_corpus_row,
+    upsert_to_corpus,
 )
 from fedcourtsai.schemas import Disposition
-from fedcourtsai.store import corpus_path
 
 # Equivalent facts about one docket, shaped the way each upstream source delivers
 # them: the API as a JSON object (court as a hyperlink, panel as nested judges),
@@ -114,25 +113,29 @@ def test_merge_rows_last_wins() -> None:
     assert merged[0].source == CorpusSource.api
 
 
-def test_write_then_read_roundtrips(tmp_path: Path) -> None:
-    path = corpus_path(tmp_path)
+def test_to_corpus_row_projects_onto_store_schema() -> None:
+    store_row = to_corpus_row(from_api_docket(API_DOCKET))
+    assert isinstance(store_row, corpus.CorpusRow)
+    assert store_row.case_id == "ca9/64512345"
+    assert store_row.topic == "Civil Rights"  # nature_of_suit -> topic
+    assert store_row.judges == ["Alan Lee", "Jane Smith"]
+    assert store_row.disposition == Disposition.granted_in_part
+
+
+def test_upsert_to_corpus_persists_rows(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
     rows = [from_api_docket(API_DOCKET), from_bulk_row({"id": "9", "court_id": "ca1"})]
-    write_corpus(path, rows)
-    loaded = read_corpus(path)
-    assert {r.case_id for r in loaded} == {"ca9/64512345", "ca1/9"}
-    assert all(isinstance(r, CorpusRow) for r in loaded)
+    assert upsert_to_corpus(db, rows) == 2
+    with corpus.connect(db) as conn:
+        assert {r.case_id for r in corpus.iter_rows(conn)} == {"ca9/64512345", "ca1/9"}
 
 
-def test_write_is_order_independent(tmp_path: Path) -> None:
-    a = from_bulk_row({"id": "9", "court_id": "ca1"})
-    b = from_api_docket(API_DOCKET)
-    one = tmp_path / "one.jsonl"
-    two = tmp_path / "two.jsonl"
-    write_corpus(one, [a, b])
-    write_corpus(two, [b, a])
-    assert one.read_text() == two.read_text()
-    assert one.read_text().endswith("\n")
-
-
-def test_read_missing_corpus_is_empty(tmp_path: Path) -> None:
-    assert read_corpus(corpus_path(tmp_path)) == []
+def test_upsert_to_corpus_is_idempotent_by_case(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    upsert_to_corpus(db, [from_bulk_row({**BULK_ROW, "nature_of_suit": "old"})])
+    upsert_to_corpus(db, [from_api_docket(API_DOCKET)])  # same case_id, fresher facts
+    with corpus.connect(db) as conn:
+        assert corpus.count(conn) == 1
+        fetched = corpus.get_row(conn, "ca9/64512345")
+    assert fetched is not None
+    assert fetched.topic == "Civil Rights"
