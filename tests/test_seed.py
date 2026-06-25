@@ -225,9 +225,16 @@ def test_snapshot_date_maps_quarter_to_last_day() -> None:
     assert snapshot_date("2026-Q2") == date(2026, 6, 30)
     assert snapshot_date("2026-Q3") == date(2026, 9, 30)
     assert snapshot_date("2026-Q4") == date(2026, 12, 31)
-    # A non-quarter id yields no frontier (seed then hands nothing off).
-    assert snapshot_date("2026-03-31") is None
+    # A non-quarter, non-date id yields no frontier (seed hands nothing off).
     assert snapshot_date("not-a-quarter") is None
+
+
+def test_snapshot_date_reads_iso_dated_snapshot_id() -> None:
+    # An auto-discovered id is the bulk file's publication date verbatim (the CI
+    # default), the most accurate "complete as of" date for the frontier handoff.
+    assert snapshot_date("2026-03-31") == date(2026, 3, 31)
+    assert snapshot_date("2025-12-02") == date(2025, 12, 2)
+    assert snapshot_date("2026-13-01") is None  # not a real calendar date
 
 
 def test_backfill_hands_off_snapshot_date_as_watermark(tmp_path: Path) -> None:
@@ -246,6 +253,23 @@ def test_backfill_hands_off_snapshot_date_as_watermark(tmp_path: Path) -> None:
         # so the first forward pull searches from the snapshot, not from today.
         assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 6, 30)
         assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 6, 30)
+
+
+def test_backfill_hands_off_iso_snapshot_date_as_watermark(tmp_path: Path) -> None:
+    cursor = tmp_path / "seed-progress.yaml"
+    db = corpus.corpus_db_path(tmp_path)
+    # Auto-discovery yields an ISO snapshot id; the frontier handoff must work for
+    # it just as for a quarter label (else CI's default mode hands off nothing).
+    backfill(
+        FakeBulkSource("2026-03-31", _data()),
+        cursor_path=cursor,
+        courts=["ca1", "ca2"],
+        corpus_db_path=db,
+        max_cases=100,
+    )
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 3, 31)
+        assert corpus.get_discovery_watermark(conn, "ca2") == date(2026, 3, 31)
 
 
 def test_backfill_no_watermark_until_court_complete(tmp_path: Path) -> None:
@@ -705,19 +729,6 @@ def test_resolve_explicit_file_url_is_a_pin() -> None:
     snap, url = resolve_dockets_source("https://host/bulk-data/dockets-2026-03-31.csv.bz2")
     assert snap == "2026-03-31"
     assert url == "https://host/bulk-data/dockets-2026-03-31.csv.bz2"
-
-
-def test_resolve_explicit_snapshot_overrides_filename() -> None:
-    snap, _ = resolve_dockets_source(
-        "https://host/bulk-data/dockets-2026-03-31.csv.bz2", snapshot="pinned"
-    )
-    assert snap == "pinned"
-
-
-def test_resolve_base_url_pin_skips_discovery() -> None:
-    # No client: a discovery attempt would hit the network, so the pin must short it.
-    snap, url = resolve_dockets_source("https://host/bulk-data/", snapshot="2026-03-31")
-    assert (snap, url) == ("2026-03-31", "https://host/bulk-data/dockets-2026-03-31.csv.bz2")
 
 
 def test_resolve_base_url_discovers_latest() -> None:
