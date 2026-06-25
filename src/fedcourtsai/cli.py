@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -15,10 +16,11 @@ import typer
 import yaml
 
 from . import corpus, ids
-from .config import get_settings, load_pull_config
+from .config import get_settings, load_courts, load_pull_config
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .matrix import evaluate_matrix, predict_matrix
 from .paths import CasePaths
+from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case
 from .registry import load_evaluators, load_predictors
 from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS
@@ -207,9 +209,19 @@ def pull_all(
     pull_cfg = load_pull_config(settings.config_root)
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     db = corpus.corpus_db_path(settings.corpus_root)
-    due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
     queue: list[dict[str, object]] = []
     with _client() as client:
+        if pull_cfg.discover_new_filings:
+            disc = discover_cases(
+                client,
+                db,
+                load_courts(settings.config_root),
+                max_new=pull_cfg.max_new_cases_per_run,
+                default_since=date.today(),
+            )
+            typer.echo(f"Discovered {disc.total} new case(s) before refresh")
+        # Rotation reads after discovery so freshly-onboarded cases are eligible.
+        due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
         for court, docket in due:
             result = pull_case(client, db, settings.data_root, court, docket)
             events = open_events(settings.data_root, court, docket)
@@ -218,6 +230,48 @@ def pull_all(
             typer.echo(f"{result.case_id} changed={result.changed} open_events={len(events)}")
     out.write_text(json.dumps(queue) + "\n")
     typer.echo(f"Refreshed {len(due)}/{cap} case(s); queued {len(queue)} for prediction -> {out}")
+
+
+@app.command()
+def discover(
+    since: Annotated[
+        str,
+        typer.Option(
+            help="ISO date to start a never-discovered court from (default: today). "
+            "Courts with a stored watermark resume from it regardless."
+        ),
+    ] = "",
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            help="Optional lower cap on new dockets onboarded this run; cannot "
+            "exceed pull.max_new_cases_per_run."
+        ),
+    ] = None,
+) -> None:
+    """Onboard newly-filed dockets in the tracked courts into the corpus.
+
+    Forward discovery: for each tracked court, fetch dockets filed since its
+    watermark, upsert the normalized docket and its predictable event(s) into the
+    corpus, and advance the watermark — all raw facts, never per-case git files.
+    Stays within the API budget via ``pull.max_new_cases_per_run`` (``--limit``
+    may only lower it for a one-off run).
+    """
+    settings = get_settings()
+    pull_cfg = load_pull_config(settings.config_root)
+    courts = load_courts(settings.config_root)
+    cap = (
+        pull_cfg.max_new_cases_per_run
+        if limit is None
+        else min(limit, pull_cfg.max_new_cases_per_run)
+    )
+    start = date.fromisoformat(since) if since else date.today()
+    db = corpus.corpus_db_path(settings.corpus_root)
+    with _client() as client:
+        result = discover_cases(client, db, courts, max_new=cap, default_since=start)
+    for cd in result.courts:
+        typer.echo(f"{cd.court}\tonboarded={cd.onboarded}\twatermark={cd.watermark}")
+    typer.echo(f"Discovered {result.total}/{cap} new case(s) across {len(courts)} court(s)")
 
 
 @app.command("predict-matrix")

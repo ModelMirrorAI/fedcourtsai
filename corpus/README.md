@@ -52,6 +52,36 @@ slice of the unresolved set within the API budget (see
 [docs/data-pipeline.md](../docs/data-pipeline.md)). `embedding[]` (semantic
 retrieval) is a later upgrade and is not stored yet.
 
+## Predictable events (`events`)
+
+The things the pipeline predicts about a case — e.g. the disposition of an
+appeal — are raw facts too, so they live in the corpus, not as per-case
+`event.yaml` files. `pull` records one or more events when it discovers a docket.
+
+| Column            | Type        | Notes                                       |
+|-------------------|-------------|---------------------------------------------|
+| `case_id`         | text (PK)   | `<court_id>/<docket_id>`                     |
+| `event_id`        | text (PK)   | `evt-<kind>-<slug>`; unique within a case    |
+| `court`           | text        | CourtListener court id                       |
+| `kind`            | text        | motion / petition / appeal / order          |
+| `title`           | text        |                                             |
+| `description`     | text        |                                             |
+| `decision_target` | text        | what is predicted (default `disposition`)   |
+| `opened_at`       | date        | when the event became predictable           |
+| `resolved`        | integer     | 0 while open, 1 once resolved               |
+
+## Forward-discovery watermark (`discovery_watermarks`)
+
+Per-court **tracking state** mirroring seed's bulk cursor: the newest
+`date_filed` `pull` has discovered for a court. Discovery fetches dockets filed
+on or after this date, then advances it, so each run resumes where the last left
+off without rescanning the court.
+
+| Column       | Type      | Notes                                          |
+|--------------|-----------|------------------------------------------------|
+| `court`      | text (PK) | CourtListener court id                          |
+| `last_filed` | date      | newest `date_filed` discovered so far          |
+
 ## Working with it locally
 
 ```bash

@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from fedcourtsai import corpus
-from fedcourtsai.schemas import Disposition
+from fedcourtsai.schemas import Disposition, EventKind
 
 
 def _row(case_id: str = "ca9/123", **kw: object) -> corpus.CorpusRow:
@@ -184,3 +184,81 @@ def test_rotation_without_skip_closed_includes_all(tmp_path: Path) -> None:
         corpus.upsert_rows(conn, rows)
         kept = {r.case_id for r in corpus.rotation_for_pull(conn, limit=10, skip_closed=False)}
     assert kept == {"ca9/open", "ca9/resolved"}
+
+
+def _event(
+    case_id: str = "ca9/123", event_id: str = "evt-appeal-disposition", **kw: object
+) -> corpus.CorpusEvent:
+    base: dict[str, object] = {
+        "case_id": case_id,
+        "event_id": event_id,
+        "court": "ca9",
+        "kind": EventKind.appeal,
+        "title": "Doe v. Roe",
+        "opened_at": date(2026, 6, 1),
+    }
+    base.update(kw)
+    return corpus.CorpusEvent.model_validate(base)
+
+
+def test_event_roundtrips(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    event = _event(description="appeal outcome", resolved=True)
+    with corpus.connect(db) as conn:
+        assert corpus.upsert_events(conn, [event]) == 1
+        fetched = corpus.events_for_case(conn, "ca9/123")
+    assert fetched == [event]
+
+
+def test_events_upsert_is_idempotent_by_case_and_event(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(title="old")])
+        corpus.upsert_events(conn, [_event(title="new")])
+        fetched = corpus.events_for_case(conn, "ca9/123")
+        assert corpus.event_count(conn) == 1
+    assert fetched[0].title == "new"
+
+
+def test_multiple_events_per_case(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [_event(event_id="evt-appeal-disposition"), _event(event_id="evt-motion-stay")],
+        )
+        ids = [e.event_id for e in corpus.events_for_case(conn, "ca9/123")]
+    assert ids == ["evt-appeal-disposition", "evt-motion-stay"]
+
+
+def test_events_for_missing_case_is_empty(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        assert corpus.events_for_case(conn, "nope/0") == []
+
+
+def test_watermark_set_and_get(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") is None
+        corpus.set_discovery_watermark(conn, "ca9", date(2026, 6, 10))
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 10)
+
+
+def test_watermark_only_moves_forward(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.set_discovery_watermark(conn, "ca9", date(2026, 6, 10))
+        corpus.set_discovery_watermark(conn, "ca9", date(2026, 6, 1))  # older — ignored
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 10)
+        corpus.set_discovery_watermark(conn, "ca9", date(2026, 6, 20))  # newer — applied
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 20)
+
+
+def test_watermark_is_per_court(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.set_discovery_watermark(conn, "ca9", date(2026, 6, 10))
+        corpus.set_discovery_watermark(conn, "ca1", date(2026, 5, 1))
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 10)
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 5, 1)
