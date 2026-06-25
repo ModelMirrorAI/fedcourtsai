@@ -31,7 +31,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .schemas import Disposition
+from .schemas import Disposition, EventKind
 
 CORPUS_DB_FILENAME = "corpus.db"
 
@@ -71,6 +71,43 @@ class CorpusRow(BaseModel):
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
 
+class CorpusEvent(BaseModel):
+    """A predictable event defined as a raw fact in the corpus.
+
+    The corpus analogue of the git-ledger :class:`fedcourtsai.schemas.PredictableEvent`:
+    when ``pull`` discovers a newly-filed docket it records the thing(s) the
+    pipeline should predict about it — e.g. the disposition of the appeal — as
+    corpus rows rather than per-case ``event.yaml`` files. Keyed by
+    ``(case_id, event_id)`` so a case can carry more than one predictable event.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True)
+
+    event_id: str = Field(description="Stable `evt-<kind>-<slug>` id; unique within a case.")
+    case_id: str
+    court: str
+    kind: EventKind
+    title: str = ""
+    description: str | None = None
+    decision_target: str = "disposition"
+    opened_at: date | None = Field(default=None, description="When the event became predictable.")
+    resolved: bool = False
+
+
+class DiscoveryWatermark(BaseModel):
+    """Per-court forward-discovery cursor: the newest ``date_filed`` seen so far.
+
+    Tracking state (not a docket fact), mirroring seed's bulk cursor: ``pull``
+    discovers dockets filed on or after this date, then advances it, so each run
+    resumes where the last left off without rescanning the whole court.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    court: str
+    last_filed: date
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS cases (
     case_id       TEXT PRIMARY KEY,
@@ -90,6 +127,27 @@ CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
 -- The governor rotates oldest-last_pulled-first over the unresolved set.
 CREATE INDEX IF NOT EXISTS idx_cases_last_pulled ON cases(last_pulled);
+
+-- Predictable event definitions: raw facts, one or more per case.
+CREATE TABLE IF NOT EXISTS events (
+    case_id         TEXT NOT NULL,
+    event_id        TEXT NOT NULL,
+    court           TEXT NOT NULL,
+    kind            TEXT NOT NULL,
+    title           TEXT NOT NULL DEFAULT '',
+    description     TEXT,
+    decision_target TEXT NOT NULL DEFAULT 'disposition',
+    opened_at       TEXT,
+    resolved        INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (case_id, event_id)
+);
+CREATE INDEX IF NOT EXISTS idx_events_case ON events(case_id);
+
+-- Per-court forward-discovery watermark (the date_filed cursor for `pull`).
+CREATE TABLE IF NOT EXISTS discovery_watermarks (
+    court       TEXT PRIMARY KEY,
+    last_filed  TEXT NOT NULL
+);
 """
 
 _COLUMNS = (
@@ -248,3 +306,109 @@ def rotation_for_pull(
         (limit,),
     )
     return [_from_record(record) for record in cur]
+
+
+# --- predictable event definitions (raw facts) ---------------------------------
+
+_EVENT_COLUMNS = (
+    "case_id",
+    "event_id",
+    "court",
+    "kind",
+    "title",
+    "description",
+    "decision_target",
+    "opened_at",
+    "resolved",
+)
+
+
+def _event_to_record(event: CorpusEvent) -> dict[str, object]:
+    return {
+        "case_id": event.case_id,
+        "event_id": event.event_id,
+        "court": event.court,
+        "kind": event.kind,
+        "title": event.title,
+        "description": event.description,
+        "decision_target": event.decision_target,
+        "opened_at": event.opened_at.isoformat() if event.opened_at else None,
+        "resolved": int(event.resolved),
+    }
+
+
+def _event_from_record(record: sqlite3.Row) -> CorpusEvent:
+    return CorpusEvent(
+        case_id=record["case_id"],
+        event_id=record["event_id"],
+        court=record["court"],
+        kind=record["kind"],
+        title=record["title"],
+        description=record["description"],
+        decision_target=record["decision_target"],
+        opened_at=date.fromisoformat(record["opened_at"]) if record["opened_at"] else None,
+        resolved=bool(record["resolved"]),
+    )
+
+
+def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
+    """Insert or replace predictable-event definitions by ``(case_id, event_id)``.
+
+    Idempotent, so re-discovering a docket overwrites its event rows rather than
+    duplicating them — like the ``cases`` upsert, this keeps ``seed`` and ``pull``
+    able to rewrite the same fact without proliferating rows.
+    """
+    placeholders = ", ".join("?" for _ in _EVENT_COLUMNS)
+    updates = ", ".join(
+        f"{c}=excluded.{c}" for c in _EVENT_COLUMNS if c not in ("case_id", "event_id")
+    )
+    sql = (
+        f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({placeholders}) "
+        f"ON CONFLICT(case_id, event_id) DO UPDATE SET {updates}"
+    )
+    with conn:
+        conn.executemany(
+            sql, [tuple(_event_to_record(e)[c] for c in _EVENT_COLUMNS) for e in events]
+        )
+    return len(events)
+
+
+def events_for_case(conn: sqlite3.Connection, case_id: str) -> list[CorpusEvent]:
+    """Predictable events defined for one case, in ``event_id`` order."""
+    cur = conn.execute("SELECT * FROM events WHERE case_id = ? ORDER BY event_id", (case_id,))
+    return [_event_from_record(record) for record in cur]
+
+
+def event_count(conn: sqlite3.Connection) -> int:
+    """Total number of predictable-event rows in the corpus."""
+    cur = conn.execute("SELECT COUNT(*) AS n FROM events")
+    return int(cur.fetchone()["n"])
+
+
+# --- per-court discovery watermark (tracking state) ----------------------------
+
+
+def get_discovery_watermark(conn: sqlite3.Connection, court: str) -> date | None:
+    """The newest ``date_filed`` ``pull`` has discovered for ``court``, or ``None``.
+
+    ``None`` means the court has never been discovered; the caller supplies the
+    starting date for that first pass.
+    """
+    cur = conn.execute("SELECT last_filed FROM discovery_watermarks WHERE court = ?", (court,))
+    record = cur.fetchone()
+    return date.fromisoformat(record["last_filed"]) if record is not None else None
+
+
+def set_discovery_watermark(conn: sqlite3.Connection, court: str, last_filed: date) -> None:
+    """Advance (or initialize) ``court``'s forward-discovery watermark.
+
+    The watermark only moves forward: a write older than the stored value is
+    ignored, so a re-run that discovers nothing new cannot rewind the cursor.
+    """
+    with conn:
+        conn.execute(
+            "INSERT INTO discovery_watermarks (court, last_filed) VALUES (?, ?) "
+            "ON CONFLICT(court) DO UPDATE SET last_filed = excluded.last_filed "
+            "WHERE excluded.last_filed > discovery_watermarks.last_filed",
+            (court, last_filed.isoformat()),
+        )

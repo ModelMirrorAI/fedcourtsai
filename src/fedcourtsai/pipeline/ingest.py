@@ -30,7 +30,7 @@ from dateutil import parser as date_parser
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
-from ..schemas import Disposition
+from ..schemas import Disposition, EventKind
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -201,6 +201,31 @@ def from_bulk_row(row: Mapping[str, Any]) -> CorpusRow:
     :class:`csv.DictReader`); blank cells are treated as missing.
     """
     return _normalize(row, CorpusSource.bulk)
+
+
+# --- predictable event derivation ---------------------------------------------
+
+
+def default_event(row: CorpusRow) -> corpus.CorpusEvent:
+    """Derive the default predictable event for a freshly-onboarded docket.
+
+    Every tracked appellate matter has at least one thing to predict — the
+    disposition of the appeal (or, at SCOTUS, the petition). Discovery records
+    this as a raw fact in the corpus, replacing the per-case ``event.yaml`` the
+    retired active tier used. Deterministic so a re-discovery reproduces the same
+    ``event_id``; richer, agent-defined events can be layered on top later.
+    """
+    kind = EventKind.petition if row.court == "scotus" else EventKind.appeal
+    return corpus.CorpusEvent(
+        event_id=ids.event_id(kind.value, "disposition"),
+        case_id=row.case_id,
+        court=row.court,
+        kind=kind,
+        title=row.case_name or row.docket_number or row.case_id,
+        decision_target="disposition",
+        opened_at=row.date_filed,
+        resolved=row.disposition is not None,
+    )
 
 
 # --- persistence (one packed corpus, deterministic writes) ---------------------
