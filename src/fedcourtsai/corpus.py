@@ -284,6 +284,104 @@ def iter_rows(
         yield _from_record(record)
 
 
+DEFAULT_PRIOR_LIMIT = 20
+
+
+class PriorQuery(BaseModel):
+    """Structured filter for retrieving a handful of relevant priors.
+
+    At prediction time a model wants a few *similar resolved* cases — precedent —
+    not the bulk set in context. Each field narrows the candidate set: ``court``,
+    ``topic`` and ``disposition`` are exact-match filters; ``judges`` and
+    ``citations`` match on **overlap** (a row qualifies if it shares at least one
+    value). Results come back ranked by relevance — total overlap across the
+    multi-valued filters — so the closest priors lead. Semantic / embedding
+    similarity is a later upgrade layered on this same seam.
+
+    ``resolved_only`` defaults to ``True`` because a prior is only useful as
+    precedent once its outcome is known; flip it off to retrieve open cases too.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True)
+
+    court: str | None = None
+    topic: str | None = Field(default=None, description="Exact nature-of-suit / subject topic.")
+    judges: list[str] = Field(
+        default_factory=list, description="Match cases sharing any of these judges."
+    )
+    citations: list[str] = Field(
+        default_factory=list, description="Match cases citing any of these authorities."
+    )
+    disposition: Disposition | None = Field(
+        default=None, description="Restrict to one realized outcome label."
+    )
+    resolved_only: bool = Field(
+        default=True, description="Keep only labeled (decided) cases — precedent."
+    )
+
+
+def _recency_key(row: CorpusRow) -> tuple[int, int]:
+    """Sort key putting decided cases first, newest decision first.
+
+    Undated rows sort after dated ones; among dated rows the negated ordinal
+    makes the most recent decision compare smallest (so it leads in an ascending
+    sort).
+    """
+    if row.date_decided is not None:
+        return (0, -row.date_decided.toordinal())
+    return (1, 0)
+
+
+def retrieve_priors(
+    conn: sqlite3.Connection,
+    query: PriorQuery,
+    *,
+    limit: int = DEFAULT_PRIOR_LIMIT,
+) -> list[CorpusRow]:
+    """Return up to ``limit`` priors matching ``query``, most relevant first.
+
+    The exact-match filters (``court`` / ``topic`` / ``disposition`` and the
+    ``resolved_only`` toggle) are pushed into SQL so only a narrowed candidate
+    set is scanned; the overlap filters (``judges`` / ``citations``, stored as
+    JSON arrays) are applied in Python, where each match also contributes to the
+    relevance score. Ranking is relevance descending, then most-recent decision,
+    then ``case_id`` so the result is deterministic.
+    """
+    if limit <= 0:
+        return []
+    clauses: list[str] = []
+    params: list[object] = []
+    if query.court is not None:
+        clauses.append("court = ?")
+        params.append(query.court)
+    if query.topic is not None:
+        clauses.append("topic = ?")
+        params.append(query.topic)
+    if query.disposition is not None:
+        clauses.append("disposition = ?")
+        params.append(Disposition(query.disposition).value)
+    if query.resolved_only:
+        clauses.append("disposition IS NOT NULL")
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    want_judges = set(query.judges)
+    want_citations = set(query.citations)
+    scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
+    for record in conn.execute(f"SELECT * FROM cases{where}", params):
+        row = _from_record(record)
+        judge_overlap = want_judges & set(row.judges)
+        citation_overlap = want_citations & set(row.citations)
+        # Overlap filters are required when given: skip a row that shares none.
+        if want_judges and not judge_overlap:
+            continue
+        if want_citations and not citation_overlap:
+            continue
+        score = len(judge_overlap) + len(citation_overlap)
+        scored.append((-score, _recency_key(row), row.case_id, row))
+    scored.sort(key=lambda item: (item[0], item[1], item[2]))
+    return [row for *_, row in scored[:limit]]
+
+
 def rotation_for_pull(
     conn: sqlite3.Connection,
     *,

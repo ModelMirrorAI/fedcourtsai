@@ -127,6 +127,139 @@ def test_upsert_without_stamp_preserves_prior_last_pulled(tmp_path: Path) -> Non
     assert fetched.last_pulled == date(2026, 6, 1)  # but the stamp is preserved
 
 
+def test_retrieve_priors_defaults_to_resolved_only(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="ca9/decided", disposition=Disposition.granted),
+        _row(case_id="ca9/open", disposition=None, date_decided=None),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery())
+    assert [r.case_id for r in priors] == ["ca9/decided"]
+
+
+def test_retrieve_priors_include_open(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="ca9/decided", disposition=Disposition.granted),
+        _row(case_id="ca9/open", disposition=None, date_decided=None),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery(resolved_only=False))
+    assert {r.case_id for r in priors} == {"ca9/decided", "ca9/open"}
+
+
+def test_retrieve_priors_exact_filters(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="ca9/1", court="ca9", topic="civil rights", disposition=Disposition.granted),
+        _row(case_id="ca9/2", court="ca9", topic="contracts", disposition=Disposition.granted),
+        _row(case_id="ca1/3", court="ca1", topic="civil rights", disposition=Disposition.denied),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        by_court = corpus.retrieve_priors(conn, corpus.PriorQuery(court="ca9"))
+        by_topic = corpus.retrieve_priors(conn, corpus.PriorQuery(topic="civil rights"))
+        by_disp = corpus.retrieve_priors(conn, corpus.PriorQuery(disposition=Disposition.denied))
+    assert {r.case_id for r in by_court} == {"ca9/1", "ca9/2"}
+    assert {r.case_id for r in by_topic} == {"ca9/1", "ca1/3"}
+    assert [r.case_id for r in by_disp] == ["ca1/3"]
+
+
+def test_retrieve_priors_judge_overlap_required_and_ranked(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="ca9/both", judges=["smith", "jones"], date_decided=date(2025, 1, 1)),
+        _row(case_id="ca9/one", judges=["smith", "lee"], date_decided=date(2025, 1, 1)),
+        _row(case_id="ca9/none", judges=["doe"], date_decided=date(2025, 1, 1)),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery(judges=["smith", "jones"]))
+    # Only cases sharing a judge survive; sharing more ranks higher.
+    assert [r.case_id for r in priors] == ["ca9/both", "ca9/one"]
+
+
+def test_retrieve_priors_citation_overlap_required(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="ca9/cited", citations=["410 U.S. 113"]),
+        _row(case_id="ca9/other", citations=["347 U.S. 483"]),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery(citations=["410 U.S. 113"]))
+    assert [r.case_id for r in priors] == ["ca9/cited"]
+
+
+def test_retrieve_priors_ranks_by_total_overlap(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="ca9/more", judges=["smith", "jones"], citations=["410 U.S. 113"]),
+        _row(case_id="ca9/less", judges=["smith"], citations=["410 U.S. 113"]),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(judges=["smith", "jones"], citations=["410 U.S. 113"])
+        )
+    # Both satisfy every filter; the one sharing more judges has higher overlap.
+    assert [r.case_id for r in priors] == ["ca9/more", "ca9/less"]
+
+
+def test_retrieve_priors_requires_all_given_filters(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    # Shares the judge but cites a different authority — excluded, since each
+    # given list filter must overlap (the filters AND together).
+    rows = [
+        _row(case_id="ca9/judge-only", judges=["smith"], citations=["999 U.S. 1"]),
+        _row(case_id="ca9/both", judges=["smith"], citations=["410 U.S. 113"]),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(judges=["smith"], citations=["410 U.S. 113"])
+        )
+    assert [r.case_id for r in priors] == ["ca9/both"]
+
+
+def test_retrieve_priors_ties_break_by_recency_then_case_id(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        _row(case_id="ca9/old", judges=["smith"], date_decided=date(2020, 1, 1)),
+        _row(case_id="ca9/new", judges=["smith"], date_decided=date(2025, 1, 1)),
+        _row(case_id="ca9/undated", judges=["smith"], date_decided=None),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery(judges=["smith"]))
+    # Equal overlap: newest decision first, undated last.
+    assert [r.case_id for r in priors] == ["ca9/new", "ca9/old", "ca9/undated"]
+
+
+def test_retrieve_priors_respects_limit(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [_row(case_id=f"ca9/{i}", disposition=Disposition.granted) for i in range(5)]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery(), limit=2)
+    assert len(priors) == 2
+
+
+def test_retrieve_priors_zero_limit_is_empty(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row()])
+        assert corpus.retrieve_priors(conn, corpus.PriorQuery(), limit=0) == []
+
+
+def test_prior_query_forbids_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        corpus.PriorQuery.model_validate({"surprise": "no"})
+
+
 def _active(case_id: str, **kw: object) -> corpus.CorpusRow:
     """An unresolved (open) corpus row, eligible for rotation."""
     return _row(case_id=case_id, disposition=None, date_decided=None, **kw)

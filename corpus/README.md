@@ -93,3 +93,20 @@ dvc remote modify --local storage url "<your bucket url>"   # one-time, see SECU
 dvc pull                 # fetch corpus.db from the remote
 fedcourts corpus-info    # show the location and row count
 ```
+
+## Precedent retrieval
+
+At prediction time a model pulls a handful of *relevant* priors rather than the
+bulk set. `fedcourts query` (and the `corpus.retrieve_priors` library API) takes
+structured filters — exact match on `--court` / `--topic` / `--disposition`,
+overlap match on repeatable `--judge` / `--citation` — and prints the priors as
+ranked JSON lines, most relevant first, decided cases only unless
+`--include-open`:
+
+```bash
+fedcourts query --court ca9 --topic "civil rights" --judge smith --citation "410 U.S. 113"
+```
+
+Each given filter must match (the filters AND together); judges/citations rank
+the survivors by how much they share. `opinion_text` is omitted unless `--full`.
+Semantic / embedding similarity is a later upgrade on the same query seam.

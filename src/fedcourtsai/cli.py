@@ -24,7 +24,7 @@ from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case
 from .pipeline.seed import CourtListenerBulkSource, backfill, quarter_id
 from .registry import load_evaluators, load_predictors
-from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS
+from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition
 from .serialize import write_raw_json
 from .store import cases_due_for_pull, open_events, resolved_events
 
@@ -198,6 +198,68 @@ def corpus_info() -> None:
         return
     with corpus.connect(db_path) as conn:
         typer.echo(f"corpus {db_path}: {corpus.count(conn)} row(s)")
+
+
+@app.command()
+def query(
+    court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
+    topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
+    judge: Annotated[
+        list[str] | None,
+        typer.Option(help="Judge name; repeatable. Matches cases sharing any given judge."),
+    ] = None,
+    citation: Annotated[
+        list[str] | None,
+        typer.Option(help="Citation; repeatable. Matches cases citing any given authority."),
+    ] = None,
+    disposition: Annotated[
+        str, typer.Option(help="Restrict to one realized outcome label, e.g. granted.")
+    ] = "",
+    include_open: Annotated[
+        bool, typer.Option(help="Include unresolved cases (default: decided priors only).")
+    ] = False,
+    limit: Annotated[
+        int, typer.Option(help="Maximum priors to return.")
+    ] = corpus.DEFAULT_PRIOR_LIMIT,
+    full: Annotated[
+        bool, typer.Option(help="Include each prior's full opinion_text (omitted by default).")
+    ] = False,
+) -> None:
+    """Retrieve relevant priors from the corpus, most relevant first (run after `dvc pull`).
+
+    Precedent retrieval for predictors: pull a handful of similar resolved cases
+    by structured filter instead of loading the bulk set. ``--court`` / ``--topic``
+    / ``--disposition`` match exactly; ``--judge`` and ``--citation`` (repeatable)
+    match on overlap and rank the results by how much they share. Prints one
+    compact JSON row per line, ranked, with ``opinion_text`` omitted unless
+    ``--full``. Semantic search lands later on the same query seam.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
+        raise typer.Exit(code=1)
+    try:
+        disp = Disposition(disposition) if disposition else None
+    except ValueError as exc:
+        choices = ", ".join(d.value for d in Disposition)
+        typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
+        raise typer.Exit(code=2) from exc
+    q = corpus.PriorQuery(
+        court=court or None,
+        topic=topic or None,
+        judges=judge or [],
+        citations=citation or [],
+        disposition=disp,
+        resolved_only=not include_open,
+    )
+    with corpus.connect(db_path) as conn:
+        priors = corpus.retrieve_priors(conn, q, limit=limit)
+    for row in priors:
+        payload = row.model_dump(mode="json")
+        if not full:
+            payload.pop("opinion_text", None)
+        typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
 
 
 @app.command()
