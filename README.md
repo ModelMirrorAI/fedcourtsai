@@ -137,6 +137,8 @@ docs/               architecture, data model, pipeline, security
 - [Architecture](docs/architecture.md)
 - [Data model](docs/data-model.md)
 - [Pipeline & labels](docs/pipeline.md)
+- [Budget](docs/budget.md)
+- [Milestones](docs/milestones.md)
 - [Security](SECURITY.md)
 - [Agent workflow](docs/agent-workflow.md)
 
