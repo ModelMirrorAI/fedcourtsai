@@ -15,8 +15,19 @@
   private S3 bucket behind the DVC remote assume a least-privilege IAM role via
   GitHub OIDC (`aws-actions/configure-aws-credentials`, SHA-pinned;
   `permissions: id-token: write`), reading the role ARN/region from the `runner`
-  environment. No long-lived AWS keys exist, and `.dvc/config` carries no
-  credentials. See [docs/data-pipeline.md](docs/data-pipeline.md).
+  environment. No long-lived AWS keys exist. The committed `.dvc/config` carries
+  no credentials and no bucket URL — it only names the default remote
+  (`storage`). Each job (and each operator) defines the remote's URL out of band,
+  into the gitignored `.dvc/config.local`, before any push/pull:
+
+  ```bash
+  dvc remote add --local -d storage "<bucket url from the runner env>"
+  ```
+
+  Boto3 (DVC's S3 backend) then picks up the OIDC-assumed credentials and region
+  from the environment. DVC itself is an operational tool, installed where it is
+  used (`pip install 'dvc[s3]'` / `uvx --from 'dvc[s3]' dvc ...`), not a package
+  dependency. See [docs/data-pipeline.md](docs/data-pipeline.md).
 - **Label triggers are maintainer-gated** — only users with triage/write access
   can apply labels, which is the trust boundary for `run:*`.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
