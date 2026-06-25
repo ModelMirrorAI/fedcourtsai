@@ -29,10 +29,18 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
   predictions/<predictor_id>/<run_id>/
     prediction.json               # Prediction: granted 1/0, P(granted), votes
     reasoning.md                  # predicted reasoning (qualitative)
+    usage.json                    # ModelUsage: measured tokens + estimated cost
+  evaluations/<evaluator_id>/<run_id>/
+    usage.json                    # ModelUsage for the evaluator's run (all predictors)
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
     evaluation.json               # Evaluation: correctness, Brier, vote acc, quality
     evaluation.md                 # qualitative critique
 ```
+
+Each `usage.json` records one matrix cell's token usage and an estimated USD cost
+(rates in `fedcourtsai.pricing`, kept in sync with [budget.md](budget.md)). The
+workflow captures it from the engine's own run log — never the agent's word — so a
+maintainer can roll it up (`fedcourts usage-summary`) into a measured \$/run.
 
 The raw facts an event is predicted from — its docket, the snapshot, the event
 definition itself — live in the corpus, not here. Predictors and evaluators read

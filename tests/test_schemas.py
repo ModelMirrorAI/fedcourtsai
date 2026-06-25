@@ -8,9 +8,11 @@ from fedcourtsai.schemas import (
     Disposition,
     Engine,
     JudgeVote,
+    ModelUsage,
     Outcome,
     Prediction,
     TrackedCase,
+    UsageRole,
 )
 
 
@@ -47,6 +49,40 @@ def test_extra_fields_forbidden() -> None:
                 "surprise": "nope",
             }
         )
+
+
+def _usage(**kw: object) -> ModelUsage:
+    base: dict[str, object] = dict(
+        case_id="ca9/123",
+        event_id="evt-motion-stay",
+        run_id="20260624T103000Z",
+        role=UsageRole.predictor,
+        actor_id="claude-baseline",
+        engine=Engine.claude_code,
+        model="claude-opus-4-8",
+        created_at=datetime(2026, 6, 24, tzinfo=UTC),
+        input_tokens=150_000,
+        output_tokens=8_000,
+        estimated_cost_usd=0.95,
+    )
+    base.update(kw)
+    return ModelUsage.model_validate(base)
+
+
+def test_model_usage_roundtrips() -> None:
+    usage = _usage(cache_read_input_tokens=50_000)
+    assert usage.role == UsageRole.predictor
+    assert usage.cache_creation_input_tokens == 0
+
+
+def test_model_usage_rejects_negative_tokens() -> None:
+    with pytest.raises(ValidationError):
+        _usage(input_tokens=-1)
+
+
+def test_model_usage_forbids_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        _usage(surprise="nope")
 
 
 def test_scoring() -> None:

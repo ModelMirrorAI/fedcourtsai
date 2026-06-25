@@ -45,6 +45,15 @@ class EventPaths:
     def reasoning(self, predictor_id: str, run_id: str) -> Path:
         return self.prediction_dir(predictor_id, run_id) / "reasoning.md"
 
+    def prediction_usage(self, predictor_id: str, run_id: str) -> Path:
+        return self.prediction_dir(predictor_id, run_id) / "usage.json"
+
+    def evaluation_usage(self, evaluator_id: str, run_id: str) -> Path:
+        # One evaluate cell scores every predictor for the event in a single run,
+        # so its usage is keyed by evaluator x run, a level above the per-predictor
+        # evaluation directories.
+        return self.base / "evaluations" / evaluator_id / run_id / "usage.json"
+
     def evaluation_dir(self, evaluator_id: str, predictor_id: str, run_id: str) -> Path:
         return self.base / "evaluations" / evaluator_id / predictor_id / run_id
 

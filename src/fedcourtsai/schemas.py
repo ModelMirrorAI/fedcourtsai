@@ -46,6 +46,13 @@ class EventKind(StrEnum):
     order = "order"
 
 
+class UsageRole(StrEnum):
+    """Which agentic stage a usage record belongs to."""
+
+    predictor = "predictor"
+    evaluator = "evaluator"
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
@@ -134,6 +141,36 @@ class Evaluation(_Strict):
     vote_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
     notes_doc: str = "evaluation.md"
+
+
+class ModelUsage(_Strict):
+    """``usage.json`` — measured model token usage and estimated cost for one run.
+
+    Written per ``run:predict`` / ``run:evaluate`` matrix cell (predictor x event
+    for predict, evaluator x event for evaluate) alongside that cell's prediction
+    or evaluation output. Token buckets follow the Claude convention:
+    ``input_tokens`` is fresh input, with cached reads and cache writes counted
+    separately so ``estimated_cost_usd`` can apply the right rate to each (see
+    ``fedcourtsai.pricing``). Summing these across runs replaces the planning
+    assumption in ``docs/budget.md`` with a measured \\$/run.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    event_id: str
+    run_id: str
+    role: UsageRole = Field(description="Which stage produced the usage")
+    actor_id: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate)")
+    engine: Engine
+    model: str = Field(description="Model the cost rates were applied to (resolved, never null)")
+    created_at: datetime
+    input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
+    output_tokens: int = Field(ge=0)
+    cache_read_input_tokens: int = Field(default=0, ge=0, description="Input served from cache")
+    cache_creation_input_tokens: int = Field(default=0, ge=0, description="Input written to cache")
+    estimated_cost_usd: float = Field(
+        ge=0.0, description="On-demand USD estimate from the budget-doc rates"
+    )
 
 
 class LeaderboardEntry(_Strict):
@@ -240,6 +277,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "evaluation.json": Evaluation,
     "seed-progress.yaml": SeedProgress,
     "leaderboard.json": Leaderboard,
+    "usage.json": ModelUsage,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -252,4 +290,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluator_config": EvaluatorConfig,
     "seed_progress": SeedProgress,
     "leaderboard": Leaderboard,
+    "usage": ModelUsage,
 }
