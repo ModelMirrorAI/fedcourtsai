@@ -20,6 +20,7 @@ and ``pull`` both land facts in one place through one seam.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
 from datetime import date
 from enum import StrEnum
@@ -66,7 +67,16 @@ class CorpusRow(BaseModel):
     )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
+    panel: list[corpus.PanelMember] = Field(
+        default_factory=list, description="Structured panel (name + seniority) behind `judges`"
+    )
+    parties: list[str] = Field(default_factory=list, description="Party names on the docket")
+    attorneys: list[str] = Field(default_factory=list, description="Attorney names of record")
     citations: list[str] = Field(default_factory=list)
+    citation_count: int | None = Field(default=None, description="Times the decision was cited")
+    precedential_status: str | None = Field(
+        default=None, description="Published / Unpublished / Errata"
+    )
     summary: str | None = Field(default=None, description="Opinion text or summary")
     source: CorpusSource
 
@@ -105,22 +115,54 @@ def _date(value: Any) -> date | None:
     return date_parser.parse(text).date()
 
 
-def _str_list(value: Any) -> list[str]:
-    """Coerce a list, a delimited string, or a scalar to a list of strings."""
-    items: list[Any]
-    if value is None:
-        items = []
-    elif isinstance(value, str):
-        items = value.replace("|", ";").split(";")
-    elif isinstance(value, Mapping):
-        items = [value]
-    elif isinstance(value, Iterable):
-        items = list(value)
-    else:
-        items = [value]
+def _as_count(value: Any) -> int | None:
+    """Parse a non-negative integer count, or ``None`` for blanks/non-numeric."""
+    text = _clean(value)
+    if text is None:
+        return None
+    try:
+        count = int(text)
+    except ValueError:
+        return None
+    return count if count >= 0 else None
 
+
+def _maybe_json_array(text: str) -> list[Any] | None:
+    """Parse a string that is a JSON array, else ``None``.
+
+    The staged join serves a multi-valued sibling (parties, attorneys, the
+    resolved panel) as a JSON array string; a plain free-text cell is left for
+    the delimiter split. Only strings that open with ``[`` are even tried, so a
+    normal ``"Smith; Lee"`` never round-trips through the JSON parser.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("["):
+        return None
+    try:
+        data = json.loads(stripped)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, list) else None
+
+
+def _items(value: Any) -> list[Any]:
+    """Normalize a list / JSON-array string / delimited string / scalar to items."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        parsed = _maybe_json_array(value)
+        return parsed if parsed is not None else value.replace("|", ";").split(";")
+    if isinstance(value, Mapping):
+        return [value]
+    if isinstance(value, Iterable):
+        return list(value)
+    return [value]
+
+
+def _str_list(value: Any) -> list[str]:
+    """Coerce a list, a JSON array, a delimited string, or a scalar to strings."""
     out: list[str] = []
-    for item in items:
+    for item in _items(value):
         name = item.get("name_full") or item.get("name") if isinstance(item, Mapping) else item
         cleaned = _clean(name)
         if cleaned is not None and cleaned not in out:
@@ -128,9 +170,40 @@ def _str_list(value: Any) -> list[str]:
     return out
 
 
-def _judges(record: Mapping[str, Any]) -> list[str]:
-    """Panel members and/or the assigned judge, deduplicated and sorted."""
+def _panel(record: Mapping[str, Any]) -> list[corpus.PanelMember]:
+    """Structured panel members (name + seniority), deduplicated by name.
+
+    Reads the sibling people-db join the staged source resolves onto each cluster
+    (a JSON array of ``{name, seniority}``), and is equally tolerant of an API
+    docket's list of judge objects. The flat :func:`_judges` names are derived
+    from this plus the free-text judge fields, so retrieval still sees every name.
+    """
+    members: list[corpus.PanelMember] = []
+    seen: set[str] = set()
+    for item in _items(record.get("panel")):
+        if isinstance(item, Mapping):
+            name = _clean(item.get("name_full") or item.get("name"))
+            seniority = _clean(item.get("seniority"))
+        else:
+            name = _clean(item)
+            seniority = None
+        if name is None or name in seen:
+            continue
+        seen.add(name)
+        members.append(corpus.PanelMember(name=name, seniority=seniority))
+    return members
+
+
+def _judges(record: Mapping[str, Any], *, extra: Iterable[str] = ()) -> list[str]:
+    """Panel members and/or the assigned judge, deduplicated and sorted.
+
+    ``extra`` carries the resolved-panel names so the flat retrieval key includes
+    every judge even when the free-text ``judges`` cell is blank.
+    """
     found: list[str] = []
+    for name in extra:
+        if name not in found:
+            found.append(name)
     for key in ("panel", "judges", "assigned_to_str", "assigned_to"):
         for name in _str_list(record.get(key)):
             if name not in found:
@@ -172,6 +245,7 @@ def normalize_disposition(raw: Any) -> Disposition | None:
 def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
     court = _court_id(record)
     docket_id = int(record["id"])
+    panel = _panel(record)
     return CorpusRow(
         case_id=ids.case_id(court, docket_id),
         court=court,
@@ -182,8 +256,13 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         date_decided=_date(record.get("date_terminated") or record.get("date_decided")),
         disposition=_disposition(record),
         nature_of_suit=_clean(record.get("nature_of_suit")),
-        judges=_judges(record),
+        judges=_judges(record, extra=[m.name for m in panel]),
+        panel=panel,
+        parties=sorted(_str_list(record.get("parties"))),
+        attorneys=sorted(_str_list(record.get("attorneys"))),
         citations=_str_list(record.get("citations")),
+        citation_count=_as_count(record.get("citation_count")),
+        precedential_status=_clean(record.get("precedential_status")),
         summary=_clean(record.get("summary") or record.get("opinion_text")),
         source=source,
     )
@@ -262,8 +341,13 @@ def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.
         date_decided=row.date_decided,
         disposition=row.disposition,
         judges=row.judges,
+        panel=row.panel,
+        parties=row.parties,
+        attorneys=row.attorneys,
         topic=row.nature_of_suit,
         citations=row.citations,
+        citation_count=row.citation_count,
+        precedential_status=row.precedential_status,
         summary=row.summary,
         last_pulled=last_pulled,
     )

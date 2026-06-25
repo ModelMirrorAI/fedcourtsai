@@ -198,17 +198,30 @@ corpus shaped to support it.
   `corpus-write` lock — see Corpus-writer coordination) → **comment progress on the
   tracking issue** (per-court % and remaining).
 - **Multi-table staged join:** each fact a corpus row carries lives in a different
-  bulk file — the docket spine in `dockets`, the realized `disposition`, opinion
-  `summary`, and `judges` in `opinion-clusters` — and each file is sorted by its own
-  primary key, not the join key, so they cannot be co-iterated. The bulk source
-  resolves this in two phases behind the `BulkSource` seam, so the cursor, driver,
-  and report are unchanged. *Phase A* (heavy, only when the snapshot changes) streams
-  `dockets` filtered to the tracked courts into a local staging SQLite, then streams
-  `opinion-clusters` keeping only rows whose `docket_id` is in that set (latest
-  cluster per docket wins). *Phase B* (cheap, per run) serves each chunk as one
-  indexed `LEFT JOIN`, aliasing the cluster columns to the names the ingestion core
-  reads. Pointing the staging path at a cached location lets daily runs reuse the
-  staged DB instead of re-streaming the GB-scale files.
+  bulk file — the docket spine in `dockets`; the realized `disposition`, opinion
+  `summary`, `judges`, `precedential_status`, and `citation_count` in
+  `opinion-clusters`; the party and attorney names in `parties` / `attorneys`; and
+  the panel's judge names and seniority in `people-db-people` — and each file is
+  sorted by its own primary key, not the join key, so they cannot be co-iterated.
+  The bulk source resolves this in two phases behind the `BulkSource` seam, so the
+  cursor, driver, and report are unchanged. *Phase A* (heavy, only when the snapshot
+  changes) streams `dockets` filtered to the tracked courts into a local staging
+  SQLite, then streams each sibling table keeping only rows whose `docket_id` is in
+  that set: `opinion-clusters` (latest cluster per docket wins, its panel ids
+  resolved against the `people-db-people` directory to names + seniority) and the
+  many-per-docket `parties` / `attorneys` name rows. *Phase B* (cheap, per run)
+  serves each chunk as one indexed `LEFT JOIN`, aliasing the cluster columns and
+  aggregating the party/attorney names to the field names the ingestion core reads.
+  Pointing the staging path at a cached location lets daily runs reuse the staged DB
+  instead of re-streaming the GB-scale files.
+- **Extending the join:** the sibling tables are the seam for **bringing in more
+  bulk data**. Adding a field is local and additive — a column (or staging table)
+  in `CourtListenerBulkSource`, a stage step keyed on `docket_id`, a projection in
+  the Phase-B query, and the matching field on the corpus row (`ingest.CorpusRow` →
+  `corpus.CorpusRow`, plus its SQLite column) — with **no change** to the cursor,
+  chunk driver, `SeedReport`, or the `BulkSource` protocol. A sibling whose bulk file
+  a snapshot does not publish is simply skipped, so the docket spine always loads and
+  the new fields stay blank until the data is present.
 - **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
   loaded per court, so "daily until complete" resumes cleanly and the backfill is
   rebuildable after a fresh clone.
