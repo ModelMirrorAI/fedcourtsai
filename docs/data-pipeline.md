@@ -139,6 +139,15 @@ Access mirrors each workflow's role in the pipeline:
 | `run-predict`, `run-evaluate`, `run-reconcile` | read-only | retrieval consumers (`dvc pull`) |
 | `ci`                                      | none          | gate stays offline/fast          |
 
+The gate has no remote, so it cannot diff the corpus blob against S3; it runs the
+offline half instead. `fedcourts dvc-status` checks that the committed DVC
+bookkeeping is internally coherent — every DVC-tracked data output (the
+`corpus/corpus.db.dvc` pointer, any cached stage output) is a well-formed pointer
+that is gitignored and absent from git, so the corpus blob can never slip into the
+repo, and every `cache: false` pipeline output (the `metrics/` roll-ups) is
+committed. The online `dvc status` against the remote stays with the corpus-writer
+workflows that hold the credentials.
+
 **Two IAM roles, split by access.** Corpus writers (`AWS_ROLE_TO_ASSUME`) assume a
 **read-write** role; retrieval consumers (`AWS_ROLE_TO_ASSUME_READONLY`) assume a
 **read-only** role, so a compromised predict/evaluate/reconcile runner cannot write
