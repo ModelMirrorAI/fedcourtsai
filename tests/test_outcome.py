@@ -1,6 +1,7 @@
 from datetime import date
 from pathlib import Path
 
+from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import from_api_docket
 from fedcourtsai.pipeline.outcome import (
@@ -11,8 +12,8 @@ from fedcourtsai.pipeline.outcome import (
     record_outcomes,
     resolve_case,
 )
-from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
-from fedcourtsai.serialize import read_model, write_yaml
+from fedcourtsai.schemas import Disposition, EventKind, Outcome
+from fedcourtsai.serialize import read_model
 
 DECIDED_DOCKET = {
     "id": 64512345,
@@ -26,16 +27,21 @@ DECIDED_DOCKET = {
 }
 
 
+def _db(tmp_path: Path) -> Path:
+    return corpus.corpus_db_path(tmp_path / "corpus")
+
+
 def _open_event(tmp_path: Path, event_id: str = "evt-petition-review") -> None:
-    """Write an open event.yaml for the canned docket's case."""
-    event = PredictableEvent(
+    """Record an open predictable event in the corpus for the canned docket."""
+    event = corpus.CorpusEvent(
         event_id=event_id,
         case_id="ca9/64512345",
+        court="ca9",
         kind=EventKind.petition,
         title="Petition for review",
     )
-    path = CasePaths(tmp_path, "ca9", 64512345).event(event_id).event_file
-    write_yaml(path, event)
+    with corpus.connect(_db(tmp_path)) as conn:
+        corpus.upsert_events(conn, [event])
 
 
 # --- pure helpers --------------------------------------------------------------
@@ -122,29 +128,31 @@ def test_record_outcomes_writes_outcome_and_marks_resolved(tmp_path: Path) -> No
     _open_event(tmp_path)
     row = from_api_docket(DECIDED_DOCKET)
     resolution = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
-    written = record_outcomes(tmp_path, "ca9", 64512345, resolution)
+    written = record_outcomes(_db(tmp_path), tmp_path, "ca9", 64512345, resolution)
     assert written == ["evt-petition-review"]
 
     event_paths = CasePaths(tmp_path, "ca9", 64512345).event("evt-petition-review")
     written_outcome = read_model(event_paths.outcome, Outcome)
     assert written_outcome.actual_disposition == Disposition.denied
-    # The event record is flipped resolved so it stays consistent with its outcome.
-    assert read_model(event_paths.event_file, PredictableEvent).resolved is True
+    # The corpus event is flipped resolved so it stays consistent with its outcome.
+    with corpus.connect(_db(tmp_path)) as conn:
+        (event,) = corpus.events_for_case(conn, "ca9/64512345")
+    assert event.resolved is True
 
 
 def test_resolve_case_end_to_end(tmp_path: Path) -> None:
     _open_event(tmp_path)
     row = from_api_docket(DECIDED_DOCKET)
-    resolution = resolve_case(tmp_path, row, "ca9", 64512345)
+    resolution = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
     assert "evt-petition-review" in resolution.outcomes
     assert CasePaths(tmp_path, "ca9", 64512345).event("evt-petition-review").outcome.exists()
 
 
 def test_resolve_case_is_idempotent(tmp_path: Path) -> None:
-    # A second refresh sees the event closed (outcome.json exists) and does nothing.
+    # A second refresh sees the event closed (corpus resolved flag) and does nothing.
     _open_event(tmp_path)
     row = from_api_docket(DECIDED_DOCKET)
-    resolve_case(tmp_path, row, "ca9", 64512345)
-    again = resolve_case(tmp_path, row, "ca9", 64512345)
+    resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
+    again = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
     assert not again.outcomes
     assert not again.reconciles

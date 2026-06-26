@@ -564,6 +564,24 @@ def test_events_for_missing_case_is_empty(tmp_path: Path) -> None:
         assert corpus.events_for_case(conn, "nope/0") == []
 
 
+def test_set_event_resolved_flips_the_flag(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        corpus.set_event_resolved(conn, "ca9/123", "evt-appeal-disposition")
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.resolved is True
+
+
+def test_set_event_resolved_unknown_event_is_a_noop(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        corpus.set_event_resolved(conn, "ca9/123", "evt-nonexistent")
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert event.resolved is False
+
+
 def test_watermark_set_and_get(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
