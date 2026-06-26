@@ -194,25 +194,46 @@ CREATE TABLE IF NOT EXISTS discovery_watermarks (
 );
 """
 
-_COLUMNS = (
-    "case_id",
-    "court",
-    "docket_number",
-    "date_filed",
-    "date_decided",
-    "disposition",
-    "judges",
-    "panel",
-    "parties",
-    "attorneys",
-    "topic",
-    "citations",
-    "citation_count",
-    "precedential_status",
-    "opinion_text",
-    "summary",
-    "last_pulled",
-)
+# Per-column DDL for the `cases` table, in storage order. Mirrors the `cases`
+# definition in `_SCHEMA` and drives the additive migration below; a drift test
+# keeps the two in lockstep. Every column beyond the original base set carries a
+# constant DEFAULT so it can be back-filled with `ALTER TABLE ADD COLUMN` on a
+# populated table.
+_CASES_COLUMN_DDL: dict[str, str] = {
+    "case_id": "TEXT PRIMARY KEY",
+    "court": "TEXT NOT NULL",
+    "docket_number": "TEXT NOT NULL DEFAULT ''",
+    "date_filed": "TEXT",
+    "date_decided": "TEXT",
+    "disposition": "TEXT",
+    "judges": "TEXT NOT NULL DEFAULT '[]'",
+    "panel": "TEXT NOT NULL DEFAULT '[]'",
+    "parties": "TEXT NOT NULL DEFAULT '[]'",
+    "attorneys": "TEXT NOT NULL DEFAULT '[]'",
+    "topic": "TEXT",
+    "citations": "TEXT NOT NULL DEFAULT '[]'",
+    "citation_count": "INTEGER",
+    "precedential_status": "TEXT",
+    "opinion_text": "TEXT",
+    "summary": "TEXT",
+    "last_pulled": "TEXT",
+}
+
+_COLUMNS = tuple(_CASES_COLUMN_DDL)
+
+
+def _migrate_cases(conn: sqlite3.Connection) -> None:
+    """Back-fill `cases` columns added after the table was first created.
+
+    `CREATE TABLE IF NOT EXISTS` leaves an existing table untouched, so a corpus
+    written by an older schema is missing any column introduced since. Add each
+    missing column with its declared DDL; the constant DEFAULTs keep the ALTER
+    valid on populated rows. Idempotent — a current-schema table adds nothing.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(cases)")}
+    for column in _COLUMNS:
+        if column not in existing:
+            conn.execute(f"ALTER TABLE cases ADD COLUMN {column} {_CASES_COLUMN_DDL[column]}")
 
 
 @contextmanager
@@ -223,6 +244,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
     conn.row_factory = sqlite3.Row
     try:
         conn.executescript(_SCHEMA)
+        _migrate_cases(conn)
         yield conn
     finally:
         conn.close()
