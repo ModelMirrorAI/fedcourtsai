@@ -97,6 +97,11 @@ jobs:
       - name: Backfill in checkpointed chunks until done or out of time
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # The loop pushes for hours, but a single installation token lives at
+          # most 1h (GitHub's hard cap). So the loop re-mints its own short-lived
+          # tokens from the App's private key as it goes; these two feed that.
+          APP_CLIENT_ID: ${{ vars.APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           # Public CourtListener bulk snapshot — no API token. Point this at the
           # bulk-data base directory; the backfill lists the bucket and loads the
           # latest snapshot on its own (its publication date becomes the snapshot
@@ -108,9 +113,61 @@ jobs:
           LOOP_BUDGET_SECONDS: "16200" # 4.5h
         run: |
           set -euo pipefail
+
+          # --- Self-refreshing App token ----------------------------------------
+          # Every installation token expires after at most 1h (GitHub's hard,
+          # non-renewable cap), but this loop pushes a checkpoint commit for hours.
+          # So mint fresh, repo-scoped `contents: write` tokens from the App's
+          # private key and refresh before they age out. openssl/curl/jq are
+          # preinstalled on the runner, so this needs no extra dependency.
+          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          mint_app_token() {
+            local now header payload unsigned sig jwt install_id body
+            now=$(date -u +%s)
+            header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+            # iss = the App's client id; iat backdated 60s for clock skew; exp 9m.
+            payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
+              "$((now - 60))" "$((now + 540))" "$APP_CLIENT_ID" | b64url)
+            unsigned="${header}.${payload}"
+            sig=$(printf '%s' "$unsigned" \
+              | openssl dgst -sha256 -sign <(printf '%s' "$APP_PRIVATE_KEY") -binary \
+              | b64url)
+            jwt="${unsigned}.${sig}"
+            install_id=$(curl -fsS \
+              -H "Authorization: Bearer ${jwt}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/installation" \
+              | jq -r .id)
+            # Least privilege: scoped to THIS repo, only the push permission the
+            # loop uses (the post-loop issue/PR steps mint their own token).
+            body=$(printf '{"repositories":["%s"],"permissions":{"contents":"write"}}' \
+              "${GITHUB_REPOSITORY##*/}")
+            curl -fsS -X POST \
+              -H "Authorization: Bearer ${jwt}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/app/installations/${install_id}/access_tokens" \
+              -d "$body" \
+              | jq -r .token
+          }
+
           # persist-credentials is false on checkout, so authenticate the push via
-          # the App token's git credential helper.
+          # the App token's git credential helper. `gh auth git-credential` reads
+          # $GH_TOKEN at call time, so refreshing the variable mid-loop is enough —
+          # the helper does not need to be re-installed.
+          GH_TOKEN=$(mint_app_token); export GH_TOKEN
           gh auth setup-git
+          token_minted=$(date -u +%s)
+          TOKEN_MAX_AGE_SECONDS=3000 # re-mint at 50min, well under the 1h cap
+
+          refresh_token_if_stale() {
+            if [ "$(( $(date -u +%s) - token_minted ))" -lt "$TOKEN_MAX_AGE_SECONDS" ]; then
+              return 0
+            fi
+            GH_TOKEN=$(mint_app_token); export GH_TOKEN
+            token_minted=$(date -u +%s)
+            echo "Re-minted the App token (the previous one neared its 1h expiry)."
+          }
+          # ----------------------------------------------------------------------
 
           # The staged snapshot lives on the runner's local disk so every loop
           # iteration after the first reuses it (the build is skipped when the
@@ -136,6 +193,9 @@ jobs:
             # longer references. This is LOCAL only — it never passes `--cloud`, so
             # the append-only S3 remote is untouched (see docs/security.md).
             uvx --from 'dvc[s3]' dvc gc --workspace --force
+            # Keep the git credential alive: a single token expires at 1h but the
+            # loop pushes for hours. Refresh right before every git network op.
+            refresh_token_if_stale
             git add corpus/corpus.db.dvc config/seed-progress.yaml
             if git diff --cached --quiet; then
               echo "No corpus/cursor change this chunk; nothing to commit."
@@ -203,9 +263,21 @@ jobs:
             jq -r '.courts[] | "| \(.court) | \(.loaded) | \(.total // "?") | \(if .percent == null then "?" else "\(.percent)%" end) | \(if .complete then "✅" else "" end) |"' seed-report.json
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The loop can run for hours, so the up-front app-token is long expired by
+      # the time the loop returns. Mint a fresh one for the issue/PR steps below.
+      - name: Re-mint app token for the post-loop steps
+        id: app-token-post
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
       - name: Comment progress on the tracking issue
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
           REPO: ${{ github.repository }}
           ISSUE_FROM_EVENT: ${{ github.event.issue.number }}
         run: |
@@ -268,7 +340,7 @@ jobs:
 
       - name: Open the backfill-completion PR when the backlog is done
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
