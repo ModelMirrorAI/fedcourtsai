@@ -18,9 +18,14 @@
   `contents: read` + `issues` + `pull-requests: write` — **comment-only**. The
   *workflow* (a distinct `contents: write` app-token) does the commit/PR, so a
   prompt injection in docket text cannot push code with the agent's token. The
-  `run:dev` agent, which commits and opens its own PR, keeps its own
-  `contents` + `pull-requests: write` token. Issue and docket text stay untrusted
-  input (treated as data, not instructions).
+  `run:dev` agent, which commits and opens its own PR, holds
+  `contents` + `pull-requests` + `workflows: write` — pipeline development includes
+  the workflow files themselves, and GitHub rejects a push that edits
+  `.github/workflows/` without the workflows scope. Its changes still land only
+  through a reviewed PR, and the `runner` environment is restricted to `main` (see
+  below), so a workflow the agent authors on its PR branch cannot reach any secret
+  before the PR is merged. Issue and docket text stay untrusted input (treated as
+  data, not instructions).
 - **No static cloud keys — OIDC for the DVC remote.** Workflows that touch the
   private S3 bucket behind the DVC remote assume a least-privilege IAM role via
   GitHub OIDC (`aws-actions/configure-aws-credentials`, SHA-pinned;
@@ -47,6 +52,17 @@
   dependency. See [docs/data-pipeline.md](docs/data-pipeline.md).
 - **Label triggers are maintainer-gated** — only users with triage/write access
   can apply labels, which is the trust boundary for `run:*`.
+- **Branch protection and the deployment boundary.** `main` carries two rulesets.
+  One requires a reviewed PR plus the `gate` check to merge; the GitHub App is a
+  bypass actor on it, so the deterministic `run-seed` / `run-pull` writers can push
+  corpus facts straight to `main` while agent code changes go through review. The
+  second, with **no** bypass, blocks force-pushes and branch deletion for everyone
+  — the App included — so the predictions, outcomes, and evaluations under `data/`
+  cannot be rewritten or dropped. Secrets and the S3 roles live in the `runner`
+  environment, whose deployment branches are restricted to `main`: only workflows
+  already on `main` can read them, so a workflow authored on a PR branch (including
+  one `run:dev` adds with its workflows scope) runs without `runner` secrets or the
+  S3 role.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions (`anthropics/claude-code-action`) include actor-permission checks and are
   the supported path for issue-triggered runs; matrix inputs are parsed from a
