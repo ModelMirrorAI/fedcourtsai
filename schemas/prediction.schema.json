@@ -16,7 +16,8 @@
       "description": "Agentic coding engine that produced an artifact.",
       "enum": [
         "claude-code",
-        "codex"
+        "codex",
+        "gemini"
       ],
       "title": "Engine",
       "type": "string"

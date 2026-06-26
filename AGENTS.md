@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Canonical instructions for AI coding agents (Claude Code, Codex) working in this
-repository. `CLAUDE.md` points here. Read this fully before doing anything.
+Canonical instructions for AI coding agents (Claude Code, Codex, Gemini) working
+in this repository. `CLAUDE.md` points here. Read this fully before doing anything.
 
 ## What this project is
 

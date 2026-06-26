@@ -32,7 +32,8 @@ The project runs as a **label-driven pipeline of GitHub Actions**. Work is
 represented as GitHub issues; applying a `run:*` label triggers the matching
 workflow. When a stage needs to hand off, it opens (or labels) an issue to
 trigger the next stage. Several stages delegate to agentic coding tools
-(Claude Code and Codex), which branch, do the work, and open a pull request.
+(Claude Code, Codex, and Gemini), which branch, do the work, and open a pull
+request.
 
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
@@ -40,8 +41,8 @@ trigger the next stage. Several stages delegate to agentic coding tools
 | `run:seed`     | `run-seed`      | Ingest initial dockets from CourtListener into the corpus            | Script |
 | `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script |
 | `run:reconcile`| `run-reconcile` | Confirm a decided event's `outcome.json` from the docket when pull can't | Claude Code |
-| `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex |
-| `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex |
+| `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
+| `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex + Gemini |
 
 Plus `run-ops`, a read-only daily health & cost dashboard that has no `run:*`
 label — it runs on a schedule (or manual dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
@@ -142,7 +143,7 @@ data/               tracked cases (versioned)
 schemas/            JSON Schema exported from the pydantic models
 docs/               architecture, data model, pipeline, security
 .github/workflows/  the label-driven pipeline + CI + workflow linting
-.github/prompts/    engine-agnostic prompts used by both Claude Code and Codex
+.github/prompts/    engine-agnostic prompts used by Claude Code, Codex, and Gemini
 ```
 
 ## Documentation

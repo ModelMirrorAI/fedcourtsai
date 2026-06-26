@@ -10,8 +10,8 @@ stage.
 | `run:seed`      | `run-seed`       | tracking issue + weekly schedule    | script (bulk data)   |
 | `run:pull`      | `run-pull`       | daily schedule, label, manual       | script (no agent)    |
 | `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
-| `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex  |
-| `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex  |
+| `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
+| `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
@@ -113,9 +113,9 @@ cases × events** into a GitHub Actions matrix. When prediction scope is gated
 (`predict.scope=scotus_touched`) the builder reads each case's latched
 `predict_eligible` flag, so `plan` first `dvc pull`s the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix. Each
-matrix cell routes to Claude Code or Codex by the entry's `engine`. The agent
-writes files only. The workflow's `strategy.max-parallel` throttles the whole
-fan-out, however many cases it spans.
+matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
+agent writes files only. The workflow's `strategy.max-parallel` throttles the
+whole fan-out, however many cases it spans.
 
 How a cell's output becomes a PR is the same across **`run:predict`**,
 **`run:evaluate`**, and **`run:reconcile`**: each cell validates its own output and

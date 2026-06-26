@@ -14,11 +14,17 @@ import pytest
 from fedcourtsai import corpus, fixture
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.cascade import CascadeError, CascadeReport, run_cascade
+from fedcourtsai.registry import enabled_evaluators, enabled_predictors
 from fedcourtsai.schemas import Evaluation, Outcome, PredictableEvent, Prediction
 from fedcourtsai.serialize import read_model
 
 CONFIG_ROOT = Path("config")
 RUN = "20260628T120000Z"
+
+# Cascade fan-out is driven by the enabled registry, so derive the expected
+# artifact counts from it — the assertions then hold as engines are added/removed.
+_N_PRED = len(enabled_predictors(CONFIG_ROOT / "predictors.yaml"))
+_N_EVAL = len(enabled_evaluators(CONFIG_ROOT / "evaluators.yaml"))
 
 # A resolved fixture case (granted) and an open one, both in court ca9.
 RESOLVED_COURT, RESOLVED_DOCKET = "ca9", 101
@@ -55,12 +61,12 @@ def test_resolved_case_runs_the_full_cascade(corpus_db: Path, tmp_path: Path) ->
     assert report.valid, report.problems
     assert report.engine == "stub"
     assert report.events == (RESOLVED_EVENT,)
-    # The two enabled predictors each wrote a prediction pair.
-    assert len(report.predictions) == 4
+    # Each enabled predictor wrote a prediction pair (prediction.json + reasoning.md).
+    assert len(report.predictions) == _N_PRED * 2
     # One ground-truth outcome materialized from the resolved corpus row.
     assert len(report.outcomes) == 1
-    # Two evaluators each scored both predictors → 2 x 2 evaluation pairs.
-    assert len(report.evaluations) == 8
+    # Each evaluator scored every predictor → evaluators x predictors evaluation pairs.
+    assert len(report.evaluations) == _N_EVAL * _N_PRED * 2
 
     events = CasePaths(data_root, RESOLVED_COURT, RESOLVED_DOCKET).event(RESOLVED_EVENT)
     # The git event definition + ground truth the agents read were materialized.
@@ -92,7 +98,7 @@ def test_open_case_predicts_but_evaluates_nothing(corpus_db: Path, tmp_path: Pat
     # An unresolved case has no outcome, so predictions are produced but there is
     # nothing to score — and the ledger is still valid.
     assert report.valid, report.problems
-    assert len(report.predictions) == 4
+    assert len(report.predictions) == _N_PRED * 2
     assert report.outcomes == ()
     assert report.evaluations == ()
 

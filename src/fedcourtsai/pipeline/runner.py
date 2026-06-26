@@ -203,6 +203,7 @@ class StubRunner:
                 event_id=request.event_id,
                 predictor_id=predictor_id,
                 evaluator_id=request.actor_id,
+                engine=self.engine,
                 run_id=request.run_id,
                 created_at=_created_at(request.run_id),
                 correct=is_correct(prediction, outcome),

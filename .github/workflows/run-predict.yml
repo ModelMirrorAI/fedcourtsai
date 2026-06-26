@@ -264,12 +264,50 @@ jobs:
           sandbox: workspace-write
           safety-strategy: drop-sudo
 
+      - name: Predict with Gemini
+        id: predict_gemini
+        if: matrix.engine == 'gemini'
+        uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The agent's least-privilege token (no contents:write) for any `gh issue
+          # comment` it makes; the workflow's app-token does the commit/PR.
+          GITHUB_TOKEN: ${{ steps.agent-token.outputs.token }}
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: gemini-3.1-pro-preview
+          # Emit token usage to a local telemetry log the capture step parses; never
+          # log prompt/response bodies (docket text is untrusted third-party data).
+          settings: |
+            {
+              "telemetry": {
+                "enabled": true,
+                "target": "local",
+                "outfile": ".gemini/telemetry.log",
+                "logPrompts": false
+              }
+            }
+          prompt: |
+            Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
+            for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables.
+            Write ONLY the prediction.json and reasoning.md files. Do not commit,
+            push, or open a PR — the workflow handles git. You run headless with no
+            interactive input; if you are blocked, post a brief note on the
+            triggering issue (#${{ github.event.issue.number }}) with
+            `gh issue comment` and explain it in reasoning.md, then finish — do not
+            wait for a reply.
+
       # Record measured token usage + estimated cost next to the prediction so a
       # maintainer can sum it into a real $/run (docs/budget.md). Best-effort: the
       # engine logs are read here, never the agent's word, and a miss must not
       # fail the prediction — hence continue-on-error.
       - name: Capture model usage
-        if: steps.predict_claude.conclusion == 'success' || steps.predict_codex.conclusion == 'success'
+        if: steps.predict_claude.conclusion == 'success' || steps.predict_codex.conclusion == 'success' || steps.predict_gemini.conclusion == 'success'
         continue-on-error: true
         env:
           COURT_ID: ${{ matrix.court }}
@@ -281,6 +319,7 @@ jobs:
           MODEL: ${{ matrix.model }}
           CLAUDE_EXECUTION_FILE: ${{ steps.predict_claude.outputs.execution_file }}
           CODEX_HOME: ${{ github.workspace }}/.codex
+          GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
         run: |
           args=(record-usage
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
@@ -289,6 +328,8 @@ jobs:
           if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
           if [ "$ENGINE" = "claude-code" ]; then
             args+=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+          elif [ "$ENGINE" = "gemini" ]; then
+            args+=(--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE")
           else
             args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
           fi
@@ -321,7 +362,7 @@ jobs:
           # Did the agent finish cleanly? On max-turns or a step timeout the engine
           # step fails; its partial output still rides to the collect job, which
           # routes it to a draft PR a maintainer completes — never the ready one.
-          AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.predict_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.predict_codex.outcome == 'success') }}
+          AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.predict_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.predict_codex.outcome == 'success') || (matrix.engine == 'gemini' && steps.predict_gemini.outcome == 'success') }}
         run: |
           set -euo pipefail
           # The event.yaml is materialized before the agent runs, so a staged change

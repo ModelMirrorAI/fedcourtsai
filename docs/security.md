@@ -112,9 +112,10 @@ auto-merging agent output safe.
 ## The `runner` environment
 
 Every secret and both S3 role ARNs live on the `runner` environment — the App
-credentials, the Claude OAuth token, the Codex/OpenAI key, the CourtListener API
-token, the AWS role ARNs and region, and the DVC remote URL (referenced by role,
-never committed). Every job that needs any of them declares `environment: runner`.
+credentials, the Claude OAuth token, the Codex/OpenAI key, the Gemini API key, the
+CourtListener API token, the AWS role ARNs and region, and the DVC remote URL
+(referenced by role, never committed). Every job that needs any of them declares
+`environment: runner`.
 
 **Deployment branches are restricted to `main`.** A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch —

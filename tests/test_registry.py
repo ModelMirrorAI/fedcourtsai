@@ -9,4 +9,5 @@ def test_loads_repo_predictors() -> None:
     assert preds, "expected at least one predictor configured"
     ids = {p.id for p in preds}
     assert "claude-baseline" in ids
+    assert "gemini-baseline" in ids
     assert all(Path(p.prompt).exists() for p in enabled_predictors(cfg))

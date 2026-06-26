@@ -60,8 +60,8 @@ def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None
     )
     assert result.exit_code == 0
     cells = _cells(result.stdout)
-    # 2 predictors x 2 cases x 1 event
-    assert len(cells) == 4
+    # 3 predictors x 2 cases x 1 event
+    assert len(cells) == 6
     assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24001), ("scotus", 24002)}
 
 
@@ -87,7 +87,7 @@ def test_predict_matrix_legacy_single_case_flags_still_work(tmp_path: Path) -> N
     )
     assert result.exit_code == 0
     cells = _cells(result.stdout)
-    assert len(cells) == 2
+    assert len(cells) == 3
     assert {c["event_id"] for c in cells} == {"evt-x"}
 
 
@@ -155,8 +155,8 @@ def test_evaluate_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> Non
         app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
     assert result.exit_code == 0
-    # 2 evaluators x 2 cases x 1 event
-    assert len(_cells(result.stdout)) == 4
+    # 3 evaluators x 2 cases x 1 event
+    assert len(_cells(result.stdout)) == 6
 
 
 def test_evaluate_matrix_drops_out_of_scope_case(tmp_path: Path) -> None:

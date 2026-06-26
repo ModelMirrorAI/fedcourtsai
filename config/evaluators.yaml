@@ -17,3 +17,10 @@ evaluators:
     prompt: .github/prompts/evaluate.md
     enabled: true
     description: Codex evaluator, for cross-checking the Claude evaluator.
+
+  - id: gemini-judge
+    engine: gemini
+    model: null
+    prompt: .github/prompts/evaluate.md
+    enabled: true
+    description: Gemini evaluator, for cross-checking the Claude and Codex evaluators.
