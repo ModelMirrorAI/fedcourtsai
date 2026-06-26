@@ -35,7 +35,7 @@ corpus — is in [data-pipeline.md](data-pipeline.md).
 ```
 run:seed (daily until done) → backfill bulk corpus chunk → commit + progress comment
                               └─ when complete: completion PR (flips `completed`) → closes tracker
-   daily / run:pull → run-pull → open pull-run issue → push fresh facts + snapshots to the corpus
+   daily / run:pull → run-pull → open pull-log issue → push fresh facts + snapshots to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ discover new filings → onboard + define events
                                  ├─ detect resolution → write outcome.json when the
