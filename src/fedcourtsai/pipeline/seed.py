@@ -30,6 +30,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Mapping, Sequence
@@ -399,6 +400,26 @@ def snapshot_date(snapshot_id: str) -> date | None:
 
 # Rows inserted per executemany batch while staging the GB-scale bulk files.
 _STAGE_BATCH = 5000
+
+
+def _raise_csv_field_limit() -> None:
+    """Lift csv's per-field cap to the platform maximum (process-global, idempotent).
+
+    CourtListener opinion-cluster rows carry full opinion summaries far larger than
+    csv's default 128 KiB field limit, which otherwise aborts staging with
+    ``field larger than field limit``. ``sys.maxsize`` overflows the underlying C
+    long on some platforms, so step down until the limit is accepted.
+    """
+    limit = sys.maxsize
+    while True:
+        try:
+            csv.field_size_limit(limit)
+            return
+        except OverflowError:
+            limit //= 10
+
+
+_raise_csv_field_limit()
 
 _STAGING_SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (snapshot_id TEXT NOT NULL);
