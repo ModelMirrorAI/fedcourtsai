@@ -103,6 +103,10 @@ jobs:
       - name: Predict with Claude Code
         id: predict_claude
         if: matrix.engine == 'claude-code'
+        # Bound the agent below the job timeout so a runaway run trips this *step*
+        # (leaving the finalize step to salvage its work) instead of the job-level
+        # timeout, which would cancel the runner and discard everything.
+        timeout-minutes: 50
         uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
         env:
           COURT_ID: ${{ matrix.court }}
@@ -147,6 +151,8 @@ jobs:
       - name: Predict with Codex
         id: predict_codex
         if: matrix.engine == 'codex'
+        # Same buffer as the Claude step: trip this step, not the job, on overrun.
+        timeout-minutes: 50
         uses: openai/codex-action@10cb888d2ed3b99867f7e7ccff174a861a75aeb6 # v1
         env:
           COURT_ID: ${{ matrix.court }}
@@ -206,13 +212,18 @@ jobs:
             echo "::warning::no model usage captured for ${EVENT_ID}"
           fi
 
+      # Finalize even when the agent step failed or timed out (`!cancelled()`), so a
+      # run stopped by max-turns or the step timeout still hands its partial output
+      # to a maintainer instead of vanishing with the runner.
       - name: Configure git identity
+        if: ${{ !cancelled() }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       - name: Validate and open PR
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           COURT_ID: ${{ matrix.court }}
@@ -220,18 +231,41 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
+          # Did the agent finish cleanly? On max-turns or a step timeout the engine
+          # step fails; we still commit whatever valid output it left, but as a
+          # *draft* PR a maintainer must complete, never as a ready prediction.
+          AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.predict_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.predict_codex.outcome == 'success') }}
         run: |
-          uv run fedcourts validate data
+          set -euo pipefail
           gh auth setup-git
           branch="predict/${EVENT_ID}-${PREDICTOR_ID}-${RUN_ID}"
           git checkout -b "$branch"
           git add data/
           if git diff --cached --quiet; then
-            echo "::warning::${PREDICTOR_ID} produced no changes for ${EVENT_ID}; skipping PR."
+            warn="${PREDICTOR_ID} produced no changes for ${EVENT_ID}"
+            [ "$AGENT_OK" = "true" ] || warn="${warn} before the run hit its turn/time limit"
+            echo "::warning::${warn}; skipping PR."
             exit 0
+          fi
+          # A clean run must produce schema-valid data (hard fail keeps the ledger
+          # honest). A run that hit a limit may have written a partial file; keep it
+          # for review as a draft rather than discarding the work.
+          flags=()
+          if ! uv run fedcourts validate data; then
+            if [ "$AGENT_OK" = "true" ]; then
+              echo "::error::prediction for ${EVENT_ID} failed schema validation"
+              exit 1
+            fi
+            flags+=(--draft)
+          elif [ "$AGENT_OK" != "true" ]; then
+            flags+=(--draft)
           fi
           git commit -m "predict(${PREDICTOR_ID}): ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}"
           git push origin "$branch"
-          gh pr create --base main --head "$branch" \
+          body="Automated prediction by \`${PREDICTOR_ID}\` (run \`${RUN_ID}\`) for event \`${EVENT_ID}\`."
+          if [ ${#flags[@]} -gt 0 ]; then
+            body="${body}"$'\n\n'"⚠️ The agent did not finish (turn/time limit); this is partial output for a maintainer to review and complete."
+          fi
+          gh pr create --base main --head "$branch" "${flags[@]}" \
             --title "predict(${PREDICTOR_ID}): ${COURT_ID}/${DOCKET_ID} — ${EVENT_ID}" \
-            --body "Automated prediction by \`${PREDICTOR_ID}\` (run \`${RUN_ID}\`) for event \`${EVENT_ID}\`."
+            --body "$body"

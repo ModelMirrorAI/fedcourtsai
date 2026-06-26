@@ -116,6 +116,24 @@ not by detection. On a merged `reconcile/*` PR, `run-reconcile` opens a
 `run:evaluate` issue (App token) for exactly the events the PR settled — so a
 hand-reconciled outcome is scored just like a deterministically-detected one.
 
+## Graceful degradation on limits
+
+Agent steps (dev, predict, evaluate, reconcile) are bounded by a step-level
+`timeout-minutes` set below the job's, so a run that overruns trips the *step* —
+not the job. A step timeout (or a max-turns stop) fails only that step and leaves
+the runner alive, so the finalize step still runs (`if: !cancelled()`) and the
+agent's partial work survives instead of being discarded with the cancelled job.
+
+What "finalize" salvages depends on the stage. The matrix stages
+(predict/evaluate/reconcile) already have the workflow do git: when the agent did
+not finish cleanly, the finalize step commits whatever it produced and opens the
+PR as a **draft** (with a note) rather than a ready one — and if that partial
+output fails schema validation it stays a draft for review instead of failing the
+job. In `run-dev`, where the agent does its own git, a rescue step commits any
+leftover changes on the issue branch and opens a **draft** PR for a maintainer to
+finish. A run that finished cleanly is unaffected: the draft path only triggers
+when the agent stopped early.
+
 ## Snapshot sequencing
 
 `run-pull` pushes factual snapshots **to the corpus** (`dvc push`) before it
