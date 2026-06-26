@@ -21,7 +21,7 @@ from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .config import get_settings, load_courts, load_pull_config, load_seed_config
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .leaderboard import build_leaderboard
-from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
+from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
@@ -740,6 +740,38 @@ def evaluate_matrix_cmd(
         lambda c, d: resolved_events(settings.data_root, c, d),
     )
     matrix = evaluate_matrix(settings.config_root / "evaluators.yaml", cases, run_id)
+    typer.echo(json.dumps(matrix, separators=(",", ":")))
+
+
+@app.command("reconcile-matrix")
+def reconcile_matrix_cmd(
+    run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
+    body_file: Annotated[
+        Path | None,
+        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
+    ] = None,
+    court: Annotated[
+        str, typer.Option(help="Single-case court id (ignored with --body-file).")
+    ] = "",
+    docket: Annotated[
+        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
+    ] = None,
+    event: Annotated[
+        list[str] | None,
+        typer.Option(help="Single-case event id(s); default: all open events."),
+    ] = None,
+) -> None:
+    """Emit the per-case ``run-reconcile`` GitHub Actions matrix as compact JSON.
+
+    A case with no listed ``events`` defaults to that case's open events — the
+    ones flagged decided-but-not-machine-readable that the agent must confirm.
+    """
+    settings = get_settings()
+    cases = _resolve_cases(
+        _requested_cases(body_file, court, docket, event),
+        lambda c, d: open_events(settings.data_root, c, d),
+    )
+    matrix = reconcile_matrix(cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
