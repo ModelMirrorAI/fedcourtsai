@@ -144,6 +144,81 @@ def test_build_report_is_passed_the_clock_and_validates() -> None:
     assert OpsReport.model_validate(report.model_dump()) == report
 
 
+def test_project_backfill_computes_rate_and_eta() -> None:
+    prev = ops.build_ops_report(
+        generated_at="2026-06-24T00:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(courts={"scotus": CourtProgress(offset=2000, total=10000)}),
+        courts=["scotus"],
+        usage=[],
+    )
+    now = ops.build_ops_report(
+        generated_at="2026-06-26T00:00:00+00:00",  # 2 days later
+        runs=[],
+        progress=SeedProgress(courts={"scotus": CourtProgress(offset=8000, total=10000)}),
+        courts=["scotus"],
+        usage=[],
+        previous=prev,
+    )
+    # 6000 cases over 2 days = 3000/day; 2000 remaining -> ~0.67 days -> 2026-06-26.
+    assert now.backfill.cases_per_day == 3000.0
+    assert now.backfill.eta_date == "2026-06-26"
+
+
+def test_project_backfill_no_previous_leaves_rate_unset() -> None:
+    bf = ops.summarize_backfill(
+        SeedProgress(courts={"scotus": CourtProgress(offset=10, total=100)}), ["scotus"]
+    )
+    same = ops.project_backfill(bf, None, "2026-06-26T00:00:00+00:00")
+    assert same.cases_per_day is None and same.eta_date is None
+
+
+def test_project_backfill_no_progress_reports_zero_rate_no_eta() -> None:
+    prev = ops.build_ops_report(
+        generated_at="2026-06-24T00:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(courts={"scotus": CourtProgress(offset=5000, total=10000)}),
+        courts=["scotus"],
+        usage=[],
+    )
+    now = ops.build_ops_report(
+        generated_at="2026-06-25T00:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(courts={"scotus": CourtProgress(offset=5000, total=10000)}),
+        courts=["scotus"],
+        usage=[],
+        previous=prev,
+    )
+    assert now.backfill.cases_per_day == 0.0
+    assert now.backfill.eta_date is None  # stalled -> no projection
+
+
+def test_estimate_cost_actions_minutes_and_monthly_projection() -> None:
+    runs = [
+        _run("run-seed", "success", started="2026-06-24T00:00:00Z", ended="2026-06-24T00:30:00Z"),
+        _run("run-seed", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:30:00Z"),
+    ]
+    cost = ops.estimate_cost(runs, ops.summarize_spend([]))
+    assert cost.actions_minutes == 60.0  # two 30-minute runs
+    assert cost.actions_cost_usd == round(60 * ops._ACTIONS_USD_PER_MINUTE, 4)  # 0.36
+    assert cost.window_days == 2.0
+    # $0.36 over 2 days -> $5.40/mo Actions + $55 fixed = $60.40 -> rounded $60.
+    assert cost.actions_monthly_usd == 5.4
+    assert cost.estimated_monthly_usd == 60.4
+    assert cost.fixed_monthly_usd == ops._FIXED_MONTHLY_USD
+
+
+def test_estimate_cost_single_run_has_no_window_or_projection() -> None:
+    runs = [
+        _run("run-seed", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:30:00Z")
+    ]
+    cost = ops.estimate_cost(runs, ops.summarize_spend([]))
+    assert cost.actions_minutes == 30.0
+    assert cost.window_days is None  # need >1 run to span a window
+    assert cost.actions_monthly_usd is None
+    assert cost.estimated_monthly_usd is None
+
+
 def test_render_markdown_smoke() -> None:
     report = ops.build_ops_report(
         generated_at="2026-06-26T12:00:00+00:00",
