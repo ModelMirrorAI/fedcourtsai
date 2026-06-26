@@ -40,7 +40,10 @@ petitions up for that conference; once the opening order list drops (~early Oct)
 the realized grants/denies evaluate those predictions. The deliverable is a blog
 post / short article: *"We predicted the long conference — here's how we did,"*
 with the calibration numbers attached. It is small, datable, and end-to-end —
-exactly the right shape for a first pilot.
+exactly the right shape for a first pilot. It also defines the pilot's scope
+cleanly: the cert petitions on that conference list are themselves SCOTUS
+interactions, so predicting them is the entry point of the SCOTUS-interaction gate
+the budget sizes — no separate sampling rule to pick.
 
 Everything in the next three months is sequenced to make that release possible.
 
@@ -65,9 +68,12 @@ Everything in the next three months is sequenced to make that release possible.
 
 - **Backfill complete** for all fourteen courts; steady state drops to quarterly
   bulk reconciliation.
-- **Prediction slice chosen and live.** Per the budget, predict a deliberate slice
-  — **all of SCOTUS plus a rotating sample of appeals** is the recommended pilot
-  scope — rather than saturating every event.
+- **Prediction scope gated and live.** Per the budget, predict a deliberate slice:
+  a case becomes in-scope the first time it **interacts with the Supreme Court** (a
+  cert petition is the trigger) and stays in-scope for the rest of its lifecycle —
+  rather than saturating every event. This needs the gate itself to exist: a
+  case-level predict-eligibility latch that the predict fan-out filters on, while
+  ingestion stays full-coverage. See *The pilot slice* in [budget.md](budget.md).
 - **Cert-grant predictions issued** for the petitions on the long-conference list,
   by the competing predictors, *before* the conference.
 - **Mini-release published** once the opening order list resolves them (~early
@@ -89,8 +95,10 @@ Everything in the next three months is sequenced to make that release possible.
 - **OT2026 end-of-term release** (late June 2027): predictions and evaluations
   across the full merits docket as the term's ~60–70 decisions land — the richest
   evaluation moment of the year — published as a retrospective accuracy report.
-- **Scope decision on appeals.** With a year of cost data, decide how far past the
-  sampled slice to scale appellate prediction, using the budget's levers.
+- **Scope decision — widen the gate?** With a year of cost data, decide whether to
+  predict past the SCOTUS-interaction gate — e.g. a rotating sample of appeals that
+  never reach SCOTUS — using the budget's levers, or to hold the gate as the durable
+  scope.
 - **Back-testing live.** Replay current predictors against historical resolved
   events from the corpus (outcome hidden), scored against known dispositions —
   turning the seeded history into an evaluation asset, and a credible way to vet a

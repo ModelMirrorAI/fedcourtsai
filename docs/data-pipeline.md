@@ -7,13 +7,30 @@ on-disk shapes see [data-model.md](data-model.md).
 
 ## Scope
 
-We cover the **Supreme Court and all 13 federal courts of appeals**:
+Two different scopes apply, and keeping them apart is what bounds the bill:
 
-```
-scotus  ca1 ca2 ca3 ca4 ca5 ca6 ca7 ca8 ca9 ca10 ca11  cadc  cafc
-```
+- **Ingestion scope — the full set.** Seed and pull assemble the **Supreme Court
+  and all 13 federal courts of appeals**:
 
-District courts are intentionally **out of scope** for now.
+  ```
+  scotus  ca1 ca2 ca3 ca4 ca5 ca6 ca7 ca8 ca9 ca10 ca11  cadc  cafc
+  ```
+
+  District courts are intentionally **out of scope** for now. Ingestion is
+  deterministic script work — bulk seed spends no API budget, pull is bounded by the
+  CourtListener throttle — so it is cheap relative to the agentic stages. The whole
+  corpus is assembled precisely so predict/evaluate can **query the full history**
+  for retrieval and back-testing, even for cases they never predict.
+- **Prediction scope — the SCOTUS-interaction gate (pilot).** The agentic
+  predict/evaluate stages cost one to two orders of magnitude more than ingestion
+  (see [budget.md](budget.md)), so in the pilot they run on a deliberate subset: a
+  case becomes **in-scope for prediction the first time it interacts with the Supreme
+  Court** — a petition for certiorari is the canonical trigger — and **stays in-scope
+  for the remainder of its lifecycle**. So a gated case's later merits events, and any
+  remand activity back in the courts of appeals, are predicted, while the ~42K/yr
+  appeals cases that never reach SCOTUS are ingested but not predicted. The gate
+  latches once and never clears; widening it beyond SCOTUS-touched cases is a later,
+  cost-data-driven decision ([milestones.md](milestones.md)).
 
 ## The binding constraint: the CourtListener API budget
 
