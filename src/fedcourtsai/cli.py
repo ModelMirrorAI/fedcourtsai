@@ -16,7 +16,7 @@ from typing import Annotated
 import typer
 import yaml
 
-from . import corpus, ids
+from . import corpus, dvc, ids
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .config import (
     PredictScope,
@@ -91,6 +91,34 @@ def validate(
         typer.echo(f"\n{len(errors)} invalid / {checked} checked", err=True)
         raise typer.Exit(code=1)
     typer.echo(f"OK: {checked} artifact(s) valid")
+
+
+@app.command("dvc-status")
+def dvc_status(
+    path: Annotated[Path, typer.Argument(help="Repository root to check.")] = Path("."),
+) -> None:
+    """Check the committed DVC metadata is internally consistent (offline).
+
+    The CI gate has no DVC remote or credentials, so it cannot diff the corpus
+    blob against S3. This is the offline half that can run there: it confirms
+    every DVC-tracked data output (the ``corpus/corpus.db.dvc`` pointer, any
+    cached stage output) is well-formed, gitignored, and absent from git — so the
+    corpus blob can never slip into the repo — and that every ``cache: false``
+    pipeline output (the ``metrics/`` roll-ups) is committed. Exits non-zero and
+    lists every problem if the bookkeeping has drifted. The online ``dvc status``
+    / push side belongs to the data workflows that hold the remote credentials.
+    """
+    is_tracked, is_ignored = dvc.git_checkers(path)
+    errors = dvc.check_state(path, is_tracked=is_tracked, is_ignored=is_ignored)
+    if errors:
+        for err in errors:
+            typer.echo(f"DVC {err}", err=True)
+        typer.echo(f"\n{len(errors)} DVC metadata problem(s)", err=True)
+        raise typer.Exit(code=1)
+    outs, _ = dvc.collect_outs(path)
+    tracked = dvc.tracked_paths(outs)
+    summary = ", ".join(str(p) for p in tracked) if tracked else "none"
+    typer.echo(f"OK: DVC metadata consistent ({len(tracked)} remote-tracked output(s): {summary})")
 
 
 @app.command()

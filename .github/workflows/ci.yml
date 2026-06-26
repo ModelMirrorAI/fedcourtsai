@@ -34,6 +34,8 @@ jobs:
         run: uv run pytest
       - name: validate data
         run: uv run fedcourts validate data
+      - name: dvc status
+        run: uv run fedcourts dvc-status
       - name: schema drift
         run: |
           uv run fedcourts export-schemas schemas
