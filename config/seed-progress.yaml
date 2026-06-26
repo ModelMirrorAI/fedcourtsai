@@ -5,13 +5,13 @@ courts:
     offset: 45172
     total: 45172
   ca10:
-    complete: false
-    offset: 80852
+    complete: true
+    offset: 81223
     total: 81223
   ca11:
     complete: false
-    offset: 0
-    total: null
+    offset: 9629
+    total: 95071
   ca2:
     complete: true
     offset: 120480
@@ -44,6 +44,10 @@ courts:
     complete: true
     offset: 246604
     total: 246604
+  cadc:
+    complete: false
+    offset: 0
+    total: null
   scotus:
     complete: true
     offset: 583840
