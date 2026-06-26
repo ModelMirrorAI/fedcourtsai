@@ -50,6 +50,9 @@ source.
 | `opinion_text`        | text            | full opinion text                            |
 | `summary`             | text            | short form for retrieval                     |
 | `last_pulled`         | date            | tracking state: when `pull` last refreshed it |
+| `predict_eligible`    | integer (0/1)   | prediction-scope latch (SCOTUS-touched); see below |
+| `originating_court`        | text       | lower court this docket came from (`appeal_from`) |
+| `originating_docket_number`| text       | docket number in the originating court (REST-only) |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on (overlap with a `PriorQuery`), while `panel`
@@ -64,6 +67,15 @@ on every refresh and the budget governor rotates the oldest-`last_pulled`-first
 slice of the unresolved set within the API budget (see
 [docs/data-pipeline.md](../docs/data-pipeline.md)). `embedding[]` (semantic
 retrieval) is a later upgrade and is not stored yet.
+
+`predict_eligible` is the **prediction-scope latch**: it turns on the first time a
+case interacts with SCOTUS and never clears, gating only the agentic
+predict/evaluate stages (ingestion stays full-coverage). A SCOTUS docket sets it on
+itself; it also propagates to the case's originating court-of-appeals docket via the
+lower-court link — `originating_court` (CourtListener `appeal_from`) plus
+`originating_docket_number` (`originating_court_information.docket_number`, populated
+only on the REST path) — joined on court id + normalized docket number. See the
+prediction scope in [docs/data-pipeline.md](../docs/data-pipeline.md).
 
 ## Predictable events (`events`)
 
