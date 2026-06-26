@@ -181,6 +181,19 @@ jobs:
           jq --argjson t "$total_loaded" '.loaded_this_run = $t' seed-report.json > seed-report.tmp
           mv seed-report.tmp seed-report.json
 
+          # Ops analytics (#89): a per-run summary in the Actions UI, no roll-up needed.
+          {
+            echo "## run-seed — \`$(jq -r '.snapshot' seed-report.json)\`"
+            if [ "$(jq -r '.complete' seed-report.json)" = "true" ]; then
+              echo "✅ **Backfill complete.**"
+            fi
+            echo "Loaded **${total_loaded}** case(s) this run."
+            echo ""
+            echo "| Court | Loaded | Total | % | Done |"
+            echo "|-------|-------:|------:|--:|:----:|"
+            jq -r '.courts[] | "| \(.court) | \(.loaded) | \(.total // "?") | \(if .percent == null then "?" else "\(.percent)%" end) | \(if .complete then "✅" else "" end) |"' seed-report.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Comment progress on the tracking issue
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
