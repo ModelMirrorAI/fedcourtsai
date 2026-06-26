@@ -32,6 +32,19 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   latches once and never clears; widening it beyond SCOTUS-touched cases is a later,
   cost-data-driven decision ([milestones.md](milestones.md)).
 
+  Because the corpus keys a case by `<court>/<docket>`, the *same real-world case's*
+  SCOTUS docket and originating court-of-appeals docket are **separate rows**. Both
+  belong in scope, so when a SCOTUS docket is ingested carrying a lower-court link
+  (CourtListener `appeal_from` + `originating_court_information.docket_number`, stored
+  as the `originating_court` / `originating_docket_number` corpus columns), the
+  ingestion seam latches the matching *tracked* CoA docket eligible too — joining on
+  court id + normalized docket-number string. The REST (pull) path carries that docket
+  number; the bulk (seed) path does not (CourtListener publishes no
+  originating-court-information bulk table), so it fills only the originating court and
+  the precise latch is pull-driven. The match is a conservative exact one — an
+  unlinked or untracked SCOTUS docket is a harmless no-op — and, like the SCOTUS latch
+  itself, forward-only.
+
 ## The binding constraint: the CourtListener API budget
 
 CourtListener's authenticated REST throttle is **5 requests/minute, 50/hour,

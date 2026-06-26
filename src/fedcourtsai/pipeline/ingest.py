@@ -78,6 +78,12 @@ class CorpusRow(BaseModel):
         default=None, description="Published / Unpublished / Errata"
     )
     summary: str | None = Field(default=None, description="Opinion text or summary")
+    originating_court: str | None = Field(
+        default=None, description="Lower court this docket came from (`appeal_from`)"
+    )
+    originating_docket_number: str | None = Field(
+        default=None, description="Docket number in the originating court (REST-only)"
+    )
     source: CorpusSource
 
 
@@ -106,6 +112,36 @@ def _court_id(record: Mapping[str, Any]) -> str:
     if raw is None:
         raise ValueError("record has neither 'court_id' nor a 'court' url")
     return ids.slugify(raw)
+
+
+def _originating_court(record: Mapping[str, Any]) -> str | None:
+    """The originating (lower) court id for an appellate / SCOTUS docket, or ``None``.
+
+    Bulk rows carry ``appeal_from_id`` (the ``Court`` primary key, e.g. ``ca9``)
+    directly; REST dockets carry an ``appeal_from`` hyperlink
+    (``.../courts/ca9/``) whose final path segment is the id. The free-text
+    ``appeal_from_str`` is not a reliable join key, so it is intentionally unused.
+    """
+    raw = _clean(record.get("appeal_from_id"))
+    if raw is None:
+        url = _clean(record.get("appeal_from"))
+        if url is not None:
+            raw = url.rstrip("/").rsplit("/", 1)[-1]
+    return ids.slugify(raw) if raw is not None else None
+
+
+def _originating_docket_number(record: Mapping[str, Any]) -> str | None:
+    """The docket number in the originating court for an appellate / SCOTUS docket.
+
+    The REST docket nests it under ``originating_court_information.docket_number``.
+    CourtListener does not export the originating-court-information table in bulk,
+    so a bulk (seed) row leaves this blank — only the originating *court* is
+    recoverable there — and the precise lower-court latch is REST (pull) driven.
+    """
+    info = record.get("originating_court_information")
+    if isinstance(info, Mapping):
+        return _clean(info.get("docket_number"))
+    return None
 
 
 def _date(value: Any) -> date | None:
@@ -264,6 +300,8 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         citation_count=_as_count(record.get("citation_count")),
         precedential_status=_clean(record.get("precedential_status")),
         summary=_clean(record.get("summary") or record.get("opinion_text")),
+        originating_court=_originating_court(record),
+        originating_docket_number=_originating_docket_number(record),
         source=source,
     )
 
@@ -315,13 +353,17 @@ def is_predict_eligible(row: CorpusRow) -> bool:
 
     The *rule* behind the latching ``predict_eligible`` flag: a case is in-scope
     for the agentic predict/evaluate stages once it has interacted with the
-    Supreme Court (``docs/data-pipeline.md``). v1 definition: a SCOTUS docket
-    (``court == "scotus"``) is in-scope — its whole lifecycle is at SCOTUS, so
-    this already satisfies "stays in-scope for its lifecycle". Set identically on
-    both ingestion paths (seed and pull) because both project through
-    :func:`to_corpus_row`. A follow-up widens the *rule* to also pull in the
-    case's lower-court (court-of-appeals) docket; because the flag is persisted
-    and latching, that is a purely additive change here — never a filter change.
+    Supreme Court (``docs/data-pipeline.md``). A SCOTUS docket
+    (``court == "scotus"``) is in-scope — its whole lifecycle is at SCOTUS, so this
+    satisfies "stays in-scope for its lifecycle". Set identically on both ingestion
+    paths (seed and pull) because both project through :func:`to_corpus_row`.
+
+    The *other* half of the rule — pulling the same case's originating
+    court-of-appeals docket into scope — is not decidable from a single row (it
+    needs the lower-court link resolved against the *other* docket's corpus row),
+    so it lives in :func:`fedcourtsai.corpus.latch_originating_eligible`, invoked
+    after the upsert. Because the flag is persisted and latching, that is a purely
+    additive change — never a filter change.
     """
     return row.court == "scotus"
 
@@ -370,6 +412,8 @@ def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.
         summary=row.summary,
         last_pulled=last_pulled,
         predict_eligible=is_predict_eligible(row),
+        originating_court=row.originating_court,
+        originating_docket_number=row.originating_docket_number,
     )
 
 
@@ -382,7 +426,13 @@ def upsert_to_corpus(
     ``seed`` or ``pull`` — overwrites its row rather than duplicating it. When
     ``pull`` passes ``last_pulled`` it stamps the refresh date onto every row in
     this batch, advancing the governor's rotation key.
+
+    After the upsert, any SCOTUS row in the batch carrying a lower-court link
+    latches its originating tracked court-of-appeals docket eligible (the second
+    half of the prediction-scope rule); an unlinked or untracked one is a no-op.
     """
     store_rows = [to_corpus_row(row, last_pulled=last_pulled) for row in merge_rows(rows)]
     with corpus.connect(db_path) as conn:
-        return corpus.upsert_rows(conn, store_rows)
+        written = corpus.upsert_rows(conn, store_rows)
+        corpus.latch_originating_eligible(conn, store_rows)
+        return written
