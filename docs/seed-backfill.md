@@ -9,8 +9,10 @@ can be built independently and wired together without rework:
 
 Design context: [data-pipeline.md](data-pipeline.md) §Seed and §Pull. Seed is
 **deterministic, no agent, no API secret** — it loads the public CourtListener
-**bulk** snapshot (not the REST API) into the unified corpus, one chunk per run,
-daily until complete, then a quarterly reconciliation pass.
+**bulk** snapshot (not the REST API) into the unified corpus. The `run-seed`
+workflow stages the snapshot once, then **loops** the command over it — loading a
+chunk and checkpointing (DVC push + commit) after each — overnight until complete,
+then a quarterly reconciliation pass.
 
 ## 1. `fedcourts seed-backfill` — the command (Python, `run:dev`)
 
@@ -18,13 +20,18 @@ One invocation processes the **next chunk** and returns. It is the only piece
 that knows the bulk format; it never touches git, DVC, or GitHub.
 
 ```
-fedcourts seed-backfill [--max-cases N] [--report PATH]
+fedcourts seed-backfill [--max-cases N] [--report PATH] [--staging-path PATH]
 ```
 
 **Reads**
 - `config/tracking.yaml` → `courts:` — the courts to backfill.
 - `config/seed-progress.yaml` → the cursor (created on first run if absent).
-- `seed.max_cases_per_run` (config) — default chunk size; `--max-cases` overrides.
+- `seed.max_cases_per_run` (config) — the chunk size loaded per invocation;
+  `--max-cases` may only lower it for a one-off run.
+- `--staging-path` (optional) — persist the staged snapshot here so the next
+  invocation reuses it instead of re-downloading/re-staging the GB-scale bulk
+  files (the build is skipped when the snapshot id matches). The workflow loop
+  points this at a runner-local path so staging is paid once per job.
 - The current CourtListener **bulk** snapshot (public S3/HTTP; **no API token**).
   The command is pointed at the bulk-data **base** directory and lists the bucket
   to resolve the latest published snapshot itself; a snapshot id may be pinned to
@@ -123,16 +130,25 @@ Per-run order:
    remote (no-op if already local-configured).
 2. `dvc pull` — fetch the current `corpus/corpus.db` blob. **No-op on first run**
    (no pointer yet); guard accordingly.
-3. `fedcourts seed-backfill --report seed-report.json` — mutate the blob + cursor.
-4. `dvc add corpus/corpus.db` — refresh the `corpus/corpus.db.dvc` pointer.
-5. `dvc push` — upload the new blob to S3.
-6. Commit **`corpus/corpus.db.dvc` + `config/seed-progress.yaml`** directly to the
-   default branch (pointer + cursor only; the blob never enters git). Seed and pull
-   share the `corpus-write` concurrency lock and both commit straight to the default
-   branch, so each run builds on the latest pointer — see the corpus-writer
-   coordination model in [data-pipeline.md](data-pipeline.md).
-7. Comment progress on the tracking issue from `seed-report.json`.
-8. When `seed-report.json` reports `complete: true`, open a one-time **completion
+3. **Loop until the backlog is done or a wall-clock budget runs out**, each pass:
+   1. `fedcourts seed-backfill --staging-path "$RUNNER_TEMP/…" --report seed-report.json`
+      — load one chunk into the blob + cursor (the first pass also stages the
+      snapshot into the runner-local path; later passes reuse it).
+   2. `dvc add corpus/corpus.db` → `dvc push` — refresh the `corpus/corpus.db.dvc`
+      pointer and upload the new blob to S3 (blob first, so the pointer always
+      resolves remotely).
+   3. Commit **`corpus/corpus.db.dvc` + `config/seed-progress.yaml`** directly to
+      the default branch (pointer + cursor only; the blob never enters git), with a
+      rebase-retry so the push is a fast-forward. This per-chunk checkpoint bounds
+      crash-loss to one chunk and lets the next run resume from the cursor. Seed and
+      pull share the `corpus-write` concurrency lock and both commit straight to the
+      default branch, so each run builds on the latest pointer — see the
+      corpus-writer coordination model in [data-pipeline.md](data-pipeline.md).
+   4. Stop when the report says `complete: true`, a chunk loads 0 cases, or the
+      budget is spent.
+4. Comment progress on the tracking issue from `seed-report.json` (its
+   `loaded_this_run` is overwritten with the loop's running total).
+5. When `seed-report.json` reports `complete: true`, open a one-time **completion
    PR** that flips the cursor's `completed` flag (through the model, so the file
    stays schema-valid) with `Closes #<tracker>` in the body. The PR carries only
    the flag — no corpus. Deduped: skip if `completed: true` is already on the
@@ -142,7 +158,7 @@ Per-run order:
 
 ```yaml
 on:
-  schedule:    [{ cron: "23 6 * * *" }]   # daily, staggered from run-pull (07:17)
+  schedule:    [{ cron: "23 0 * * *" }]   # overnight; a long backfill ends before run-pull (07:17)
   workflow_dispatch:
   issues:      { types: [labeled] }        # gate: label.name == 'run:seed'
 concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with run-pull
@@ -154,7 +170,7 @@ concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with r
 - `schedule`/`workflow_dispatch` runs have no triggering issue, so resolve it:
   `gh issue list --label run:seed --state open --json number --jq '.[0].number'`.
   Comment each run; on `complete: true` post a final summary and open the
-  completion PR (step 8) whose merge **closes the tracker**. Convention: never
+  completion PR (step 5) whose merge **closes the tracker**. Convention: never
   more than one open `run:seed` issue.
 - Job permissions: `contents: write` (commit pointer+cursor to the default branch),
   `issues: write` (comment), `pull-requests: write` (open the completion PR),

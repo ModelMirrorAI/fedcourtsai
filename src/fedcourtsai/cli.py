@@ -363,6 +363,15 @@ def seed_backfill(
         Path | None,
         typer.Option(help="Write progress JSON here for the tracking-issue comment."),
     ] = None,
+    staging_path: Annotated[
+        Path | None,
+        typer.Option(
+            help="Persist the staged snapshot here and reuse it on the next run. "
+            "Lets a workflow loop many chunks without re-downloading/re-staging the "
+            "GB-scale bulk files each time (the build is skipped when the snapshot id "
+            "matches). Omit for a throwaway temp staging DB."
+        ),
+    ] = None,
 ) -> None:
     """Load the next chunk of CourtListener bulk data into the corpus (no agent).
 
@@ -373,6 +382,10 @@ def seed_backfill(
     cursor — all without spending the CourtListener REST budget. ``--max-cases``
     may only lower the per-run cap, never raise it. Idempotent: re-running after
     completion loads zero rows.
+
+    ``--staging-path`` makes the heavy stage-once phase reusable: a workflow that
+    loops ``seed-backfill`` over a persistent path pays the ~tens-of-minutes
+    download+stage once per job, then each subsequent chunk is a cheap served read.
     """
     settings = get_settings()
     seed_cfg = load_seed_config(settings.config_root)
@@ -407,6 +420,7 @@ def seed_backfill(
         attorneys_url=sibling_bulk_url(dockets_url, "attorneys"),
         people_url=sibling_bulk_url(dockets_url, "people-db-people"),
         timeout=settings.request_timeout,
+        staging_path=staging_path,
     )
     try:
         rep = backfill(
