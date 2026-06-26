@@ -243,8 +243,10 @@ replayed out of band, exactly as `run-predict` runs them live.
 ## Pull — forward freshness
 
 - **Trigger:** daily cron (staggered from other jobs), `workflow_dispatch`, or a
-  `run:pull` issue for on-demand/reconcile work (see
-  `.github/ISSUE_TEMPLATE/pull.yml`).
+  `run:pull` issue for on-demand refresh/investigation (see
+  `.github/ISSUE_TEMPLATE/pull.yml`). Recording a decided event's outcome is split
+  off to `run:reconcile` (see *Detect resolution* below), so it is **no longer**
+  the deterministic pull's job.
 - **Per-run tracking:** each run opens a short-lived `pull-run` issue at the start,
   posts a summary (handoffs opened, whether snapshots were committed), and closes it
   on success — left open as a record if the run fails. The `pull-run` label is
@@ -270,8 +272,14 @@ replayed out of band, exactly as `run-predict` runs them live.
      forward, so a run that finds nothing still records the date it searched from
      and the next run resumes there — never resetting to the start default.
   3. **Detect resolution** of tracked open events → write `outcome.json` to the
-     git ledger deterministically when the disposition is machine-readable, else
-     open an agent reconcile issue to confirm. This is what feeds `run:evaluate`.
+     git ledger deterministically when the disposition is machine-readable (a
+     concrete disposition, a decision date, and a single open event), and queue
+     `run:evaluate` for it. Anything ambiguous is **not** guessed: pull files a
+     `run:reconcile` issue and an agent (`run-reconcile`) confirms the outcome from
+     the snapshot, opens a PR recording `outcome.json`, and — when that PR merges —
+     queues `run:evaluate` for the settled events. The `run:reconcile` label routes
+     to that agent workflow, not back to this deterministic pull, so filing one
+     never re-runs a full refresh. Either path feeds `run:evaluate`.
 - **Quarterly bulk reconciliation is seed's job** — the completeness backstop for
   anything daily pull could not reach within the budget.
 
@@ -303,9 +311,9 @@ stage maps qualifying docket entries → event definitions (`kind`,
   not guess, so the event stays predictable.
 - **Deterministic first, agent only if ambiguous.** An entry that reads like a
   request but matches more than one `kind` is surfaced for an agent reconcile
-  issue (`.github/ISSUE_TEMPLATE/pull.yml`) rather than classified — the same
-  deterministic-first / agent-fallback split resolution detection uses. The
-  default path runs no agent.
+  issue (`run:reconcile`, `.github/ISSUE_TEMPLATE/reconcile.yml`) rather than
+  classified — the same deterministic-first / agent-fallback split resolution
+  detection uses. The default path runs no agent.
 
 ## Discovery frontier — the seed → pull hand-off
 

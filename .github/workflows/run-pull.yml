@@ -9,8 +9,9 @@ name: run-pull
 # and the small corpus pointer are committed DIRECTLY to main (they are
 # CourtListener facts, not agent output — see docs/data-pipeline.md). It then opens
 # a `run:predict` issue for each changed case with open events, a `run:evaluate`
-# issue for each case that gained an outcome, and a `run:pull` reconcile issue for
-# each case that appears decided but whose outcome an agent must confirm by hand.
+# issue for each case that gained an outcome, and a `run:reconcile` issue for
+# each case that appears decided but whose outcome an agent must confirm by hand
+# (resolved by run-reconcile.yml — a distinct label so it never re-fires pull).
 # Each run opens a short-lived `pull-run` tracking issue at the start, posts a
 # summary to it, and closes it when the run finishes successfully (left open as a
 # record if the run fails). All git/issue writes use the GitHub App token so the
@@ -195,23 +196,28 @@ jobs:
               --label "run:evaluate"
           done
 
-      - name: Open run:pull reconcile issues for ambiguous outcomes
+      - name: Open run:reconcile issues for ambiguous outcomes
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
         run: |
           count=$(jq 'length' reconcile-queue.json)
           echo "Queued $count case(s) for outcome reconcile."
+          # `run:reconcile` routes to run-reconcile.yml (an agent that records the
+          # outcome), NOT back to this deterministic pull — so filing one never
+          # re-runs a full refresh. Create it idempotently for a fresh repo's first run.
+          gh label create "run:reconcile" --repo "$REPO" --force \
+            --color d93f0b --description "Confirm a decided event's outcome.json from the docket (run-reconcile)"
           # Dedupe against open reconcile issues so a still-unresolved case does not
-          # spawn a fresh issue every run (and never loops on the run:pull trigger).
-          open_titles=$(gh issue list --repo "$REPO" --state open --label "run:pull" \
+          # spawn a fresh issue every run.
+          open_titles=$(gh issue list --repo "$REPO" --state open --label "run:reconcile" \
             --limit 200 --json title --jq '.[].title')
           for i in $(seq 0 $((count - 1))); do
             court=$(jq -r ".[$i].court" reconcile-queue.json)
             docket=$(jq -r ".[$i].docket" reconcile-queue.json)
             events=$(jq -c ".[$i].events" reconcile-queue.json)
             reason=$(jq -r ".[$i].reason" reconcile-queue.json)
-            title="pull: ${court}/${docket} — reconcile outcome"
+            title="reconcile: ${court}/${docket}"
             if grep -Fxq "$title" <<<"$open_titles"; then
               echo "Skipping existing reconcile issue: $title"
               continue
@@ -223,7 +229,7 @@ jobs:
             gh issue create --repo "$REPO" \
               --title "$title" \
               --body "$body" \
-              --label "run:pull"
+              --label "run:reconcile"
           done
 
       - name: Summarize and close the daily run issue
