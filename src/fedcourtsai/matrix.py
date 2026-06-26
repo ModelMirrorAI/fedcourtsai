@@ -4,6 +4,10 @@
 the cartesian product the matrix needs. ``run-evaluate`` runs every enabled
 evaluator against every resolved event (each evaluator scores all predictors for
 that event internally, so predictors are not part of the matrix dimension).
+``run-reconcile`` runs a single agent against each case ``run-pull`` flagged as
+decided-but-not-machine-readable, so it fans out **per case** (not per event):
+the agent must weigh all of a case's open events together to attribute the
+case-level disposition, so they are kept in one cell.
 
 A single trigger can carry **many** cases: the issue body holds either one
 ``{court, docket, events}`` object or a JSON array of them. ``parse_cases``
@@ -30,6 +34,12 @@ from typing import Any
 from .registry import enabled_evaluators, enabled_predictors
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
+
+# The single reconcile agent and its prompt. Reconcile has no registry — there is
+# one agent that confirms ground truth from the docket — so engine and prompt are
+# fixed here rather than read from a config file.
+_RECONCILE_ENGINE = "claude-code"
+_RECONCILE_PROMPT = ".github/prompts/reconcile.md"
 
 
 @dataclass(frozen=True)
@@ -119,4 +129,34 @@ def evaluate_matrix(
                         "run_id": run_id,
                     }
                 )
+    return {"include": include}
+
+
+def reconcile_matrix(
+    cases: list[CaseRequest],
+    run_id: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """Build the per-case ``run-reconcile`` matrix.
+
+    One cell per case (not per event): the reconcile agent confirms the docket's
+    disposition and attributes it across the case's open events together, so every
+    open event id rides in a single space-joined ``events`` field. A case with no
+    open events contributes nothing (there is nothing to reconcile). Mirrors the
+    shape the workflow consumes — ``court`` / ``docket`` / ``events`` plus the
+    fixed reconcile ``engine`` / ``prompt`` and the shared ``run_id``.
+    """
+    include: list[dict[str, Any]] = []
+    for case in cases:
+        if not case.events:
+            continue
+        include.append(
+            {
+                "engine": _RECONCILE_ENGINE,
+                "prompt": _RECONCILE_PROMPT,
+                "court": case.court,
+                "docket": case.docket,
+                "events": " ".join(case.events),
+                "run_id": run_id,
+            }
+        )
     return {"include": include}
