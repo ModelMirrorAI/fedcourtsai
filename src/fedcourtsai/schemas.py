@@ -252,6 +252,91 @@ class Backtest(_Strict):
     entries: list[BacktestEntry] = Field(default_factory=list)
 
 
+class WorkflowHealth(_Strict):
+    """Recent-run health for one workflow, rolled up from the Actions run history."""
+
+    workflow: str
+    runs_considered: int = Field(ge=0, description="Runs in the window examined")
+    successes: int = Field(ge=0, description="Completed runs that concluded `success`")
+    failures: int = Field(
+        ge=0, description="Completed runs that failed / timed out / were cancelled"
+    )
+    success_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="successes / completed runs, or null when none completed",
+    )
+    last_conclusion: str | None = Field(
+        default=None, description="Conclusion of the most recent run (success, failure, …)"
+    )
+    last_run_at: str | None = Field(
+        default=None, description="ISO-8601 start of the most recent run in the window"
+    )
+    median_seconds: int | None = Field(
+        default=None, ge=0, description="Median completed-run duration, where derivable"
+    )
+    p95_seconds: int | None = Field(
+        default=None, ge=0, description="95th-percentile completed-run duration"
+    )
+
+
+class BackfillCourt(_Strict):
+    """Per-court backfill progress, projected from the seed cursor."""
+
+    court: str
+    offset: int = Field(ge=0, description="Cases loaded for this court")
+    total: int | None = Field(default=None, ge=0, description="Cases in the snapshot, once known")
+    percent: float | None = Field(
+        default=None, ge=0.0, le=100.0, description="offset / total, or 100 when complete"
+    )
+    complete: bool = False
+
+
+class BackfillProgress(_Strict):
+    """Whole-backfill progress across the tracked courts."""
+
+    snapshot: str | None = Field(default=None, description="Bulk snapshot id being loaded")
+    courts_total: int = Field(ge=0, description="Tracked courts")
+    courts_complete: int = Field(ge=0, description="Courts whose backfill is finished")
+    cases_loaded: int = Field(ge=0, description="Total cases loaded so far (sum of offsets)")
+    cases_total: int | None = Field(
+        default=None,
+        ge=0,
+        description="Total cases to load, only when every court's total is known",
+    )
+    percent: float | None = Field(
+        default=None, ge=0.0, le=100.0, description="Overall %, only when cases_total is known"
+    )
+    entries: list[BackfillCourt] = Field(default_factory=list)
+
+
+class SpendSummary(_Strict):
+    """Model spend rolled up from the recorded ``usage.json`` ledger."""
+
+    runs: int = Field(ge=0, description="usage.json records aggregated")
+    total_tokens: int = Field(ge=0, description="All token classes summed across runs")
+    estimated_cost_usd: float = Field(ge=0.0, description="Sum of per-run estimated cost")
+    mean_cost_usd_per_run: float = Field(ge=0.0, description="estimated_cost_usd / runs")
+
+
+class OpsReport(_Strict):
+    """``metrics/ops.json`` — an operational snapshot: health, backfill, spend.
+
+    A read-only roll-up of authoritative sources (the Actions run history, the seed
+    cursor, the usage ledger), so no pipeline run writes an ops record. Unlike the
+    deterministic leaderboard / back-test roll-ups this is a **point-in-time** view —
+    it carries ``generated_at`` and run durations, so it is not byte-stable and is
+    surfaced via the run-ops dashboard issue rather than committed.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    generated_at: str = Field(description="ISO-8601 UTC time the report was built")
+    health: list[WorkflowHealth] = Field(default_factory=list)
+    backfill: BackfillProgress
+    spend: SpendSummary
+
+
 class CourtProgress(_Strict):
     """Per-court entry in the seed cursor — how far the backfill has loaded."""
 
@@ -322,6 +407,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "leaderboard.json": Leaderboard,
     "backtest.json": Backtest,
     "usage.json": ModelUsage,
+    "ops.json": OpsReport,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -336,4 +422,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "leaderboard": Leaderboard,
     "backtest": Backtest,
     "usage": ModelUsage,
+    "ops_report": OpsReport,
 }

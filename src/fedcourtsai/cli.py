@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -29,12 +29,14 @@ from .config import (
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
+from .ops import build_ops_report, render_markdown
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.seed import (
     CourtListenerBulkSource,
     backfill,
+    load_cursor,
     resolve_dockets_source,
     sibling_bulk_url,
 )
@@ -299,6 +301,50 @@ def usage_summary() -> None:
         },
     }
     typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+
+
+@app.command("ops-report")
+def ops_report(
+    runs: Annotated[
+        Path | None,
+        typer.Option(
+            help="JSON file of recent Actions runs (`gh run list --json …`) for the "
+            "health section; omit to skip it."
+        ),
+    ] = None,
+    json_out: Annotated[
+        Path | None,
+        typer.Option("--json", help="Also write the OpsReport JSON artifact here."),
+    ] = None,
+    generated_at: Annotated[
+        str, typer.Option(help="ISO timestamp stamped on the report; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Roll pipeline health, backfill progress, and model spend into an ops snapshot.
+
+    A read-only view of authoritative sources — the GitHub Actions run history
+    (``--runs``), the seed cursor (``config/seed-progress.yaml``), and the recorded
+    ``usage.json`` ledger under ``data/``. Prints the dashboard Markdown to stdout
+    (the run-ops issue body / step summary) and, with ``--json``, writes the
+    structured ``OpsReport``. Unlike the leaderboard/back-test roll-ups it is a
+    point-in-time snapshot, so it is surfaced, not committed.
+    """
+    settings = get_settings()
+    seed_cfg = load_seed_config(settings.config_root)
+    courts = load_courts(settings.config_root)
+    progress = load_cursor(seed_cfg.cursor)
+    run_rows = json.loads(runs.read_text()) if runs is not None else []
+    when = generated_at or datetime.now(UTC).isoformat()
+    report = build_ops_report(
+        generated_at=when,
+        runs=run_rows,
+        progress=progress,
+        courts=courts,
+        usage=iter_usage(settings.data_root),
+    )
+    if json_out is not None:
+        write_json(json_out, report)
+    typer.echo(render_markdown(report), nl=False)
 
 
 @app.command("export-schemas")
