@@ -259,3 +259,14 @@ jobs:
             "$snap" "$predict" "$evaluate" "$reconcile")
           gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
           gh issue close "$ISSUE" --repo "$REPO" --reason completed
+          # Ops analytics (#89): the same summary in the Actions UI, no roll-up needed.
+          {
+            echo "## run-pull — $(date -u +%Y-%m-%d)"
+            echo "$snap"
+            echo ""
+            echo "| Handoff | Count |"
+            echo "|---------|------:|"
+            echo "| run:predict opened | ${predict} |"
+            echo "| run:evaluate opened | ${evaluate} |"
+            echo "| reconcile flagged | ${reconcile} |"
+          } >> "$GITHUB_STEP_SUMMARY"
