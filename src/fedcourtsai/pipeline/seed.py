@@ -592,7 +592,12 @@ class CourtListenerBulkSource:
                 if docket_id is None:
                     continue
                 docket_ids.add(docket_id)
-                batch.append((docket_id, court, json.dumps(row, sort_keys=True)))
+                # csv.DictReader files surplus values from an over-wide row under a
+                # None key (the default restkey). Those extras are unnamed and never
+                # read downstream, and a None key can't be ordered against the str
+                # keys by the deterministic sort_keys dump below — so drop it.
+                record = {k: v for k, v in row.items() if k is not None}
+                batch.append((docket_id, court, json.dumps(record, sort_keys=True)))
                 if len(batch) >= _STAGE_BATCH:
                     self._insert_dockets(conn, batch)
                     batch.clear()
