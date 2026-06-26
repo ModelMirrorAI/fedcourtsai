@@ -12,6 +12,13 @@ stage.
 | `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex  |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex  |
+| _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
+
+`run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
+operational analytics — pipeline health (the Actions run history), backfill
+progress (the seed cursor), and model spend (the `usage.json` ledger) — rendered
+by `fedcourts ops-report` into one long-lived "Ops dashboard" issue. It writes no
+data and triggers nothing.
 
 **seed** loads the historical backlog from CourtListener **bulk data** and runs
 daily until complete (then quarterly); **pull** keeps the active set current from
