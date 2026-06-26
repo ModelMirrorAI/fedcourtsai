@@ -16,9 +16,13 @@ stage.
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics — pipeline health (the Actions run history), backfill
-progress (the seed cursor), and model spend (the `usage.json` ledger) — rendered
-by `fedcourts ops-report` into one long-lived "Ops dashboard" issue. It writes no
-data and triggers nothing.
+progress + rate/ETA (the seed cursor vs the previous snapshot), and spend (the
+`usage.json` ledger + Actions minutes from run durations) — rendered by
+`fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
+dashboard" issue and appends each JSON snapshot to a dedicated **`ops-metrics`
+branch** (an orphan time-series that never merges to `main`, so the default branch
+stays clean and the prior snapshot is available for the rate/ETA). It triggers
+nothing and touches neither `main` nor the corpus.
 
 **seed** loads the historical backlog from CourtListener **bulk data** and runs
 daily until complete (then quarterly); **pull** keeps the active set current from

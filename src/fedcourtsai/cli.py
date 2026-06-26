@@ -42,7 +42,15 @@ from .pipeline.seed import (
 )
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import load_evaluators, load_predictors
-from .schemas import EXPORTABLE_MODELS, FILENAME_MODELS, Disposition, Engine, ModelUsage, UsageRole
+from .schemas import (
+    EXPORTABLE_MODELS,
+    FILENAME_MODELS,
+    Disposition,
+    Engine,
+    ModelUsage,
+    OpsReport,
+    UsageRole,
+)
 from .serialize import write_json, write_raw_json
 from .store import (
     cases_due_for_pull,
@@ -344,6 +352,13 @@ def ops_report(
         Path | None,
         typer.Option("--json", help="Also write the OpsReport JSON artifact here."),
     ] = None,
+    previous: Annotated[
+        Path | None,
+        typer.Option(
+            help="Prior OpsReport JSON (e.g. from the ops-metrics branch) for the "
+            "backfill rate + ETA. Ignored if missing or unreadable."
+        ),
+    ] = None,
     generated_at: Annotated[
         str, typer.Option(help="ISO timestamp stamped on the report; defaults to now (UTC).")
     ] = "",
@@ -362,6 +377,14 @@ def ops_report(
     courts = load_courts(settings.config_root)
     progress = load_cursor(seed_cfg.cursor)
     run_rows = json.loads(runs.read_text()) if runs is not None else []
+    # The prior snapshot is best-effort: a missing/unreadable file just drops the
+    # rate + ETA rather than failing the report.
+    prior: OpsReport | None = None
+    if previous is not None and previous.exists():
+        try:
+            prior = OpsReport.model_validate_json(previous.read_text())
+        except ValueError:
+            prior = None
     when = generated_at or datetime.now(UTC).isoformat()
     report = build_ops_report(
         generated_at=when,
@@ -369,6 +392,7 @@ def ops_report(
         progress=progress,
         courts=courts,
         usage=iter_usage(settings.data_root),
+        previous=prior,
     )
     if json_out is not None:
         write_json(json_out, report)

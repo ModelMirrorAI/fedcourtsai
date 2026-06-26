@@ -1,12 +1,15 @@
 name: run-ops
 
-# Operational analytics dashboard (#89). A read-only DAILY roll-up of three
-# authoritative sources — pipeline health (the GitHub Actions run history), backfill
-# progress (the committed seed cursor), and model spend (the recorded usage ledger)
-# — rendered by `fedcourts ops-report` and posted to one long-lived "Ops dashboard"
-# issue (updated in place). No pipeline run writes an ops record and nothing here is
-# committed, so it cannot interfere with the corpus-write path. Uses the built-in
-# GITHUB_TOKEN (least privilege); the `ops-dashboard` label triggers no workflow.
+# Operational analytics dashboard (#89). A read-only DAILY roll-up of authoritative
+# sources — pipeline health (the GitHub Actions run history), backfill progress +
+# rate/ETA (the seed cursor vs the previous snapshot), and model + Actions spend
+# (the usage ledger + run durations) — rendered by `fedcourts ops-report`.
+#
+# Persistence is FULLY in GitHub and never touches the default branch: each run
+# posts the current view to one long-lived "Ops dashboard" issue (updated in place)
+# and appends the JSON snapshot to a dedicated `ops-metrics` branch (an orphan
+# time-series, never merged to main — the prior snapshot drives the rate + ETA).
+# So `main` stays clean and the corpus-write path is untouched.
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
@@ -23,13 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read # checkout (the seed cursor + usage ledger come from git)
+      contents: write # read the cursor/ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
       issues: write # post / update the dashboard issue
     steps:
+      # Persist the built-in token so git can fetch/push the ops-metrics branch.
+      # This job uploads no artifacts, so credential leakage is not a concern.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
+        with: # zizmor: ignore[artipacked]
+          persist-credentials: true
 
       - uses: ./.github/actions/setup-python-env
 
@@ -46,8 +51,47 @@ jobs:
 
       - name: Build the ops report
         run: |
-          uv run fedcourts ops-report --runs runs.json > ops.md
+          set -euo pipefail
+          # Pull the previous snapshot off the ops-metrics branch (if any) so the
+          # report can compute the backfill rate + ETA. Best-effort: absent on the
+          # first ever run, which simply drops those fields.
+          git fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' 2>/dev/null || true
+          prev_args=()
+          if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null; then
+            if git show origin/ops-metrics:latest.json > prev-ops.json 2>/dev/null; then
+              prev_args=(--previous prev-ops.json)
+            fi
+          fi
+          uv run fedcourts ops-report --runs runs.json "${prev_args[@]}" --json new-ops.json > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Append the snapshot to the ops-metrics branch
+        run: |
+          set -euo pipefail
+          git config user.name "fedcourts-bot"
+          git config user.email "bot@users.noreply.github.com"
+          stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
+          day=$(date -u +%Y-%m-%d)
+          tree=$(mktemp -d)
+          # Build on the existing orphan branch, or start one with no main history.
+          if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null; then
+            git worktree add "$tree" origin/ops-metrics
+            git -C "$tree" checkout -B ops-metrics
+          else
+            git worktree add --detach "$tree"
+            git -C "$tree" checkout --orphan ops-metrics
+            git -C "$tree" rm -rf . >/dev/null 2>&1 || true
+          fi
+          cp new-ops.json "$tree/ops-${day}.json" # dated history (last write of the day wins)
+          cp new-ops.json "$tree/latest.json"     # what the next run reads as --previous
+          git -C "$tree" add -A
+          if git -C "$tree" diff --cached --quiet; then
+            echo "No ops change to persist."
+          else
+            git -C "$tree" commit -m "ops: snapshot ${stamp}"
+            git -C "$tree" push origin ops-metrics
+          fi
+          git worktree remove --force "$tree"
 
       - name: Post or update the ops dashboard issue
         env:
