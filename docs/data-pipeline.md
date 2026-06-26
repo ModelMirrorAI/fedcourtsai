@@ -116,17 +116,22 @@ storage …`) before any push/pull. See [SECURITY.md](../SECURITY.md).
 
 Access mirrors each workflow's role in the pipeline:
 
-| Workflow                   | Access     | Why                                  |
-|----------------------------|------------|--------------------------------------|
-| `run-seed`, `run-pull`     | read-write | corpus writers (`dvc push`)          |
-| `run-predict`, `run-evaluate` | read-only | retrieval consumers (`dvc pull`)  |
-| `ci`                       | none       | gate stays offline/fast              |
+| Workflow                                  | Role / access | Why                              |
+|-------------------------------------------|---------------|----------------------------------|
+| `run-seed`, `run-pull`                    | read-write    | corpus writers (`dvc push`)      |
+| `run-predict`, `run-evaluate`, `run-reconcile` | read-only | retrieval consumers (`dvc pull`) |
+| `ci`                                      | none          | gate stays offline/fast          |
 
-A single IAM role is provisioned, so every wired job assumes the same role and the
-read-write/read-only distinction is enforced by the **role's IAM policy**, not the
-workflow (a separate read-only principal can be added later). The OIDC wiring
-(`permissions: id-token: write` + the credentials step) grants each job its access
-without any long-lived key.
+**Two IAM roles, split by access.** Corpus writers (`AWS_ROLE_TO_ASSUME`) assume a
+**read-write** role; retrieval consumers (`AWS_ROLE_TO_ASSUME_READONLY`) assume a
+**read-only** role, so a compromised predict/evaluate/reconcile runner cannot write
+or poison the corpus. The write role is **append-only** — get/put/list but **no
+delete** — and the bucket has **versioning** on, so no run can wipe corpus objects
+(nothing in the pipeline runs `dvc gc`; content-addressed pushes only ever add).
+Both roles' OIDC trust is scoped to this repo's `runner` environment, so only
+`runner`-environment jobs — never an arbitrary PR-branch job — can assume them. The
+OIDC wiring (`permissions: id-token: write` + the credentials step) grants each job
+its access without any long-lived key.
 
 ### Corpus-writer coordination
 
