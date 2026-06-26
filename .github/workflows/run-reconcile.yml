@@ -193,9 +193,9 @@ jobs:
           git checkout -b "$branch"
           git add data/
           # The settled events are exactly the outcome.json files this run added
-          # under the case (event.yaml `resolved` flips show as modifications, not
-          # adds, and are excluded). The run:evaluate handoff targets only these, so
-          # an event the agent left ambiguous is never queued for evaluation.
+          # under the case (the agent writes only outcome.json — event open/resolved
+          # state is a corpus fact, not a git file). The run:evaluate handoff targets
+          # only these, so an event the agent left ambiguous is never queued.
           prefix="data/cases/${COURT_ID}/${DOCKET_ID}/events"
           mapfile -t settled < <(
             git diff --cached --name-only --diff-filter=A -- "$prefix" \

@@ -1,18 +1,17 @@
 """Filesystem queries over the packed corpus and the derived-ledger tree.
 
 Used by the orchestration layer (``run-pull`` / ``run-predict`` / ``run-evaluate``)
-to enumerate what exists — which dockets the corpus tracks, which events are open
-or resolved in the git ledger — without an agent in the loop.
+to enumerate what exists — which dockets the corpus tracks, which of their
+predictable events are open or resolved — without an agent in the loop. Both the
+case set and the event state are read from the packed corpus; the git tree under
+``data/`` holds only the derived ledger (outcomes, predictions, evaluations).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
-
-from . import corpus
-from .paths import CasePaths
+from . import corpus, ids
 from .schemas import Evaluation, ModelUsage
 from .serialize import read_model
 
@@ -59,30 +58,36 @@ def cases_due_for_pull(
     return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]
 
 
-def open_events(data_root: Path, court_id: str, docket_id: int) -> list[str]:
-    """Event ids that are unresolved (``resolved: false`` and no ``outcome.json``).
+def open_events(corpus_db_path: Path, court_id: str, docket_id: int) -> list[str]:
+    """Event ids the corpus still tracks as unresolved (``resolved = 0``).
 
-    These are the events ``run-predict`` should target.
+    The event-state seam reads from the packed corpus, where ``seed`` and ``pull``
+    record predictable events as raw facts: a case enters the corpus with its
+    event(s) open, and outcome detection flips each event's ``resolved`` flag when
+    it records that event's ``outcome.json``. These are the events ``run-predict``
+    should target. Empty (not created) if the corpus does not exist yet.
     """
-    events_dir = CasePaths(data_root, court_id, docket_id).events_dir
-    if not events_dir.exists():
+    if not corpus_db_path.exists():
         return []
-    open_ids: list[str] = []
-    for event_file in sorted(events_dir.glob("*/event.yaml")):
-        data = yaml.safe_load(event_file.read_text()) or {}
-        resolved = bool(data.get("resolved", False))
-        outcome = event_file.parent / "outcome.json"
-        if not resolved and not outcome.exists():
-            open_ids.append(event_file.parent.name)
-    return open_ids
+    case_id = ids.case_id(court_id, docket_id)
+    with corpus.connect(corpus_db_path) as conn:
+        events = corpus.events_for_case(conn, case_id)
+    return [event.event_id for event in events if not event.resolved]
 
 
-def resolved_events(data_root: Path, court_id: str, docket_id: int) -> list[str]:
-    """Event ids that have an ``outcome.json`` (ready for ``run-evaluate``)."""
-    events_dir = CasePaths(data_root, court_id, docket_id).events_dir
-    if not events_dir.exists():
+def resolved_events(corpus_db_path: Path, court_id: str, docket_id: int) -> list[str]:
+    """Event ids the corpus tracks as resolved (``resolved = 1``).
+
+    The mirror of :func:`open_events`: an event whose ``outcome.json`` has been
+    recorded is flipped resolved in the corpus, making it ready for
+    ``run-evaluate``. Empty (not created) if the corpus does not exist yet.
+    """
+    if not corpus_db_path.exists():
         return []
-    return [outcome.parent.name for outcome in sorted(events_dir.glob("*/outcome.json"))]
+    case_id = ids.case_id(court_id, docket_id)
+    with corpus.connect(corpus_db_path) as conn:
+        events = corpus.events_for_case(conn, case_id)
+    return [event.event_id for event in events if event.resolved]
 
 
 def iter_evaluations(data_root: Path) -> list[Evaluation]:
