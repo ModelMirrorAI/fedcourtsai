@@ -76,6 +76,11 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
+          # The loop now runs for hours (LOOP_BUDGET_SECONDS, 4.5h) and dvc push
+          # uses these credentials throughout. The default 1h session would expire
+          # mid-loop, so request a session long enough to outlast the budget. This
+          # must stay <= the role's MaxSessionDuration or the step hard-fails.
+          role-duration-seconds: 18000 # 5h
 
       # Define the remote's bucket URL out of band into the gitignored
       # .dvc/config.local (never committed; see SECURITY.md). Boto3 picks up the
