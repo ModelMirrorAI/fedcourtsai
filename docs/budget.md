@@ -101,7 +101,7 @@ above all other costs combined.
 
 | Lever | Effect |
 |-------|--------|
-| **Sample, don't saturate** — predict a defined slice (e.g. all SCOTUS + a rotating sample of appeals) rather than every event | Linear cut; the biggest dial |
+| **Gate the prediction scope** — predict only cases that have interacted with SCOTUS (the pilot gate; see below) rather than every event | Linear cut; the biggest dial |
 | **One engine per stage** instead of two competing | ~50% |
 | **Cheaper competitor model** — run one predictor on `claude-haiku-4-5` ($1/$5) or `claude-sonnet-4-6` ($3/$15) | Large cut on that predictor |
 | **Batch API** for back-testing / bulk re-scoring | 50% on eligible work |
@@ -111,7 +111,38 @@ above all other costs combined.
 > **Recommendation.** Treat the flat Claude Max 20x subscription ($200/mo) as the
 > dev + pilot budget, and switch the pipeline's Claude predictors/evaluators to an
 > API key once volume outgrows the subscription's interactive limits. Decide the
-> prediction *slice* explicitly — it is the budget.
+> prediction *slice* explicitly — it is the budget; the pilot's choice is the
+> SCOTUS-interaction gate below.
+
+#### The pilot slice: cases that touch SCOTUS
+
+Rather than a fixed sample, the pilot bounds spend with a **gate**: a case becomes
+in-scope for predict/evaluate the first time it interacts with the Supreme Court — a
+petition for certiorari is the canonical trigger — and stays in-scope for the rest of
+its lifecycle, so a granted case's merits events and any remand activity back in the
+courts of appeals are covered, while the ~42K/yr appeals cases that never reach
+SCOTUS are not. Ingestion is unchanged: seed and pull still assemble all fourteen
+courts (deterministic, ~$0 model spend) so the full history stays queryable for
+retrieval and back-testing — only the agentic stages are gated. See the prediction
+scope in [data-pipeline.md](data-pipeline.md).
+
+The gate is dominated by the cert docket — **~5–6K petitions/term**, each a cert
+grant/deny event — plus the ~70–80 merits cases and their downstream events:
+
+```
+gated_events/yr ≈ ~5.5K cert decisions + a merits tail
+predictions ≈ 5,500 × 2 × $1.6      ≈ $18K
+evaluations ≈ 5,500 × (2×2) × $1.5  ≈ $33K
+                                     ───────
+                                     ≈ $50K / yr   — roughly 1/8 of full scope
+```
+
+and it tunes far below that for the first release. The **long-conference batch**
+(~2,000 petitions resolved in one sitting) is not latency-sensitive, so it runs on
+the **Batch API** at 50% off behind a single engine — on the order of **$1.5–3K for
+the entire batch**. That is the lean entry point the OT2026 cert mini-release is
+sized against; the steady-state gate above is where it grows next, still an order of
+magnitude under full scope.
 
 ### 2. CourtListener API (membership for pull throughput)
 
@@ -214,13 +245,14 @@ variable that scope controls. Two reference points:
 
 ### A. Pilot / low-volume (subscription-bounded)
 
-Development plus a focused prediction slice (e.g. SCOTUS + a sample of appeals)
-that fits within interactive limits.
+Development plus the **SCOTUS-interaction gate** at its entry point — the
+long-conference cert batch on the Batch API (see *The pilot slice* above) — sized to
+fit within the subscription's interactive limits.
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
 | Claude Max 20x (dev + pilot inference) | $200 | $2,400 |
-| Codex API (sampled predictions/evals) | ~$100–400 | ~$1.2–5K |
+| Codex API (gated cert predictions/evals) | ~$100–400 | ~$1.2–5K |
 | CourtListener Tier 3 | $50 | $600 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |
@@ -240,5 +272,7 @@ that fits within interactive limits.
 
 The gap between A and B is almost entirely the prediction *slice* and the
 two-engine fan-out. The budget is governed by choosing where on that line to
-operate — start at A, measure real per-run token cost, and scale the slice
-deliberately toward B with the levers in driver #1.
+operate: start at **A** (the long-conference batch on the subscription), measure
+real per-run token cost, then open the **SCOTUS-interaction gate** to its steady
+state (~$50K/yr inference — an order of magnitude under B) before deciding, with a
+year of cost data, whether to widen the gate toward full scope.
