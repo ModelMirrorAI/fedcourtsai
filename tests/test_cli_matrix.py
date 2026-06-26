@@ -3,9 +3,12 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from fedcourtsai import corpus
 from fedcourtsai.cli import app
 
 runner = CliRunner()
+
+_REPO_CONFIG = Path(__file__).resolve().parents[1] / "config"
 
 _BATCH_BODY = """Long conference.
 
@@ -23,10 +26,38 @@ def _cells(stdout: str) -> list[dict[str, object]]:
     return cells
 
 
+def _env(tmp_path: Path, *, scope: str, eligible: tuple[str, ...] = ()) -> dict[str, str]:
+    """A hermetic config + corpus for a matrix run.
+
+    Copies the real registries so the fan-out dimensions are unchanged, writes a
+    ``tracking.yaml`` pinning ``predict.scope``, and seeds a corpus where the
+    ``eligible`` case ids carry the latched ``predict_eligible`` flag.
+    """
+    config_root = tmp_path / "config"
+    config_root.mkdir(exist_ok=True)
+    for name in ("predictors.yaml", "evaluators.yaml"):
+        (config_root / name).write_text((_REPO_CONFIG / name).read_text())
+    (config_root / "tracking.yaml").write_text(f"predict:\n  scope: {scope}\n")
+
+    corpus_root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id=cid, court=cid.split("/")[0], predict_eligible=True)
+                for cid in eligible
+            ],
+        )
+    return {"FEDCOURTS_CONFIG_ROOT": str(config_root), "FEDCOURTS_CORPUS_ROOT": str(corpus_root)}
+
+
 def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)])
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
     assert result.exit_code == 0
     cells = _cells(result.stdout)
     # 2 predictors x 2 cases x 1 event
@@ -35,6 +66,10 @@ def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None
 
 
 def test_predict_matrix_legacy_single_case_flags_still_work(tmp_path: Path) -> None:
+    # An eligible (SCOTUS-touched, latched) case still fans out via the single-case
+    # flags; the backstop reads the stored flag, not the rule, so a latched ca9
+    # remand docket is in scope.
+    env = _env(tmp_path, scope="scotus_touched", eligible=("ca9/123",))
     result = runner.invoke(
         app,
         [
@@ -48,6 +83,7 @@ def test_predict_matrix_legacy_single_case_flags_still_work(tmp_path: Path) -> N
             "--event",
             "evt-x",
         ],
+        env=env,
     )
     assert result.exit_code == 0
     cells = _cells(result.stdout)
@@ -55,13 +91,59 @@ def test_predict_matrix_legacy_single_case_flags_still_work(tmp_path: Path) -> N
     assert {c["event_id"] for c in cells} == {"evt-x"}
 
 
+def test_predict_matrix_drops_out_of_scope_case_with_note(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Only one of the two requested cases is eligible; the other is dropped.
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001",))
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    cells = _cells(result.stdout)
+    assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24001)}
+    # The drop is explained on stderr so the maintainer understands the gap.
+    assert "24002" in result.stderr
+    assert "out of prediction scope" in result.stderr
+
+
+def test_predict_matrix_scope_all_keeps_every_case(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Under `all` the corpus is never consulted: an empty corpus still fans out.
+    env = _env(tmp_path, scope="all")
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
+        ("scotus", 24001),
+        ("scotus", 24002),
+    }
+
+
 def test_evaluate_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)])
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
     assert result.exit_code == 0
     # 2 evaluators x 2 cases x 1 event
     assert len(_cells(result.stdout)) == 4
+
+
+def test_evaluate_matrix_drops_out_of_scope_case(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24002",))
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24002)}
+    assert "24001" in result.stderr
 
 
 def test_reconcile_matrix_batch_body_is_one_cell_per_case(tmp_path: Path) -> None:

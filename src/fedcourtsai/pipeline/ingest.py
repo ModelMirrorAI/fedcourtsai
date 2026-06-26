@@ -307,6 +307,25 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
     )
 
 
+# --- prediction-scope rule -----------------------------------------------------
+
+
+def is_predict_eligible(row: CorpusRow) -> bool:
+    """Whether a freshly-ingested case enters the prediction-scope gate.
+
+    The *rule* behind the latching ``predict_eligible`` flag: a case is in-scope
+    for the agentic predict/evaluate stages once it has interacted with the
+    Supreme Court (``docs/data-pipeline.md``). v1 definition: a SCOTUS docket
+    (``court == "scotus"``) is in-scope — its whole lifecycle is at SCOTUS, so
+    this already satisfies "stays in-scope for its lifecycle". Set identically on
+    both ingestion paths (seed and pull) because both project through
+    :func:`to_corpus_row`. A follow-up widens the *rule* to also pull in the
+    case's lower-court (court-of-appeals) docket; because the flag is persisted
+    and latching, that is a purely additive change here — never a filter change.
+    """
+    return row.court == "scotus"
+
+
 # --- persistence (one packed corpus, deterministic writes) ---------------------
 
 
@@ -350,6 +369,7 @@ def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.
         precedential_status=row.precedential_status,
         summary=row.summary,
         last_pulled=last_pulled,
+        predict_eligible=is_predict_eligible(row),
     )
 
 

@@ -1,9 +1,12 @@
 from pathlib import Path
 
 from fedcourtsai.config import (
+    PredictConfig,
+    PredictScope,
     PullConfig,
     SeedConfig,
     load_courts,
+    load_predict_config,
     load_pull_config,
     load_seed_config,
 )
@@ -72,6 +75,24 @@ def test_load_pull_config_defaults_when_file_missing(tmp_path: Path) -> None:
 def test_load_pull_config_defaults_when_section_absent(tmp_path: Path) -> None:
     _write_tracking(tmp_path, "seed:\n  source: bulk\n")
     assert load_pull_config(tmp_path) == PullConfig()
+
+
+def test_load_predict_config_reads_scope(tmp_path: Path) -> None:
+    _write_tracking(tmp_path, "predict:\n  scope: all\n  max_parallel: 4\n")
+    assert load_predict_config(tmp_path).scope == PredictScope.all
+
+
+def test_load_predict_config_defaults_to_scotus_touched(tmp_path: Path) -> None:
+    # Missing file, missing section, and a section without `scope` all keep the gate on.
+    assert load_predict_config(tmp_path / "absent") == PredictConfig()
+    assert load_predict_config(tmp_path / "absent").scope == PredictScope.scotus_touched
+    _write_tracking(tmp_path, "predict:\n  max_parallel: 4\n")
+    assert load_predict_config(tmp_path).scope == PredictScope.scotus_touched
+
+
+def test_repo_tracking_yaml_carries_default_scope() -> None:
+    # The committed config pins the documented default the workflows read.
+    assert load_predict_config(Path("config")).scope == PredictScope.scotus_touched
 
 
 def test_load_seed_config_reads_backfill_keys(tmp_path: Path) -> None:

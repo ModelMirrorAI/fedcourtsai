@@ -6,6 +6,7 @@ written to disk or committed.
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 
 import yaml
@@ -85,6 +86,45 @@ def load_courts(config_root: Path) -> list[str]:
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     courts = (data or {}).get("courts", []) or []
     return [str(c).strip() for c in courts if str(c).strip()]
+
+
+class PredictScope(StrEnum):
+    """The prediction-scope gate the agentic predict/evaluate fan-out honors.
+
+    Ingestion (seed/pull) is always full-coverage; this restricts only the
+    expensive predict/evaluate stages (see ``docs/data-pipeline.md``).
+    """
+
+    # Only cases that have interacted with SCOTUS (the latched `predict_eligible`
+    # flag) are in-scope — the pilot cost gate.
+    scotus_touched = "scotus_touched"
+    # No gate: every changed case with open events is in-scope (dev / back-testing).
+    all = "all"
+
+
+class PredictConfig(BaseModel):
+    """The ``predict`` section of ``config/tracking.yaml`` — the fan-out gate.
+
+    Models just the keys the predict/evaluate seams enforce; extra keys (the
+    parallelism / skip-resolved knobs the workflow reads) are ignored.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # Which cases the agentic stages run on; `scotus_touched` is the pilot default.
+    scope: PredictScope = PredictScope.scotus_touched
+
+
+def load_predict_config(config_root: Path) -> PredictConfig:
+    """Read the prediction-scope gate from ``config_root/tracking.yaml``.
+
+    Falls back to defaults (the gate on) if the file or its ``predict`` section is
+    absent, so the cost gate stays conservative rather than failing when config is
+    missing.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return PredictConfig.model_validate((data or {}).get("predict", {}))
 
 
 class SeedConfig(BaseModel):
