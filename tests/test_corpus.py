@@ -166,6 +166,30 @@ def test_last_pulled_defaults_to_none(tmp_path: Path) -> None:
     assert fetched.last_pulled is None
 
 
+def test_predict_eligible_roundtrips_and_defaults_false(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", predict_eligible=True)])
+        corpus.upsert_rows(conn, [_row(case_id="ca9/1")])  # default
+        eligible = corpus.get_row(conn, "scotus/1")
+        default = corpus.get_row(conn, "ca9/1")
+    assert eligible is not None and eligible.predict_eligible is True
+    assert default is not None and default.predict_eligible is False
+
+
+def test_predict_eligible_latches_on_and_never_clears(tmp_path: Path) -> None:
+    # Once a case is in prediction scope, a later re-ingest (even one that would
+    # compute the flag False under a narrower rule) must not drop it back out.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="ca9/9", predict_eligible=True)])
+        corpus.upsert_rows(conn, [_row(case_id="ca9/9", topic="refreshed", predict_eligible=False)])
+        fetched = corpus.get_row(conn, "ca9/9")
+    assert fetched is not None
+    assert fetched.topic == "refreshed"  # other columns still overwrite
+    assert fetched.predict_eligible is True  # but the latch holds
+
+
 def test_upsert_without_stamp_preserves_prior_last_pulled(tmp_path: Path) -> None:
     # A bulk re-ingest (no stamp) must not reset a timestamp a prior pull recorded,
     # else the governor would treat a freshly-refreshed case as never-pulled.

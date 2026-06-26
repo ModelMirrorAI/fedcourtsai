@@ -9,6 +9,7 @@ from fedcourtsai.pipeline.ingest import (
     default_event,
     from_api_docket,
     from_bulk_row,
+    is_predict_eligible,
     merge_rows,
     normalize_disposition,
     to_corpus_row,
@@ -148,6 +149,30 @@ def test_merge_rows_last_wins() -> None:
     assert len(merged) == 1
     assert merged[0].nature_of_suit == "Civil Rights"
     assert merged[0].source == CorpusSource.api
+
+
+def test_predict_eligibility_rule_is_scotus_only() -> None:
+    # v1 prediction-scope rule: a SCOTUS docket is in-scope; a court of appeals
+    # docket is not (until a later rule widens to the case's lower-court docket).
+    scotus = from_api_docket({"id": 7, "court_id": "scotus"})
+    ca9 = from_api_docket({"id": 8, "court_id": "ca9"})
+    assert is_predict_eligible(scotus) is True
+    assert is_predict_eligible(ca9) is False
+
+
+def test_ingestion_sets_predict_eligible_for_scotus_only(tmp_path: Path) -> None:
+    # The rule fires identically on either source (both project via to_corpus_row).
+    assert to_corpus_row(from_api_docket({"id": 7, "court_id": "scotus"})).predict_eligible is True
+    assert to_corpus_row(from_bulk_row({"id": "8", "court_id": "ca9"})).predict_eligible is False
+
+    db = corpus.corpus_db_path(tmp_path)
+    upsert_to_corpus(db, [from_bulk_row({"id": "7", "court_id": "scotus"})])
+    upsert_to_corpus(db, [from_api_docket({"id": "8", "court_id": "ca9"})])
+    with corpus.connect(db) as conn:
+        scotus = corpus.get_row(conn, "scotus/7")
+        ca9 = corpus.get_row(conn, "ca9/8")
+    assert scotus is not None and scotus.predict_eligible is True
+    assert ca9 is not None and ca9.predict_eligible is False
 
 
 def test_to_corpus_row_projects_onto_store_schema() -> None:

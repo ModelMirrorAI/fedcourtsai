@@ -21,7 +21,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-from .. import ids
+from .. import corpus, ids
+from ..config import PredictScope
 from ..courtlistener import CourtListenerClient
 from ..paths import CasePaths
 from ..serialize import write_raw_json
@@ -101,11 +102,20 @@ class PullQueues:
     reconcile: list[dict[str, object]] = field(default_factory=list)
 
 
+def _predict_eligible(corpus_db_path: Path, case_id: str) -> bool:
+    """Read a case's latched prediction-scope flag from the corpus."""
+    with corpus.connect(corpus_db_path) as conn:
+        row = corpus.get_row(conn, case_id)
+    return bool(row and row.predict_eligible)
+
+
 def pull_cases(
     client: CourtListenerClient,
     corpus_db_path: Path,
     data_root: Path,
     due: Iterable[tuple[str, int]],
+    *,
+    scope: PredictScope = PredictScope.all,
 ) -> PullQueues:
     """Refresh each due case and sort it into the predict / evaluate / reconcile queues.
 
@@ -116,14 +126,23 @@ def pull_cases(
     and a case that appears decided but could not be recorded deterministically to
     ``reconcile``. Case selection (discovery + rotation) stays with the caller, so
     this seam composes the same way the CLI's ``pull-all`` does.
+
+    The prediction-scope gate is the primary cost-saver: under
+    ``scope == scotus_touched`` an out-of-scope case never reaches the ``predict``
+    or ``evaluate`` queue, so it never opens a ``run-predict`` / ``run-evaluate``
+    issue. ``reconcile`` stays ungated — it records ground truth for the corpus /
+    back-testing, a different purpose from prediction spend. ``scope == all``
+    (the default) enqueues exactly as before.
     """
     queues = PullQueues()
+    gated = scope == PredictScope.scotus_touched
     for court, docket in due:
         result = pull_case(client, corpus_db_path, data_root, court, docket)
+        in_scope = not gated or _predict_eligible(corpus_db_path, result.case_id)
         events = open_events(data_root, court, docket)
-        if result.changed and events:
+        if in_scope and result.changed and events:
             queues.predict.append({"court": court, "docket": docket, "events": events})
-        if result.resolved:
+        if in_scope and result.resolved:
             queues.evaluate.append({"court": court, "docket": docket, "events": result.resolved})
         if result.reconcile:
             queues.reconcile.append(
