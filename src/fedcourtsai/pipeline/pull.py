@@ -76,7 +76,7 @@ def pull_case(
 
     # Detect resolution of any open events: write outcome.json deterministically
     # when the disposition is machine-readable, else flag for agent reconcile.
-    resolution = resolve_case(data_root, row, court_id, docket_id)
+    resolution = resolve_case(corpus_db_path, data_root, row, court_id, docket_id)
 
     return PullResult(
         case_id=ids.case_id(court_id, docket_id),
@@ -139,7 +139,7 @@ def pull_cases(
     for court, docket in due:
         result = pull_case(client, corpus_db_path, data_root, court, docket)
         in_scope = not gated or _predict_eligible(corpus_db_path, result.case_id)
-        events = open_events(data_root, court, docket)
+        events = open_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:
             queues.predict.append({"court": court, "docket": docket, "events": events})
         if in_scope and result.resolved:

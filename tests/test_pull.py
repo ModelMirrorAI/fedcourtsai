@@ -6,7 +6,10 @@ from fedcourtsai import corpus
 from fedcourtsai.config import PredictScope
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import pull_case, pull_cases
+from fedcourtsai.schemas import EventKind
+from fedcourtsai.store import open_events, resolved_events
 
 DOCKET: dict[str, Any] = {
     "id": 64512345,
@@ -108,18 +111,24 @@ def _scotus_ca9_client() -> FakeMultiClient:
     )
 
 
-def _open_event(data_root: Path, court: str, docket: int) -> None:
-    """Write a minimal open event.yaml so `open_events` has something to queue."""
-    event_file = CasePaths(data_root, court, docket).event("evt-appeal-disposition").event_file
-    event_file.parent.mkdir(parents=True, exist_ok=True)
-    event_file.write_text("resolved: false\n")
+def _open_event(db: Path, court: str, docket: int) -> None:
+    """Record an open predictable event in the corpus so `open_events` queues it."""
+    event = corpus.CorpusEvent(
+        event_id="evt-appeal-disposition",
+        case_id=f"{court}/{docket}",
+        court=court,
+        kind=EventKind.appeal,
+        title="Disposition of the appeal",
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [event])
 
 
 def _gate_queues(tmp_path: Path, scope: PredictScope) -> Any:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
-    _open_event(data_root, "scotus", 900)
-    _open_event(data_root, "ca9", 901)
+    _open_event(db, "scotus", 900)
+    _open_event(db, "ca9", 901)
     return pull_cases(
         cast(CourtListenerClient, _scotus_ca9_client()),
         db,
@@ -139,3 +148,68 @@ def test_pull_cases_scope_all_enqueues_every_changed_case(tmp_path: Path) -> Non
     queues = _gate_queues(tmp_path, PredictScope.all)
     # No gate: both changed cases with open events are queued (today's behavior).
     assert {(e["court"], e["docket"]) for e in queues.predict} == {("scotus", 900), ("ca9", 901)}
+
+
+class FakeDiscoverPullClient:
+    """One fake covering both discovery (``iter_dockets``) and refresh (``get_docket``).
+
+    The single mutable ``docket`` is what the next refresh sees, so a test can
+    onboard a pending docket and then flip it to a decided one.
+    """
+
+    def __init__(self, filed: dict[str, list[dict[str, Any]]], docket: dict[str, Any]) -> None:
+        self._filed = filed
+        self.docket = docket
+        self.entries: list[dict[str, Any]] = []
+
+    def iter_dockets(
+        self, court: str, date_filed_gte: date, *, max_results: int
+    ) -> list[dict[str, Any]]:
+        hits = [
+            d
+            for d in self._filed.get(court, [])
+            if date.fromisoformat(d["date_filed"]) >= date_filed_gte
+        ]
+        return hits[:max_results]
+
+    def get_docket(self, docket_id: int) -> dict[str, Any]:
+        return self.docket
+
+    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+        return self.entries
+
+
+def test_discover_pull_predict_then_evaluate_from_corpus_events(tmp_path: Path) -> None:
+    # The forward pipeline must run off corpus events alone — no hand-written
+    # git event.yaml anywhere in discover → pull → predict/evaluate.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    base = "https://www.courtlistener.com/api/rest/v4/courts"
+    pending = {"id": 101, "court": f"{base}/ca9/", "date_filed": "2026-06-10", "case_name": "Doe"}
+    client = FakeDiscoverPullClient({"ca9": [pending]}, pending)
+
+    # Discovery onboards the case and its open event as raw facts in the corpus.
+    discover_cases(
+        cast(CourtListenerClient, client), db, ["ca9"], max_new=10, default_since=date(2026, 6, 1)
+    )
+    assert open_events(db, "ca9", 101) == ["evt-appeal-disposition"]
+    assert not (data_root / "cases").exists()  # nothing materialized into git
+
+    # Pull enqueues the corpus-backed open event to predict (no event.yaml needed).
+    queues = pull_cases(cast(CourtListenerClient, client), db, data_root, [("ca9", 101)])
+    assert [(e["court"], e["docket"]) for e in queues.predict] == [("ca9", 101)]
+    assert queues.predict[0]["events"] == ["evt-appeal-disposition"]
+    assert queues.evaluate == []
+
+    # The case resolves: a later refresh records outcome.json and enqueues evaluate.
+    client.docket = {**pending, "date_terminated": "2026-09-01", "disposition": "Petition denied"}
+    client.entries = [{"id": 1, "description": "Order denying the petition"}]
+    queues = pull_cases(cast(CourtListenerClient, client), db, data_root, [("ca9", 101)])
+    assert [(e["court"], e["docket"]) for e in queues.evaluate] == [("ca9", 101)]
+    assert queues.evaluate[0]["events"] == ["evt-appeal-disposition"]
+
+    # outcome.json lands in git; the corpus event is now resolved (out of predict).
+    outcome = CasePaths(data_root, "ca9", 101).event("evt-appeal-disposition").outcome
+    assert outcome.exists()
+    assert open_events(db, "ca9", 101) == []
+    assert resolved_events(db, "ca9", 101) == ["evt-appeal-disposition"]

@@ -28,8 +28,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import pull_cases
 from fedcourtsai.pipeline.seed import backfill, load_cursor, snapshot_date
-from fedcourtsai.schemas import EventKind, PredictableEvent
-from fedcourtsai.serialize import write_yaml
+from fedcourtsai.schemas import EventKind
 from fedcourtsai.store import cases_due_for_pull
 
 # Reuse the per-stage fakes exactly as the unit suites define them (issues #49, #55).
@@ -78,28 +77,16 @@ def _docket(docket_id: int, court: str = "ca9", **kw: Any) -> dict[str, Any]:
     }
 
 
-def _materialize_open_events(data_root: Path, db: Path, court: str, docket: int) -> list[str]:
-    """Project a seeded case's corpus events into the git ledger as open events.
+def _seed_event_ids(db: Path, court: str, docket: int) -> list[str]:
+    """The predictable-event ids *seed* recorded in the corpus for one case.
 
-    Outcome detection reads ``event.yaml`` from the ledger, so this mirrors the
-    forward materialization step: it takes the predictable events *seed* recorded
-    in the corpus and writes the matching ``event.yaml`` files. Returns the event
-    ids written, proving the resolution below attaches to a seed-defined event
-    rather than a hand-authored one.
+    The forward pipeline reads open/resolved event state from the corpus, so no
+    materialization into git is needed: seed's event rows are already what a later
+    resolution attaches an ``outcome.json`` to. Asserts seed defined at least one.
     """
     with corpus.connect(db) as conn:
         events = corpus.events_for_case(conn, f"{court}/{docket}")
     assert events, f"seed defined no events for {court}/{docket}"
-    for ev in events:
-        write_yaml(
-            CasePaths(data_root, court, docket).event(ev.event_id).event_file,
-            PredictableEvent(
-                event_id=ev.event_id,
-                case_id=ev.case_id,
-                kind=EventKind(ev.kind),
-                title=ev.title,
-            ),
-        )
     return [ev.event_id for ev in events]
 
 
@@ -204,10 +191,10 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     backfill(seed, cursor_path=cursor, courts=["ca9"], corpus_db_path=db, max_cases=100)
 
     # The open predictable event each case carries is the one *seed* defined in the
-    # corpus — materialized into the ledger so a later resolution has it to attach
-    # an outcome to (without seed defining events, there would be none).
+    # corpus — read straight from there (without seed defining events, there would
+    # be none for a later resolution to attach an outcome to).
     for docket in (1, 2, 3):
-        assert _materialize_open_events(data_root, db, "ca9", docket) == [_EVENT_ID]
+        assert _seed_event_ids(db, "ca9", docket) == [_EVENT_ID]
 
     # ca9/1: machine-readable disposition → deterministic outcome (evaluate).
     # ca9/2: decided but only "affirmed" → ambiguous → reconcile, no outcome.
