@@ -56,13 +56,13 @@ jobs:
           # report can compute the backfill rate + ETA. Best-effort: absent on the
           # first ever run, which simply drops those fields.
           git fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' 2>/dev/null || true
-          prev_arg=""
+          prev_args=()
           if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null; then
             if git show origin/ops-metrics:latest.json > prev-ops.json 2>/dev/null; then
-              prev_arg="--previous prev-ops.json"
+              prev_args=(--previous prev-ops.json)
             fi
           fi
-          uv run fedcourts ops-report --runs runs.json $prev_arg --json new-ops.json > ops.md
+          uv run fedcourts ops-report --runs runs.json "${prev_args[@]}" --json new-ops.json > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append the snapshot to the ops-metrics branch
