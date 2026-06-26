@@ -38,11 +38,14 @@ jobs:
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
           matrix=$(uv run fedcourts evaluate-matrix --body-file issue-body.md --run-id "$run_id")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          if [ "$(echo "$matrix" | jq '.include | length')" -gt 0 ]; then
+          count=$(echo "$matrix" | jq '.include | length')
+          if [ "$count" -gt 0 ]; then
             echo "has_jobs=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_jobs=false" >> "$GITHUB_OUTPUT"
           fi
+          # Ops analytics (#89): record the planned fan-out in the Actions UI.
+          echo "## run-evaluate — queued ${count} evaluation job(s)" >> "$GITHUB_STEP_SUMMARY"
 
   evaluate:
     needs: plan
