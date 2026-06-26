@@ -139,7 +139,7 @@ docs/               architecture, data model, pipeline, security
 - [Pipeline & labels](docs/pipeline.md)
 - [Budget](docs/budget.md)
 - [Milestones](docs/milestones.md)
-- [Security](SECURITY.md)
+- [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Agent workflow](docs/agent-workflow.md)
 
 ## License
