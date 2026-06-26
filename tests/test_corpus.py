@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import date
 from pathlib import Path
 
@@ -49,6 +50,57 @@ def test_connect_creates_parent_dir(tmp_path: Path) -> None:
     with corpus.connect(db) as conn:
         assert corpus.count(conn) == 0
     assert db.exists()
+
+
+def test_schema_and_migration_ddl_agree(tmp_path: Path) -> None:
+    """A fresh `cases` table has exactly the columns the migration map declares."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(cases)")}
+    assert cols == set(corpus._COLUMNS) == set(corpus._CASES_COLUMN_DDL)
+
+
+def test_connect_migrates_legacy_cases_table(tmp_path: Path) -> None:
+    """A corpus written before the enriched columns is migrated on open, not broken."""
+    db = tmp_path / "corpus.db"
+    # The pre-enrichment schema: no panel / parties / attorneys / citation_count /
+    # precedential_status columns.
+    legacy = sqlite3.connect(db)
+    legacy.executescript(
+        """
+        CREATE TABLE cases (
+            case_id       TEXT PRIMARY KEY,
+            court         TEXT NOT NULL,
+            docket_number TEXT NOT NULL DEFAULT '',
+            date_filed    TEXT,
+            date_decided  TEXT,
+            disposition   TEXT,
+            judges        TEXT NOT NULL DEFAULT '[]',
+            topic         TEXT,
+            citations     TEXT NOT NULL DEFAULT '[]',
+            opinion_text  TEXT,
+            summary       TEXT,
+            last_pulled   TEXT
+        );
+        INSERT INTO cases (case_id, court) VALUES ('ca9/1', 'ca9');
+        """
+    )
+    legacy.commit()
+    legacy.close()
+
+    with corpus.connect(db) as conn:
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(cases)")}
+        assert cols == set(corpus._COLUMNS)
+        # The pre-existing row reads back with the new columns at their defaults,
+        # and the pull governor can scan it without raising.
+        legacy_row = corpus.get_row(conn, "ca9/1")
+        assert legacy_row is not None
+        assert legacy_row.panel == []
+        assert legacy_row.parties == []
+        assert corpus.rotation_for_pull(conn, limit=10) == [legacy_row]
+        # And the enriched columns are now writable.
+        assert corpus.upsert_rows(conn, [_row()]) == 1
+        assert corpus.get_row(conn, "ca9/123") == _row()
 
 
 def test_upsert_is_idempotent_by_case_id(tmp_path: Path) -> None:
