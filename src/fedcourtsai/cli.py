@@ -555,7 +555,10 @@ def corpus_info() -> None:
         typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.")
         return
     with corpus.connect(db_path) as conn:
-        typer.echo(f"corpus {db_path}: {corpus.count(conn)} row(s)")
+        typer.echo(
+            f"corpus {db_path}: {corpus.count(conn)} row(s), "
+            f"{corpus.snapshot_count(conn)} snapshot(s)"
+        )
 
 
 @app.command()
@@ -657,6 +660,37 @@ def paths(
         ep = cp.event(event)
         typer.echo(f"event     {ep.event_file}")
         typer.echo(f"outcome   {ep.outcome}")
+
+
+@app.command("provision-snapshot")
+def provision_snapshot(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Where to write the snapshot; defaults to the case's record path."),
+    ] = None,
+) -> None:
+    """Materialize a case's latest corpus snapshot to disk for an agent run.
+
+    Point-in-time snapshots are raw facts that live in the packed corpus, not
+    git. The predict/evaluate/reconcile workflows call this after a ``dvc pull``
+    to read the most recent dated snapshot for the case out of the corpus and
+    write it where the agent reads it (a gitignored ``record/`` path, never
+    committed). Exits non-zero if the corpus holds no snapshot for the case.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    case = ids.case_id(court, docket)
+    with corpus.connect(db_path) as conn:
+        found = corpus.latest_snapshot(conn, case)
+    if found is None:
+        typer.echo(f"No snapshot in corpus for {case} (dvc pull the corpus first?)", err=True)
+        raise typer.Exit(code=1)
+    snapshot_date, payload = found
+    dest = out or CasePaths(settings.data_root, court, docket).snapshot(snapshot_date.isoformat())
+    write_raw_json(dest, payload)
+    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} -> {dest}")
 
 
 @app.command("open-events")

@@ -4,10 +4,10 @@ name: run-pull
 # an issue is labeled `run:pull`. Deterministic (no agent): discovers newly-filed
 # cases, re-fetches each tracked docket, and detects resolution of open events —
 # writing `outcome.json` when the disposition is machine-readable — ingesting the
-# raw facts into the DVC-managed corpus (pulled from / pushed back to the S3
-# remote) and writing fresh dated snapshots. The dated snapshots, the new outcomes,
-# and the small corpus pointer are committed DIRECTLY to main (they are
-# CourtListener facts, not agent output — see docs/data-pipeline.md). It then opens
+# raw facts (including each refresh's point-in-time snapshot) into the DVC-managed
+# corpus (pulled from / pushed back to the S3 remote). The new outcomes and the
+# small corpus pointer are committed DIRECTLY to main (they are CourtListener
+# facts, not agent output — see docs/data-pipeline.md). It then opens
 # a `run:predict` issue for each changed case with open events, a `run:evaluate`
 # issue for each case that gained an outcome, and a `run:reconcile` issue for
 # each case that appears decided but whose outcome an agent must confirm by hand
@@ -137,19 +137,20 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
-      - name: Commit snapshots and corpus pointer to main
+      - name: Commit outcomes and corpus pointer to main
         id: commit
         run: |
           set -euo pipefail
-          # Raw facts go straight to main: dated docket snapshots under data/ and
-          # the small corpus pointer (the blob itself lives in the DVC remote).
+          # Facts go straight to main: any deterministically-detected outcome.json
+          # under data/ and the small corpus pointer (the corpus blob — rows and
+          # point-in-time snapshots — lives in the DVC remote, pushed above).
           git add data/ corpus/corpus.db.dvc
           if git diff --cached --quiet; then
-            echo "No docket or corpus changes to commit."
+            echo "No outcome or corpus changes to commit."
             echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git commit -m "pull: refresh docket snapshots + corpus ($(date -u +%Y-%m-%d))"
+          git commit -m "pull: refresh corpus + outcomes ($(date -u +%Y-%m-%d))"
           # The default branch may have advanced since checkout (e.g. a run:predict
           # / run:evaluate PR merged). The corpus-write lock keeps the other corpus
           # writer out, so the pointer never conflicts; rebase our commit onto the
@@ -163,7 +164,7 @@ jobs:
             echo "::warning::push rejected (default branch advanced); retry ${attempt}"
             sleep 3
           done
-          echo "::error::could not push refreshed snapshots after 3 attempts"
+          echo "::error::could not push refreshed corpus pointer + outcomes after 3 attempts"
           exit 1
 
       - name: Open run:predict issues for changed cases
@@ -253,9 +254,9 @@ jobs:
           evaluate=$(jq 'length' evaluate-queue.json)
           reconcile=$(jq 'length' reconcile-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
-            snap="Committed refreshed docket snapshots + corpus pointer to the default branch."
+            snap="Committed the refreshed corpus pointer + new outcomes to the default branch."
           else
-            snap="No docket or corpus changes this run."
+            snap="No outcome or corpus changes this run."
           fi
           body=$(printf '### ✅ Daily pull refresh complete\n\n%s\n\nHandoffs this run:\n- run:predict issues opened: **%s**\n- run:evaluate issues opened: **%s**\n- ambiguous outcomes flagged for reconcile: **%s**\n' \
             "$snap" "$predict" "$evaluate" "$reconcile")

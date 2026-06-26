@@ -5,13 +5,14 @@ event — every predictor's prediction, the realized outcome, and every evaluati
 — lives together under one event directory. This keeps the full context for an
 evaluation in one place and keeps git diffs local to the thing that changed.
 
-Raw facts (the docket, judges, case metadata) live in the packed corpus
-(`fedcourtsai.corpus`), not in git. The one git raw-fact file that remains is the
-dated point-in-time ``snapshot``, kept transitionally so ``pull`` can detect
-docket changes the normalized corpus row does not capture.
+Raw facts (the docket, judges, case metadata, and the dated point-in-time
+snapshots) live in the packed corpus (`fedcourtsai.corpus`), not in git. The
+``snapshot`` path under ``record/`` is a *provisioning* location only: the
+predict/evaluate/reconcile workflows materialize a case's latest corpus snapshot
+there, read-only for one run (the tree is gitignored, never committed).
 
     data/cases/<court_id>/<docket_id>/
-        record/snapshots/<YYYY-MM-DD>.json   # transitional point-in-time snapshot
+        record/snapshots/<YYYY-MM-DD>.json   # provisioned from the corpus (gitignored)
         events/<event_id>/
             event.yaml
             outcome.json
@@ -78,6 +79,9 @@ class CasePaths:
         return self.record / "docket.json"
 
     def snapshot(self, day: str) -> Path:
+        # Provisioning location for a run's point-in-time snapshot, materialized
+        # from the corpus by the predict/evaluate/reconcile workflow. Gitignored
+        # (`record/` is never committed) — the snapshot's home is the corpus.
         return self.record / "snapshots" / f"{day}.json"
 
     @property

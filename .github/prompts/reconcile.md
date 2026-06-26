@@ -37,11 +37,13 @@ them before the per-case facts.
 2. This prompt and `schemas/outcome.schema.json` — your task and the exact output
    contract.
 
-**Per-case — read last, right before you write.** Under
-`data/cases/$COURT_ID/$DOCKET_ID/`:
+**Per-case — read last, right before you write.** The workflow provisions these
+from the corpus (raw facts live in the DVC/S3 corpus, not git); read them where
+the workflow places them for your run:
 
-3. The **latest snapshot** under `record/snapshots/<date>.json` — the full docket
-   (entries included) as last refreshed. This is the evidence for the disposition.
+3. The **latest snapshot** for this case — the full docket (entries included) as
+   last refreshed, provisioned read-only to `record/snapshots/<date>.json` under
+   `data/cases/$COURT_ID/$DOCKET_ID/`. This is the evidence for the disposition.
 4. The open event ids to settle, in `EVENT_IDS`. Their definitions are raw facts
    in the corpus, not git files; the id itself encodes what was being predicted —
    `evt-<kind>-<slug>` names the event's `kind` (`motion` / `petition` / `appeal`

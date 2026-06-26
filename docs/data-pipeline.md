@@ -186,7 +186,7 @@ prevent that:
   (`cancel-in-progress: false`), so corpus writers never run simultaneously — a
   second run queues until the first finishes.
 - **Both commit straight to the default branch.** Each run does `dvc pull → mutate
-  → dvc add → dvc push → commit the pointer (+ cursor / snapshots)` and pushes
+  → dvc add → dvc push → commit the pointer (+ cursor / outcomes)` and pushes
   directly. Serialized by the lock, every run pulls the latest committed pointer
   before mutating, so it always builds on its predecessor's writes. Neither writer
   goes through a long-lived PR whose stale base could revert the other on merge.
