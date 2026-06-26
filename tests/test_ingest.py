@@ -175,6 +175,69 @@ def test_ingestion_sets_predict_eligible_for_scotus_only(tmp_path: Path) -> None
     assert ca9 is not None and ca9.predict_eligible is False
 
 
+def test_originating_link_extracted_from_api_and_bulk() -> None:
+    # REST nests the lower-court link (court hyperlink + originating-court-info),
+    # so pull carries the full join key.
+    api = from_api_docket(
+        {
+            "id": 1,
+            "court_id": "scotus",
+            "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
+            "originating_court_information": {"docket_number": "21-35466"},
+        }
+    )
+    assert api.originating_court == "ca9"
+    assert api.originating_docket_number == "21-35466"
+
+    # Bulk carries `appeal_from_id` (the court) but not the lower-court docket
+    # number (CourtListener publishes no originating-court-info bulk table).
+    bulk = from_bulk_row({"id": "2", "court_id": "scotus", "appeal_from_id": "ca9"})
+    assert bulk.originating_court == "ca9"
+    assert bulk.originating_docket_number is None
+
+    # No link at all → both blank.
+    bare = from_api_docket({"id": 3, "court_id": "scotus"})
+    assert bare.originating_court is None and bare.originating_docket_number is None
+
+
+def test_upsert_latches_originating_coa_docket(tmp_path: Path) -> None:
+    # End-to-end through the ingestion seam: a SCOTUS docket linked to a tracked
+    # ca9 docket flips that CoA docket eligible; an untracked link is a no-op.
+    db = corpus.corpus_db_path(tmp_path)
+    upsert_to_corpus(
+        db, [from_bulk_row({"id": "55", "court_id": "ca9", "docket_number": "21-35466"})]
+    )
+    with corpus.connect(db) as conn:
+        before = corpus.get_row(conn, "ca9/55")
+    assert before is not None and before.predict_eligible is False
+
+    upsert_to_corpus(
+        db,
+        [
+            from_api_docket(
+                {
+                    "id": 1,
+                    "court_id": "scotus",
+                    "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
+                    "originating_court_information": {"docket_number": "21-35466"},
+                }
+            ),
+            # Links to a docket number no tracked ca9 case carries → no-op.
+            from_api_docket(
+                {
+                    "id": 2,
+                    "court_id": "scotus",
+                    "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
+                    "originating_court_information": {"docket_number": "99-00000"},
+                }
+            ),
+        ],
+    )
+    with corpus.connect(db) as conn:
+        coa = corpus.get_row(conn, "ca9/55")
+    assert coa is not None and coa.predict_eligible is True
+
+
 def test_to_corpus_row_projects_onto_store_schema() -> None:
     store_row = to_corpus_row(from_api_docket(API_DOCKET))
     assert isinstance(store_row, corpus.CorpusRow)

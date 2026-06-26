@@ -23,8 +23,9 @@ against resolved events, score against the known label) and a retrieval source
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -107,6 +108,19 @@ class CorpusRow(BaseModel):
         "SCOTUS, gating the agentic predict/evaluate stages. Set by the ingestion "
         "rule and never cleared by a later re-ingest; ingestion coverage is unaffected.",
     )
+    originating_court: str | None = Field(
+        default=None,
+        description="Lower-court linkage: the court id this appellate / SCOTUS docket "
+        "came from (CourtListener `appeal_from`), e.g. `ca9` for a SCOTUS petition. "
+        "None when the source carries no lower-court link.",
+    )
+    originating_docket_number: str | None = Field(
+        default=None,
+        description="Lower-court linkage: the docket-number string in the originating "
+        "court (CourtListener `originating_court_information.docket_number`). With "
+        "`originating_court` this is the (court + number) join key onto the lower-court "
+        "docket; only the REST path can populate it (bulk omits the table).",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
 
@@ -171,7 +185,9 @@ CREATE TABLE IF NOT EXISTS cases (
     opinion_text        TEXT,
     summary             TEXT,
     last_pulled         TEXT,
-    predict_eligible    INTEGER NOT NULL DEFAULT 0
+    predict_eligible    INTEGER NOT NULL DEFAULT 0,
+    originating_court            TEXT,
+    originating_docket_number    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -225,6 +241,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "summary": "TEXT",
     "last_pulled": "TEXT",
     "predict_eligible": "INTEGER NOT NULL DEFAULT 0",
+    "originating_court": "TEXT",
+    "originating_docket_number": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -244,12 +262,37 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE cases ADD COLUMN {column} {_CASES_COLUMN_DDL[column]}")
 
 
+_DN_LABEL = re.compile(r"^NO\.?\s+")  # a leading "No." / "No " docket-number label
+_DN_WHITESPACE = re.compile(r"\s+")
+
+
+def normalize_docket_number(raw: str | None) -> str | None:
+    """Canonicalize a docket-number string for the lower-court join, or ``None``.
+
+    Upper-cases, drops a leading ``No.`` label, and removes all whitespace, so two
+    spellings of the *same* number compare equal (``"No. 21-35466"`` ==
+    ``"21-35466"``). Deliberately a light, lossless normalization that yields no
+    false matches: a consolidated / multi-number string (``"21-1, 21-2"``) keeps
+    its punctuation and so will not match a single tracked docket — a miss, never a
+    wrong link. Blank input (and a string that normalizes to empty) returns
+    ``None``. Registered as the SQLite ``norm_dn`` function so the join can compare
+    a stored ``docket_number`` against a normalized incoming value.
+    """
+    if raw is None:
+        return None
+    text = _DN_WHITESPACE.sub("", _DN_LABEL.sub("", raw.strip().upper()))
+    return text or None
+
+
 @contextmanager
 def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
     """Open the corpus database (creating its schema), yielding a connection."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    # The lower-court join normalizes the stored docket_number with the same rule
+    # the caller normalizes the incoming value, so both sides compare canonically.
+    conn.create_function("norm_dn", 1, normalize_docket_number, deterministic=True)
     try:
         conn.executescript(_SCHEMA)
         _migrate_cases(conn)
@@ -278,6 +321,8 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "summary": row.summary,
         "last_pulled": row.last_pulled.isoformat() if row.last_pulled else None,
         "predict_eligible": int(row.predict_eligible),
+        "originating_court": row.originating_court,
+        "originating_docket_number": row.originating_docket_number,
     }
 
 
@@ -303,6 +348,8 @@ def _from_record(record: sqlite3.Row) -> CorpusRow:
         summary=record["summary"],
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
         predict_eligible=bool(record["predict_eligible"]),
+        originating_court=record["originating_court"],
+        originating_docket_number=record["originating_docket_number"],
     )
 
 
@@ -337,6 +384,47 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     with conn:
         conn.executemany(sql, [tuple(_to_record(r)[c] for c in _COLUMNS) for r in rows])
     return len(rows)
+
+
+def latch_originating_eligible(conn: sqlite3.Connection, rows: Iterable[CorpusRow]) -> int:
+    """Latch ``predict_eligible`` on the tracked originating docket of each SCOTUS row.
+
+    The second half of the prediction-scope rule: once a case interacts with the
+    Supreme Court its originating court-of-appeals docket — where post-cert and
+    remand activity lands — is also in scope (``docs/data-pipeline.md``). For every
+    SCOTUS row in ``rows`` carrying a lower-court link (``originating_court`` +
+    ``originating_docket_number``), set the latch on the corpus docket matching
+    ``(court, normalized docket_number)``. Matching is grouped per originating court
+    so at most one indexed scan per court runs, regardless of how many SCOTUS rows
+    share it.
+
+    Forward-only and idempotent, exactly like the ingestion latch: an unlinked
+    SCOTUS row, or one whose originating docket is not tracked, is a no-op; an
+    already-eligible docket is left alone (``predict_eligible = 0`` guards the
+    write); and the flag is only ever set, never cleared. Returns the number of
+    dockets newly latched this call.
+    """
+    by_court: dict[str, set[str]] = {}
+    for row in rows:
+        if row.court != "scotus":
+            continue
+        norm = normalize_docket_number(row.originating_docket_number)
+        if row.originating_court and norm is not None:
+            by_court.setdefault(row.originating_court, set()).add(norm)
+    if not by_court:
+        return 0
+    latched = 0
+    with conn:
+        for court, norms in sorted(by_court.items()):
+            placeholders = ", ".join("?" for _ in norms)
+            cur = conn.execute(
+                "UPDATE cases SET predict_eligible = 1 "
+                f"WHERE court = ? AND predict_eligible = 0 AND norm_dn(docket_number) IN "
+                f"({placeholders})",
+                (court, *sorted(norms)),
+            )
+            latched += cur.rowcount
+    return latched
 
 
 def get_row(conn: sqlite3.Connection, case_id: str) -> CorpusRow | None:

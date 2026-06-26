@@ -103,7 +103,11 @@ def discover_cases(
                 continue
             rows = [from_api_docket(d) for d in dockets]
 
-            corpus.upsert_rows(conn, [to_corpus_row(r) for r in rows])
+            store_rows = [to_corpus_row(r) for r in rows]
+            corpus.upsert_rows(conn, store_rows)
+            # A discovered SCOTUS docket latches its originating tracked CoA docket
+            # eligible (the second half of the prediction-scope rule).
+            corpus.latch_originating_eligible(conn, store_rows)
             for docket in dockets:
                 extraction = extract_events(docket)
                 corpus.upsert_events(conn, extraction.events)
