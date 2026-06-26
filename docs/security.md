@@ -79,8 +79,10 @@ Two IAM roles, assumed via GitHub OIDC (no static keys); see
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-seed` / `run-pull`) —
   **append-only**: `s3:GetObject` / `PutObject` / `ListBucket`, and an explicit
   `Deny` on every delete plus `DeleteBucket` / `PutBucketVersioning`. Content-
-  addressed `dvc push` only ever adds objects and nothing runs `dvc gc`, so the
-  writers never need delete; this means no run can wipe corpus data.
+  addressed `dvc push` only ever adds objects, and no run garbage-collects the
+  remote (`run-seed`'s `dvc gc --workspace` prunes only its local runner cache,
+  never `--cloud`), so the writers never need delete; this means no run can wipe
+  corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by `run-predict` /
   `run-evaluate` / `run-reconcile`) — `GetObject` / `ListBucket` only, so a
   compromised consumer runner cannot write or poison the corpus.

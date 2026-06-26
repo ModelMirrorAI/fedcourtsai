@@ -127,6 +127,15 @@ jobs:
             # shared `corpus-write` lock above and #42.
             uvx --from 'dvc[s3]' dvc add corpus/corpus.db
             uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+            # Reclaim the runner's local DVC cache. cache.type is `copy` (the
+            # runner's ext4 has no reflink), so every chunk's `dvc add` leaves a
+            # full copy of the ever-growing corpus.db in .dvc/cache; across the
+            # dozens of checkpoints in one job those superseded copies pile up and
+            # exhaust the runner disk (ENOSPC). The blob is already safely on the
+            # remote from the push above, so prune everything the *workspace* no
+            # longer references. This is LOCAL only — it never passes `--cloud`, so
+            # the append-only S3 remote is untouched (see docs/security.md).
+            uvx --from 'dvc[s3]' dvc gc --workspace --force
             git add corpus/corpus.db.dvc config/seed-progress.yaml
             if git diff --cached --quiet; then
               echo "No corpus/cursor change this chunk; nothing to commit."

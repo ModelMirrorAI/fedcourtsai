@@ -166,7 +166,8 @@ workflows that hold the credentials.
 **read-only** role, so a compromised predict/evaluate/reconcile runner cannot write
 or poison the corpus. The write role is **append-only** — get/put/list but **no
 delete** — and the bucket has **versioning** on, so no run can wipe corpus objects
-(nothing in the pipeline runs `dvc gc`; content-addressed pushes only ever add).
+(no run garbage-collects the *remote* — `run-seed` prunes only its local runner
+cache with `dvc gc --workspace`, never `--cloud`; remote pushes only ever add).
 Both roles' OIDC trust is scoped to this repo's `runner` environment, so only
 `runner`-environment jobs — never an arbitrary PR-branch job — can assume them. The
 OIDC wiring (`permissions: id-token: write` + the credentials step) grants each job
