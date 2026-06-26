@@ -66,6 +66,20 @@
           "title": "Cases Loaded",
           "type": "integer"
         },
+        "cases_per_day": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Load rate since the previous snapshot, when one is available",
+          "title": "Cases Per Day"
+        },
         "cases_total": {
           "anyOf": [
             {
@@ -98,6 +112,19 @@
           },
           "title": "Entries",
           "type": "array"
+        },
+        "eta_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Projected completion date (ISO), when the rate and total are both known",
+          "title": "Eta Date"
         },
         "percent": {
           "anyOf": [
@@ -134,6 +161,86 @@
         "cases_loaded"
       ],
       "title": "BackfillProgress",
+      "type": "object"
+    },
+    "CostEstimate": {
+      "additionalProperties": false,
+      "description": "A rough monthly cost run-rate, derived without billing-API access.\n\nGitHub Actions cost is estimated from observed run durations x the per-minute\nrate; model cost is the cumulative recorded usage ledger; fixed monthly captures\nthe infra not metered per run (CourtListener membership, S3). All figures are\nestimates against the rates in ``docs/budget.md`` \u2014 check the provider billing\ndashboards for ground truth.",
+      "properties": {
+        "actions_cost_usd": {
+          "description": "actions_minutes x the per-minute rate",
+          "minimum": 0.0,
+          "title": "Actions Cost Usd",
+          "type": "number"
+        },
+        "actions_minutes": {
+          "description": "Summed completed-run wall-clock, in minutes",
+          "minimum": 0.0,
+          "title": "Actions Minutes",
+          "type": "number"
+        },
+        "actions_monthly_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Actions cost projected to 30 days from the window",
+          "title": "Actions Monthly Usd"
+        },
+        "estimated_monthly_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "actions_monthly + fixed_monthly, when derivable",
+          "title": "Estimated Monthly Usd"
+        },
+        "fixed_monthly_usd": {
+          "description": "Configured fixed monthly infra cost",
+          "minimum": 0.0,
+          "title": "Fixed Monthly Usd",
+          "type": "number"
+        },
+        "model_cost_usd": {
+          "description": "Cumulative recorded model spend",
+          "minimum": 0.0,
+          "title": "Model Cost Usd",
+          "type": "number"
+        },
+        "window_days": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Span of the runs used for the Actions estimate",
+          "title": "Window Days"
+        }
+      },
+      "required": [
+        "actions_minutes",
+        "actions_cost_usd",
+        "model_cost_usd",
+        "fixed_monthly_usd"
+      ],
+      "title": "CostEstimate",
       "type": "object"
     },
     "SpendSummary": {
@@ -281,10 +388,13 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue rather than committed.",
+  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.",
   "properties": {
     "backfill": {
       "$ref": "#/$defs/BackfillProgress"
+    },
+    "cost": {
+      "$ref": "#/$defs/CostEstimate"
     },
     "generated_at": {
       "description": "ISO-8601 UTC time the report was built",
@@ -311,7 +421,8 @@
   "required": [
     "generated_at",
     "backfill",
-    "spend"
+    "spend",
+    "cost"
   ],
   "title": "OpsReport",
   "type": "object"

@@ -13,11 +13,12 @@ view: it carries ``generated_at`` and run durations, so it is not byte-stable.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .schemas import (
     BackfillCourt,
     BackfillProgress,
+    CostEstimate,
     ModelUsage,
     OpsReport,
     SeedProgress,
@@ -27,6 +28,13 @@ from .schemas import (
 
 # Conclusions that count as a completed-but-not-successful run.
 _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_failure"})
+
+# Cost constants, kept in sync with docs/budget.md (the single source for rates).
+# GitHub Actions Linux 2-core beyond the included minutes, private repo, USD/min.
+_ACTIONS_USD_PER_MINUTE = 0.006
+# Infra not metered per run: CourtListener Tier 3 ($50) + S3/DVC (~$5), USD/month.
+_FIXED_MONTHLY_USD = 55.0
+_DAYS_PER_MONTH = 30.0
 
 
 def _percentile(values: Sequence[int], q: float) -> int | None:
@@ -160,6 +168,81 @@ def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
     )
 
 
+def _parse_iso(value: str) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _days_between(earlier: str, later: str) -> float | None:
+    """Fractional days from ``earlier`` to ``later`` (ISO-8601), or None if unparseable."""
+    start, end = _parse_iso(earlier), _parse_iso(later)
+    if start is None or end is None:
+        return None
+    return (end - start).total_seconds() / 86400.0
+
+
+def project_backfill(
+    backfill: BackfillProgress, previous: OpsReport | None, generated_at: str
+) -> BackfillProgress:
+    """Add the load rate + projected completion date from the previous snapshot.
+
+    Returns ``backfill`` unchanged when there is no comparable prior snapshot or no
+    forward progress. The ETA needs both a positive rate and a known ``cases_total``.
+    """
+    if previous is None:
+        return backfill
+    days = _days_between(previous.generated_at, generated_at)
+    if days is None or days <= 0:
+        return backfill
+    rate = (backfill.cases_loaded - previous.backfill.cases_loaded) / days
+    if rate <= 0:
+        return backfill.model_copy(update={"cases_per_day": round(rate, 1)})
+
+    eta_date: str | None = None
+    if backfill.cases_total is not None:
+        remaining = max(0, backfill.cases_total - backfill.cases_loaded)
+        now = _parse_iso(generated_at)
+        if now is not None:
+            eta_date = (now + timedelta(days=remaining / rate)).date().isoformat()
+    return backfill.model_copy(update={"cases_per_day": round(rate, 1), "eta_date": eta_date})
+
+
+def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> CostEstimate:
+    """Rough monthly cost run-rate from run durations + recorded spend + fixed infra.
+
+    GitHub Actions cost is estimated from completed-run wall-clock x the per-minute
+    rate and projected to 30 days from the span of the observed runs (no billing-API
+    access needed); the fixed monthly infra is added. Model token cost is reported
+    cumulatively (not a rate), so it is shown but not added into the projection.
+    """
+    run_list = list(runs)
+    seconds = [s for r in run_list if (s := _run_seconds(r)) is not None]
+    actions_minutes = sum(seconds) / 60.0
+    actions_cost = actions_minutes * _ACTIONS_USD_PER_MINUTE
+
+    starts = [t for r in run_list if (t := _parse_iso(str(r.get("createdAt") or ""))) is not None]
+    window_days = (max(starts) - min(starts)).total_seconds() / 86400.0 if len(starts) > 1 else None
+    actions_monthly = (
+        actions_cost / window_days * _DAYS_PER_MONTH if window_days and window_days > 0 else None
+    )
+    estimated_monthly = (
+        round((actions_monthly or 0.0) + _FIXED_MONTHLY_USD, 2)
+        if actions_monthly is not None
+        else None
+    )
+    return CostEstimate(
+        window_days=round(window_days, 1) if window_days is not None else None,
+        actions_minutes=round(actions_minutes, 1),
+        actions_cost_usd=round(actions_cost, 4),
+        actions_monthly_usd=round(actions_monthly, 2) if actions_monthly is not None else None,
+        model_cost_usd=spend.estimated_cost_usd,
+        fixed_monthly_usd=_FIXED_MONTHLY_USD,
+        estimated_monthly_usd=estimated_monthly,
+    )
+
+
 def build_ops_report(
     *,
     generated_at: str,
@@ -167,13 +250,22 @@ def build_ops_report(
     progress: SeedProgress,
     courts: Sequence[str],
     usage: Iterable[ModelUsage],
+    previous: OpsReport | None = None,
 ) -> OpsReport:
-    """Assemble the full operational snapshot. ``generated_at`` is passed in (no clock)."""
+    """Assemble the full operational snapshot. ``generated_at`` is passed in (no clock).
+
+    ``previous`` (the prior snapshot, e.g. from the ``ops-metrics`` branch) drives the
+    backfill rate + ETA; without it those fields stay null.
+    """
+    run_list = list(runs)
+    spend = summarize_spend(usage)
+    backfill = project_backfill(summarize_backfill(progress, courts), previous, generated_at)
     return OpsReport(
         generated_at=generated_at,
-        health=summarize_health(runs),
-        backfill=summarize_backfill(progress, courts),
-        spend=summarize_spend(usage),
+        health=summarize_health(run_list),
+        backfill=backfill,
+        spend=spend,
+        cost=estimate_cost(run_list, spend),
     )
 
 
@@ -215,12 +307,17 @@ def render_markdown(report: OpsReport) -> str:
     bf = report.backfill
     overall = "—" if bf.percent is None else f"{bf.percent}%"
     total = "?" if bf.cases_total is None else f"{bf.cases_total:,}"
+    pace = ""
+    if bf.cases_per_day is not None:
+        pace = f" · **{bf.cases_per_day:,.0f}**/day"
+        if bf.eta_date is not None:
+            pace += f" · ETA **{bf.eta_date}**"
     lines += [
         "",
         "## Backfill progress",
         f"Snapshot `{bf.snapshot or '—'}` · "
         f"courts complete **{bf.courts_complete}/{bf.courts_total}** · "
-        f"cases **{bf.cases_loaded:,}/{total}** ({overall})",
+        f"cases **{bf.cases_loaded:,}/{total}** ({overall}){pace}",
         "",
         "| Court | Loaded | Total | % | Done |",
         "|-------|-------:|------:|--:|:----:|",
@@ -238,8 +335,22 @@ def render_markdown(report: OpsReport) -> str:
         "## Spend (model usage)",
         f"**{s.runs}** run(s) · **{s.total_tokens:,}** tokens · "
         f"**${s.estimated_cost_usd:,.2f}** est. (~${s.mean_cost_usd_per_run:.4f}/run)",
+    ]
+
+    ce = report.cost
+    monthly = "—" if ce.estimated_monthly_usd is None else f"${ce.estimated_monthly_usd:,.0f}/mo"
+    actions_monthly = (
+        "—" if ce.actions_monthly_usd is None else f"${ce.actions_monthly_usd:,.0f}/mo"
+    )
+    lines += [
         "",
-        "> Estimated from recorded `usage.json` at the rates in `fedcourtsai.pricing`; "
-        "check the provider billing dashboards for ground truth.",
+        "## Cost run-rate (estimated)",
+        f"**~{monthly}** projected · Actions {actions_monthly} "
+        f"({ce.actions_minutes:,.0f} min ~ ${ce.actions_cost_usd:,.2f} over "
+        f"{'—' if ce.window_days is None else f'{ce.window_days:g}d'}) · "
+        f"fixed ${ce.fixed_monthly_usd:,.0f}/mo · model ${ce.model_cost_usd:,.2f} cumulative",
+        "",
+        "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
+        "no billing-API access); check the provider billing dashboards for ground truth.",
     ]
     return "\n".join(lines) + "\n"

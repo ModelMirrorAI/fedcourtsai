@@ -308,6 +308,15 @@ class BackfillProgress(_Strict):
     percent: float | None = Field(
         default=None, ge=0.0, le=100.0, description="Overall %, only when cases_total is known"
     )
+    cases_per_day: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Load rate since the previous snapshot, when one is available",
+    )
+    eta_date: str | None = Field(
+        default=None,
+        description="Projected completion date (ISO), when the rate and total are both known",
+    )
     entries: list[BackfillCourt] = Field(default_factory=list)
 
 
@@ -320,14 +329,42 @@ class SpendSummary(_Strict):
     mean_cost_usd_per_run: float = Field(ge=0.0, description="estimated_cost_usd / runs")
 
 
+class CostEstimate(_Strict):
+    """A rough monthly cost run-rate, derived without billing-API access.
+
+    GitHub Actions cost is estimated from observed run durations x the per-minute
+    rate; model cost is the cumulative recorded usage ledger; fixed monthly captures
+    the infra not metered per run (CourtListener membership, S3). All figures are
+    estimates against the rates in ``docs/budget.md`` — check the provider billing
+    dashboards for ground truth.
+    """
+
+    window_days: float | None = Field(
+        default=None, ge=0.0, description="Span of the runs used for the Actions estimate"
+    )
+    actions_minutes: float = Field(
+        ge=0.0, description="Summed completed-run wall-clock, in minutes"
+    )
+    actions_cost_usd: float = Field(ge=0.0, description="actions_minutes x the per-minute rate")
+    actions_monthly_usd: float | None = Field(
+        default=None, ge=0.0, description="Actions cost projected to 30 days from the window"
+    )
+    model_cost_usd: float = Field(ge=0.0, description="Cumulative recorded model spend")
+    fixed_monthly_usd: float = Field(ge=0.0, description="Configured fixed monthly infra cost")
+    estimated_monthly_usd: float | None = Field(
+        default=None, ge=0.0, description="actions_monthly + fixed_monthly, when derivable"
+    )
+
+
 class OpsReport(_Strict):
-    """``metrics/ops.json`` — an operational snapshot: health, backfill, spend.
+    """``metrics/ops.json`` — an operational snapshot: health, backfill, spend, cost.
 
     A read-only roll-up of authoritative sources (the Actions run history, the seed
     cursor, the usage ledger), so no pipeline run writes an ops record. Unlike the
     deterministic leaderboard / back-test roll-ups this is a **point-in-time** view —
     it carries ``generated_at`` and run durations, so it is not byte-stable and is
-    surfaced via the run-ops dashboard issue rather than committed.
+    surfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``
+    branch) rather than committed to the default branch.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -335,6 +372,7 @@ class OpsReport(_Strict):
     health: list[WorkflowHealth] = Field(default_factory=list)
     backfill: BackfillProgress
     spend: SpendSummary
+    cost: CostEstimate
 
 
 class CourtProgress(_Strict):
