@@ -78,7 +78,7 @@ cadence:
 | Source          | bulk S3 CSV                             | REST API                          |
 | Lifecycle       | finite — runs daily **until complete**  | perpetual — runs daily forever    |
 | Budget          | ~0 API                                  | owns the 125/day budget           |
-| Reporting       | long-lived `run:seed` issue, closed by a completion PR | short-lived `pull-run` issue per run |
+| Reporting       | long-lived `run:seed` issue, closed by a completion PR | short-lived `pull-log` issue per run |
 | Steady state    | drops to **quarterly** reconciliation   | stays **daily**                   |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a normalization
@@ -291,10 +291,10 @@ replayed out of band, exactly as `run-predict` runs them live.
   `.github/ISSUE_TEMPLATE/pull.yml`). Recording a decided event's outcome is split
   off to `run:reconcile` (see *Detect resolution* below), so it is **no longer**
   the deterministic pull's job.
-- **Per-run tracking:** each run opens a short-lived `pull-run` issue at the start,
+- **Per-run tracking:** each run opens a short-lived `pull-log` issue at the start,
   posts a summary (handoffs opened, whether snapshots were committed), and closes it
-  on success — left open as a record if the run fails. The `pull-run` label is
-  deliberately distinct from `run:pull` so the tracking issue never re-fires pull.
+  on success — left open as a record if the run fails. The `pull-log` label is
+  deliberately not a `run:*` trigger label, so the tracking issue never re-fires pull.
 - **Budget governor:** a per-run cap (~15 dockets ≈ 45 requests, under the 50/hr
   ceiling) with **oldest-`last_pulled`-first rotation** and **skip closed/resolved**
   cases. As the active set grows past one run's capacity, each case is simply
