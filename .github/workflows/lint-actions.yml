@@ -2,7 +2,9 @@ name: lint-actions
 
 # Static analysis of the workflows themselves. zizmor enforces the security
 # invariants in SECURITY.md (notably: every action pinned to a full commit
-# SHA, least-privilege permissions). Runs whenever anything under .github changes.
+# SHA, least-privilege permissions); actionlint checks workflow syntax,
+# `${{ }}` expressions, `needs`/matrix references, and shell in `run:` blocks.
+# Runs whenever anything under .github changes.
 on:
   pull_request:
     paths:
@@ -29,3 +31,30 @@ jobs:
           # Lets zizmor resolve action refs; github.token is read-only here.
           GH_TOKEN: ${{ github.token }}
         run: uvx zizmor@1.26.1 --persona=regular .github/workflows .github/actions
+
+  actionlint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: actionlint
+        env:
+          # Pin the linter version; bump alongside zizmor when a new release lands.
+          ACTIONLINT_VERSION: "1.7.12"
+        # Install a pinned actionlint via its official download script (the script
+        # is fetched at the matching version tag, so both script and binary are
+        # pinned). shellcheck ships on the runner, so actionlint also lints the
+        # shell in `run:` blocks. No action is added, so zizmor has nothing new
+        # to verify and contents:read is enough.
+        # SC2016 is disabled because `run:` blocks embed jq programs and Python
+        # heredocs whose single-quoted `$name` are jq/regex tokens, not shell
+        # variables — they must stay literal. Every other shellcheck rule stays on.
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL \
+            "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash" \
+            -o download-actionlint.bash
+          bash download-actionlint.bash "$ACTIONLINT_VERSION"
+          ./actionlint -color -shellcheck="shellcheck -e SC2016"
