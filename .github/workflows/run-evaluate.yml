@@ -102,6 +102,31 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      # Define the remote's bucket URL out of band into the gitignored
+      # .dvc/config.local (never committed; see SECURITY.md). Boto3 picks up the
+      # OIDC-assumed read-only credentials from the environment.
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+
+      # Point-in-time snapshots are raw facts in the DVC-backed corpus, not git:
+      # pull the corpus and materialize this case's latest snapshot to the
+      # gitignored record/ path the evaluator reads (never committed). Best-effort
+      # — a missing snapshot must not abort the run; the agent notes it per prompt.
+      - name: Provision the case snapshot from the corpus
+        continue-on-error: true
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+        run: |
+          if [ -f corpus/corpus.db.dvc ]; then
+            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          else
+            echo "::warning::no corpus pointer yet; cannot provision a snapshot"
+          fi
+          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
+
       - name: Evaluate with Claude Code
         id: evaluate_claude
         if: matrix.engine == 'claude-code'

@@ -48,24 +48,31 @@ def _pull(client: FakeClient, tmp_path: Path) -> Any:
 
 
 def test_first_pull_onboards_into_corpus(tmp_path: Path) -> None:
-    result = _pull(FakeClient(DOCKET, [{"id": 1, "description": "Motion to stay"}]), tmp_path)
+    entries = [{"id": 1, "description": "Motion to stay"}]
+    result = _pull(FakeClient(DOCKET, entries), tmp_path)
     assert result.case_id == "ca9/64512345"
     assert result.changed is True
-    # The raw fact lands in the corpus, not in per-case git files.
+    assert result.snapshot == date.today().isoformat()
+    # Both the normalized row and the point-in-time snapshot land in the corpus,
+    # not in per-case git files.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         row = corpus.get_row(conn, "ca9/64512345")
+        snap = corpus.latest_snapshot(conn, "ca9/64512345")
     assert row is not None
     assert row.court == "ca9"
     assert row.topic == "Civil Rights"
-    assert result.snapshot.exists()  # transitional point-in-time snapshot
+    assert snap is not None
+    snap_date, payload = snap
+    assert snap_date == date.today()
+    assert payload == {**DOCKET, "docket_entries": entries}
 
 
-def test_no_legacy_git_files_written(tmp_path: Path) -> None:
+def test_pull_writes_no_git_files(tmp_path: Path) -> None:
+    # Pull is now corpus-only: it materializes nothing under data/ (the snapshot
+    # lives in the corpus; predict/evaluate provision it from there per run).
     _pull(FakeClient(DOCKET, []), tmp_path)
-    case_dir = tmp_path / "data" / "cases" / "ca9" / "64512345"
-    assert not (case_dir / "case.yaml").exists()
-    assert not (case_dir / "record" / "docket.json").exists()
+    assert not (tmp_path / "data" / "cases").exists()
 
 
 def test_unchanged_second_pull_reports_no_change(tmp_path: Path) -> None:

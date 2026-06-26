@@ -111,6 +111,21 @@ off without rescanning the court.
 | `court`      | text (PK) | CourtListener court id                          |
 | `last_filed` | date      | newest `date_filed` discovered so far          |
 
+## Dated snapshots (`snapshots`)
+
+Each `pull` stores the full point-in-time docket JSON (docket + entries) it
+fetched — the raw fact a normalized `cases` row cannot fully capture. `pull`
+diffs the latest stored snapshot against the fresh fetch to decide whether a case
+*changed* (the `run:predict` trigger), and the predict/evaluate/reconcile
+workflows provision a case's latest snapshot from here for the agent to predict
+from (`fedcourts provision-snapshot`).
+
+| Column          | Type      | Notes                                          |
+|-----------------|-----------|------------------------------------------------|
+| `case_id`       | text (PK) | `<court_id>/<docket_id>`                        |
+| `snapshot_date` | text (PK) | pull date; one snapshot per case per day        |
+| `payload`       | text      | full-docket JSON (sorted keys for stable bytes) |
+
 ## Working with it locally
 
 ```bash
