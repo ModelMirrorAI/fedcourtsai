@@ -193,7 +193,18 @@ jobs:
           else
             args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
           fi
-          uv run fedcourts "${args[@]}"
+          # Surface the measured tokens + estimated $ in the Actions UI (#89). The
+          # command already prints `usage: <actor> <N> tok ~$<cost> -> <path>`; keep
+          # all but the path. A miss just warns (best-effort, like the step itself).
+          if out=$(uv run fedcourts "${args[@]}"); then
+            echo "$out"
+            {
+              echo "## predict usage — ${COURT_ID}/${DOCKET_ID} ${EVENT_ID} (${ENGINE})"
+              echo "${out%% -> *}"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::no model usage captured for ${EVENT_ID}"
+          fi
 
       - name: Validate and open PR
         env:
