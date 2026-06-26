@@ -25,8 +25,15 @@
   private S3 bucket behind the DVC remote assume a least-privilege IAM role via
   GitHub OIDC (`aws-actions/configure-aws-credentials`, SHA-pinned;
   `permissions: id-token: write`), reading the role ARN/region from the `runner`
-  environment. No long-lived AWS keys exist. The committed `.dvc/config` carries
-  no credentials and no bucket URL — it only names the default remote
+  environment. No long-lived AWS keys exist. **Two roles, split by access:** corpus
+  writers (`run-seed`, `run-pull` → `AWS_ROLE_TO_ASSUME`) get a **read-write**
+  role; retrieval consumers (`run-predict`, `run-evaluate`, `run-reconcile` →
+  `AWS_ROLE_TO_ASSUME_READONLY`) get a **read-only** role, so a compromised
+  consumer runner cannot tamper with the corpus. The write role is **append-only**
+  (get/put/list, **no delete**) and the bucket keeps **versioning** on, so no run
+  can wipe corpus data. Both roles' OIDC trust is scoped to the repo's `runner`
+  environment, so a PR-branch job cannot assume them. The committed `.dvc/config`
+  carries no credentials and no bucket URL — it only names the default remote
   (`storage`). Each job (and each operator) defines the remote's URL out of band,
   into the gitignored `.dvc/config.local`, before any push/pull:
 
