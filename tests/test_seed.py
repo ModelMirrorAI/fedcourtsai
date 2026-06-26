@@ -441,6 +441,55 @@ def test_bulk_source_stages_oversized_cluster_field(tmp_path: Path) -> None:
     assert row["summary"] == big_summary
 
 
+def test_bulk_source_skips_missing_sibling_file(tmp_path: Path) -> None:
+    """A sibling table CourtListener doesn't publish (404) is skipped, not fatal.
+
+    parties / attorneys have no bulk export at all, so their derived URLs 404 —
+    the docket spine must still stage with those fields left blank.
+    """
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id,docket_number\n1,ca9,9-1\n")
+    client = httpx.Client(transport=httpx.MockTransport(lambda _req: httpx.Response(404)))
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        parties_url="http://bulk.test/parties-2026-Q2.csv",  # not published -> 404
+        dockets_cache=dockets,
+        client=client,
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+        client.close()
+
+    (row,) = chunk.rows
+    assert row["id"] == "1"
+    assert row["parties"] == "[]"  # aggregated to empty, not errored
+
+
+def test_bulk_source_propagates_non_404_sibling_error(tmp_path: Path) -> None:
+    """A 5xx on a sibling is a real failure and must not be silently swallowed."""
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id,docket_number\n1,ca9,9-1\n")
+    client = httpx.Client(transport=httpx.MockTransport(lambda _req: httpx.Response(503)))
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        parties_url="http://bulk.test/parties-2026-Q2.csv",
+        dockets_cache=dockets,
+        client=client,
+    )
+    try:
+        with pytest.raises(httpx.HTTPStatusError):
+            source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+        client.close()
+
+
 def test_bulk_source_keeps_latest_cluster_per_docket(tmp_path: Path) -> None:
     dockets = tmp_path / "dockets.csv"
     dockets.write_text("id,court_id\n1,ca9\n")

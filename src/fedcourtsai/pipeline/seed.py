@@ -636,7 +636,9 @@ class CourtListenerBulkSource:
         self, conn: sqlite3.Connection, docket_ids: set[int], people: Mapping[str, _Person]
     ) -> None:
         assert self.clusters_url is not None
-        path = self._ensure_local(self.clusters_url, self.clusters_cache)
+        path = self._ensure_optional_local(self.clusters_url, self.clusters_cache)
+        if path is None:
+            return
         batch: list[_ClusterRow] = []
         with self._open_text(path, self.clusters_url) as fh:
             for row in csv.DictReader(fh):
@@ -671,7 +673,9 @@ class CourtListenerBulkSource:
         """
         if self.people_url is None:
             return {}
-        path = self._ensure_local(self.people_url, self.people_cache)
+        path = self._ensure_optional_local(self.people_url, self.people_cache)
+        if path is None:
+            return {}
         directory: dict[str, _Person] = {}
         with self._open_text(path, self.people_url) as fh:
             for row in csv.DictReader(fh):
@@ -699,7 +703,9 @@ class CourtListenerBulkSource:
         Each row contributes one ``(docket_id, name)`` pair for a tracked docket;
         Phase B aggregates them. ``table`` is an internal constant, never user input.
         """
-        path = self._ensure_local(url, cache)
+        path = self._ensure_optional_local(url, cache)
+        if path is None:
+            return
         batch: list[tuple[int, str]] = []
         with self._open_text(path, url) as fh:
             for row in csv.DictReader(fh):
@@ -755,11 +761,32 @@ class CourtListenerBulkSource:
                 with path.open("wb") as fh:
                     for block in resp.iter_bytes():
                         fh.write(block)
+        except BaseException:
+            # Don't leave the freshly-created temp file behind on any failure
+            # (e.g. an absent optional sibling 404s before a byte is written).
+            path.unlink(missing_ok=True)
+            raise
         finally:
             if self.client is None:
                 client.close()
         self._owned_files.append(path)
         return path
+
+    def _ensure_optional_local(self, url: str, cache: Path | None) -> Path | None:
+        """Fetch an *optional* sibling bulk file, or ``None`` if it isn't published.
+
+        Sibling tables are optional (see the class docstring): CourtListener does
+        not export every table — ``parties`` / ``attorneys`` have no bulk file at
+        all, and a given snapshot can lack others — so a ``404`` means "no sibling,"
+        leaving its fields blank rather than failing the whole backfill. Any other
+        HTTP error (5xx, etc.) still propagates.
+        """
+        try:
+            return self._ensure_local(url, cache)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            raise
 
     @staticmethod
     def _open_text(path: Path, url: str) -> IO[str]:
