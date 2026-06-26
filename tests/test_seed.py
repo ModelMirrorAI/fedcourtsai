@@ -348,6 +348,33 @@ def test_bulk_source_stages_and_serves_court_chunks(tmp_path: Path) -> None:
         source.cleanup()
 
 
+def test_bulk_source_tolerates_over_wide_docket_row(tmp_path: Path) -> None:
+    """An over-wide CSV row (more fields than the header) must not crash staging.
+
+    csv.DictReader files the surplus values under a None key, which the staging
+    dump cannot order with sort_keys — the row must stage anyway, sans extras.
+    """
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text(
+        "id,court_id,docket_number\n"
+        "1,ca9,9-1,surplus-a,surplus-b\n"  # two extra fields land under restkey None
+        "2,ca9,9-2\n"
+    )
+    source = CourtListenerBulkSource(
+        "2026-Q2", dockets_url="dockets.csv", courts=["ca9"], dockets_cache=dockets
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+
+    by_id = {r["id"]: r for r in chunk.rows}
+    assert set(by_id) == {"1", "2"}
+    assert by_id["1"]["docket_number"] == "9-1"
+    # The unnamed surplus is dropped, not preserved under a None key.
+    assert None not in by_id["1"]
+
+
 def test_bulk_source_joins_opinion_cluster_fields(tmp_path: Path) -> None:
     dockets = tmp_path / "dockets.csv"
     dockets.write_text("id,court_id,docket_number\n1,ca9,9-1\n2,ca9,9-2\n")
