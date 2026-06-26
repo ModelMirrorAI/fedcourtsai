@@ -25,10 +25,11 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -215,6 +216,18 @@ CREATE TABLE IF NOT EXISTS discovery_watermarks (
     court       TEXT PRIMARY KEY,
     last_filed  TEXT NOT NULL
 );
+
+-- Dated point-in-time docket snapshots: a raw fact, one per (case, pull date).
+-- The full-docket JSON (docket + entries) a normalized `cases` row cannot fully
+-- capture. Backs `pull`'s change detection and is the snapshot predictors and
+-- evaluators are provisioned from at prediction time.
+CREATE TABLE IF NOT EXISTS snapshots (
+    case_id        TEXT NOT NULL,
+    snapshot_date  TEXT NOT NULL,
+    payload        TEXT NOT NULL,
+    PRIMARY KEY (case_id, snapshot_date)
+);
+CREATE INDEX IF NOT EXISTS idx_snapshots_case ON snapshots(case_id);
 """
 
 # Per-column DDL for the `cases` table, in storage order. Mirrors the `cases`
@@ -719,3 +732,50 @@ def set_discovery_watermark(conn: sqlite3.Connection, court: str, last_filed: da
             "WHERE excluded.last_filed > discovery_watermarks.last_filed",
             (court, last_filed.isoformat()),
         )
+
+
+# --- dated point-in-time snapshots (raw facts) ---------------------------------
+
+
+def upsert_snapshot(
+    conn: sqlite3.Connection, case_id: str, snapshot_date: date, payload: Mapping[str, Any]
+) -> None:
+    """Store one pull's full-docket snapshot, keyed by ``(case_id, snapshot_date)``.
+
+    The snapshot is the raw point-in-time docket JSON (docket + entries) that a
+    normalized ``cases`` row does not fully capture — it is what ``pull`` diffs to
+    detect change and what predictors/evaluators are provisioned from. Serialized
+    with sorted keys so a re-store of the same facts is byte-identical. Idempotent:
+    a second pull on the same day overwrites that day's snapshot rather than
+    duplicating it.
+    """
+    with conn:
+        conn.execute(
+            "INSERT INTO snapshots (case_id, snapshot_date, payload) VALUES (?, ?, ?) "
+            "ON CONFLICT(case_id, snapshot_date) DO UPDATE SET payload = excluded.payload",
+            (case_id, snapshot_date.isoformat(), json.dumps(payload, sort_keys=True)),
+        )
+
+
+def latest_snapshot(conn: sqlite3.Connection, case_id: str) -> tuple[date, dict[str, Any]] | None:
+    """The most recent dated snapshot for a case — ``(date, payload)`` — or ``None``.
+
+    Ordered by ``snapshot_date`` so the newest pull wins; ``None`` means the case
+    has never been snapshotted (the onboarding signal for ``pull``).
+    """
+    cur = conn.execute(
+        "SELECT snapshot_date, payload FROM snapshots WHERE case_id = ? "
+        "ORDER BY snapshot_date DESC LIMIT 1",
+        (case_id,),
+    )
+    record = cur.fetchone()
+    if record is None:
+        return None
+    payload: dict[str, Any] = json.loads(record["payload"])
+    return date.fromisoformat(record["snapshot_date"]), payload
+
+
+def snapshot_count(conn: sqlite3.Connection) -> int:
+    """Total number of dated snapshot rows in the corpus."""
+    cur = conn.execute("SELECT COUNT(*) AS n FROM snapshots")
+    return int(cur.fetchone()["n"])
