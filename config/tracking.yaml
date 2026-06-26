@@ -8,8 +8,12 @@
 seed:
   # Source: CourtListener quarterly bulk-data snapshots (public S3).
   source: bulk
-  # Cases materialized per scheduled run (CI-time / PR-size guardrail, not API).
-  max_cases_per_run: 2000
+  # Cases per `seed-backfill` invocation = the run-seed loop's checkpoint chunk.
+  # The workflow stages the snapshot once, then loops this many cases at a time
+  # (committing + pushing the corpus after each) until the backlog is done or its
+  # wall-clock budget runs out — so this trades crash-loss / push-frequency, not
+  # the total loaded per run. No API budget (bulk data).
+  max_cases_per_run: 10000
   # Committed cursor tracking per-court backfill progress (resumable rebuild).
   cursor: config/seed-progress.yaml
 

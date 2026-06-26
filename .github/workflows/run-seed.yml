@@ -1,18 +1,23 @@
 name: run-seed
 
-# Deterministic, NO-AGENT historical backfill. Loads the next chunk of the
-# CourtListener PUBLIC bulk-data snapshot (not the rate-limited REST API, so it
-# spends no API budget) into the packed corpus via `fedcourts seed-backfill`,
-# pushes the corpus blob to the DVC S3 remote, commits the corpus pointer + cursor
-# bump DIRECTLY to the default branch, and comments per-court progress on the
-# long-lived run:seed tracking issue. Runs daily until the backlog is complete;
-# on the run that exhausts every court it opens a one-time completion PR that
-# flips the cursor's `completed` sign-off flag — merging it closes the tracker.
-# Then it reconciles quarterly when a new bulk snapshot drops. See
-# docs/seed-backfill.md and docs/data-pipeline.md.
+# Deterministic, NO-AGENT historical backfill. Stages the CourtListener PUBLIC
+# bulk-data snapshot once (not the rate-limited REST API, so it spends no API
+# budget), then LOOPS `fedcourts seed-backfill` over that staging — reusing it via
+# a runner-local --staging-path so the heavy download/parse is paid once per job —
+# loading a checkpoint chunk (seed.max_cases_per_run) at a time. After each chunk
+# it pushes the corpus blob to the DVC S3 remote and commits the corpus pointer +
+# cursor bump DIRECTLY to the default branch, so a crash/timeout loses at most one
+# chunk and the next run resumes from the cursor. The loop runs until the backlog
+# is done or its wall-clock budget runs out, then comments per-court progress on
+# the long-lived run:seed tracking issue; on the run that exhausts every court it
+# opens a one-time completion PR that flips the cursor's `completed` sign-off flag
+# (merging it closes the tracker). Then it reconciles quarterly when a new bulk
+# snapshot drops. Scheduled overnight so a multi-hour backfill finishes well before
+# run-pull (07:17) — both share the `corpus-write` lock. See docs/seed-backfill.md
+# and docs/data-pipeline.md.
 on:
   schedule:
-    - cron: "23 6 * * *" # daily, staggered from run-pull (07:17)
+    - cron: "23 0 * * *" # overnight; a long backfill must finish before run-pull (07:17)
   workflow_dispatch:
   issues:
     types: [labeled]
@@ -30,7 +35,7 @@ jobs:
   seed:
     if: github.event_name != 'issues' || github.event.label.name == 'run:seed'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 330 # overnight backfill: ~stage once + loop ingest; ends before run-pull
     environment: runner
     permissions:
       contents: write # commit the corpus pointer + cursor straight to the default branch
@@ -83,25 +88,18 @@ jobs:
             echo "No corpus pointer yet; starting a fresh corpus."
           fi
 
-      - name: Load the next bulk chunk into the corpus
+      - name: Backfill in checkpointed chunks until done or out of time
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           # Public CourtListener bulk snapshot — no API token. Point this at the
           # bulk-data base directory; the backfill lists the bucket and loads the
           # latest snapshot on its own (its publication date becomes the snapshot
           # id). A pinned `.csv.bz2` file URL is also honored as-is.
           FEDCOURTS_COURTLISTENER_BULK_URL: ${{ vars.COURTLISTENER_BULK_URL }}
-        run: uv run fedcourts seed-backfill --report seed-report.json
-
-      - name: Push the corpus blob to the DVC remote
-        run: |
-          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
-          # Push the blob before opening the PR so the committed pointer always
-          # resolves against the remote.
-          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
-
-      - name: Commit the corpus pointer + cursor to the default branch
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Wall-clock budget for the whole loop. Kept under timeout-minutes (with
+          # room for the staging build + the final comment/PR steps) and small
+          # enough that the run finishes before run-pull's 07:17 slot.
+          LOOP_BUDGET_SECONDS: "16200" # 4.5h
         run: |
           set -euo pipefail
           git config user.name "fedcourts-bot"
@@ -109,33 +107,75 @@ jobs:
           # persist-credentials is false on checkout, so authenticate the push via
           # the App token's git credential helper.
           gh auth setup-git
-          # Only the small pointer + cursor enter git; the blob lives in the remote.
-          # Commit straight to the default branch (like run-pull) so every corpus
-          # writer always builds on the latest committed pointer — see the shared
-          # `corpus-write` lock above and #42. The blob was pushed first, so the
-          # committed pointer always resolves against the remote.
-          git add corpus/corpus.db.dvc config/seed-progress.yaml
-          if git diff --cached --quiet; then
-            echo "No corpus/cursor change this run; nothing to commit."
-            exit 0
-          fi
-          snapshot=$(jq -r '.snapshot' seed-report.json)
-          loaded=$(jq -r '.loaded_this_run' seed-report.json)
-          git commit -m "seed(backfill): ${snapshot} +${loaded} case(s)"
-          # The default branch may have advanced since checkout (e.g. a run:predict
-          # / run:evaluate PR merged). The corpus-write lock keeps the other corpus
-          # writer out, so the pointer never conflicts; rebase our commit onto the
-          # latest tip and retry so the push is always a fast-forward.
-          for attempt in 1 2 3; do
-            git pull --rebase origin "${GITHUB_REF_NAME}"
-            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
-              exit 0
+
+          # The staged snapshot lives on the runner's local disk so every loop
+          # iteration after the first reuses it (the build is skipped when the
+          # snapshot id matches) — the GB-scale download/parse is paid once per job.
+          staging="${RUNNER_TEMP}/seed-staging.db"
+          deadline=$(( $(date -u +%s) + LOOP_BUDGET_SECONDS ))
+          total_loaded=0
+
+          checkpoint() {
+            # Push the blob BEFORE committing the pointer so the committed pointer
+            # always resolves against the remote. Only the small pointer + cursor
+            # enter git; commit straight to the default branch (like run-pull) so
+            # every corpus writer builds on the latest committed pointer — see the
+            # shared `corpus-write` lock above and #42.
+            uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+            uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+            git add corpus/corpus.db.dvc config/seed-progress.yaml
+            if git diff --cached --quiet; then
+              echo "No corpus/cursor change this chunk; nothing to commit."
+              return 0
             fi
-            echo "::warning::push rejected (default branch advanced); retry ${attempt}"
-            sleep 3
+            local snapshot loaded attempt
+            snapshot=$(jq -r '.snapshot' seed-report.json)
+            loaded=$(jq -r '.loaded_this_run' seed-report.json)
+            git commit -m "seed(backfill): ${snapshot} +${loaded} case(s)"
+            # The default branch may have advanced since checkout (e.g. a merged
+            # predict/evaluate PR). The corpus-write lock keeps the other corpus
+            # writer out, so the pointer never conflicts; rebase onto the latest tip
+            # and retry so the push is always a fast-forward.
+            for attempt in 1 2 3; do
+              git pull --rebase origin "${GITHUB_REF_NAME}"
+              if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+                return 0
+              fi
+              echo "::warning::push rejected (default branch advanced); retry ${attempt}"
+              sleep 3
+            done
+            echo "::error::could not push the corpus pointer after 3 attempts"
+            return 1
+          }
+
+          while :; do
+            # One checkpoint chunk (seed.max_cases_per_run). The cursor advances and
+            # is committed each pass, so the loop resumes cleanly after any stop.
+            uv run fedcourts seed-backfill --staging-path "$staging" --report seed-report.json
+            checkpoint
+
+            loaded=$(jq -r '.loaded_this_run' seed-report.json)
+            total_loaded=$(( total_loaded + loaded ))
+
+            if [ "$(jq -r '.complete' seed-report.json)" = "true" ]; then
+              echo "Backfill complete."
+              break
+            fi
+            if [ "$loaded" = "0" ]; then
+              echo "::warning::chunk loaded 0 cases but backfill not complete; stopping."
+              break
+            fi
+            if [ "$(date -u +%s)" -ge "$deadline" ]; then
+              echo "Wall-clock budget reached after ${total_loaded} case(s); resumes next run."
+              break
+            fi
           done
-          echo "::error::could not push the corpus pointer after 3 attempts"
-          exit 1
+
+          # The later steps (progress comment, completion PR) read seed-report.json;
+          # its per-court table is cumulative from the cursor, but loaded_this_run is
+          # only the last chunk — overwrite it with the whole run's total.
+          jq --argjson t "$total_loaded" '.loaded_this_run = $t' seed-report.json > seed-report.tmp
+          mv seed-report.tmp seed-report.json
 
       - name: Comment progress on the tracking issue
         env:

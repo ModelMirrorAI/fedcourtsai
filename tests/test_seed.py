@@ -469,6 +469,46 @@ def test_bulk_source_skips_missing_sibling_file(tmp_path: Path) -> None:
     assert row["parties"] == "[]"  # aggregated to empty, not errored
 
 
+def test_staging_path_is_reused_across_runs(tmp_path: Path) -> None:
+    """A persisted staging DB is reused on the next run, not rebuilt.
+
+    This is what lets a workflow loop many chunks after paying the heavy stage-once
+    download/parse only once per job.
+    """
+    staging = tmp_path / "staging.db"
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id,docket_number\n1,ca9,9-1\n2,ca9,9-2\n")
+
+    first = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        dockets_cache=dockets,
+        staging_path=staging,
+    )
+    try:
+        assert first.fetch_court_chunk("ca9", offset=0, limit=10).total == 2
+    finally:
+        first.cleanup()
+    assert staging.exists()  # caller-supplied staging is preserved, not torn down
+
+    # Delete the source file: a reused staging DB must need no re-download/re-parse,
+    # so a second run over the same snapshot still serves every row.
+    dockets.unlink()
+    second = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        dockets_cache=dockets,
+        staging_path=staging,
+    )
+    try:
+        chunk = second.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        second.cleanup()
+    assert [r["id"] for r in chunk.rows] == ["1", "2"]
+
+
 def test_bulk_source_propagates_non_404_sibling_error(tmp_path: Path) -> None:
     """A 5xx on a sibling is a real failure and must not be silently swallowed."""
     dockets = tmp_path / "dockets.csv"
