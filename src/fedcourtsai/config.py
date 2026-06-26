@@ -90,16 +90,19 @@ def load_courts(config_root: Path) -> list[str]:
 class SeedConfig(BaseModel):
     """The ``seed`` section of ``config/tracking.yaml`` — the bulk-backfill knobs.
 
-    Seed spends no API budget; ``max_cases_per_run`` is a CI-time / PR-size
-    guardrail on how many cases one chunk loads from the bulk snapshot. Only the
-    keys the backfill command needs are modeled (extra keys, like ``source``, are
-    ignored).
+    Seed spends no API budget; ``max_cases_per_run`` caps how many cases a single
+    ``seed-backfill`` invocation loads. The run-seed workflow loops the command
+    over one staged snapshot, committing after each pass, so this is the
+    **per-checkpoint chunk size** — how much progress a crash can lose and how
+    often the corpus blob is pushed — not the ceiling on a whole scheduled run
+    (that is the workflow's wall-clock budget). Only the keys the backfill command
+    needs are modeled (extra keys, like ``source``, are ignored).
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    # Cases materialized per scheduled run; a hard per-run cap (`--max-cases` may
-    # only lower it for a one-off run).
+    # Cases loaded per `seed-backfill` invocation = the workflow loop's checkpoint
+    # chunk (`--max-cases` may only lower it for a one-off run).
     max_cases_per_run: int = Field(default=2000, ge=0)
     # Committed cursor recording per-court backfill progress (resumable rebuild).
     cursor: Path = Path("config/seed-progress.yaml")
