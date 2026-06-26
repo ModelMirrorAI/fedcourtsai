@@ -725,9 +725,11 @@ def pull_all(
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
+    failed = f" ({len(queues.failed)} failed)" if queues.failed else ""
     typer.echo(
-        f"Refreshed {len(due)}/{cap} case(s); queued {len(queues.predict)} predict, "
-        f"{len(queues.evaluate)} evaluate, {len(queues.reconcile)} reconcile."
+        f"Refreshed {len(due) - len(queues.failed)}/{cap} case(s){failed}; "
+        f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
+        f"{len(queues.reconcile)} reconcile."
     )
 
 

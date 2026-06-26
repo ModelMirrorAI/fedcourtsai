@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -26,6 +26,21 @@ from tenacity import (
 from .ratelimit import RateLimiter, default_rate_limiter
 
 JsonDict = dict[str, Any]
+
+
+def _is_transient(exc: BaseException) -> bool:
+    """Whether a failed request is worth retrying.
+
+    Network/timeout faults (:class:`httpx.RequestError`) and server-side errors
+    (HTTP 5xx) or throttling (429) are transient — a retry may succeed. A
+    deterministic client error such as a 404 (missing docket) is not: retrying it
+    only burns the API budget without changing the outcome, so it propagates to
+    the caller on the first attempt.
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        return status == 429 or status >= 500
+    return isinstance(exc, httpx.RequestError)
 
 
 class CourtListenerClient:
@@ -60,7 +75,7 @@ class CourtListenerClient:
     @retry(
         stop=stop_after_attempt(4),
         wait=wait_exponential(min=1, max=20),
-        retry=retry_if_exception_type(httpx.HTTPError),
+        retry=retry_if_exception(_is_transient),
         reraise=True,
     )
     def _get(self, path: str, params: JsonDict | None = None) -> JsonDict:
