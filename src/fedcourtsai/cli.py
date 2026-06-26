@@ -18,7 +18,14 @@ import yaml
 
 from . import corpus, ids
 from .backtest import default_backtesters, run_backtest, select_backtest_set
-from .config import get_settings, load_courts, load_pull_config, load_seed_config
+from .config import (
+    PredictScope,
+    get_settings,
+    load_courts,
+    load_predict_config,
+    load_pull_config,
+    load_seed_config,
+)
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
@@ -586,6 +593,7 @@ def pull_all(
     """
     settings = get_settings()
     pull_cfg = load_pull_config(settings.config_root)
+    scope = load_predict_config(settings.config_root).scope
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     db = corpus.corpus_db_path(settings.corpus_root)
     with _client() as client:
@@ -600,7 +608,7 @@ def pull_all(
             typer.echo(f"Discovered {disc.total} new case(s) before refresh")
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
-        queues = pull_cases(client, db, settings.data_root, due)
+        queues = pull_cases(client, db, settings.data_root, due, scope=scope)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
@@ -665,6 +673,35 @@ def _resolve_cases(
     ]
 
 
+def _scope_filtered(
+    cases: list[CaseRequest], scope: PredictScope, corpus_root: Path
+) -> list[CaseRequest]:
+    """Drop out-of-scope cases under ``scotus_touched``; the matrix backstop.
+
+    A manually-filed predict/evaluate issue cannot bypass the gate the pull
+    queueing applies: eligibility is read from the corpus' latched
+    ``predict_eligible`` flag, and an out-of-scope case is dropped with a visible
+    note (to stderr, so the matrix JSON on stdout stays clean) explaining why a
+    manual run produced an empty matrix. ``scope == all`` passes every case
+    through unchanged.
+    """
+    if scope == PredictScope.all:
+        return cases
+    kept: list[CaseRequest] = []
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        for case in cases:
+            row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
+            if row is not None and row.predict_eligible:
+                kept.append(case)
+            else:
+                typer.echo(
+                    f"Skipping {case.court}/{case.docket}: out of prediction scope "
+                    f"(predict.scope=scotus_touched, not SCOTUS-eligible).",
+                    err=True,
+                )
+    return kept
+
+
 def _requested_cases(
     body_file: Path | None, court: str, docket: int | None, event: list[str] | None
 ) -> list[CaseRequest]:
@@ -704,8 +741,11 @@ def predict_matrix_cmd(
     A case with no listed ``events`` defaults to that case's open events.
     """
     settings = get_settings()
+    scope = load_predict_config(settings.config_root).scope
     cases = _resolve_cases(
-        _requested_cases(body_file, court, docket, event),
+        _scope_filtered(
+            _requested_cases(body_file, court, docket, event), scope, settings.corpus_root
+        ),
         lambda c, d: open_events(settings.data_root, c, d),
     )
     matrix = predict_matrix(settings.config_root / "predictors.yaml", cases, run_id)
@@ -735,8 +775,11 @@ def evaluate_matrix_cmd(
     A case with no listed ``events`` defaults to that case's resolved events.
     """
     settings = get_settings()
+    scope = load_predict_config(settings.config_root).scope
     cases = _resolve_cases(
-        _requested_cases(body_file, court, docket, event),
+        _scope_filtered(
+            _requested_cases(body_file, court, docket, event), scope, settings.corpus_root
+        ),
         lambda c, d: resolved_events(settings.data_root, c, d),
     )
     matrix = evaluate_matrix(settings.config_root / "evaluators.yaml", cases, run_id)
