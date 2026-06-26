@@ -1,0 +1,70 @@
+name: run-ops
+
+# Operational analytics dashboard (#89). A read-only DAILY roll-up of three
+# authoritative sources — pipeline health (the GitHub Actions run history), backfill
+# progress (the committed seed cursor), and model spend (the recorded usage ledger)
+# — rendered by `fedcourts ops-report` and posted to one long-lived "Ops dashboard"
+# issue (updated in place). No pipeline run writes an ops record and nothing here is
+# committed, so it cannot interfere with the corpus-write path. Uses the built-in
+# GITHUB_TOKEN (least privilege); the `ops-dashboard` label triggers no workflow.
+on:
+  schedule:
+    - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: run-ops
+  cancel-in-progress: true
+
+jobs:
+  ops:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # checkout (the seed cursor + usage ledger come from git)
+      actions: read # read the workflow run history for the health section
+      issues: write # post / update the dashboard issue
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Collect recent workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # The health section groups these by workflow; 200 runs is a few weeks
+          # across the daily pipelines.
+          gh run list --repo "$REPO" --limit 200 \
+            --json workflowName,status,conclusion,createdAt,startedAt,updatedAt \
+            > runs.json
+
+      - name: Build the ops report
+        run: |
+          uv run fedcourts ops-report --runs runs.json > ops.md
+          cat ops.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post or update the ops dashboard issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # `ops-dashboard` is a NON-triggering label by design (no run:* workflow
+          # keys on it). Create it idempotently so the first run does not fail.
+          gh label create ops-dashboard --repo "$REPO" --force \
+            --color 0e8a16 --description "Long-lived operational analytics dashboard (run-ops)"
+          num=$(gh issue list --repo "$REPO" --label ops-dashboard --state open \
+            --json number --jq '.[0].number')
+          if [ -z "$num" ]; then
+            gh issue create --repo "$REPO" --title "Ops dashboard" \
+              --label ops-dashboard --body-file ops.md
+          else
+            # Update the single dashboard in place so it is always the current view.
+            gh issue edit "$num" --repo "$REPO" --body-file ops.md
+          fi

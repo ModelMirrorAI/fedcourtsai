@@ -1,0 +1,318 @@
+{
+  "$defs": {
+    "BackfillCourt": {
+      "additionalProperties": false,
+      "description": "Per-court backfill progress, projected from the seed cursor.",
+      "properties": {
+        "complete": {
+          "default": false,
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "court": {
+          "title": "Court",
+          "type": "string"
+        },
+        "offset": {
+          "description": "Cases loaded for this court",
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "percent": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "offset / total, or 100 when complete",
+          "title": "Percent"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cases in the snapshot, once known",
+          "title": "Total"
+        }
+      },
+      "required": [
+        "court",
+        "offset"
+      ],
+      "title": "BackfillCourt",
+      "type": "object"
+    },
+    "BackfillProgress": {
+      "additionalProperties": false,
+      "description": "Whole-backfill progress across the tracked courts.",
+      "properties": {
+        "cases_loaded": {
+          "description": "Total cases loaded so far (sum of offsets)",
+          "minimum": 0,
+          "title": "Cases Loaded",
+          "type": "integer"
+        },
+        "cases_total": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Total cases to load, only when every court's total is known",
+          "title": "Cases Total"
+        },
+        "courts_complete": {
+          "description": "Courts whose backfill is finished",
+          "minimum": 0,
+          "title": "Courts Complete",
+          "type": "integer"
+        },
+        "courts_total": {
+          "description": "Tracked courts",
+          "minimum": 0,
+          "title": "Courts Total",
+          "type": "integer"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/BackfillCourt"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "percent": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Overall %, only when cases_total is known",
+          "title": "Percent"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Bulk snapshot id being loaded",
+          "title": "Snapshot"
+        }
+      },
+      "required": [
+        "courts_total",
+        "courts_complete",
+        "cases_loaded"
+      ],
+      "title": "BackfillProgress",
+      "type": "object"
+    },
+    "SpendSummary": {
+      "additionalProperties": false,
+      "description": "Model spend rolled up from the recorded ``usage.json`` ledger.",
+      "properties": {
+        "estimated_cost_usd": {
+          "description": "Sum of per-run estimated cost",
+          "minimum": 0.0,
+          "title": "Estimated Cost Usd",
+          "type": "number"
+        },
+        "mean_cost_usd_per_run": {
+          "description": "estimated_cost_usd / runs",
+          "minimum": 0.0,
+          "title": "Mean Cost Usd Per Run",
+          "type": "number"
+        },
+        "runs": {
+          "description": "usage.json records aggregated",
+          "minimum": 0,
+          "title": "Runs",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "description": "All token classes summed across runs",
+          "minimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "runs",
+        "total_tokens",
+        "estimated_cost_usd",
+        "mean_cost_usd_per_run"
+      ],
+      "title": "SpendSummary",
+      "type": "object"
+    },
+    "WorkflowHealth": {
+      "additionalProperties": false,
+      "description": "Recent-run health for one workflow, rolled up from the Actions run history.",
+      "properties": {
+        "failures": {
+          "description": "Completed runs that failed / timed out / were cancelled",
+          "minimum": 0,
+          "title": "Failures",
+          "type": "integer"
+        },
+        "last_conclusion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Conclusion of the most recent run (success, failure, \u2026)",
+          "title": "Last Conclusion"
+        },
+        "last_run_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO-8601 start of the most recent run in the window",
+          "title": "Last Run At"
+        },
+        "median_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Median completed-run duration, where derivable",
+          "title": "Median Seconds"
+        },
+        "p95_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "95th-percentile completed-run duration",
+          "title": "P95 Seconds"
+        },
+        "runs_considered": {
+          "description": "Runs in the window examined",
+          "minimum": 0,
+          "title": "Runs Considered",
+          "type": "integer"
+        },
+        "success_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "successes / completed runs, or null when none completed",
+          "title": "Success Rate"
+        },
+        "successes": {
+          "description": "Completed runs that concluded `success`",
+          "minimum": 0,
+          "title": "Successes",
+          "type": "integer"
+        },
+        "workflow": {
+          "title": "Workflow",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workflow",
+        "runs_considered",
+        "successes",
+        "failures"
+      ],
+      "title": "WorkflowHealth",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue rather than committed.",
+  "properties": {
+    "backfill": {
+      "$ref": "#/$defs/BackfillProgress"
+    },
+    "generated_at": {
+      "description": "ISO-8601 UTC time the report was built",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "health": {
+      "items": {
+        "$ref": "#/$defs/WorkflowHealth"
+      },
+      "title": "Health",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spend": {
+      "$ref": "#/$defs/SpendSummary"
+    }
+  },
+  "required": [
+    "generated_at",
+    "backfill",
+    "spend"
+  ],
+  "title": "OpsReport",
+  "type": "object"
+}
