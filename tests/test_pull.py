@@ -2,6 +2,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
+
 from fedcourtsai import corpus
 from fedcourtsai.config import PredictScope
 from fedcourtsai.courtlistener import CourtListenerClient
@@ -177,6 +179,62 @@ class FakeDiscoverPullClient:
 
     def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
         return self.entries
+
+
+class FlakyMultiClient:
+    """Like FakeMultiClient, but one docket id always fails its fetch.
+
+    Models a transient REST failure on a single case mid-rotation (e.g. a 404 or
+    retries exhausted) so a test can assert the rest of the run still makes
+    progress.
+    """
+
+    def __init__(self, dockets: dict[int, dict[str, Any]], fail_on: int) -> None:
+        self._dockets = dockets
+        self._fail_on = fail_on
+
+    def get_docket(self, docket_id: int) -> dict[str, Any]:
+        if docket_id == self._fail_on:
+            raise httpx.HTTPStatusError(
+                "404 Not Found",
+                request=httpx.Request("GET", f"https://example/dockets/{docket_id}/"),
+                response=httpx.Response(404),
+            )
+        return self._dockets[docket_id]
+
+    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+        return [{"id": 1, "description": "Filed"}]
+
+
+def test_pull_cases_isolates_a_failed_docket_from_the_rest(tmp_path: Path) -> None:
+    # A single docket's REST failure must not abort the rotation: the case that
+    # did refresh keeps its corpus write and predict-queue entry, and the failure
+    # is recorded rather than raised.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    base = "https://www.courtlistener.com/api/rest/v4/courts"
+    client = FlakyMultiClient(
+        {901: {"id": 901, "court": f"{base}/ca9/", "date_filed": "2026-01-02"}},
+        fail_on=902,
+    )
+    _open_event(db, "ca9", 901)
+    _open_event(db, "ca9", 902)
+
+    # The failing case (902) comes first; the rotation must still reach 901.
+    queues = pull_cases(
+        cast(CourtListenerClient, client),
+        db,
+        data_root,
+        [("ca9", 902), ("ca9", 901)],
+    )
+
+    # The good case is fully processed: corpus row written and queued to predict.
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, "ca9/901") is not None
+    assert [(e["court"], e["docket"]) for e in queues.predict] == [("ca9", 901)]
+    # The failure is surfaced, not swallowed, and carries triage context.
+    assert [(f["court"], f["docket"]) for f in queues.failed] == [("ca9", 902)]
+    assert "404" in str(queues.failed[0]["reason"])
 
 
 def test_discover_pull_predict_then_evaluate_from_corpus_events(tmp_path: Path) -> None:
