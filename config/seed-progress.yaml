@@ -38,7 +38,7 @@ courts:
     total: 102993
   ca9:
     complete: false
-    offset: 97456
+    offset: 107456
     total: 246604
   scotus:
     complete: true
