@@ -607,3 +607,47 @@ def test_watermark_is_per_court(tmp_path: Path) -> None:
         corpus.set_discovery_watermark(conn, "ca1", date(2026, 5, 1))
         assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 10)
         assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 5, 1)
+
+
+def test_snapshot_upsert_and_latest_roundtrip(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    payload = {"id": 123, "docket_entries": [{"id": 1, "description": "Filed"}]}
+    with corpus.connect(db) as conn:
+        assert corpus.latest_snapshot(conn, "ca9/123") is None
+        corpus.upsert_snapshot(conn, "ca9/123", date(2026, 6, 10), payload)
+        found = corpus.latest_snapshot(conn, "ca9/123")
+    assert found is not None
+    snap_date, stored = found
+    assert snap_date == date(2026, 6, 10)
+    assert stored == payload
+
+
+def test_snapshot_latest_returns_newest_date(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "ca9/123", date(2026, 6, 10), {"v": 1})
+        corpus.upsert_snapshot(conn, "ca9/123", date(2026, 6, 20), {"v": 2})
+        corpus.upsert_snapshot(conn, "ca9/123", date(2026, 6, 15), {"v": 3})
+        found = corpus.latest_snapshot(conn, "ca9/123")
+    assert found is not None
+    assert found == (date(2026, 6, 20), {"v": 2})
+
+
+def test_snapshot_upsert_same_day_overwrites(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "ca9/123", date(2026, 6, 10), {"v": 1})
+        corpus.upsert_snapshot(conn, "ca9/123", date(2026, 6, 10), {"v": 2})
+        assert corpus.snapshot_count(conn) == 1
+        found = corpus.latest_snapshot(conn, "ca9/123")
+    assert found == (date(2026, 6, 10), {"v": 2})
+
+
+def test_snapshot_is_per_case(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "ca9/123", date(2026, 6, 10), {"case": "a"})
+        corpus.upsert_snapshot(conn, "ca1/9", date(2026, 6, 10), {"case": "b"})
+        assert corpus.latest_snapshot(conn, "ca9/123") == (date(2026, 6, 10), {"case": "a"})
+        assert corpus.latest_snapshot(conn, "ca1/9") == (date(2026, 6, 10), {"case": "b"})
+        assert corpus.snapshot_count(conn) == 2

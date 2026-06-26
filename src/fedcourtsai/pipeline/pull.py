@@ -7,15 +7,15 @@ docket changed since the last pull — the signal that downstream ``run-predict`
 should be triggered for this case.
 
 The first pull of a docket onboards it (no prior snapshot → ``changed``);
-later pulls refresh it. The normalized raw fact goes to the corpus, never to
-per-case git files; the dated full-docket snapshot is retained transitionally in
-git for change detection (the normalized corpus row does not capture every
-docket-entry change). Both ``seed`` and ``pull`` drive this function.
+later pulls refresh it. Both the normalized row and the dated full-docket
+snapshot (the point-in-time JSON a normalized row cannot fully capture) land in
+the corpus, never in per-case git files: the snapshot backs change detection and
+is what predictors/evaluators are provisioned from. Both ``seed`` and ``pull``
+drive this function.
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date
@@ -26,8 +26,6 @@ import httpx
 from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient
-from ..paths import CasePaths
-from ..serialize import write_raw_json
 from ..store import open_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .outcome import ReconcileRequest, resolve_case
@@ -37,19 +35,13 @@ from .outcome import ReconcileRequest, resolve_case
 class PullResult:
     case_id: str
     changed: bool
-    snapshot: Path
+    # Identifier of the snapshot stored in the corpus this refresh (its date).
+    # Predictors record it as ``input_snapshot``; the corpus is the store.
+    snapshot: str
     # Outcome detection (`pull`'s third job): events resolved deterministically
     # this refresh, and those that appear decided but need an agent to reconcile.
     resolved: list[str]
     reconcile: list[ReconcileRequest]
-
-
-def _latest_snapshot(paths: CasePaths) -> Path | None:
-    snap_dir = paths.record / "snapshots"
-    if not snap_dir.exists():
-        return None
-    snaps = sorted(snap_dir.glob("*.json"))
-    return snaps[-1] if snaps else None
 
 
 def pull_case(
@@ -59,17 +51,20 @@ def pull_case(
     court_id: str,
     docket_id: int,
 ) -> PullResult:
-    paths = CasePaths(data_root, court_id, docket_id)
+    case_id = ids.case_id(court_id, docket_id)
 
     docket = client.get_docket(docket_id)
     entries = client.iter_docket_entries(docket_id)
     fresh = {**docket, "docket_entries": entries}
 
-    prior = _latest_snapshot(paths)
-    changed = prior is None or json.loads(prior.read_text()) != fresh
-
     today = date.today()
-    write_raw_json(paths.snapshot(today.isoformat()), fresh)
+    # Change detection and snapshot storage both live in the corpus now: compare
+    # the fresh full docket against the latest snapshot the corpus holds, then
+    # store today's. A docket with no prior snapshot is an onboard (`changed`).
+    with corpus.connect(corpus_db_path) as conn:
+        prior = corpus.latest_snapshot(conn, case_id)
+        changed = prior is None or prior[1] != fresh
+        corpus.upsert_snapshot(conn, case_id, today, fresh)
 
     row = from_api_docket(fresh)
     # Stamp the corpus tracking state so the budget governor can rotate this case
@@ -81,9 +76,9 @@ def pull_case(
     resolution = resolve_case(corpus_db_path, data_root, row, court_id, docket_id)
 
     return PullResult(
-        case_id=ids.case_id(court_id, docket_id),
+        case_id=case_id,
         changed=changed,
-        snapshot=paths.snapshot(today.isoformat()),
+        snapshot=today.isoformat(),
         resolved=sorted(resolution.outcomes),
         reconcile=list(resolution.reconciles),
     )

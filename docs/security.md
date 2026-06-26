@@ -39,9 +39,10 @@ to the whole ruleset):
 
 - **`main: require PR`** — requires a pull request plus the `gate` status check to
   merge. **Bypass: the GitHub App**, so the deterministic `run-seed` / `run-pull`
-  writers push corpus facts (snapshots, the corpus pointer, deterministic
-  `outcome.json`) straight to `main` while all agent code changes go through a
-  reviewed PR. Required approvals are `0` (a maintainer reviews at merge time); set
+  writers push corpus facts (the corpus blob — rows and point-in-time snapshots —
+  to the DVC remote; its pointer and deterministic `outcome.json` to `main`)
+  while all agent code changes go through a reviewed PR. Required approvals are
+  `0` (a maintainer reviews at merge time); set
   to `1` if a second reviewer exists.
   - Only `gate` is a required check. **Not** `zizmor` — it is path-filtered to
     `.github/**`, so requiring it would hang any PR that does not touch workflows.

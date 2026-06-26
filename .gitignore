@@ -150,6 +150,12 @@ activemq-data/
 # DVC remote credentials / bucket URL (defined out of band per run; never committed)
 .dvc/config.local
 
+# Point-in-time docket snapshots are raw facts (their home is the packed corpus),
+# never the git ledger. The predict/evaluate/reconcile workflows provision a run's
+# snapshot into this per-case `record/` path from the corpus; it must never land
+# in `data/`.
+/data/cases/*/*/record/
+
 # Environments
 .env
 .envrc
