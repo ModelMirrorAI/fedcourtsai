@@ -74,6 +74,7 @@ uv run ruff check .
 uv run mypy
 uv run pytest
 uv run fedcourts validate data
+uv run fedcourts dvc-status
 uv run fedcourts export-schemas schemas
 git diff --exit-code schemas   # CI fails if the committed schemas drift
 ```
