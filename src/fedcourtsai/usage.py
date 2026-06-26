@@ -1,6 +1,6 @@
 """Extract token counts from the engines' own run logs.
 
-Both agentic engines report token usage, but in different places and shapes:
+The three agentic engines report token usage in different places and shapes:
 
 - **Claude Code** (``anthropics/claude-code-action``) writes an ``execution_file``
   — a JSON transcript whose final ``result`` event carries cumulative ``usage``
@@ -9,8 +9,13 @@ Both agentic engines report token usage, but in different places and shapes:
   ``$CODEX_HOME/sessions/YYYY/MM/DD/rollout-*.jsonl``; each ``token_count`` event
   carries cumulative ``total_token_usage`` whose ``input_tokens`` *includes* the
   cached portion.
+- **Gemini** (``google-github-actions/run-gemini-cli``) writes an OpenTelemetry
+  ``telemetry.log``; each ``gemini_cli.api_response`` event carries the *per-call*
+  ``input_token_count`` / ``output_token_count`` / ``cached_content_token_count`` /
+  ``thoughts_token_count``, so the counts are **summed across all events** for the
+  run (not read from a single cumulative record like the other two).
 
-Both parsers normalize to a :class:`~fedcourtsai.pricing.TokenCounts` so cost
+All parsers normalize to a :class:`~fedcourtsai.pricing.TokenCounts` so cost
 estimation downstream is engine-agnostic. They are deliberately tolerant: an
 unreadable or unrecognized log yields ``None`` rather than raising, because usage
 capture is best-effort instrumentation that must never fail a real run.
@@ -140,6 +145,129 @@ def _extract_total_token_usage(record: Any) -> dict[str, Any] | None:
                 return block
             stack.extend(node.values())
     return None
+
+
+# Per-call token attributes on a Gemini ``gemini_cli.api_response`` event.
+_GEMINI_TOKEN_FIELDS: tuple[str, ...] = (
+    "input_token_count",
+    "output_token_count",
+    "cached_content_token_count",
+    "thoughts_token_count",
+)
+
+
+def parse_gemini_usage(telemetry_file: Path) -> TokenCounts | None:
+    """Token counts from a Gemini CLI OpenTelemetry ``telemetry.log``.
+
+    Each ``gemini_cli.api_response`` event reports one model call's tokens, so the
+    per-call counts are summed across the whole run. Normalizes to the Claude
+    convention: Gemini's ``input_token_count`` includes the cached portion, so the
+    cached tokens are split out into ``cache_read_input_tokens`` and subtracted
+    from fresh input; thinking tokens (``thoughts_token_count``) bill as output.
+    Returns ``None`` when the log is absent, unparseable, or carries no token
+    events.
+    """
+    events = _find_gemini_token_events(_load_json_objects(telemetry_file))
+    if not events:
+        return None
+    input_total = sum(_as_int(e.get("input_token_count")) for e in events)
+    output_total = sum(_as_int(e.get("output_token_count")) for e in events)
+    cached_total = sum(_as_int(e.get("cached_content_token_count")) for e in events)
+    thoughts_total = sum(_as_int(e.get("thoughts_token_count")) for e in events)
+    return TokenCounts(
+        input_tokens=max(0, input_total - cached_total),
+        output_tokens=output_total + thoughts_total,
+        cache_read_input_tokens=cached_total,
+        cache_creation_input_tokens=0,
+    )
+
+
+def _find_gemini_token_events(doc: Any) -> list[dict[str, Any]]:
+    """Every token-bearing ``api_response`` event anywhere in the telemetry doc.
+
+    Walks the decoded structure and returns each node's normalized attribute dict
+    that carries at least one token field. A matched event is not descended into,
+    so each model call is counted exactly once regardless of how the local OTEL
+    exporter nests its records.
+    """
+    events: list[dict[str, Any]] = []
+    stack: list[Any] = [doc]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            attrs = _gemini_attrs(node)
+            if any(field in attrs for field in _GEMINI_TOKEN_FIELDS):
+                events.append(attrs)
+                continue
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return events
+
+
+def _gemini_attrs(node: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a record's token attributes, tolerating OTEL nesting.
+
+    Token counts may sit directly on the record or under an ``attributes`` block
+    that is either a plain dict or an OTLP ``[{key, value}, ...]`` list whose
+    values are wrapped (``{"intValue": "12"}``). All three shapes flatten here.
+    """
+    attrs: dict[str, Any] = {}
+    raw = node.get("attributes")
+    if isinstance(raw, dict):
+        attrs.update(raw)
+    elif isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict) and "key" in item:
+                attrs[item["key"]] = _otel_value(item.get("value"))
+    for field in _GEMINI_TOKEN_FIELDS:
+        if field in node:
+            attrs.setdefault(field, node[field])
+    return attrs
+
+
+def _otel_value(value: Any) -> Any:
+    """Unwrap an OTLP typed attribute value (``{"intValue": "12"}`` -> ``"12"``)."""
+    if isinstance(value, dict):
+        for key in ("intValue", "doubleValue", "stringValue", "value"):
+            if key in value:
+                return value[key]
+    return value
+
+
+def _load_json_objects(path: Path) -> list[Any]:
+    """Decode the telemetry file into a list of top-level JSON values.
+
+    The Gemini CLI local exporter concatenates pretty-printed JSON records rather
+    than emitting one-per-line, so a plain ``json.loads``/JSONL read does not
+    cover it. Try the whole file as one value first (a single object or array),
+    then fall back to decoding consecutive objects. Tolerant: returns ``[]`` on an
+    unreadable or unparseable file.
+    """
+    try:
+        text = path.read_text().strip()
+    except OSError:
+        return []
+    if not text:
+        return []
+    try:
+        return [json.loads(text)]
+    except json.JSONDecodeError:
+        pass
+    decoder = json.JSONDecoder()
+    objects: list[Any] = []
+    idx, length = 0, len(text)
+    while idx < length:
+        while idx < length and text[idx] in " \t\r\n,":
+            idx += 1
+        if idx >= length:
+            break
+        try:
+            obj, idx = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            break
+        objects.append(obj)
+    return objects
 
 
 def _load_json(path: Path) -> Any:

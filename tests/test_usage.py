@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from fedcourtsai.usage import parse_claude_usage, parse_codex_usage
+from fedcourtsai.usage import parse_claude_usage, parse_codex_usage, parse_gemini_usage
 
 
 def _write_claude(path: Path, events: list[dict[str, object]]) -> Path:
@@ -108,3 +108,68 @@ def test_codex_picks_newest_rollout(tmp_path: Path) -> None:
 
 def test_codex_missing_dir_returns_none(tmp_path: Path) -> None:
     assert parse_codex_usage(tmp_path / "nope") is None
+
+
+def _gemini_event(
+    input_tokens: int, cached: int, output_tokens: int, thoughts: int
+) -> dict[str, object]:
+    return {
+        "name": "gemini_cli.api_response",
+        "model": "gemini-3.1-pro-preview",
+        "input_token_count": input_tokens,
+        "cached_content_token_count": cached,
+        "output_token_count": output_tokens,
+        "thoughts_token_count": thoughts,
+    }
+
+
+def test_gemini_sums_per_call_events_and_normalizes(tmp_path: Path) -> None:
+    log = tmp_path / "telemetry.log"
+    # The local OTEL exporter concatenates pretty-printed records, not one-per-line.
+    log.write_text(
+        "\n".join(
+            json.dumps(e, indent=2)
+            for e in [
+                _gemini_event(50_000, 10_000, 3_000, 500),
+                _gemini_event(120_000, 40_000, 9_000, 1_500),
+            ]
+        )
+    )
+    counts = parse_gemini_usage(log)
+    assert counts is not None
+    # input_token_count includes cached; cached is split out and subtracted.
+    assert counts.input_tokens == 120_000  # (50k+120k) - (10k+40k)
+    assert counts.cache_read_input_tokens == 50_000
+    # Thinking tokens bill as output, so they fold into output_tokens.
+    assert counts.output_tokens == 14_000  # (3k+9k) + (500+1500)
+    assert counts.cache_creation_input_tokens == 0
+
+
+def test_gemini_handles_otlp_nested_attributes(tmp_path: Path) -> None:
+    log = tmp_path / "telemetry.log"
+    log.write_text(
+        json.dumps(
+            {
+                "body": "gemini_cli.api_response",
+                "attributes": [
+                    {"key": "input_token_count", "value": {"intValue": "100"}},
+                    {"key": "output_token_count", "value": {"intValue": "20"}},
+                ],
+            }
+        )
+    )
+    counts = parse_gemini_usage(log)
+    assert counts is not None
+    assert counts.input_tokens == 100
+    assert counts.output_tokens == 20
+    assert counts.cache_read_input_tokens == 0
+
+
+def test_gemini_missing_empty_or_tokenless_returns_none(tmp_path: Path) -> None:
+    assert parse_gemini_usage(tmp_path / "absent.log") is None
+    empty = tmp_path / "empty.log"
+    empty.write_text("")
+    assert parse_gemini_usage(empty) is None
+    tokenless = tmp_path / "tokenless.log"
+    tokenless.write_text(json.dumps({"name": "gemini_cli.tool_call", "function": "read_file"}))
+    assert parse_gemini_usage(tokenless) is None

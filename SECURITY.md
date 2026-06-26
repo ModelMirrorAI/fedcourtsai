@@ -9,8 +9,9 @@
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
   Codex action proxies `OPENAI_API_KEY` so the CLI never holds it; the Claude
-  action handles `CLAUDE_CODE_OAUTH_TOKEN` similarly. The lower-sensitivity
-  CourtListener token is passed as a scoped step env only where needed.
+  action handles `CLAUDE_CODE_OAUTH_TOKEN` and the Gemini action `GEMINI_API_KEY`
+  similarly. The lower-sensitivity CourtListener token is passed as a scoped step
+  env only where needed.
 - **Agents get a least-privilege GitHub App token, never a static one.** So a
   headless agent can post progress/questions on the triggering issue/PR, the
   `run:predict` / `run:evaluate` agent steps receive a separate short-lived App

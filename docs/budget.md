@@ -40,10 +40,12 @@ Two engines run the agentic stages, routed per registry entry
 |--------|---------|---------|----------------------|
 | **Claude Code** (`claude-opus-4-8`) | `claude-baseline`, `claude-judge`, all `run:dev` | Claude Max subscription **or** Anthropic API | Subscription: **$200/mo** flat (Max 20x). API: **$5 in / $25 out** |
 | **Codex** (`gpt-5.5`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
+| **Gemini** (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | **$2 in / $12 out** (≤200K context) |
 
 Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-the-max-plan),
 [Claude API pricing](https://platform.claude.com/docs/en/pricing),
-[OpenAI API pricing](https://developers.openai.com/api/docs/pricing).
+[OpenAI API pricing](https://developers.openai.com/api/docs/pricing),
+[Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
 **Per-run cost.** A single predict or evaluate run is an *agentic* job: the agent
 reads the prompt, AGENTS.md, the case snapshot, and a handful of retrieved
@@ -253,6 +255,7 @@ fit within the subscription's interactive limits.
 |------|---------|--------|
 | Claude Max 20x (dev + pilot inference) | $200 | $2,400 |
 | Codex API (gated cert predictions/evals) | ~$100–400 | ~$1.2–5K |
+| Gemini API (gated cert predictions/evals) | ~$50–250 | ~$0.6–3K |
 | CourtListener Tier 3 | $50 | $600 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |

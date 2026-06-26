@@ -6,7 +6,7 @@
 #
 # Fields validate against schemas/predictor_config.schema.json.
 #   id:          unique, filesystem-safe; names the output directory
-#   engine:      claude-code | codex
+#   engine:      claude-code | codex | gemini
 #   model:       optional model override (else the engine default)
 #   prompt:      repo-relative path to the prompt template
 #   enabled:     skipped when false
@@ -28,3 +28,12 @@ predictors:
     description: >-
       Baseline Codex predictor using the same prompt for an apples-to-apples
       comparison against claude-baseline.
+
+  - id: gemini-baseline
+    engine: gemini
+    model: null
+    prompt: .github/prompts/predict.md
+    enabled: true
+    description: >-
+      Baseline Gemini predictor using the same prompt for an apples-to-apples
+      comparison against claude-baseline and codex-baseline.

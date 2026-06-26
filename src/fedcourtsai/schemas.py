@@ -22,6 +22,7 @@ class Engine(StrEnum):
 
     claude_code = "claude-code"
     codex = "codex"
+    gemini = "gemini"
 
 
 class CaseStatus(StrEnum):
@@ -134,6 +135,7 @@ class Evaluation(_Strict):
     event_id: str
     predictor_id: str
     evaluator_id: str
+    engine: Engine
     run_id: str
     created_at: datetime
     correct: int = Field(ge=0, le=1, description="1 if disposition matched outcome")

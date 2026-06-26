@@ -1,4 +1,16 @@
 {
+  "$defs": {
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ],
+      "title": "Engine",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
   "description": "``evaluation.json`` \u2014 one evaluator scoring one predictor's prediction.",
   "properties": {
@@ -31,6 +43,9 @@
       "format": "date-time",
       "title": "Created At",
       "type": "string"
+    },
+    "engine": {
+      "$ref": "#/$defs/Engine"
     },
     "evaluator_id": {
       "title": "Evaluator Id",
@@ -93,6 +108,7 @@
     "event_id",
     "predictor_id",
     "evaluator_id",
+    "engine",
     "run_id",
     "created_at",
     "correct"

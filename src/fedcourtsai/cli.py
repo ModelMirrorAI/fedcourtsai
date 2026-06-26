@@ -59,7 +59,7 @@ from .store import (
     open_events,
     resolved_events,
 )
-from .usage import parse_claude_usage, parse_codex_usage
+from .usage import parse_claude_usage, parse_codex_usage, parse_gemini_usage
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -200,6 +200,7 @@ def _resolve_token_counts(
     explicit: TokenCounts,
     claude_execution_file: Path | None,
     codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
 ) -> TokenCounts | None:
     """Token counts from an engine log if given, else the explicit overrides.
 
@@ -210,6 +211,8 @@ def _resolve_token_counts(
         return parse_claude_usage(claude_execution_file)
     if codex_sessions_dir is not None:
         return parse_codex_usage(codex_sessions_dir)
+    if gemini_telemetry_file is not None:
+        return parse_gemini_usage(gemini_telemetry_file)
     return explicit
 
 
@@ -219,7 +222,7 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
     run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex).")],
+    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex | gemini).")],
     role: Annotated[UsageRole, typer.Option(help="predictor (predict) | evaluator (evaluate).")],
     actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
     model: Annotated[
@@ -235,14 +238,18 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     codex_sessions_dir: Annotated[
         Path | None, typer.Option(help="Codex sessions dir (CODEX_HOME/sessions) to read usage.")
     ] = None,
+    gemini_telemetry_file: Annotated[
+        Path | None, typer.Option(help="Gemini CLI telemetry.log to read usage from.")
+    ] = None,
     created_at: Annotated[
         str, typer.Option(help="ISO timestamp; defaults to the run id's timestamp.")
     ] = "",
 ) -> None:
     """Record one run's measured token usage and estimated cost to ``usage.json``.
 
-    Reads token counts from the engine's own log (``--claude-execution-file`` or
-    ``--codex-sessions-dir``) or from the explicit ``--*-tokens`` overrides,
+    Reads token counts from the engine's own log (``--claude-execution-file``,
+    ``--codex-sessions-dir``, or ``--gemini-telemetry-file``) or from the explicit
+    ``--*-tokens`` overrides,
     applies the central rates in ``fedcourtsai.pricing`` (kept in sync with
     ``docs/budget.md``), and writes the validated artifact next to the run's
     prediction or evaluation output. Best-effort: exits non-zero without writing
@@ -254,6 +261,7 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         TokenCounts(input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens),
         claude_execution_file,
         codex_sessions_dir,
+        gemini_telemetry_file,
     )
     if counts is None or counts.total_tokens == 0:
         typer.echo("No model usage found; nothing recorded.", err=True)

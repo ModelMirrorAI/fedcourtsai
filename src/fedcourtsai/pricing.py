@@ -32,14 +32,16 @@ class ModelRate:
     output_per_mtok: float
 
 
-# Keyed by the model id the engine actually ran. The two production models are
-# claude-opus-4-8 and gpt-5.5; the cheaper Claude tiers are listed because the
-# budget doc names them as competitor-model levers.
+# Keyed by the model id the engine actually ran. The three production models are
+# claude-opus-4-8, gpt-5.5, and gemini-3.1-pro-preview; the cheaper Claude tiers
+# are listed because the budget doc names them as competitor-model levers. The
+# Gemini Pro rate is the standard <=200k-context tier (it steps up beyond that).
 MODEL_RATES: Final[dict[str, ModelRate]] = {
     "claude-opus-4-8": ModelRate(5.0, 25.0),
     "claude-sonnet-4-6": ModelRate(3.0, 15.0),
     "claude-haiku-4-5": ModelRate(1.0, 5.0),
     "gpt-5.5": ModelRate(5.0, 30.0),
+    "gemini-3.1-pro-preview": ModelRate(2.0, 12.0),
 }
 
 # The model each engine runs when a predictor/evaluator pins no explicit override
@@ -48,6 +50,7 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 DEFAULT_MODELS: Final[dict[str, str]] = {
     "claude-code": "claude-opus-4-8",
     "codex": "gpt-5.5",
+    "gemini": "gemini-3.1-pro-preview",
 }
 
 

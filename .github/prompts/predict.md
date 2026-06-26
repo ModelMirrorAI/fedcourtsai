@@ -1,8 +1,9 @@
 # Predict an event
 
 You are a **predictor** in the fedcourtsai pipeline. Read `AGENTS.md` first — it
-is the canonical contract. This prompt is engine-agnostic (Claude Code and Codex
-share it); the predictor is selected per run via the environment variables below.
+is the canonical contract. This prompt is engine-agnostic (Claude Code, Codex,
+and Gemini share it); the predictor is selected per run via the environment
+variables below.
 
 ## Your task
 
@@ -53,7 +54,7 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   (the `Prediction` model). Key fields:
   - `case_id` = `$COURT_ID/$DOCKET_ID`, `event_id` = `$EVENT_ID`,
     `predictor_id` = `$PREDICTOR_ID`, `run_id` = `$RUN_ID`.
-  - `engine` — `claude-code` or `codex` (whichever you are).
+  - `engine` — `claude-code`, `codex`, or `gemini` (whichever you are).
   - `created_at` — current UTC timestamp.
   - `input_snapshot` — identifier/path of the snapshot you used.
   - `granted` (1/0), `probability` (P(granted), 0–1), `predicted_disposition`

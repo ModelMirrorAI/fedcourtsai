@@ -10,8 +10,8 @@ stage.
 | `run:seed`      | `run-seed`       | tracking issue + daily schedule     | script (bulk data)   |
 | `run:pull`      | `run-pull`       | daily schedule, label, manual       | script (no agent)    |
 | `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
-| `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex  |
-| `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex  |
+| `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
+| `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
@@ -64,7 +64,8 @@ See `docs/security.md` for the one-time App setup.
 `plan` parses the issue body's ` ```json ``` ` case block and runs
 `fedcourts predict-matrix` / `evaluate-matrix`, which expands the **registry ×
 cases × events** into a GitHub Actions matrix. Each matrix cell routes to Claude
-Code or Codex by the entry's `engine`. The agent writes files only; a uniform
+Code, Codex, or Gemini by the entry's `engine`. The agent writes files only; a
+uniform
 step validates, commits to a branch, and opens one PR. The workflow's
 `strategy.max-parallel` throttles the whole fan-out, however many cases it spans.
 
