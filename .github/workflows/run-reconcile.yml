@@ -16,13 +16,20 @@ name: run-reconcile
 on:
   issues:
     types: [labeled]
-  pull_request:
-    types: [closed]
+  # The evaluate handoff fires when a reconcile PR's outcome.json lands on the
+  # default branch. We trigger on the push (ref = main) rather than on
+  # pull_request, so the handoff job's ref satisfies the runner environment's
+  # main-only deployment policy (a pull_request ref is refs/pull/N/merge and would
+  # be blocked). The path filter keeps non-outcome merges from spinning the job up.
+  push:
+    branches: [main]
+    paths:
+      - "data/cases/**/outcome.json"
 
 permissions: {}
 
 concurrency:
-  group: run-reconcile-${{ github.event.issue.number || github.event.pull_request.number }}
+  group: run-reconcile-${{ github.event.issue.number || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -177,26 +184,28 @@ jobs:
             echo "::warning::no outcome recorded for ${COURT_ID}/${DOCKET_ID}; nothing to reconcile."
             exit 0
           fi
-          events_json=$(printf '%s\n' "${settled[@]}" | jq -R . | jq -cs .)
+          # The `reconcile:` subject prefix is the signal the push-triggered handoff
+          # job filters on (it ignores run-pull's `pull:` outcome commits), and the
+          # added outcome.json paths in this commit are what it reads to queue
+          # run:evaluate — so nothing about the settled events needs to ride in the
+          # PR body.
           git commit -m "reconcile: ${COURT_ID}/${DOCKET_ID} — $(IFS=,; echo "${settled[*]}")"
           git push origin "$branch"
-          # Carry the settled events as a json block so the merge handoff can open a
-          # run:evaluate issue for exactly them; Closes the reconcile issue on merge.
-          block=$(jq -n --arg c "$COURT_ID" --argjson d "$DOCKET_ID" --argjson e "$events_json" \
-            '{court: $c, docket: $d, events: $e}')
-          body=$(printf 'Reconciled ground truth for \`%s/%s\`.\n\nWhen this merges, `run-reconcile` opens a `run:evaluate` issue for the settled events.\n\nCloses #%s\n\n```json\n%s\n```\n' \
-            "$COURT_ID" "$DOCKET_ID" "$ISSUE" "$block")
+          body=$(printf 'Reconciled ground truth for \`%s/%s\` (%s).\n\nWhen this merges, `run-reconcile` opens a `run:evaluate` issue for the settled events.\n\nCloses #%s\n' \
+            "$COURT_ID" "$DOCKET_ID" "$(IFS=,; echo "${settled[*]}")" "$ISSUE")
           gh pr create --base main --head "$branch" \
             --title "reconcile: ${COURT_ID}/${DOCKET_ID}" \
             --body "$body"
 
-  # When a reconcile PR merges, outcome.json is on the default branch — hand off to
-  # evaluation. Mirrors run-pull's "open run:evaluate for newly resolved events",
-  # but fired by the merge rather than by detection (reconcile resolves by hand).
+  # When a reconcile PR's outcome.json lands on main, hand off to evaluation —
+  # mirrors run-pull's "open run:evaluate for newly resolved events", but fired by
+  # the merge rather than by detection (reconcile resolves by hand). Reads the push
+  # payload directly (no checkout): each commit subject-prefixed `reconcile:` names
+  # a case, and its added outcome.json paths name the settled events; run-pull's
+  # own `pull:` outcome commits are ignored, so a deterministic outcome is not
+  # double-queued (run-pull already queues it).
   handoff:
-    if: >-
-      github.event_name == 'pull_request' && github.event.pull_request.merged == true
-      && startsWith(github.event.pull_request.head.ref, 'reconcile/')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: runner
     permissions:
@@ -211,24 +220,39 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-issues: write
 
-      - name: Open run:evaluate issue for the reconciled events
+      - name: Open run:evaluate issues for the reconciled events
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          COMMITS: ${{ toJson(github.event.commits) }}
         run: |
           set -euo pipefail
-          # Extract the {court, docket, events} block the reconcile PR carried. The
-          # fence (three backticks) is built with chr(96) so no backtick reaches the
-          # shell, and run:evaluate's plan re-parses the same block to build its matrix.
-          block=$(python3 -c "import os,re,sys; f=chr(96)*3; m=re.search(f+r'json\s*(.+?)\s*'+f, os.environ['PR_BODY'], re.S); sys.stdout.write(m.group(1) if m else '')")
-          if [ -z "$block" ]; then
-            echo "::warning::reconcile PR carried no json block; skipping evaluate handoff."
+          # Group the outcome.json files added by this push's `reconcile:` commits
+          # into "<court> <docket> <event1,event2,...>" lines, one per case.
+          python3 - <<'PY' > cases.txt
+          import json, os, re
+          pat = re.compile(r"^data/cases/([^/]+)/([^/]+)/events/([^/]+)/outcome\.json$")
+          cases: dict[tuple[str, str], list[str]] = {}
+          for c in json.loads(os.environ["COMMITS"]):
+              if not c.get("message", "").splitlines()[0].startswith("reconcile:"):
+                  continue
+              for path in c.get("added", []):
+                  m = pat.match(path)
+                  if m:
+                      cases.setdefault((m[1], m[2]), []).append(m[3])
+          for (court, docket), events in cases.items():
+              print(court, docket, ",".join(sorted(set(events))))
+          PY
+          if [ ! -s cases.txt ]; then
+            echo "No reconcile outcomes in this push; nothing to hand off."
             exit 0
           fi
-          court=$(jq -r .court <<<"$block")
-          docket=$(jq -r .docket <<<"$block")
-          gh issue create --repo "$REPO" \
-            --title "evaluate: ${court}/${docket}" \
-            --body "$(printf '```json\n%s\n```\n' "$block")" \
-            --label "run:evaluate"
+          while read -r court docket events; do
+            block=$(jq -n --arg c "$court" --arg d "$docket" \
+              --argjson e "$(jq -R 'split(",")' <<<"$events")" \
+              '{court: $c, docket: ($d | tonumber), events: $e}')
+            gh issue create --repo "$REPO" \
+              --title "evaluate: ${court}/${docket}" \
+              --body "$(printf '```json\n%s\n```\n' "$block")" \
+              --label "run:evaluate"
+          done < cases.txt
