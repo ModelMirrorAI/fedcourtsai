@@ -411,6 +411,36 @@ def test_bulk_source_joins_opinion_cluster_fields(tmp_path: Path) -> None:
     assert row.judges == ["Lee", "Smith"]  # split on ';', deduped, sorted
 
 
+def test_bulk_source_stages_oversized_cluster_field(tmp_path: Path) -> None:
+    """A cluster summary above csv's default 128 KiB field cap must still stage.
+
+    CourtListener opinion clusters carry full summaries that exceed the limit; the
+    parser must not abort with ``field larger than field limit``.
+    """
+    big_summary = "x" * 200_000  # > csv's default 131072-byte field limit
+    dockets = tmp_path / "dockets.csv"
+    dockets.write_text("id,court_id,docket_number\n1,ca9,9-1\n")
+    clusters = tmp_path / "opinion-clusters.csv"
+    clusters.write_text(
+        f'id,docket_id,disposition,summary,judges\n10,1,Affirmed,"{big_summary}",Smith\n'
+    )
+    source = CourtListenerBulkSource(
+        "2026-Q2",
+        dockets_url="dockets.csv",
+        courts=["ca9"],
+        clusters_url="opinion-clusters.csv",
+        dockets_cache=dockets,
+        clusters_cache=clusters,
+    )
+    try:
+        chunk = source.fetch_court_chunk("ca9", offset=0, limit=10)
+    finally:
+        source.cleanup()
+
+    (row,) = chunk.rows
+    assert row["summary"] == big_summary
+
+
 def test_bulk_source_keeps_latest_cluster_per_docket(tmp_path: Path) -> None:
     dockets = tmp_path / "dockets.csv"
     dockets.write_text("id,court_id\n1,ca9\n")
