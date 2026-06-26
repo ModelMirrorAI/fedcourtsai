@@ -101,6 +101,12 @@ class CorpusRow(BaseModel):
         description="Tracking state: date `pull` last refreshed this case via REST; "
         "None until first pulled. Drives the budget governor's rotation.",
     )
+    predict_eligible: bool = Field(
+        default=False,
+        description="Prediction-scope latch: True once the case has interacted with "
+        "SCOTUS, gating the agentic predict/evaluate stages. Set by the ingestion "
+        "rule and never cleared by a later re-ingest; ingestion coverage is unaffected.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
 
@@ -164,7 +170,8 @@ CREATE TABLE IF NOT EXISTS cases (
     precedential_status TEXT,
     opinion_text        TEXT,
     summary             TEXT,
-    last_pulled         TEXT
+    last_pulled         TEXT,
+    predict_eligible    INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -217,6 +224,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "opinion_text": "TEXT",
     "summary": "TEXT",
     "last_pulled": "TEXT",
+    "predict_eligible": "INTEGER NOT NULL DEFAULT 0",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -269,6 +277,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "opinion_text": row.opinion_text,
         "summary": row.summary,
         "last_pulled": row.last_pulled.isoformat() if row.last_pulled else None,
+        "predict_eligible": int(row.predict_eligible),
     }
 
 
@@ -293,7 +302,24 @@ def _from_record(record: sqlite3.Row) -> CorpusRow:
         opinion_text=record["opinion_text"],
         summary=record["summary"],
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
+        predict_eligible=bool(record["predict_eligible"]),
     )
+
+
+def _update_clause(column: str) -> str:
+    """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
+
+    Most columns take the incoming value (``excluded``). Two never regress:
+    ``last_pulled`` only ever advances — a write without a fresh stamp (e.g. a
+    bulk seed re-ingest) keeps the timestamp a prior pull recorded — and
+    ``predict_eligible`` only ever latches on, so once a case is in prediction
+    scope a later re-ingest (under a narrower rule) cannot drop it back out.
+    """
+    if column == "last_pulled":
+        return f"{column}=COALESCE(excluded.{column}, cases.{column})"
+    if column == "predict_eligible":
+        return f"{column}=MAX(excluded.{column}, cases.{column})"
+    return f"{column}=excluded.{column}"
 
 
 def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
@@ -303,14 +329,7 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     ``pull`` can both write a case without producing duplicates.
     """
     placeholders = ", ".join("?" for _ in _COLUMNS)
-    # `last_pulled` only ever advances: a write that does not carry a fresh stamp
-    # (e.g. a bulk seed re-ingest) must keep the timestamp a prior pull recorded,
-    # so the governor does not see a refreshed case as never-pulled.
-    updates = ", ".join(
-        (f"{c}=COALESCE(excluded.{c}, cases.{c})" if c == "last_pulled" else f"{c}=excluded.{c}")
-        for c in _COLUMNS
-        if c != "case_id"
-    )
+    updates = ", ".join(_update_clause(c) for c in _COLUMNS if c != "case_id")
     sql = (
         f"INSERT INTO cases ({', '.join(_COLUMNS)}) VALUES ({placeholders}) "
         f"ON CONFLICT(case_id) DO UPDATE SET {updates}"

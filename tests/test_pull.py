@@ -3,8 +3,10 @@ from pathlib import Path
 from typing import Any, cast
 
 from fedcourtsai import corpus
+from fedcourtsai.config import PredictScope
 from fedcourtsai.courtlistener import CourtListenerClient
-from fedcourtsai.pipeline.pull import pull_case
+from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.pull import pull_case, pull_cases
 
 DOCKET: dict[str, Any] = {
     "id": 64512345,
@@ -81,3 +83,59 @@ def test_pull_stamps_last_pulled_in_corpus(tmp_path: Path) -> None:
         row = corpus.get_row(conn, "ca9/64512345")
     assert row is not None
     assert row.last_pulled == date.today()
+
+
+class FakeMultiClient:
+    """Returns a distinct docket per id (court taken from the canned facts)."""
+
+    def __init__(self, dockets: dict[int, dict[str, Any]]) -> None:
+        self._dockets = dockets
+
+    def get_docket(self, docket_id: int) -> dict[str, Any]:
+        return self._dockets[docket_id]
+
+    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+        return [{"id": 1, "description": "Filed"}]
+
+
+def _scotus_ca9_client() -> FakeMultiClient:
+    base = "https://www.courtlistener.com/api/rest/v4/courts"
+    return FakeMultiClient(
+        {
+            900: {"id": 900, "court": f"{base}/scotus/", "date_filed": "2026-01-02"},
+            901: {"id": 901, "court": f"{base}/ca9/", "date_filed": "2026-01-02"},
+        }
+    )
+
+
+def _open_event(data_root: Path, court: str, docket: int) -> None:
+    """Write a minimal open event.yaml so `open_events` has something to queue."""
+    event_file = CasePaths(data_root, court, docket).event("evt-appeal-disposition").event_file
+    event_file.parent.mkdir(parents=True, exist_ok=True)
+    event_file.write_text("resolved: false\n")
+
+
+def _gate_queues(tmp_path: Path, scope: PredictScope) -> Any:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    _open_event(data_root, "scotus", 900)
+    _open_event(data_root, "ca9", 901)
+    return pull_cases(
+        cast(CourtListenerClient, _scotus_ca9_client()),
+        db,
+        data_root,
+        [("scotus", 900), ("ca9", 901)],
+        scope=scope,
+    )
+
+
+def test_pull_cases_gate_enqueues_only_eligible_under_scotus_touched(tmp_path: Path) -> None:
+    queues = _gate_queues(tmp_path, PredictScope.scotus_touched)
+    # Only the SCOTUS (eligible) case reaches the predict queue; the ca9 case is gated.
+    assert {(e["court"], e["docket"]) for e in queues.predict} == {("scotus", 900)}
+
+
+def test_pull_cases_scope_all_enqueues_every_changed_case(tmp_path: Path) -> None:
+    queues = _gate_queues(tmp_path, PredictScope.all)
+    # No gate: both changed cases with open events are queued (today's behavior).
+    assert {(e["court"], e["docket"]) for e in queues.predict} == {("scotus", 900), ("ca9", 901)}

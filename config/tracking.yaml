@@ -39,6 +39,14 @@ pull:
   predict_on_change_only: true
 
 predict:
+  # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The
+  # pilot slice"). Restricts only the agentic predict/evaluate stages; ingestion
+  # (seed/pull) stays full-coverage. Read at the pull-queue and matrix seams.
+  #   scotus_touched — only cases that have interacted with SCOTUS (the latching
+  #                    predict_eligible flag); the pilot cost gate.
+  #   all            — no gate: every changed case with open events is in-scope;
+  #                    keep for dev / unrestricted back-testing.
+  scope: scotus_touched
   # Hard cap on concurrent predictor matrix jobs.
   max_parallel: 4
   # Skip events already resolved (an outcome.json exists).
