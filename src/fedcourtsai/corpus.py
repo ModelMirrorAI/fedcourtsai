@@ -668,6 +668,24 @@ def events_for_case(conn: sqlite3.Connection, case_id: str) -> list[CorpusEvent]
     return [_event_from_record(record) for record in cur]
 
 
+def set_event_resolved(
+    conn: sqlite3.Connection, case_id: str, event_id: str, *, resolved: bool = True
+) -> None:
+    """Flip a predictable event's ``resolved`` flag in the corpus.
+
+    The corpus event row is the source of truth for whether an event is still
+    open: outcome detection calls this to close an event the moment it records
+    that event's ``outcome.json``, so the next ``open_events`` read no longer
+    queues it for prediction. A no-op if ``(case_id, event_id)`` is not a known
+    event.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE events SET resolved = ? WHERE case_id = ? AND event_id = ?",
+            (int(resolved), case_id, event_id),
+        )
+
+
 def event_count(conn: sqlite3.Connection) -> int:
     """Total number of predictable-event rows in the corpus."""
     cur = conn.execute("SELECT COUNT(*) AS n FROM events")

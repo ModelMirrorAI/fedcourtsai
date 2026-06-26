@@ -666,7 +666,8 @@ def open_events_cmd(
 ) -> None:
     """Print unresolved (predictable) event ids for a case, one per line."""
     settings = get_settings()
-    for eid in open_events(settings.data_root, court, docket):
+    db = corpus.corpus_db_path(settings.corpus_root)
+    for eid in open_events(db, court, docket):
         typer.echo(eid)
 
 
@@ -858,7 +859,7 @@ def predict_matrix_cmd(
         _scope_filtered(
             _requested_cases(body_file, court, docket, event), scope, settings.corpus_root
         ),
-        lambda c, d: open_events(settings.data_root, c, d),
+        lambda c, d: open_events(corpus.corpus_db_path(settings.corpus_root), c, d),
     )
     matrix = predict_matrix(settings.config_root / "predictors.yaml", cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
@@ -892,7 +893,7 @@ def evaluate_matrix_cmd(
         _scope_filtered(
             _requested_cases(body_file, court, docket, event), scope, settings.corpus_root
         ),
-        lambda c, d: resolved_events(settings.data_root, c, d),
+        lambda c, d: resolved_events(corpus.corpus_db_path(settings.corpus_root), c, d),
     )
     matrix = evaluate_matrix(settings.config_root / "evaluators.yaml", cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
@@ -924,7 +925,7 @@ def reconcile_matrix_cmd(
     settings = get_settings()
     cases = _resolve_cases(
         _requested_cases(body_file, court, docket, event),
-        lambda c, d: open_events(settings.data_root, c, d),
+        lambda c, d: open_events(corpus.corpus_db_path(settings.corpus_root), c, d),
     )
     matrix = reconcile_matrix(cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))

@@ -30,9 +30,10 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
+from .. import corpus, ids
 from ..paths import CasePaths
-from ..schemas import Disposition, Outcome, PredictableEvent
-from ..serialize import read_model, write_json, write_yaml
+from ..schemas import Disposition, Outcome
+from ..serialize import write_json
 from ..store import open_events
 from .ingest import CorpusRow
 
@@ -152,33 +153,36 @@ def detect_resolution(
 
 
 def record_outcomes(
+    corpus_db_path: Path,
     data_root: Path,
     court_id: str,
     docket_id: int,
     resolution: Resolution,
 ) -> list[str]:
-    """Write each deterministic ``outcome.json`` and mark its event resolved.
+    """Write each deterministic ``outcome.json`` and close its event in the corpus.
 
-    Returns the event ids written, sorted. Idempotent: an event whose
-    ``outcome.json`` already exists is filtered out upstream by
-    :func:`open_events`, so a re-run never duplicates or overwrites a recorded
-    outcome.
+    The derived judgment (``outcome.json``) lands in the git ledger; the event's
+    open/resolved state is a raw fact, so the matching ``CorpusEvent`` is flipped
+    ``resolved`` in the packed corpus. Returns the event ids written, sorted.
+    Idempotent: a resolved event is filtered out upstream by :func:`open_events`
+    (which reads the same corpus flag), so a re-run never duplicates or overwrites
+    a recorded outcome.
     """
     case = CasePaths(data_root, court_id, docket_id)
+    case_id = ids.case_id(court_id, docket_id)
     written: list[str] = []
-    for event_id, outcome in sorted(resolution.outcomes.items()):
-        event_paths = case.event(event_id)
-        write_json(event_paths.outcome, outcome)
-        # Keep the event record internally consistent: an event with a realized
-        # outcome is, by definition, resolved.
-        event = read_model(event_paths.event_file, PredictableEvent)
-        if not event.resolved:
-            write_yaml(event_paths.event_file, event.model_copy(update={"resolved": True}))
-        written.append(event_id)
+    with corpus.connect(corpus_db_path) as conn:
+        for event_id, outcome in sorted(resolution.outcomes.items()):
+            write_json(case.event(event_id).outcome, outcome)
+            # An event with a realized outcome is, by definition, resolved: close
+            # it in the corpus so the next open_events read stops queuing it.
+            corpus.set_event_resolved(conn, case_id, event_id)
+            written.append(event_id)
     return written
 
 
 def resolve_case(
+    corpus_db_path: Path,
     data_root: Path,
     row: CorpusRow,
     court_id: str,
@@ -186,11 +190,12 @@ def resolve_case(
 ) -> Resolution:
     """Detect and record resolution for one freshly-refreshed case.
 
-    Reads the case's open events, decides each (:func:`detect_resolution`), writes
-    the deterministic outcomes (:func:`record_outcomes`), and returns the full
+    Reads the case's open events from the corpus (:func:`open_events`), decides
+    each (:func:`detect_resolution`), writes the deterministic outcomes and closes
+    their corpus events (:func:`record_outcomes`), and returns the full
     :class:`Resolution` so the caller can queue reconcile issues for the rest.
     """
-    open_event_ids = open_events(data_root, court_id, docket_id)
+    open_event_ids = open_events(corpus_db_path, court_id, docket_id)
     resolution = detect_resolution(row, court_id, docket_id, open_event_ids)
-    record_outcomes(data_root, court_id, docket_id, resolution)
+    record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
     return resolution
