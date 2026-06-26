@@ -60,6 +60,12 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
       # Assume the read-write (append-only) IAM role via GitHub OIDC so seed can
       # pull and push the packed corpus on the S3-backed DVC remote. The role
       # grants get/put/list but no delete, so a run can add corpus objects but
@@ -102,8 +108,6 @@ jobs:
           LOOP_BUDGET_SECONDS: "16200" # 4.5h
         run: |
           set -euo pipefail
-          git config user.name "fedcourts-bot"
-          git config user.email "bot@users.noreply.github.com"
           # persist-credentials is false on checkout, so authenticate the push via
           # the App token's git credential helper.
           gh auth setup-git
@@ -280,8 +284,6 @@ jobs:
             exit 0
           fi
 
-          git config user.name "fedcourts-bot"
-          git config user.email "bot@users.noreply.github.com"
           # persist-credentials is false on checkout; authenticate via the App token.
           gh auth setup-git
           git switch -c "$branch" "origin/${GITHUB_REF_NAME}"
