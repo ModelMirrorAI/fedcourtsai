@@ -6,7 +6,7 @@ courts:
     total: null
   scotus:
     complete: false
-    offset: 504000
+    offset: 514000
     total: 583840
 schema_version: '1.0'
 snapshot: '2026-03-31'
