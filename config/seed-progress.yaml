@@ -21,10 +21,14 @@ courts:
     offset: 202764
     total: 202764
   ca6:
-    complete: false
-    offset: 133654
+    complete: true
+    offset: 141330
     total: 141330
   ca7:
+    complete: false
+    offset: 2324
+    total: 91875
+  ca8:
     complete: false
     offset: 0
     total: null
