@@ -1,0 +1,234 @@
+name: run-reconcile
+
+# Resolves the reconcile issues `run-pull` files when a docket appears decided but
+# its outcome could not be recorded deterministically (an unreadable disposition,
+# a missing decision date, or a case-level disposition that cannot be attributed
+# to one of several open events). Fans out one agent per flagged case; the agent
+# confirms the disposition from the point-in-time snapshot and writes `outcome.json`
+# for each event it can settle. The agent only writes files; the workflow validates,
+# commits, and opens one PR per case — mirroring run-predict / run-evaluate.
+#
+# Closing the cascade: when that PR merges (outcome.json now on the default branch)
+# the `handoff` job opens a `run:evaluate` issue for the settled events, so a
+# reconciled outcome reaches evaluation exactly as a deterministically-detected one
+# does. The reconcile issue itself is labeled `run:reconcile` (not `run:pull`), so
+# filing or relabeling it never re-fires the full deterministic pull.
+on:
+  issues:
+    types: [labeled]
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: run-reconcile-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.event_name == 'issues' && github.event.label.name == 'run:reconcile'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_jobs: ${{ steps.plan.outputs.has_jobs }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - name: Build per-case reconcile matrix
+        id: plan
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python -c "import os, pathlib; pathlib.Path('issue-body.md').write_text(os.environ.get('ISSUE_BODY', ''))"
+          run_id=$(date -u +%Y%m%dT%H%M%SZ)
+          matrix=$(uv run fedcourts reconcile-matrix --body-file issue-body.md --run-id "$run_id")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          if [ "$(echo "$matrix" | jq '.include | length')" -gt 0 ]; then
+            echo "has_jobs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_jobs=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  reconcile:
+    needs: plan
+    if: needs.plan.outputs.has_jobs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: runner
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write # assume the AWS role for the DVC S3 remote (read-only)
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Mint agent comment token
+        id: agent-token
+        # Least-privilege token the agent itself uses to comment on the triggering
+        # issue. No contents:write — the agent only writes files locally and the
+        # workflow (app-token above) does the commit/PR, so a prompt injection in
+        # docket text cannot push code or record an outcome with this token.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      # Assume the least-privilege AWS role via GitHub OIDC so the agent can
+      # `dvc pull` the corpus from the S3 remote for legal-context retrieval. No
+      # static keys; the role ARN and region come from the `runner` environment.
+      - name: Configure AWS credentials (DVC S3 remote, read-only)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Reconcile with Claude Code
+        id: reconcile_claude
+        if: matrix.engine == 'claude-code'
+        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_IDS: ${{ matrix.events }}
+          RUN_ID: ${{ matrix.run_id }}
+        with:
+          # Auth is the Claude Max subscription (OAuth) today. To move to the
+          # Anthropic API later, replace this line with
+          # `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`; the cache
+          # settings below already cover that switch.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.agent-token.outputs.token }}
+          # Prompt caching is automatic: the stable prefix (AGENTS.md + the prompt
+          # template + schema) is cached across the run's tool-use turns. OAuth
+          # requests the 1-hour cache TTL for free; setting it explicitly keeps that
+          # TTL (and the cache-read discount) once auth moves to an API key.
+          settings: |
+            {
+              "env": {
+                "ENABLE_PROMPT_CACHING_1H": "1"
+              }
+            }
+          prompt: |
+            Read .github/prompts/reconcile.md and AGENTS.md, then confirm the
+            outcome of each event in the COURT_ID/DOCKET_ID/EVENT_IDS environment
+            variables from the case snapshot and write its outcome.json (only for
+            events you can settle with confidence). Do not commit, push, or open a
+            PR — the workflow handles git. You run headless with no interactive
+            input; if you cannot settle an event, leave it open, post a brief note
+            on the triggering issue (#${{ github.event.issue.number }}) with
+            `gh issue comment`, and finish — do not wait for a reply.
+          claude_args: |
+            --model claude-opus-4-8
+            --max-turns 120
+            --permission-mode bypassPermissions
+
+      - name: Validate and open PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          RUN_ID: ${{ matrix.run_id }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts validate data
+          git config user.name "fedcourts-bot"
+          git config user.email "bot@users.noreply.github.com"
+          gh auth setup-git
+          branch="reconcile/${COURT_ID}-${DOCKET_ID}-${RUN_ID}"
+          git checkout -b "$branch"
+          git add data/
+          # The settled events are exactly the outcome.json files this run added
+          # under the case (event.yaml `resolved` flips show as modifications, not
+          # adds, and are excluded). The run:evaluate handoff targets only these, so
+          # an event the agent left ambiguous is never queued for evaluation.
+          prefix="data/cases/${COURT_ID}/${DOCKET_ID}/events"
+          mapfile -t settled < <(
+            git diff --cached --name-only --diff-filter=A -- "$prefix" \
+              | sed -n "s#^${prefix}/\([^/]*\)/outcome.json\$#\1#p"
+          )
+          if [ "${#settled[@]}" -eq 0 ]; then
+            echo "::warning::no outcome recorded for ${COURT_ID}/${DOCKET_ID}; nothing to reconcile."
+            exit 0
+          fi
+          events_json=$(printf '%s\n' "${settled[@]}" | jq -R . | jq -cs .)
+          git commit -m "reconcile: ${COURT_ID}/${DOCKET_ID} — $(IFS=,; echo "${settled[*]}")"
+          git push origin "$branch"
+          # Carry the settled events as a json block so the merge handoff can open a
+          # run:evaluate issue for exactly them; Closes the reconcile issue on merge.
+          block=$(jq -n --arg c "$COURT_ID" --argjson d "$DOCKET_ID" --argjson e "$events_json" \
+            '{court: $c, docket: $d, events: $e}')
+          body=$(printf 'Reconciled ground truth for \`%s/%s\`.\n\nWhen this merges, `run-reconcile` opens a `run:evaluate` issue for the settled events.\n\nCloses #%s\n\n```json\n%s\n```\n' \
+            "$COURT_ID" "$DOCKET_ID" "$ISSUE" "$block")
+          gh pr create --base main --head "$branch" \
+            --title "reconcile: ${COURT_ID}/${DOCKET_ID}" \
+            --body "$body"
+
+  # When a reconcile PR merges, outcome.json is on the default branch — hand off to
+  # evaluation. Mirrors run-pull's "open run:evaluate for newly resolved events",
+  # but fired by the merge rather than by detection (reconcile resolves by hand).
+  handoff:
+    if: >-
+      github.event_name == 'pull_request' && github.event.pull_request.merged == true
+      && startsWith(github.event.pull_request.head.ref, 'reconcile/')
+    runs-on: ubuntu-latest
+    environment: runner
+    permissions:
+      contents: read
+    steps:
+      - name: Mint app token
+        id: app-token
+        # App token (not GITHUB_TOKEN) so the run:evaluate issue triggers run-evaluate.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: Open run:evaluate issue for the reconciled events
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          # Extract the {court, docket, events} block the reconcile PR carried. The
+          # fence (three backticks) is built with chr(96) so no backtick reaches the
+          # shell, and run:evaluate's plan re-parses the same block to build its matrix.
+          block=$(python3 -c "import os,re,sys; f=chr(96)*3; m=re.search(f+r'json\s*(.+?)\s*'+f, os.environ['PR_BODY'], re.S); sys.stdout.write(m.group(1) if m else '')")
+          if [ -z "$block" ]; then
+            echo "::warning::reconcile PR carried no json block; skipping evaluate handoff."
+            exit 0
+          fi
+          court=$(jq -r .court <<<"$block")
+          docket=$(jq -r .docket <<<"$block")
+          gh issue create --repo "$REPO" \
+            --title "evaluate: ${court}/${docket}" \
+            --body "$(printf '```json\n%s\n```\n' "$block")" \
+            --label "run:evaluate"
