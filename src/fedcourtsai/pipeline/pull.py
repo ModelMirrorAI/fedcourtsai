@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
+import httpx
+
 from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient
@@ -100,6 +102,11 @@ class PullQueues:
     predict: list[dict[str, object]] = field(default_factory=list)
     evaluate: list[dict[str, object]] = field(default_factory=list)
     reconcile: list[dict[str, object]] = field(default_factory=list)
+    # Cases whose refresh hit an unrecoverable REST error this run (e.g. a 404,
+    # or retries exhausted). Recorded so a single bad docket degrades the run
+    # gracefully instead of aborting the rotation; carries ``court`` / ``docket``
+    # / ``reason`` for a maintainer to triage.
+    failed: list[dict[str, object]] = field(default_factory=list)
 
 
 def _predict_eligible(corpus_db_path: Path, case_id: str) -> bool:
@@ -137,7 +144,17 @@ def pull_cases(
     queues = PullQueues()
     gated = scope == PredictScope.scotus_touched
     for court, docket in due:
-        result = pull_case(client, corpus_db_path, data_root, court, docket)
+        try:
+            result = pull_case(client, corpus_db_path, data_root, court, docket)
+        except httpx.HTTPError as exc:
+            # One docket's REST failure must not abort the rotation: the cases
+            # already refreshed this run keep their corpus writes and queue
+            # entries. Record the casualty and move on. ``pull_case`` fetches
+            # before it writes, so a failure here leaves no partial corpus state.
+            queues.failed.append(
+                {"court": court, "docket": docket, "reason": f"{type(exc).__name__}: {exc}"}
+            )
+            continue
         in_scope = not gated or _predict_eligible(corpus_db_path, result.case_id)
         events = open_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:
