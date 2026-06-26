@@ -68,6 +68,7 @@ signal to *update that work in place*, not to open a parallel copy.
    uv run mypy
    uv run pytest
    uv run fedcourts validate data
+   uv run fedcourts dvc-status
    ```
 
    If you changed the pydantic models, regenerate schemas
