@@ -81,9 +81,11 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # Assume the least-privilege AWS role via GitHub OIDC so pull can `dvc push`
-      # fresh forward facts into the corpus on the S3 remote. No static keys; the
-      # role ARN and region come from the `runner` environment (see issue #17).
+      # Assume the read-write (append-only) IAM role via GitHub OIDC so pull can
+      # `dvc push` fresh forward facts into the corpus on the S3 remote. The role
+      # grants get/put/list but no delete, so a run can add corpus objects but
+      # never wipe them. No static keys; the role ARN and region come from the
+      # `runner` environment.
       - name: Configure AWS credentials (DVC S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:

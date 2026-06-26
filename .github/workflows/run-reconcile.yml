@@ -99,13 +99,14 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # Assume the least-privilege AWS role via GitHub OIDC so the agent can
+      # Assume the dedicated read-only IAM role via GitHub OIDC so the agent can
       # `dvc pull` the corpus from the S3 remote for legal-context retrieval. No
-      # static keys; the role ARN and region come from the `runner` environment.
+      # static keys; a compromised reconcile runner cannot write or delete corpus
+      # objects. The role ARN and region come from the `runner` environment.
       - name: Configure AWS credentials (DVC S3 remote, read-only)
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Reconcile with Claude Code
