@@ -90,7 +90,7 @@ Requires [uv](https://docs.astral.sh/uv/). A devcontainer is included
 
 ```bash
 uv sync                       # install deps into .venv
-uv run fedcourts --help       # CLI
+uv run fedcourts --help       # CLI (full reference: docs/cli.md)
 uv run fedcourts export-schemas
 uv run fedcourts validate data
 
@@ -147,6 +147,7 @@ docs/               architecture, data model, pipeline, security
 - [Architecture](docs/architecture.md)
 - [Data model](docs/data-model.md) · [Data pipeline](docs/data-pipeline.md) (the corpus)
 - [Pipeline & labels](docs/pipeline.md)
+- [CLI reference](docs/cli.md)
 - [Seed-backfill](docs/seed-backfill.md)
 - [Budget](docs/budget.md)
 - [Milestones](docs/milestones.md)
