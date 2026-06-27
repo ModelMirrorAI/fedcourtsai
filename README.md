@@ -154,6 +154,19 @@ docs/               architecture, data model, pipeline, security
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Agent workflow](docs/agent-workflow.md) · [Contributing](CONTRIBUTING.md)
 
+## Data & attribution
+
+Court data comes from [CourtListener](https://www.courtlistener.com/), a project of
+the [Free Law Project](https://free.law/) — via the CourtListener REST API and the
+quarterly bulk-data exports. A great deal of this project rests on their work;
+please review and support it. Use of their data is governed by
+[CourtListener's terms](https://www.courtlistener.com/terms/).
+
+FedCourtsAI is independent and is **not** affiliated with or endorsed by the Free
+Law Project or any court. Court records are public records of the U.S. federal
+courts; the predictions and evaluations in this repository are model-generated and
+are not official court records.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
