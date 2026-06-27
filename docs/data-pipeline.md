@@ -356,9 +356,9 @@ stage maps qualifying docket entries → event definitions (`kind`,
   reference it, the event is recorded `resolved`; with no citation the stage does
   not guess, so the event stays predictable.
 - **Deterministic first, agent only if ambiguous.** An entry that reads like a
-  request but matches more than one `kind` is surfaced for an agent reconcile
-  issue (`run:reconcile`, `.github/ISSUE_TEMPLATE/reconcile.yml`) rather than
-  classified — the same deterministic-first / agent-fallback split resolution
+  request but matches more than one `kind` is surfaced for an agent `run:reconcile`
+  issue (filed automatically by `run-pull`; see [pipeline.md](pipeline.md)) rather
+  than classified — the same deterministic-first / agent-fallback split resolution
   detection uses. The default path runs no agent.
 
 ## Discovery frontier — the seed → pull hand-off

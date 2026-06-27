@@ -53,10 +53,10 @@
 - **Label triggers are maintainer-gated, two ways.** Applying a `run:*` label is
   the trust boundary for the pipeline, and two layers enforce it on a public repo —
   where an issue *form* would otherwise apply its declared labels on creation for
-  any submitter. (1) No issue form auto-applies a `run:*` label — the operational
-  triggers (`pull` / `seed`) are not public forms at all, and the `reconcile` form
-  ships without a label — so a maintainer applies the `run:*` label after triage.
-  (2) Each issue-triggered privileged job re-checks, before it does anything, that
+  any submitter. (1) No issue form auto-applies a `run:*` label — operating the
+  pipeline (`pull` / `seed` / `reconcile`) is not exposed as a public form at all,
+  so a maintainer applies the `run:*` label to an issue after triage. (2) Each
+  issue-triggered privileged job re-checks, before it does anything, that
   the triggering actor has **write access** (via the collaborators API, failing
   closed), so a label applied by anyone else is inert. The App-driven reconcile
   handoff `run-pull` files (a Bot sender) is recognized and allowed — only a
