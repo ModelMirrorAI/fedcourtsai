@@ -118,6 +118,11 @@ Two things hold no matter what you skip locally:
 - **Keep environment variables out of PR and issue text.** Don't reproduce a
   var's name or value in prose, even when it isn't secret (e.g. the var holding
   the DVC remote's S3 URL); refer to it by its role. Secrets never appear anywhere.
+- **Don't commit personal or organizational email addresses.** Commit author and
+  committer identity must be a GitHub `noreply` address, and real contact emails
+  must not appear in files, commit messages, or PR/issue text — point to
+  GitHub-native channels (an issue, the report-abuse flow) instead. If a task
+  seems to need a non-`noreply` email anywhere, stop and confirm first.
 
 ## Data model (summary)
 
