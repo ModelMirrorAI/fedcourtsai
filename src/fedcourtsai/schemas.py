@@ -375,6 +375,50 @@ class OpsReport(_Strict):
     cost: CostEstimate
 
 
+class CorpusCheck(_Strict):
+    """One named corpus-integrity or referential check and its result.
+
+    ``checked`` is how many items the check examined (rows, snapshots, or ledger
+    artifacts) and ``failures`` how many violated the invariant; ``problems`` is a
+    bounded sample of the specific violations (the full count is ``failures``, so a
+    truncated sample never hides that there were more). ``detail`` is a one-line
+    human summary, e.g. the row count compared against the baseline.
+    """
+
+    name: str = Field(description="Stable check identifier, e.g. `ledger_references_exist`")
+    passed: bool
+    checked: int = Field(default=0, ge=0, description="Items this check examined")
+    failures: int = Field(default=0, ge=0, description="Items that violated the invariant")
+    detail: str = Field(default="", description="One-line human summary of the result")
+    problems: list[str] = Field(
+        default_factory=list, description="Bounded sample of specific violations (capped)"
+    )
+
+
+class CorpusValidation(_Strict):
+    """``validate-corpus`` verdict: corpus integrity + cross-store referential checks.
+
+    The producer half of data validation: a deterministic correctness verdict over
+    the packed corpus and the git ledger under ``data/`` — the complement to
+    ``validate``, which only checks each ledger artifact against its schema. ``ok``
+    is the conjunction of every check; ``skipped`` is set (with ``ok`` true and no
+    checks) when the corpus is absent, so the command is safe to call before a
+    ``dvc pull``. A pure function of its inputs — corpus, ledger, seed cursor, the
+    supplied baseline, and the as-of date — so it carries no timestamp and the same
+    inputs always serialize identically. Surfaced (and escalated) by a separate
+    wiring layer, not committed; a failed verdict is loud-not-fatal by contract.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    ok: bool = Field(description="True when every check passed (or the corpus was absent)")
+    skipped: bool = Field(
+        default=False, description="True when no corpus was present; no checks were run"
+    )
+    corpus_rows: int = Field(default=0, ge=0, description="Case rows in the corpus")
+    corpus_events: int = Field(default=0, ge=0, description="Predictable-event rows in the corpus")
+    checks: list[CorpusCheck] = Field(default_factory=list)
+
+
 class CourtProgress(_Strict):
     """Per-court entry in the seed cursor — how far the backfill has loaded."""
 
@@ -461,4 +505,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "backtest": Backtest,
     "usage": ModelUsage,
     "ops_report": OpsReport,
+    "corpus_validation": CorpusValidation,
 }

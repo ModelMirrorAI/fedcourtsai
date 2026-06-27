@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "CorpusCheck": {
+      "additionalProperties": false,
+      "description": "One named corpus-integrity or referential check and its result.\n\n``checked`` is how many items the check examined (rows, snapshots, or ledger\nartifacts) and ``failures`` how many violated the invariant; ``problems`` is a\nbounded sample of the specific violations (the full count is ``failures``, so a\ntruncated sample never hides that there were more). ``detail`` is a one-line\nhuman summary, e.g. the row count compared against the baseline.",
+      "properties": {
+        "checked": {
+          "default": 0,
+          "description": "Items this check examined",
+          "minimum": 0,
+          "title": "Checked",
+          "type": "integer"
+        },
+        "detail": {
+          "default": "",
+          "description": "One-line human summary of the result",
+          "title": "Detail",
+          "type": "string"
+        },
+        "failures": {
+          "default": 0,
+          "description": "Items that violated the invariant",
+          "minimum": 0,
+          "title": "Failures",
+          "type": "integer"
+        },
+        "name": {
+          "description": "Stable check identifier, e.g. `ledger_references_exist`",
+          "title": "Name",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "problems": {
+          "description": "Bounded sample of specific violations (capped)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "passed"
+      ],
+      "title": "CorpusCheck",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``validate-corpus`` verdict: corpus integrity + cross-store referential checks.\n\nThe producer half of data validation: a deterministic correctness verdict over\nthe packed corpus and the git ledger under ``data/`` \u2014 the complement to\n``validate``, which only checks each ledger artifact against its schema. ``ok``\nis the conjunction of every check; ``skipped`` is set (with ``ok`` true and no\nchecks) when the corpus is absent, so the command is safe to call before a\n``dvc pull``. A pure function of its inputs \u2014 corpus, ledger, seed cursor, the\nsupplied baseline, and the as-of date \u2014 so it carries no timestamp and the same\ninputs always serialize identically. Surfaced (and escalated) by a separate\nwiring layer, not committed; a failed verdict is loud-not-fatal by contract.",
+  "properties": {
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/CorpusCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "corpus_events": {
+      "default": 0,
+      "description": "Predictable-event rows in the corpus",
+      "minimum": 0,
+      "title": "Corpus Events",
+      "type": "integer"
+    },
+    "corpus_rows": {
+      "default": 0,
+      "description": "Case rows in the corpus",
+      "minimum": 0,
+      "title": "Corpus Rows",
+      "type": "integer"
+    },
+    "ok": {
+      "description": "True when every check passed (or the corpus was absent)",
+      "title": "Ok",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skipped": {
+      "default": false,
+      "description": "True when no corpus was present; no checks were run",
+      "title": "Skipped",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ok"
+  ],
+  "title": "CorpusValidation",
+  "type": "object"
+}
