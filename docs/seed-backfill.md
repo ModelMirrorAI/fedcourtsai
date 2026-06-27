@@ -158,7 +158,7 @@ Per-run order:
 
 ```yaml
 on:
-  schedule:    [{ cron: "23 0 * * *" }]   # overnight; a long backfill ends before run-pull (07:17)
+  schedule:    [{ cron: "23 0 * * 0" }]   # weekly, overnight; a quarterly reconciliation ends before run-pull (07:17)
   workflow_dispatch:
   issues:      { types: [labeled] }        # gate: label.name == 'run:seed'
 concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with run-pull
