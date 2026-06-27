@@ -14,10 +14,11 @@ in any given run:
 
 1. **Pipeline development** (`run:dev`): change the Python package, workflows,
    docs, schemas, or prompts. Do **not** touch `data/`.
-2. **Data production** (`run:seed` / `run:pull` / `run:predict` / `run:evaluate`):
-   produce or update data — the raw-fact corpus (DVC/S3) and/or the derived
-   artifacts under `data/`. Do **not** change pipeline code to make your task
-   easier, and never weaken validation, CI, lint, type, or security checks.
+2. **Data production** (`run:seed` / `run:pull` / `run:predict` / `run:evaluate` /
+   `run:reconcile`): produce or update data — the raw-fact corpus (DVC/S3) and/or
+   the derived artifacts under `data/`. Do **not** change pipeline code to make
+   your task easier, and never weaken validation, CI, lint, type, or security
+   checks.
 
 ## Where you run: headless in CI
 
@@ -39,8 +40,8 @@ non-interactive** container. Two consequences shape everything you do:
   pushed off the runner** before you finish:
   - **Code, docs, config, schemas → GitHub.** Persist via a branch + PR. In
     `run:dev` you do this yourself (using the GitHub App token). In `run:predict` /
-    `run:evaluate` you only *write files into the working tree* and the workflow
-    commits, pushes, and opens the PR — so do **not** push yourself.
+    `run:evaluate` / `run:reconcile` you only *write files into the working tree*
+    and the workflow commits, pushes, and opens the PR — so do **not** push yourself.
   - **Corpus / large historical data → the DVC remote.** Bulk data lives in the
     S3-backed DVC remote, not git, and persists only via `dvc push` (the seed/pull
     workflows own this). A data file left in the working tree but never pushed to
@@ -49,9 +50,9 @@ non-interactive** container. Two consequences shape everything you do:
 ## The golden rules
 
 - **Branch and PR.** Never commit to `main`. Create a branch, do the work, open
-  one focused PR against `main`. (For `run:predict`/`run:evaluate` the *workflow*
-  commits and opens the PR — you only write files. The prompt for your task says
-  which mode you are in.)
+  one focused PR against `main`. (For `run:predict`/`run:evaluate`/`run:reconcile`
+  the *workflow* commits and opens the PR — you only write files. The prompt for
+  your task says which mode you are in.)
 - **Stay in your lane.** A predictor writes only under its own
   `predictions/<predictor_id>/<run_id>/` path. An evaluator writes only under its
   own `evaluations/<evaluator_id>/...` path. Never edit another agent's output,
@@ -65,7 +66,15 @@ non-interactive** container. Two consequences shape everything you do:
 - **No secrets in code or data.** Never print, log, or write API tokens. They
   arrive only as environment variables.
 
-## Local gate (must pass before every PR)
+## Local gate
+
+The gate that actually blocks a merge is the **required status checks on your
+PR** — CI runs the full suite below and the PR cannot merge until it passes. So
+locally you have **discretion**: run the subset that fits what you changed, enough
+for honest confidence rather than a ritual full run. A docs-only change needs none
+of the Python checks; a type fix wants `mypy` and the touched tests; a
+pydantic-model change must regenerate `schemas/`. Choose what makes sense — CI is
+the backstop.
 
 ```bash
 uv sync
@@ -79,9 +88,16 @@ uv run fedcourts export-schemas schemas
 git diff --exit-code schemas   # CI fails if the committed schemas drift
 ```
 
-The last two lines mirror CI's schema-drift check: any change to a pydantic
-model's fields **or field descriptions** regenerates `schemas/` — commit the
-result, or the gate fails.
+Two things hold no matter what you skip locally:
+
+- **Schema is law.** Every data artifact you write must pass
+  `fedcourts validate data`, and any change to a pydantic model's fields **or
+  field descriptions** must regenerate and commit `schemas/` — CI fails on drift.
+- **Keep the docs in step.** Before you push, check whether your change makes any
+  documentation stale — `README.md`, `AGENTS.md`, `docs/`, the prompts under
+  `.github/prompts/`, or module/CLI docstrings — and update it in the same PR.
+  Docs describe the current design (see Conventions), so a change that lands
+  without its doc update leaves them wrong.
 
 ## Conventions
 
@@ -106,8 +122,8 @@ result, or the gate fails.
 ## Data model (summary)
 
 Two stores, split by kind. **Raw facts** — dockets, snapshots, judges, case and
-tracking metadata, event definitions — live in a packed **corpus** (Parquet or
-SQLite under DVC), written identically by `seed` and `pull`. **Derived artifacts**
+tracking metadata, event definitions — live in a packed **corpus** (SQLite under
+DVC), written identically by `seed` and `pull`. **Derived artifacts**
 live in git under `data/`, keyed by case and event:
 
 ```

@@ -25,6 +25,7 @@ trigger the next stage. Several stages delegate to agentic coding tools
 | `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
 | `run:seed`     | `run-seed`      | Ingest initial dockets from CourtListener into the corpus            | Script |
 | `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script (agent only if ambiguous) |
+| `run:reconcile`| `run-reconcile` | Confirm a decided event's `outcome.json` from the docket when pull can't | Claude Code |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex |
 
@@ -38,7 +39,7 @@ run:seed ──▶ seed dockets ──▶ (merge)
                                                                 ▼
                                           predict (matrix over predictors) ──▶ PRs
                                                                 │
-                                            (outcome lands via pull)
+                                       (outcome lands via pull, or run:reconcile)
                                                                 ▼
                                        run:evaluate ──▶ score every predictor ──▶ PRs
 ```
@@ -52,8 +53,8 @@ agents and `run-evaluate` is the tournament that ranks them.
 ## Data model
 
 State lives in two stores, split by kind. **Raw facts** — dockets, snapshots,
-judges, case and event metadata — go into a packed **corpus** (Parquet or SQLite
-under DVC/S3), written identically by `seed` and `pull`. **Derived artifacts** are
+judges, case and event metadata — go into a packed **corpus** (SQLite under
+DVC/S3), written identically by `seed` and `pull`. **Derived artifacts** are
 versioned as files in git, organized **case-centrically** so everything we
 conclude about a single predictable event lives together:
 
@@ -106,7 +107,7 @@ The historical mass is loaded by `seed-backfill`, what the `run-seed` workflow
 runs: deterministic, no-agent ingestion of CourtListener **bulk data** (no API
 token, no API budget) into the *same* corpus through the *same* core. It loads
 one chunk of the tracked courts per run against a resumable cursor
-(`config/seed-progress.yaml`), daily until complete:
+(`config/seed-progress.yaml`), chunked until complete:
 
 ```bash
 uv run fedcourts seed-backfill --report seed-report.json   # load the next bulk chunk

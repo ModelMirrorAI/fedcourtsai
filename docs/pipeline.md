@@ -24,6 +24,13 @@ branch** (an orphan time-series that never merges to `main`, so the default bran
 stays clean and the prior snapshot is available for the rate/ETA). It triggers
 nothing and touches neither `main` nor the corpus.
 
+It is also the **presenter** of the data-validation verdict (see *Data
+validation* in [data-pipeline.md](data-pipeline.md)): the corpus-writer path
+produces a correctness verdict where the corpus is already pulled, and `run-ops`
+renders it as a **data-health** section and escalates a failing verdict to one
+long-lived issue — so the dashboard surfaces both run-health and data-health while
+staying a read-only presenter that never touches the corpus.
+
 **seed** loads the historical backlog from CourtListener **bulk data** — chunked
 catch-up while backfilling, then a weekly snapshot-id check that reconciles when a
 new quarterly bulk snapshot drops; **pull** keeps the active set current from

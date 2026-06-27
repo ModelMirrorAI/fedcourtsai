@@ -89,6 +89,10 @@ Everything in the next three months is sequenced to make that release possible.
   Oct–Dec argument-and-grant cadence.
 - **Quarterly reconciliation proven** — the Dec bulk snapshot drives a seed
   reconciliation pass without disrupting pull.
+- **Data validation live** — a `validate-corpus` verdict (schema conformance,
+  corpus integrity, cross-store referential checks) runs on the corpus-writer path
+  and surfaces in the ops dashboard as data-health, with failures escalated to a
+  single issue — the automated successor to the manual corpus spot-check.
 
 ### Within ~1 year (by mid-2027) — full-docket release + back-testing
 

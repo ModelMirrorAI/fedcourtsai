@@ -13,8 +13,8 @@
   CourtListener token is passed as a scoped step env only where needed.
 - **Agents get a least-privilege GitHub App token, never a static one.** So a
   headless agent can post progress/questions on the triggering issue/PR, the
-  `run:predict` / `run:evaluate` agent steps receive a separate short-lived App
-  installation token from `actions/create-github-app-token`, scoped
+  `run:predict` / `run:evaluate` / `run:reconcile` agent steps receive a separate
+  short-lived App installation token from `actions/create-github-app-token`, scoped
   `contents: read` + `issues` + `pull-requests: write` — **comment-only**. The
   *workflow* (a distinct `contents: write` app-token) does the commit/PR, so a
   prompt injection in docket text cannot push code with the agent's token. The
