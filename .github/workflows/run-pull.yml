@@ -162,6 +162,16 @@ jobs:
       - name: Refresh tracked dockets
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # CourtListener per-token rate limits the client throttles to
+          # (config.py courtlistener_rpm/rph/rpd). Set the repo/environment
+          # variables to the active Free Law Project tier (e.g. Tier 2 = 15/150/600)
+          # to use the paid membership's higher ceiling. The `|| '...'` fallbacks
+          # are the free-tier defaults: an unset Actions variable renders as an
+          # empty string, which would fail int parsing — so absent any variable,
+          # this stays at today's 5/50/125 rather than crashing pull-all.
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '5' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '50' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '125' }}
         run: |
           uv run fedcourts pull-all \
             --out predict-queue.json \
