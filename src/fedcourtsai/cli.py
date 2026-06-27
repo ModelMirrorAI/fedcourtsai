@@ -876,7 +876,13 @@ def pull_all(
                 max_new=pull_cfg.max_new_cases_per_run,
                 default_since=date.today(),
             )
-            typer.echo(f"Discovered {disc.total} new case(s) before refresh")
+            disc_failed = (
+                f" ({len(disc.failed)} court(s) failed: "
+                f"{', '.join(str(f['court']) for f in disc.failed)})"
+                if disc.failed
+                else ""
+            )
+            typer.echo(f"Discovered {disc.total} new case(s) before refresh{disc_failed}")
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
         queues = pull_cases(client, db, settings.data_root, due, scope=scope)

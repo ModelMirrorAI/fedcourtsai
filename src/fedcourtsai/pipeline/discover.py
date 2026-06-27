@@ -24,6 +24,8 @@ from datetime import date
 from pathlib import Path
 from typing import Protocol
 
+import httpx
+
 from .. import corpus
 from ..courtlistener import CourtListenerClient
 from .events import AmbiguousEntry, extract_events
@@ -54,6 +56,12 @@ class DiscoverResult:
     courts: list[CourtDiscovery] = field(default_factory=list)
     case_ids: list[str] = field(default_factory=list)
     ambiguous: list[AmbiguousEntry] = field(default_factory=list)
+    # Courts whose discovery hit an unrecoverable REST error this run (e.g. a
+    # timeout, or retries exhausted). Recorded so one slow court degrades the run
+    # gracefully instead of aborting the whole refresh; carries ``court`` /
+    # ``reason`` for a maintainer to triage. The failed court's watermark is left
+    # untouched, so the next run retries its range gap-free.
+    failed: list[dict[str, object]] = field(default_factory=list)
 
     @property
     def total(self) -> int:
@@ -90,7 +98,18 @@ def discover_cases(
                 break
 
             since = corpus.get_discovery_watermark(conn, court) or default_since
-            dockets = client.iter_dockets(court, since, max_results=remaining)
+            try:
+                dockets = client.iter_dockets(court, since, max_results=remaining)
+            except httpx.HTTPError as exc:
+                # One court's REST failure must not abort discovery (which itself
+                # runs before the per-case refresh): the courts already onboarded
+                # this run keep their corpus writes, and refresh still proceeds.
+                # ``iter_dockets`` is the first touch for this court and raises
+                # before any write, so no partial corpus state is left behind.
+                # Leave the watermark untouched so the next run retries this exact
+                # range gap-free, rather than skipping forward past unseen filings.
+                result.failed.append({"court": court, "reason": f"{type(exc).__name__}: {exc}"})
+                continue
             if not dockets:
                 # No new filings — but still record the frontier we searched from,
                 # so the next run resumes from ``since`` instead of resetting to
