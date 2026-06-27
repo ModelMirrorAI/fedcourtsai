@@ -93,10 +93,9 @@
 
 Please report security issues **privately**, not in a public issue — use
 [GitHub private vulnerability reporting](https://github.com/ModelMirrorAI/fedcourtsai/security/advisories/new)
-(Security → Report a vulnerability), or email `SECURITY-CONTACT`. We aim to
-acknowledge within a few days and ask for a reasonable window to remediate before
-public disclosure. Do not include privileged, sealed, or otherwise sensitive court
-material in a report.
+(Security → Report a vulnerability). We aim to acknowledge within a few days
+and ask for a reasonable window to remediate before public disclosure. Do not 
+include privileged, sealed, or otherwise sensitive court material in a report.
 
 ## Scope & disclaimers
 
