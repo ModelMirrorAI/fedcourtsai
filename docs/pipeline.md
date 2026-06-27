@@ -7,7 +7,7 @@ stage.
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
 | `run:dev`       | `run-dev`        | issue labeled                       | Claude Code          |
-| `run:seed`      | `run-seed`       | tracking issue + daily schedule     | script (bulk data)   |
+| `run:seed`      | `run-seed`       | tracking issue + weekly schedule    | script (bulk data)   |
 | `run:pull`      | `run-pull`       | daily schedule, label, manual       | script (no agent)    |
 | `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex  |
@@ -24,8 +24,9 @@ branch** (an orphan time-series that never merges to `main`, so the default bran
 stays clean and the prior snapshot is available for the rate/ETA). It triggers
 nothing and touches neither `main` nor the corpus.
 
-**seed** loads the historical backlog from CourtListener **bulk data** and runs
-daily until complete (then quarterly); **pull** keeps the active set current from
+**seed** loads the historical backlog from CourtListener **bulk data** — chunked
+catch-up while backfilling, then a weekly snapshot-id check that reconciles when a
+new quarterly bulk snapshot drops; **pull** keeps the active set current from
 the rate-limited **REST API** and owns the 125/day budget. The full design —
 sources, budget boundary, the corpus/ledger storage split, and the historical
 corpus — is in [data-pipeline.md](data-pipeline.md).
@@ -33,7 +34,7 @@ corpus — is in [data-pipeline.md](data-pipeline.md).
 ## Cascade
 
 ```
-run:seed (daily until done) → backfill bulk corpus chunk → commit + progress comment
+run:seed (weekly, chunked until done) → backfill bulk corpus chunk → commit + progress comment
                               └─ when complete: completion PR (flips `completed`) → closes tracker
    daily / run:pull → run-pull → open pull-log issue → push fresh facts + snapshots to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)

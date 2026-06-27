@@ -12,12 +12,13 @@ name: run-seed
 # the long-lived run:seed tracking issue; on the run that exhausts every court it
 # opens a one-time completion PR that flips the cursor's `completed` sign-off flag
 # (merging it closes the tracker). Then it reconciles quarterly when a new bulk
-# snapshot drops. Scheduled overnight so a multi-hour backfill finishes well before
-# run-pull (07:17) — both share the `corpus-write` lock. See docs/seed-backfill.md
-# and docs/data-pipeline.md.
+# snapshot drops. Scheduled weekly overnight: with the backfill in, most runs are a
+# cheap snapshot-id check that no-ops in seconds; a quarterly reconciliation still
+# finishes well before run-pull (07:17) — both share the `corpus-write` lock. See
+# docs/seed-backfill.md and docs/data-pipeline.md.
 on:
   schedule:
-    - cron: "23 0 * * *" # overnight; a long backfill must finish before run-pull (07:17)
+    - cron: "23 0 * * 0" # weekly (Sun), overnight: catches a new quarterly snapshot within a week; a reconciliation still ends before run-pull (07:17)
   workflow_dispatch:
   issues:
     types: [labeled]
@@ -35,7 +36,7 @@ jobs:
   seed:
     if: github.event_name != 'issues' || github.event.label.name == 'run:seed'
     runs-on: ubuntu-latest
-    timeout-minutes: 330 # overnight backfill: ~stage once + loop ingest; ends before run-pull
+    timeout-minutes: 330 # headroom for a quarterly reconciliation (stage once + loop ingest); ends before run-pull
     environment: runner
     permissions:
       contents: write # commit the corpus pointer + cursor straight to the default branch

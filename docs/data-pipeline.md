@@ -76,7 +76,7 @@ cadence:
 | Axis            | seed (backfill)                         | pull (forward)                    |
 |-----------------|-----------------------------------------|-----------------------------------|
 | Source          | bulk S3 CSV                             | REST API                          |
-| Lifecycle       | finite — runs daily **until complete**  | perpetual — runs daily forever    |
+| Lifecycle       | finite — chunked **until complete**     | perpetual — runs daily forever    |
 | Budget          | ~0 API                                  | owns the 125/day budget           |
 | Reporting       | long-lived `run:seed` issue, closed by a completion PR | short-lived `pull-log` issue per run |
 | Steady state    | drops to **quarterly** reconciliation   | stays **daily**                   |
@@ -95,7 +95,7 @@ legible.
    API docket JSON ─┐
    bulk CSV row    ─┴─►  one normalized corpus row
    ┌───────────────────────┐
-   │ SEED (daily→quarterly) │ bulk S3 ─► packed corpus (DVC) ─► back-testing, retrieval
+   │ SEED (weekly→quarterly)│ bulk S3 ─► packed corpus (DVC) ─► back-testing, retrieval
    │  no agent, no budget   │ cursor + run:seed tracking issue
    └───────────────────────┘
    ┌───────────────────────┐
@@ -240,7 +240,7 @@ replayed out of band, exactly as `run-predict` runs them live.
 ## Seed — historical backfill
 
 - **Trigger:** a single long-lived `run:seed` tracking issue (see
-  `.github/ISSUE_TEMPLATE/seed.yml`) plus a daily schedule.
+  `.github/ISSUE_TEMPLATE/seed.yml`) plus a weekly schedule.
 - **Each run** (deterministic, no agent, no API secret): read the committed
   **cursor** → process the next chunk of the bulk snapshot for the target courts
   → run the **event-definition stage** over each ingested docket so it carries its
@@ -263,8 +263,8 @@ replayed out of band, exactly as `run-predict` runs them live.
   many-per-docket `parties` / `attorneys` name rows. *Phase B* (cheap, per run)
   serves each chunk as one indexed `LEFT JOIN`, aliasing the cluster columns and
   aggregating the party/attorney names to the field names the ingestion core reads.
-  Pointing the staging path at a cached location lets daily runs reuse the staged DB
-  instead of re-streaming the GB-scale files.
+  Pointing the staging path at a cached location lets successive runs reuse the staged
+  DB instead of re-streaming the GB-scale files.
 - **Extending the join:** the sibling tables are the seam for **bringing in more
   bulk data**. Adding a field is local and additive — a column (or staging table)
   in `CourtListenerBulkSource`, a stage step keyed on `docket_id`, a projection in
@@ -274,8 +274,8 @@ replayed out of band, exactly as `run-predict` runs them live.
   a snapshot does not publish is simply skipped, so the docket spine always loads and
   the new fields stay blank until the data is present.
 - **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
-  loaded per court, so "daily until complete" resumes cleanly and the backfill is
-  rebuildable after a fresh clone.
+  loaded per court, so a chunked catch-up resumes cleanly across runs and the
+  backfill is rebuildable after a fresh clone.
 - **Completion:** on the run that exhausts every court, the workflow opens a
   one-time **completion PR** that flips the cursor's `completed` sign-off flag.
   Merging that PR is the maintainer's acknowledgement and **closes the tracking
