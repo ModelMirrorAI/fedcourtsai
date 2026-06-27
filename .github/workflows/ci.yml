@@ -34,7 +34,21 @@ jobs:
       - name: mypy
         run: uv run mypy
       - name: pytest
-        run: uv run pytest
+        run: uv run pytest --cov --cov-report=term-missing
+      - name: coverage summary
+        # Surface coverage to maintainers in the run's job summary (no badge, no
+        # commit, no upload). Needs no permissions — $GITHUB_STEP_SUMMARY is a
+        # runner-local file — so this stays fork-safe.
+        run: |
+          {
+            echo "## Coverage: $(uv run coverage report --format=total)%"
+            echo ""
+            echo "<details><summary>Per-file coverage</summary>"
+            echo ""
+            uv run coverage report --format=markdown
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: validate data
         run: uv run fedcourts validate data
       - name: dvc status
