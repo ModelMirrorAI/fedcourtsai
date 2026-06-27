@@ -62,12 +62,14 @@
   handoff `run-pull` files (a Bot sender) is recognized and allowed — only a
   maintainer-installed App can apply a label that fires a workflow at all.
 - **Branch protection and the deployment boundary.** `main` carries two rulesets.
-  One requires a reviewed PR plus the `gate` check to merge; the GitHub App is a
+  One requires a reviewed PR plus the `gate` check to merge; the **data App** is a
   bypass actor on it, so the deterministic `run-seed` / `run-pull` writers can push
   corpus facts straight to `main` while agent code changes go through review. The
-  second, with **no** bypass, blocks force-pushes and branch deletion for everyone
-  — the App included — so the predictions, outcomes, and evaluations under `data/`
-  cannot be rewritten or dropped. Secrets and the S3 roles live in the `runner`
+  agent workflows authenticate as a separate **dev App** that is *not* a bypass
+  actor, so "data writes direct, everything agentic via a reviewed PR" is enforced
+  by identity. The second ruleset, with **no** bypass, blocks force-pushes and
+  branch deletion for everyone — both Apps included — so the predictions, outcomes,
+  and evaluations under `data/` cannot be rewritten or dropped. Secrets and the S3 roles live in the `runner`
   environment, whose deployment branches are restricted to `main`: only workflows
   already on `main` can read them, so a workflow authored on a PR branch (including
   one `run:dev` adds with its workflows scope) runs without `runner` secrets or the
