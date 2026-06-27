@@ -144,7 +144,13 @@ jobs:
           # Facts go straight to main: any deterministically-detected outcome.json
           # under data/ and the small corpus pointer (the corpus blob — rows and
           # point-in-time snapshots — lives in the DVC remote, pushed above).
-          git add data/ corpus/corpus.db.dvc
+          # data/ may not exist yet (no outcome has ever been written), so stage it
+          # only when present; the corpus pointer always exists and an empty staged
+          # set is handled by the no-op guard below.
+          git add corpus/corpus.db.dvc
+          if [ -d data ]; then
+            git add data/
+          fi
           if git diff --cached --quiet; then
             echo "No outcome or corpus changes to commit."
             echo "committed=false" >> "$GITHUB_OUTPUT"
