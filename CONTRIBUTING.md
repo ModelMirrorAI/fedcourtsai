@@ -10,8 +10,9 @@ pipeline rather than by hand. A few things are worth knowing before you contribu
 - Work is represented as **GitHub issues**. Applying a `run:*` label triggers the
   matching workflow (see the table in the [README](README.md) and
   [`docs/pipeline.md`](docs/pipeline.md)). Applying those labels is **maintainer-
-  gated** — opening an issue from a form does *not* start a run; a maintainer
-  applies the label after triage (see [SECURITY.md](SECURITY.md)).
+  gated** and is the pipeline's trust boundary — a maintainer applies the label to
+  an issue after triage; there is no public form that starts a run (see
+  [SECURITY.md](SECURITY.md)).
 - **Never commit to `main`.** Every change lands through a focused pull request
   against `main`, which must pass the `gate` check before it can merge.
 - **Stay in your lane.** Pipeline-code changes don't touch `data/`; data-production
@@ -26,9 +27,10 @@ agent-driven run actually flows.
 
 - **Found a bug or have an idea?** Use the *Bug report* or *Feature / idea* form on
   the [new-issue page](../../issues/new/choose).
-- **Want to trigger a data run** (refresh a case, reconcile an outcome, etc.)? Those
-  forms exist too, but a maintainer applies the `run:*` label — the trust boundary
-  for anything that spends compute or writes the corpus.
+- **Want a data run** (refresh a case, reconcile an outcome, etc.)? Open a regular
+  issue describing it. Triggering the run is maintainer-only — a maintainer applies
+  the `run:*` label, the trust boundary for anything that spends compute or writes
+  the corpus.
 
 ## Submitting a pull request
 
