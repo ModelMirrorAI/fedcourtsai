@@ -17,6 +17,9 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    # The whole suite (lint, mypy, pytest, validation) runs in a few minutes; this
+    # cap is generous headroom so a hung step is cancelled long before the 6h default.
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:

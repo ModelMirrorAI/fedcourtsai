@@ -42,6 +42,11 @@ jobs:
   pull:
     if: github.event_name != 'issues' || github.event.label.name == 'run:pull'
     runs-on: ubuntu-latest
+    # A daily refresh of up to 50 dockets (CourtListener fetches + DVC S3 transfer)
+    # finishes well inside this; the cap releases the shared corpus-write lock far
+    # sooner than GitHub's 6h default if a network step hangs. Below run-seed's
+    # quarterly budget, since pull does much less work.
+    timeout-minutes: 45
     environment: runner
     permissions:
       contents: write
