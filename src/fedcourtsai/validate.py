@@ -34,8 +34,16 @@ from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
+import yaml
+
 from . import corpus
-from .schemas import CorpusCheck, CorpusValidation, SeedProgress
+from .schemas import (
+    FILENAME_MODELS,
+    CorpusCheck,
+    CorpusValidation,
+    LedgerValidation,
+    SeedProgress,
+)
 
 # Cap the per-check problem sample so a pathological corpus cannot produce an
 # unbounded verdict; `CorpusCheck.failures` still carries the true total.
@@ -60,6 +68,39 @@ def _check(name: str, problems: list[str], *, checked: int, detail: str = "") ->
         checked=checked,
         failures=len(problems),
         detail=detail,
+        problems=sorted(problems)[:_MAX_PROBLEMS],
+    )
+
+
+# --- schema conformance (layer A, git ledger only) -----------------------------
+
+
+def validate_ledger(path: Path) -> LedgerValidation:
+    """Validate every known artifact under ``path`` against its schema model.
+
+    The corpus-free, git-only half of data health: the same per-file schema check
+    the ``validate`` command (and the PR gate) runs, returned as a structured
+    :class:`LedgerValidation` so the ops dashboard can present it alongside the
+    corpus verdict. ``problems`` is capped like the corpus checks; ``invalid`` is
+    the true failure count.
+    """
+    problems: list[str] = []
+    checked = 0
+    for file in sorted(path.rglob("*")):
+        model = FILENAME_MODELS.get(file.name)
+        if model is None or not file.is_file():
+            continue
+        checked += 1
+        try:
+            text = file.read_text()
+            data = json.loads(text) if file.suffix == ".json" else yaml.safe_load(text)
+            model.model_validate(data)
+        except Exception as exc:
+            problems.append(f"{file}: {exc}")
+    return LedgerValidation(
+        ok=not problems,
+        checked=checked,
+        invalid=len(problems),
         problems=sorted(problems)[:_MAX_PROBLEMS],
     )
 

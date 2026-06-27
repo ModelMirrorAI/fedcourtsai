@@ -442,3 +442,14 @@ jobs:
           git push --force origin "HEAD:refs/heads/${branch}"
           gh pr create --repo "$REPO" --base "${GITHUB_REF_NAME}" --head "$branch" \
             --title "seed: backfill complete — ${snapshot}" --body-file pr-body.md
+
+      # Trailing, NON-BLOCKING data-validation: the corpus is already pulled here
+      # (a reconciliation pass refreshed it; an idle snapshot-id check still has it),
+      # so produce the correctness verdict and publish it to the ops-metrics branch
+      # for run-ops to present and escalate. continue-on-error keeps a failing verdict
+      # (or a publish hiccup) from failing the seed — loud-not-fatal by contract.
+      - name: Produce + publish the corpus validation verdict
+        continue-on-error: true
+        uses: ./.github/actions/publish-corpus-verdict
+        with:
+          token: ${{ steps.app-token-post.outputs.token }}

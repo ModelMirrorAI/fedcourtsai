@@ -27,6 +27,7 @@ from fedcourtsai.validate import (
     CHECK_SEED_CURSOR,
     CHECK_SNAPSHOT_NOT_FUTURE,
     run_corpus_validation,
+    validate_ledger,
 )
 
 runner = CliRunner()
@@ -260,6 +261,37 @@ def test_unopenable_corpus_fails_not_crashes(tmp_path: Path) -> None:
     assert not verdict.ok
     assert not verdict.skipped
     assert [c.name for c in verdict.checks] == ["corpus_opens"]
+
+
+# --- A: ledger schema conformance (git-only) ----------------------------------
+
+
+def test_validate_ledger_passes_clean_artifacts(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_outcome(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
+    result = validate_ledger(data_root)
+    assert result.ok
+    assert result.checked == 2
+    assert result.invalid == 0
+    assert result.problems == []
+
+
+def test_validate_ledger_flags_malformed_artifact(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    out = _write_outcome(data_root, "ca9", 1, "evt-motion-stay")
+    # Corrupt the outcome so it no longer matches its schema.
+    out.write_text('{"not": "an outcome"}\n')
+    result = validate_ledger(data_root)
+    assert not result.ok
+    assert result.invalid == 1
+    assert any(str(out) in p for p in result.problems)
+
+
+def test_validate_ledger_empty_tree_is_a_pass(tmp_path: Path) -> None:
+    result = validate_ledger(tmp_path / "data")  # never created
+    assert result.ok
+    assert result.checked == 0
 
 
 # --- CLI ----------------------------------------------------------------------

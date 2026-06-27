@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-import yaml
 
 from . import corpus, dvc, ids
 from .backtest import default_backtesters, run_backtest, select_backtest_set
@@ -29,7 +28,7 @@ from .config import (
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
-from .ops import build_ops_report, render_markdown
+from .ops import build_ops_report, render_data_health, render_markdown
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
@@ -44,7 +43,8 @@ from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import load_evaluators, load_predictors
 from .schemas import (
     EXPORTABLE_MODELS,
-    FILENAME_MODELS,
+    CorpusValidation,
+    DataHealth,
     Disposition,
     Engine,
     ModelUsage,
@@ -60,7 +60,7 @@ from .store import (
     resolved_events,
 )
 from .usage import parse_claude_usage, parse_codex_usage
-from .validate import run_corpus_validation
+from .validate import run_corpus_validation, validate_ledger
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -82,26 +82,13 @@ def validate(
     path: Annotated[Path, typer.Argument(help="Directory to validate recursively.")] = Path("data"),
 ) -> None:
     """Validate every known artifact under PATH against its schema."""
-    errors: list[str] = []
-    checked = 0
-    for file in sorted(path.rglob("*")):
-        model = FILENAME_MODELS.get(file.name)
-        if model is None or not file.is_file():
-            continue
-        checked += 1
-        try:
-            text = file.read_text()
-            data = json.loads(text) if file.suffix == ".json" else yaml.safe_load(text)
-            model.model_validate(data)
-        except Exception as exc:
-            errors.append(f"{file}: {exc}")
-
-    if errors:
-        for err in errors:
+    result = validate_ledger(path)
+    if not result.ok:
+        for err in result.problems:
             typer.echo(f"INVALID {err}", err=True)
-        typer.echo(f"\n{len(errors)} invalid / {checked} checked", err=True)
+        typer.echo(f"\n{result.invalid} invalid / {result.checked} checked", err=True)
         raise typer.Exit(code=1)
-    typer.echo(f"OK: {checked} artifact(s) valid")
+    typer.echo(f"OK: {result.checked} artifact(s) valid")
 
 
 @app.command("validate-corpus")
@@ -425,15 +412,29 @@ def ops_report(
     generated_at: Annotated[
         str, typer.Option(help="ISO timestamp stamped on the report; defaults to now (UTC).")
     ] = "",
+    corpus_validation: Annotated[
+        Path | None,
+        typer.Option(
+            help="Latest `validate-corpus` verdict JSON (e.g. from the ops-metrics "
+            "branch) for the data-health section. Ignored if missing or unreadable."
+        ),
+    ] = None,
+    data_health_out: Annotated[
+        Path | None,
+        typer.Option(help="Write the data-health section Markdown here (the escalation body)."),
+    ] = None,
 ) -> None:
-    """Roll pipeline health, backfill progress, and model spend into an ops snapshot.
+    """Roll pipeline health, backfill, spend, and data health into an ops snapshot.
 
     A read-only view of authoritative sources — the GitHub Actions run history
     (``--runs``), the seed cursor (``config/seed-progress.yaml``), and the recorded
-    ``usage.json`` ledger under ``data/``. Prints the dashboard Markdown to stdout
-    (the run-ops issue body / step summary) and, with ``--json``, writes the
-    structured ``OpsReport``. Unlike the leaderboard/back-test roll-ups it is a
-    point-in-time snapshot, so it is surfaced, not committed.
+    ``usage.json`` ledger under ``data/``. Also presents the **data-health** verdict:
+    it runs the git-only ``validate`` over ``data/`` itself and folds in the latest
+    corpus verdict from ``--corpus-validation`` (produced where the corpus is already
+    pulled). Prints the dashboard Markdown to stdout (the run-ops issue body / step
+    summary) and, with ``--json``, writes the structured ``OpsReport``. Unlike the
+    leaderboard/back-test roll-ups it is a point-in-time snapshot, so it is surfaced,
+    not committed.
     """
     settings = get_settings()
     seed_cfg = load_seed_config(settings.config_root)
@@ -448,6 +449,21 @@ def ops_report(
             prior = OpsReport.model_validate_json(previous.read_text())
         except ValueError:
             prior = None
+    # Data health: the git-only ledger schema check always runs here (no corpus
+    # needed), and the corpus verdict is read back from the producer path if present
+    # (best-effort: a missing/unreadable verdict just leaves that half null).
+    corpus_verdict: CorpusValidation | None = None
+    if corpus_validation is not None and corpus_validation.exists():
+        try:
+            corpus_verdict = CorpusValidation.model_validate_json(corpus_validation.read_text())
+        except ValueError:
+            corpus_verdict = None
+    ledger = validate_ledger(settings.data_root)
+    data_health = DataHealth(
+        ok=ledger.ok and (corpus_verdict is None or corpus_verdict.ok),
+        ledger=ledger,
+        corpus=corpus_verdict,
+    )
     when = generated_at or datetime.now(UTC).isoformat()
     report = build_ops_report(
         generated_at=when,
@@ -456,9 +472,13 @@ def ops_report(
         courts=courts,
         usage=iter_usage(settings.data_root),
         previous=prior,
+        data_health=data_health,
     )
     if json_out is not None:
         write_json(json_out, report)
+    if data_health_out is not None:
+        data_health_out.parent.mkdir(parents=True, exist_ok=True)
+        data_health_out.write_text(render_data_health(data_health))
     typer.echo(render_markdown(report), nl=False)
 
 

@@ -52,17 +52,26 @@ jobs:
       - name: Build the ops report
         run: |
           set -euo pipefail
-          # Pull the previous snapshot off the ops-metrics branch (if any) so the
-          # report can compute the backfill rate + ETA. Best-effort: absent on the
-          # first ever run, which simply drops those fields.
+          # Pull the previous snapshot + latest corpus verdict off the ops-metrics
+          # branch (if any). The previous snapshot drives the backfill rate + ETA;
+          # the corpus verdict (produced by the corpus-writer path — see
+          # publish-corpus-verdict) feeds the data-health section. Both best-effort:
+          # absent on the first ever run, which simply drops those fields. run-ops
+          # itself never pulls the corpus — it only reads this published verdict.
           git fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' 2>/dev/null || true
           prev_args=()
           if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null; then
             if git show origin/ops-metrics:latest.json > prev-ops.json 2>/dev/null; then
               prev_args=(--previous prev-ops.json)
             fi
+            if git show origin/ops-metrics:corpus-validation.json > corpus-validation.json 2>/dev/null; then
+              prev_args+=(--corpus-validation corpus-validation.json)
+            fi
           fi
-          uv run fedcourts ops-report --runs runs.json "${prev_args[@]}" --json new-ops.json > ops.md
+          # ops-report runs the git-only `validate` over data/ itself for the data-health
+          # section, catching anything that reached the default branch without the gate.
+          uv run fedcourts ops-report --runs runs.json "${prev_args[@]}" \
+            --json new-ops.json --data-health-out data-health.md > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append the snapshot to the ops-metrics branch
@@ -111,4 +120,35 @@ jobs:
           else
             # Update the single dashboard in place so it is always the current view.
             gh issue edit "$num" --repo "$REPO" --body-file ops.md
+          fi
+
+      - name: Escalate a failing data-validation verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Loud-but-non-blocking escalation: on a failing data-health verdict, open
+          # OR update ONE long-lived data-validation issue (reuse, don't spam — the
+          # same find-or-create idiom as the dashboard / pull-log); when it goes green
+          # again, close that issue. `data-validation` is a NON-triggering label by
+          # design (no run:* workflow keys on it). Create it idempotently.
+          gh label create data-validation --repo "$REPO" --force \
+            --color b60205 --description "Long-lived data-validation failure (run-ops escalation)"
+          ok=$(jq -r '.data_health.ok' new-ops.json)
+          num=$(gh issue list --repo "$REPO" --label data-validation --state open \
+            --json number --jq '.[0].number')
+          if [ "$ok" = "false" ]; then
+            if [ -z "$num" ]; then
+              gh issue create --repo "$REPO" --title "Data validation failing" \
+                --label data-validation --body-file data-health.md
+            else
+              # Refresh the single open issue in place with the latest failing checks.
+              gh issue edit "$num" --repo "$REPO" --body-file data-health.md
+            fi
+          elif [ -n "$num" ]; then
+            # Resolved: data validation is green again, so close the escalation issue.
+            gh issue comment "$num" --repo "$REPO" \
+              --body "✅ Data validation is green again as of the latest ops run — closing."
+            gh issue close "$num" --repo "$REPO" --reason completed
           fi
