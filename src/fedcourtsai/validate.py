@@ -12,18 +12,22 @@ Two layers of checks:
   row count never regresses against a supplied baseline (the append-only
   invariant the write role + bucket versioning enforce; absent a baseline this is
   a no-op pass); required identifier columns are non-empty; no point-in-time
-  snapshot is future-dated; and no case or event id is duplicated.
-* **referential integrity** — the cross-store checks nothing does today: every
+  snapshot is future-dated and every case's filing/decision dates are ordered and
+  not future-dated; coded columns hold values from their declared vocabulary
+  (``Disposition``, ``EventKind``, the tracked-court set); and no case, event,
+  snapshot, or whitespace-variant id is duplicated.
+* **referential integrity** — the cross-store checks nothing else does: every
   ``outcome``/``prediction``/``evaluation`` under ``data/`` references a case and
   event that exist in the corpus (no orphan judgments); every evaluation targets a
   predictor that actually produced a prediction for that event; and the seed
   cursor reconciles against the corpus' per-court row counts.
 
 The verdict is a pure function of its inputs (corpus, ledger, cursor, baseline,
-as-of date), with no clock or network, so it is deterministic and offline. Each
-check is a small function returning one :class:`CorpusCheck`, and the orchestrator
-is split into a corpus-needing half and a git-only half so a later PR-time gate can
-reuse the git-only subset.
+tracked courts, as-of date), with no clock or network, so it is deterministic and
+offline. Each check is a small function returning one :class:`CorpusCheck`. The
+git-only referential subset (:func:`run_ledger_referential_checks`) needs no corpus
+at all, so the PR gate runs it over ``data/`` to catch an orphan judgment in review;
+the corpus-dependent checks stay scheduled, where the remote is present.
 """
 
 from __future__ import annotations
@@ -41,6 +45,8 @@ from .schemas import (
     FILENAME_MODELS,
     CorpusCheck,
     CorpusValidation,
+    Disposition,
+    EventKind,
     LedgerValidation,
     SeedProgress,
 )
@@ -54,8 +60,11 @@ CHECK_CORPUS_OPENS = "corpus_opens"
 CHECK_ROW_COUNT_MONOTONIC = "row_count_monotonic"
 CHECK_REQUIRED_COLUMNS = "required_columns_non_empty"
 CHECK_SNAPSHOT_NOT_FUTURE = "snapshot_not_future_dated"
+CHECK_CASE_DATES = "case_dates_ordered"
+CHECK_DOMAIN_VALUES = "domain_values_valid"
 CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
+CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
 CHECK_SEED_CURSOR = "seed_cursor_reconciles"
 
@@ -183,14 +192,95 @@ def check_snapshot_not_future(conn: sqlite3.Connection, today: date) -> CorpusCh
     return _check(CHECK_SNAPSHOT_NOT_FUTURE, problems, checked=total, detail=f"as of {cutoff}")
 
 
-def check_no_duplicates(conn: sqlite3.Connection) -> CorpusCheck:
-    """No case id and no ``(case_id, event_id)`` may appear more than once.
+def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
+    """A case's filing/decision dates must be ordered and not future-dated.
 
-    The primary keys enforce this today; the check is a cheap defensive assertion
-    that catches a regression if the corpus is ever rebuilt from a source without
-    those constraints.
+    The point-in-time counterpart to the snapshot check, over the normalized
+    ``cases`` row: ``date_filed`` precedes ``date_decided`` (a case cannot be
+    decided before it is filed), and neither lies after the as-of date (a future
+    date is a clock or ingestion bug). Dates are stored ISO ``YYYY-MM-DD``, so a
+    lexicographic comparison is a correct date comparison; a null date (unfiled or
+    undecided) is simply skipped.
+    """
+    cutoff = today.isoformat()
+    checked = corpus.count(conn)
+    problems = [
+        f"case {r['case_id']!r} has inconsistent dates "
+        f"(filed {r['date_filed']}, decided {r['date_decided']}, as of {cutoff})"
+        for r in conn.execute(
+            "SELECT case_id, date_filed, date_decided FROM cases WHERE "
+            "(date_filed IS NOT NULL AND date_filed > ?) "
+            "OR (date_decided IS NOT NULL AND date_decided > ?) "
+            "OR (date_filed IS NOT NULL AND date_decided IS NOT NULL "
+            "AND date_filed > date_decided) "
+            "ORDER BY case_id LIMIT ?",
+            (cutoff, cutoff, _MAX_PROBLEMS),
+        )
+    ]
+    return _check(CHECK_CASE_DATES, problems, checked=checked, detail=f"as of {cutoff}")
+
+
+def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | None) -> CorpusCheck:
+    """Coded columns must hold values from their declared vocabulary.
+
+    A case ``disposition`` (when set) must be a :class:`~fedcourtsai.schemas.Disposition`,
+    an event ``kind`` an :class:`~fedcourtsai.schemas.EventKind`, and every case and
+    event ``court`` one of the tracked courts. The pydantic enums enforce this at
+    write time, so a violation means a corpus rebuilt from a source that bypassed
+    them — defensive, like the duplicate check. The tracked-court half is skipped
+    when no court set is supplied, keeping the verdict a pure function of its inputs.
     """
     checked = corpus.count(conn) + corpus.event_count(conn)
+    problems: list[str] = []
+    dispositions = sorted(d.value for d in Disposition)
+    disp_ph = ", ".join("?" for _ in dispositions)
+    for r in conn.execute(
+        f"SELECT case_id, disposition FROM cases WHERE disposition IS NOT NULL "
+        f"AND disposition NOT IN ({disp_ph}) ORDER BY case_id LIMIT ?",
+        (*dispositions, _MAX_PROBLEMS),
+    ):
+        problems.append(f"case {r['case_id']!r} has unknown disposition {r['disposition']!r}")
+    kinds = sorted(k.value for k in EventKind)
+    kind_ph = ", ".join("?" for _ in kinds)
+    for r in conn.execute(
+        f"SELECT case_id, event_id, kind FROM events WHERE kind NOT IN ({kind_ph}) "
+        f"ORDER BY case_id, event_id LIMIT ?",
+        (*kinds, _MAX_PROBLEMS),
+    ):
+        problems.append(
+            f"event ({r['case_id']!r}, {r['event_id']!r}) has unknown kind {r['kind']!r}"
+        )
+    if tracked_courts:
+        courts = sorted(set(tracked_courts))
+        court_ph = ", ".join("?" for _ in courts)
+        for r in conn.execute(
+            f"SELECT case_id, court FROM cases WHERE court NOT IN ({court_ph}) "
+            f"ORDER BY case_id LIMIT ?",
+            (*courts, _MAX_PROBLEMS),
+        ):
+            problems.append(f"case {r['case_id']!r} is in untracked court {r['court']!r}")
+        for r in conn.execute(
+            f"SELECT case_id, event_id, court FROM events WHERE court NOT IN ({court_ph}) "
+            f"ORDER BY case_id, event_id LIMIT ?",
+            (*courts, _MAX_PROBLEMS),
+        ):
+            problems.append(
+                f"event ({r['case_id']!r}, {r['event_id']!r}) is in untracked court {r['court']!r}"
+            )
+    return _check(CHECK_DOMAIN_VALUES, problems, checked=checked)
+
+
+def check_no_duplicates(conn: sqlite3.Connection) -> CorpusCheck:
+    """No identifier may appear more than once across the keyed stores.
+
+    The primary keys enforce uniqueness today; this is a cheap defensive assertion
+    that catches a regression if the corpus is ever rebuilt from a source without
+    those constraints. It checks three keys — case id, ``(case_id, event_id)``, and
+    snapshot ``(case_id, snapshot_date)`` — and also flags ids that differ only by
+    surrounding whitespace: those are distinct primary keys yet one logical id, so
+    they collide on every referential join.
+    """
+    checked = corpus.count(conn) + corpus.event_count(conn) + corpus.snapshot_count(conn)
     problems: list[str] = []
     for record in conn.execute(
         "SELECT case_id, COUNT(*) AS n FROM cases GROUP BY case_id HAVING n > 1 "
@@ -206,6 +296,21 @@ def check_no_duplicates(conn: sqlite3.Connection) -> CorpusCheck:
         problems.append(
             f"event ({record['case_id']!r}, {record['event_id']!r}) appears {record['n']} times"
         )
+    for record in conn.execute(
+        "SELECT case_id, snapshot_date, COUNT(*) AS n FROM snapshots "
+        "GROUP BY case_id, snapshot_date HAVING n > 1 ORDER BY case_id, snapshot_date LIMIT ?",
+        (_MAX_PROBLEMS,),
+    ):
+        problems.append(
+            f"snapshot ({record['case_id']!r}, {record['snapshot_date']!r}) "
+            f"appears {record['n']} times"
+        )
+    for record in conn.execute(
+        "SELECT trim(case_id) AS k, COUNT(DISTINCT case_id) AS n FROM cases "
+        "GROUP BY trim(case_id) HAVING n > 1 ORDER BY k LIMIT ?",
+        (_MAX_PROBLEMS,),
+    ):
+        problems.append(f"case id {record['k']!r} has {record['n']} whitespace-variant spellings")
     return _check(CHECK_NO_DUPLICATES, problems, checked=checked)
 
 
@@ -334,6 +439,69 @@ def check_evaluation_targets(data_root: Path) -> CorpusCheck:
     return _check(CHECK_EVALUATION_TARGETS, problems, checked=checked)
 
 
+# --- referential integrity (git-only subset, for the PR gate) ------------------
+
+
+def _event_ref_from_path(path: Path, data_root: Path) -> tuple[str, str, Path] | None:
+    """``(case_id, event_id, event_dir)`` inferred from a ledger artifact's path.
+
+    The on-disk layout encodes the case and event an artifact belongs to:
+    ``cases/<court>/<docket>/events/<event_id>/...``. Returns ``None`` for a path
+    that does not sit under that layout (so it is simply skipped, not flagged).
+    """
+    try:
+        parts = path.relative_to(data_root / "cases").parts
+    except ValueError:
+        return None
+    if len(parts) < 5 or parts[2] != "events":
+        return None
+    court, docket, _events, event_id = parts[0], parts[1], parts[2], parts[3]
+    event_dir = data_root / "cases" / court / docket / "events" / event_id
+    return f"{court}/{docket}", event_id, event_dir
+
+
+def check_ledger_events_in_git(data_root: Path) -> CorpusCheck:
+    """Every ledger judgment must reference an event that exists in the git tree.
+
+    The corpus-free counterpart to :func:`check_ledger_references`, for the PR gate
+    where there is no corpus remote: the git event tree (an ``event.yaml`` under
+    ``events/<event_id>/``) is the available source of event existence. An
+    ``outcome``/``prediction``/``evaluation`` sitting under an event directory with
+    no ``event.yaml``, or whose declared ``(case_id, event_id)`` disagrees with the
+    path it lives at, is an orphan — caught here in review rather than a day later on
+    the schedule, where the stronger corpus check also runs.
+    """
+    problems: list[str] = []
+    checked = 0
+    for kind, path in _iter_ledger_artifacts(data_root):
+        ref = _event_ref_from_path(path, data_root)
+        if ref is None:
+            continue
+        checked += 1
+        case_id, event_id, event_dir = ref
+        declared = _load_ids(path)
+        if declared is not None and declared != (case_id, event_id):
+            problems.append(
+                f"{kind} {path}: declares {declared} but its path is ({case_id!r}, {event_id!r})"
+            )
+        elif not (event_dir / "event.yaml").is_file():
+            problems.append(
+                f"{kind} {path}: event ({case_id!r}, {event_id!r}) has no event.yaml in the ledger"
+            )
+    return _check(CHECK_LEDGER_EVENTS_IN_GIT, problems, checked=checked)
+
+
+def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
+    """The git-only referential checks the PR gate runs (no corpus, no network).
+
+    The subset of layer-C checks that need only the git ledger under ``data/``:
+    every judgment references an event defined in git, and every evaluation targets
+    a prediction that exists. The corpus-dependent referential checks (which need
+    the DVC blob) stay on the schedule — the gate is deliberately offline.
+    """
+    return [check_ledger_events_in_git(data_root), check_evaluation_targets(data_root)]
+
+
 # --- orchestration -------------------------------------------------------------
 
 
@@ -344,6 +512,7 @@ def _run_checks(
     seed_cursor: SeedProgress | None,
     today: date,
     baseline_count: int | None,
+    tracked_courts: list[str] | None,
 ) -> CorpusValidation:
     """Run every check against an open corpus and roll the results into a verdict."""
     checks = [
@@ -351,6 +520,8 @@ def _run_checks(
         check_row_count_monotonic(conn, baseline_count),
         check_required_columns(conn),
         check_snapshot_not_future(conn, today),
+        check_case_dates(conn, today),
+        check_domain_values(conn, tracked_courts),
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
         check_evaluation_targets(data_root),
@@ -372,13 +543,15 @@ def run_corpus_validation(
     seed_cursor: SeedProgress | None,
     today: date,
     baseline_count: int | None = None,
+    tracked_courts: list[str] | None = None,
 ) -> CorpusValidation:
     """Validate the corpus + ledger and return the verdict (the CLI is a thin wrapper).
 
     Graceful when the corpus is absent — returns a skipped verdict (``ok`` true, no
     checks), so the command is safe to call before a ``dvc pull``. If the file
     exists but does not open as a database, that is itself a failed integrity check
-    rather than a crash.
+    rather than a crash. ``tracked_courts`` scopes the domain check; absent it, the
+    court-membership half is skipped.
     """
     if not corpus_db_path.exists():
         return CorpusValidation(ok=True, skipped=True)
@@ -390,6 +563,7 @@ def run_corpus_validation(
                 seed_cursor=seed_cursor,
                 today=today,
                 baseline_count=baseline_count,
+                tracked_courts=tracked_courts,
             )
     except sqlite3.Error as exc:
         opens = _check(

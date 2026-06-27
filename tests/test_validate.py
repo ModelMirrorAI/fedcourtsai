@@ -1,5 +1,6 @@
 """Corpus-integrity + referential validation: the checks, the library, and the CLI."""
 
+import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
@@ -15,18 +16,26 @@ from fedcourtsai.schemas import (
     Evaluation,
     EventKind,
     Outcome,
+    PredictableEvent,
     Prediction,
     SeedProgress,
 )
-from fedcourtsai.serialize import read_model, write_json
+from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
+    CHECK_CASE_DATES,
+    CHECK_DOMAIN_VALUES,
     CHECK_EVALUATION_TARGETS,
+    CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
+    CHECK_NO_DUPLICATES,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
     CHECK_SEED_CURSOR,
     CHECK_SNAPSHOT_NOT_FUTURE,
+    check_ledger_events_in_git,
+    check_no_duplicates,
     run_corpus_validation,
+    run_ledger_referential_checks,
     validate_ledger,
 )
 
@@ -58,6 +67,18 @@ def _seed_corpus(db: Path) -> None:
             ],
         )
         corpus.upsert_snapshot(conn, "ca9/1", date(2026, 1, 1), {"docket": "ca9/1"})
+
+
+def _write_event(data_root: Path, court: str, docket: int, event: str) -> Path:
+    """Write an ``event.yaml`` so the event exists in the git ledger tree."""
+    ep = CasePaths(data_root, court, docket).event(event)
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id=event, case_id=f"{court}/{docket}", kind=EventKind.motion, title="Motion"
+        ),
+    )
+    return ep.event_file
 
 
 def _write_outcome(data_root: Path, court: str, docket: int, event: str) -> Path:
@@ -251,6 +272,195 @@ def test_seed_cursor_reconciles(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_SEED_CURSOR] is True
 
 
+# --- B: case-date ordering ----------------------------------------------------
+
+
+def test_future_decided_date_fails(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET date_decided = '2099-01-01' WHERE case_id = 'ca9/1'")
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is False
+
+
+def test_decided_before_filed_fails(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET date_filed = '2026-02-01', date_decided = '2026-01-01' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    check = next(c for c in verdict.checks if c.name == CHECK_CASE_DATES)
+    assert not check.passed
+    assert check.failures == 1
+
+
+def test_ordered_dates_pass(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET date_filed = '2026-01-01', date_decided = '2026-02-01' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is True
+
+
+# --- B: domain vocabulary + tracked courts ------------------------------------
+
+
+def test_unknown_disposition_fails(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET disposition = 'bogus' WHERE case_id = 'ca9/1'")
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    assert _verdict_by_check(verdict)[CHECK_DOMAIN_VALUES] is False
+
+
+def test_untracked_court_fails_when_set_supplied(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)  # corpus court is ca9
+    verdict = run_corpus_validation(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        seed_cursor=None,
+        today=TODAY,
+        tracked_courts=["ca1"],  # ca9 is not tracked
+    )
+    assert not verdict.ok
+    check = next(c for c in verdict.checks if c.name == CHECK_DOMAIN_VALUES)
+    assert not check.passed
+    assert any("ca9/1" in p for p in check.problems)
+
+
+def test_tracked_court_passes(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    verdict = run_corpus_validation(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        seed_cursor=None,
+        today=TODAY,
+        tracked_courts=["ca9"],
+    )
+    assert _verdict_by_check(verdict)[CHECK_DOMAIN_VALUES] is True
+
+
+def test_no_tracked_set_skips_court_membership(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)  # ca9, which no court set is supplied to vet
+    verdict = _run(db, tmp_path / "data")  # tracked_courts defaults to None
+    assert _verdict_by_check(verdict)[CHECK_DOMAIN_VALUES] is True
+
+
+# --- B: duplicate hardening (snapshots + whitespace-variant ids) --------------
+
+
+def test_duplicate_snapshot_fails(tmp_path: Path) -> None:
+    # The (case_id, snapshot_date) primary key blocks an exact duplicate through
+    # the normal write path, so simulate the constraint-free rebuild the check
+    # defends against: bare tables with no unique constraints, then a forged dup.
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        "CREATE TABLE cases (case_id TEXT, court TEXT);"
+        "CREATE TABLE events (case_id TEXT, event_id TEXT);"
+        "CREATE TABLE snapshots (case_id TEXT, snapshot_date TEXT, payload TEXT);"
+    )
+    conn.execute("INSERT INTO cases VALUES ('ca9/1', 'ca9')")
+    conn.executemany(
+        "INSERT INTO snapshots VALUES (?, ?, ?)",
+        [("ca9/1", "2026-01-01", "{}"), ("ca9/1", "2026-01-01", "{}")],
+    )
+    conn.commit()
+    check = check_no_duplicates(conn)
+    conn.close()
+    assert not check.passed
+    assert any("snapshot" in p for p in check.problems)
+
+
+def test_whitespace_variant_case_id_fails(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        # A second case id that is the same id but for a trailing space: a distinct
+        # primary key, yet one logical id that collides on every referential join.
+        conn.execute("INSERT INTO cases (case_id, court) VALUES ('ca9/1 ', 'ca9')")
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    check = next(c for c in verdict.checks if c.name == CHECK_NO_DUPLICATES)
+    assert not check.passed
+    assert any("whitespace-variant" in p for p in check.problems)
+
+
+# --- C (git-only): events exist in the git ledger -----------------------------
+
+
+def test_git_orphan_outcome_fails(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    # An outcome with no event.yaml beside it — an orphan referencing a non-existent
+    # event, caught without any corpus.
+    _write_outcome(data_root, "ca9", 1, "evt-motion-ghost")
+    check = check_ledger_events_in_git(data_root)
+    assert not check.passed
+    assert check.checked == 1
+    assert check.failures == 1
+
+
+def test_git_event_present_passes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_outcome(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
+    check = check_ledger_events_in_git(data_root)
+    assert check.passed
+    assert check.checked == 2  # the event.yaml itself is not a judgment artifact
+
+
+def test_git_declared_ids_must_match_path(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    # Write a well-formed outcome, then move it under a different event directory so
+    # its declared (case_id, event_id) no longer matches where it sits.
+    ep_other = CasePaths(data_root, "ca9", 1).event("evt-motion-other")
+    outcome = Outcome(
+        case_id="ca9/1",
+        event_id="evt-motion-stay",
+        resolved_at=date(2026, 1, 2),
+        actual_disposition=Disposition.granted,
+        actual_granted=1,
+    )
+    write_json(ep_other.outcome, outcome)
+    check = check_ledger_events_in_git(data_root)
+    assert not check.passed
+    assert any("declares" in p for p in check.problems)
+
+
+def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_outcome(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1")
+    _write_evaluation(data_root, "ca9", 1, "evt-motion-stay", "p1", "e1")
+    checks = run_ledger_referential_checks(data_root)
+    names = {c.name for c in checks}
+    assert names == {CHECK_LEDGER_EVENTS_IN_GIT, CHECK_EVALUATION_TARGETS}
+    assert all(c.passed for c in checks)
+
+
 # --- corpus that does not open ------------------------------------------------
 
 
@@ -341,6 +551,24 @@ def test_cli_absent_corpus_exits_zero(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "skipped" in result.output
     assert read_model(out, CorpusValidation).skipped
+
+
+def test_cli_validate_flags_git_orphan(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    # A judgment with no event.yaml beside it — a PR-time orphan the gate must catch.
+    _write_outcome(data_root, "ca9", 1, "evt-motion-ghost")
+    result = runner.invoke(app, ["validate", str(data_root)])
+    assert result.exit_code == 1, result.output
+    assert "ORPHAN" in result.output
+
+
+def test_cli_validate_passes_consistent_ledger(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_outcome(data_root, "ca9", 1, "evt-motion-stay")
+    result = runner.invoke(app, ["validate", str(data_root)])
+    assert result.exit_code == 0, result.output
+    assert "OK" in result.output
 
 
 def test_cli_failed_verdict_exits_nonzero(tmp_path: Path) -> None:

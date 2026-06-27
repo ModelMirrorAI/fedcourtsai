@@ -60,7 +60,7 @@ from .store import (
     resolved_events,
 )
 from .usage import parse_claude_usage, parse_codex_usage
-from .validate import run_corpus_validation, validate_ledger
+from .validate import run_corpus_validation, run_ledger_referential_checks, validate_ledger
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -81,14 +81,31 @@ def _client() -> CourtListenerClient:
 def validate(
     path: Annotated[Path, typer.Argument(help="Directory to validate recursively.")] = Path("data"),
 ) -> None:
-    """Validate every known artifact under PATH against its schema."""
+    """Validate the git ledger under PATH: schema conformance + git-only references.
+
+    Two corpus-free layers the PR gate can enforce offline: every known artifact
+    matches its schema, and every judgment references an event that exists in the
+    git tree (with its declared ids matching the path) while every evaluation
+    targets a real prediction. The corpus-dependent referential checks need the DVC
+    remote, so they run scheduled via ``validate-corpus`` rather than here.
+    """
     result = validate_ledger(path)
-    if not result.ok:
+    references = run_ledger_referential_checks(path)
+    ref_failures = sum(c.failures for c in references)
+    if not result.ok or ref_failures:
         for err in result.problems:
             typer.echo(f"INVALID {err}", err=True)
-        typer.echo(f"\n{result.invalid} invalid / {result.checked} checked", err=True)
+        for check in references:
+            for problem in check.problems:
+                typer.echo(f"ORPHAN {problem}", err=True)
+        typer.echo(
+            f"\n{result.invalid} invalid / {result.checked} checked; "
+            f"{ref_failures} referential problem(s)",
+            err=True,
+        )
         raise typer.Exit(code=1)
-    typer.echo(f"OK: {result.checked} artifact(s) valid")
+    refs_checked = sum(c.checked for c in references)
+    typer.echo(f"OK: {result.checked} artifact(s) valid, {refs_checked} reference(s) consistent")
 
 
 @app.command("validate-corpus")
@@ -134,6 +151,7 @@ def validate_corpus_cmd(
         seed_cursor=cursor,
         today=as_of,
         baseline_count=baseline_count,
+        tracked_courts=load_courts(settings.config_root),
     )
     destination = out if out is not None else settings.metrics_root / "corpus-validation.json"
     write_json(destination, verdict)
