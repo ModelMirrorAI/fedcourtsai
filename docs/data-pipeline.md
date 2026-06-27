@@ -76,7 +76,7 @@ cadence:
 | Axis            | seed (backfill)                         | pull (forward)                    |
 |-----------------|-----------------------------------------|-----------------------------------|
 | Source          | bulk S3 CSV                             | REST API                          |
-| Lifecycle       | finite — runs daily **until complete**  | perpetual — runs daily forever    |
+| Lifecycle       | finite — chunked **until complete**     | perpetual — runs daily forever    |
 | Budget          | ~0 API                                  | owns the 125/day budget           |
 | Reporting       | long-lived `run:seed` issue, closed by a completion PR | short-lived `pull-log` issue per run |
 | Steady state    | drops to **quarterly** reconciliation   | stays **daily**                   |
@@ -263,8 +263,8 @@ replayed out of band, exactly as `run-predict` runs them live.
   many-per-docket `parties` / `attorneys` name rows. *Phase B* (cheap, per run)
   serves each chunk as one indexed `LEFT JOIN`, aliasing the cluster columns and
   aggregating the party/attorney names to the field names the ingestion core reads.
-  Pointing the staging path at a cached location lets daily runs reuse the staged DB
-  instead of re-streaming the GB-scale files.
+  Pointing the staging path at a cached location lets successive runs reuse the staged
+  DB instead of re-streaming the GB-scale files.
 - **Extending the join:** the sibling tables are the seam for **bringing in more
   bulk data**. Adding a field is local and additive — a column (or staging table)
   in `CourtListenerBulkSource`, a stage step keyed on `docket_id`, a projection in
