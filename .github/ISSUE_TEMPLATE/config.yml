@@ -1,5 +1,7 @@
-# Blank issues stay enabled so maintainers can file dev/backlog issues freely;
-# the forms above cover the data-production (seed/pull) entry points.
+# Public forms: bug reports and feature/ideas. Data-production runs (seed / pull /
+# reconcile) are NOT public forms — a maintainer triggers them by applying a
+# `run:*` label to an issue, which is the pipeline's trust boundary. Blank issues
+# stay enabled so maintainers can file dev/backlog/ops issues and label them.
 blank_issues_enabled: true
 contact_links:
   - name: "Pipeline & data design"

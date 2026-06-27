@@ -239,8 +239,9 @@ replayed out of band, exactly as `run-predict` runs them live.
 
 ## Seed — historical backfill
 
-- **Trigger:** a single long-lived `run:seed` tracking issue (see
-  `.github/ISSUE_TEMPLATE/seed.yml`) plus a weekly schedule.
+- **Trigger:** a single long-lived `run:seed` tracking issue (a maintainer opens
+  it and applies the `run:seed` label; see [seed-backfill.md](seed-backfill.md))
+  plus a weekly schedule.
 - **Each run** (deterministic, no agent, no API secret): read the committed
   **cursor** → process the next chunk of the bulk snapshot for the target courts
   → run the **event-definition stage** over each ingested docket so it carries its
@@ -288,8 +289,8 @@ replayed out of band, exactly as `run-predict` runs them live.
 ## Pull — forward freshness
 
 - **Trigger:** daily cron (staggered from other jobs), `workflow_dispatch`, or a
-  `run:pull` issue for on-demand refresh/investigation (see
-  `.github/ISSUE_TEMPLATE/pull.yml`). Recording a decided event's outcome is split
+  maintainer-applied `run:pull` label for an on-demand refresh (which re-runs the
+  full `pull-all`, not a single case). Recording a decided event's outcome is split
   off to `run:reconcile` (see *Detect resolution* below), so it is **no longer**
   the deterministic pull's job.
 - **Per-run tracking:** each run opens a short-lived `pull-log` issue at the start,
