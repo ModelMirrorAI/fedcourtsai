@@ -415,12 +415,15 @@ The invariants fall in three layers:
 - **Corpus integrity** — the committed `corpus/corpus.db.dvc` pointer resolves
   against the remote, the corpus opens, its row count only ever **grows** (the
   append-only write role and bucket versioning make a drop a red flag), required
-  columns are non-null, and no point-in-time snapshot is future-dated.
+  columns are non-null, no point-in-time snapshot is future-dated and every case's
+  filing/decision dates are ordered and not future-dated, coded columns hold values
+  from their declared vocabulary (the `Disposition` and `EventKind` enums, the
+  tracked-court set), and no case, event, snapshot, or whitespace-variant id is
+  duplicated.
 - **Referential integrity** — every `outcome.json` / `prediction.json` /
   `evaluation.json` references an event and case that exist in the corpus (no
-  orphan judgments), every evaluation targets a real prediction, there are no
-  duplicate cases or event ids, and the seed cursor reconciles against the corpus
-  row counts per court.
+  orphan judgments), every evaluation targets a real prediction, and the seed
+  cursor reconciles against the corpus row counts per court.
 
 The corpus-dependent layers land as a `fedcourts validate-corpus` command (sibling
 to `validate`) that emits a **JSON verdict** — pass/fail plus per-check counts,
@@ -431,7 +434,10 @@ is **produced where the corpus is already pulled**: the corpus-writer path
 non-blocking trailing step and publishes the verdict, and `run-ops` then renders a
 **data-health** section from it and, on failure, opens or updates a single
 long-lived issue — loud, but never blocking the pipeline. The git-only referential
-checks also run at PR time, so a judgment that references a non-existent event is
-caught in review rather than a day later; the corpus checks need the remote, so
-they stay on the schedule (the gate is deliberately offline). This automates, and
-extends across stores, the manual corpus spot-check that backed the early backfill.
+checks fold into `fedcourts validate` so they also run at PR time: a judgment whose
+event has no `event.yaml` in the git tree, or whose declared ids disagree with its
+path, is caught in review rather than a day later. The corpus checks need the
+remote, so they stay on the schedule (the gate is deliberately offline) — at PR time
+"the event exists" means it is defined in the git ledger; the schedule additionally
+confirms it against the corpus. This automates, and extends across stores, the
+manual corpus spot-check that backed the early backfill.
