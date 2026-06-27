@@ -50,8 +50,17 @@
   from the environment. DVC itself is an operational tool, installed where it is
   used (`pip install 'dvc[s3]'` / `uvx --from 'dvc[s3]' dvc ...`), not a package
   dependency. See [docs/data-pipeline.md](docs/data-pipeline.md).
-- **Label triggers are maintainer-gated** — only users with triage/write access
-  can apply labels, which is the trust boundary for `run:*`.
+- **Label triggers are maintainer-gated, two ways.** Applying a `run:*` label is
+  the trust boundary for the pipeline, and two layers enforce it on a public repo —
+  where an issue *form* would otherwise apply its declared labels on creation for
+  any submitter. (1) No issue form auto-applies a `run:*` label — operating the
+  pipeline (`pull` / `seed` / `reconcile`) is not exposed as a public form at all,
+  so a maintainer applies the `run:*` label to an issue after triage. (2) Each
+  issue-triggered privileged job re-checks, before it does anything, that
+  the triggering actor has **write access** (via the collaborators API, failing
+  closed), so a label applied by anyone else is inert. The App-driven reconcile
+  handoff `run-pull` files (a Bot sender) is recognized and allowed — only a
+  maintainer-installed App can apply a label that fires a workflow at all.
 - **Branch protection and the deployment boundary.** `main` carries two rulesets.
   One requires a reviewed PR plus the `gate` check to merge; the GitHub App is a
   bypass actor on it, so the deterministic `run-seed` / `run-pull` writers can push

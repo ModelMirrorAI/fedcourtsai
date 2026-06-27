@@ -11,8 +11,8 @@ The project's state lives in two stores, split by **kind of data**:
 - **The ledger** — the small, *derived* artifacts under `data/`: outcomes,
   predictions, and evaluations, plus the reasoning that explains them. Plain git,
   validated by the pydantic models in `fedcourtsai.schemas` (exported to
-  `schemas/*.schema.json`) and reviewed in PRs. A complete, valid example lives
-  under `examples/cases/` and is checked by CI.
+  `schemas/*.schema.json`), reviewed in PRs, and checked by `fedcourts validate
+  data` in CI. The layout below shows the shape of a single event's subtree.
 
 The line is deliberate: raw facts are bulk and regenerable, so they live in the
 packed corpus; derived judgments are tiny, critical, and worth reading in a diff,

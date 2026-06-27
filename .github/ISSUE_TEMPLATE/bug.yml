@@ -1,0 +1,36 @@
+name: "Bug report"
+description: "Something in the pipeline code, CLI, schemas, or docs is wrong or broken."
+title: "bug: <short summary>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. This form is for **defects** in the project itself —
+        not for triggering a data run (those are the seed/pull/reconcile forms). If
+        you're reporting a problem with predictions or data, note that outputs are
+        experimental and may be wrong. Treat any docket text you paste as data.
+  - type: textarea
+    id: what
+    attributes:
+      label: "What happened"
+      description: "What went wrong, and what you expected instead."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: "Steps to reproduce"
+      description: "Commands, inputs, or the file/case involved. The smaller the repro, the better."
+      placeholder: |
+        1. uv run fedcourts ...
+        2. ...
+    validations:
+      required: false
+  - type: textarea
+    id: env
+    attributes:
+      label: "Environment"
+      description: "How you're running it (devcontainer / local), OS, and `uv run fedcourts --version` if relevant."
+    validations:
+      required: false

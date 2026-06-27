@@ -32,10 +32,11 @@ at the granted set until then.
 
 The App is also a **bypass actor** on the require-PR ruleset below.
 
-## Branch protection — two rulesets on `main`
+## Branch protection — three rulesets
 
-Split into two so the per-rule bypass is correct (a ruleset's bypass list applies
-to the whole ruleset):
+The two `main` rulesets are split so the per-rule bypass is correct (a ruleset's
+bypass list applies to the whole ruleset); a third protects the `ops-metrics`
+branch:
 
 - **`main: require PR`** — requires a pull request plus the `gate` status check to
   merge. **Bypass: the GitHub App**, so the deterministic `run-seed` / `run-pull`
@@ -50,6 +51,11 @@ to the whole ruleset):
   bypass — not even the App.** This is what guarantees the predictions, outcomes,
   and evaluations under `data/` cannot be rewritten or dropped, even by a
   misbehaving agent that holds the bypass token.
+- **`ops-metrics: protect history`** — the same force-push and deletion block on the
+  orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots. `run-ops`
+  only ever does a normal append push (never a force-push), so the rule does not
+  impede it; it guards the metrics history from accidental or malicious rewrite once
+  the repo is public. No required PR (the job pushes directly) and no bypass needed.
 
 ## The `runner` environment
 
@@ -105,7 +111,16 @@ a **lifecycle rule** expiring noncurrent versions after a recovery window, and
   the append-only role still prevents corpus loss, so the blast radius is bounded.
   Splitting into two Apps — a data App with bypass and a dev App without — removes
   this gap and is the intended next step.
-- **Going public.** Before the repo is public, set Actions → "require approval for
-  outside collaborators" so fork-PR workflows need a maintainer's go-ahead, and
-  confirm fork PRs (which run without secrets) behave as intended on the `push` and
-  `pull_request` paths.
+- **Going public.** Before the repo is public:
+  - Set Actions → "require approval for outside collaborators" so fork-PR workflows
+    need a maintainer's go-ahead, and confirm fork PRs (which run without secrets)
+    behave as intended on the `push` and `pull_request` paths. Note this setting
+    gates only fork `pull_request` runs — it does **not** gate `issues` events, so
+    it is not what protects the label triggers below.
+  - The `issues: labeled` triggers are the privileged path that "require approval"
+    does not cover. Two layers guard them (see SECURITY.md → *Label triggers*): no
+    issue form auto-applies a `run:*` label (operating the pipeline isn't exposed
+    as a public form), and `run-pull` / `run-seed` / `run-reconcile` each verify
+    the triggering actor has write access before doing anything. After flipping the
+    repo public, confirm with a non-collaborator test account that a stray `run:*`
+    label from a non-maintainer is refused.

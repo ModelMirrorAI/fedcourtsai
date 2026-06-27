@@ -1,11 +1,12 @@
-# Contract: bulk seed-backfill (`run-seed` #7)
+# Seed-backfill (the `run-seed` workflow)
 
-The interface between the three halves of the bulk historical backfill, so they
-can be built independently and wired together without rework:
+Bulk historical backfill: how the corpus is loaded with the existing backlog of
+cases. It has three parts that fit together —
 
-- **Python (`run:dev`)** — the `fedcourts seed-backfill` command + cursor model.
-- **YAML (local)** — the `run-seed` workflow that calls it and handles git/DVC.
-- **DVC/CI** — the `dvc pull → add → push` flow around the command.
+- **The command (`fedcourts seed-backfill`)** — loads one chunk of bulk data and
+  advances a cursor; it never touches git, DVC, or GitHub.
+- **The `run-seed` workflow** — calls the command in a loop and handles git/DVC.
+- **The DVC-in-CI flow** — the `dvc pull → add → push` cycle around each chunk.
 
 Design context: [data-pipeline.md](data-pipeline.md) §Seed and §Pull. Seed is
 **deterministic, no agent, no API secret** — it loads the public CourtListener
@@ -14,7 +15,7 @@ workflow stages the snapshot once, then **loops** the command over it — loadin
 chunk and checkpointing (DVC push + commit) after each — overnight until complete,
 then a quarterly reconciliation pass.
 
-## 1. `fedcourts seed-backfill` — the command (Python, `run:dev`)
+## 1. `fedcourts seed-backfill` — the command
 
 One invocation processes the **next chunk** and returns. It is the only piece
 that knows the bulk format; it never touches git, DVC, or GitHub.
@@ -91,7 +92,7 @@ fedcourts seed-backfill [--max-cases N] [--report PATH] [--staging-path PATH]
 }
 ```
 
-## 2. `config/seed-progress.yaml` — the cursor (Python, `run:dev`)
+## 2. `config/seed-progress.yaml` — the cursor
 
 Git-tracked (small, worth reading in a diff), schema-validated like every other
 artifact.
@@ -112,18 +113,16 @@ courts:
     complete: true
 ```
 
-- Add a `SeedProgress` pydantic model and export `schemas/seed_progress.schema.json`
-  (`fedcourts export-schemas`).
-- **Register it in `validate`** — the validator keys on filename via
-  `FILENAME_MODELS`, so map `seed-progress.yaml → SeedProgress` or the file is
-  silently skipped.
+A `SeedProgress` pydantic model backs the file, and `schemas/seed_progress.schema.json`
+is exported from it (`fedcourts export-schemas`). The validator keys on filename via
+`FILENAME_MODELS`, mapping `seed-progress.yaml → SeedProgress`, so the cursor is
+validated like every other artifact rather than silently skipped.
 
-## 3. The DVC-in-CI flow (workflow, local)
+## 3. The DVC-in-CI flow
 
-No workflow pushes the corpus to S3 yet, so this establishes the pattern. DVC is
-operational, run via `uvx --from 'dvc[s3]' dvc …` (not a package dependency). The
-remote URL is injected from the runner env into the gitignored `.dvc/config.local`
-before any transfer (see [SECURITY.md](../SECURITY.md)).
+DVC is an operational tool, run via `uvx --from 'dvc[s3]' dvc …` (not a package
+dependency). The remote URL is injected from the runner env into the gitignored
+`.dvc/config.local` before any transfer (see [SECURITY.md](../SECURITY.md)).
 
 Per-run order:
 1. `dvc remote add --local -d storage "<bucket url from runner env>"` — define the
@@ -150,11 +149,11 @@ Per-run order:
    `loaded_this_run` is overwritten with the loop's running total).
 5. When `seed-report.json` reports `complete: true`, open a one-time **completion
    PR** that flips the cursor's `completed` flag (through the model, so the file
-   stays schema-valid) with `Closes #<tracker>` in the body. The PR carries only
-   the flag — no corpus. Deduped: skip if `completed: true` is already on the
-   default branch or a completion PR for the snapshot is open.
+   stays schema-valid). The PR carries only the flag — no corpus. Deduped: skip if
+   `completed: true` is already on the default branch or a completion PR for the
+   snapshot is open.
 
-## 4. Triggers & the tracking issue (workflow, local)
+## 4. Triggers & the tracking issue
 
 ```yaml
 on:
@@ -164,25 +163,45 @@ on:
 concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with run-pull
 ```
 
-- **One** long-lived `run:seed` **tracking issue** is open at a time (opened from
-  `.github/ISSUE_TEMPLATE/seed.yml` *after #7 merges*). The label both starts the
-  first run and marks the issue to comment on.
-- `schedule`/`workflow_dispatch` runs have no triggering issue, so resolve it:
+- **One** long-lived `run:seed` **tracking issue** is open at a time. A maintainer
+  opens it (there is no public form — operating the pipeline is maintainer-only)
+  with the body below, then applies the `run:seed` label, which both starts the
+  first run and marks the issue to comment on. The job first verifies the labeler
+  has write access (see [SECURITY.md](../SECURITY.md) → *Label triggers*) before
+  doing anything. The per-court checklist matters: each run flips `- [ ] <court>`
+  to `- [x] <court>` for every court it finishes, so keep that exact shape.
+
+  ```markdown
+  Long-lived tracker for the seed phase. `run-seed` loads the historical backlog
+  from CourtListener bulk data (no REST API budget), runs weekly until complete,
+  comments progress here after each chunk, and commits each chunk's corpus pointer
+  + cursor to the default branch. When every court is loaded it opens a completion
+  PR that flips the cursor's `completed` flag; merging that PR closes this issue.
+
+  Bulk snapshot in use: <e.g. 2026-Q2>
+
+  Per-court backfill progress (checked off as each court's history fully loads):
+  - [ ] scotus
+  - [ ] ca1
+  - [ ] ca2
+  - [ ] ca3
+  - [ ] ca4
+  - [ ] ca5
+  - [ ] ca6
+  - [ ] ca7
+  - [ ] ca8
+  - [ ] ca9
+  - [ ] ca10
+  - [ ] ca11
+  - [ ] cadc
+  - [ ] cafc
+  ```
+- `schedule`/`workflow_dispatch` runs have no triggering issue, so they resolve it:
   `gh issue list --label run:seed --state open --json number --jq '.[0].number'`.
-  Comment each run; on `complete: true` post a final summary and open the
-  completion PR (step 5) whose merge **closes the tracker**. Convention: never
-  more than one open `run:seed` issue.
+  Each run comments; on `complete: true` it posts a final summary and opens the
+  completion PR (step 5) whose merge **closes the tracker**. Never more than one
+  open `run:seed` issue.
 - Job permissions: `contents: write` (commit pointer+cursor to the default branch),
   `issues: write` (comment), `pull-requests: write` (open the completion PR),
   `id-token: write` (AWS OIDC for DVC). App token minted with
   contents/issues/pull-requests write.
-
-## Build order
-
-1. **[run:dev]** §1 + §2 — the command, cursor model, schema, validate registration,
-   fully typed with tests. Lands first (the workflow can't call a missing command).
-2. **[local]** §3 + §4 — rewrite `run-seed.yml` to this design (replacing the
-   single-docket workflow), verified with `zizmor`.
-
-This contract is independent of #23 (single-docket CLI reconciliation) — it adds a
-new bulk command and path — so it can proceed in parallel.

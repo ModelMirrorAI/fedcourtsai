@@ -49,6 +49,29 @@ jobs:
       pull-requests: write # open the backfill-completion PR (closes the tracker on merge)
       id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
     steps:
+      # An issue *form* applies its declared labels on creation regardless of the
+      # submitter's permissions, so on a public repo anyone could fire this
+      # privileged run by filing the seed form. Require the triggering actor to
+      # hold write access; deny everyone else. Fail closed if it can't be read.
+      # (The label name is already checked in the job `if:`.)
+      - name: Authorize the trigger (issue label must come from a maintainer)
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" \
+            --jq '.permission' 2>/dev/null || echo none)
+          case "$perm" in
+            admin | maintain | write) echo "Authorized ${ACTOR} (${perm} access)." ;;
+            *)
+              echo "::error::${ACTOR} lacks write access (permission: ${perm}); refusing to run." >&2
+              exit 1
+              ;;
+          esac
+
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3

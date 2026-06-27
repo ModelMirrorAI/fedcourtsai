@@ -42,6 +42,38 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
     steps:
+      # An issue *form* applies its declared labels on creation regardless of the
+      # submitter's permissions, so on a public repo anyone could fire this agent
+      # run by filing the reconcile form. Require the trigger to come from the
+      # pipeline App (run-pull files reconcile issues automatically) or a
+      # maintainer with write access; deny everyone else. Fail closed otherwise.
+      # (The label name is already checked in the job `if:`; this also gates the
+      # downstream `reconcile` job, which `needs: plan`.)
+      - name: Authorize the trigger (label from the pipeline App or a maintainer)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
+        run: |
+          set -euo pipefail
+          # Only a maintainer-installed App can apply a `run:*` label that triggers
+          # a workflow (events from the default GITHUB_TOKEN do not), so a Bot
+          # sender is the trusted run-pull handoff.
+          if [ "$SENDER_TYPE" = "Bot" ]; then
+            echo "Authorized ${ACTOR} (pipeline App handoff)."
+            exit 0
+          fi
+          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" \
+            --jq '.permission' 2>/dev/null || echo none)
+          case "$perm" in
+            admin | maintain | write) echo "Authorized ${ACTOR} (${perm} access)." ;;
+            *)
+              echo "::error::${ACTOR} lacks write access (permission: ${perm}); refusing to run." >&2
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false

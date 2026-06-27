@@ -239,8 +239,9 @@ replayed out of band, exactly as `run-predict` runs them live.
 
 ## Seed — historical backfill
 
-- **Trigger:** a single long-lived `run:seed` tracking issue (see
-  `.github/ISSUE_TEMPLATE/seed.yml`) plus a weekly schedule.
+- **Trigger:** a single long-lived `run:seed` tracking issue (a maintainer opens
+  it and applies the `run:seed` label; see [seed-backfill.md](seed-backfill.md))
+  plus a weekly schedule.
 - **Each run** (deterministic, no agent, no API secret): read the committed
   **cursor** → process the next chunk of the bulk snapshot for the target courts
   → run the **event-definition stage** over each ingested docket so it carries its
@@ -288,8 +289,8 @@ replayed out of band, exactly as `run-predict` runs them live.
 ## Pull — forward freshness
 
 - **Trigger:** daily cron (staggered from other jobs), `workflow_dispatch`, or a
-  `run:pull` issue for on-demand refresh/investigation (see
-  `.github/ISSUE_TEMPLATE/pull.yml`). Recording a decided event's outcome is split
+  maintainer-applied `run:pull` label for an on-demand refresh (which re-runs the
+  full `pull-all`, not a single case). Recording a decided event's outcome is split
   off to `run:reconcile` (see *Detect resolution* below), so it is **no longer**
   the deterministic pull's job.
 - **Per-run tracking:** each run opens a short-lived `pull-log` issue at the start,
@@ -355,9 +356,9 @@ stage maps qualifying docket entries → event definitions (`kind`,
   reference it, the event is recorded `resolved`; with no citation the stage does
   not guess, so the event stays predictable.
 - **Deterministic first, agent only if ambiguous.** An entry that reads like a
-  request but matches more than one `kind` is surfaced for an agent reconcile
-  issue (`run:reconcile`, `.github/ISSUE_TEMPLATE/reconcile.yml`) rather than
-  classified — the same deterministic-first / agent-fallback split resolution
+  request but matches more than one `kind` is surfaced for an agent `run:reconcile`
+  issue (filed automatically by `run-pull`; see [pipeline.md](pipeline.md)) rather
+  than classified — the same deterministic-first / agent-fallback split resolution
   detection uses. The default path runs no agent.
 
 ## Discovery frontier — the seed → pull hand-off
