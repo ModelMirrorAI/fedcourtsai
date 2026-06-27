@@ -113,7 +113,9 @@ above all other costs combined.
 > decide those explicitly (the pilot's choice is the SCOTUS-interaction gate below).
 > Interactive development uses a Claude Max subscription; all automated pipeline
 > inference is API-metered from the outset, so there is no token-source ambiguity as
-> volume grows.
+> volume grows. This is now live: the agentic workflows (`run:predict`,
+> `run:evaluate`, `run:reconcile`, `run:dev`) authenticate to Claude via the
+> Anthropic **API key**, not the Max subscription OAuth token.
 
 #### The pilot slice: cases that touch SCOTUS
 
@@ -169,7 +171,17 @@ set. **Tier 3 ($50/mo) is the recommended floor** (covers new filings plus a
 healthy refresh rotation); **Tier 4 ($100/mo)** buys comfortable headroom as the
 tracked set grows. Above Tier 4 is a custom commercial agreement (unpublished).
 
-> **Line item: $600–1,200/yr.**
+The **pilot currently holds Tier 2 ($25/mo)**. Under the SCOTUS-interaction gate,
+a pull run refreshes ~15 dockets and discovers ~10 new ones (a few dozen requests
+total), so daily volume sits well inside Tier 2's 15/min · 150/hr · 600/day
+(~200 dockets/day) — the free tier was already brushing the daily ceiling, which
+prompted the upgrade. Tier 3+ becomes the floor only once the gate widens toward
+keeping all fourteen courts current at the live frontier. The membership raises
+the *ceiling*; the client still throttles to whatever `FEDCOURTS_COURTLISTENER_RPM`
+/ `_RPH` / `_RPD` are set to in the runner env, so realizing the higher rate means
+bumping those (the `tracking.yaml` `api_*` keys are documentation, not the knob).
+
+> **Line item: $300–1,200/yr** (pilot Tier 2 ≈ $250/yr; Tier 3–4 as scope widens).
 
 ### 3. GitHub Actions & Codespaces
 
@@ -247,18 +259,19 @@ variable that scope controls. Two reference points:
 ### A. Pilot / low-volume (gated slice, API-metered)
 
 Development plus the **SCOTUS-interaction gate** at its entry point — the
-long-conference cert batch on the Batch API (see *The pilot slice* above) — sized to
-fit within the subscription's interactive limits.
+long-conference cert batch on the Batch API (see *The pilot slice* above).
+Interactive development draws on the Max subscription; the automated predict/eval
+batch is API-metered (both engines).
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
-| Claude Max 20x (interactive dev) | $200 | $2,400 |
-| Codex API (gated cert predictions/evals) | ~$100–400 | ~$1.2–5K |
-| CourtListener Tier 3 | $50 | $600 |
+| Claude Max 20x (interactive dev only) | $200 | $2,400 |
+| Predict/eval inference — Claude + Codex **API** (gated) | ~$200–800 | ~$2.4–10K |
+| CourtListener Tier 2 | $25 | $250 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |
 | S3 / DVC | ~$5 | ~$60 |
-| **Total** | **≈ $360–700/mo** | **≈ $4–9K/yr** |
+| **Total** | **≈ $430–1,075/mo** | **≈ $5–13K/yr** |
 
 ### B. Full scope (all 14 courts, both engines, every event)
 
