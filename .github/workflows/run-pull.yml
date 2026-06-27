@@ -29,8 +29,13 @@ permissions: {}
 # Shared with run-seed: both workflows write the single corpus.db pointer, so they
 # run under ONE lock to serialize corpus writers and prevent lost updates (#42).
 # cancel-in-progress is false so a queued run waits rather than being dropped.
+# Only a run that will actually write the corpus joins the shared group: every
+# `issues: labeled` event spawns a run of BOTH this workflow and run-seed (the
+# label filter is the job-level `if`, evaluated after concurrency), so a run that
+# the `if` will skip is given a unique throwaway group — otherwise it could cancel
+# an in-flight seed/pull as the group's pending slot before ever being skipped.
 concurrency:
-  group: corpus-write
+  group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:pull') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -67,12 +72,25 @@ jobs:
           gh label create pull-log --repo "$REPO" --force \
             --color 1d76db --description "Daily run-pull refresh log (open while a run is in flight)"
           today=$(date -u +%Y-%m-%d)
-          url=$(gh issue create --repo "$REPO" \
-            --title "pull: daily refresh — ${today}" \
-            --label pull-log \
-            --body "Daily \`run-pull\` refresh in progress. A summary is posted here and this issue is closed when the run finishes successfully; it is left open as a record if the run fails.")
-          echo "number=${url##*/}" >> "$GITHUB_OUTPUT"
-          echo "Opened pull-log issue: ${url}"
+          # Reuse an open pull-log issue (e.g. one a prior failed run left behind as
+          # a record) instead of opening a fresh one each run, so a streak of
+          # failures collapses into one thread. A successful run still closes it
+          # (below), so steady state opens a new issue per day.
+          num=$(gh issue list --repo "$REPO" --label pull-log --state open \
+            --json number --jq '.[0].number')
+          if [ -z "$num" ]; then
+            url=$(gh issue create --repo "$REPO" \
+              --title "pull: daily refresh — ${today}" \
+              --label pull-log \
+              --body "Daily \`run-pull\` refresh in progress. A summary is posted here and this issue is closed when the run finishes successfully; it is left open as a record if the run fails.")
+            num="${url##*/}"
+            echo "Opened pull-log issue: ${url}"
+          else
+            gh issue comment "$num" --repo "$REPO" \
+              --body "New \`run-pull\` refresh started ${today} — reusing this open log (a prior run left it open)."
+            echo "Reusing open pull-log issue #${num}"
+          fi
+          echo "number=${num}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         # Persist the App token so refreshed snapshots can be pushed back to main;
