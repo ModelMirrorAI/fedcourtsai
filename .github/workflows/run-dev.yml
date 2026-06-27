@@ -91,8 +91,21 @@ jobs:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Auth is the Anthropic API key (pay-per-token): automated pipeline
+          # inference is API-metered by design (see docs/budget.md). For a
+          # local/interactive fallback, swap this for
+          # `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ steps.app-token.outputs.token }}
+          # The API key's default prompt-cache TTL is only 5 minutes, which would
+          # expire across a long dev run's tool-use turns; pin the 1-hour TTL so the
+          # stable prefix (AGENTS.md + prompt) keeps its cache-read discount.
+          settings: |
+            {
+              "env": {
+                "ENABLE_PROMPT_CACHING_1H": "1"
+              }
+            }
           prompt: |
             Read .github/prompts/dev.md and AGENTS.md, then complete the `run:dev`
             development task described in the issue (number in ISSUE_NUMBER, title in
