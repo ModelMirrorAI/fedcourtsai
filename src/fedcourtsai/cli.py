@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import UTC, date, datetime
+from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
 
@@ -63,6 +64,28 @@ from .usage import parse_claude_usage, parse_codex_usage
 from .validate import run_corpus_validation, run_ledger_referential_checks, validate_ledger
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
+
+
+def _version_callback(value: bool) -> None:
+    """Print the installed package version and exit (eager ``--version``)."""
+    if value:
+        typer.echo(version("fedcourtsai"))
+        raise typer.Exit
+
+
+@app.callback()
+def _main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            help="Show the installed fedcourtsai version and exit.",
+            callback=_version_callback,
+            is_eager=True,
+        ),
+    ] = False,
+) -> None:
+    """Predict events in US federal courts."""
 
 
 def _client() -> CourtListenerClient:
