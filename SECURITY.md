@@ -83,7 +83,16 @@
 - **Secrets are never written to `data/` or logs.** The `validate` gate and review
   on every agent PR are the backstops.
 
-## Reporting
+## Reporting a vulnerability
 
-These are experimental predictions, not legal advice. Do not feed privileged or
-sealed material into the pipeline.
+Please report security issues **privately**, not in a public issue — use
+[GitHub private vulnerability reporting](https://github.com/ModelMirrorAI/fedcourtsai/security/advisories/new)
+(Security → Report a vulnerability), or email `SECURITY-CONTACT`. We aim to
+acknowledge within a few days and ask for a reasonable window to remediate before
+public disclosure. Do not include privileged, sealed, or otherwise sensitive court
+material in a report.
+
+## Scope & disclaimers
+
+These are experimental model predictions, not legal advice. Do not feed privileged
+or sealed material into the pipeline.

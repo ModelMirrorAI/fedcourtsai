@@ -13,10 +13,17 @@ the court's reasoning.
 > **Status:** early scaffold. The pipeline shape, data contract, and automation
 > are in place; most feature work is done by AI coding agents via the
 > label-driven workflows below.
+>
+> No predictions have been published yet — the first target is the OT2026
+> long-conference cert release (see [milestones](docs/milestones.md)).
 
 > **Not legal advice.** Outputs are experimental model predictions — they may be
 > wrong, carry no affiliation with or endorsement by any court, and are not legal
 > advice or a forecast you should rely on for any decision.
+>
+> Predictions about how individual judges or justices may vote describe *likely
+> outcomes* — they are not assertions of fact and not statements about how anyone
+> should decide.
 
 ## How it works
 
@@ -38,19 +45,14 @@ trigger the next stage. Several stages delegate to agentic coding tools
 Plus `run-ops`, a read-only daily health & cost dashboard that has no `run:*`
 label — it runs on a schedule (or manual dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
 
-```
-run:seed ──▶ seed dockets ──▶ (merge)
-                                 │
-        daily schedule / run:pull│
-                                 ▼
-                          refresh dockets ──changed?──▶ open issue: run:predict
-                                                                │
-                                                                ▼
-                                          predict (matrix over predictors) ──▶ PRs
-                                                                │
-                                       (outcome lands via pull, or run:reconcile)
-                                                                ▼
-                                       run:evaluate ──▶ score every predictor ──▶ PRs
+```mermaid
+flowchart TD
+    seed["run:seed — seed dockets"] --> corpus[("corpus")]
+    pull["run:pull — refresh dockets<br/>(daily schedule)"] --> corpus
+    pull -->|"changed?"| predict["run:predict — predict open events<br/>(matrix over predictors)"]
+    predict --> ppr[/"pull requests"/]
+    predict -.->|"outcome lands via pull,<br/>or run:reconcile"| evaluate["run:evaluate — score every predictor"]
+    evaluate --> epr[/"pull requests"/]
 ```
 
 Longer term, an automated-research harness (in the spirit of Anthropic's
@@ -153,6 +155,19 @@ docs/               architecture, data model, pipeline, security
 - [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Agent workflow](docs/agent-workflow.md) · [Contributing](CONTRIBUTING.md)
+
+## Data & attribution
+
+Court data comes from [CourtListener](https://www.courtlistener.com/), a project of
+the [Free Law Project](https://free.law/) — via the CourtListener REST API and the
+quarterly bulk-data exports. A great deal of this project rests on their work;
+please review and support it. Use of their data is governed by
+[CourtListener's terms](https://www.courtlistener.com/terms/).
+
+FedCourtsAI is independent and is **not** affiliated with or endorsed by the Free
+Law Project or any court. Court records are public records of the U.S. federal
+courts; the predictions and evaluations in this repository are model-generated and
+are not official court records.
 
 ## License
 
