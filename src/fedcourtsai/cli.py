@@ -60,6 +60,7 @@ from .store import (
     resolved_events,
 )
 from .usage import parse_claude_usage, parse_codex_usage
+from .validate import run_corpus_validation
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -101,6 +102,68 @@ def validate(
         typer.echo(f"\n{len(errors)} invalid / {checked} checked", err=True)
         raise typer.Exit(code=1)
     typer.echo(f"OK: {checked} artifact(s) valid")
+
+
+@app.command("validate-corpus")
+def validate_corpus_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the verdict JSON here (default: <metrics_root>/corpus-validation.json)."
+        ),
+    ] = None,
+    baseline_count: Annotated[
+        int | None,
+        typer.Option(
+            help="Prior corpus row count; the verdict fails if the current count dropped "
+            "below it. Absent, the append-only check is a no-op pass."
+        ),
+    ] = None,
+    today: Annotated[
+        str,
+        typer.Option(
+            help="ISO as-of date for the future-dated-snapshot check; defaults to today (UTC)."
+        ),
+    ] = "",
+) -> None:
+    """Run corpus-integrity + referential checks and emit a JSON verdict.
+
+    The complement to ``validate``: it opens the packed corpus and asserts the
+    correctness invariants that span the two stores — the corpus is append-only and
+    self-consistent, and no git-ledger judgment under ``data/`` is an orphan. Writes
+    the structured ``CorpusValidation`` verdict and prints a one-line summary.
+    Graceful when the corpus is absent (run before ``dvc pull``): writes a skipped
+    verdict and exits 0. The exit code reports check health (non-zero on a failed
+    verdict) so a caller can surface it; the wiring that runs this treats a failure
+    as loud-not-fatal, never blocking on it.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    cursor = load_cursor(load_seed_config(settings.config_root).cursor)
+    as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    verdict = run_corpus_validation(
+        corpus_db_path=db_path,
+        data_root=settings.data_root,
+        seed_cursor=cursor,
+        today=as_of,
+        baseline_count=baseline_count,
+    )
+    destination = out if out is not None else settings.metrics_root / "corpus-validation.json"
+    write_json(destination, verdict)
+    if verdict.skipped:
+        typer.echo(f"corpus-validation: skipped (no corpus at {db_path}) -> {destination}")
+        return
+    passed = sum(1 for c in verdict.checks if c.passed)
+    status = "OK" if verdict.ok else "FAIL"
+    typer.echo(
+        f"corpus-validation: {status} — {passed}/{len(verdict.checks)} check(s) passed over "
+        f"{verdict.corpus_rows} row(s) -> {destination}"
+    )
+    if not verdict.ok:
+        for check in verdict.checks:
+            if not check.passed:
+                typer.echo(f"FAIL {check.name}: {check.failures} problem(s)", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command("dvc-status")
