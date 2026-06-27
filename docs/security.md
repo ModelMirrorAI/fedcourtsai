@@ -6,31 +6,52 @@ SECURITY.md says *what* the invariants are; this says *how* they are wired, so a
 maintainer can reproduce or audit the setup. For the data-side access table see
 [data-pipeline.md](data-pipeline.md).
 
-## The GitHub App
+## The two GitHub Apps
 
 Cross-workflow handoffs and PRs are made with a **GitHub App installation token**
 (`actions/create-github-app-token`), never the default `GITHUB_TOKEN`: events
 created with `GITHUB_TOKEN` do not trigger other workflows (GitHub's
 loop-prevention), so a `run-pull` issue would never start `run-predict`, and an
-agent PR would never start CI. The App's client id lives in the `APP_CLIENT_ID`
-variable and its private key in the `APP_PRIVATE_KEY` secret, both on the `runner`
-environment.
+agent PR would never start CI.
 
-Each workflow mints a token scoped to only what it needs:
+The token comes from one of **two Apps, split by trust** — mirroring the two S3
+roles. The split is what makes "data writes land directly, everything agentic
+lands via a reviewed PR" an *identity*-enforced invariant rather than a policy the
+agent is merely instructed to follow:
 
-| Workflow | Token scope | Notes |
-|----------|-------------|-------|
-| `run-seed`, `run-pull` | contents, issues, pull-requests | commit facts to `main`; open handoff issues |
-| `run-predict`, `run-evaluate`, `run-reconcile` | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
-| `run-dev` | contents, pull-requests, **workflows** | develops the pipeline, including the workflow files |
+- **data App** — used by the deterministic writers `run-seed` / `run-pull`. Its
+  client id is the `DATA_APP_CLIENT_ID` variable and its private key the
+  `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
+  PR`, so the writers push corpus facts straight to `main`.
+- **dev App** — used by `run-dev` and the agent workflows `run-predict` /
+  `run-evaluate` / `run-reconcile`. Its client id is the `DEV_APP_CLIENT_ID`
+  variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
+  **not** a bypass actor, so nothing it holds can reach `main` except through a
+  reviewed PR.
 
-**Repository permissions the App must grant** (App settings → Permissions):
-Contents, Issues, Pull requests, and **Workflows**, all *read and write*. After
-changing an App permission, **re-approve the installation** on the repo — a new
-permission stays pending until an owner accepts it, and the minted token is capped
-at the granted set until then.
+All four live on the `runner` environment (the two client ids as variables, the
+two keys as secrets). Each workflow mints a token scoped to only what it needs:
 
-The App is also a **bypass actor** on the require-PR ruleset below.
+| Workflow | App | Token scope | Notes |
+|----------|-----|-------------|-------|
+| `run-seed`, `run-pull` | data | contents, issues, pull-requests | commit facts to `main`; open handoff issues |
+| `run-predict`, `run-evaluate`, `run-reconcile` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
+| `run-dev` | dev | contents, pull-requests, **workflows** | develops the pipeline, including the workflow files |
+
+**Repository permissions each App must grant** (App settings → Permissions), at
+the App level the union of what its workflows mint:
+
+- **data App**: Contents, Issues, Pull requests — all *read and write*.
+- **dev App**: Contents, Issues, Pull requests, and **Workflows** — all *read and
+  write*.
+
+After changing an App permission, **re-approve the installation** on the repo — a
+new permission stays pending until an owner accepts it, and the minted token is
+capped at the granted set until then.
+
+Commits and PRs are attributed to each App's own bot user (the
+`configure-git-identity` action resolves `<app-slug>[bot]` from the token), so
+deterministic corpus pushes and agent PRs are visibly authored by different bots.
 
 ## Branch protection — three rulesets
 
@@ -39,18 +60,19 @@ bypass list applies to the whole ruleset); a third protects the `ops-metrics`
 branch:
 
 - **`main: require PR`** — requires a pull request plus the `gate` status check to
-  merge. **Bypass: the GitHub App**, so the deterministic `run-seed` / `run-pull`
-  writers push corpus facts (the corpus blob — rows and point-in-time snapshots —
-  to the DVC remote; its pointer and deterministic `outcome.json` to `main`)
-  while all agent code changes go through a reviewed PR. Required approvals are
-  `0` (a maintainer reviews at merge time); set
+  merge. **Bypass: the data App only**, so the deterministic `run-seed` /
+  `run-pull` writers push corpus facts (the corpus blob — rows and point-in-time
+  snapshots — to the DVC remote; its pointer and deterministic `outcome.json` to
+  `main`) while all agent code changes — including anything the dev App holds —
+  go through a reviewed PR. The dev App is deliberately **absent** from this
+  bypass list. Required approvals are `0` (a maintainer reviews at merge time); set
   to `1` if a second reviewer exists.
   - Only `gate` is a required check. **Not** `zizmor` — it is path-filtered to
     `.github/**`, so requiring it would hang any PR that does not touch workflows.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
-  bypass — not even the App.** This is what guarantees the predictions, outcomes,
+  bypass — neither App.** This is what guarantees the predictions, outcomes,
   and evaluations under `data/` cannot be rewritten or dropped, even by a
-  misbehaving agent that holds the bypass token.
+  misbehaving writer that holds the data App's bypass token.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots. `run-ops`
   only ever does a normal append push (never a force-push), so the rule does not
@@ -104,13 +126,6 @@ a **lifecycle rule** expiring noncurrent versions after a recovery window, and
 
 ## Current limitations
 
-- **One App, shared by writers and the dev agent.** Because `run-seed` / `run-pull`
-  need to push to `main` directly, the App is a require-PR bypass actor — which
-  means the *same* token used by `run-dev` could also push to `main` without
-  review. The `protect history` ruleset still prevents force-push/deletion, and
-  the append-only role still prevents corpus loss, so the blast radius is bounded.
-  Splitting into two Apps — a data App with bypass and a dev App without — removes
-  this gap and is the intended next step.
 - **Going public.** Before the repo is public:
   - Set Actions → "require approval for outside collaborators" so fork-PR workflows
     need a maintainer's go-ahead, and confirm fork PRs (which run without secrets)

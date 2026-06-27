@@ -76,8 +76,8 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write # open the one-time backfill-completion PR
@@ -134,8 +134,8 @@ jobs:
           # The loop pushes for hours, but a single installation token lives at
           # most 1h (GitHub's hard cap). So the loop re-mints its own short-lived
           # tokens from the App's private key as it goes; these two feed that.
-          APP_CLIENT_ID: ${{ vars.APP_CLIENT_ID }}
-          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+          APP_CLIENT_ID: ${{ vars.DATA_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.DATA_APP_PRIVATE_KEY }}
           # Public CourtListener bulk snapshot — no API token. Point this at the
           # bulk-data base directory; the backfill lists the bucket and loads the
           # latest snapshot on its own (its publication date becomes the snapshot
@@ -303,8 +303,8 @@ jobs:
         id: app-token-post
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
