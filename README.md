@@ -13,6 +13,9 @@ the court's reasoning.
 > **Status:** early scaffold. The pipeline shape, data contract, and automation
 > are in place; most feature work is done by AI coding agents via the
 > label-driven workflows below.
+> 
+> No predictions have been published yet — the first target is the OT2026
+> long-conference cert release (see [milestones](docs/milestones.md)).
 
 > **Not legal advice.** Outputs are experimental model predictions — they may be
 > wrong, carry no affiliation with or endorsement by any court, and are not legal
