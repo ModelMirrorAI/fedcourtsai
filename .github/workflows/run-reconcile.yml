@@ -216,7 +216,12 @@ jobs:
           gh auth setup-git
           branch="reconcile/${COURT_ID}-${DOCKET_ID}-${RUN_ID}"
           git checkout -b "$branch"
-          git add data/
+          # data/ may not exist yet (no derived artifact has ever been committed),
+          # so guard the add: a run that settles nothing then falls through to the
+          # "no outcome recorded" path below instead of aborting on a missing pathspec.
+          if [ -d data ]; then
+            git add data/
+          fi
           # The settled events are exactly the outcome.json files this run added
           # under the case (the agent writes only outcome.json — event open/resolved
           # state is a corpus fact, not a git file). The run:evaluate handoff targets

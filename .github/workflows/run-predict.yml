@@ -265,7 +265,12 @@ jobs:
           gh auth setup-git
           branch="predict/${EVENT_ID}-${PREDICTOR_ID}-${RUN_ID}"
           git checkout -b "$branch"
-          git add data/
+          # data/ may not exist yet (no derived artifact has ever been committed),
+          # so guard the add: an empty agent run then falls through to the "no
+          # changes" path below instead of aborting on a missing pathspec.
+          if [ -d data ]; then
+            git add data/
+          fi
           if git diff --cached --quiet; then
             warn="${PREDICTOR_ID} produced no changes for ${EVENT_ID}"
             [ "$AGENT_OK" = "true" ] || warn="${warn} before the run hit its turn/time limit"

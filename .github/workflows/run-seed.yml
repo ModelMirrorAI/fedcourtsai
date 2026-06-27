@@ -27,8 +27,13 @@ permissions: {}
 # Shared with run-pull: both workflows write the single corpus.db pointer, so they
 # run under ONE lock to serialize corpus writers and prevent lost updates (#42).
 # cancel-in-progress is false so a queued run waits rather than being dropped.
+# Only a run that will actually write the corpus joins the shared group: every
+# `issues: labeled` event spawns a run of BOTH this workflow and run-pull (the
+# label filter is the job-level `if`, evaluated after concurrency), so a run that
+# the `if` will skip is given a unique throwaway group — otherwise it could cancel
+# an in-flight seed/pull as the group's pending slot before ever being skipped.
 concurrency:
-  group: corpus-write
+  group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:seed') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
