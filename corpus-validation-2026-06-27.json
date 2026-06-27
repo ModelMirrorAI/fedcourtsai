@@ -1,0 +1,110 @@
+{
+  "checks": [
+    {
+      "checked": 1,
+      "detail": "corpus opened",
+      "failures": 0,
+      "name": "corpus_opens",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 2136344,
+      "detail": "no baseline supplied; monotonic check skipped",
+      "failures": 0,
+      "name": "row_count_monotonic",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 4272718,
+      "detail": "",
+      "failures": 0,
+      "name": "required_columns_non_empty",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 30,
+      "detail": "as of 2026-06-27",
+      "failures": 0,
+      "name": "snapshot_not_future_dated",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 2136344,
+      "detail": "as of 2026-06-27",
+      "failures": 20,
+      "name": "case_dates_ordered",
+      "passed": false,
+      "problems": [
+        "case 'ca1/4490126' has inconsistent dates (filed 2016-06-17, decided 2014-01-29, as of 2026-06-27)",
+        "case 'ca10/4134809' has inconsistent dates (filed 2016-06-24, decided 2015-05-01, as of 2026-06-27)",
+        "case 'ca10/66666109' has inconsistent dates (filed 2022-12-15, decided 2022-11-16, as of 2026-06-27)",
+        "case 'ca11/4565191' has inconsistent dates (filed 2017-09-01, decided 2015-01-05, as of 2026-06-27)",
+        "case 'ca2/4135978' has inconsistent dates (filed 2015-10-02, decided 2014-03-27, as of 2026-06-27)",
+        "case 'ca2/65360496' has inconsistent dates (filed 2023-03-29, decided 2023-01-24, as of 2026-06-27)",
+        "case 'ca2/66698741' has inconsistent dates (filed 2023-12-07, decided 2023-08-25, as of 2026-06-27)",
+        "case 'ca3/4490420' has inconsistent dates (filed 2015-09-03, decided 2015-04-08, as of 2026-06-27)",
+        "case 'ca3/66808103' has inconsistent dates (filed 2023-09-08, decided 2023-08-17, as of 2026-06-27)",
+        "case 'ca5/66761616' has inconsistent dates (filed 2025-10-01, decided 2020-07-07, as of 2026-06-27)",
+        "case 'ca5/67681435' has inconsistent dates (filed 2023-12-11, decided 2023-10-19, as of 2026-06-27)",
+        "case 'ca6/66766012' has inconsistent dates (filed 2023-10-11, decided 2023-08-16, as of 2026-06-27)",
+        "case 'ca9/64454285' has inconsistent dates (filed 2023-10-23, decided 2023-06-23, as of 2026-06-27)",
+        "case 'ca9/64883208' has inconsistent dates (filed 2023-09-08, decided 2023-06-16, as of 2026-06-27)",
+        "case 'ca9/65770700' has inconsistent dates (filed 2023-11-06, decided 2022-12-16, as of 2026-06-27)",
+        "case 'ca9/67108822' has inconsistent dates (filed 2023-08-10, decided 2023-07-19, as of 2026-06-27)",
+        "case 'ca9/70552707' has inconsistent dates (filed 2025-06-03, decided 1994-08-08, as of 2026-06-27)",
+        "case 'ca9/71959035' has inconsistent dates (filed 2025-11-25, decided 1995-09-28, as of 2026-06-27)",
+        "case 'ca9/72111052' has inconsistent dates (filed 2025-12-12, decided 1994-10-04, as of 2026-06-27)",
+        "case 'cafc/64942476' has inconsistent dates (filed 2023-08-21, decided 2023-07-14, as of 2026-06-27)"
+      ]
+    },
+    {
+      "checked": 4272688,
+      "detail": "",
+      "failures": 0,
+      "name": "domain_values_valid",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 4272718,
+      "detail": "",
+      "failures": 0,
+      "name": "no_duplicate_cases_or_events",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 0,
+      "detail": "",
+      "failures": 0,
+      "name": "ledger_references_exist",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 0,
+      "detail": "",
+      "failures": 0,
+      "name": "evaluation_targets_prediction",
+      "passed": true,
+      "problems": []
+    },
+    {
+      "checked": 14,
+      "detail": "",
+      "failures": 0,
+      "name": "seed_cursor_reconciles",
+      "passed": true,
+      "problems": []
+    }
+  ],
+  "corpus_events": 2136344,
+  "corpus_rows": 2136344,
+  "ok": false,
+  "schema_version": "1.0",
+  "skipped": false
+}
