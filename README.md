@@ -45,19 +45,14 @@ trigger the next stage. Several stages delegate to agentic coding tools
 Plus `run-ops`, a read-only daily health & cost dashboard that has no `run:*`
 label — it runs on a schedule (or manual dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
 
-```
-run:seed ──▶ seed dockets ──▶ (merge)
-                                 │
-        daily schedule / run:pull│
-                                 ▼
-                          refresh dockets ──changed?──▶ open issue: run:predict
-                                                                │
-                                                                ▼
-                                          predict (matrix over predictors) ──▶ PRs
-                                                                │
-                                       (outcome lands via pull, or run:reconcile)
-                                                                ▼
-                                       run:evaluate ──▶ score every predictor ──▶ PRs
+```mermaid
+flowchart TD
+    seed["run:seed — seed dockets"] --> corpus[("corpus")]
+    pull["run:pull — refresh dockets<br/>(daily schedule)"] --> corpus
+    pull -->|"changed?"| predict["run:predict — predict open events<br/>(matrix over predictors)"]
+    predict --> ppr[/"pull requests"/]
+    predict -.->|"outcome lands via pull,<br/>or run:reconcile"| evaluate["run:evaluate — score every predictor"]
+    evaluate --> epr[/"pull requests"/]
 ```
 
 Longer term, an automated-research harness (in the spirit of Anthropic's
