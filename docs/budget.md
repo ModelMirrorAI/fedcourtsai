@@ -38,7 +38,7 @@ Two engines run the agentic stages, routed per registry entry
 
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
-| **Claude Code** (`claude-opus-4-8`) | `claude-baseline`, `claude-judge`, all `run:dev` | Claude Max subscription **or** Anthropic API | Subscription: **$200/mo** flat (Max 20x). API: **$5 in / $25 out** |
+| **Claude Code** (`claude-opus-4-8`) | `claude-baseline`, `claude-judge`, all `run:dev` | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x). API: **$5 in / $25 out** |
 | **Codex** (`gpt-5.5`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
 
 Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-the-max-plan),
@@ -108,11 +108,12 @@ above all other costs combined.
 | **Prompt caching** on the stable prefix | Up to ~90% of the input portion |
 | **`predict_on_change_only`** (already set) | Avoids re-predicting unchanged cases |
 
-> **Recommendation.** Treat the flat Claude Max 20x subscription ($200/mo) as the
-> dev + pilot budget, and switch the pipeline's Claude predictors/evaluators to an
-> API key once volume outgrows the subscription's interactive limits. Decide the
-> prediction *slice* explicitly — it is the budget; the pilot's choice is the
-> SCOTUS-interaction gate below.
+> **Recommendation.** The cost *model* — not any single funding source — is the
+> point: spend is governed by the prediction *slice* and the engine fan-out, so
+> decide those explicitly (the pilot's choice is the SCOTUS-interaction gate below).
+> Interactive development uses a Claude Max subscription; all automated pipeline
+> inference is API-metered from the outset, so there is no token-source ambiguity as
+> volume grows.
 
 #### The pilot slice: cases that touch SCOTUS
 
@@ -243,7 +244,7 @@ DVC keeps historical versions, so budget for a small multiple:
 Fixed/baseline costs are small and predictable; the inference line is the
 variable that scope controls. Two reference points:
 
-### A. Pilot / low-volume (subscription-bounded)
+### A. Pilot / low-volume (gated slice, API-metered)
 
 Development plus the **SCOTUS-interaction gate** at its entry point — the
 long-conference cert batch on the Batch API (see *The pilot slice* above) — sized to
@@ -251,7 +252,7 @@ fit within the subscription's interactive limits.
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
-| Claude Max 20x (dev + pilot inference) | $200 | $2,400 |
+| Claude Max 20x (interactive dev) | $200 | $2,400 |
 | Codex API (gated cert predictions/evals) | ~$100–400 | ~$1.2–5K |
 | CourtListener Tier 3 | $50 | $600 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
