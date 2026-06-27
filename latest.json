@@ -1,0 +1,230 @@
+{
+  "backfill": {
+    "cases_loaded": 2138324,
+    "cases_per_day": null,
+    "cases_total": 2138324,
+    "courts_complete": 14,
+    "courts_total": 14,
+    "entries": [
+      {
+        "complete": true,
+        "court": "scotus",
+        "offset": 583840,
+        "percent": 100.0,
+        "total": 583840
+      },
+      {
+        "complete": true,
+        "court": "ca1",
+        "offset": 45172,
+        "percent": 100.0,
+        "total": 45172
+      },
+      {
+        "complete": true,
+        "court": "ca2",
+        "offset": 120480,
+        "percent": 100.0,
+        "total": 120480
+      },
+      {
+        "complete": true,
+        "court": "ca3",
+        "offset": 111938,
+        "percent": 100.0,
+        "total": 111938
+      },
+      {
+        "complete": true,
+        "court": "ca4",
+        "offset": 186152,
+        "percent": 100.0,
+        "total": 186152
+      },
+      {
+        "complete": true,
+        "court": "ca5",
+        "offset": 202764,
+        "percent": 100.0,
+        "total": 202764
+      },
+      {
+        "complete": true,
+        "court": "ca6",
+        "offset": 141330,
+        "percent": 100.0,
+        "total": 141330
+      },
+      {
+        "complete": true,
+        "court": "ca7",
+        "offset": 91875,
+        "percent": 100.0,
+        "total": 91875
+      },
+      {
+        "complete": true,
+        "court": "ca8",
+        "offset": 102993,
+        "percent": 100.0,
+        "total": 102993
+      },
+      {
+        "complete": true,
+        "court": "ca9",
+        "offset": 246604,
+        "percent": 100.0,
+        "total": 246604
+      },
+      {
+        "complete": true,
+        "court": "ca10",
+        "offset": 81223,
+        "percent": 100.0,
+        "total": 81223
+      },
+      {
+        "complete": true,
+        "court": "ca11",
+        "offset": 95071,
+        "percent": 100.0,
+        "total": 95071
+      },
+      {
+        "complete": true,
+        "court": "cadc",
+        "offset": 56657,
+        "percent": 100.0,
+        "total": 56657
+      },
+      {
+        "complete": true,
+        "court": "cafc",
+        "offset": 72225,
+        "percent": 100.0,
+        "total": 72225
+      }
+    ],
+    "eta_date": null,
+    "percent": 100.0,
+    "snapshot": "2026-03-31"
+  },
+  "cost": {
+    "actions_cost_usd": 1.206,
+    "actions_minutes": 201.0,
+    "actions_monthly_usd": 51.36,
+    "estimated_monthly_usd": 106.36,
+    "fixed_monthly_usd": 55.0,
+    "model_cost_usd": 0.0,
+    "window_days": 0.7
+  },
+  "generated_at": "2026-06-27T09:04:47.367871+00:00",
+  "health": [
+    {
+      "failures": 142,
+      "last_conclusion": "success",
+      "last_run_at": "2026-06-26T20:37:56Z",
+      "median_seconds": 21,
+      "p95_seconds": 28,
+      "runs_considered": 154,
+      "success_rate": 0.07792207792207792,
+      "successes": 12,
+      "workflow": "ci"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-06-26T19:44:48Z",
+      "median_seconds": 13,
+      "p95_seconds": 19,
+      "runs_considered": 8,
+      "success_rate": 1.0,
+      "successes": 8,
+      "workflow": "lint-actions"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-06-27T08:12:08Z",
+      "median_seconds": 8,
+      "p95_seconds": 895,
+      "runs_considered": 6,
+      "success_rate": 0.5,
+      "successes": 3,
+      "workflow": "run-dev"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-06-27T08:12:08Z",
+      "median_seconds": 2,
+      "p95_seconds": 8,
+      "runs_considered": 6,
+      "success_rate": 0.0,
+      "successes": 0,
+      "workflow": "run-evaluate"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": null,
+      "last_run_at": "2026-06-27T09:04:31Z",
+      "median_seconds": null,
+      "p95_seconds": null,
+      "runs_considered": 1,
+      "success_rate": null,
+      "successes": 0,
+      "workflow": "run-ops"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-06-27T08:12:08Z",
+      "median_seconds": 2,
+      "p95_seconds": 10,
+      "runs_considered": 6,
+      "success_rate": 0.0,
+      "successes": 0,
+      "workflow": "run-predict"
+    },
+    {
+      "failures": 3,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-06-27T08:12:08Z",
+      "median_seconds": 2,
+      "p95_seconds": 493,
+      "runs_considered": 6,
+      "success_rate": 0.0,
+      "successes": 0,
+      "workflow": "run-pull"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-06-27T08:12:08Z",
+      "median_seconds": 1,
+      "p95_seconds": 10,
+      "runs_considered": 6,
+      "success_rate": 0.0,
+      "successes": 0,
+      "workflow": "run-reconcile"
+    },
+    {
+      "failures": 3,
+      "last_conclusion": "cancelled",
+      "last_run_at": "2026-06-27T08:12:08Z",
+      "median_seconds": 129,
+      "p95_seconds": 3297,
+      "runs_considered": 7,
+      "success_rate": 0.2857142857142857,
+      "successes": 2,
+      "workflow": "run-seed"
+    }
+  ],
+  "schema_version": "1.0",
+  "spend": {
+    "estimated_cost_usd": 0.0,
+    "mean_cost_usd_per_run": 0.0,
+    "runs": 0,
+    "total_tokens": 0
+  }
+}
