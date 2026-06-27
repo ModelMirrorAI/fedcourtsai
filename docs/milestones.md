@@ -2,10 +2,11 @@
 
 A target timeline for fedcourtsai, anchored to the Supreme Court's term calendar
 so that public "releases" land when the Court is producing the events worth
-predicting. Dates are targets, not commitments; the ordering and the calendar
-anchors are the load-bearing part. For the system this builds on, see
-[architecture.md](architecture.md), [data-pipeline.md](data-pipeline.md), and the
-cost envelope in [budget.md](budget.md).
+predicting. This is a sequence anchored to the Supreme Court's term calendar, not a set of
+dated commitments. The external anchors — the long conference, the end of term —
+are fixed; the internal ordering is load-bearing; the specific timing is our best
+estimate and, like any forecast this project makes, will be reported against
+honestly rather than quietly revised.
 
 ## Why anchor to the SCOTUS calendar
 
@@ -49,7 +50,7 @@ Everything in the next three months is sequenced to make that release possible.
 
 ## Timeline
 
-### Within ~1 month (by end of July 2026) — foundations runnable end-to-end
+### Phase 0 — Foundations (before the first cert release)
 
 - **Seed backfill running.** The `run:seed` tracking issue is open and the daily
   bulk backfill is loading all fourteen courts against its cursor (free bulk data,
@@ -64,7 +65,7 @@ Everything in the next three months is sequenced to make that release possible.
   predict/evaluate runs and replace the planning assumption in
   [budget.md](budget.md); set billing budgets + alerts.
 
-### Within ~3 months (by the long conference, late Sept 2026) — the cert mini-release
+### Phase 1 — Long-conference cert release (OT2026 long conference, late Sept 2026)
 
 - **Backfill complete** for all fourteen courts; steady state drops to quarterly
   bulk reconciliation.
@@ -79,7 +80,7 @@ Everything in the next three months is sequenced to make that release possible.
 - **Mini-release published** once the opening order list resolves them (~early
   Oct): the article + the first head-to-head predictor calibration.
 
-### Within ~6 months (by ~Dec 2026) — steady state + first leaderboard
+### Phase 2 — Steady state + first leaderboard (across the OT2026 argument season)
 
 - **Full predict/evaluate loop operating** across the chosen slice on the daily
   cadence, with the matrix fan-out and per-run tracking issues working unattended.
@@ -94,7 +95,7 @@ Everything in the next three months is sequenced to make that release possible.
   and surfaces in the ops dashboard as data-health, with failures escalated to a
   single issue — the automated successor to the manual corpus spot-check.
 
-### Within ~1 year (by mid-2027) — full-docket release + back-testing
+### Phase 3 — Full-docket release + back-testing (end of OT2026 term, ~June 2027)
 
 - **OT2026 end-of-term release** (late June 2027): predictions and evaluations
   across the full merits docket as the term's ~60–70 decisions land — the richest
