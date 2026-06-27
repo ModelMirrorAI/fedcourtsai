@@ -124,81 +124,49 @@ On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and
 **Block Public Access on**.
 
-## Current limitations
+## Going public
 
-- **Going public.** Before the repo is public:
-  - Set Actions → "require approval for outside collaborators" so fork-PR workflows
-    need a maintainer's go-ahead, and confirm fork PRs (which run without secrets)
-    behave as intended on the `push` and `pull_request` paths. Note this setting
-    gates only fork `pull_request` runs — it does **not** gate `issues` events, so
-    it is not what protects the label triggers below.
+Two privileged surfaces are guarded by controls that are in place and locked in by
+tests (`tests/test_workflow_fork_pr_gate.py`, `tests/test_workflow_auth_gate.py`).
+Enabling the fork-PR approval setting and the two end-to-end live verifications
+cannot be done headless or before the repo is public, so they remain maintainer
+steps tracked outside this doc.
 
-    **Static verification (2026-06-27).** A code-level audit confirmed the
-    secret-gating shape ahead of the live fork test; `tests/test_workflow_fork_pr_gate.py`
-    locks it in so a later edit cannot route a secret onto the fork path:
-    - *No secret-bearing job is reachable on `pull_request`.* The six workflows
-      that read `runner` secrets (`run-pull` / `run-seed` / `run-predict` /
-      `run-evaluate` / `run-reconcile` / `run-dev`) all declare `environment: runner`
-      and trigger only on `issues` / `schedule` / `workflow_dispatch` / `push` to
-      `main` — never `pull_request` — so the deployment-branch restriction never
-      faces a fork ref. No workflow uses `pull_request_target` (which would expose
-      base secrets on a fork's head ref).
-    - *The fork-PR path is secret-free.* The only workflows reachable on
-      `pull_request` are `ci` (the `gate`) and `lint-actions`; neither declares an
-      environment nor references the `secrets.` context, and both set
-      `persist-credentials: false` on checkout, so a fork-PR run holds no App key,
-      agent or CourtListener token, or S3 role, and leaves no pushable
-      `GITHUB_TOKEN`.
+### Fork pull requests run without secrets
 
-    **Live test still outstanding.** Two pieces cannot be confirmed from code and
-    remain maintainer steps: enabling the repo Actions setting itself ("require
-    approval for all outside collaborators"), and the end-to-end run. Recipe: from
-    the test account, fork the repo and open a PR with a trivial change; confirm the
-    run requires approval, approve it as maintainer, then inspect the run and verify
-    its ref and environment show no `runner` job executed and no secret-dependent
-    step ran (or it failed closed — never silently used a secret). A temporary debug
-    step echoing whether a **non-sensitive** env var is set may be used to prove the
-    gating; never echo a secret value. Record the date and the account used here when
-    done.
-  - The `issues: labeled` triggers are the privileged path that "require approval"
-    does not cover. Two layers guard them (see SECURITY.md → *Label triggers*): no
-    issue form auto-applies a `run:*` label (operating the pipeline isn't exposed
-    as a public form), and every `run:*` workflow's first step verifies the
-    triggering actor has write access (failing closed) before doing anything. After
-    flipping the repo public, confirm with a non-collaborator test account that a
-    stray `run:*` label from a non-maintainer is refused.
+No secret-bearing job is reachable on `pull_request`. The six workflows that read
+`runner` secrets (`run-pull` / `run-seed` / `run-predict` / `run-evaluate` /
+`run-reconcile` / `run-dev`) declare `environment: runner` and trigger only on
+`issues` / `schedule` / `workflow_dispatch` / `push` to `main` — never
+`pull_request` — so the deployment-branch restriction never faces a fork ref, and
+no workflow uses `pull_request_target` (which would expose base secrets on a fork's
+head ref). The only workflows reachable on `pull_request` are `ci` (the `gate`) and
+`lint-actions`; neither declares an environment nor references the `secrets.`
+context, and both set `persist-credentials: false` on checkout — so a fork-PR run
+holds no App key, agent or CourtListener token, or S3 role, and leaves no pushable
+`GITHUB_TOKEN`.
 
-    **Static verification (2026-06-27).** A code-level audit confirmed both layers
-    ahead of the live test:
-    - *No public form applies a `run:*` label.* The three forms under
-      `.github/ISSUE_TEMPLATE/` declare only `bug` / `enhancement`; `config.yml`
-      keeps blank issues on (for maintainer-filed dev/ops issues) and exposes no
-      pipeline-operation form. So a public submitter cannot get a `run:*` label
-      applied on creation.
-    - *Every `run:*` workflow refuses a non-write actor before any privileged
-      step.* The deterministic writers (`run-pull` / `run-seed` / `run-reconcile`)
-      already gated on the collaborators API. The agent stages (`run-predict` /
-      `run-evaluate` / `run-dev`) previously relied only on `claude-code-action`'s
-      own actor check, which fires after the job has minted its App token, assumed
-      the read-only S3 role, and `dvc pull`ed the corpus (and, for `run-dev`,
-      minted the `workflows: write` token). They now carry the same fail-closed
-      pre-flight check as the deterministic writers — in `run-predict` /
-      `run-evaluate` it is the first step of the `plan` job that gates the
-      privileged `predict` / `evaluate` job, and in `run-dev` it precedes the token
-      mint — so a non-write trigger is refused before any token mint, S3-role
-      assumption, or corpus read. The legitimate `run-pull` App handoff (a Bot
-      sender) is still allowed, and `claude-code-action` re-checks the actor before
-      spending model tokens as defense in depth.
-    - *Visibility.* Each refusal logs `::error::<actor> lacks write access
-      (permission: <level>); refusing to run.` and exits non-zero, so the Actions
-      run fails loudly rather than passing silently.
+Setting Actions → "require approval for all outside collaborators" adds a maintainer
+gate in front of fork-PR runs. It gates only fork `pull_request` runs — **not**
+`issues` events, so it is not what protects the label triggers below.
 
-    **Live test still outstanding.** The end-to-end check against a real
-    non-collaborator account cannot run headless or before the repo is public, so
-    it remains a maintainer step. Recipe: from a read-only test account, (1) attempt
-    to add each `run:*` label via the UI and `gh api -X POST
-    repos/<owner>/<repo>/issues/<n>/labels` — GitHub should reject the write
-    (labeling needs triage/write); (2) as defense-in-depth, have a triage-only
-    account apply a `run:*` label and confirm the workflow's first step short-
-    circuits with the `lacks write access` error before any privileged step. Record
-    the date and the accounts used here when done.
+### Label triggers refuse non-write actors
+
+The `issues: labeled` triggers are the privileged path that "require approval" does
+not cover. Two layers guard them (see SECURITY.md → *Label triggers*):
+
+- *No public form applies a `run:*` label.* The forms under
+  `.github/ISSUE_TEMPLATE/` declare only `bug` / `enhancement`; `config.yml` keeps
+  blank issues on (for maintainer-filed dev/ops issues) and exposes no
+  pipeline-operation form, so a public submitter cannot get a `run:*` label applied
+  on creation.
+- *Every `run:*` workflow refuses a non-write actor before any privileged step.*
+  Each workflow's first step verifies the triggering actor's write access via the
+  collaborators API and fails closed before any token mint, S3-role assumption, or
+  corpus read — in `run-predict` / `run-evaluate` it is the first step of the `plan`
+  job that gates the privileged `predict` / `evaluate` job; in `run-dev` it precedes
+  the token mint. The legitimate `run-pull` App handoff (a Bot sender) is allowed,
+  and `claude-code-action` re-checks the actor before spending model tokens as
+  defense in depth. Each refusal logs `::error::<actor> lacks write access
+  (permission: <level>); refusing to run.` and exits non-zero, so the run fails
+  loudly rather than passing silently.
