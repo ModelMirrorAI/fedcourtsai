@@ -532,11 +532,11 @@ def seed(
 ) -> None:
     """Onboard one docket from the CourtListener REST API into the corpus.
 
-    Deterministic single-docket ingestion of raw facts (what ``run-seed`` runs):
-    fetches the docket and upserts its normalized row into the corpus through the
-    shared ingestion core. ``pull`` refreshes an already-onboarded docket. The
-    historical mass is loaded separately by the bulk-data backfill — a planned
-    expansion of this path; see ``docs/data-pipeline.md``.
+    Deterministic single-docket ingestion of raw facts: fetches the docket and
+    upserts its normalized row into the corpus through the shared ingestion core.
+    ``pull`` refreshes an already-onboarded docket. The historical mass is loaded
+    separately by the bulk-data backfill (``seed-backfill`` / the ``run-seed``
+    workflow); see ``docs/data-pipeline.md``.
     """
     _fetch_one_docket(court, docket)
 
