@@ -58,9 +58,15 @@
   so a maintainer applies the `run:*` label to an issue after triage. (2) Each
   issue-triggered privileged job re-checks, before it does anything, that
   the triggering actor has **write access** (via the collaborators API, failing
-  closed), so a label applied by anyone else is inert. The App-driven reconcile
-  handoff `run-pull` files (a Bot sender) is recognized and allowed — only a
-  maintainer-installed App can apply a label that fires a workflow at all.
+  closed), so a label applied by anyone else is inert. This pre-flight check is
+  the *first* step of every `run:*` workflow — the deterministic writers
+  (`run-pull` / `run-seed` / `run-reconcile`) and the agent stages (`run-predict`
+  / `run-evaluate` / `run-dev`) alike — so a non-write trigger is refused before
+  any token is minted, the S3 role is assumed, or the corpus is read; the agent
+  actions re-check the actor again before spending model tokens. The App-driven
+  handoffs `run-pull` files (the `run:predict` / `run:evaluate` / `run:reconcile`
+  issues, a Bot sender) are recognized and allowed — only a maintainer-installed
+  App can apply a label that fires a workflow at all.
 - **Branch protection and the deployment boundary.** `main` carries two rulesets.
   One requires a reviewed PR plus the `gate` check to merge; the **data App** is a
   bypass actor on it, so the deterministic `run-seed` / `run-pull` writers can push

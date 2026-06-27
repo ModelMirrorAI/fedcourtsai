@@ -135,7 +135,42 @@ a **lifecycle rule** expiring noncurrent versions after a recovery window, and
   - The `issues: labeled` triggers are the privileged path that "require approval"
     does not cover. Two layers guard them (see SECURITY.md → *Label triggers*): no
     issue form auto-applies a `run:*` label (operating the pipeline isn't exposed
-    as a public form), and `run-pull` / `run-seed` / `run-reconcile` each verify
-    the triggering actor has write access before doing anything. After flipping the
-    repo public, confirm with a non-collaborator test account that a stray `run:*`
-    label from a non-maintainer is refused.
+    as a public form), and every `run:*` workflow's first step verifies the
+    triggering actor has write access (failing closed) before doing anything. After
+    flipping the repo public, confirm with a non-collaborator test account that a
+    stray `run:*` label from a non-maintainer is refused.
+
+    **Static verification (2026-06-27).** A code-level audit confirmed both layers
+    ahead of the live test:
+    - *No public form applies a `run:*` label.* The three forms under
+      `.github/ISSUE_TEMPLATE/` declare only `bug` / `enhancement`; `config.yml`
+      keeps blank issues on (for maintainer-filed dev/ops issues) and exposes no
+      pipeline-operation form. So a public submitter cannot get a `run:*` label
+      applied on creation.
+    - *Every `run:*` workflow refuses a non-write actor before any privileged
+      step.* The deterministic writers (`run-pull` / `run-seed` / `run-reconcile`)
+      already gated on the collaborators API. The agent stages (`run-predict` /
+      `run-evaluate` / `run-dev`) previously relied only on `claude-code-action`'s
+      own actor check, which fires after the job has minted its App token, assumed
+      the read-only S3 role, and `dvc pull`ed the corpus (and, for `run-dev`,
+      minted the `workflows: write` token). They now carry the same fail-closed
+      pre-flight check as the deterministic writers — in `run-predict` /
+      `run-evaluate` it is the first step of the `plan` job that gates the
+      privileged `predict` / `evaluate` job, and in `run-dev` it precedes the token
+      mint — so a non-write trigger is refused before any token mint, S3-role
+      assumption, or corpus read. The legitimate `run-pull` App handoff (a Bot
+      sender) is still allowed, and `claude-code-action` re-checks the actor before
+      spending model tokens as defense in depth.
+    - *Visibility.* Each refusal logs `::error::<actor> lacks write access
+      (permission: <level>); refusing to run.` and exits non-zero, so the Actions
+      run fails loudly rather than passing silently.
+
+    **Live test still outstanding.** The end-to-end check against a real
+    non-collaborator account cannot run headless or before the repo is public, so
+    it remains a maintainer step. Recipe: from a read-only test account, (1) attempt
+    to add each `run:*` label via the UI and `gh api -X POST
+    repos/<owner>/<repo>/issues/<n>/labels` — GitHub should reject the write
+    (labeling needs triage/write); (2) as defense-in-depth, have a triage-only
+    account apply a `run:*` label and confirm the workflow's first step short-
+    circuits with the `lacks write access` error before any privileged step. Record
+    the date and the accounts used here when done.
