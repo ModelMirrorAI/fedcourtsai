@@ -132,6 +132,34 @@ a **lifecycle rule** expiring noncurrent versions after a recovery window, and
     behave as intended on the `push` and `pull_request` paths. Note this setting
     gates only fork `pull_request` runs — it does **not** gate `issues` events, so
     it is not what protects the label triggers below.
+
+    **Static verification (2026-06-27).** A code-level audit confirmed the
+    secret-gating shape ahead of the live fork test; `tests/test_workflow_fork_pr_gate.py`
+    locks it in so a later edit cannot route a secret onto the fork path:
+    - *No secret-bearing job is reachable on `pull_request`.* The six workflows
+      that read `runner` secrets (`run-pull` / `run-seed` / `run-predict` /
+      `run-evaluate` / `run-reconcile` / `run-dev`) all declare `environment: runner`
+      and trigger only on `issues` / `schedule` / `workflow_dispatch` / `push` to
+      `main` — never `pull_request` — so the deployment-branch restriction never
+      faces a fork ref. No workflow uses `pull_request_target` (which would expose
+      base secrets on a fork's head ref).
+    - *The fork-PR path is secret-free.* The only workflows reachable on
+      `pull_request` are `ci` (the `gate`) and `lint-actions`; neither declares an
+      environment nor references the `secrets.` context, and both set
+      `persist-credentials: false` on checkout, so a fork-PR run holds no App key,
+      agent or CourtListener token, or S3 role, and leaves no pushable
+      `GITHUB_TOKEN`.
+
+    **Live test still outstanding.** Two pieces cannot be confirmed from code and
+    remain maintainer steps: enabling the repo Actions setting itself ("require
+    approval for all outside collaborators"), and the end-to-end run. Recipe: from
+    the test account, fork the repo and open a PR with a trivial change; confirm the
+    run requires approval, approve it as maintainer, then inspect the run and verify
+    its ref and environment show no `runner` job executed and no secret-dependent
+    step ran (or it failed closed — never silently used a secret). A temporary debug
+    step echoing whether a **non-sensitive** env var is set may be used to prove the
+    gating; never echo a secret value. Record the date and the account used here when
+    done.
   - The `issues: labeled` triggers are the privileged path that "require approval"
     does not cover. Two layers guard them (see SECURITY.md → *Label triggers*): no
     issue form auto-applies a `run:*` label (operating the pipeline isn't exposed
