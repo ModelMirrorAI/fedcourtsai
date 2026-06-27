@@ -19,6 +19,7 @@ from .schemas import (
     BackfillCourt,
     BackfillProgress,
     CostEstimate,
+    DataHealth,
     ModelUsage,
     OpsReport,
     SeedProgress,
@@ -251,11 +252,14 @@ def build_ops_report(
     courts: Sequence[str],
     usage: Iterable[ModelUsage],
     previous: OpsReport | None = None,
+    data_health: DataHealth | None = None,
 ) -> OpsReport:
     """Assemble the full operational snapshot. ``generated_at`` is passed in (no clock).
 
     ``previous`` (the prior snapshot, e.g. from the ``ops-metrics`` branch) drives the
-    backfill rate + ETA; without it those fields stay null.
+    backfill rate + ETA; without it those fields stay null. ``data_health`` is the
+    data-validation verdict the dashboard presents alongside run health; it is
+    surfaced as supplied (the wiring layer owns producing it), null when absent.
     """
     run_list = list(runs)
     spend = summarize_spend(usage)
@@ -266,6 +270,7 @@ def build_ops_report(
         backfill=backfill,
         spend=spend,
         cost=estimate_cost(run_list, spend),
+        data_health=data_health,
     )
 
 
@@ -274,6 +279,58 @@ def _fmt_duration(seconds: int | None) -> str:
         return "—"
     minutes, secs = divmod(seconds, 60)
     return f"{minutes}m{secs:02d}s" if minutes else f"{secs}s"
+
+
+def render_data_health(health: DataHealth) -> str:
+    """Render the data-health section: the ledger + corpus verdict, with failing detail.
+
+    Used both as a section of the dashboard and, on a failing verdict, as the body of
+    the long-lived data-validation escalation issue — so it stands on its own.
+    """
+    lines = ["## Data health", "", f"**{'✅ Healthy' if health.ok else '❌ Failing'}**", ""]
+
+    ledger = health.ledger
+    if ledger is None:
+        lines.append("- **Ledger schema** (`validate` over `data/`): _not run_")
+    else:
+        summary = (
+            f"{ledger.checked:,} artifact(s) valid"
+            if ledger.ok
+            else f"{ledger.invalid} invalid / {ledger.checked} checked"
+        )
+        lines.append(
+            f"- {'✅' if ledger.ok else '❌'} **Ledger schema** "
+            f"(`validate` over `data/`): {summary}"
+        )
+
+    corpus_v = health.corpus
+    if corpus_v is None:
+        lines.append("- **Corpus integrity** (`validate-corpus`): _no verdict yet_")
+    elif corpus_v.skipped:
+        lines.append("- **Corpus integrity** (`validate-corpus`): _skipped (no corpus pulled)_")
+    else:
+        passed = sum(1 for c in corpus_v.checks if c.passed)
+        lines.append(
+            f"- {'✅' if corpus_v.ok else '❌'} **Corpus integrity** (`validate-corpus`): "
+            f"{passed}/{len(corpus_v.checks)} check(s) over {corpus_v.corpus_rows:,} row(s)"
+        )
+
+    rows: list[tuple[str, int, str]] = []
+    if ledger is not None and not ledger.ok:
+        rows.append(
+            ("ledger schema", ledger.invalid, ledger.problems[0] if ledger.problems else "")
+        )
+    if corpus_v is not None and not corpus_v.skipped:
+        rows += [
+            (c.name, c.failures, c.problems[0] if c.problems else c.detail)
+            for c in corpus_v.checks
+            if not c.passed
+        ]
+    if rows:
+        lines += ["", "| Check | Failures | Sample |", "|-------|---------:|--------|"]
+        lines += [f"| {name} | {n} | {sample.replace('|', '\\|')} |" for name, n, sample in rows]
+
+    return "\n".join(lines) + "\n"
 
 
 def render_markdown(report: OpsReport) -> str:
@@ -353,4 +410,8 @@ def render_markdown(report: OpsReport) -> str:
         "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
         "no billing-API access); check the provider billing dashboards for ground truth.",
     ]
+
+    if report.data_health is not None:
+        lines += ["", render_data_health(report.data_health).rstrip("\n")]
+
     return "\n".join(lines) + "\n"

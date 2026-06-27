@@ -1,0 +1,80 @@
+name: Publish corpus verdict
+description: >
+  Run `fedcourts validate-corpus` where the corpus is already pulled and publish
+  the JSON verdict to the orphan `ops-metrics` branch for the run-ops dashboard to
+  present. NON-BLOCKING by design: a failing verdict (or a publish hiccup) must not
+  fail the host run, so the workflow step that uses this action sets
+  `continue-on-error: true`. The prior published verdict supplies the monotonic
+  row-count baseline; the new verdict overwrites `corpus-validation.json` (the
+  latest, and the next baseline) and is also kept as a dated snapshot.
+
+inputs:
+  token:
+    description: >
+      A GitHub token with `contents: write`, used to push the verdict to the
+      `ops-metrics` branch. The git credential helper reads it at call time.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+
+        # Authenticate git pushes via the token (idempotent; harmless if the
+        # checkout already persisted credentials).
+        gh auth setup-git
+
+        # The prior verdict on ops-metrics supplies the append-only baseline: the
+        # current corpus must not have fewer rows than the last observed count. A
+        # skipped prior verdict (no corpus then) carries no usable baseline.
+        git fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' 2>/dev/null || true
+        baseline_args=()
+        if git show origin/ops-metrics:corpus-validation.json > prev-verdict.json 2>/dev/null; then
+          if [ "$(jq -r '.skipped' prev-verdict.json)" != "true" ]; then
+            prev_rows=$(jq -r '.corpus_rows // 0' prev-verdict.json)
+            baseline_args=(--baseline-count "$prev_rows")
+          fi
+        fi
+
+        # Produce the verdict. The command exits non-zero on a failing verdict but
+        # still writes the JSON first (loud-not-fatal), so `|| true` keeps this step
+        # going to the publish below; the host workflow stays green via
+        # continue-on-error regardless.
+        uv run fedcourts validate-corpus --out corpus-validation.json "${baseline_args[@]}" || true
+
+        # Publish to the orphan ops-metrics branch (same branch the ops snapshot
+        # rides). Touch only the corpus-validation files so a concurrent run-ops push
+        # of the ops snapshot rebases cleanly.
+        stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
+        day=$(date -u +%Y-%m-%d)
+        tree=$(mktemp -d)
+        if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null; then
+          git worktree add "$tree" origin/ops-metrics
+          git -C "$tree" checkout -B ops-metrics
+        else
+          git worktree add --detach "$tree"
+          git -C "$tree" checkout --orphan ops-metrics
+          git -C "$tree" rm -rf . >/dev/null 2>&1 || true
+        fi
+        cp corpus-validation.json "$tree/corpus-validation.json"            # latest + next baseline
+        cp corpus-validation.json "$tree/corpus-validation-${day}.json"     # dated history
+        git -C "$tree" add -A
+        if git -C "$tree" diff --cached --quiet; then
+          echo "No verdict change to persist."
+        else
+          git -C "$tree" commit -m "validate: corpus verdict ${stamp}"
+          for attempt in 1 2 3; do
+            if git -C "$tree" push origin ops-metrics; then
+              break
+            fi
+            echo "::warning::ops-metrics push rejected (branch advanced); retry ${attempt}"
+            git -C "$tree" fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics'
+            git -C "$tree" rebase origin/ops-metrics || git -C "$tree" rebase --abort
+            sleep 3
+          done
+        fi
+        git worktree remove --force "$tree"
