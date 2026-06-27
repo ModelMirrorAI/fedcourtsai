@@ -1,0 +1,20 @@
+FedCourtsAI
+Copyright the FedCourtsAI contributors. Licensed under the MIT License (see LICENSE).
+
+This project builds on court data from CourtListener, a project of the Free Law
+Project (https://free.law/, https://www.courtlistener.com/), via the CourtListener
+REST API and the quarterly bulk-data exports.
+
+The underlying U.S. federal court opinions and docket records are public records of
+the U.S. federal courts. CourtListener's own content is licensed under a Creative
+Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0) license, except
+where indicated. Use of CourtListener data is governed by CourtListener's terms:
+https://www.courtlistener.com/terms/
+
+A great deal of this project rests on the Free Law Project's work; please review and
+support it. See docs/data-sources.md for how this project sources, redistributes,
+and handles personal data in those records.
+
+FedCourtsAI is independent and is not affiliated with or endorsed by the Free Law
+Project or any court. The predictions and evaluations in this repository are
+model-generated and are not official court records.

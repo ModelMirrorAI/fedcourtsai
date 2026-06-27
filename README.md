@@ -148,6 +148,7 @@ docs/               architecture, data model, pipeline, security
 
 - [Architecture](docs/architecture.md)
 - [Data model](docs/data-model.md) · [Data pipeline](docs/data-pipeline.md) (the corpus)
+- [Data sources, terms & PII](docs/data-sources.md)
 - [Pipeline & labels](docs/pipeline.md)
 - [CLI reference](docs/cli.md)
 - [Seed-backfill](docs/seed-backfill.md)
@@ -162,7 +163,15 @@ Court data comes from [CourtListener](https://www.courtlistener.com/), a project
 the [Free Law Project](https://free.law/) — via the CourtListener REST API and the
 quarterly bulk-data exports. A great deal of this project rests on their work;
 please review and support it. Use of their data is governed by
-[CourtListener's terms](https://www.courtlistener.com/terms/).
+[CourtListener's terms](https://www.courtlistener.com/terms/) (CC BY-ND 4.0 for
+CourtListener's own content; the underlying federal records are public domain), with
+attribution also recorded in the top-level [`NOTICE`](NOTICE).
+
+The derived corpus is **not** publicly republished — it stays in an access-gated
+store; only our model-generated judgments over those public records reach public
+git. We ingest only public-record dockets and never sealed or privileged material.
+See [docs/data-sources.md](docs/data-sources.md) for the full position on terms,
+redistribution, the API budget, and PII.
 
 FedCourtsAI is independent and is **not** affiliated with or endorsed by the Free
 Law Project or any court. Court records are public records of the U.S. federal
