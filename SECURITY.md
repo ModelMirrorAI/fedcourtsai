@@ -101,4 +101,5 @@ material in a report.
 ## Scope & disclaimers
 
 These are experimental model predictions, not legal advice. Do not feed privileged
-or sealed material into the pipeline.
+or sealed material into the pipeline. For data terms, redistribution, and the PII
+stance, see [docs/data-sources.md](docs/data-sources.md).
