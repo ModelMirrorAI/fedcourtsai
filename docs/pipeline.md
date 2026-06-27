@@ -67,6 +67,36 @@ a `run:predict` issue) and every PR that must trigger CI is made with a **GitHub
 App installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 See `docs/security.md` for the one-time App setup.
 
+## Authoring or changing a workflow
+
+When you add a new `run:*` workflow or edit one, the existing workflows are the
+canonical reference — each handles these cross-cutting traps inline, so copy the
+pattern rather than rediscovering it:
+
+- **Concurrency is evaluated before the job `if`.** An `issues: labeled` event
+  fans out to *every* workflow that listens for it, and the job-level label filter
+  runs only after the concurrency group is assigned. A corpus writer (seed, pull)
+  must therefore join the shared `corpus-write` group **only** when its own label
+  matched — otherwise an unrelated label cancels a real writer. See the
+  `concurrency:` expression in `run-seed.yml` / `run-pull.yml`. To dispatch one of
+  these reliably, prefer `workflow_dispatch` over labeling.
+- **`git add data/` aborts when `data/` is absent.** No `outcome.json` is written
+  on most runs, so `data/` often does not exist; under `set -euo pipefail` the add
+  fails the step before the no-op guard. Stage the always-present pointer
+  unconditionally and guard the rest with `if [ -d data ]; then git add data/; fi`
+  (see `run-pull.yml`). The same shape lives in run-predict/evaluate/reconcile.
+- **Long-running jobs outlive their credentials.** A GitHub App installation token
+  has a hard 1h life and an AWS OIDC session defaults to 1h. A loop that runs for
+  hours (seed backfill) must re-mint the App token before it ages out and raise
+  `role-duration-seconds` to cover the run; see the self-refreshing token helper
+  and the `configure-aws-credentials` step in `run-seed.yml`.
+- **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
+  expensive shared state (e.g. the bulk-data staging DB, ~38 min) once per job and
+  reuse it across chunks via a `staging_path` rather than per chunk.
+
+Validate any `.github/` change locally with the linters CI enforces (see the
+local gate in [AGENTS.md](../AGENTS.md)).
+
 ## The predict/evaluate matrix
 
 `plan` parses the issue body's ` ```json ``` ` case block and runs

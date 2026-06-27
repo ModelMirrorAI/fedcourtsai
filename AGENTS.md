@@ -88,6 +88,13 @@ uv run fedcourts export-schemas schemas
 git diff --exit-code schemas   # CI fails if the committed schemas drift
 ```
 
+If you touched `.github/workflows` or `.github/actions`, also run the workflow
+linters CI enforces — `uvx zizmor@<pinned> --persona=regular .github/workflows
+.github/actions` (security: full-SHA action pins, least-privilege permissions)
+and `actionlint` (syntax + `run:` shell). See `.github/workflows/lint-actions.yml`
+for the pinned versions, and *Authoring or changing a workflow* in
+`docs/pipeline.md` for the cross-cutting traps these checks do **not** catch.
+
 Two things hold no matter what you skip locally:
 
 - **Schema is law.** Every data artifact you write must pass
