@@ -395,3 +395,43 @@ seed hands off the snapshot date as the initial discovery watermark, the first
 forward pull onboards everything filed since the snapshot, so there is no gap
 between the backfill and the live frontier. The result is that, each day after pull
 runs, the tracked data is **complete as of that day**.
+
+## Data validation
+
+Two stores that must agree — the DVC corpus (raw facts) and the git ledger
+(derived judgments) — plus an append-only corpus and a schema that is law give the
+data a set of **invariants** worth asserting on their own, distinct from
+`run-ops`'s run-health analytics. Run-health asks *did the runs succeed*;
+validation asks *is the data correct and internally consistent*. The two meet at
+**completeness**: validation produces a correctness verdict, the ops dashboard
+([pipeline.md](pipeline.md)) presents it — separate tools, clean handoff.
+
+The invariants fall in three layers:
+
+- **Schema conformance** — every git-ledger artifact under `data/` validates
+  against its model. `fedcourts validate` already enforces this in the local gate
+  and PR CI; scheduling it on `run-ops` as well catches anything that reached the
+  default branch without the gate, plus model/data bit-rot over time.
+- **Corpus integrity** — the committed `corpus/corpus.db.dvc` pointer resolves
+  against the remote, the corpus opens, its row count only ever **grows** (the
+  append-only write role and bucket versioning make a drop a red flag), required
+  columns are non-null, and no point-in-time snapshot is future-dated.
+- **Referential integrity** — every `outcome.json` / `prediction.json` /
+  `evaluation.json` references an event and case that exist in the corpus (no
+  orphan judgments), every evaluation targets a real prediction, there are no
+  duplicate cases or event ids, and the seed cursor reconciles against the corpus
+  row counts per court.
+
+The corpus-dependent layers land as a `fedcourts validate-corpus` command (sibling
+to `validate`) that emits a **JSON verdict** — pass/fail plus per-check counts,
+shaped like the other reports. Because `run-ops` is a corpus-free presenter (it
+reads the git cursor, not the blob — see [pipeline.md](pipeline.md)), the verdict
+is **produced where the corpus is already pulled**: the corpus-writer path
+(`run-pull`, and `run-seed` on a reconciliation pass) runs the check as a
+non-blocking trailing step and publishes the verdict, and `run-ops` then renders a
+**data-health** section from it and, on failure, opens or updates a single
+long-lived issue — loud, but never blocking the pipeline. The git-only referential
+checks also run at PR time, so a judgment that references a non-existent event is
+caught in review rather than a day later; the corpus checks need the remote, so
+they stay on the schedule (the gate is deliberately offline). This automates, and
+extends across stores, the manual corpus spot-check that backed the early backfill.
