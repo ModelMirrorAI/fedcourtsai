@@ -356,25 +356,6 @@ class CostEstimate(_Strict):
     )
 
 
-class OpsReport(_Strict):
-    """``metrics/ops.json`` — an operational snapshot: health, backfill, spend, cost.
-
-    A read-only roll-up of authoritative sources (the Actions run history, the seed
-    cursor, the usage ledger), so no pipeline run writes an ops record. Unlike the
-    deterministic leaderboard / back-test roll-ups this is a **point-in-time** view —
-    it carries ``generated_at`` and run durations, so it is not byte-stable and is
-    surfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``
-    branch) rather than committed to the default branch.
-    """
-
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
-    generated_at: str = Field(description="ISO-8601 UTC time the report was built")
-    health: list[WorkflowHealth] = Field(default_factory=list)
-    backfill: BackfillProgress
-    spend: SpendSummary
-    cost: CostEstimate
-
-
 class CorpusCheck(_Strict):
     """One named corpus-integrity or referential check and its result.
 
@@ -417,6 +398,71 @@ class CorpusValidation(_Strict):
     corpus_rows: int = Field(default=0, ge=0, description="Case rows in the corpus")
     corpus_events: int = Field(default=0, ge=0, description="Predictable-event rows in the corpus")
     checks: list[CorpusCheck] = Field(default_factory=list)
+
+
+class LedgerValidation(_Strict):
+    """``validate`` result over the git ledger under ``data/`` — schema conformance only.
+
+    The git-only, corpus-free half of data health: every artifact under ``data/``
+    parsed and validated against its schema model. ``run-ops`` runs this on its
+    schedule (no corpus needed), catching anything that reached the default branch
+    without the local gate, plus model/data bit-rot over time. ``problems`` is a
+    bounded sample of the specific failures; the true total is ``invalid``.
+    """
+
+    ok: bool = Field(description="True when every checked artifact validated")
+    checked: int = Field(default=0, ge=0, description="Artifacts examined")
+    invalid: int = Field(default=0, ge=0, description="Artifacts that failed schema validation")
+    problems: list[str] = Field(
+        default_factory=list, description="Bounded sample of validation failures (capped)"
+    )
+
+
+class DataHealth(_Strict):
+    """The data-validation verdict surfaced on the ops dashboard: ledger + corpus.
+
+    Pairs the two complementary checks the dashboard presents — the git-only
+    ``validate`` over ``data/`` (:class:`LedgerValidation`) and the corpus-dependent
+    ``validate-corpus`` verdict (:class:`CorpusValidation`, produced where the corpus
+    is already pulled and read back from the ``ops-metrics`` branch). Either half may
+    be absent (the corpus verdict before the first producer run); ``ok`` is the
+    conjunction of whichever halves are present, so a missing half never reads as a
+    pass that did not happen.
+    """
+
+    ok: bool = Field(description="True when every present half passed")
+    ledger: LedgerValidation | None = Field(
+        default=None, description="Schema conformance over data/ (git-only)"
+    )
+    corpus: CorpusValidation | None = Field(
+        default=None, description="Latest corpus-integrity + referential verdict"
+    )
+
+
+class OpsReport(_Strict):
+    """``metrics/ops.json`` — an operational snapshot: health, backfill, spend, cost.
+
+    A read-only roll-up of authoritative sources (the Actions run history, the seed
+    cursor, the usage ledger), so no pipeline run writes an ops record. Unlike the
+    deterministic leaderboard / back-test roll-ups this is a **point-in-time** view —
+    it carries ``generated_at`` and run durations, so it is not byte-stable and is
+    surfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``
+    branch) rather than committed to the default branch.
+
+    ``data_health`` carries the data-validation verdict the dashboard also presents —
+    null until the wiring supplies it, kept separate from the run-health analytics
+    above.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    generated_at: str = Field(description="ISO-8601 UTC time the report was built")
+    health: list[WorkflowHealth] = Field(default_factory=list)
+    backfill: BackfillProgress
+    spend: SpendSummary
+    cost: CostEstimate
+    data_health: DataHealth | None = Field(
+        default=None, description="Data-validation verdict (schema + corpus), when available"
+    )
 
 
 class CourtProgress(_Strict):

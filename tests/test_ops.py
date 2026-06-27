@@ -1,9 +1,18 @@
+import json
 from datetime import datetime
+from pathlib import Path
+
+from typer.testing import CliRunner
 
 from fedcourtsai import ops
+from fedcourtsai.cli import app
 from fedcourtsai.schemas import (
+    CorpusCheck,
+    CorpusValidation,
     CourtProgress,
+    DataHealth,
     Engine,
+    LedgerValidation,
     ModelUsage,
     OpsReport,
     SeedProgress,
@@ -250,3 +259,165 @@ def test_render_markdown_handles_empty_health() -> None:
     )
     md = ops.render_markdown(report)
     assert "_No runs in the window._" in md
+
+
+# --- data health --------------------------------------------------------------
+
+
+def _healthy() -> DataHealth:
+    return DataHealth(
+        ok=True,
+        ledger=LedgerValidation(ok=True, checked=12, invalid=0),
+        corpus=CorpusValidation(
+            ok=True, corpus_rows=500, checks=[CorpusCheck(name="corpus_opens", passed=True)]
+        ),
+    )
+
+
+def _failing() -> DataHealth:
+    return DataHealth(
+        ok=False,
+        ledger=LedgerValidation(ok=True, checked=12, invalid=0),
+        corpus=CorpusValidation(
+            ok=False,
+            corpus_rows=500,
+            checks=[
+                CorpusCheck(name="corpus_opens", passed=True),
+                CorpusCheck(
+                    name="row_count_monotonic",
+                    passed=False,
+                    failures=1,
+                    problems=["row count 10 dropped below baseline 20"],
+                ),
+            ],
+        ),
+    )
+
+
+def test_render_data_health_healthy_has_no_failure_table() -> None:
+    md = ops.render_data_health(_healthy())
+    assert "## Data health" in md
+    assert "✅ Healthy" in md
+    assert "Ledger schema" in md and "12 artifact(s) valid" in md
+    assert "Corpus integrity" in md and "1/1 check(s) over 500 row(s)" in md
+    assert "| Check | Failures | Sample |" not in md
+
+
+def test_render_data_health_failing_lists_each_failed_check() -> None:
+    md = ops.render_data_health(_failing())
+    assert "❌ Failing" in md
+    assert "| Check | Failures | Sample |" in md
+    assert "row_count_monotonic" in md
+    assert "dropped below baseline" in md
+    # A passing check never appears in the failure table.
+    assert "| corpus_opens |" not in md
+
+
+def test_render_data_health_skipped_corpus_reads_as_not_run() -> None:
+    md = ops.render_data_health(
+        DataHealth(ok=True, ledger=LedgerValidation(ok=True, checked=3), corpus=None)
+    )
+    assert "_no verdict yet_" in md
+
+
+def test_render_markdown_includes_data_health_when_present() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(),
+        courts=[],
+        usage=[],
+        data_health=_failing(),
+    )
+    md = ops.render_markdown(report)
+    assert "## Data health" in md and "row_count_monotonic" in md
+    # Round-trips through the strict schema.
+    assert OpsReport.model_validate(report.model_dump()) == report
+
+
+def test_render_markdown_omits_data_health_when_absent() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(),
+        courts=[],
+        usage=[],
+    )
+    assert report.data_health is None
+    assert "## Data health" not in ops.render_markdown(report)
+
+
+# --- ops-report CLI: data-health wiring ---------------------------------------
+
+runner = CliRunner()
+
+
+def _ops_env(tmp_path: Path) -> dict[str, str]:
+    """An isolated CLI env: empty data/ + a tracking.yaml whose cursor is a fresh path."""
+    config_root = tmp_path / "config"
+    config_root.mkdir(exist_ok=True)
+    (config_root / "tracking.yaml").write_text(
+        f"seed:\n  cursor: {tmp_path / 'seed-progress.yaml'}\n"
+    )
+    return {
+        "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
+        "FEDCOURTS_CONFIG_ROOT": str(config_root),
+    }
+
+
+def test_ops_report_folds_in_corpus_verdict_and_writes_data_health(tmp_path: Path) -> None:
+    verdict = CorpusValidation(
+        ok=False,
+        corpus_rows=42,
+        checks=[
+            CorpusCheck(name="corpus_opens", passed=True),
+            CorpusCheck(
+                name="ledger_references_exist",
+                passed=False,
+                failures=2,
+                problems=["outcome X: case is not in the corpus"],
+            ),
+        ],
+    )
+    verdict_path = tmp_path / "corpus-validation.json"
+    verdict_path.write_text(verdict.model_dump_json())
+    json_out = tmp_path / "ops.json"
+    dh_out = tmp_path / "data-health.md"
+
+    result = runner.invoke(
+        app,
+        [
+            "ops-report",
+            "--corpus-validation",
+            str(verdict_path),
+            "--json",
+            str(json_out),
+            "--data-health-out",
+            str(dh_out),
+            "--generated-at",
+            "2026-06-27T00:00:00+00:00",
+        ],
+        env=_ops_env(tmp_path),
+    )
+    assert result.exit_code == 0, result.output
+    assert "## Data health" in result.output and "❌ Failing" in result.output
+
+    report = json.loads(json_out.read_text())
+    assert report["data_health"]["ok"] is False
+    assert report["data_health"]["corpus"]["corpus_rows"] == 42
+    # The git-only ledger check ran too (empty tree -> a pass).
+    assert report["data_health"]["ledger"]["ok"] is True
+
+    body = dh_out.read_text()
+    assert "ledger_references_exist" in body
+
+
+def test_ops_report_without_corpus_verdict_still_has_ledger_health(tmp_path: Path) -> None:
+    json_out = tmp_path / "ops.json"
+    result = runner.invoke(app, ["ops-report", "--json", str(json_out)], env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    report = json.loads(json_out.read_text())
+    # Corpus half absent, ledger half present -> overall ok from the ledger alone.
+    assert report["data_health"]["corpus"] is None
+    assert report["data_health"]["ledger"]["ok"] is True
+    assert report["data_health"]["ok"] is True

@@ -191,6 +191,17 @@ jobs:
           echo "::error::could not push refreshed corpus pointer + outcomes after 3 attempts"
           exit 1
 
+      # Trailing, NON-BLOCKING data-validation: the corpus is already pulled here, so
+      # produce the correctness verdict (corpus integrity + ledger referential checks)
+      # and publish it to the ops-metrics branch for run-ops to present and escalate.
+      # continue-on-error keeps a failing verdict (or a publish hiccup) from failing
+      # the refresh — the verdict is loud-not-fatal by contract.
+      - name: Produce + publish the corpus validation verdict
+        continue-on-error: true
+        uses: ./.github/actions/publish-corpus-verdict
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
       - name: Open run:predict issues for changed cases
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}

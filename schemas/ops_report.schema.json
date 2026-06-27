@@ -163,6 +163,104 @@
       "title": "BackfillProgress",
       "type": "object"
     },
+    "CorpusCheck": {
+      "additionalProperties": false,
+      "description": "One named corpus-integrity or referential check and its result.\n\n``checked`` is how many items the check examined (rows, snapshots, or ledger\nartifacts) and ``failures`` how many violated the invariant; ``problems`` is a\nbounded sample of the specific violations (the full count is ``failures``, so a\ntruncated sample never hides that there were more). ``detail`` is a one-line\nhuman summary, e.g. the row count compared against the baseline.",
+      "properties": {
+        "checked": {
+          "default": 0,
+          "description": "Items this check examined",
+          "minimum": 0,
+          "title": "Checked",
+          "type": "integer"
+        },
+        "detail": {
+          "default": "",
+          "description": "One-line human summary of the result",
+          "title": "Detail",
+          "type": "string"
+        },
+        "failures": {
+          "default": 0,
+          "description": "Items that violated the invariant",
+          "minimum": 0,
+          "title": "Failures",
+          "type": "integer"
+        },
+        "name": {
+          "description": "Stable check identifier, e.g. `ledger_references_exist`",
+          "title": "Name",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "problems": {
+          "description": "Bounded sample of specific violations (capped)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "passed"
+      ],
+      "title": "CorpusCheck",
+      "type": "object"
+    },
+    "CorpusValidation": {
+      "additionalProperties": false,
+      "description": "``validate-corpus`` verdict: corpus integrity + cross-store referential checks.\n\nThe producer half of data validation: a deterministic correctness verdict over\nthe packed corpus and the git ledger under ``data/`` \u2014 the complement to\n``validate``, which only checks each ledger artifact against its schema. ``ok``\nis the conjunction of every check; ``skipped`` is set (with ``ok`` true and no\nchecks) when the corpus is absent, so the command is safe to call before a\n``dvc pull``. A pure function of its inputs \u2014 corpus, ledger, seed cursor, the\nsupplied baseline, and the as-of date \u2014 so it carries no timestamp and the same\ninputs always serialize identically. Surfaced (and escalated) by a separate\nwiring layer, not committed; a failed verdict is loud-not-fatal by contract.",
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/CorpusCheck"
+          },
+          "title": "Checks",
+          "type": "array"
+        },
+        "corpus_events": {
+          "default": 0,
+          "description": "Predictable-event rows in the corpus",
+          "minimum": 0,
+          "title": "Corpus Events",
+          "type": "integer"
+        },
+        "corpus_rows": {
+          "default": 0,
+          "description": "Case rows in the corpus",
+          "minimum": 0,
+          "title": "Corpus Rows",
+          "type": "integer"
+        },
+        "ok": {
+          "description": "True when every check passed (or the corpus was absent)",
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "skipped": {
+          "default": false,
+          "description": "True when no corpus was present; no checks were run",
+          "title": "Skipped",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "CorpusValidation",
+      "type": "object"
+    },
     "CostEstimate": {
       "additionalProperties": false,
       "description": "A rough monthly cost run-rate, derived without billing-API access.\n\nGitHub Actions cost is estimated from observed run durations x the per-minute\nrate; model cost is the cumulative recorded usage ledger; fixed monthly captures\nthe infra not metered per run (CourtListener membership, S3). All figures are\nestimates against the rates in ``docs/budget.md`` \u2014 check the provider billing\ndashboards for ground truth.",
@@ -241,6 +339,84 @@
         "fixed_monthly_usd"
       ],
       "title": "CostEstimate",
+      "type": "object"
+    },
+    "DataHealth": {
+      "additionalProperties": false,
+      "description": "The data-validation verdict surfaced on the ops dashboard: ledger + corpus.\n\nPairs the two complementary checks the dashboard presents \u2014 the git-only\n``validate`` over ``data/`` (:class:`LedgerValidation`) and the corpus-dependent\n``validate-corpus`` verdict (:class:`CorpusValidation`, produced where the corpus\nis already pulled and read back from the ``ops-metrics`` branch). Either half may\nbe absent (the corpus verdict before the first producer run); ``ok`` is the\nconjunction of whichever halves are present, so a missing half never reads as a\npass that did not happen.",
+      "properties": {
+        "corpus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CorpusValidation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Latest corpus-integrity + referential verdict"
+        },
+        "ledger": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LedgerValidation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Schema conformance over data/ (git-only)"
+        },
+        "ok": {
+          "description": "True when every present half passed",
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "DataHealth",
+      "type": "object"
+    },
+    "LedgerValidation": {
+      "additionalProperties": false,
+      "description": "``validate`` result over the git ledger under ``data/`` \u2014 schema conformance only.\n\nThe git-only, corpus-free half of data health: every artifact under ``data/``\nparsed and validated against its schema model. ``run-ops`` runs this on its\nschedule (no corpus needed), catching anything that reached the default branch\nwithout the local gate, plus model/data bit-rot over time. ``problems`` is a\nbounded sample of the specific failures; the true total is ``invalid``.",
+      "properties": {
+        "checked": {
+          "default": 0,
+          "description": "Artifacts examined",
+          "minimum": 0,
+          "title": "Checked",
+          "type": "integer"
+        },
+        "invalid": {
+          "default": 0,
+          "description": "Artifacts that failed schema validation",
+          "minimum": 0,
+          "title": "Invalid",
+          "type": "integer"
+        },
+        "ok": {
+          "description": "True when every checked artifact validated",
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "problems": {
+          "description": "Bounded sample of validation failures (capped)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "LedgerValidation",
       "type": "object"
     },
     "SpendSummary": {
@@ -388,13 +564,25 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.",
+  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove.",
   "properties": {
     "backfill": {
       "$ref": "#/$defs/BackfillProgress"
     },
     "cost": {
       "$ref": "#/$defs/CostEstimate"
+    },
+    "data_health": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DataHealth"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Data-validation verdict (schema + corpus), when available"
     },
     "generated_at": {
       "description": "ISO-8601 UTC time the report was built",
