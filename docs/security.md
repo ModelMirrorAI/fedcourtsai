@@ -105,7 +105,17 @@ a **lifecycle rule** expiring noncurrent versions after a recovery window, and
   the append-only role still prevents corpus loss, so the blast radius is bounded.
   Splitting into two Apps — a data App with bypass and a dev App without — removes
   this gap and is the intended next step.
-- **Going public.** Before the repo is public, set Actions → "require approval for
-  outside collaborators" so fork-PR workflows need a maintainer's go-ahead, and
-  confirm fork PRs (which run without secrets) behave as intended on the `push` and
-  `pull_request` paths.
+- **Going public.** Before the repo is public:
+  - Set Actions → "require approval for outside collaborators" so fork-PR workflows
+    need a maintainer's go-ahead, and confirm fork PRs (which run without secrets)
+    behave as intended on the `push` and `pull_request` paths. Note this setting
+    gates only fork `pull_request` runs — it does **not** gate `issues` events, so
+    it is not what protects the label triggers below.
+  - The `issues: labeled` triggers are the privileged path that "require approval"
+    does not cover. Two layers guard them (see SECURITY.md → *Label triggers*): no
+    issue form auto-applies a `run:*` label (the `pull`/`seed` triggers aren't
+    public forms, and the `reconcile` form ships without one), and `run-pull` /
+    `run-seed` / `run-reconcile` each verify the triggering actor has write access
+    before doing anything. After flipping the repo public, confirm with a
+    non-collaborator test account that a stray `run:*` label from a non-maintainer
+    is refused.

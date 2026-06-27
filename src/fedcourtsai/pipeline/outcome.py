@@ -17,8 +17,8 @@ case level and is deliberately conservative:
 - **Reconcile otherwise.** Anything ambiguous — an unreadable/absent disposition,
   no decision date, or more than one open event the case-level disposition cannot
   be attributed to — produces a :class:`ReconcileRequest` so an agent (via a
-  ``run:pull`` reconcile issue, ``.github/ISSUE_TEMPLATE/pull.yml``) confirms and
-  records it by hand. Nothing is written on a guess.
+  ``run:reconcile`` issue that ``run-pull`` files) confirms and records it by
+  hand. Nothing is written on a guess.
 
 The pure decision (:func:`detect_resolution`) is separated from the ledger write
 (:func:`record_outcomes`) so the logic is testable without a filesystem.

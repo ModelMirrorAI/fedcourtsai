@@ -1,5 +1,10 @@
 # FedCourtsAI
 
+[![CI](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/ci.yml/badge.svg)](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/ci.yml)
+[![lint-actions](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/lint-actions.yml/badge.svg)](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/lint-actions.yml)
+[![Python ≥3.12](https://img.shields.io/badge/python-%E2%89%A53.12-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+
 Agentic AI system to predict events in US federal courts — for example, whether
 a motion before a court of appeals or the Supreme Court will be granted or
 denied, the likely vote of each judge or justice, and a detailed prediction of
@@ -9,7 +14,8 @@ the court's reasoning.
 > are in place; most feature work is done by AI coding agents via the
 > label-driven workflows below.
 
-> **Not legal advice.** Outputs are experimental model predictions, not legal
+> **Not legal advice.** Outputs are experimental model predictions — they may be
+> wrong, carry no affiliation with or endorsement by any court, and are not legal
 > advice or a forecast you should rely on for any decision.
 
 ## How it works
@@ -28,6 +34,9 @@ trigger the next stage. Several stages delegate to agentic coding tools
 | `run:reconcile`| `run-reconcile` | Confirm a decided event's `outcome.json` from the docket when pull can't | Claude Code |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex |
+
+Plus `run-ops`, a read-only daily health & cost dashboard that has no `run:*`
+label — it runs on a schedule (or manual dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
 
 ```
 run:seed ──▶ seed dockets ──▶ (merge)
@@ -136,12 +145,13 @@ docs/               architecture, data model, pipeline, security
 ## Documentation
 
 - [Architecture](docs/architecture.md)
-- [Data model](docs/data-model.md)
+- [Data model](docs/data-model.md) · [Data pipeline](docs/data-pipeline.md) (the corpus)
 - [Pipeline & labels](docs/pipeline.md)
+- [Seed-backfill](docs/seed-backfill.md)
 - [Budget](docs/budget.md)
 - [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
-- [Agent workflow](docs/agent-workflow.md)
+- [Agent workflow](docs/agent-workflow.md) · [Contributing](CONTRIBUTING.md)
 
 ## License
 

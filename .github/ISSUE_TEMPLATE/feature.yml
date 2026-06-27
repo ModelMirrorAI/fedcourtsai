@@ -1,0 +1,33 @@
+name: "Feature / idea"
+description: "Suggest an improvement to the pipeline, a new predictor/evaluator design, or a docs change."
+title: "idea: <short summary>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome — from pipeline improvements to new predictor or evaluator
+        designs that could compete in the tournament. This form does **not** trigger
+        any run; a maintainer triages it. For how the project is shaped, skim
+        [AGENTS.md](../blob/main/AGENTS.md) and [docs/](../blob/main/docs).
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem / motivation"
+      description: "What's missing or could be better, and why it matters."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposed change"
+      description: "What you'd like to see. Rough is fine."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered"
+      description: "Other approaches you weighed, if any."
+    validations:
+      required: false
