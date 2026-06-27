@@ -2,6 +2,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
+
 from fedcourtsai import corpus
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.pipeline.discover import discover_cases
@@ -121,6 +123,44 @@ def test_court_with_no_new_filings_records_searched_frontier(tmp_path: Path) -> 
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 1)
+
+
+class FlakySearch(FakeSearch):
+    """A FakeSearch that raises a transient REST error for chosen courts."""
+
+    def __init__(self, by_court: dict[str, list[dict[str, Any]]], fail: set[str]) -> None:
+        super().__init__(by_court)
+        self._fail = fail
+
+    def iter_dockets(
+        self, court: str, date_filed_gte: date, *, max_results: int
+    ) -> list[dict[str, Any]]:
+        if court in self._fail:
+            self.calls.append((court, date_filed_gte, max_results))
+            raise httpx.ReadTimeout("The read operation timed out")
+        return super().iter_dockets(court, date_filed_gte, max_results=max_results)
+
+
+def test_one_court_rest_failure_does_not_abort_discovery(tmp_path: Path) -> None:
+    # ca9 times out; ca1 must still be discovered (a slow court can't nuke the run).
+    client = FlakySearch(
+        {
+            "ca9": [_docket(1, "ca9", "2026-06-03")],
+            "ca1": [_docket(2, "ca1", "2026-06-04")],
+        },
+        fail={"ca9"},
+    )
+    result = _discover(client, tmp_path, courts=["ca9", "ca1"])
+
+    assert result.case_ids == ["ca1/2"]
+    assert [f["court"] for f in result.failed] == ["ca9"]
+    assert "ReadTimeout" in str(result.failed[0]["reason"])
+    # The failed court's watermark is left untouched so the next run retries its
+    # range gap-free, rather than recording a frontier it never actually searched.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") is None
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 6, 4)
 
 
 def test_empty_run_does_not_reset_watermark_to_default(tmp_path: Path) -> None:
