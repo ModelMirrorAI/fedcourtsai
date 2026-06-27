@@ -66,7 +66,15 @@ non-interactive** container. Two consequences shape everything you do:
 - **No secrets in code or data.** Never print, log, or write API tokens. They
   arrive only as environment variables.
 
-## Local gate (must pass before every PR)
+## Local gate
+
+The gate that actually blocks a merge is the **required status checks on your
+PR** — CI runs the full suite below and the PR cannot merge until it passes. So
+locally you have **discretion**: run the subset that fits what you changed, enough
+for honest confidence rather than a ritual full run. A docs-only change needs none
+of the Python checks; a type fix wants `mypy` and the touched tests; a
+pydantic-model change must regenerate `schemas/`. Choose what makes sense — CI is
+the backstop.
 
 ```bash
 uv sync
@@ -80,9 +88,16 @@ uv run fedcourts export-schemas schemas
 git diff --exit-code schemas   # CI fails if the committed schemas drift
 ```
 
-The last two lines mirror CI's schema-drift check: any change to a pydantic
-model's fields **or field descriptions** regenerates `schemas/` — commit the
-result, or the gate fails.
+Two things hold no matter what you skip locally:
+
+- **Schema is law.** Every data artifact you write must pass
+  `fedcourts validate data`, and any change to a pydantic model's fields **or
+  field descriptions** must regenerate and commit `schemas/` — CI fails on drift.
+- **Keep the docs in step.** Before you push, check whether your change makes any
+  documentation stale — `README.md`, `AGENTS.md`, `docs/`, the prompts under
+  `.github/prompts/`, or module/CLI docstrings — and update it in the same PR.
+  Docs describe the current design (see Conventions), so a change that lands
+  without its doc update leaves them wrong.
 
 ## Conventions
 
