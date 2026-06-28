@@ -380,14 +380,19 @@ class AgenticRunner:
     backend: str
     engine: Engine
     model: str
-    command_runner: CommandRunner = _run_subprocess
+    # Default resolved in run() rather than stored as the field default: a
+    # function-valued dataclass default reads to static analysis as a method on
+    # the instance, so `self.command_runner(argv, env)` looks like a 3-arg call
+    # to a 2-arg function. Keeping the default off the class sidesteps that.
+    command_runner: CommandRunner | None = None
 
     def build_command(self, request: RunRequest) -> EngineCommand:  # pragma: no cover
         raise NotImplementedError
 
     def run(self, request: RunRequest) -> list[Path]:
         command = self.build_command(request)
-        code = self.command_runner(command.argv, {**os.environ, **command.env})
+        run_command = self.command_runner or _run_subprocess
+        code = run_command(command.argv, {**os.environ, **command.env})
         if code != 0:
             raise EngineFailed(
                 f"{self.backend} exited {code} for cell {request.actor_id}/{request.event_id}"
