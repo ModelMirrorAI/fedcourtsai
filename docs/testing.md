@@ -64,11 +64,12 @@ corpus from S3 over OIDC, the GitHub App token, issue comments — is deliberate
 *not* part of the fast loop. It is exercised by dedicated paths and occasional
 manual workflow dispatch, never on every iteration.
 
-> **Status.** The deterministic core and the gate above, the engine seam, the
-> fixture corpus, the stub cascade that composes them (run in the gate as the
-> `test_cascade_smoke.py` smoke), and the one-command `local-cascade` wrapper are
-> all in place today. What remains is folding the workflow shell into tested CLI
-> commands and record/replay cassettes — see the testing issues tracked on the repo.
+> **Status.** The deterministic core and the gate above, the engine seam (with the
+> offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
+> composes them (run in the gate as the `test_cascade_smoke.py` smoke), and the
+> one-command `local-cascade` wrapper are all in place today. What remains is folding
+> the rest of the workflow shell into tested CLI commands — see the testing issues
+> tracked on the repo.
 
 ## Testing the agentic stages locally
 
@@ -76,7 +77,7 @@ Three pieces turn the agentic cells into something runnable on a laptop, keeping
 local path **byte-identical** to the workflow path so a green local run faithfully
 predicts a green CI run.
 
-**An engine seam with an offline stub.** The per-engine execution lives behind a
+**An engine seam with offline backends.** The per-engine execution lives behind a
 runner interface in the library rather than in YAML. Alongside the real
 `claude-code` and `codex` backends sits a `stub` backend that writes schema-valid
 canned artifacts with no model call and no network. The stub exercises the whole
@@ -84,6 +85,19 @@ cell mechanism — provisioning, artifact production, validation, and the code t
 consumes the output — so the majority of "did I break the plumbing" regressions are
 caught in `pytest`, not in CI. The stub tests the scaffolding, not the judgment;
 that distinction is the point.
+
+**A `replay` backend for the consume path.** The stub's output is *clean by
+construction* (the trivial `denied`/0.0 floor), so it cannot catch a bug in the code
+that **consumes** realistic agent output — the scoring metrics, the leaderboard
+roll-up. The `replay` backend closes that gap: it emits a **captured real
+prediction** from a committed cassette (`tests/cassettes`, pointed at by
+`FEDCOURTS_REPLAY_ROOT`), keeping the recorded forecast — a real calibrated
+probability and panel votes — while rebinding identity to the cell. Scoring it
+reuses the stub's deterministic evaluate path, so an evaluate cell computes a
+non-degenerate Brier score and vote accuracy, and the leaderboard rolls up real
+numbers — all offline and token-free. `tests/test_replay.py` drives that consume
+path over the cassette; capturing a fresh cassette is a record-once step (run a real
+cell, copy its `prediction.json` / `reasoning.md` under `tests/cassettes`).
 
 **A fixture corpus.** A tiny synthetic corpus, built deterministically by
 `fedcourts make-fixture-corpus`, stands in for the DVC/S3 corpus so

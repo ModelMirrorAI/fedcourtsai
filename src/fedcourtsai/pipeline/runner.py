@@ -18,7 +18,7 @@ workflow; the offline :class:`StubRunner` here writes deterministic, schema-vali
 canned artifacts with no model call and no network, so its output is byte-stable
 and identical in *shape* to what the workflow produces.
 
-Two families of backend target this seam. The offline :class:`StubRunner` is the
+Three families of backend target this seam. The offline :class:`StubRunner` is the
 fast reference used in tests and ``local-cascade --engine stub``. The agentic
 :class:`ClaudeCodeRunner` / :class:`CodexRunner` drive the *real* headless agents
 (``claude`` / ``codex``) over the identical cell contract — the same env vars,
@@ -26,6 +26,16 @@ the same registry prompt file, the same output paths the live workflows use — 
 ``local-cascade`` can exercise a real engine end-to-end exactly as CI would. The
 live workflows still invoke their engine through the action wrappers; these CLI
 backends are the local mirror of that, not a replacement for it.
+
+The third is the offline :class:`ReplayRunner`: it emits a *captured real cell's*
+prediction from a committed cassette instead of calling a model. The stub's output
+is intentionally trivial (the ``denied``/0.0 floor), so it cannot catch a bug in the
+code that *consumes* realistic agent output — the scoring metrics, the leaderboard
+roll-up. Replay closes that gap: a recorded prediction carries a real calibrated
+probability and panel votes, so an evaluate cell run over it computes a non-degenerate
+Brier score and vote accuracy, and the leaderboard rolls up real numbers — all
+offline and token-free. It reuses the stub's evaluate path (the deterministic
+scoring is exactly the consume path under test); only the prediction is replayed.
 """
 
 from __future__ import annotations
@@ -38,6 +48,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
+from ..config import get_settings
 from ..ids import case_id as make_case_id
 from ..ids import parse_run_id
 from ..paths import CasePaths, EventPaths
@@ -454,25 +465,104 @@ class CodexRunner(AgenticRunner):
         return EngineCommand(argv=argv, env=_cell_env(request))
 
 
+# --- replay backend ------------------------------------------------------------
+#
+# The offline `replay` engine emits a captured real cell's prediction from a
+# committed cassette, then scores it with the stub's deterministic evaluate path.
+# It exists to exercise the *consumers* of realistic agent output (the scoring
+# metrics, the leaderboard roll-up) — which the stub's trivial floor cannot — with
+# no model call and no network.
+
+_CASSETTE_PREDICTION = "prediction.json"
+_CASSETTE_REASONING = "reasoning.md"
+
+
+class ReplayUnavailable(EngineUnavailable):
+    """The ``replay`` backend was selected but no cassette directory is configured."""
+
+    def __init__(self) -> None:
+        RuntimeError.__init__(
+            self,
+            "the 'replay' backend needs a cassette directory; set FEDCOURTS_REPLAY_ROOT "
+            "to a recorded cassette (see tests/cassettes) or use the offline `--engine stub`",
+        )
+
+
+@dataclass(frozen=True)
+class ReplayRunner(StubRunner):
+    """Offline engine that replays a captured prediction, then scores it for real.
+
+    A predict cell re-emits the cassette's recorded ``prediction.json`` /
+    ``reasoning.md`` — a real calibrated forecast with panel votes — rebinding only
+    the cell *identity* (case, event, predictor, run) to the request while keeping
+    the recorded forecast verbatim. An evaluate cell reuses :class:`StubRunner`'s
+    evaluate path unchanged, so the deterministic scoring (Brier, vote accuracy) —
+    the consume path under test — runs over realistic input rather than the stub
+    floor. The cassette is read-only; nothing here calls a model or the network.
+    """
+
+    backend: str = "replay"
+    cassette_root: Path | None = None
+
+    def _predict(self, request: RunRequest) -> list[Path]:
+        if self.cassette_root is None:
+            raise ReplayUnavailable
+        recorded = read_model(self.cassette_root / _CASSETTE_PREDICTION, Prediction)
+        # Keep the recorded forecast (probability, disposition, votes, …); rebind
+        # only the identity fields to the cell being produced.
+        prediction = recorded.model_copy(
+            update={
+                "case_id": request.case_id,
+                "event_id": request.event_id,
+                "predictor_id": request.actor_id,
+                "run_id": request.run_id,
+                "created_at": _created_at(request.run_id),
+                "input_snapshot": _input_snapshot(request),
+            }
+        )
+        events = request.event_paths
+        json_path = events.prediction(request.actor_id, request.run_id)
+        md_path = events.reasoning(request.actor_id, request.run_id)
+        write_json(json_path, prediction)
+        _write_text(md_path, (self.cassette_root / _CASSETTE_REASONING).read_text())
+        return sorted([json_path, md_path])
+
+
+def _make_replay_runner() -> Runner:
+    """Construct the replay runner from the configured cassette directory.
+
+    Reads ``FEDCOURTS_REPLAY_ROOT`` via the settings so the zero-arg registry can
+    build it; raises :class:`ReplayUnavailable` when no cassette is configured.
+    """
+    root = get_settings().replay_root
+    if root is None:
+        raise ReplayUnavailable
+    return ReplayRunner(cassette_root=root)
+
+
 # Backends keyed by name, mirroring how the workflow selects an engine: the
-# offline `stub` plus the two real agents `local-cascade` can drive.
+# offline `stub` and `replay` plus the two real agents `local-cascade` can drive.
 _BACKENDS: dict[str, Callable[[], Runner]] = {
     "stub": StubRunner,
     "claude-code": ClaudeCodeRunner,
     "codex": CodexRunner,
+    "replay": _make_replay_runner,
 }
 
 
 def get_runner(backend: str = "stub") -> Runner:
     """Return the runner for ``backend`` (default the offline ``stub``).
 
-    ``stub`` is deterministic and offline; ``claude-code`` / ``codex`` drive the
-    real headless agents (network + auth required). Raises ``KeyError`` for an
-    unknown backend, naming the ones available.
+    ``stub`` is deterministic and offline; ``replay`` is also offline but emits a
+    captured prediction from the configured cassette (``FEDCOURTS_REPLAY_ROOT``);
+    ``claude-code`` / ``codex`` drive the real headless agents (network + auth
+    required). Raises ``KeyError`` for an unknown backend, naming the ones
+    available, and :class:`ReplayUnavailable` if ``replay`` has no cassette.
     """
     try:
-        return _BACKENDS[backend]()
+        factory = _BACKENDS[backend]
     except KeyError:
         raise KeyError(
             f"unknown runner backend {backend!r}; available: {sorted(_BACKENDS)}"
         ) from None
+    return factory()

@@ -1,0 +1,19 @@
+{
+  "actual_disposition": "granted",
+  "actual_granted": 1,
+  "case_id": "ca9/101",
+  "event_id": "evt-appeal-disposition",
+  "resolved_at": "2023-09-18",
+  "schema_version": "1.0",
+  "source": "410 U.S. 113",
+  "votes": [
+    {
+      "judge": "berzon",
+      "vote": "granted"
+    },
+    {
+      "judge": "smith",
+      "vote": "denied"
+    }
+  ]
+}
