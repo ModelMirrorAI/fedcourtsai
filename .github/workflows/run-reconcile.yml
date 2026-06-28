@@ -176,6 +176,21 @@ jobs:
           fi
           uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
 
+      # A predictable event is a corpus fact, not a committed file. Project each
+      # event in the cell into its ledger directory so an outcome the agent settles
+      # carries its event.yaml and the offline `validate` gate can confirm the
+      # outcome references a real event without the corpus. Runs before the agent so
+      # a genuinely missing event fails the job before any model tokens are spent.
+      - name: Materialize the event definitions for the ledger
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_IDS: ${{ matrix.events }}
+        run: |
+          for eid in $EVENT_IDS; do
+            uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$eid"
+          done
+
       - name: Reconcile with Claude Code
         id: reconcile_claude
         if: matrix.engine == 'claude-code'

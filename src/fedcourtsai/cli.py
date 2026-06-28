@@ -52,9 +52,10 @@ from .schemas import (
     Engine,
     ModelUsage,
     OpsReport,
+    PredictableEvent,
     UsageRole,
 )
-from .serialize import write_json, write_raw_json
+from .serialize import write_json, write_raw_json, write_yaml
 from .store import (
     cases_due_for_pull,
     iter_evaluations,
@@ -895,6 +896,54 @@ def provision_snapshot(
     dest = out or CasePaths(settings.data_root, court, docket).snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} -> {dest}")
+
+
+@app.command("materialize-event")
+def materialize_event(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id to materialize from the corpus.")],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Where to write event.yaml; defaults to the event's ledger path."),
+    ] = None,
+) -> None:
+    """Materialize a predictable event's ``event.yaml`` from the corpus into the ledger.
+
+    Forward discovery records predictable events as raw facts in the packed corpus,
+    not as per-case ``event.yaml`` files. But a prediction committed under an event
+    directory needs its ``event.yaml`` beside it so the offline PR gate
+    (``validate``) can confirm the judgment references a real event without the
+    corpus remote. The predict/evaluate workflows call this after a ``dvc pull`` to
+    project the corpus event row into the committed git ledger. Exits non-zero if
+    the corpus holds no such event for the case.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    case = ids.case_id(court, docket)
+    with corpus.connect(db_path) as conn:
+        match = next((e for e in corpus.events_for_case(conn, case) if e.event_id == event), None)
+    if match is None:
+        typer.echo(
+            f"No event {event!r} in corpus for {case} (dvc pull the corpus first?)", err=True
+        )
+        raise typer.Exit(code=1)
+    dest = out or CasePaths(settings.data_root, court, docket).event(event).event_file
+    write_yaml(
+        dest,
+        PredictableEvent(
+            event_id=match.event_id,
+            case_id=match.case_id,
+            kind=match.kind,
+            title=match.title,
+            description=match.description,
+            docket_entry_id=match.docket_entry_id,
+            opened_at=match.opened_at,
+            decision_target=match.decision_target,
+            resolved=match.resolved,
+        ),
+    )
+    typer.echo(f"{case} event {event} -> {dest}")
 
 
 @app.command("open-events")
