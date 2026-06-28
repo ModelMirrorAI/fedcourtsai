@@ -250,6 +250,7 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
           RUN_ID: ${{ matrix.run_id }}
@@ -261,16 +262,6 @@ jobs:
           AGENT_OK: ${{ steps.reconcile_claude.outcome == 'success' }}
         run: |
           set -euo pipefail
-          # claude-code-action persists its github_token (here the least-privilege
-          # contents:read agent token) as a workspace git credential — an http
-          # extraheader and/or an includeIf to a credentials file. Left in place it
-          # overrides the contents:write app token below, so the push authenticates
-          # read-only and 403s. Strip it (the same cleanup actions/checkout runs on
-          # exit, but before the push) so the push uses the app token via GH_TOKEN.
-          git config --local --name-only --get-regexp 'http\..*\.extraheader' 2>/dev/null \
-            | xargs -r -n1 git config --local --unset-all || true
-          git config --local --name-only --get-regexp '^includeif\.' 2>/dev/null \
-            | xargs -r -n1 git config --local --unset-all || true
           gh auth setup-git
           branch="reconcile/${COURT_ID}-${DOCKET_ID}-${RUN_ID}"
           git checkout -b "$branch"
@@ -314,7 +305,16 @@ jobs:
           # run:evaluate — so nothing about the settled events needs to ride in the
           # PR body.
           git commit -m "reconcile: ${COURT_ID}/${DOCKET_ID} — $(IFS=,; echo "${settled[*]}")"
-          git push origin "$branch"
+          # claude-code-action leaves its contents:read agent token as the ambient
+          # git credential (a global http extraheader / credential helper), which
+          # overrides the contents:write app token and 403s a plain push. Push with
+          # the app token explicitly: inline URL credentials bypass any credential
+          # helper, and blanking http.extraHeader at command scope (highest config
+          # precedence) drops any ambient Authorization header — so the write token
+          # authenticates.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${branch}"
           body=$(printf 'Reconciled ground truth for \`%s/%s\` (%s).\n\nWhen this merges, `run-reconcile` opens a `run:evaluate` issue for the settled events.\n\nCloses #%s\n' \
             "$COURT_ID" "$DOCKET_ID" "$(IFS=,; echo "${settled[*]}")" "$ISSUE")
           if [ ${#flags[@]} -gt 0 ]; then

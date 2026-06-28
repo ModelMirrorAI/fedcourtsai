@@ -323,6 +323,7 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
           EVENT_ID: ${{ matrix.event_id }}
@@ -334,16 +335,6 @@ jobs:
           AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.predict_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.predict_codex.outcome == 'success') }}
         run: |
           set -euo pipefail
-          # claude-code-action persists its github_token (here the least-privilege
-          # contents:read agent token) as a workspace git credential — an http
-          # extraheader and/or an includeIf to a credentials file. Left in place it
-          # overrides the contents:write app token below, so the push authenticates
-          # read-only and 403s. Strip it (the same cleanup actions/checkout runs on
-          # exit, but before the push) so the push uses the app token via GH_TOKEN.
-          git config --local --name-only --get-regexp 'http\..*\.extraheader' 2>/dev/null \
-            | xargs -r -n1 git config --local --unset-all || true
-          git config --local --name-only --get-regexp '^includeif\.' 2>/dev/null \
-            | xargs -r -n1 git config --local --unset-all || true
           gh auth setup-git
           branch="predict/${EVENT_ID}-${PREDICTOR_ID}-${RUN_ID}"
           git checkout -b "$branch"
@@ -373,7 +364,16 @@ jobs:
             flags+=(--draft)
           fi
           git commit -m "predict(${PREDICTOR_ID}): ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}"
-          git push origin "$branch"
+          # claude-code-action leaves its contents:read agent token as the ambient
+          # git credential (a global http extraheader / credential helper), which
+          # overrides the contents:write app token and 403s a plain push. Push with
+          # the app token explicitly: inline URL credentials bypass any credential
+          # helper, and blanking http.extraHeader at command scope (highest config
+          # precedence) drops any ambient Authorization header — so the write token
+          # authenticates.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${branch}"
           body="Automated prediction by \`${PREDICTOR_ID}\` (run \`${RUN_ID}\`) for event \`${EVENT_ID}\`."
           if [ ${#flags[@]} -gt 0 ]; then
             body="${body}"$'\n\n'"⚠️ The agent did not finish (turn/time limit); this is partial output for a maintainer to review and complete."
