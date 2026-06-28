@@ -249,6 +249,16 @@ so the cell mechanics — provisioning paths, schema conformance, the
 running Actions. Wiring the live workflow onto the seam is separate; the stub is
 the offline reference, mirroring the `Backtester` baselines above.
 
+Those offline reference *engines* still read a corpus, which on a laptop would
+need a `dvc pull` of the S3 remote behind OIDC. `fedcourts make-fixture-corpus`
+removes that dependency: it builds a tiny, deterministic **synthetic** corpus
+([`fedcourtsai.fixture`](../src/fedcourtsai/fixture.py)) — a handful of cases
+across several courts, a mix of resolved and open, with their predictable events
+and dated snapshots — so the read commands (`provision-snapshot`, `query`,
+`open-events`) and the pytest suite run with no remote, token, or network. It is
+the offline reference *data* under the engines above; it is never a substitute
+for the real corpus the seed/pull workflows produce.
+
 ## Seed — historical backfill
 
 - **Trigger:** a single long-lived `run:seed` tracking issue (a maintainer opens

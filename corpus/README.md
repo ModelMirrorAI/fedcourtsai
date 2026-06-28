@@ -134,6 +134,15 @@ dvc pull                 # fetch corpus.db from the remote
 fedcourts corpus-info    # show the location and row count
 ```
 
+Without remote access, build a tiny **synthetic** corpus instead — a handful of
+cases across several courts, a mix of resolved and open, with their events and
+snapshots — so the read commands (`provision-snapshot`, `query`, `open-events`)
+work offline. It is deterministic and never a substitute for the real corpus:
+
+```bash
+fedcourts make-fixture-corpus    # writes the synthetic corpus to corpus/corpus.db
+```
+
 ## Precedent retrieval
 
 At prediction time a model pulls a handful of *relevant* priors rather than the
