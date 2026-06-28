@@ -829,6 +829,20 @@ def open_events_cmd(
         typer.echo(eid)
 
 
+def _format_discovery_failures(failed: list[dict[str, object]]) -> str:
+    """Render discovery casualties as a parenthetical with each court's reason.
+
+    ``discover_cases`` records the per-court failure ``reason`` (exception type +
+    message) on ``DiscoverResult.failed``; surface it in the ``pull-all`` echo so a
+    timeout vs. throttle vs. 5xx is visible from the run log without opening raw
+    traces. Empty when no court failed, so it appends cleanly to the count line.
+    """
+    if not failed:
+        return ""
+    courts = ", ".join(f"{f['court']} [{f['reason']}]" for f in failed)
+    return f" ({len(failed)} court(s) failed: {courts})"
+
+
 @app.command("pull-all")
 def pull_all(
     out: Annotated[Path, typer.Option(help="Write the predict queue JSON here.")] = Path(
@@ -876,12 +890,7 @@ def pull_all(
                 max_new=pull_cfg.max_new_cases_per_run,
                 default_since=date.today(),
             )
-            disc_failed = (
-                f" ({len(disc.failed)} court(s) failed: "
-                f"{', '.join(str(f['court']) for f in disc.failed)})"
-                if disc.failed
-                else ""
-            )
+            disc_failed = _format_discovery_failures(disc.failed)
             typer.echo(f"Discovered {disc.total} new case(s) before refresh{disc_failed}")
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
