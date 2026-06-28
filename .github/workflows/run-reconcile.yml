@@ -176,6 +176,21 @@ jobs:
           fi
           uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
 
+      # A predictable event is a corpus fact, not a committed file. Project each
+      # event in the cell into its ledger directory so an outcome the agent settles
+      # carries its event.yaml and the offline `validate` gate can confirm the
+      # outcome references a real event without the corpus. Runs before the agent so
+      # a genuinely missing event fails the job before any model tokens are spent.
+      - name: Materialize the event definitions for the ledger
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_IDS: ${{ matrix.events }}
+        run: |
+          for eid in $EVENT_IDS; do
+            uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$eid"
+          done
+
       - name: Reconcile with Claude Code
         id: reconcile_claude
         if: matrix.engine == 'claude-code'
@@ -235,6 +250,7 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
           RUN_ID: ${{ matrix.run_id }}
@@ -289,7 +305,16 @@ jobs:
           # run:evaluate — so nothing about the settled events needs to ride in the
           # PR body.
           git commit -m "reconcile: ${COURT_ID}/${DOCKET_ID} — $(IFS=,; echo "${settled[*]}")"
-          git push origin "$branch"
+          # claude-code-action leaves its contents:read agent token as the ambient
+          # git credential (a global http extraheader / credential helper), which
+          # overrides the contents:write app token and 403s a plain push. Push with
+          # the app token explicitly: inline URL credentials bypass any credential
+          # helper, and blanking http.extraHeader at command scope (highest config
+          # precedence) drops any ambient Authorization header — so the write token
+          # authenticates.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${branch}"
           body=$(printf 'Reconciled ground truth for \`%s/%s\` (%s).\n\nWhen this merges, `run-reconcile` opens a `run:evaluate` issue for the settled events.\n\nCloses #%s\n' \
             "$COURT_ID" "$DOCKET_ID" "$(IFS=,; echo "${settled[*]}")" "$ISSUE")
           if [ ${#flags[@]} -gt 0 ]; then

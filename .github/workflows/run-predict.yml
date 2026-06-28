@@ -17,8 +17,10 @@ jobs:
   plan:
     if: github.event.label.name == 'run:predict'
     runs-on: ubuntu-latest
+    environment: runner
     permissions:
       contents: read
+      id-token: write # assume the AWS role to dvc pull the corpus for scope gating
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
@@ -62,6 +64,29 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
+
+      # The scope gate (predict.scope=scotus_touched) reads each case's latched
+      # predict_eligible flag from the DVC-backed corpus, so the corpus must be on
+      # disk before predict-matrix runs. Assume the read-only S3 role via OIDC and
+      # `dvc pull` it here — without this the gate sees an empty database, drops
+      # every case, and the predict job is silently skipped.
+      - name: Configure AWS credentials (DVC S3 remote, read-only)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+      - name: Pull the corpus for scope gating
+        run: |
+          if [ -f corpus/corpus.db.dvc ]; then
+            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          else
+            echo "::warning::no corpus pointer yet; scope gating has no corpus to read"
+          fi
+
       - name: Build predictor x case x event matrix
         id: plan
         env:
@@ -159,6 +184,18 @@ jobs:
             echo "::warning::no corpus pointer yet; cannot provision a snapshot"
           fi
           uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
+
+      # A predictable event is a corpus fact, not a committed file. Project it into
+      # the event's ledger directory so the prediction PR carries its event.yaml and
+      # the offline `validate` gate can confirm the judgment references a real event
+      # without the corpus. Runs before the agent so a genuinely missing event fails
+      # the job before any model tokens are spent.
+      - name: Materialize the event definition for the ledger
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+        run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
       - name: Predict with Claude Code
         id: predict_claude
@@ -286,6 +323,7 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
           EVENT_ID: ${{ matrix.event_id }}
@@ -298,7 +336,12 @@ jobs:
         run: |
           set -euo pipefail
           gh auth setup-git
-          branch="predict/${EVENT_ID}-${PREDICTOR_ID}-${RUN_ID}"
+          # RUN_ID is only second-granular and is shared by every matrix child of
+          # a plan job, so two cases fired close together can land on the same
+          # RUN_ID. The case (court/docket) is what makes this branch unique work,
+          # so name it in the branch — otherwise two concurrent predictions for
+          # different dockets collide on one ref and the loser 403s/`fetch first`s.
+          branch="predict/${COURT_ID}-${DOCKET_ID}-${EVENT_ID}-${PREDICTOR_ID}-${RUN_ID}"
           git checkout -b "$branch"
           # data/ may not exist yet (no derived artifact has ever been committed),
           # so guard the add: an empty agent run then falls through to the "no
@@ -326,7 +369,16 @@ jobs:
             flags+=(--draft)
           fi
           git commit -m "predict(${PREDICTOR_ID}): ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}"
-          git push origin "$branch"
+          # claude-code-action leaves its contents:read agent token as the ambient
+          # git credential (a global http extraheader / credential helper), which
+          # overrides the contents:write app token and 403s a plain push. Push with
+          # the app token explicitly: inline URL credentials bypass any credential
+          # helper, and blanking http.extraHeader at command scope (highest config
+          # precedence) drops any ambient Authorization header — so the write token
+          # authenticates.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${branch}"
           body="Automated prediction by \`${PREDICTOR_ID}\` (run \`${RUN_ID}\`) for event \`${EVENT_ID}\`."
           if [ ${#flags[@]} -gt 0 ]; then
             body="${body}"$'\n\n'"⚠️ The agent did not finish (turn/time limit); this is partial output for a maintainer to review and complete."

@@ -122,6 +122,31 @@ def test_predict_matrix_scope_all_keeps_every_case(tmp_path: Path) -> None:
     }
 
 
+def test_predict_matrix_missing_corpus_fails_loudly(tmp_path: Path) -> None:
+    # Regression: the scope gate reads predict_eligible from the corpus. If the
+    # corpus DB was never provisioned (e.g. the planning job skipped `dvc pull`),
+    # an absent database must abort loudly — not silently drop every case and emit
+    # an empty matrix, which reads as a normal "nothing in scope" result and skips
+    # the predict job. The config exists; only the corpus DB is missing.
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    for name in ("predictors.yaml", "evaluators.yaml"):
+        (config_root / name).write_text((_REPO_CONFIG / name).read_text())
+    (config_root / "tracking.yaml").write_text("predict:\n  scope: scotus_touched\n")
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = {
+        "FEDCOURTS_CONFIG_ROOT": str(config_root),
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus"),  # no DB on disk
+    }
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code != 0
+    assert "corpus database is missing" in result.stderr
+    assert "include" not in result.stdout  # no matrix emitted
+
+
 def test_evaluate_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)

@@ -47,6 +47,7 @@ Read-only views, run after a `dvc pull` provisions the corpus.
 | `query` | Retrieve relevant priors for a predictor, most relevant first, one JSON row per line. | `--court`, `--topic`, `--judge`, `--citation`, `--disposition`, `--include-open`, `--limit`, `--full` |
 | `open-events` | Print a case's unresolved (predictable) event ids, one per line. | `--court`, `--docket` |
 | `provision-snapshot` | Materialize a case's latest corpus snapshot to disk for an agent run. | `--court`, `--docket`, `--out` |
+| `materialize-event` | Project a predictable event's `event.yaml` from the corpus into the git ledger. | `--court`, `--docket`, `--event`, `--out` |
 | `paths` | Print the resolved corpus/case/event paths for a case. | `--court`, `--docket`, `--event` |
 
 ## Validation — the gate
