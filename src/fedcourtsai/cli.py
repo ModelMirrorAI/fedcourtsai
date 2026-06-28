@@ -17,6 +17,7 @@ from typing import Annotated
 import typer
 
 from . import corpus, dvc, ids
+from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .config import (
     PredictScope,
@@ -27,6 +28,12 @@ from .config import (
     load_seed_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
+from .finalize import (
+    FinalizeRole,
+    branch_name,
+    finalize_judgment,
+    finalize_reconcile,
+)
 from .fixture import build_fixture_corpus
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
@@ -1324,6 +1331,145 @@ def reconcile_matrix_cmd(
     )
     matrix = reconcile_matrix(cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
+
+
+def _parse_workflow_bool(value: str, flag: str) -> bool:
+    """Parse a ``"true"``/``"false"`` workflow string into a bool.
+
+    The predict/evaluate/reconcile finalize steps pass GitHub Actions boolean
+    expressions (the strings ``"true"`` / ``"false"``) straight through; accept
+    exactly those so a typo fails loud rather than silently reading false.
+    """
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    raise typer.BadParameter(f"{flag} must be 'true' or 'false', not {value!r}")
+
+
+@app.command("authorize-trigger")
+def authorize_trigger_cmd(
+    sender_type: Annotated[
+        str, typer.Option(help="github.event.sender.type (a 'Bot' sender is the App handoff).")
+    ],
+    actor: Annotated[str, typer.Option(help="github.actor that applied the run:* label.")],
+    repo: Annotated[str, typer.Option(help="github.repository, owner/name.")],
+) -> None:
+    """Authorize a run:* label trigger, or refuse and exit non-zero (fail closed).
+
+    The pipeline's trust boundary: a Bot sender is the trusted App handoff, any
+    other actor needs write-or-higher collaborator access (looked up via ``gh
+    api``). Every ``run:*`` workflow runs this *before* it mints a token, assumes
+    the S3 role, or runs an agent. Prints the authorization line and exits 0 when
+    allowed; prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN``
+    in the environment for the permission lookup.
+    """
+    decision = authorize_trigger(sender_type, actor, repo)
+    if not decision.authorized:
+        typer.echo(f"::error::{decision.message}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(decision.message)
+
+
+@app.command("finalize-branch")
+def finalize_branch_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate | reconcile.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    event: Annotated[
+        str, typer.Option(help="Event id (predict/evaluate; ignored for reconcile).")
+    ] = "",
+    actor: Annotated[
+        str, typer.Option(help="predictor_id/evaluator_id (predict/evaluate; ignored otherwise).")
+    ] = "",
+) -> None:
+    """Print the unique branch name for a cell's PR.
+
+    The case (and, for predict/evaluate, the event and actor) ride in the branch so
+    two concurrent cells sharing a second-granular run id never collide on one ref.
+    """
+    is_judgment = role in (FinalizeRole.predict, FinalizeRole.evaluate)
+    typer.echo(
+        branch_name(
+            role,
+            court,
+            docket,
+            run_id,
+            event=event if is_judgment else None,
+            actor=actor if is_judgment else None,
+        )
+    )
+
+
+@app.command("finalize-pr")
+def finalize_pr_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate | reconcile.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    agent_ok: Annotated[
+        str, typer.Option(help="'true' if the agent step finished cleanly, else 'false'.")
+    ],
+    validated: Annotated[
+        str, typer.Option(help="'true' if `validate data` accepted the output, else 'false'.")
+    ],
+    event: Annotated[str, typer.Option(help="Event id (predict/evaluate).")] = "",
+    actor: Annotated[str, typer.Option(help="predictor_id/evaluator_id (predict/evaluate).")] = "",
+    changed: Annotated[
+        str, typer.Option(help="'true' if the agent staged any change (predict/evaluate).")
+    ] = "false",
+    settled: Annotated[
+        str, typer.Option(help="Comma-separated settled event ids (reconcile).")
+    ] = "",
+    issue: Annotated[
+        int, typer.Option(help="Triggering reconcile issue number, closed by the PR (reconcile).")
+    ] = 0,
+) -> None:
+    """Emit the finalize decision for a cell as compact JSON.
+
+    The object carries ``action`` (``skip`` / ``fail`` / ``open``), the
+    ``message`` for skip/fail, and — when opening — ``draft`` plus
+    ``commit_message`` / ``title`` / ``body``. The workflow runs the git/PR
+    plumbing; every routing decision and string is computed here.
+    """
+    ok = _parse_workflow_bool(agent_ok, "--agent-ok")
+    valid = _parse_workflow_bool(validated, "--validated")
+    if role is FinalizeRole.reconcile:
+        plan = finalize_reconcile(
+            court=court,
+            docket=docket,
+            run_id=run_id,
+            settled=tuple(e for e in settled.split(",") if e),
+            agent_ok=ok,
+            validated=valid,
+            issue=issue,
+        )
+    else:
+        plan = finalize_judgment(
+            role,
+            court=court,
+            docket=docket,
+            event=event,
+            actor=actor,
+            run_id=run_id,
+            changed=_parse_workflow_bool(changed, "--changed"),
+            agent_ok=ok,
+            validated=valid,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "action": plan.action,
+                "draft": plan.draft,
+                "message": plan.message,
+                "commit_message": plan.commit_message,
+                "title": plan.title,
+                "body": plan.body,
+            },
+            separators=(",", ":"),
+        )
+    )
 
 
 def main() -> None:

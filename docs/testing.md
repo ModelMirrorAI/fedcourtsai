@@ -113,11 +113,12 @@ regressions the stub can't see — not the inner loop.
 The more logic lives in YAML, the less of the pipeline is testable, because YAML only
 runs in Actions. The standing principle is to push logic *out* of the workflows and
 into tested `fedcourts` commands, leaving the YAML as orchestration. The matrix
-builders already follow this (`predict-matrix` / `evaluate-matrix` are library code
-with unit tests, not inline script); the trigger-authorization gate and the
-finalize/PR-body construction are being moved the same way. Once the logic is in
-commands, "test the workflow" reduces to "test the commands, then smoke-test the
-wiring."
+builders follow this (`predict-matrix` / `evaluate-matrix` are library code with unit
+tests, not inline script), as do the per-cell decisions the predict/evaluate/reconcile
+workflows make: the trigger-authorization gate (`authorize-trigger`), the branch name
+(`finalize-branch`), and the draft-vs-ready routing plus PR title/body
+(`finalize-pr`). The YAML calls those and runs only the git/`gh` plumbing, so "test
+the workflow" reduces to "test the commands, then smoke-test the wiring."
 
 For the orchestration that genuinely must live in YAML, two static checks already
 run in CI and catch most mistakes without execution:

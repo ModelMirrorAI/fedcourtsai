@@ -42,13 +42,19 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+
       # An issue *form* applies its declared labels on creation regardless of the
-      # submitter's permissions, so on a public repo anyone could fire this agent
-      # run by filing the reconcile form. Require the trigger to come from the
-      # pipeline App (run-pull files reconcile issues automatically) or a
-      # maintainer with write access; deny everyone else. Fail closed otherwise.
-      # (The label name is already checked in the job `if:`; this also gates the
-      # downstream `reconcile` job, which `needs: plan`.)
+      # submitter's permissions, so on a public repo anyone could fire this agent run
+      # by filing the reconcile form. Only a maintainer-installed App can apply a
+      # `run:*` label that triggers a workflow (the default GITHUB_TOKEN cannot), so a
+      # Bot sender is the trusted run-pull handoff; any other actor must hold write
+      # access. The decision (and its fail-closed default) lives in the tested
+      # `authorize-trigger` command. (The label name is already checked in the job
+      # `if:`; this also gates the downstream `reconcile` job, which `needs: plan`.)
       - name: Authorize the trigger (label from the pipeline App or a maintainer)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -56,28 +62,9 @@ jobs:
           ACTOR: ${{ github.actor }}
           SENDER_TYPE: ${{ github.event.sender.type }}
         run: |
-          set -euo pipefail
-          # Only a maintainer-installed App can apply a `run:*` label that triggers
-          # a workflow (events from the default GITHUB_TOKEN do not), so a Bot
-          # sender is the trusted run-pull handoff.
-          if [ "$SENDER_TYPE" = "Bot" ]; then
-            echo "Authorized ${ACTOR} (pipeline App handoff)."
-            exit 0
-          fi
-          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" \
-            --jq '.permission' 2>/dev/null || echo none)
-          case "$perm" in
-            admin | maintain | write) echo "Authorized ${ACTOR} (${perm} access)." ;;
-            *)
-              echo "::error::${ACTOR} lacks write access (permission: ${perm}); refusing to run." >&2
-              exit 1
-              ;;
-          esac
+          uv run fedcourts authorize-trigger \
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-python-env
       - name: Build per-case reconcile matrix
         id: plan
         env:
@@ -263,48 +250,43 @@ jobs:
         run: |
           set -euo pipefail
           gh auth setup-git
-          branch="reconcile/${COURT_ID}-${DOCKET_ID}-${RUN_ID}"
+          # Branch name, draft-vs-ready routing, and the PR title/body are computed
+          # by the tested `finalize-branch` / `finalize-pr` commands; this step only
+          # runs git and gh.
+          branch=$(uv run fedcourts finalize-branch --role reconcile \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --run-id "$RUN_ID")
           git checkout -b "$branch"
           # data/ may not exist yet (no derived artifact has ever been committed),
-          # so guard the add: a run that settles nothing then falls through to the
-          # "no outcome recorded" path below instead of aborting on a missing pathspec.
+          # so guard the add: a run that settles nothing then yields the "no outcome
+          # recorded" plan below instead of aborting on a missing pathspec.
           if [ -d data ]; then
             git add data/
           fi
           # The settled events are exactly the outcome.json files this run added
           # under the case (the agent writes only outcome.json — event open/resolved
-          # state is a corpus fact, not a git file). The run:evaluate handoff targets
-          # only these, so an event the agent left ambiguous is never queued.
+          # state is a corpus fact, not a git file). The `reconcile:` commit subject
+          # and these added paths are what the push-triggered handoff reads to queue
+          # run:evaluate, so an event the agent left ambiguous is never queued.
           prefix="data/cases/${COURT_ID}/${DOCKET_ID}/events"
           mapfile -t settled < <(
             git diff --cached --name-only --diff-filter=A -- "$prefix" \
               | sed -n "s#^${prefix}/\([^/]*\)/outcome.json\$#\1#p"
           )
-          if [ "${#settled[@]}" -eq 0 ]; then
-            warn="no outcome recorded for ${COURT_ID}/${DOCKET_ID}"
-            [ "$AGENT_OK" = "true" ] || warn="${warn} before the run hit its turn/time limit"
-            echo "::warning::${warn}; nothing to reconcile."
-            exit 0
-          fi
           # A clean run must produce schema-valid outcomes (hard fail keeps the ledger
-          # honest). A run that hit a limit may have written a partial file; keep it
-          # for review as a draft rather than discarding the work.
-          flags=()
-          if ! uv run fedcourts validate data; then
-            if [ "$AGENT_OK" = "true" ]; then
-              echo "::error::reconciled outcomes for ${COURT_ID}/${DOCKET_ID} failed schema validation"
-              exit 1
-            fi
-            flags+=(--draft)
-          elif [ "$AGENT_OK" != "true" ]; then
-            flags+=(--draft)
+          # honest); validate only when something was settled (else finalize-pr skips).
+          validated=true
+          if [ "${#settled[@]}" -gt 0 ]; then
+            uv run fedcourts validate data || validated=false
           fi
-          # The `reconcile:` subject prefix is the signal the push-triggered handoff
-          # job filters on (it ignores run-pull's `pull:` outcome commits), and the
-          # added outcome.json paths in this commit are what it reads to queue
-          # run:evaluate — so nothing about the settled events needs to ride in the
-          # PR body.
-          git commit -m "reconcile: ${COURT_ID}/${DOCKET_ID} — $(IFS=,; echo "${settled[*]}")"
+          plan=$(uv run fedcourts finalize-pr --role reconcile \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --run-id "$RUN_ID" \
+            --agent-ok "$AGENT_OK" --validated "$validated" --issue "$ISSUE" \
+            --settled "$(IFS=,; echo "${settled[*]:-}")")
+          case "$(jq -r '.action' <<<"$plan")" in
+            skip) echo "::warning::$(jq -r '.message' <<<"$plan")"; exit 0 ;;
+            fail) echo "::error::$(jq -r '.message' <<<"$plan")"; exit 1 ;;
+          esac
+          git commit -m "$(jq -r '.commit_message' <<<"$plan")"
           # claude-code-action leaves its contents:read agent token as the ambient
           # git credential (a global http extraheader / credential helper), which
           # overrides the contents:write app token and 403s a plain push. Push with
@@ -315,14 +297,12 @@ jobs:
           git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
             push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
             "HEAD:refs/heads/${branch}"
-          body=$(printf 'Reconciled ground truth for \`%s/%s\` (%s).\n\nWhen this merges, `run-reconcile` opens a `run:evaluate` issue for the settled events.\n\nCloses #%s\n' \
-            "$COURT_ID" "$DOCKET_ID" "$(IFS=,; echo "${settled[*]}")" "$ISSUE")
-          if [ ${#flags[@]} -gt 0 ]; then
-            body="${body}"$'\n\n'"⚠️ The agent did not finish (turn/time limit); this is partial output for a maintainer to review and complete before merging."
-          fi
+          jq -r '.body' <<<"$plan" > pr-body.md
+          flags=()
+          if [ "$(jq -r '.draft' <<<"$plan")" = "true" ]; then flags+=(--draft); fi
           gh pr create --base main --head "$branch" "${flags[@]}" \
-            --title "reconcile: ${COURT_ID}/${DOCKET_ID}" \
-            --body "$body"
+            --title "$(jq -r '.title' <<<"$plan")" \
+            --body-file pr-body.md
 
   # When a reconcile PR's outcome.json lands on main, hand off to evaluation —
   # mirrors run-pull's "open run:evaluate for newly resolved events", but fired by

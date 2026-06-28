@@ -56,14 +56,18 @@
   any submitter. (1) No issue form auto-applies a `run:*` label — operating the
   pipeline (`pull` / `seed` / `reconcile`) is not exposed as a public form at all,
   so a maintainer applies the `run:*` label to an issue after triage. (2) Each
-  issue-triggered privileged job re-checks, before it does anything, that
-  the triggering actor has **write access** (via the collaborators API, failing
-  closed), so a label applied by anyone else is inert. This pre-flight check is
-  the *first* step of every `run:*` workflow — the deterministic writers
-  (`run-pull` / `run-seed` / `run-reconcile`) and the agent stages (`run-predict`
-  / `run-evaluate` / `run-dev`) alike — so a non-write trigger is refused before
-  any token is minted, the S3 role is assumed, or the corpus is read; the agent
-  actions re-check the actor again before spending model tokens. The App-driven
+  issue-triggered privileged job re-checks, before it does any privileged work,
+  that the triggering actor has **write access** (via the collaborators API,
+  failing closed), so a label applied by anyone else is inert. This pre-flight
+  check runs ahead of every privileged step in every `run:*` workflow — the
+  deterministic writers (`run-pull` / `run-seed` / `run-reconcile`) and the agent
+  stages (`run-predict` / `run-evaluate` / `run-dev`) alike — so a non-write
+  trigger is refused before any token is minted, the S3 role is assumed, or the
+  corpus is read; the agent actions re-check the actor again before spending model
+  tokens. The fan-out workflows delegate the decision to the tested
+  `authorize-trigger` command (so it sits just after an unprivileged checkout +
+  env setup rather than literally first), while the deterministic writers keep it
+  inline; either way nothing privileged runs ahead of it. The App-driven
   handoffs `run-pull` files (the `run:predict` / `run:evaluate` / `run:reconcile`
   issues, a Bot sender) are recognized and allowed — only a maintainer-installed
   App can apply a label that fires a workflow at all.

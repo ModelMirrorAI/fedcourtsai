@@ -82,6 +82,9 @@ Helpers the workflows and agents use to fan out and stay in contract.
 | `predict-matrix` | Emit the predictor × case × event GitHub Actions matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
 | `evaluate-matrix` | Emit the evaluator × case × event matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
 | `reconcile-matrix` | Emit the per-case `run-reconcile` matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
+| `authorize-trigger` | Authorize a `run:*` label trigger (Bot handoff or write collaborator), or refuse and exit non-zero. The fan-out workflows call it before any privileged step. | `--sender-type`, `--actor`, `--repo` |
+| `finalize-branch` | Print the unique branch name for a cell's PR (case + event + actor ride in the ref so concurrent cells never collide). | `--role`, `--court`, `--docket`, `--run-id`, `--event`, `--actor` |
+| `finalize-pr` | Emit a cell's finalize decision (`skip`/`fail`/`open`, draft flag, commit/title/body) as compact JSON for the workflow's git/`gh` step. | `--role`, `--court`, `--docket`, `--run-id`, `--agent-ok`, `--validated`, `--changed`, `--event`, `--actor`, `--settled`, `--issue` |
 | `predictors` | List configured predictors (id, engine, model, enabled). | — |
 | `evaluators` | List configured evaluators (id, engine, model, enabled). | — |
 | `export-schemas` | Write JSON Schema for every pydantic model into `schemas/` (for agents and Codex `--output-schema`). CI fails if the committed schemas drift. | `OUT` (default `schemas`) |

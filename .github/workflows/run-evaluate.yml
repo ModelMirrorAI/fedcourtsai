@@ -37,6 +37,18 @@ jobs:
       # `needs: plan`) mints any token, assumes the S3 role, or reads the corpus —
       # matching the deterministic writers (run-pull / run-seed / run-reconcile).
       # (The label name is already checked in the job `if:`.)
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+
+      # Only a maintainer-installed App can apply a `run:*` label that triggers a
+      # workflow (events from the default GITHUB_TOKEN do not), so a Bot sender is
+      # the trusted run-pull handoff; any other actor must hold write access. The
+      # decision (and its fail-closed default) lives in the tested `authorize-trigger`
+      # command. It refuses *before* the downstream `evaluate` job (which `needs: plan`)
+      # mints any token, assumes the S3 role, or reads the corpus. (The label name is
+      # already checked in the job `if:`.)
       - name: Authorize the trigger (label from the pipeline App or a maintainer)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,28 +56,8 @@ jobs:
           ACTOR: ${{ github.actor }}
           SENDER_TYPE: ${{ github.event.sender.type }}
         run: |
-          set -euo pipefail
-          # Only a maintainer-installed App can apply a `run:*` label that triggers
-          # a workflow (events from the default GITHUB_TOKEN do not), so a Bot
-          # sender is the trusted run-pull handoff.
-          if [ "$SENDER_TYPE" = "Bot" ]; then
-            echo "Authorized ${ACTOR} (pipeline App handoff)."
-            exit 0
-          fi
-          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" \
-            --jq '.permission' 2>/dev/null || echo none)
-          case "$perm" in
-            admin | maintain | write) echo "Authorized ${ACTOR} (${perm} access)." ;;
-            *)
-              echo "::error::${ACTOR} lacks write access (permission: ${perm}); refusing to run." >&2
-              exit 1
-              ;;
-          esac
-
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-python-env
+          uv run fedcourts authorize-trigger \
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
 
       # The scope gate (predict.scope=scotus_touched) reads each case's latched
       # predict_eligible flag from the DVC-backed corpus, so the corpus must be on
@@ -336,39 +328,36 @@ jobs:
         run: |
           set -euo pipefail
           gh auth setup-git
-          # RUN_ID is only second-granular and is shared by every matrix child of
-          # a plan job, so two cases fired close together can land on the same
-          # RUN_ID. The case (court/docket) is what makes this branch unique work,
-          # so name it in the branch — otherwise two concurrent evaluations for
-          # different dockets collide on one ref and the loser 403s/`fetch first`s.
-          branch="evaluate/${COURT_ID}-${DOCKET_ID}-${EVENT_ID}-${EVALUATOR_ID}-${RUN_ID}"
+          # Branch name, draft-vs-ready routing, and the PR title/body are computed
+          # by the tested `finalize-branch` / `finalize-pr` commands; this step only
+          # runs git and gh. The case + event + actor ride in the branch so two
+          # concurrent cells sharing a second-granular run id never collide on a ref.
+          branch=$(uv run fedcourts finalize-branch --role evaluate \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --actor "$EVALUATOR_ID" --run-id "$RUN_ID")
           git checkout -b "$branch"
           # data/ may not exist yet (no derived artifact has ever been committed),
-          # so guard the add: an empty agent run then falls through to the "no
-          # changes" path below instead of aborting on a missing pathspec.
+          # so guard the add: an empty agent run then yields the "no changes" plan
+          # below instead of aborting on a missing pathspec.
           if [ -d data ]; then
             git add data/
           fi
-          if git diff --cached --quiet; then
-            warn="${EVALUATOR_ID} produced no changes for ${EVENT_ID}"
-            [ "$AGENT_OK" = "true" ] || warn="${warn} before the run hit its turn/time limit"
-            echo "::warning::${warn}; skipping PR."
-            exit 0
+          if git diff --cached --quiet; then changed=false; else changed=true; fi
+          # Only validate when there is output; a clean run must validate (hard fail),
+          # a partial run's invalid output becomes a draft (decided in finalize-pr).
+          validated=true
+          if [ "$changed" = "true" ]; then
+            uv run fedcourts validate data || validated=false
           fi
-          # A clean run must produce schema-valid data (hard fail keeps the ledger
-          # honest). A run that hit a limit may have written a partial file; keep it
-          # for review as a draft rather than discarding the work.
-          flags=()
-          if ! uv run fedcourts validate data; then
-            if [ "$AGENT_OK" = "true" ]; then
-              echo "::error::evaluation for ${EVENT_ID} failed schema validation"
-              exit 1
-            fi
-            flags+=(--draft)
-          elif [ "$AGENT_OK" != "true" ]; then
-            flags+=(--draft)
-          fi
-          git commit -m "evaluate(${EVALUATOR_ID}): ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}"
+          plan=$(uv run fedcourts finalize-pr --role evaluate \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --actor "$EVALUATOR_ID" --run-id "$RUN_ID" \
+            --agent-ok "$AGENT_OK" --changed "$changed" --validated "$validated")
+          case "$(jq -r '.action' <<<"$plan")" in
+            skip) echo "::warning::$(jq -r '.message' <<<"$plan")"; exit 0 ;;
+            fail) echo "::error::$(jq -r '.message' <<<"$plan")"; exit 1 ;;
+          esac
+          git commit -m "$(jq -r '.commit_message' <<<"$plan")"
           # claude-code-action leaves its contents:read agent token as the ambient
           # git credential (a global http extraheader / credential helper), which
           # overrides the contents:write app token and 403s a plain push. Push with
@@ -379,10 +368,9 @@ jobs:
           git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
             push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
             "HEAD:refs/heads/${branch}"
-          body="Automated evaluation by \`${EVALUATOR_ID}\` (run \`${RUN_ID}\`) for event \`${EVENT_ID}\`."
-          if [ ${#flags[@]} -gt 0 ]; then
-            body="${body}"$'\n\n'"⚠️ The agent did not finish (turn/time limit); this is partial output for a maintainer to review and complete."
-          fi
+          jq -r '.body' <<<"$plan" > pr-body.md
+          flags=()
+          if [ "$(jq -r '.draft' <<<"$plan")" = "true" ]; then flags+=(--draft); fi
           gh pr create --base main --head "$branch" "${flags[@]}" \
-            --title "evaluate(${EVALUATOR_ID}): ${COURT_ID}/${DOCKET_ID} — ${EVENT_ID}" \
-            --body "$body"
+            --title "$(jq -r '.title' <<<"$plan")" \
+            --body-file pr-body.md
