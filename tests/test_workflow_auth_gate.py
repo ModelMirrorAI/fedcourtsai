@@ -45,11 +45,22 @@ def _steps(job: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _is_authorize_step(step: dict[str, Any]) -> bool:
+    """The fail-closed actor gate, in either supported form.
+
+    The fan-out workflows (predict/evaluate/reconcile) delegate the decision to the
+    tested ``authorize-trigger`` command; the deterministic writers (pull/seed/dev)
+    still carry the inline collaborators-API check. Recognize both — the security
+    *shape* (a gate before any privileged step) is what this file locks in; the
+    decision logic itself is unit-tested in ``test_authz.py``.
+    """
+    name = step.get("name", "")
     run = step.get("run", "")
-    # Fail-closed write-access check against the collaborators API.
+    if "Authorize the trigger" not in name:
+        return False
+    if "fedcourts authorize-trigger" in run:
+        return True
     return (
-        "Authorize the trigger" in step.get("name", "")
-        and "collaborators/${ACTOR}/permission" in run
+        "collaborators/${ACTOR}/permission" in run
         and "refusing to run" in run
         and "set -euo pipefail" in run
     )
@@ -74,16 +85,16 @@ def test_entry_job_authorizes_before_any_privileged_step() -> None:
 
         steps = _steps(job)
         assert steps, f"{name}:{entry_job} has no steps"
-        # The actor-write check must be the very first step, so refusal happens
-        # before anything else in the job runs.
-        assert _is_authorize_step(steps[0]), (
-            f"{name}:{entry_job} first step must be the fail-closed authorize check"
-        )
-        # And nothing privileged may sit ahead of it (it is index 0, but assert the
-        # intent explicitly so a reorder is caught).
-        for step in steps:
-            if any(p in step.get("uses", "") for p in PRIVILEGED_USES):
-                assert _is_authorize_step(steps[0]), name
+        # The gate must run before any privileged step, so refusal happens before a
+        # token is minted, the S3 role assumed, or an agent run. The command-based
+        # gate needs a checkout + Python env ahead of it (both unprivileged), so the
+        # invariant is "nothing privileged precedes the gate", not "the gate is first".
+        authorize_idx = next((i for i, step in enumerate(steps) if _is_authorize_step(step)), None)
+        assert authorize_idx is not None, f"{name}:{entry_job} has no fail-closed authorize step"
+        for step in steps[:authorize_idx]:
+            assert not any(p in step.get("uses", "") for p in PRIVILEGED_USES), (
+                f"{name}:{entry_job} runs a privileged step before the authorize gate"
+            )
 
 
 def _reachable_on_issue_label(job: dict[str, Any]) -> bool:
