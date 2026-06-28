@@ -18,13 +18,21 @@ workflow; the offline :class:`StubRunner` here writes deterministic, schema-vali
 canned artifacts with no model call and no network, so its output is byte-stable
 and identical in *shape* to what the workflow produces.
 
-Wiring the live workflow onto this seam is out of scope: the workflow keeps
-invoking the real engine. The seam exists so the cell's input/output contract has
-a fast, offline reference implementation under test.
+Two families of backend target this seam. The offline :class:`StubRunner` is the
+fast reference used in tests and ``local-cascade --engine stub``. The agentic
+:class:`ClaudeCodeRunner` / :class:`CodexRunner` drive the *real* headless agents
+(``claude`` / ``codex``) over the identical cell contract — the same env vars,
+the same registry prompt file, the same output paths the live workflows use — so
+``local-cascade`` can exercise a real engine end-to-end exactly as CI would. The
+live workflows still invoke their engine through the action wrappers; these CLI
+backends are the local mirror of that, not a replacement for it.
 """
 
 from __future__ import annotations
 
+import os
+import subprocess
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -248,19 +256,217 @@ class StubRunner:
         )
 
 
-# Offline backends keyed by name, mirroring how the workflow selects an engine.
-# Only the stub exists today; agentic engines plug into the same `Runner` seam in
-# the workflow, out of band.
-_BACKENDS: dict[str, Runner] = {"stub": StubRunner()}
+# --- agentic engine backends ---------------------------------------------------
+#
+# The live `run-predict` / `run-evaluate` workflows hand a cell to a headless
+# coding agent (`claude-code-action` / `codex-action`). These backends drive the
+# *same* agents through their CLIs against the identical cell contract — the
+# COURT_ID / DOCKET_ID / EVENT_ID / actor / RUN_ID env vars, the registry prompt
+# file, and the canonical output paths — so a `local-cascade` run reproduces what
+# CI does. They cannot run offline (a binary + auth are required), so the command
+# construction is unit-tested through the `command_runner` seam while the default
+# shells out for real.
+
+# Default models + turn cap, matching the run-predict / run-evaluate workflows.
+_CLAUDE_MODEL = "claude-opus-4-8"
+_CODEX_MODEL = "gpt-5.5"
+_MAX_TURNS = 120
+
+# A command executor: run argv with env, return the process exit code. Injected so
+# tests can assert on the constructed command without spawning a real agent.
+CommandRunner = Callable[[Sequence[str], Mapping[str, str]], int]
+
+
+class EngineUnavailable(RuntimeError):
+    """The engine CLI is not installed on PATH."""
+
+    def __init__(self, binary: str) -> None:
+        super().__init__(
+            f"the {binary!r} CLI is not on PATH; install it (the devcontainer ships "
+            "`claude`) or use the offline `--engine stub` backend"
+        )
+
+
+class EngineFailed(RuntimeError):
+    """The engine CLI exited non-zero for a cell."""
+
+
+@dataclass(frozen=True)
+class EngineCommand:
+    """One agent invocation: the argv to run and the cell env vars to set."""
+
+    argv: list[str]
+    env: dict[str, str]
+
+
+def _cell_env(request: RunRequest) -> dict[str, str]:
+    """The cell env-var contract the workflow exports, role-tagged.
+
+    Byte-identical to the env ``run-predict.yml`` / ``run-evaluate.yml`` set for a
+    cell: the case + event ids, the shared run id, and the acting id under
+    ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate). Auth and any other
+    secrets are inherited from the ambient environment, never assembled here.
+    """
+    actor_var = "PREDICTOR_ID" if request.role == UsageRole.predictor else "EVALUATOR_ID"
+    return {
+        "COURT_ID": request.court_id,
+        "DOCKET_ID": str(request.docket_id),
+        "EVENT_ID": request.event_id,
+        actor_var: request.actor_id,
+        "RUN_ID": request.run_id,
+    }
+
+
+def _claude_instruction(request: RunRequest) -> str:
+    """The wrapper prompt ``run-predict`` / ``run-evaluate`` give claude-code-action."""
+    prompt = request.prompt.as_posix()
+    if request.role == UsageRole.predictor:
+        return (
+            f"Read {prompt} and AGENTS.md, then produce the prediction for the event "
+            "in the COURT_ID/DOCKET_ID/EVENT_ID environment variables. Write ONLY "
+            "the prediction.json and reasoning.md files. Do not commit, push, or "
+            "open a PR."
+        )
+    return (
+        f"Read {prompt} and AGENTS.md, then score every predictor's prediction for "
+        "the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables against "
+        "its outcome.json. Write ONLY the evaluation.json and evaluation.md files. "
+        "Do not commit, push, or open a PR."
+    )
+
+
+def _produced_artifacts(request: RunRequest) -> list[Path]:
+    """The cell's output files that exist after an agent run, in sorted order.
+
+    The agent writes at the canonical paths derived from the env contract; this
+    collects what landed so the runner reports it (and the caller can validate it).
+    A predict cell writes its prediction pair; an evaluate cell writes one pair per
+    predictor it scored, under this evaluator + run.
+    """
+    events = request.event_paths
+    if request.role == UsageRole.predictor:
+        candidates: list[Path] = [
+            events.prediction(request.actor_id, request.run_id),
+            events.reasoning(request.actor_id, request.run_id),
+        ]
+    else:
+        base = events.base / "evaluations" / request.actor_id
+        candidates = [
+            *base.glob(f"*/{request.run_id}/evaluation.json"),
+            *base.glob(f"*/{request.run_id}/evaluation.md"),
+        ]
+    return sorted(p for p in candidates if p.is_file())
+
+
+def _run_subprocess(argv: Sequence[str], env: Mapping[str, str]) -> int:
+    """Default :data:`CommandRunner`: spawn the agent, inheriting stdio."""
+    try:
+        return subprocess.run(list(argv), env=dict(env), check=False).returncode
+    except FileNotFoundError as exc:
+        raise EngineUnavailable(str(argv[0])) from exc
+
+
+@dataclass(frozen=True)
+class AgenticRunner:
+    """Drive a headless coding-agent CLI over one cell, off the shared seam.
+
+    Subclasses supply :meth:`build_command`; this overlays the ambient environment
+    with the cell contract, runs the command, fails loudly on a non-zero exit, and
+    returns the artifacts the agent produced at the canonical paths. The
+    ``command_runner`` seam lets tests assert on the built command without spawning
+    an agent.
+    """
+
+    backend: str
+    engine: Engine
+    model: str
+    command_runner: CommandRunner = _run_subprocess
+
+    def build_command(self, request: RunRequest) -> EngineCommand:  # pragma: no cover
+        raise NotImplementedError
+
+    def run(self, request: RunRequest) -> list[Path]:
+        command = self.build_command(request)
+        code = self.command_runner(command.argv, {**os.environ, **command.env})
+        if code != 0:
+            raise EngineFailed(
+                f"{self.backend} exited {code} for cell {request.actor_id}/{request.event_id}"
+            )
+        return _produced_artifacts(request)
+
+
+@dataclass(frozen=True)
+class ClaudeCodeRunner(AgenticRunner):
+    """Run the ``claude`` CLI headless, mirroring ``run-predict``'s claude-code step.
+
+    Auth is inherited from the environment: ``ANTHROPIC_API_KEY`` (pay-per-token,
+    as CI uses) or — for local iteration that does not bill per token — the
+    subscription ``CLAUDE_CODE_OAUTH_TOKEN`` from ``claude setup-token``.
+    """
+
+    backend: str = "claude-code"
+    engine: Engine = Engine.claude_code
+    model: str = _CLAUDE_MODEL
+    max_turns: int = _MAX_TURNS
+
+    def build_command(self, request: RunRequest) -> EngineCommand:
+        argv = [
+            "claude",
+            "-p",
+            _claude_instruction(request),
+            "--model",
+            self.model,
+            "--max-turns",
+            str(self.max_turns),
+            "--permission-mode",
+            "bypassPermissions",
+        ]
+        return EngineCommand(argv=argv, env=_cell_env(request))
+
+
+@dataclass(frozen=True)
+class CodexRunner(AgenticRunner):
+    """Run the ``codex`` CLI headless, mirroring ``run-evaluate``'s codex step.
+
+    Codex reads the registry prompt file directly (as the workflow's
+    ``prompt-file`` input does); auth is the inherited ``OPENAI_API_KEY``.
+    """
+
+    backend: str = "codex"
+    engine: Engine = Engine.codex
+    model: str = _CODEX_MODEL
+
+    def build_command(self, request: RunRequest) -> EngineCommand:
+        argv = [
+            "codex",
+            "exec",
+            "--model",
+            self.model,
+            "--sandbox",
+            "workspace-write",
+            request.prompt.read_text(),
+        ]
+        return EngineCommand(argv=argv, env=_cell_env(request))
+
+
+# Backends keyed by name, mirroring how the workflow selects an engine: the
+# offline `stub` plus the two real agents `local-cascade` can drive.
+_BACKENDS: dict[str, Callable[[], Runner]] = {
+    "stub": StubRunner,
+    "claude-code": ClaudeCodeRunner,
+    "codex": CodexRunner,
+}
 
 
 def get_runner(backend: str = "stub") -> Runner:
-    """Return the offline runner registered under ``backend`` (default ``stub``).
+    """Return the runner for ``backend`` (default the offline ``stub``).
 
-    Raises ``KeyError`` for an unknown backend, naming the ones available.
+    ``stub`` is deterministic and offline; ``claude-code`` / ``codex`` drive the
+    real headless agents (network + auth required). Raises ``KeyError`` for an
+    unknown backend, naming the ones available.
     """
     try:
-        return _BACKENDS[backend]
+        return _BACKENDS[backend]()
     except KeyError:
         raise KeyError(
             f"unknown runner backend {backend!r}; available: {sorted(_BACKENDS)}"

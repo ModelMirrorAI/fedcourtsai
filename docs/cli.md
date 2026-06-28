@@ -84,3 +84,44 @@ Helpers the workflows and agents use to fan out and stay in contract.
 | `predictors` | List configured predictors (id, engine, model, enabled). | — |
 | `evaluators` | List configured evaluators (id, engine, model, enabled). | — |
 | `export-schemas` | Write JSON Schema for every pydantic model into `schemas/` (for agents and Codex `--output-schema`). CI fails if the committed schemas drift. | `OUT` (default `schemas`) |
+
+## Local iteration — the full cascade off Actions
+
+`local-cascade` is the repeatable, local form of the "one full cascade proven"
+milestone: it drives a single case through the whole derived-artifact pipeline —
+**provision → predict → evaluate → validate** — without GitHub Actions, the
+iteration loop that otherwise only runs inside `run-predict` / `run-evaluate`. It
+reuses the production seams (the engine-runner, the predictor/evaluator
+registries, the packed corpus) so a green local run faithfully predicts a green
+CI run.
+
+| Command | Purpose | Key flags |
+|---------|---------|-----------|
+| `local-cascade` | Provision a case's snapshot, predict it with every enabled predictor, evaluate the resulting predictions with every enabled evaluator, and validate the produced ledger. | `--court`, `--docket`, `--event`, `--engine`, `--run-id` |
+
+It reads the case from the packed corpus — point it at the synthetic fixture
+(`make-fixture-corpus`) for a fully offline run, or a real `dvc pull`-provisioned
+one. With no `--event` it runs every event the case defines; a resolved event also
+gets its ground-truth `outcome.json` materialized so the evaluate stage has
+something to score. The derived artifacts land under `data/` exactly as a real run
+would — **review and discard them**, don't commit a local cascade's output.
+
+**Engines.** `--engine` selects the backend for every cell:
+
+- `stub` (default) — the deterministic, offline, token-free reference engine.
+  This is the acceptance path: valid artifacts end to end with no network.
+- `claude-code` / `codex` — drive the **real** headless agents (`claude`, `codex`)
+  over the same env-var + prompt-file contract the workflows use, so the cells are
+  byte-identical in shape to a CI run. The `claude` CLI ships in the devcontainer
+  (`codex` you install yourself).
+
+**Auth for the real engines.** Credentials are inherited from the environment,
+never assembled by the command. For Claude, set either:
+
+- `ANTHROPIC_API_KEY` — pay-per-token, exactly as CI meters automated inference; or
+- `CLAUDE_CODE_OAUTH_TOKEN` — the **subscription** OAuth token from
+  `claude setup-token`, so local iteration draws on your Claude subscription
+  instead of billing per token. This mirrors the `claude_code_oauth_token` fallback
+  noted in `run-predict.yml`.
+
+For Codex, set `OPENAI_API_KEY`.
