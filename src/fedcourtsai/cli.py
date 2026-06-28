@@ -32,9 +32,11 @@ from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
 from .ops import build_ops_report, render_data_health, render_markdown
 from .paths import CasePaths
+from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.refresh import full_refresh as run_full_refresh
+from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.seed import (
     CourtListenerBulkSource,
     backfill,
@@ -896,6 +898,75 @@ def provision_snapshot(
     dest = out or CasePaths(settings.data_root, court, docket).snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} -> {dest}")
+
+
+@app.command("local-cascade")
+def local_cascade(
+    court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
+    docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
+    event: Annotated[
+        str,
+        typer.Option(help="Event id to run; default: every event the case defines."),
+    ] = "",
+    engine: Annotated[
+        str,
+        typer.Option(help="Engine backend: stub (offline, default) | claude-code | codex."),
+    ] = "stub",
+    run_id: Annotated[
+        str, typer.Option(help="Shared run id for the cells; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Run the full predict → evaluate → validate cascade for one case locally.
+
+    The repeatable, local form of the "one full cascade proven" milestone: over
+    the fixture corpus (or a real provisioned one) it provisions the snapshot,
+    materializes the git event/outcome definitions, fans the chosen engine out
+    over the enabled predictors then evaluators, and validates the produced
+    ledger — the iteration loop that otherwise only runs inside Actions.
+
+    ``--engine stub`` (the default) is deterministic, offline, and token-free.
+    ``--engine claude-code`` / ``--engine codex`` drive the real headless agents
+    against the same env-var + prompt contract the workflows use; auth is inherited
+    from the environment (for Claude, ``ANTHROPIC_API_KEY`` or the subscription
+    ``CLAUDE_CODE_OAUTH_TOKEN`` from ``claude setup-token``). Writes derived
+    artifacts under ``data/`` exactly as a real run would — review and discard them
+    rather than committing a local cascade's output. See ``docs/cli.md``.
+    """
+    settings = get_settings()
+    try:
+        report = run_cascade(
+            corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
+            data_root=settings.data_root,
+            config_root=settings.config_root,
+            court=court,
+            docket=docket,
+            event=event or None,
+            engine=engine,
+            run_id=run_id or ids.run_id(),
+        )
+    except KeyError as exc:
+        # Unknown engine backend (get_runner names the available ones).
+        typer.echo(str(exc).strip("\"'"), err=True)
+        raise typer.Exit(code=2) from exc
+    except (CascadeError, EngineUnavailable) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    except EngineFailed as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"local-cascade {report.case_id} via {report.engine} (run {report.run_id})")
+    typer.echo(f"  events:      {', '.join(report.events)}")
+    typer.echo(f"  snapshot:    {report.snapshot or 'none in corpus'}")
+    typer.echo(f"  predictions: {len(report.predictions)} file(s)")
+    typer.echo(f"  outcomes:    {len(report.outcomes)} file(s)")
+    typer.echo(f"  evaluations: {len(report.evaluations)} file(s)")
+    if not report.valid:
+        typer.echo("  validate:    FAILED", err=True)
+        for problem in report.problems:
+            typer.echo(f"    {problem}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo("  validate:    OK")
 
 
 @app.command("materialize-event")
