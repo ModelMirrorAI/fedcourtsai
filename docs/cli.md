@@ -29,6 +29,7 @@ core, so the corpus is written identically.
 | `seed-backfill` | Load the next chunk of CourtListener bulk data, advancing the committed cursor. The `run-seed` workflow loops it. | `--max-cases`, `--report`, `--staging-path` |
 | `discover` | Onboard newly-filed dockets in the tracked courts, advancing each court's watermark. | `--since`, `--limit` |
 | `pull-all` | Refresh the stalest tracked cases within the API budget; write the predict/evaluate/reconcile handoff queues. | `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
+| `full-refresh` | Reset the seed cursor + corpus forward cursors so the whole tracked set re-seeds and re-pulls fresh (history preserved). Run by `run-seed` on the `full_refresh` dispatch input. | `--dry-run`, `--report` |
 
 `--limit` / `--max-cases` may only *lower* the per-run cap from
 `config/`, never raise it, so a run provably stays within budget.

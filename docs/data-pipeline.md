@@ -397,6 +397,47 @@ forward pull onboards everything filed since the snapshot, so there is no gap
 between the backfill and the live frontier. The result is that, each day after pull
 runs, the tracked data is **complete as of that day**.
 
+## Full refresh — rebuild the forward state without losing history
+
+A **full refresh** is the operator escape hatch for a *structural* change to how
+data is produced: a new corpus column, a corrected normalization, or a
+data-validity bug whose easiest fix is to rebuild every case from source. Refreshing
+one case at a time within the daily budget could never catch up, so full refresh
+resets the pipeline's **forward tracking state** in one deterministic step
+(`fedcourts full-refresh`, run by `run-seed` on its `full_refresh` dispatch input)
+so the whole tracked set re-seeds and re-pulls fresh:
+
+- **Re-seed all bulk data.** The seed cursor (`config/seed-progress.yaml`) is reset
+  so the next `seed-backfill` re-loads every court from the top — the same path
+  seed's quarterly snapshot reconcile takes, triggered on demand rather than by a
+  new snapshot. The ingestion upsert is idempotent, so unchanged cases overwrite in
+  place and any newly-added column or corrected value is back-filled across the corpus.
+- **Re-pull every tracked case.** The corpus forward cursors are cleared — each
+  case's `last_pulled` and every per-court discovery watermark — so the budget
+  governor treats the whole tracked set as stalest and re-fetches it, and forward
+  discovery re-establishes each court's frontier from the next seed hand-off.
+
+What it deliberately leaves alone is what keeps the operation safe and reversible —
+"version old data, keep it":
+
+- **Corpus history is preserved.** Case rows, predictable-event rows, and dated
+  snapshots are untouched; full refresh resets *tracking state*, never the facts, so
+  the corpus stays append-only and its row count never drops (the
+  `validate-corpus` invariant still holds). The pre-refresh corpus blob is retained
+  by the DVC remote's S3 object versioning, so it is recoverable.
+- **The git ledger is preserved.** Outcomes, predictions, and evaluations under
+  `data/` are versioned by git itself and stay where they are — the historical
+  record. "No current cases" follows from the reset rather than from deleting
+  anything: the agentic stages are driven by `pull` re-queuing changed cases with
+  open events, so after the reset `pull` re-pulls everyone and re-queues fresh, and
+  new predictions accrue alongside the retained history.
+
+Because it writes the corpus and the cursor, full refresh runs inside `run-seed`
+(the corpus-writer that holds the shared `corpus-write` lock): the reset runs once
+before the backfill loop, and the reset cursor + corpus blob are committed and
+pushed by the loop's first checkpoint. `--dry-run` reports the blast radius — courts
+to re-seed, cases to re-pull, watermarks to clear — without writing.
+
 ## Data validation
 
 Two stores that must agree — the DVC corpus (raw facts) and the git ledger

@@ -33,6 +33,7 @@ from .ops import build_ops_report, render_data_health, render_markdown
 from .paths import CasePaths
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
+from .pipeline.refresh import full_refresh as run_full_refresh
 from .pipeline.seed import (
     CourtListenerBulkSource,
     backfill,
@@ -667,6 +668,51 @@ def seed_backfill(
     typer.echo(
         f"seed-backfill snapshot={rep.snapshot} loaded_this_run={rep.loaded_this_run} "
         f"complete={rep.complete}"
+    )
+
+
+@app.command("full-refresh")
+def full_refresh_cmd(
+    dry_run: Annotated[
+        bool,
+        typer.Option(help="Report what would be reset without writing anything."),
+    ] = False,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Write the RefreshReport JSON here for the run summary."),
+    ] = None,
+) -> None:
+    """Reset the pipeline's forward state for a clean rebuild (no agent, no data loss).
+
+    The operator escape hatch for a structural change to how data is produced — a
+    new corpus column, a corrected normalization, a data-validity fix best solved
+    by rebuilding from source. Resets the seed cursor (``config/seed-progress.yaml``)
+    so the next ``seed-backfill`` re-loads every court from the top, and clears the
+    corpus forward cursors (each case's ``last_pulled`` and the per-court discovery
+    watermarks) so ``pull`` re-pulls and re-discovers the whole tracked set fresh.
+
+    History is preserved, not dropped: corpus case/event/snapshot rows and the git
+    ledger under ``data/`` stay in place (versioned by the DVC remote's S3 object
+    versioning and git respectively), so the prior state is recoverable. ``--dry-run``
+    reports the blast radius without writing. Run inside the run-seed workflow (it
+    holds the corpus-write lock and pushes the reset corpus blob); see
+    ``docs/data-pipeline.md``.
+    """
+    settings = get_settings()
+    seed_cfg = load_seed_config(settings.config_root)
+    rep = run_full_refresh(
+        cursor_path=seed_cfg.cursor,
+        corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
+        dry_run=dry_run,
+    )
+    if report is not None:
+        write_raw_json(report, rep.model_dump(mode="json"))
+    verb = "would reset" if dry_run else "reset"
+    note = "" if rep.corpus_present else " (no corpus present — run after `dvc pull`)"
+    typer.echo(
+        f"full-refresh: {verb} {rep.courts_reset} court(s) for re-seed; cleared "
+        f"last_pulled on {rep.cases_unpulled} case(s) and {rep.watermarks_cleared} "
+        f"discovery watermark(s){note}"
     )
 
 

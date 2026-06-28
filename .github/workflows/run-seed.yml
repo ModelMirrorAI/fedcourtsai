@@ -20,6 +20,11 @@ on:
   schedule:
     - cron: "23 0 * * 0" # weekly (Sun), overnight: catches a new quarterly snapshot within a week; a reconciliation still ends before run-pull (07:17)
   workflow_dispatch:
+    inputs:
+      full_refresh:
+        description: "Full refresh: reset the seed cursor + corpus forward cursors so the whole tracked set re-seeds and re-pulls fresh (history preserved). See docs/data-pipeline.md."
+        type: boolean
+        default: false
   issues:
     types: [labeled]
 
@@ -127,6 +132,18 @@ jobs:
           else
             echo "No corpus pointer yet; starting a fresh corpus."
           fi
+
+      # Full refresh (workflow_dispatch input): reset the seed cursor so the loop
+      # below re-loads every court from the top, and clear the corpus forward cursors
+      # (each case's last_pulled + the per-court discovery watermarks) so pull
+      # re-pulls and re-discovers the whole tracked set fresh. Deterministic and
+      # history-preserving — corpus rows/events/snapshots and the git ledger are
+      # untouched (see docs/data-pipeline.md). The reset cursor + corpus blob are
+      # committed/pushed by the first checkpoint of the loop, under the corpus-write
+      # lock this job already holds.
+      - name: Full refresh — reset forward cursors before re-seeding
+        if: github.event_name == 'workflow_dispatch' && inputs.full_refresh
+        run: uv run fedcourts full-refresh
 
       - name: Backfill in checkpointed chunks until done or out of time
         env:
