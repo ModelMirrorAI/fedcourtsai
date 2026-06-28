@@ -192,6 +192,12 @@ jobs:
           EVENT_IDS: ${{ matrix.events }}
           RUN_ID: ${{ matrix.run_id }}
         with:
+          # run-pull files reconcile issues as the trusted pipeline App
+          # (`fedcourtsai-data[bot]`), already approved by the plan job's
+          # authorize-trigger gate. claude-code-action refuses a bot actor by
+          # default, so allow exactly that one bot (never `*`) or the automated
+          # handoff never reaches the agent.
+          allowed_bots: "fedcourtsai-data[bot]"
           # Auth is the Anthropic API key (pay-per-token): automated pipeline
           # inference is API-metered by design (see docs/budget.md), and per
           # Anthropic policy the Max subscription OAuth token is for interactive
