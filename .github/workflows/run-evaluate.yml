@@ -206,6 +206,12 @@ jobs:
           EVALUATOR_ID: ${{ matrix.evaluator_id }}
           RUN_ID: ${{ matrix.run_id }}
         with:
+          # run-pull files this evaluate issue as the trusted pipeline App
+          # (`fedcourtsai-data[bot]`), already approved by the plan job's
+          # authorize-trigger gate. claude-code-action refuses a bot actor by
+          # default, so allow exactly that one bot (never `*`) or the automated
+          # handoff never reaches the agent.
+          allowed_bots: "fedcourtsai-data[bot]"
           # Auth is the Anthropic API key (pay-per-token): automated pipeline
           # inference is API-metered by design (see docs/budget.md), and per
           # Anthropic policy the Max subscription OAuth token is for interactive
@@ -253,6 +259,10 @@ jobs:
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
         with:
+          # As with the Claude step: let the trusted run-pull bot handoff
+          # (`fedcourtsai-data[bot]`, already authorized by the plan job) past
+          # codex-action's write-access check, which a bot installation fails.
+          allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ matrix.prompt }}
           model: gpt-5.5
