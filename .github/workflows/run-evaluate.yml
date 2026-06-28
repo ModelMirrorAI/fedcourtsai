@@ -336,7 +336,12 @@ jobs:
         run: |
           set -euo pipefail
           gh auth setup-git
-          branch="evaluate/${EVENT_ID}-${EVALUATOR_ID}-${RUN_ID}"
+          # RUN_ID is only second-granular and is shared by every matrix child of
+          # a plan job, so two cases fired close together can land on the same
+          # RUN_ID. The case (court/docket) is what makes this branch unique work,
+          # so name it in the branch — otherwise two concurrent evaluations for
+          # different dockets collide on one ref and the loser 403s/`fetch first`s.
+          branch="evaluate/${COURT_ID}-${DOCKET_ID}-${EVENT_ID}-${EVALUATOR_ID}-${RUN_ID}"
           git checkout -b "$branch"
           # data/ may not exist yet (no derived artifact has ever been committed),
           # so guard the add: an empty agent run then falls through to the "no
