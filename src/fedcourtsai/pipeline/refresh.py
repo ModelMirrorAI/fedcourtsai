@@ -66,7 +66,7 @@ class RefreshReport(BaseModel):
 
     snapshot: str | None = None
     courts_reset: int = 0
-    """Known courts whose seed cursor was reset for a full re-load."""
+    """Courts whose seed progress was actually cleared (0 if already at the start)."""
     cases_unpulled: int = 0
     """Cases whose ``last_pulled`` stamp was cleared (re-pulled fresh)."""
     watermarks_reset: int = 0
@@ -153,6 +153,9 @@ def full_refresh(
 
     rediscover_since = snapshot_date(reset.snapshot) if reset.snapshot else None
     courts = list(reset.courts)
+    # Count only courts that actually carried progress to clear, so an idempotent
+    # re-run over an already-reset cursor reports 0 rather than the full court count.
+    courts_reset = sum(1 for cp in progress.courts.values() if cp != CourtProgress())
 
     corpus_present = corpus_db_path.exists()
     unpulled = watermarks = 0
@@ -182,7 +185,7 @@ def full_refresh(
 
     return RefreshReport(
         snapshot=reset.snapshot,
-        courts_reset=len(reset.courts),
+        courts_reset=courts_reset,
         cases_unpulled=unpulled,
         watermarks_reset=watermarks,
         rediscover_since=rediscover_since.isoformat() if rediscover_since else None,

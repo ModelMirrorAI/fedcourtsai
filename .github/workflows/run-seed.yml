@@ -145,7 +145,18 @@ jobs:
       # lock this job already holds.
       - name: Full refresh — reset forward cursors before re-seeding
         if: github.event_name == 'workflow_dispatch' && inputs.full_refresh
-        run: uv run fedcourts full-refresh
+        run: |
+          set -euo pipefail
+          # Echo the blast radius (courts re-seeding, cases re-pulled, watermarks
+          # reset, the re-discover-from date) to the job summary as well as the log,
+          # so a sensitive operation is legible without opening raw logs.
+          summary=$(uv run fedcourts full-refresh)
+          echo "$summary"
+          {
+            echo "## Full refresh"
+            echo ""
+            echo "$summary"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Backfill in checkpointed chunks until done or out of time
         env:

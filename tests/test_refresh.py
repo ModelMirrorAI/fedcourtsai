@@ -210,6 +210,22 @@ def test_full_refresh_missing_cursor_starts_fresh(tmp_path: Path) -> None:
     assert load_cursor(cursor).completed is False
 
 
+def test_full_refresh_second_run_reports_nothing_left_to_reset(tmp_path: Path) -> None:
+    # The blast-radius counts reflect what *changed*: a re-run over an already-reset
+    # cursor clears no further seed progress and no further last_pulled stamps.
+    cursor = tmp_path / "seed-progress.yaml"
+    save_cursor(cursor, _seeded_cursor())
+    db = corpus.corpus_db_path(tmp_path)
+    _populate_corpus(db)
+
+    full_refresh(cursor_path=cursor, corpus_db_path=db)
+    again = full_refresh(cursor_path=cursor, corpus_db_path=db)
+
+    assert again.courts_reset == 0  # cursor already at the start
+    assert again.cases_unpulled == 0  # last_pulled already cleared
+    assert again.watermarks_reset == 2  # watermarks re-armed to the same frontier
+
+
 # --- the CLI command -----------------------------------------------------------
 
 
