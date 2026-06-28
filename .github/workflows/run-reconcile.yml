@@ -261,6 +261,16 @@ jobs:
           AGENT_OK: ${{ steps.reconcile_claude.outcome == 'success' }}
         run: |
           set -euo pipefail
+          # claude-code-action persists its github_token (here the least-privilege
+          # contents:read agent token) as a workspace git credential — an http
+          # extraheader and/or an includeIf to a credentials file. Left in place it
+          # overrides the contents:write app token below, so the push authenticates
+          # read-only and 403s. Strip it (the same cleanup actions/checkout runs on
+          # exit, but before the push) so the push uses the app token via GH_TOKEN.
+          git config --local --name-only --get-regexp 'http\..*\.extraheader' 2>/dev/null \
+            | xargs -r -n1 git config --local --unset-all || true
+          git config --local --name-only --get-regexp '^includeif\.' 2>/dev/null \
+            | xargs -r -n1 git config --local --unset-all || true
           gh auth setup-git
           branch="reconcile/${COURT_ID}-${DOCKET_ID}-${RUN_ID}"
           git checkout -b "$branch"
