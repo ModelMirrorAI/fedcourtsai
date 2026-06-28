@@ -156,7 +156,7 @@ docs/               architecture, data model, pipeline, security
 - [Budget](docs/budget.md)
 - [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
-- [Agent workflow](docs/agent-workflow.md) · [Contributing](CONTRIBUTING.md)
+- [Agent workflow](docs/agent-workflow.md) · [Testing](docs/testing.md) · [Contributing](CONTRIBUTING.md)
 
 ## Data & attribution
 
