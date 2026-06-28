@@ -1,7 +1,10 @@
 name: run-pull
 
-# Refresh tracked dockets. Runs on a daily schedule, on manual dispatch, or when
-# an issue is labeled `run:pull`. Deterministic (no agent): discovers newly-filed
+# Refresh tracked dockets. Runs on a staggered intraday schedule (four windows a
+# day), on manual dispatch, or when an issue is labeled `run:pull`. Spreading the
+# refresh over several windows lifts daily throughput toward the CourtListener
+# tier's daily ceiling while each window stays under the hourly one.
+# Deterministic (no agent): discovers newly-filed
 # cases, re-fetches each tracked docket, and detects resolution of open events —
 # writing `outcome.json` when the disposition is machine-readable — ingesting the
 # raw facts (including each refresh's point-in-time snapshot) into the DVC-managed
@@ -12,14 +15,22 @@ name: run-pull
 # issue for each case that gained an outcome, and a `run:reconcile` issue for
 # each case that appears decided but whose outcome an agent must confirm by hand
 # (resolved by run-reconcile.yml — a distinct label so it never re-fires pull).
-# Each run opens a short-lived `pull-log` tracking issue at the start, posts a
-# summary to it, and closes it when the run finishes successfully (left open as a
-# record if the run fails). All git/issue writes use the GitHub App token so the
+# The day's windows share one short-lived `pull-log` tracking issue: the first
+# window opens it, each posts its summary, and the final daily window closes it on
+# success (left open as a record if a window fails). All git/issue writes use the GitHub App token so the
 # resulting issues/commits trigger downstream workflows; the `pull-log` label is
 # deliberately NOT a `run:*` trigger label, so the tracking issue does not re-fire pull.
 on:
   schedule:
+    # Four windows/day, six hours apart (staggered off the hour from other jobs).
+    # Spreading the work keeps each run under the hourly CourtListener ceiling
+    # while the day's total approaches the daily one. Separate lines (not a
+    # comma-list) so `github.event.schedule` identifies the final daily window,
+    # which is the one that closes the shared pull-log issue.
+    - cron: "17 1 * * *"
     - cron: "17 7 * * *"
+    - cron: "17 13 * * *"
+    - cron: "17 19 * * *"
   workflow_dispatch:
   issues:
     types: [labeled]
@@ -42,10 +53,11 @@ jobs:
   pull:
     if: github.event_name != 'issues' || github.event.label.name == 'run:pull'
     runs-on: ubuntu-latest
-    # A daily refresh of up to 50 dockets (CourtListener fetches + DVC S3 transfer)
-    # finishes well inside this; the cap releases the shared corpus-write lock far
-    # sooner than GitHub's 6h default if a network step hangs. Below run-seed's
-    # quarterly budget, since pull does much less work.
+    # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
+    # CourtListener fetches + DVC S3 transfer) finishes well inside this; the cap
+    # releases the shared corpus-write lock far sooner than GitHub's 6h default if
+    # a network step hangs. Below run-seed's quarterly budget, since pull does much
+    # less work.
     timeout-minutes: 45
     environment: runner
     permissions:
@@ -100,22 +112,22 @@ jobs:
           gh label create pull-log --repo "$REPO" --force \
             --color 1d76db --description "Daily run-pull refresh log (open while a run is in flight)"
           today=$(date -u +%Y-%m-%d)
-          # Reuse an open pull-log issue (e.g. one a prior failed run left behind as
-          # a record) instead of opening a fresh one each run, so a streak of
-          # failures collapses into one thread. A successful run still closes it
-          # (below), so steady state opens a new issue per day.
+          # Reuse the open pull-log issue if one exists — the day's earlier windows
+          # share it, and a streak of failures (left open as a record) collapses
+          # into one thread — instead of opening a fresh one each window. The final
+          # daily window closes it (below), so steady state is one issue per day.
           num=$(gh issue list --repo "$REPO" --label pull-log --state open \
             --json number --jq '.[0].number')
           if [ -z "$num" ]; then
             url=$(gh issue create --repo "$REPO" \
               --title "pull: daily refresh — ${today}" \
               --label pull-log \
-              --body "Daily \`run-pull\` refresh in progress. A summary is posted here and this issue is closed when the run finishes successfully; it is left open as a record if the run fails.")
+              --body "Daily \`run-pull\` refresh in progress. Each window posts a summary here; the day's final window closes this issue on success, and it is left open as a record if a window fails.")
             num="${url##*/}"
             echo "Opened pull-log issue: ${url}"
           else
             gh issue comment "$num" --repo "$REPO" \
-              --body "New \`run-pull\` refresh started ${today} — reusing this open log (a prior run left it open)."
+              --body "New \`run-pull\` refresh window started ${today} — reusing this open log."
             echo "Reusing open pull-log issue #${num}"
           fi
           echo "number=${num}" >> "$GITHUB_OUTPUT"
@@ -163,15 +175,17 @@ jobs:
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
           # CourtListener per-token rate limits the client throttles to
-          # (config.py courtlistener_rpm/rph/rpd). Set the repo/environment
-          # variables to the active Free Law Project tier (e.g. Tier 2 = 15/150/600)
-          # to use the paid membership's higher ceiling. The `|| '...'` fallbacks
-          # are the free-tier defaults: an unset Actions variable renders as an
-          # empty string, which would fail int parsing — so absent any variable,
-          # this stays at today's 5/50/125 rather than crashing pull-all.
-          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '5' }}
-          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '50' }}
-          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '125' }}
+          # (config.py courtlistener_rpm/rph/rpd). The repo/environment variables
+          # are the knob — set them to the active Free Law Project tier to retune
+          # without a code change. The `|| '...'` fallbacks default to the pilot's
+          # held tier (Tier 2 = 15/150/600), so an unset variable lands on the
+          # correct ceiling rather than silently throttling to the free tier (an
+          # unset Actions variable renders as an empty string, which would also
+          # fail int parsing — the fallback avoids that crash). Drop these to the
+          # free-tier 5/50/125 if the membership ever lapses.
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '15' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '150' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '600' }}
         run: |
           uv run fedcourts pull-all \
             --out predict-queue.json \
@@ -314,13 +328,17 @@ jobs:
               --label "run:reconcile"
           done
 
-      - name: Summarize and close the daily run issue
+      - name: Summarize the run; close the log after the final daily window
         if: success() && steps.run-issue.outputs.number != ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           ISSUE: ${{ steps.run-issue.outputs.number }}
           COMMITTED: ${{ steps.commit.outputs.committed }}
+          # The shared daily log is closed only after the last scheduled window
+          # (so the day's windows collapse into one thread), or by a one-off
+          # manual / `run:pull` run (no schedule, so it owns its own log).
+          IS_FINAL_WINDOW: ${{ github.event_name != 'schedule' || github.event.schedule == '17 19 * * *' }}
         run: |
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
@@ -329,12 +347,14 @@ jobs:
           if [ "${COMMITTED:-false}" = "true" ]; then
             snap="Committed the refreshed corpus pointer + new outcomes to the default branch."
           else
-            snap="No outcome or corpus changes this run."
+            snap="No outcome or corpus changes this window."
           fi
-          body=$(printf '### ✅ Daily pull refresh complete\n\n%s\n\nHandoffs this run:\n- run:predict issues opened: **%s**\n- run:evaluate issues opened: **%s**\n- ambiguous outcomes flagged for reconcile: **%s**\n' \
+          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window:\n- run:predict issues opened: **%s**\n- run:evaluate issues opened: **%s**\n- ambiguous outcomes flagged for reconcile: **%s**\n' \
             "$snap" "$predict" "$evaluate" "$reconcile")
           gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
-          gh issue close "$ISSUE" --repo "$REPO" --reason completed
+          if [ "${IS_FINAL_WINDOW}" = "true" ]; then
+            gh issue close "$ISSUE" --repo "$REPO" --reason completed
+          fi
           # Ops analytics (#89): the same summary in the Actions UI, no roll-up needed.
           {
             echo "## run-pull — $(date -u +%Y-%m-%d)"

@@ -18,18 +18,24 @@ seed:
   cursor: config/seed-progress.yaml
 
 # pull = forward freshness from the rate-limited REST API. Owns the API budget.
+# The per-request rate limits the client throttles to are NOT set here: they live
+# in the runner env (FEDCOURTS_COURTLISTENER_RPM/_RPH/_RPD, wired from repo
+# variables to the active Free Law Project tier — see docs/budget.md). The caps
+# below bound how much work each run and each day does within that envelope.
 pull:
-  # CourtListener per-token budget (mirrors FEDCOURTS_COURTLISTENER_* / issue #1).
-  # The governor keeps a run under these ceilings.
-  api_per_minute: 5
-  api_per_hour: 50
-  api_per_day: 125
-  # Max dockets refreshed per scheduled run (~3 requests each; stays under 50/hr).
-  max_cases_per_run: 15
+  # Max dockets refreshed per run (~3 requests each). On Tier 2 (15/150/600) with
+  # four daily windows this gives ~120 refreshes/day: 30×3=90 requests/run stays
+  # under the 150/hr ceiling, and 4 runs stay under the 600/day ceiling.
+  max_cases_per_run: 30
   # Refresh order: stalest first, so a large active set rotates within budget.
   rotation: oldest_last_pulled_first
   # Don't spend budget re-fetching closed / resolved cases.
   skip_closed: true
+  # Reserve up to this many of each run's slots for the stalest predict-eligible
+  # (SCOTUS-touched) cases, so the pilot set rotates ahead of the much larger
+  # general active set and new docket activity is caught before a case resolves.
+  # Unused slots fall through to the normal rotation, so it never wastes budget.
+  eligible_refresh_reserve: 10
   # Discover newly-filed dockets in the tracked courts since the last run.
   discover_new_filings: true
   # Hard cap on new dockets onboarded per discovery run (its own slice of the

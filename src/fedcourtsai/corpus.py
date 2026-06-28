@@ -577,11 +577,43 @@ def retrieve_priors(
     return [row for *_, row in scored[:limit]]
 
 
+def _rotation_rows(
+    conn: sqlite3.Connection,
+    *,
+    limit: int,
+    skip_closed: bool,
+    only_eligible: bool = False,
+) -> list[CorpusRow]:
+    """Stalest-first active cases: never-pulled first, then oldest ``last_pulled``.
+
+    The shared query behind :func:`rotation_for_pull`. ``skip_closed`` drops cases
+    carrying a realized ``disposition`` / ``date_decided`` (their outcome is known);
+    ``only_eligible`` further restricts to ``predict_eligible`` cases. ``case_id``
+    breaks ties so the order is deterministic.
+    """
+    if limit <= 0:
+        return []
+    clauses: list[str] = []
+    if skip_closed:
+        clauses.append("disposition IS NULL AND date_decided IS NULL")
+    if only_eligible:
+        clauses.append("predict_eligible = 1")
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    cur = conn.execute(
+        f"SELECT * FROM cases{where} "
+        "ORDER BY last_pulled IS NOT NULL, last_pulled ASC, case_id ASC "
+        "LIMIT ?",
+        (limit,),
+    )
+    return [_from_record(record) for record in cur]
+
+
 def rotation_for_pull(
     conn: sqlite3.Connection,
     *,
     limit: int,
     skip_closed: bool = True,
+    eligible_reserve: int = 0,
 ) -> list[CorpusRow]:
     """The next ``limit`` cases ``pull`` should refresh, stalest first.
 
@@ -594,17 +626,37 @@ def rotation_for_pull(
     With ``skip_closed`` (the default) a case that is **closed or resolved** —
     one carrying a realized ``disposition`` or a ``date_decided`` — is excluded,
     so no budget is spent re-fetching a docket whose outcome is already known.
+
+    ``eligible_reserve`` reserves up to that many of the ``limit`` slots for the
+    stalest **``predict_eligible``** cases (the SCOTUS-touched pilot set), filled
+    first; the remainder fall to the normal stalest-first rotation over the whole
+    active set. This keeps the small predict-eligible pool rotating fast enough to
+    catch new docket activity before a case resolves, instead of waiting its turn
+    behind the much larger active set. Reserve slots the eligible pool cannot fill
+    fall through to the general rotation, so the reserve never wastes budget; a
+    case picked by the reserve is not picked again by the general fill.
     """
     if limit <= 0:
         return []
-    where = " WHERE disposition IS NULL AND date_decided IS NULL" if skip_closed else ""
-    cur = conn.execute(
-        f"SELECT * FROM cases{where} "
-        "ORDER BY last_pulled IS NOT NULL, last_pulled ASC, case_id ASC "
-        "LIMIT ?",
-        (limit,),
-    )
-    return [_from_record(record) for record in cur]
+    reserve = min(eligible_reserve, limit)
+    picked: list[CorpusRow] = []
+    seen: set[str] = set()
+    if reserve > 0:
+        for row in _rotation_rows(conn, limit=reserve, skip_closed=skip_closed, only_eligible=True):
+            picked.append(row)
+            seen.add(row.case_id)
+    remaining = limit - len(picked)
+    if remaining > 0:
+        # Over-fetch by the reserved count so dropping cases already taken by the
+        # eligible reserve still leaves ``remaining`` distinct general cases.
+        for row in _rotation_rows(conn, limit=remaining + len(seen), skip_closed=skip_closed):
+            if row.case_id in seen:
+                continue
+            picked.append(row)
+            seen.add(row.case_id)
+            if len(picked) >= limit:
+                break
+    return picked
 
 
 # --- predictable event definitions (raw facts) ---------------------------------

@@ -99,7 +99,7 @@ legible.
    │  no agent, no budget   │ cursor + run:seed tracking issue
    └───────────────────────┘
    ┌───────────────────────┐
-   │ PULL (daily, forever)  │ REST API (125/day governor)
+   │ PULL (daily, forever)  │ REST API (per-tier daily governor)
    │  refresh + discover    │ ─► same packed corpus (DVC): fresh facts + snapshots
    │  + outcome detect      │ ─► outcome.json + run:predict handoff in the git ledger
    └───────────────────────┘
@@ -288,18 +288,24 @@ replayed out of band, exactly as `run-predict` runs them live.
 
 ## Pull — forward freshness
 
-- **Trigger:** daily cron (staggered from other jobs), `workflow_dispatch`, or a
-  maintainer-applied `run:pull` label for an on-demand refresh (which re-runs the
-  full `pull-all`, not a single case). Recording a decided event's outcome is split
-  off to `run:reconcile` (see *Detect resolution* below), so it is **no longer**
-  the deterministic pull's job.
-- **Per-run tracking:** each run opens a short-lived `pull-log` issue at the start,
-  posts a summary (handoffs opened, whether snapshots were committed), and closes it
-  on success — left open as a record if the run fails. The `pull-log` label is
-  deliberately not a `run:*` trigger label, so the tracking issue never re-fires pull.
-- **Budget governor:** a per-run cap (~15 dockets ≈ 45 requests, under the 50/hr
-  ceiling) with **oldest-`last_pulled`-first rotation** and **skip closed/resolved**
-  cases. As the active set grows past one run's capacity, each case is simply
+- **Trigger:** an intraday cron that fires several windows a day (staggered from
+  other jobs), `workflow_dispatch`, or a maintainer-applied `run:pull` label for an
+  on-demand refresh (which re-runs the full `pull-all`, not a single case).
+  Recording a decided event's outcome is split off to `run:reconcile` (see *Detect
+  resolution* below), so it is **no longer** the deterministic pull's job.
+- **Per-window tracking:** the day's windows share one short-lived `pull-log`
+  issue — the first window opens it, each posts a summary (handoffs opened, whether
+  snapshots were committed), and the final daily window closes it on success — left
+  open as a record if a window fails. The `pull-log` label is deliberately not a
+  `run:*` trigger label, so the tracking issue never re-fires pull.
+- **Budget governor:** a per-run cap (`max_cases_per_run` dockets ≈ ~3 requests
+  each) with **oldest-`last_pulled`-first rotation** and **skip closed/resolved**
+  cases, sized so each window stays under the active CourtListener tier's hourly
+  ceiling and the day's windows under its daily one. A slice of each run
+  (`eligible_refresh_reserve`) is reserved for the stalest **predict-eligible**
+  cases, so the SCOTUS-touched pilot set rotates ahead of the much larger active
+  set and new docket activity is caught before a case resolves. As the active set
+  grows past one run's capacity, each case is simply
   refreshed every few days. The rotation key `last_pulled` is **per-case tracking
   state in the corpus** — raw facts, tracking state included, live in the corpus,
   not git — so the governor adds and maintains that column (the old

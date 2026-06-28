@@ -69,6 +69,71 @@ def test_cases_due_for_pull_missing_corpus_is_empty(tmp_path: Path) -> None:
     assert not db.exists()  # reading must not create the corpus as a side effect
 
 
+def test_eligible_reserve_pulls_eligible_ahead_of_staler_general(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    rows = [
+        # Eligible, but recently pulled — it would lose the normal staleness race.
+        corpus.CorpusRow(
+            case_id="scotus/1", court="scotus", last_pulled=date(2026, 6, 20), predict_eligible=True
+        ),
+        corpus.CorpusRow(case_id="ca9/2", court="ca9", last_pulled=None),  # stalest general
+        corpus.CorpusRow(case_id="ca9/3", court="ca9", last_pulled=date(2026, 6, 10)),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    # Without the reserve, the two stalest general cases win both slots.
+    assert cases_due_for_pull(db, limit=2) == [("ca9", 2), ("ca9", 3)]
+    # The reserve gives one slot to the stalest eligible case; the rest stays general.
+    assert cases_due_for_pull(db, limit=2, eligible_reserve=1) == [("scotus", 1), ("ca9", 2)]
+
+
+def test_eligible_reserve_does_not_double_count(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    rows = [
+        # Eligible AND the stalest overall: it must be picked once, not twice.
+        corpus.CorpusRow(
+            case_id="scotus/1", court="scotus", last_pulled=None, predict_eligible=True
+        ),
+        corpus.CorpusRow(case_id="ca9/2", court="ca9", last_pulled=date(2026, 6, 10)),
+        corpus.CorpusRow(case_id="ca9/3", court="ca9", last_pulled=date(2026, 6, 20)),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    due = cases_due_for_pull(db, limit=2, eligible_reserve=1)
+    assert due == [("scotus", 1), ("ca9", 2)]
+    assert len(due) == len(set(due))  # the general fill skips the reserved case
+
+
+def test_eligible_reserve_unfilled_falls_through_to_general(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    rows = [
+        corpus.CorpusRow(case_id="ca9/1", court="ca9", last_pulled=None),
+        corpus.CorpusRow(case_id="ca9/2", court="ca9", last_pulled=date(2026, 6, 10)),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    # No eligible cases exist, so the reserve wastes nothing — the full budget is
+    # still spent on the general rotation.
+    assert cases_due_for_pull(db, limit=2, eligible_reserve=2) == [("ca9", 1), ("ca9", 2)]
+
+
+def test_eligible_reserve_respects_skip_closed(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    rows = [
+        # Eligible but resolved: skip_closed must exclude it from the reserve too.
+        corpus.CorpusRow(
+            case_id="scotus/1",
+            court="scotus",
+            predict_eligible=True,
+            disposition=Disposition.denied,
+        ),
+        corpus.CorpusRow(case_id="ca9/2", court="ca9", last_pulled=None),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    assert cases_due_for_pull(db, limit=2, eligible_reserve=1) == [("ca9", 2)]
+
+
 def test_open_and_resolved_events_partition_corpus_events(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     with corpus.connect(db) as conn:
