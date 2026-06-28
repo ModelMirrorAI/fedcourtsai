@@ -41,20 +41,25 @@ def _case_pair(case_id: str) -> tuple[str, int] | None:
 
 
 def cases_due_for_pull(
-    corpus_db_path: Path, *, limit: int, skip_closed: bool = True
+    corpus_db_path: Path, *, limit: int, skip_closed: bool = True, eligible_reserve: int = 0
 ) -> list[tuple[str, int]]:
     """The ``(court, docket)`` cases ``pull`` should refresh this run, stalest first.
 
     The budget governor: returns at most ``limit`` cases from the active set in
     oldest-``last_pulled``-first order (skipping closed/resolved cases by
     default), so a run provably touches no more than ``limit`` dockets and a
-    large active set rotates over successive days. Empty if the corpus does not
+    large active set rotates over successive days. ``eligible_reserve`` reserves
+    up to that many slots for the stalest ``predict_eligible`` cases so the pilot
+    set rotates ahead of the general active set (see
+    :func:`fedcourtsai.corpus.rotation_for_pull`). Empty if the corpus does not
     exist yet (reading must not create it).
     """
     if not corpus_db_path.exists():
         return []
     with corpus.connect(corpus_db_path) as conn:
-        rows = corpus.rotation_for_pull(conn, limit=limit, skip_closed=skip_closed)
+        rows = corpus.rotation_for_pull(
+            conn, limit=limit, skip_closed=skip_closed, eligible_reserve=eligible_reserve
+        )
     return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]
 
 

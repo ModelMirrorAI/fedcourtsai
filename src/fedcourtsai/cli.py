@@ -893,7 +893,12 @@ def pull_all(
             disc_failed = _format_discovery_failures(disc.failed)
             typer.echo(f"Discovered {disc.total} new case(s) before refresh{disc_failed}")
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
-        due = cases_due_for_pull(db, limit=cap, skip_closed=pull_cfg.skip_closed)
+        due = cases_due_for_pull(
+            db,
+            limit=cap,
+            skip_closed=pull_cfg.skip_closed,
+            eligible_reserve=pull_cfg.eligible_refresh_reserve,
+        )
         queues = pull_cases(client, db, settings.data_root, due, scope=scope)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")

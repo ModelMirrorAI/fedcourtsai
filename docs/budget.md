@@ -171,15 +171,18 @@ set. **Tier 3 ($50/mo) is the recommended floor** (covers new filings plus a
 healthy refresh rotation); **Tier 4 ($100/mo)** buys comfortable headroom as the
 tracked set grows. Above Tier 4 is a custom commercial agreement (unpublished).
 
-The **pilot currently holds Tier 2 ($25/mo)**. Under the SCOTUS-interaction gate,
-a pull run refreshes ~15 dockets and discovers ~10 new ones (a few dozen requests
-total), so daily volume sits well inside Tier 2's 15/min · 150/hr · 600/day
-(~200 dockets/day) — the free tier was already brushing the daily ceiling, which
-prompted the upgrade. Tier 3+ becomes the floor only once the gate widens toward
-keeping all fourteen courts current at the live frontier. The membership raises
-the *ceiling*; the client still throttles to whatever `FEDCOURTS_COURTLISTENER_RPM`
-/ `_RPH` / `_RPD` are set to in the runner env, so realizing the higher rate means
-bumping those (the `tracking.yaml` `api_*` keys are documentation, not the knob).
+The **pilot currently holds Tier 2 ($25/mo)**. Pull runs four windows a day, each
+refreshing up to `max_cases_per_run` (30) dockets and discovering new filings — so
+~120 refreshes/day plus discovery, comfortably inside Tier 2's 15/min · 150/hr ·
+600/day (~200 dockets/day): each window's ~30×3 ≈ 90 requests stays under the
+hourly ceiling and the four windows stay under the daily one. A slice of every run
+(`eligible_refresh_reserve`) is reserved for the stalest predict-eligible cases so
+the SCOTUS-touched pilot set rotates fast under the gate. Tier 3+ becomes the floor
+only once the gate widens toward keeping all fourteen courts current at the live
+frontier. The membership raises the *ceiling*; the client still throttles to
+whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to in the runner
+env (wired in `run-pull.yml` from repo variables, defaulting to the held tier), so
+realizing a higher rate means setting those variables — no code change.
 
 > **Line item: $300–1,200/yr** (pilot Tier 2 ≈ $250/yr; Tier 3–4 as scope widens).
 

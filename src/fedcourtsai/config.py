@@ -52,11 +52,18 @@ class PullConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    # ~15 dockets ≈ 45 requests, under the 50/hr ceiling, so a run finishes
-    # without the rate limiter forcing long sleeps. A hard per-run cap.
+    # Hard per-run cap on dockets refreshed (~3 requests each). Sized to the
+    # active CourtListener tier and how many windows the schedule runs per day, so
+    # the day's total stays under the daily ceiling and a single run stays under
+    # the hourly ceiling (tier-hr ÷ ~3).
     max_cases_per_run: int = Field(default=15, ge=0)
     # Don't spend budget re-fetching closed / resolved cases.
     skip_closed: bool = True
+    # Reserve up to this many of each run's slots for the stalest predict-eligible
+    # cases, so the SCOTUS-touched pilot set rotates ahead of the much larger
+    # general active set. Unused reserve slots fall through to the normal
+    # stalest-first rotation, so it never wastes budget; 0 disables the bias.
+    eligible_refresh_reserve: int = Field(default=0, ge=0)
     # Discover newly-filed dockets in the tracked courts since the last run.
     discover_new_filings: bool = True
     # Hard cap on new dockets onboarded per run (its own slice of the budget,
