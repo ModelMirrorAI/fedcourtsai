@@ -910,7 +910,10 @@ def local_cascade(
     ] = "",
     engine: Annotated[
         str,
-        typer.Option(help="Engine backend: stub (offline, default) | claude-code | codex."),
+        typer.Option(
+            help="Engine backend: stub (offline, default) | replay (offline, recorded "
+            "cassette) | claude-code | codex."
+        ),
     ] = "stub",
     run_id: Annotated[
         str, typer.Option(help="Shared run id for the cells; defaults to now (UTC).")
@@ -925,7 +928,10 @@ def local_cascade(
     ledger — the iteration loop that otherwise only runs inside Actions.
 
     ``--engine stub`` (the default) is deterministic, offline, and token-free.
-    ``--engine claude-code`` / ``--engine codex`` drive the real headless agents
+    ``--engine replay`` is also offline but emits a captured real prediction from
+    the cassette at ``FEDCOURTS_REPLAY_ROOT`` (see ``tests/cassettes``), so the
+    scoring and leaderboard consumers run over realistic output rather than the stub
+    floor. ``--engine claude-code`` / ``--engine codex`` drive the real headless agents
     against the same env-var + prompt contract the workflows use; auth is inherited
     from the environment (for Claude, ``ANTHROPIC_API_KEY`` or the subscription
     ``CLAUDE_CODE_OAUTH_TOKEN`` from ``claude setup-token``). Writes derived

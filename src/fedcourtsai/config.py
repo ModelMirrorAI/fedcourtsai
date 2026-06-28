@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     config_root: Path = Path("config")
     corpus_root: Path = Path("corpus")
     metrics_root: Path = Path("metrics")
+    # Recorded-cassette directory the offline `replay` engine reads instead of
+    # calling a model (a captured real cell's output; see the runner). Unset in
+    # production — replay is a test/dev backend — so the `replay` engine errors
+    # clearly when no cassette is configured.
+    replay_root: Path | None = None
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
     # Seed reads CourtListener's *public bulk-data* CSV (no API token). Point this
