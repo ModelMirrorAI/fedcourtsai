@@ -5,6 +5,7 @@ from typing import Any, cast
 import httpx
 
 from fedcourtsai import corpus
+from fedcourtsai.cli import _format_discovery_failures
 from fedcourtsai.config import PredictScope
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.paths import CasePaths
@@ -278,3 +279,19 @@ def test_discover_pull_predict_then_evaluate_from_corpus_events(tmp_path: Path) 
     assert outcome.exists()
     assert open_events(db, "ca9", 101) == []
     assert resolved_events(db, "ca9", 101) == ["evt-appeal-disposition"]
+
+
+def test_format_discovery_failures_surfaces_each_courts_reason() -> None:
+    """``pull-all`` echoes every failed court alongside its recorded reason."""
+    # No casualties -> empty suffix that appends cleanly to the count line.
+    assert _format_discovery_failures([]) == ""
+
+    failed: list[dict[str, object]] = [
+        {"court": "scotus", "reason": "ReadTimeout: read timed out"},
+        {"court": "ca1", "reason": "HTTPStatusError: 429 Too Many Requests"},
+    ]
+    summary = _format_discovery_failures(failed)
+    assert summary.startswith(" (2 court(s) failed: ")
+    # Both the court id and its failure type/message are visible from the log line.
+    assert "scotus [ReadTimeout: read timed out]" in summary
+    assert "ca1 [HTTPStatusError: 429 Too Many Requests]" in summary
