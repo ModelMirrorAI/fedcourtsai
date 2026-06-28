@@ -26,6 +26,11 @@ uv run fedcourts validate data       # ledger schema + git-only references
 uv run fedcourts dvc-status          # DVC metadata is internally consistent
 ```
 
+The `pytest` run includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
+it drives provision → predict → evaluate → `validate` over the fixture corpus with no
+network, so a broken predict/evaluate cell fails in the gate in seconds. Run just it
+with `uv run pytest -k cascade_smoke`.
+
 If you changed the pydantic models, regenerate and commit the exported schemas —
 CI fails on drift:
 
@@ -59,9 +64,11 @@ corpus from S3 over OIDC, the GitHub App token, issue comments — is deliberate
 *not* part of the fast loop. It is exercised by dedicated paths and occasional
 manual workflow dispatch, never on every iteration.
 
-> **Status.** The deterministic core and the gate above are in place today. The
-> offline agent harness described next (the engine seam, the fixture corpus, and
-> `local-cascade`) is being built out — see the testing issues tracked on the repo.
+> **Status.** The deterministic core and the gate above are in place today, as are
+> the engine seam, the fixture corpus, and the stub cascade that composes them — the
+> latter runs in the gate as the `test_cascade_smoke.py` smoke. The one-command
+> `local-cascade` wrapper described next is still being built out — see the testing
+> issues tracked on the repo.
 
 ## Testing the agentic stages locally
 
@@ -95,10 +102,11 @@ export CLAUDE_CODE_OAUTH_TOKEN=...
 uv run fedcourts local-cascade --court ca9 --docket <id> --engine claude-code
 ```
 
-The stub cascade is fast and offline enough to belong in the gate, so a broken
-predict/evaluate cell surfaces *before* a PR is opened. A real-engine run is a
-deliberate, occasional check — it catches prompt-level regressions the stub can't
-see — not the inner loop.
+The stub cascade is fast and offline enough to belong in the gate, and it does:
+`tests/test_cascade_smoke.py` drives it over the fixture corpus on every `pytest`
+run, so a broken predict/evaluate cell surfaces *before* a PR is opened. A
+real-engine run is a deliberate, occasional check — it catches prompt-level
+regressions the stub can't see — not the inner loop.
 
 ## Keep the workflow a thin wrapper
 

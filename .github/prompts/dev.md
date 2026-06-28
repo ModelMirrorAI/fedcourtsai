@@ -66,10 +66,16 @@ signal to *update that work in place*, not to open a parallel copy.
    uv run ruff format --check .
    uv run ruff check .
    uv run mypy
-   uv run pytest
+   uv run pytest   # includes the offline stub-cascade smoke (-k cascade_smoke)
    uv run fedcourts validate data
    uv run fedcourts dvc-status
    ```
+
+   The `pytest` run includes a fast, offline **stub-cascade smoke**
+   (`tests/test_cascade_smoke.py`): it drives provision → predict → evaluate →
+   `validate` over the fixture corpus with no network, so a broken predict/evaluate
+   cell fails here in seconds rather than in a labelled CI run. Run it on its own
+   with `uv run pytest -k cascade_smoke`.
 
    If you changed the pydantic models, regenerate schemas
    (`uv run fedcourts export-schemas schemas`) and commit them — CI fails if they
