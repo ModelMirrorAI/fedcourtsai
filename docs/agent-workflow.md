@@ -11,6 +11,10 @@ Every agent (and human) change lands the same way.
    uv run ruff format --check . && uv run ruff check . && uv run mypy && uv run pytest
    uv run fedcourts validate data
    ```
+   `pytest` includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`)
+   that runs provision → predict → evaluate → `validate` over the fixture corpus with
+   no network, so a broken predict/evaluate cell surfaces in seconds before you open a
+   PR; run just it with `uv run pytest -k cascade_smoke`.
    If you changed the models: `uv run fedcourts export-schemas schemas` and commit.
 4. **Open one focused PR** against `main` with a conventional-commit title and a
    description of what changed and why. For `run:predict`/`run:evaluate`, the
