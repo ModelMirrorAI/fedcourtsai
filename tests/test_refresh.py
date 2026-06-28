@@ -72,27 +72,66 @@ def test_reset_seed_cursor_on_empty_cursor_is_a_noop() -> None:
 # --- reset_corpus_tracking -----------------------------------------------------
 
 
-def test_reset_corpus_tracking_clears_cursors_keeps_rows(tmp_path: Path) -> None:
+def test_reset_corpus_tracking_clears_pulled_and_arms_every_court(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     _populate_corpus(db)
     with corpus.connect(db) as conn:
-        unpulled, watermarks = reset_corpus_tracking(conn)
-    assert (unpulled, watermarks) == (2, 1)
+        unpulled, watermarks = reset_corpus_tracking(
+            conn, courts=["ca1", "ca9"], rediscover_since=date(2026, 3, 31)
+        )
+    assert (unpulled, watermarks) == (2, 2)
     with corpus.connect(db) as conn:
-        # Rows themselves are preserved — only the forward cursors were cleared.
+        # Rows themselves are preserved — only the forward cursors were reset.
         assert corpus.count(conn) == 2
         assert _fetch(conn, "ca1/1").last_pulled is None
         assert _fetch(conn, "ca9/2").last_pulled is None
-        assert corpus.get_discovery_watermark(conn, "ca1") is None
+        # Every tracked court is armed at the snapshot frontier so discovery
+        # re-walks the post-snapshot range — including ca9, which had no watermark.
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 3, 31)
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 3, 31)
 
 
-def test_reset_corpus_tracking_is_idempotent(tmp_path: Path) -> None:
+def test_reset_corpus_tracking_force_rewinds_an_advanced_watermark(tmp_path: Path) -> None:
+    # The fix for the discovery race: set_discovery_watermark is forward-only, so a
+    # pull that already advanced a court to today would otherwise pin it there. The
+    # reset must force the frontier back so the post-snapshot range is re-walked.
     db = corpus.corpus_db_path(tmp_path)
     _populate_corpus(db)
     with corpus.connect(db) as conn:
-        reset_corpus_tracking(conn)
-        again = reset_corpus_tracking(conn)
-    assert again == (0, 0)
+        corpus.set_discovery_watermark(conn, "ca1", date(2026, 6, 30))  # pull advanced it
+    with corpus.connect(db) as conn:
+        reset_corpus_tracking(conn, courts=["ca1"], rediscover_since=date(2026, 3, 31))
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 3, 31)
+
+
+def test_reset_corpus_tracking_without_frontier_drops_watermarks(tmp_path: Path) -> None:
+    # An undatable snapshot id yields no frontier, so there is nothing to re-walk
+    # from — drop the watermarks (discovery falls back to its default), as before.
+    db = corpus.corpus_db_path(tmp_path)
+    _populate_corpus(db)
+    with corpus.connect(db) as conn:
+        unpulled, watermarks = reset_corpus_tracking(
+            conn, courts=["ca1", "ca9"], rediscover_since=None
+        )
+    assert (unpulled, watermarks) == (2, 1)  # one existing watermark dropped
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") is None
+
+
+def test_reset_corpus_tracking_is_state_idempotent(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    _populate_corpus(db)
+    with corpus.connect(db) as conn:
+        reset_corpus_tracking(conn, courts=["ca1", "ca9"], rediscover_since=date(2026, 3, 31))
+        again = reset_corpus_tracking(
+            conn, courts=["ca1", "ca9"], rediscover_since=date(2026, 3, 31)
+        )
+    # last_pulled is already cleared (0); the watermarks re-arm to the same frontier
+    # — the same end state, reported as the count of courts re-armed.
+    assert again == (0, 2)
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 3, 31)
 
 
 # --- full_refresh --------------------------------------------------------------
@@ -110,7 +149,8 @@ def test_full_refresh_resets_cursor_and_corpus(tmp_path: Path) -> None:
         snapshot="2026-03-31",
         courts_reset=2,
         cases_unpulled=2,
-        watermarks_cleared=1,
+        watermarks_reset=2,
+        rediscover_since="2026-03-31",
         corpus_present=True,
         dry_run=False,
     )
@@ -118,10 +158,11 @@ def test_full_refresh_resets_cursor_and_corpus(tmp_path: Path) -> None:
     persisted = load_cursor(cursor)
     assert persisted.completed is False
     assert all(cp == CourtProgress() for cp in persisted.courts.values())
-    # Corpus forward cursors were cleared, rows kept.
+    # Corpus forward cursors were reset, rows kept, every court armed to re-discover.
     with corpus.connect(db) as conn:
         assert corpus.count(conn) == 2
         assert _fetch(conn, "ca1/1").last_pulled is None
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 3, 31)
 
 
 def test_full_refresh_dry_run_writes_nothing(tmp_path: Path) -> None:
@@ -133,13 +174,15 @@ def test_full_refresh_dry_run_writes_nothing(tmp_path: Path) -> None:
     report = full_refresh(cursor_path=cursor, corpus_db_path=db, dry_run=True)
 
     assert report.dry_run is True
-    # Counts reflect what *would* be reset.
-    assert (report.courts_reset, report.cases_unpulled, report.watermarks_cleared) == (2, 2, 1)
+    # Counts reflect what *would* be reset (one watermark per tracked court).
+    assert (report.courts_reset, report.cases_unpulled, report.watermarks_reset) == (2, 2, 2)
+    assert report.rediscover_since == "2026-03-31"
     # Nothing was actually changed.
     assert load_cursor(cursor).completed is True
     with corpus.connect(db) as conn:
         assert _fetch(conn, "ca1/1").last_pulled == date(2026, 6, 1)
-        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 3, 31)
+        assert corpus.get_discovery_watermark(conn, "ca1") == date(2026, 3, 31)  # unchanged
+        assert corpus.get_discovery_watermark(conn, "ca9") is None  # not created
 
 
 def test_full_refresh_without_corpus_resets_cursor_only(tmp_path: Path) -> None:
@@ -150,7 +193,7 @@ def test_full_refresh_without_corpus_resets_cursor_only(tmp_path: Path) -> None:
     report = full_refresh(cursor_path=cursor, corpus_db_path=db)
 
     assert report.corpus_present is False
-    assert (report.cases_unpulled, report.watermarks_cleared) == (0, 0)
+    assert (report.cases_unpulled, report.watermarks_reset) == (0, 0)
     assert report.courts_reset == 2
     assert load_cursor(cursor).completed is False
     # The reset must not have created an empty corpus as a side effect.
@@ -200,7 +243,8 @@ def test_cli_full_refresh_resets_and_reports(
     assert load_cursor(cursor).completed is False
     payload = json.loads(report_path.read_text())
     assert payload["cases_unpulled"] == 2
-    assert payload["watermarks_cleared"] == 1
+    assert payload["watermarks_reset"] == 2
+    assert payload["rediscover_since"] == "2026-03-31"
 
 
 def test_cli_full_refresh_dry_run_changes_nothing(

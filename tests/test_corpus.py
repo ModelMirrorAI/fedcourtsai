@@ -547,6 +547,21 @@ def test_events_upsert_is_idempotent_by_case_and_event(tmp_path: Path) -> None:
     assert fetched[0].title == "new"
 
 
+def test_events_upsert_never_reopens_a_resolved_event(tmp_path: Path) -> None:
+    # Resolution latches on: re-ingesting a docket (re-discovery, or a quarterly
+    # seed reconcile) carries freshly-extracted events with resolved=False, which
+    # must not reopen an event a prior outcome detection already closed.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        corpus.set_event_resolved(conn, "ca9/123", "evt-appeal-disposition")
+        # A later re-ingest re-asserts the event as open — it must stay resolved.
+        corpus.upsert_events(conn, [_event(title="re-ingested", resolved=False)])
+        fetched = corpus.events_for_case(conn, "ca9/123")
+    assert fetched[0].resolved is True  # resolution preserved
+    assert fetched[0].title == "re-ingested"  # other fields still refresh
+
+
 def test_multiple_events_per_case(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:

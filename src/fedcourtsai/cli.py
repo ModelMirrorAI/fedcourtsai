@@ -687,15 +687,17 @@ def full_refresh_cmd(
     The operator escape hatch for a structural change to how data is produced — a
     new corpus column, a corrected normalization, a data-validity fix best solved
     by rebuilding from source. Resets the seed cursor (``config/seed-progress.yaml``)
-    so the next ``seed-backfill`` re-loads every court from the top, and clears the
-    corpus forward cursors (each case's ``last_pulled`` and the per-court discovery
-    watermarks) so ``pull`` re-pulls and re-discovers the whole tracked set fresh.
+    so the next ``seed-backfill`` re-loads every court from the top, clears each
+    case's ``last_pulled`` so ``pull`` re-pulls the active set, and resets each
+    court's discovery watermark to the snapshot frontier so discovery re-walks the
+    post-snapshot range — re-ingesting cases that resolved after the snapshot, which
+    ``pull`` alone would skip. Re-ingestion never reopens a resolved event.
 
     History is preserved, not dropped: corpus case/event/snapshot rows and the git
-    ledger under ``data/`` stay in place (versioned by the DVC remote's S3 object
-    versioning and git respectively), so the prior state is recoverable. ``--dry-run``
-    reports the blast radius without writing. Run inside the run-seed workflow (it
-    holds the corpus-write lock and pushes the reset corpus blob); see
+    ledger under ``data/`` stay in place (recoverable via the content-addressed DVC
+    blob under a no-delete remote and git history of the pointer / ledger).
+    ``--dry-run`` reports the blast radius without writing. Run inside the run-seed
+    workflow (it holds the corpus-write lock and pushes the reset corpus blob); see
     ``docs/data-pipeline.md``.
     """
     settings = get_settings()
@@ -708,11 +710,12 @@ def full_refresh_cmd(
     if report is not None:
         write_raw_json(report, rep.model_dump(mode="json"))
     verb = "would reset" if dry_run else "reset"
+    since = f" to re-discover from {rep.rediscover_since}" if rep.rediscover_since else ""
     note = "" if rep.corpus_present else " (no corpus present — run after `dvc pull`)"
     typer.echo(
         f"full-refresh: {verb} {rep.courts_reset} court(s) for re-seed; cleared "
-        f"last_pulled on {rep.cases_unpulled} case(s) and {rep.watermarks_cleared} "
-        f"discovery watermark(s){note}"
+        f"last_pulled on {rep.cases_unpulled} case(s) and reset {rep.watermarks_reset} "
+        f"discovery watermark(s){since}{note}"
     )
 
 

@@ -653,16 +653,33 @@ def _event_from_record(record: sqlite3.Row) -> CorpusEvent:
     )
 
 
+def _event_update_clause(column: str) -> str:
+    """The ``ON CONFLICT`` assignment for one event column, honoring its latch.
+
+    ``resolved`` only ever latches **on**: a re-ingest carries freshly-extracted
+    events with ``resolved = 0`` (extraction never observes resolution — outcome
+    detection does, via :func:`set_event_resolved`), so a re-discovery or a
+    quarterly seed reconcile must not reopen an event a prior outcome already
+    closed. Every other column takes the incoming value. Mirrors the ``cases``
+    upsert's :func:`_update_clause` for ``predict_eligible``.
+    """
+    if column == "resolved":
+        return f"{column}=MAX(excluded.{column}, events.{column})"
+    return f"{column}=excluded.{column}"
+
+
 def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
     """Insert or replace predictable-event definitions by ``(case_id, event_id)``.
 
     Idempotent, so re-discovering a docket overwrites its event rows rather than
     duplicating them — like the ``cases`` upsert, this keeps ``seed`` and ``pull``
-    able to rewrite the same fact without proliferating rows.
+    able to rewrite the same fact without proliferating rows. ``resolved`` is the
+    one column a re-ingest cannot regress (see :func:`_event_update_clause`), so a
+    re-discovery or reconcile never reopens an already-closed event.
     """
     placeholders = ", ".join("?" for _ in _EVENT_COLUMNS)
     updates = ", ".join(
-        f"{c}=excluded.{c}" for c in _EVENT_COLUMNS if c not in ("case_id", "event_id")
+        _event_update_clause(c) for c in _EVENT_COLUMNS if c not in ("case_id", "event_id")
     )
     sql = (
         f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({placeholders}) "

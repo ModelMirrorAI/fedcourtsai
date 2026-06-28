@@ -134,11 +134,13 @@ jobs:
           fi
 
       # Full refresh (workflow_dispatch input): reset the seed cursor so the loop
-      # below re-loads every court from the top, and clear the corpus forward cursors
-      # (each case's last_pulled + the per-court discovery watermarks) so pull
-      # re-pulls and re-discovers the whole tracked set fresh. Deterministic and
-      # history-preserving — corpus rows/events/snapshots and the git ledger are
-      # untouched (see docs/data-pipeline.md). The reset cursor + corpus blob are
+      # below re-loads every court from the top, clear each case's last_pulled so
+      # pull re-pulls the active set, and reset each court's discovery watermark to
+      # the snapshot frontier so discovery re-walks the post-snapshot range (which
+      # re-ingests cases that resolved after the snapshot — pull alone skips them).
+      # Deterministic and history-preserving — corpus rows/events/snapshots and the
+      # git ledger are untouched, and re-ingestion never reopens a resolved event
+      # (see docs/data-pipeline.md). The reset cursor + corpus blob are
       # committed/pushed by the first checkpoint of the loop, under the corpus-write
       # lock this job already holds.
       - name: Full refresh — reset forward cursors before re-seeding

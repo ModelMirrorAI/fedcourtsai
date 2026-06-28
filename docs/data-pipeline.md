@@ -412,10 +412,20 @@ so the whole tracked set re-seeds and re-pulls fresh:
   seed's quarterly snapshot reconcile takes, triggered on demand rather than by a
   new snapshot. The ingestion upsert is idempotent, so unchanged cases overwrite in
   place and any newly-added column or corrected value is back-filled across the corpus.
-- **Re-pull every tracked case.** The corpus forward cursors are cleared — each
-  case's `last_pulled` and every per-court discovery watermark — so the budget
-  governor treats the whole tracked set as stalest and re-fetches it, and forward
-  discovery re-establishes each court's frontier from the next seed hand-off.
+- **Re-pull and re-discover every tracked case.** The corpus forward cursors are
+  reset: each case's `last_pulled` is cleared so the budget governor treats the
+  active set as stalest and re-pulls it, and each tracked court's discovery
+  watermark is reset to the snapshot frontier so forward discovery re-walks the
+  whole post-snapshot range. That re-walk re-ingests every case filed since the
+  snapshot **whether open or closed** — which matters because pull's rotation
+  skips closed cases to save budget, so without it a case that resolved after the
+  snapshot would be refreshed by neither pull nor (being post-snapshot) the
+  re-seed. The watermark is *force*-reset (not just dropped) so an interleaved pull
+  cannot leave it advanced to today and skip the range. Re-ingestion never reopens
+  an already-resolved event — the event upsert latches `resolved` — so prior
+  outcomes are not disturbed. (Closed cases are refreshed at the docket level by
+  re-seed and re-discovery; a per-docket re-pull, which `skip_closed` still elides,
+  is not performed for them.)
 
 What it deliberately leaves alone is what keeps the operation safe and reversible —
 "version old data, keep it":
@@ -423,8 +433,10 @@ What it deliberately leaves alone is what keeps the operation safe and reversibl
 - **Corpus history is preserved.** Case rows, predictable-event rows, and dated
   snapshots are untouched; full refresh resets *tracking state*, never the facts, so
   the corpus stays append-only and its row count never drops (the
-  `validate-corpus` invariant still holds). The pre-refresh corpus blob is retained
-  by the DVC remote's S3 object versioning, so it is recoverable.
+  `validate-corpus` invariant still holds). DVC content-addresses the corpus blob,
+  so a refreshed corpus pushes under a new key while the pre-refresh blob remains in
+  the remote (the read-write role grants no delete) and its `.dvc` pointer stays in
+  git history — so the prior state is recoverable.
 - **The git ledger is preserved.** Outcomes, predictions, and evaluations under
   `data/` are versioned by git itself and stay where they are — the historical
   record. "No current cases" follows from the reset rather than from deleting
@@ -436,7 +448,8 @@ Because it writes the corpus and the cursor, full refresh runs inside `run-seed`
 (the corpus-writer that holds the shared `corpus-write` lock): the reset runs once
 before the backfill loop, and the reset cursor + corpus blob are committed and
 pushed by the loop's first checkpoint. `--dry-run` reports the blast radius — courts
-to re-seed, cases to re-pull, watermarks to clear — without writing.
+to re-seed, cases to re-pull, watermarks to reset and the date to re-discover from —
+without writing.
 
 ## Data validation
 
