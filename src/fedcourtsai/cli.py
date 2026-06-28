@@ -27,6 +27,7 @@ from .config import (
     load_seed_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
+from .fixture import build_fixture_corpus
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
 from .ops import build_ops_report, render_data_health, render_markdown
@@ -717,6 +718,36 @@ def full_refresh_cmd(
         f"last_pulled on {rep.cases_unpulled} case(s) and reset {rep.watermarks_reset} "
         f"discovery watermark(s){since}{note}"
     )
+
+
+@app.command("make-fixture-corpus")
+def make_fixture_corpus(
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Where to write the fixture corpus DB; defaults to the configured corpus path."
+        ),
+    ] = None,
+) -> None:
+    """Build a tiny deterministic synthetic corpus for offline local runs.
+
+    The local read loop (`provision-snapshot`, `query`, `open-events`, …) reads
+    the packed corpus, which in production is a `dvc pull` of the S3 remote behind
+    OIDC — unreachable from a laptop. This builds a small, fully synthetic corpus
+    from hard-coded facts instead: a handful of cases across several courts, a mix
+    of resolved and open, with their predictable events and dated snapshots, so
+    those commands work with no remote, token, or network. Overwrites any file at
+    the destination so the build is reproducible run to run. Synthetic data only —
+    never a substitute for the real corpus the data workflows produce.
+    """
+    settings = get_settings()
+    dest = out if out is not None else corpus.corpus_db_path(settings.corpus_root)
+    build_fixture_corpus(dest)
+    with corpus.connect(dest) as conn:
+        typer.echo(
+            f"fixture corpus -> {dest}: {corpus.count(conn)} case(s), "
+            f"{corpus.event_count(conn)} event(s), {corpus.snapshot_count(conn)} snapshot(s)"
+        )
 
 
 @app.command("corpus-info")

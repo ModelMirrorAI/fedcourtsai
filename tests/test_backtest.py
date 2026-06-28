@@ -5,7 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, fixture
 from fedcourtsai.backtest import (
     BacktestFeatures,
     BacktestItem,
@@ -19,6 +19,7 @@ from fedcourtsai.backtest import (
 from fedcourtsai.cli import app
 from fedcourtsai.schemas import Backtest, Disposition
 from fedcourtsai.serialize import read_model
+from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
 
@@ -190,32 +191,20 @@ def test_default_backtesters_are_the_reference_baselines(tmp_path: Path) -> None
 # --- CLI ----------------------------------------------------------------------
 
 
-def test_cli_writes_valid_report(tmp_path: Path) -> None:
-    corpus_root = tmp_path / "corpus"
-    db = corpus.corpus_db_path(corpus_root)
-    _seed(
-        db,
-        [
-            _row("ca9/1", Disposition.denied),
-            _row("ca9/2", Disposition.granted, judges=["a"]),
-        ],
-    )
+def test_cli_writes_valid_report(fixture_corpus: FixtureCorpus, tmp_path: Path) -> None:
     out = tmp_path / "backtest.json"
-    result = runner.invoke(
-        app,
-        ["backtest", "--out", str(out)],
-        env={"FEDCOURTS_CORPUS_ROOT": str(corpus_root)},
-    )
+    result = runner.invoke(app, ["backtest", "--out", str(out)])
     assert result.exit_code == 0, result.output
     report = read_model(out, Backtest)
-    assert report.events_scored == 2
+    # Every machine-readable resolved fixture case is a back-test trial (the
+    # fixture carries no `other`-disposition rows, so resolved == scored).
+    expected = sum(1 for c in fixture.FIXTURE_CASES if c.disposition is not None)
+    assert report.events_scored == expected
     assert report.predictors_evaluated == 2
     assert {e.predictor_id for e in report.entries} == {"constant-denied", "prior-vote"}
     # Deterministic: a second run reproduces the file byte for byte.
     first = out.read_text()
-    runner.invoke(
-        app, ["backtest", "--out", str(out)], env={"FEDCOURTS_CORPUS_ROOT": str(corpus_root)}
-    )
+    runner.invoke(app, ["backtest", "--out", str(out)])
     assert out.read_text() == first
 
 

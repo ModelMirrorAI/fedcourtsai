@@ -20,7 +20,9 @@ configured metrics root and `--out`/`--json` overrides it.
 Onboard and refresh raw facts. `seed`/`pull`/`discover`/`pull-all` use the
 rate-limited CourtListener **REST API** (need an API token); `seed-backfill` uses
 the public **bulk** snapshot (no token, no budget). All ingest through the same
-core, so the corpus is written identically.
+core, so the corpus is written identically. `make-fixture-corpus` is the odd one
+out: it writes a tiny **synthetic** corpus from hard-coded facts (no source, no
+network) for offline local runs and tests, never a substitute for the real corpus.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
@@ -30,6 +32,7 @@ core, so the corpus is written identically.
 | `discover` | Onboard newly-filed dockets in the tracked courts, advancing each court's watermark. | `--since`, `--limit` |
 | `pull-all` | Refresh the stalest tracked cases within the API budget; write the predict/evaluate/reconcile handoff queues. | `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
 | `full-refresh` | Reset the seed cursor + corpus forward cursors so the whole tracked set re-seeds and re-pulls fresh (history preserved). Run by `run-seed` on the `full_refresh` dispatch input. | `--dry-run`, `--report` |
+| `make-fixture-corpus` | Build a tiny deterministic synthetic corpus (cases/events/snapshots across several courts) so the read commands work offline, no remote. | `--out` |
 
 `--limit` / `--max-cases` may only *lower* the per-run cap from
 `config/`, never raise it, so a run provably stays within budget.
