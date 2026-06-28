@@ -237,6 +237,18 @@ corpus-retrieval majority vote) run entirely offline so the metric is real
 today, and the configured agentic predictors plug into the same seam and are
 replayed out of band, exactly as `run-predict` runs them live.
 
+The live predict/evaluate cells have the same shape of seam. A cell hands its
+inputs — court, docket, event, the acting predictor/evaluator id, the run id,
+the role, the prompt, and the output root — to a `Runner`
+(`fedcourtsai.pipeline.runner`) that writes the cell's artifacts at the canonical
+`ids`/`paths` locations. The workflow's runner is the coding agent
+(`claude-code-action` / the Codex equivalent); an offline `stub` backend writes
+deterministic, schema-valid canned artifacts with no model call and no network,
+so the cell mechanics — provisioning paths, schema conformance, the
+`validate`/consume path — are exercised in pytest without spending tokens or
+running Actions. Wiring the live workflow onto the seam is separate; the stub is
+the offline reference, mirroring the `Backtester` baselines above.
+
 ## Seed — historical backfill
 
 - **Trigger:** a single long-lived `run:seed` tracking issue (a maintainer opens
