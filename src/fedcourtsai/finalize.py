@@ -22,7 +22,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Literal
+
+from .paths import CasePaths
 
 # The partial-output draft warning, appended to a draft PR's body so a maintainer
 # knows the cell did not finish. Reconcile adds "before merging" because its merge
@@ -197,3 +200,32 @@ def finalize_reconcile(
         title=f"reconcile: {court}/{docket}",
         body=_draft_body(body, draft, _PARTIAL_RECONCILE),
     )
+
+
+def agent_produced_output(
+    role: FinalizeRole,
+    *,
+    data_root: Path,
+    court: str,
+    docket: int,
+    event: str,
+    actor: str,
+    run_id: str,
+) -> bool:
+    """Whether the agent wrote its own judgment artifact for this cell.
+
+    The predict/evaluate workflows materialize the event's ``event.yaml`` *before*
+    the agent runs, so "the working tree changed" is not "the agent produced a
+    prediction": a failed agent leaves only that materialized event file. This
+    checks for the agent's actual output — the ``prediction.json`` (predict) or any
+    ``evaluation.json`` for this evaluator and run (evaluate) — so the finalize step
+    can skip opening a PR that carries no judgment, only the event scaffold. Reconcile
+    has its own settled-events check and is not handled here.
+    """
+    events = CasePaths(data_root, court, docket).event(event)
+    if role is FinalizeRole.predict:
+        return events.prediction(actor, run_id).is_file()
+    if role is FinalizeRole.evaluate:
+        evaluator_root = events.base / "evaluations" / actor
+        return any(evaluator_root.glob(f"*/{run_id}/evaluation.json"))
+    raise ValueError(f"agent_produced_output is for predict/evaluate, not {role.value}")
