@@ -19,8 +19,10 @@ jobs:
   plan:
     if: github.event.label.name == 'run:evaluate'
     runs-on: ubuntu-latest
+    environment: runner
     permissions:
       contents: read
+      id-token: write # assume the AWS role to dvc pull the corpus for scope gating
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
@@ -64,6 +66,29 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
+
+      # The scope gate (predict.scope=scotus_touched) reads each case's latched
+      # predict_eligible flag from the DVC-backed corpus, so the corpus must be on
+      # disk before evaluate-matrix runs. Assume the read-only S3 role via OIDC and
+      # `dvc pull` it here — without this the gate sees an empty database, drops
+      # every case, and the evaluate job is silently skipped.
+      - name: Configure AWS credentials (DVC S3 remote, read-only)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+      - name: Pull the corpus for scope gating
+        run: |
+          if [ -f corpus/corpus.db.dvc ]; then
+            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          else
+            echo "::warning::no corpus pointer yet; scope gating has no corpus to read"
+          fi
+
       - name: Build evaluator x case x event matrix
         id: plan
         env:
