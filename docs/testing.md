@@ -64,11 +64,11 @@ corpus from S3 over OIDC, the GitHub App token, issue comments — is deliberate
 *not* part of the fast loop. It is exercised by dedicated paths and occasional
 manual workflow dispatch, never on every iteration.
 
-> **Status.** The deterministic core and the gate above are in place today, as are
-> the engine seam, the fixture corpus, and the stub cascade that composes them — the
-> latter runs in the gate as the `test_cascade_smoke.py` smoke. The one-command
-> `local-cascade` wrapper described next is still being built out — see the testing
-> issues tracked on the repo.
+> **Status.** The deterministic core and the gate above, the engine seam, the
+> fixture corpus, the stub cascade that composes them (run in the gate as the
+> `test_cascade_smoke.py` smoke), and the one-command `local-cascade` wrapper are
+> all in place today. What remains is folding the workflow shell into tested CLI
+> commands and record/replay cassettes — see the testing issues tracked on the repo.
 
 ## Testing the agentic stages locally
 

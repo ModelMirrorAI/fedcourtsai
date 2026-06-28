@@ -59,6 +59,11 @@ run:seed (weekly, chunked until done) → backfill bulk corpus chunk → commit 
        run:evaluate → plan → evaluate[matrix] → PR per evaluator×event
 ```
 
+To run the predict → evaluate → validate cascade for one case **locally** — off
+Actions, over the fixture corpus, offline by default — use `fedcourts
+local-cascade` (see [cli.md](cli.md)). It reuses the same engine-runner seam and
+registries, so a green local run mirrors a green CI run.
+
 ## ⚠️ The handoff token gotcha
 
 Events created with the default `GITHUB_TOKEN` **do not trigger other workflows**
