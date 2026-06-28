@@ -519,7 +519,11 @@ non-blocking trailing step and publishes the verdict, and `run-ops` then renders
 long-lived issue — loud, but never blocking the pipeline. The git-only referential
 checks fold into `fedcourts validate` so they also run at PR time: a judgment whose
 event has no `event.yaml` in the git tree, or whose declared ids disagree with its
-path, is caught in review rather than a day later. The corpus checks need the
+path, is caught in review rather than a day later. Because forward discovery keeps
+event definitions in the corpus, the predict/evaluate/reconcile workflows
+materialize each event's `event.yaml` from the corpus into its ledger directory
+(`fedcourts materialize-event`, beside the snapshot provisioning) so the judgment
+PR carries it. The corpus checks need the
 remote, so they stay on the schedule (the gate is deliberately offline) — at PR time
 "the event exists" means it is defined in the git ledger; the schedule additionally
 confirms it against the corpus. This automates, and extends across stores, the
