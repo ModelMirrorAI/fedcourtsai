@@ -30,6 +30,7 @@ from .config import (
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import (
     FinalizeRole,
+    agent_produced_output,
     branch_name,
     finalize_judgment,
     finalize_reconcile,
@@ -1406,6 +1407,35 @@ def finalize_branch_cmd(
             actor=actor if is_judgment else None,
         )
     )
+
+
+@app.command("finalize-produced")
+def finalize_produced_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acted on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+) -> None:
+    """Print 'true' if the agent wrote its judgment artifact for this cell, else 'false'.
+
+    The finalize step materializes the event's ``event.yaml`` before the agent
+    runs, so a failed agent that wrote nothing still leaves a staged change. This
+    reports whether the agent's *own* output (the prediction or evaluation) exists,
+    so the workflow can skip a PR that carries only the event scaffold.
+    """
+    settings = get_settings()
+    produced = agent_produced_output(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+    )
+    typer.echo("true" if produced else "false")
 
 
 @app.command("finalize-pr")

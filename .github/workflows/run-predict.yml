@@ -336,13 +336,19 @@ jobs:
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
             --actor "$PREDICTOR_ID" --run-id "$RUN_ID")
           git checkout -b "$branch"
-          # data/ may not exist yet (no derived artifact has ever been committed),
-          # so guard the add: an empty agent run then yields the "no changes" plan
-          # below instead of aborting on a missing pathspec.
-          if [ -d data ]; then
+          # The event.yaml is materialized before the agent runs, so a staged change
+          # is not proof of a prediction — a failed/empty agent leaves only that
+          # scaffold. Stage data/ (and open a PR) only when the agent's own
+          # prediction.json exists; otherwise the cell is skipped with a warning
+          # rather than opening a draft PR that carries no prediction.
+          if [ "$(uv run fedcourts finalize-produced --role predict \
+              --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+              --actor "$PREDICTOR_ID" --run-id "$RUN_ID")" = "true" ]; then
+            changed=true
             git add data/
+          else
+            changed=false
           fi
-          if git diff --cached --quiet; then changed=false; else changed=true; fi
           # Only validate when there is output; a clean run must validate (hard fail),
           # a partial run's invalid output becomes a draft (decided in finalize-pr).
           validated=true

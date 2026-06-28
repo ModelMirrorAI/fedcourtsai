@@ -254,43 +254,40 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Open run:predict issues for changed cases
+      # One run:predict issue for the whole window's queue, not one per case:
+      # predict-matrix parses a JSON array of cases, so the handoff is a single
+      # issue + workflow run that fans out one job per case x predictor (throttled
+      # by the matrix max-parallel) instead of N issues each spawning their own run.
+      - name: Open the run:predict handoff for changed cases
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
         run: |
           count=$(jq 'length' predict-queue.json)
           echo "Queued $count case(s) for prediction."
-          for i in $(seq 0 $((count - 1))); do
-            court=$(jq -r ".[$i].court" predict-queue.json)
-            docket=$(jq -r ".[$i].docket" predict-queue.json)
-            events=$(jq -c ".[$i].events" predict-queue.json)
-            body=$(jq -n --arg c "$court" --argjson d "$docket" --argjson e "$events" \
-              '{court: $c, docket: $d, events: $e}')
+          if [ "$count" -gt 0 ]; then
+            body=$(jq '[.[] | {court, docket, events}]' predict-queue.json)
             gh issue create --repo "$REPO" \
-              --title "predict: ${court}/${docket}" \
+              --title "predict: ${count} case(s)" \
               --body "$(printf '```json\n%s\n```\n' "$body")" \
               --label "run:predict"
-          done
+          fi
 
-      - name: Open run:evaluate issues for newly resolved events
+      # Likewise one run:evaluate issue for the window's newly-resolved cases.
+      - name: Open the run:evaluate handoff for newly resolved events
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
         run: |
           count=$(jq 'length' evaluate-queue.json)
           echo "Queued $count case(s) for evaluation."
-          for i in $(seq 0 $((count - 1))); do
-            court=$(jq -r ".[$i].court" evaluate-queue.json)
-            docket=$(jq -r ".[$i].docket" evaluate-queue.json)
-            events=$(jq -c ".[$i].events" evaluate-queue.json)
-            body=$(jq -n --arg c "$court" --argjson d "$docket" --argjson e "$events" \
-              '{court: $c, docket: $d, events: $e}')
+          if [ "$count" -gt 0 ]; then
+            body=$(jq '[.[] | {court, docket, events}]' evaluate-queue.json)
             gh issue create --repo "$REPO" \
-              --title "evaluate: ${court}/${docket}" \
+              --title "evaluate: ${count} case(s)" \
               --body "$(printf '```json\n%s\n```\n' "$body")" \
               --label "run:evaluate"
-          done
+          fi
 
       - name: Open run:reconcile issues for ambiguous outcomes
         env:
@@ -349,7 +346,7 @@ jobs:
           else
             snap="No outcome or corpus changes this window."
           fi
-          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window:\n- run:predict issues opened: **%s**\n- run:evaluate issues opened: **%s**\n- ambiguous outcomes flagged for reconcile: **%s**\n' \
+          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window (predict/evaluate batch into one issue each):\n- run:predict cases queued: **%s**\n- run:evaluate cases queued: **%s**\n- ambiguous outcomes flagged for reconcile: **%s**\n' \
             "$snap" "$predict" "$evaluate" "$reconcile")
           gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
           if [ "${IS_FINAL_WINDOW}" = "true" ]; then
@@ -362,7 +359,7 @@ jobs:
             echo ""
             echo "| Handoff | Count |"
             echo "|---------|------:|"
-            echo "| run:predict opened | ${predict} |"
-            echo "| run:evaluate opened | ${evaluate} |"
+            echo "| run:predict cases queued | ${predict} |"
+            echo "| run:evaluate cases queued | ${evaluate} |"
             echo "| reconcile flagged | ${reconcile} |"
           } >> "$GITHUB_STEP_SUMMARY"

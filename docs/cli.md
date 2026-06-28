@@ -84,6 +84,7 @@ Helpers the workflows and agents use to fan out and stay in contract.
 | `reconcile-matrix` | Emit the per-case `run-reconcile` matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
 | `authorize-trigger` | Authorize a `run:*` label trigger (Bot handoff or write collaborator), or refuse and exit non-zero. The fan-out workflows call it before any privileged step. | `--sender-type`, `--actor`, `--repo` |
 | `finalize-branch` | Print the unique branch name for a cell's PR (case + event + actor ride in the ref so concurrent cells never collide). | `--role`, `--court`, `--docket`, `--run-id`, `--event`, `--actor` |
+| `finalize-produced` | Print `true`/`false` for whether the agent wrote its own judgment artifact (prediction/evaluation), so the workflow skips a PR carrying only the pre-materialized event scaffold. | `--role`, `--court`, `--docket`, `--event`, `--actor`, `--run-id` |
 | `finalize-pr` | Emit a cell's finalize decision (`skip`/`fail`/`open`, draft flag, commit/title/body) as compact JSON for the workflow's git/`gh` step. | `--role`, `--court`, `--docket`, `--run-id`, `--agent-ok`, `--validated`, `--changed`, `--event`, `--actor`, `--settled`, `--issue` |
 | `predictors` | List configured predictors (id, engine, model, enabled). | — |
 | `evaluators` | List configured evaluators (id, engine, model, enabled). | — |

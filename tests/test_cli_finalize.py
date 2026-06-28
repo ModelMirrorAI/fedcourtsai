@@ -9,6 +9,7 @@ workflow-bool parsing.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -16,6 +17,7 @@ from typer.testing import CliRunner
 from fedcourtsai import cli
 from fedcourtsai.authz import AuthDecision
 from fedcourtsai.cli import app
+from fedcourtsai.paths import CasePaths
 
 runner = CliRunner()
 
@@ -142,6 +144,34 @@ def test_finalize_pr_reconcile_plan() -> None:
     plan = json.loads(result.stdout)
     assert plan["action"] == "open"
     assert "Closes #42" in plan["body"]
+
+
+def test_finalize_produced_reports_prediction_presence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path))
+    args = [
+        "finalize-produced",
+        "--role",
+        "predict",
+        "--court",
+        "ca9",
+        "--docket",
+        "1",
+        "--event",
+        "evt-x",
+        "--actor",
+        "claude-baseline",
+        "--run-id",
+        "R",
+    ]
+    # No prediction yet — only the (absent) scaffold.
+    assert runner.invoke(app, args).stdout.strip() == "false"
+    # Write the agent's prediction at the canonical path.
+    prediction = CasePaths(tmp_path, "ca9", 1).event("evt-x").prediction("claude-baseline", "R")
+    prediction.parent.mkdir(parents=True)
+    prediction.write_text("{}")
+    assert runner.invoke(app, args).stdout.strip() == "true"
 
 
 def test_finalize_pr_rejects_non_boolean_flag() -> None:
