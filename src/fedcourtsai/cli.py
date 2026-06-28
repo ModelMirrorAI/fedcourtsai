@@ -1057,11 +1057,26 @@ def _scope_filtered(
     note (to stderr, so the matrix JSON on stdout stays clean) explaining why a
     manual run produced an empty matrix. ``scope == all`` passes every case
     through unchanged.
+
+    Gating reads the corpus, so the corpus database must be on disk. If it is
+    absent the gate cannot distinguish "case not eligible" from "corpus never
+    provisioned" — :func:`corpus.connect` would silently create an empty database
+    and drop *every* case, producing an empty matrix that looks like a normal
+    "nothing in scope" result. Fail loud instead, so a planning job that forgot to
+    ``dvc pull`` the corpus aborts visibly rather than silently predicting nothing.
     """
     if scope == PredictScope.all:
         return cases
+    db_path = corpus.corpus_db_path(corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"prediction scope is '{scope.value}' but the corpus database is missing at "
+            f"{db_path}; provision it (dvc pull) before planning the matrix.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     kept: list[CaseRequest] = []
-    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+    with corpus.connect(db_path) as conn:
         for case in cases:
             row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
             if row is not None and row.predict_eligible:
