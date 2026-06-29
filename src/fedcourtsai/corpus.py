@@ -440,6 +440,39 @@ def latch_originating_eligible(conn: sqlite3.Connection, rows: Iterable[CorpusRo
     return latched
 
 
+# The Judiciary Act of 1925 (the "Judges' Bill") made the Supreme Court's
+# jurisdiction largely discretionary; matters filed before it were appeals and
+# writs of error heard *as of right* and decided on the merits. A pre-1925 docket
+# number is a bare sequential integer ("801"); the modern discretionary-cert era
+# carries a Term-year prefix ("01-7700", "22-451", "22A123").
+_DISCRETIONARY_ERA_YEAR = 1925
+
+
+def is_historical_mandatory(row: CorpusRow) -> bool:
+    """Whether a SCOTUS row is a pre-1925 mandatory-jurisdiction matter (issue #309).
+
+    The ``evt-petition-disposition`` event model targets the *modern discretionary
+    cert* regime (a ~1% grant base rate, "granted" = the Court takes the case up).
+    Pre-1925 appeals heard as of right do not fit it — for them the meaningful
+    disposition is the merits outcome (affirmed / reversed), a different label — so
+    the predict/evaluate scope excludes them rather than overloading one event kind
+    across two regimes. Detected by the one signal their unusually sparse snapshots
+    reliably carry: a **bare sequential docket number** with no Term-year prefix
+    (e.g. ``801`` vs a modern ``01-7700``); a ``date_filed`` before the Judiciary
+    Act of 1925 corroborates it on the rare row that carries one (these snapshots
+    typically have every activity date null).
+
+    Non-SCOTUS rows are never historical-mandatory here — the regime is a Supreme
+    Court concept, and the gate only ever sees a case once it is SCOTUS-eligible.
+    """
+    if row.court != "scotus":
+        return False
+    docket_number = row.docket_number.strip()
+    bare_sequential = bool(docket_number) and docket_number.isdigit()
+    pre_discretionary = row.date_filed is not None and row.date_filed.year < _DISCRETIONARY_ERA_YEAR
+    return bare_sequential or pre_discretionary
+
+
 def get_row(conn: sqlite3.Connection, case_id: str) -> CorpusRow | None:
     """Fetch a single case row, or ``None`` if it is not in the corpus."""
     cur = conn.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,))
