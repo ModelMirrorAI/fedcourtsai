@@ -303,6 +303,33 @@ def test_render_data_health_healthy_has_no_failure_table() -> None:
     assert "| Check | Failures | Sample |" not in md
 
 
+def test_render_data_health_surfaces_monitored_within_baseline() -> None:
+    # A passed check with non-zero failures (e.g. case_dates_ordered within the #171
+    # baseline) is healthy overall but its count is still surfaced for the monitor.
+    health = DataHealth(
+        ok=True,
+        ledger=LedgerValidation(ok=True, checked=12, invalid=0),
+        corpus=CorpusValidation(
+            ok=True,
+            corpus_rows=500,
+            checks=[
+                CorpusCheck(name="corpus_opens", passed=True),
+                CorpusCheck(
+                    name="case_dates_ordered",
+                    passed=True,
+                    failures=20,
+                    detail="0 future-dated, 20 decided-before-filed vs accepted baseline 50",
+                ),
+            ],
+        ),
+    )
+    md = ops.render_data_health(health)
+    assert "✅ Healthy" in md
+    assert "| Check | Failures | Sample |" not in md  # not a failure
+    assert "Monitored (within accepted baselines)" in md
+    assert "case_dates_ordered: 0 future-dated, 20 decided-before-filed" in md
+
+
 def test_render_data_health_failing_lists_each_failed_check() -> None:
     md = ops.render_data_health(_failing())
     assert "❌ Failing" in md

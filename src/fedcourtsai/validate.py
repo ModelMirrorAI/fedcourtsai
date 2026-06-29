@@ -55,6 +55,13 @@ from .schemas import (
 # unbounded verdict; `CorpusCheck.failures` still carries the true total.
 _MAX_PROBLEMS = 20
 
+# Accepted floor for `case_dates_ordered`: a stable handful of CourtListener rows
+# carry `date_decided < date_filed` (faithful upstream data, not rewritten — see the
+# monitor issue #171). The observed steady-state is ~20; this floor leaves headroom
+# so noise passes while a material climb fails. Raise it deliberately if the steady
+# count grows (e.g. after a large historical backfill), never to silence a regression.
+_CASE_DATE_ORDER_BASELINE = 50
+
 # Stable check identifiers (the `name` field of each emitted CorpusCheck).
 CHECK_CORPUS_OPENS = "corpus_opens"
 CHECK_ROW_COUNT_MONOTONIC = "row_count_monotonic"
@@ -196,28 +203,65 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
     """A case's filing/decision dates must be ordered and not future-dated.
 
     The point-in-time counterpart to the snapshot check, over the normalized
-    ``cases`` row: ``date_filed`` precedes ``date_decided`` (a case cannot be
-    decided before it is filed), and neither lies after the as-of date (a future
-    date is a clock or ingestion bug). Dates are stored ISO ``YYYY-MM-DD``, so a
-    lexicographic comparison is a correct date comparison; a null date (unfiled or
-    undecided) is simply skipped.
+    ``cases`` row, covering two distinct conditions. Dates are stored ISO
+    ``YYYY-MM-DD``, so a lexicographic comparison is a correct date comparison; a
+    null date (unfiled or undecided) is simply skipped.
+
+    - **Future-dated** (``date_filed`` or ``date_decided`` after the as-of date) is
+      a clock or ingestion bug and **always fails** — there is no benign cause.
+    - **Decided-before-filed** (``date_filed > date_decided``) is, for a stable
+      floor of rows, a faithful copy of upstream CourtListener data we deliberately
+      do not rewrite (the monitor issue #171). It fails only when the count climbs
+      **above** that accepted baseline — the "material climb → investigate" signal —
+      so the steady-state condition does not hold the data-health verdict
+      permanently red.
+
+    ``failures`` always carries the true total of both conditions, so the monitor
+    still sees the count even when the ordering condition is within baseline.
     """
     cutoff = today.isoformat()
     checked = corpus.count(conn)
+    future_where = (
+        "(date_filed IS NOT NULL AND date_filed > ?) "
+        "OR (date_decided IS NOT NULL AND date_decided > ?)"
+    )
+    order_where = (
+        "date_filed IS NOT NULL AND date_decided IS NOT NULL AND date_filed > date_decided"
+    )
+    future = int(
+        conn.execute(
+            f"SELECT COUNT(*) AS n FROM cases WHERE {future_where}", (cutoff, cutoff)
+        ).fetchone()["n"]
+    )
+    out_of_order = int(
+        conn.execute(f"SELECT COUNT(*) AS n FROM cases WHERE {order_where}").fetchone()["n"]
+    )
     problems = [
-        f"case {r['case_id']!r} has inconsistent dates "
+        f"case {r['case_id']!r} is future-dated "
         f"(filed {r['date_filed']}, decided {r['date_decided']}, as of {cutoff})"
         for r in conn.execute(
-            "SELECT case_id, date_filed, date_decided FROM cases WHERE "
-            "(date_filed IS NOT NULL AND date_filed > ?) "
-            "OR (date_decided IS NOT NULL AND date_decided > ?) "
-            "OR (date_filed IS NOT NULL AND date_decided IS NOT NULL "
-            "AND date_filed > date_decided) "
+            f"SELECT case_id, date_filed, date_decided FROM cases WHERE {future_where} "
             "ORDER BY case_id LIMIT ?",
             (cutoff, cutoff, _MAX_PROBLEMS),
         )
+    ] + [
+        f"case {r['case_id']!r} is decided before filed "
+        f"(filed {r['date_filed']}, decided {r['date_decided']})"
+        for r in conn.execute(
+            f"SELECT case_id, date_filed, date_decided FROM cases WHERE {order_where} "
+            "ORDER BY case_id LIMIT ?",
+            (_MAX_PROBLEMS,),
+        )
     ]
-    return _check(CHECK_CASE_DATES, problems, checked=checked, detail=f"as of {cutoff}")
+    return CorpusCheck(
+        name=CHECK_CASE_DATES,
+        passed=future == 0 and out_of_order <= _CASE_DATE_ORDER_BASELINE,
+        checked=checked,
+        failures=future + out_of_order,
+        detail=f"{future} future-dated, {out_of_order} decided-before-filed vs accepted "
+        f"baseline {_CASE_DATE_ORDER_BASELINE} (as of {cutoff}); see #171",
+        problems=sorted(problems)[:_MAX_PROBLEMS],
+    )
 
 
 def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | None) -> CorpusCheck:
