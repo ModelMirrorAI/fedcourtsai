@@ -83,9 +83,10 @@ Helpers the workflows and agents use to fan out and stay in contract.
 | `evaluate-matrix` | Emit the evaluator × case × event matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
 | `reconcile-matrix` | Emit the per-case `run-reconcile` matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
 | `authorize-trigger` | Authorize a `run:*` label trigger (Bot handoff or write collaborator), or refuse and exit non-zero. The fan-out workflows call it before any privileged step. | `--sender-type`, `--actor`, `--repo` |
-| `finalize-branch` | Print the unique branch name for a cell's PR (case + event + actor ride in the ref so concurrent cells never collide). | `--role`, `--court`, `--docket`, `--run-id`, `--event`, `--actor` |
-| `finalize-produced` | Print `true`/`false` for whether the agent wrote its own judgment artifact (prediction/evaluation), so the workflow skips a PR carrying only the pre-materialized event scaffold. | `--role`, `--court`, `--docket`, `--event`, `--actor`, `--run-id` |
-| `finalize-pr` | Emit a cell's finalize decision (`skip`/`fail`/`open`, draft flag, commit/title/body) as compact JSON for the workflow's git/`gh` step. | `--role`, `--court`, `--docket`, `--run-id`, `--agent-ok`, `--validated`, `--changed`, `--event`, `--actor`, `--settled`, `--issue` |
+| `finalize-produced` | Print `true`/`false` for whether the agent wrote its own judgment artifact (prediction/evaluation), so a cell with only the pre-materialized event scaffold is reported as producing nothing. | `--role`, `--court`, `--docket`, `--event`, `--actor`, `--run-id` |
+| `assert-paths` | Enforce the append-only `data/` path jail on a change set (`git diff --name-status`): exit non-zero on any path outside `data/` or any non-addition. The collect jobs and the required CI `paths` check both call it. | `--name-status-file`, `--run-id` |
+| `collect-plan` | Emit the per-run aggregate PR decision for predict/evaluate — one ready PR (auto-merged, closing the trigger issue) plus a draft for salvageable partials — as compact JSON. | `--role`, `--run-id`, `--status-dir`, `--issue` |
+| `collect-reconcile-plan` | Emit the per-run aggregate reconcile PR decision (per case) as compact JSON; the ready PR's `reconcile:` commit fires the evaluate handoff on merge. | `--run-id`, `--status-dir`, `--issue` |
 | `predictors` | List configured predictors (id, engine, model, enabled). | — |
 | `evaluators` | List configured evaluators (id, engine, model, enabled). | — |
 | `export-schemas` | Write JSON Schema for every pydantic model into `schemas/` (for agents and Codex `--output-schema`). CI fails if the committed schemas drift. | `OUT` (default `schemas`) |

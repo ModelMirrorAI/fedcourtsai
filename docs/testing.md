@@ -128,11 +128,12 @@ The more logic lives in YAML, the less of the pipeline is testable, because YAML
 runs in Actions. The standing principle is to push logic *out* of the workflows and
 into tested `fedcourts` commands, leaving the YAML as orchestration. The matrix
 builders follow this (`predict-matrix` / `evaluate-matrix` are library code with unit
-tests, not inline script), as do the per-cell decisions the predict/evaluate/reconcile
-workflows make: the trigger-authorization gate (`authorize-trigger`), the branch name
-(`finalize-branch`), and the draft-vs-ready routing plus PR title/body
-(`finalize-pr`). The YAML calls those and runs only the git/`gh` plumbing, so "test
-the workflow" reduces to "test the commands, then smoke-test the wiring."
+tests, not inline script), as do the predict/evaluate/reconcile decisions: the
+trigger-authorization gate (`authorize-trigger`), whether a cell produced its own
+output (`finalize-produced`), the path jail (`assert-paths`), and the per-run
+ready/draft PR aggregation (`collect-plan` / `collect-reconcile-plan`). The YAML
+calls those and runs only the git/`gh` plumbing, so "test the workflow" reduces to
+"test the commands, then smoke-test the wiring."
 
 For the orchestration that genuinely must live in YAML, two static checks already
 run in CI and catch most mistakes without execution:
