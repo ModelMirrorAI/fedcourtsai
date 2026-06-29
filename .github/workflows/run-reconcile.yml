@@ -6,7 +6,8 @@ name: run-reconcile
 # to one of several open events). Fans out one agent per flagged case; the agent
 # confirms the disposition from the point-in-time snapshot and writes `outcome.json`
 # for each event it can settle. The agent only writes files; the workflow validates,
-# commits, and opens one PR per case — mirroring run-predict / run-evaluate.
+# commits, and opens one PR per case. (run-predict aggregates its cells into one PR
+# per run via a collect job; run-reconcile has not yet been converted to that pattern.)
 #
 # Closing the cascade: when that PR merges (outcome.json now on the default branch)
 # the `handoff` job opens a `run:evaluate` issue for the settled events, so a

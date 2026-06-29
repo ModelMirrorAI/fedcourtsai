@@ -2,7 +2,9 @@ name: run-predict
 
 # Triggered by `run:predict` (created by run-pull, or applied manually). Fans out
 # over every enabled predictor x open event and runs the matching coding agent.
-# The agent only writes files; the workflow commits and opens one PR per cell.
+# The agent only writes files; each cell uploads its output as an artifact and the
+# `collect` job aggregates the whole run into one auto-merged PR (plus a draft PR
+# for any partial output). See docs/pipeline.md.
 on:
   issues:
     types: [labeled]

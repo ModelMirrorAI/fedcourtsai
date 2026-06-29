@@ -4,7 +4,8 @@ name: run-evaluate
 # event and runs the matching coding agent. Each evaluator scores every
 # predictor's prediction for the event internally, so predictors are not a
 # matrix dimension. The agent only writes files; the workflow commits and opens
-# one PR per cell. Mirror of run-predict.yml.
+# one PR per cell. (run-predict aggregates its cells into one PR per run via a
+# collect job; run-evaluate has not yet been converted to that pattern.)
 on:
   issues:
     types: [labeled]
