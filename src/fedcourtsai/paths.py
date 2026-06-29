@@ -16,8 +16,13 @@ there, read-only for one run (the tree is gitignored, never committed).
         events/<event_id>/
             event.yaml
             outcome.json
-            predictions/<predictor_id>/<run_id>/{prediction.json,reasoning.md}
+            predictions/<predictor_id>/<run_id>/{prediction.json,reasoning.md,flags.json?}
             evaluations/<evaluator_id>/<predictor_id>/<run_id>/{evaluation.json,evaluation.md}
+            evaluations/<evaluator_id>/<run_id>/flags.json?
+
+The ``flags.json`` files are optional: a cell writes one only when it has a
+durable, structured note to surface for maintainer triage (see
+:class:`fedcourtsai.schemas.AgentFlags`).
 """
 
 from __future__ import annotations
@@ -46,6 +51,10 @@ class EventPaths:
     def reasoning(self, predictor_id: str, run_id: str) -> Path:
         return self.prediction_dir(predictor_id, run_id) / "reasoning.md"
 
+    def prediction_flags(self, predictor_id: str, run_id: str) -> Path:
+        # A predict cell's optional flags.json, alongside its prediction.
+        return self.prediction_dir(predictor_id, run_id) / "flags.json"
+
     def prediction_usage(self, predictor_id: str, run_id: str) -> Path:
         return self.prediction_dir(predictor_id, run_id) / "usage.json"
 
@@ -54,6 +63,11 @@ class EventPaths:
         # so its usage is keyed by evaluator x run, a level above the per-predictor
         # evaluation directories.
         return self.base / "evaluations" / evaluator_id / run_id / "usage.json"
+
+    def evaluation_flags(self, evaluator_id: str, run_id: str) -> Path:
+        # An evaluate cell's optional flags.json, keyed by evaluator x run like its
+        # usage (one level above the per-predictor evaluation directories).
+        return self.base / "evaluations" / evaluator_id / run_id / "flags.json"
 
     def evaluation_dir(self, evaluator_id: str, predictor_id: str, run_id: str) -> Path:
         return self.base / "evaluations" / evaluator_id / predictor_id / run_id

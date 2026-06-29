@@ -11,15 +11,19 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
     CorpusValidation,
     Disposition,
     Engine,
     Evaluation,
     EventKind,
+    FlagCategory,
     Outcome,
     PredictableEvent,
     Prediction,
     SeedProgress,
+    UsageRole,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
@@ -525,6 +529,36 @@ def test_validate_ledger_empty_tree_is_a_pass(tmp_path: Path) -> None:
     result = validate_ledger(tmp_path / "data")  # never created
     assert result.ok
     assert result.checked == 0
+
+
+def test_validate_ledger_checks_flags_file(tmp_path: Path) -> None:
+    # A committed flags.json is schema law like any other artifact: a good one passes.
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "ca9", 1).event("evt-motion-stay")
+    write_json(
+        ep.prediction_flags("p1", "r1"),
+        AgentFlags(
+            case_id="ca9/1",
+            run_id="r1",
+            role=UsageRole.predictor,
+            actor_id="p1",
+            flags=[AgentFlag(category=FlagCategory.data_quality, message="snapshot looks thin")],
+        ),
+    )
+    result = validate_ledger(data_root)
+    assert result.ok
+    assert result.checked == 1
+
+
+def test_validate_ledger_flags_malformed_flags_file(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "ca9", 1).event("evt-motion-stay")
+    flags = ep.prediction_flags("p1", "r1")
+    flags.parent.mkdir(parents=True)
+    flags.write_text('{"flags": []}\n')  # empty list violates min_length
+    result = validate_ledger(data_root)
+    assert not result.ok
+    assert result.invalid == 1
 
 
 # --- CLI ----------------------------------------------------------------------

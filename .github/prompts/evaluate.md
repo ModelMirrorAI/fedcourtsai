@@ -64,15 +64,27 @@ For each predictor you score, write to
 - **`evaluation.md`** — your qualitative write-up: what the prediction got right or
   wrong and why, and what drove your `reasoning_quality` score.
 
+You may also write **one** optional `flags.json` for this cell (not per predictor),
+at `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$EVALUATOR_ID/$RUN_ID/flags.json`
+— validating against `schemas/agent_flags.schema.json` (the `AgentFlags` model).
+This is the **durable channel** for a question, a data-quality problem, or the
+reason you were blocked: the `collect` job rolls every cell's flags into the run PR
+and the Actions summary, so the note survives the trigger issue's closure. Set
+`case_id` = `$COURT_ID/$DOCKET_ID`, `run_id` = `$RUN_ID`, `role` = `evaluator`,
+`actor_id` = `$EVALUATOR_ID`, and `flags` = a non-empty list of
+`{category, severity, message, event_id?}`. Write it only when you have something
+to flag.
+
 ## Rules
 
 - Stay in your lane: write **only** under your own `evaluations/$EVALUATOR_ID/...`
   paths. Never edit predictions, outcomes, snapshots, or another evaluator's output.
 - **You run headless** (in CI, no interactive input). If `outcome.json` or a
   prediction is missing or malformed, do not stall waiting for input — always
-  explain it in `evaluation.md`, and if your run provides a GitHub token (Claude
-  Code runs do) post a brief note on the triggering issue with `gh issue comment`,
-  then finish. Make the most conservative reasonable call rather than guessing widely.
+  explain it in `evaluation.md` and record a `flags.json` note (above) so it reaches
+  a maintainer durably, then finish. Make the most conservative reasonable call
+  rather than guessing widely. (A trigger-issue comment is fine as an extra, but the
+  issue is closed when the run lands — `flags.json` is the channel that survives.)
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure `uv run fedcourts validate data` would pass for your
   files.

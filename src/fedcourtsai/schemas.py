@@ -53,6 +53,24 @@ class UsageRole(StrEnum):
     evaluator = "evaluator"
 
 
+class FlagCategory(StrEnum):
+    """What kind of thing an agent flag is about, for maintainer triage."""
+
+    data_quality = "data-quality"
+    scope = "scope"
+    ambiguous_event = "ambiguous-event"
+    blocked = "blocked"
+    other = "other"
+
+
+class FlagSeverity(StrEnum):
+    """How loud an agent flag is. ``blocker`` means the cell could not finish cleanly."""
+
+    info = "info"
+    warning = "warning"
+    blocker = "blocker"
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
@@ -170,6 +188,47 @@ class ModelUsage(_Strict):
     cache_creation_input_tokens: int = Field(default=0, ge=0, description="Input written to cache")
     estimated_cost_usd: float = Field(
         ge=0.0, description="On-demand USD estimate from the budget-doc rates"
+    )
+
+
+class AgentFlag(_Strict):
+    """One structured note a headless agent surfaces for maintainer triage.
+
+    A typed alternative to burying a remark in ``reasoning.md`` or a trigger-issue
+    comment: a ``category`` and ``severity`` so the roll-up can sort and filter, and
+    a free-text ``message``. ``event_id`` narrows the flag to a single event when
+    the cell spans more than one; left null it applies to the cell as a whole.
+    """
+
+    category: FlagCategory
+    severity: FlagSeverity = FlagSeverity.info
+    message: str = Field(
+        min_length=1, max_length=2000, description="What the maintainer should know, in prose"
+    )
+    event_id: str | None = Field(
+        default=None, description="The specific event this flag is about, if narrower than the cell"
+    )
+
+
+class AgentFlags(_Strict):
+    """``flags.json`` — a cell's durable, structured feedback for maintainer triage.
+
+    A predict/evaluate cell writes this *only when it has something to surface* — a
+    data-quality problem, a scope question, an ambiguous event, or the reason it was
+    blocked. It rides the cell's artifact to the ``collect`` job, which rolls every
+    cell's flags into the run PR body (and the Actions summary), so a note survives
+    the trigger issue's closure and a maintainer sees it without reading every
+    ``reasoning.md``. The agent token stays comment-only: the file is written
+    locally and the trusted ``collect`` job does the surfacing.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    run_id: str
+    role: UsageRole = Field(description="Which stage raised the flags")
+    actor_id: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate)")
+    flags: list[AgentFlag] = Field(
+        min_length=1, description="The notes; write the file only when there is at least one"
     )
 
 
@@ -536,6 +595,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "backtest.json": Backtest,
     "usage.json": ModelUsage,
     "ops.json": OpsReport,
+    "flags.json": AgentFlags,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -552,4 +612,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "usage": ModelUsage,
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
+    "agent_flags": AgentFlags,
 }

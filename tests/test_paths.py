@@ -30,3 +30,15 @@ def test_usage_layout() -> None:
     assert ep.evaluation_usage("codex-judge", "r1") == Path(
         "data/cases/ca9/123/events/evt-motion-stay/evaluations/codex-judge/r1/usage.json"
     )
+
+
+def test_flags_layout() -> None:
+    ep = CasePaths(Path("data"), "ca9", 123).event("evt-motion-stay")
+    # A predict cell's flags.json sits beside its prediction.
+    assert ep.prediction_flags("claude-baseline", "r1") == Path(
+        "data/cases/ca9/123/events/evt-motion-stay/predictions/claude-baseline/r1/flags.json"
+    )
+    # An evaluate cell's flags.json is keyed by evaluator x run, like its usage.
+    assert ep.evaluation_flags("codex-judge", "r1") == Path(
+        "data/cases/ca9/123/events/evt-motion-stay/evaluations/codex-judge/r1/flags.json"
+    )

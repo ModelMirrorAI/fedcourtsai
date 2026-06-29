@@ -30,8 +30,10 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
     prediction.json               # Prediction: granted 1/0, P(granted), votes
     reasoning.md                  # predicted reasoning (qualitative)
     usage.json                    # ModelUsage: measured tokens + estimated cost
+    flags.json                    # AgentFlags: structured feedback (optional)
   evaluations/<evaluator_id>/<run_id>/
     usage.json                    # ModelUsage for the evaluator's run (all predictors)
+    flags.json                    # AgentFlags: structured feedback (optional)
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
     evaluation.json               # Evaluation: correctness, Brier, vote acc, quality
     evaluation.md                 # qualitative critique
@@ -41,6 +43,16 @@ Each `usage.json` records one matrix cell's token usage and an estimated USD cos
 (rates in `fedcourtsai.pricing`, kept in sync with [budget.md](budget.md)). The
 workflow captures it from the engine's own run log — never the agent's word — so a
 maintainer can roll it up (`fedcourts usage-summary`) into a measured \$/run.
+
+The optional `flags.json` (an `AgentFlags`) is a cell's **durable feedback
+channel**: a headless predictor/evaluator writes one only when it has a structured
+note to surface — a data-quality problem, a scope question, an ambiguous event, or
+the reason it was blocked. Each flag is a typed `{category, severity, message}`.
+The `collect` job rolls every cell's flags into the run PR body and the Actions
+summary (reading even a blocked cell that produced no judgment), so the note
+survives the trigger issue's closure and a maintainer sees it without opening every
+`reasoning.md`. The agent token stays comment-only: the file is written locally and
+the trusted `collect` job does the surfacing.
 
 The raw facts an event is predicted from — its docket, the snapshot, the event
 definition itself — live in the corpus, not here. Predictors and evaluators read

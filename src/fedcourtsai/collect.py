@@ -24,9 +24,10 @@ live here as small pure functions the CLI wraps so the YAML only runs git/gh:
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .finalize import FinalizeRole
+from .schemas import AgentFlags, FlagSeverity
 
 DATA_JAIL = "data/"
 
@@ -217,12 +218,15 @@ class CollectPlan:
     ``partial`` is the one draft PR carrying *salvageable* output a maintainer
     finishes (None if there is nothing to salvage); ``skipped`` are the cells that
     produced no output at all — nothing to commit, only worth a warning so the run
-    never silently drops a cell.
+    never silently drops a cell. ``flags_markdown`` is the run's rolled-up agent
+    flags (empty when none); it is also appended to whichever PR body the run
+    opens, so the workflow can surface it in the Actions summary even when no PR is.
     """
 
     ready: PrPlan | None
     partial: PrPlan | None
     skipped: tuple[CellStatus | ReconcileCellStatus, ...] = ()
+    flags_markdown: str = ""
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -237,12 +241,64 @@ def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
     return "\n".join([header, rule, *rows])
 
 
+# Loudest first, so the roll-up leads with anything that blocked a cell.
+_SEVERITY_RANK = {FlagSeverity.blocker: 0, FlagSeverity.warning: 1, FlagSeverity.info: 2}
+# info carries no icon (its glyph is visually ambiguous and adds nothing).
+_SEVERITY_ICON = {FlagSeverity.blocker: "🛑", FlagSeverity.warning: "⚠️"}
+
+
+def _md_cell(value: object) -> str:
+    """Render one markdown table cell from agent-authored text, kept on one line.
+
+    Flag messages are agent output, so collapse newlines and escape the pipe that
+    would otherwise break the table; the schema already caps the length.
+    """
+    return " ".join(str(value).split()).replace("|", "\\|") or "—"
+
+
+def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
+    """Roll a run's per-cell ``flags.json`` into one markdown section, or ``""``.
+
+    One row per flag, loudest severity first, so a maintainer reading the run PR (or
+    the Actions summary) sees every agent-surfaced note — a data-quality problem, a
+    scope question, the reason a cell was blocked — in one place rather than buried
+    across the run's ``reasoning.md`` files. Returns the empty string when no cell
+    raised a flag, so the caller can omit the section entirely.
+    """
+    rows: list[tuple[int, str, str, str]] = []
+    for fs in flag_sets:
+        for flag in fs.flags:
+            severity = FlagSeverity(flag.severity)
+            event = flag.event_id or ""
+            rows.append(
+                (
+                    _SEVERITY_RANK.get(severity, 99),
+                    fs.actor_id,
+                    event,
+                    f"| {_SEVERITY_ICON.get(severity, '')} {severity.value} "
+                    f"| {_md_cell(flag.category)} | `{_md_cell(fs.actor_id)}` "
+                    f"| `{_md_cell(fs.case_id)}` | {f'`{_md_cell(event)}`' if event else '—'} "
+                    f"| {_md_cell(flag.message)} |",
+                )
+            )
+    if not rows:
+        return ""
+    body = "\n".join(row[3] for row in sorted(rows, key=lambda r: r[:3]))
+    return (
+        f"## 🚩 Agent flags ({len(rows)})\n\n"
+        "Structured notes the agents surfaced this run, for triage.\n\n"
+        "| severity | category | actor | case | event | note |\n"
+        "|---|---|---|---|---|---|\n" + body
+    )
+
+
 def collect_plan(
     role: FinalizeRole,
     *,
     run_id: str,
     cells: Sequence[CellStatus],
     issue: int | None = None,
+    flags: Sequence[AgentFlags] = (),
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -257,6 +313,12 @@ def collect_plan(
     ``issue`` is the triggering issue, which the ready PR closes on merge — but
     only when nothing is left to salvage, so a run with a pending draft keeps its
     trigger issue open until a maintainer finishes that draft.
+
+    ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags`. Their
+    roll-up is appended to whichever PR body opens (the ready PR, else the draft)
+    and returned as ``flags_markdown`` so the workflow can also surface it in the
+    Actions summary — a durable, discoverable home for an agent's note that
+    survives the trigger issue's closure.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
@@ -298,7 +360,29 @@ def collect_plan(
             artifact_dirs=tuple(c.artifact_dir for c in salvage),
         )
 
-    return CollectPlan(ready=ready_plan, partial=partial_plan, skipped=skipped)
+    flags_md = render_flags(flags)
+    ready_plan, partial_plan = _append_flags(ready_plan, partial_plan, flags_md)
+    return CollectPlan(
+        ready=ready_plan, partial=partial_plan, skipped=skipped, flags_markdown=flags_md
+    )
+
+
+def _append_flags(
+    ready: PrPlan | None, partial: PrPlan | None, flags_md: str
+) -> tuple[PrPlan | None, PrPlan | None]:
+    """Append the flag roll-up to the run's primary PR body (ready, else draft).
+
+    The flags belong to the run, not a single cell, so they ride the one PR a
+    maintainer reviews — the auto-merging ready PR when there is one, otherwise the
+    draft. With no PR at all the roll-up still travels as ``flags_markdown``.
+    """
+    if not flags_md:
+        return ready, partial
+    if ready is not None:
+        return replace(ready, body=f"{ready.body}\n\n{flags_md}"), partial
+    if partial is not None:
+        return ready, replace(partial, body=f"{partial.body}\n\n{flags_md}")
+    return ready, partial
 
 
 def _reconcile_table(cells: Sequence[ReconcileCellStatus], *, with_reason: bool) -> str:
