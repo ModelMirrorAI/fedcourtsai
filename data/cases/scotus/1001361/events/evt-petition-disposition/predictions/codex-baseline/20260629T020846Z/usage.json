@@ -1,0 +1,16 @@
+{
+  "actor_id": "codex-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 186240,
+  "case_id": "scotus/1001361",
+  "created_at": "2026-06-29T02:08:46Z",
+  "engine": "codex",
+  "estimated_cost_usd": 0.516255,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 54645,
+  "model": "gpt-5.5",
+  "output_tokens": 4997,
+  "role": "predictor",
+  "run_id": "20260629T020846Z",
+  "schema_version": "1.0"
+}
