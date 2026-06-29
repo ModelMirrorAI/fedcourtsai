@@ -1556,7 +1556,14 @@ def _pr_plan_json(plan: PrPlan | None) -> dict[str, object] | None:
 
 
 def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
-    return {"ready": _pr_plan_json(plan.ready), "partial": _pr_plan_json(plan.partial)}
+    return {
+        "ready": _pr_plan_json(plan.ready),
+        "partial": _pr_plan_json(plan.partial),
+        "skipped": [
+            {"actor": c.actor, "court": c.court, "docket": c.docket, "event_id": c.event_id}
+            for c in plan.skipped
+        ],
+    }
 
 
 @app.command("collect-plan")

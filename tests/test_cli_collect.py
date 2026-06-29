@@ -93,4 +93,4 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
     )
     assert result.exit_code == 0
-    assert json.loads(result.stdout) == {"ready": None, "partial": None}
+    assert json.loads(result.stdout) == {"ready": None, "partial": None, "skipped": []}

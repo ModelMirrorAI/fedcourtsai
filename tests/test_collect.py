@@ -106,30 +106,31 @@ def test_all_ready_opens_one_ready_pr_no_draft() -> None:
     assert "2 prediction(s)" in plan.ready.title
 
 
-def test_failed_cell_routed_to_draft_not_ready() -> None:
+def test_salvageable_cell_drafts_skipped_cell_only_warns() -> None:
     plan = collect_plan(
         FinalizeRole.predict,
         run_id="R",
         cells=[
-            _cell("claude-baseline"),
-            _cell("codex-baseline", validated=False),
-            _cell("gemini-baseline", produced=False),
+            _cell("claude-baseline"),  # ready
+            _cell("codex-baseline", validated=False),  # produced but invalid -> salvage
+            _cell("gemini-baseline", produced=False),  # no output -> skipped, not committed
         ],
     )
     assert plan.ready is not None
     assert plan.ready.artifact_dirs == ("cell-claude-baseline-1",)
+    # Only the cell that actually produced output is in the draft (committable).
     assert plan.partial is not None
     assert plan.partial.draft is True
     assert plan.partial.branch == "predict/run-R-partial"
-    assert set(plan.partial.artifact_dirs) == {"cell-codex-baseline-1", "cell-gemini-baseline-1"}
-    # The ready PR points the reader at the companion draft.
-    assert "companion draft PR" in plan.ready.body
-    # The draft body explains why each cell landed there.
+    assert plan.partial.artifact_dirs == ("cell-codex-baseline-1",)
     assert "failed validation" in plan.partial.body
-    assert "no output" in plan.partial.body
+    # The no-output cell is reported for a warning, never committed.
+    assert tuple(c.actor for c in plan.skipped) == ("gemini-baseline",)
+    # The ready PR points the reader at the companion draft (salvage count only).
+    assert "1 cell(s) need review" in plan.ready.body
 
 
-def test_all_partial_opens_only_draft() -> None:
+def test_all_salvage_opens_only_draft() -> None:
     plan = collect_plan(
         FinalizeRole.predict,
         run_id="R",
@@ -138,11 +139,25 @@ def test_all_partial_opens_only_draft() -> None:
     assert plan.ready is None
     assert plan.partial is not None
     assert "agent stopped early" in plan.partial.body
+    assert plan.skipped == ()
+
+
+def test_only_skipped_opens_nothing_but_reports() -> None:
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", produced=False)],
+    )
+    assert plan.ready is None
+    assert plan.partial is None
+    assert tuple(c.actor for c in plan.skipped) == ("claude-baseline",)
 
 
 def test_no_cells_opens_nothing() -> None:
     plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[])
-    assert plan.ready is None and plan.partial is None
+    assert plan.ready is None
+    assert plan.partial is None
+    assert plan.skipped == ()
 
 
 def test_reconcile_role_unsupported_for_now() -> None:
