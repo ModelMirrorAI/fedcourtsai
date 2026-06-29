@@ -1,0 +1,10 @@
+case_id: scotus/1002630
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2003-09-05'
+resolved: false
+schema_version: '1.0'
+title: Fawzi Khalid Abdullah Fahad Al Odah v. United States
