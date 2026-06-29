@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -73,6 +74,7 @@ from .schemas import (
 from .serialize import write_json, write_raw_json, write_yaml
 from .store import (
     cases_due_for_pull,
+    cases_with_predictions,
     iter_evaluations,
     iter_usage,
     open_events,
@@ -779,6 +781,64 @@ def corpus_info() -> None:
             f"corpus {db_path}: {corpus.count(conn)} row(s), "
             f"{corpus.snapshot_count(conn)} snapshot(s)"
         )
+
+
+@app.command("prune-historical-predictions")
+def prune_historical_predictions(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Delete the directories (default: dry-run; list the targets and exit).",
+        ),
+    ] = False,
+) -> None:
+    """Prune merged predictions for out-of-scope pre-1925 mandatory-jurisdiction matters.
+
+    A few SCOTUS dockets were predicted before the pre-1925
+    mandatory-jurisdiction scope gate landed and still carry merged predictions
+    under ``data/cases/``. Those records are inert — these cases have no
+    recoverable ground truth, so the evaluator never scores them, and the gate now
+    prevents re-prediction — so this removes their ``predictions/`` directories
+    (the ``event.yaml`` stays; the event still exists in the corpus). A reusable
+    cleanup, not a one-off, in case more historical cases slip in before older
+    snapshots are re-pulled.
+
+    Identification is deterministic and corpus-gated: a case is a target only when
+    its real corpus row is historical-mandatory (`corpus.is_historical_mandatory`),
+    never a proxy signal from the committed ``event.yaml``. The corpus must be on
+    disk — run after a ``dvc pull``; a case with predictions but no corpus row is
+    left untouched.
+
+    Defaults to a dry run that lists the targets for review (these are
+    bot-generated, already-merged records); pass ``--apply`` to delete them.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
+        raise typer.Exit(code=1)
+    predicted = cases_with_predictions(settings.data_root)
+    targets: list[tuple[str, list[Path]]] = []
+    with corpus.connect(db_path) as conn:
+        for case_id in sorted(predicted):
+            row = corpus.get_row(conn, case_id)
+            if row is not None and corpus.is_historical_mandatory(row):
+                targets.append((case_id, predicted[case_id]))
+    if not targets:
+        typer.echo("No out-of-scope historical mandatory-jurisdiction predictions to prune.")
+        return
+    n_dirs = sum(len(dirs) for _, dirs in targets)
+    verb = "Removing" if apply else "Would remove (dry run)"
+    typer.echo(f"{verb} {n_dirs} prediction director(ies) across {len(targets)} case(s):")
+    for case_id, dirs in targets:
+        typer.echo(f"  {case_id} (pre-1925 mandatory-jurisdiction):")
+        for d in dirs:
+            typer.echo(f"    {d.relative_to(settings.data_root)}")
+            if apply:
+                shutil.rmtree(d)
+    if not apply:
+        typer.echo("Re-run with --apply to delete these directories.")
 
 
 @app.command()

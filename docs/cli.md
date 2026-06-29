@@ -5,9 +5,10 @@ pipeline workflows. Run `uv run fedcourts --help` for the live listing, or
 `uv run fedcourts <command> --help` for a command's flags; this page is the
 grouped overview. `--version` prints the installed package version.
 
-Commands fall into five groups: **ingestion** (write the corpus), **corpus
-inspection** (read it), **validation** (the gate), **metrics & reporting**, and
-**agent support** (fan-out matrices and registries). For the design behind the
+Commands fall into these groups: **ingestion** (write the corpus), **corpus
+inspection** (read it), **validation** (the gate), **metrics & reporting**,
+**agent support** (fan-out matrices and registries), and **maintenance**
+(corpus-gated ledger cleanup). For the design behind the
 corpus/ledger split see [data-pipeline.md](data-pipeline.md) and
 [data-model.md](data-model.md); for how the workflows wire these together see
 [pipeline.md](pipeline.md).
@@ -90,6 +91,14 @@ Helpers the workflows and agents use to fan out and stay in contract.
 | `predictors` | List configured predictors (id, engine, model, enabled). | — |
 | `evaluators` | List configured evaluators (id, engine, model, enabled). | — |
 | `export-schemas` | Write JSON Schema for every pydantic model into `schemas/` (for agents and Codex `--output-schema`). CI fails if the committed schemas drift. | `OUT` (default `schemas`) |
+
+## Maintenance — corpus-gated ledger cleanup
+
+Run after a `dvc pull` provisions the corpus; the gate reads real corpus rows.
+
+| Command | Purpose | Key flags |
+|---------|---------|-----------|
+| `prune-historical-predictions` | Remove merged predictions for out-of-scope pre-1925 mandatory-jurisdiction SCOTUS matters (`corpus.is_historical_mandatory`) — their `event.yaml` stays, only the inert `predictions/` go. Lists targets for review; deletes only with `--apply`. | `--apply` |
 
 ## Local iteration — the full cascade off Actions
 

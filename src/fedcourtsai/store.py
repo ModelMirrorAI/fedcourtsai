@@ -110,6 +110,31 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
     return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
 
 
+def cases_with_predictions(data_root: Path) -> dict[str, list[Path]]:
+    """Map each case id to its committed ``predictions/`` directories.
+
+    Walks ``data/cases/<court>/<docket>/events/<event>/predictions`` and groups the
+    prediction directories by ``<court_id>/<docket_id>`` case id — the key the
+    corpus is queried by — so a caller can gate a whole case's predictions on a
+    single corpus lookup. Each value lists one ``predictions/`` directory per event
+    that carries predictions, in stable path order. Returns nothing if the ledger
+    does not exist yet (reading must not create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return {}
+    grouped: dict[str, list[Path]] = {}
+    for predictions_dir in sorted(cases_dir.glob("*/*/events/*/predictions")):
+        if not predictions_dir.is_dir():
+            continue
+        docket_dir = predictions_dir.parent.parent.parent
+        court, docket = docket_dir.parent.name, docket_dir.name
+        if not docket.isdigit():
+            continue
+        grouped.setdefault(ids.case_id(court, int(docket)), []).append(predictions_dir)
+    return grouped
+
+
 def iter_usage(data_root: Path) -> list[ModelUsage]:
     """Every ``usage.json`` in the derived ledger, in stable path order.
 

@@ -36,7 +36,9 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predict/evaluate set — its `evt-petition-disposition` carries a merits, not a
   discretionary-cert, meaning, so the modern event model does not fit it
   (`corpus.is_historical_mandatory`). Ingestion still covers it; only prediction
-  is gated.
+  is gated. A case predicted before this narrowing landed may carry already-merged,
+  now-inert predictions; `fedcourts prune-historical-predictions` (corpus-gated, run
+  after a `dvc pull`) lists and removes them, leaving the `event.yaml` in place.
 
   Because the corpus keys a case by `<court>/<docket>`, the *same real-world case's*
   SCOTUS docket and originating court-of-appeals docket are **separate rows**. Both

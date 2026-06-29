@@ -5,6 +5,7 @@ from fedcourtsai import corpus
 from fedcourtsai.schemas import Disposition, EventKind
 from fedcourtsai.store import (
     cases_due_for_pull,
+    cases_with_predictions,
     iter_tracked_cases,
     open_events,
     resolved_events,
@@ -37,6 +38,28 @@ def test_iter_tracked_cases_missing_corpus_is_empty(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     assert iter_tracked_cases(db) == []
     assert not db.exists()  # reading must not create the corpus as a side effect
+
+
+def _predictions_dir(data_root: Path, court: str, docket: int, event: str) -> Path:
+    d = data_root / "cases" / court / str(docket) / "events" / event / "predictions"
+    d.mkdir(parents=True)
+    return d
+
+
+def test_cases_with_predictions_groups_by_case(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    a1 = _predictions_dir(data_root, "scotus", 801, "evt-petition-disposition")
+    a2 = _predictions_dir(data_root, "scotus", 801, "evt-merits-disposition")
+    b1 = _predictions_dir(data_root, "ca9", 102, "evt-appeal-disposition")
+    # event.yaml beside the predictions and an outcome-only event are not predictions.
+    (a1.parent / "event.yaml").write_text("kind: petition\n")
+    (data_root / "cases" / "ca9" / "102" / "events" / "evt-other").mkdir(parents=True)
+    grouped = cases_with_predictions(data_root)
+    assert grouped == {"scotus/801": [a2, a1], "ca9/102": [b1]}
+
+
+def test_cases_with_predictions_missing_ledger_is_empty(tmp_path: Path) -> None:
+    assert cases_with_predictions(tmp_path / "data") == {}
 
 
 def test_cases_due_for_pull_rotates_stalest_first_and_caps(tmp_path: Path) -> None:
