@@ -1,0 +1,10 @@
+case_id: scotus/1001369
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: null
+resolved: false
+schema_version: '1.0'
+title: Fed. Trade Comm. v. Raymond Co.
