@@ -298,8 +298,8 @@ batch is API-metered (both engines).
 The gap between A and B is almost entirely the prediction *slice* and the
 two-engine fan-out. The budget is governed by choosing where on that line to
 operate: start at **A** (the long-conference batch on the on-demand API), measure
-real per-run token cost (~$0.50/run, folded into the figures above), then open the
-**SCOTUS-interaction gate** to its steady state (~$17K/yr inference — roughly 1/8
+real per-run token cost (≈$0.50/run, folded into the figures above), then open the
+**SCOTUS-interaction gate** to its steady state (≈$17K/yr inference — roughly 1/8
 of B) before deciding, with a year of cost data, whether to widen the gate toward
 full scope.
 
