@@ -1,5 +1,91 @@
 {
   "$defs": {
+    "AgentFlag": {
+      "additionalProperties": false,
+      "description": "One structured note a headless agent surfaces for maintainer triage.\n\nA typed alternative to burying a remark in ``reasoning.md`` or a trigger-issue\ncomment: a ``category`` and ``severity`` so the roll-up can sort and filter, and\na free-text ``message``. ``event_id`` narrows the flag to a single event when\nthe cell spans more than one; left null it applies to the cell as a whole.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/FlagCategory"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The specific event this flag is about, if narrower than the cell",
+          "title": "Event Id"
+        },
+        "message": {
+          "description": "What the maintainer should know, in prose",
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/FlagSeverity",
+          "default": "info"
+        }
+      },
+      "required": [
+        "category",
+        "message"
+      ],
+      "title": "AgentFlag",
+      "type": "object"
+    },
+    "AgentFlags": {
+      "additionalProperties": false,
+      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to surface* \u2014 a\ndata-quality problem, a scope question, an ambiguous event, or the reason it was\nblocked. It rides the cell's artifact to the ``collect`` job, which rolls every\ncell's flags into the run PR body (and the Actions summary), so a note survives\nthe trigger issue's closure and a maintainer sees it without reading every\n``reasoning.md``. The agent token stays comment-only: the file is written\nlocally and the trusted ``collect`` job does the surfacing.",
+      "properties": {
+        "actor_id": {
+          "description": "The predictor_id (predict) or evaluator_id (evaluate)",
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "flags": {
+          "description": "The notes; write the file only when there is at least one",
+          "items": {
+            "$ref": "#/$defs/AgentFlag"
+          },
+          "minItems": 1,
+          "title": "Flags",
+          "type": "array"
+        },
+        "role": {
+          "$ref": "#/$defs/UsageRole",
+          "description": "Which stage raised the flags"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "run_id",
+        "role",
+        "actor_id",
+        "flags"
+      ],
+      "title": "AgentFlags",
+      "type": "object"
+    },
     "BackfillCourt": {
       "additionalProperties": false,
       "description": "Per-court backfill progress, projected from the seed cursor.",
@@ -381,6 +467,81 @@
       "title": "DataHealth",
       "type": "object"
     },
+    "FlagCategory": {
+      "description": "What kind of thing an agent flag is about, for maintainer triage.",
+      "enum": [
+        "data-quality",
+        "scope",
+        "ambiguous-event",
+        "blocked",
+        "other"
+      ],
+      "title": "FlagCategory",
+      "type": "string"
+    },
+    "FlagSeverity": {
+      "description": "How loud an agent flag is. ``blocker`` means the cell could not finish cleanly.",
+      "enum": [
+        "info",
+        "warning",
+        "blocker"
+      ],
+      "title": "FlagSeverity",
+      "type": "string"
+    },
+    "FlagsDigest": {
+      "additionalProperties": false,
+      "description": "Open agent flags scanned from the committed ``flags.json`` files under ``data/``.\n\nA read-only roll-up the run-ops dashboard presents so agent-surfaced feedback is\nvisible alongside the other operational analytics \u2014 not only in the run PR that\nproduced it. The severity counts are over *every* committed flag; ``recent`` keeps\nthe most recent flag-raising cells (newest first, capped), so a long history never\nbloats the dashboard while the counts still report the true volume.",
+      "properties": {
+        "blockers": {
+          "description": "Flags at blocker severity",
+          "minimum": 0,
+          "title": "Blockers",
+          "type": "integer"
+        },
+        "cells": {
+          "description": "Cells (flags.json files) that raised at least one flag",
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "infos": {
+          "description": "Flags at info severity",
+          "minimum": 0,
+          "title": "Infos",
+          "type": "integer"
+        },
+        "recent": {
+          "description": "Most recent flag-raising cells, newest first (capped)",
+          "items": {
+            "$ref": "#/$defs/AgentFlags"
+          },
+          "title": "Recent",
+          "type": "array"
+        },
+        "total": {
+          "description": "Individual flags across all committed flags.json",
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "warnings": {
+          "description": "Flags at warning severity",
+          "minimum": 0,
+          "title": "Warnings",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "cells",
+        "blockers",
+        "warnings",
+        "infos"
+      ],
+      "title": "FlagsDigest",
+      "type": "object"
+    },
     "LedgerValidation": {
       "additionalProperties": false,
       "description": "``validate`` result over the git ledger under ``data/`` \u2014 schema conformance only.\n\nThe git-only, corpus-free half of data health: every artifact under ``data/``\nparsed and validated against its schema model. ``run-ops`` runs this on its\nschedule (no corpus needed), catching anything that reached the default branch\nwithout the local gate, plus model/data bit-rot over time. ``problems`` is a\nbounded sample of the specific failures; the true total is ``invalid``.",
@@ -456,6 +617,15 @@
       ],
       "title": "SpendSummary",
       "type": "object"
+    },
+    "UsageRole": {
+      "description": "Which agentic stage a usage record belongs to.",
+      "enum": [
+        "predictor",
+        "evaluator"
+      ],
+      "title": "UsageRole",
+      "type": "string"
     },
     "WorkflowHealth": {
       "additionalProperties": false,
@@ -564,7 +734,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove.",
+  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove. ``flags`` is the open-agent-flags digest scanned from ``data/``, null on a\nreport built before the field existed (so an older snapshot read back as\n``previous`` still validates).",
   "properties": {
     "backfill": {
       "$ref": "#/$defs/BackfillProgress"
@@ -583,6 +753,18 @@
       ],
       "default": null,
       "description": "Data-validation verdict (schema + corpus), when available"
+    },
+    "flags": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FlagsDigest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Open agent flags scanned from committed flags.json under data/"
     },
     "generated_at": {
       "description": "ISO-8601 UTC time the report was built",

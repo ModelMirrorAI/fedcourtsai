@@ -260,14 +260,20 @@ def _md_cell(value: object) -> str:
     return " ".join(str(value).split()).replace("|", "\\|") or "—"
 
 
-def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
-    """Roll a run's per-cell ``flags.json`` into one markdown section, or ``""``.
+# The columns a maintainer triages flags on, shared by every flag table.
+FLAGS_TABLE_HEADER = (
+    "| severity | category | actor | case | event | note |\n|---|---|---|---|---|---|"
+)
 
-    One row per flag, loudest severity first, so a maintainer reading the run PR (or
-    the Actions summary) sees every agent-surfaced note — a data-quality problem, a
-    scope question, the reason a cell was blocked — in one place rather than buried
-    across the run's ``reasoning.md`` files. Returns the empty string when no cell
-    raised a flag, so the caller can omit the section entirely.
+
+def flags_table(flag_sets: Sequence[AgentFlags]) -> str:
+    """Render flag sets as one severity-sorted markdown table, or ``""`` if none.
+
+    The shared table body behind both the per-run roll-up (:func:`render_flags`) and
+    the run-ops dashboard's open-flags section: one row per flag, loudest severity
+    first, carrying the columns a maintainer triages on (severity, category, actor,
+    case, event, note). Flag messages are agent-authored, so each cell is collapsed
+    to one line and pipe-escaped. Returns ``""`` when no set raised a flag.
     """
     rows: list[tuple[int, str, str, str]] = []
     for fs in flag_sets:
@@ -288,11 +294,25 @@ def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
     if not rows:
         return ""
     body = "\n".join(row[3] for row in sorted(rows, key=lambda r: r[:3]))
+    return f"{FLAGS_TABLE_HEADER}\n{body}"
+
+
+def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
+    """Roll a run's per-cell ``flags.json`` into one markdown section, or ``""``.
+
+    One row per flag, loudest severity first, so a maintainer reading the run PR (or
+    the Actions summary) sees every agent-surfaced note — a data-quality problem, a
+    scope question, the reason a cell was blocked — in one place rather than buried
+    across the run's ``reasoning.md`` files. Returns the empty string when no cell
+    raised a flag, so the caller can omit the section entirely.
+    """
+    table = flags_table(flag_sets)
+    if not table:
+        return ""
+    count = sum(len(fs.flags) for fs in flag_sets)
     return (
-        f"## 🚩 Agent flags ({len(rows)})\n\n"
-        "Structured notes the agents surfaced this run, for triage.\n\n"
-        "| severity | category | actor | case | event | note |\n"
-        "|---|---|---|---|---|---|\n" + body
+        f"## 🚩 Agent flags ({count})\n\n"
+        "Structured notes the agents surfaced this run, for triage.\n\n" + table
     )
 
 
