@@ -161,10 +161,18 @@ class PrPlan:
 
 @dataclass(frozen=True)
 class CollectPlan:
-    """The aggregate decision for a run: at most one ready PR and one draft PR."""
+    """The aggregate decision for a run.
+
+    ``ready`` is the one auto-merging PR (None if no cell finished cleanly);
+    ``partial`` is the one draft PR carrying *salvageable* output a maintainer
+    finishes (None if there is nothing to salvage); ``skipped`` are the cells that
+    produced no output at all — nothing to commit, only worth a warning so the run
+    never silently drops a cell.
+    """
 
     ready: PrPlan | None
     partial: PrPlan | None
+    skipped: tuple[CellStatus, ...] = ()
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -185,25 +193,28 @@ def collect_plan(
     run_id: str,
     cells: Sequence[CellStatus],
 ) -> CollectPlan:
-    """Partition a run's cells into one ready PR and one draft PR.
+    """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
-    The ready PR carries every cell whose agent finished and validated; it
-    auto-merges. The draft PR carries the rest (no output, an early stop, or
-    invalid output) for a maintainer — a draft never auto-merges, preserving the
-    per-cell graceful degradation the old one-PR-per-cell flow had. A run with no
-    ready cells opens no ready PR; a run with no partial cells opens no draft.
+    A cell is **ready** (agent finished, wrote output, it validated) → the one
+    auto-merging PR; **salvageable** (it wrote output but stopped early or failed
+    validation) → the one *draft* PR a maintainer completes (a draft never
+    auto-merges, preserving the per-cell graceful degradation the old
+    one-PR-per-cell flow had); or **skipped** (it produced nothing) → nothing to
+    commit, returned only so the workflow can warn. A run with no ready cells
+    opens no ready PR; with nothing to salvage, no draft.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
     noun = _JUDGMENT_NOUN[role]
     ready = [c for c in cells if c.ready]
-    partial = [c for c in cells if not c.ready]
+    salvage = [c for c in cells if c.produced and not c.ready]
+    skipped = tuple(c for c in cells if not c.produced)
 
     ready_plan: PrPlan | None = None
     if ready:
         note = (
-            f"\n\n{len(partial)} cell(s) did not finish cleanly; see the companion draft PR."
-            if partial
+            f"\n\n{len(salvage)} cell(s) need review; see the companion draft PR."
+            if salvage
             else ""
         )
         ready_plan = PrPlan(
@@ -218,14 +229,14 @@ def collect_plan(
         )
 
     partial_plan: PrPlan | None = None
-    if partial:
+    if salvage:
         partial_plan = PrPlan(
             branch=f"{role.value}/run-{run_id}-partial",
-            commit_message=f"{role.value}(run {run_id}): {len(partial)} partial {noun}(s)",
-            title=f"{role.value}: {len(partial)} partial {noun}(s) (run {run_id})",
-            body=f"{_PARTIAL_WARNING}\n\n{_table(partial, with_reason=True)}",
+            commit_message=f"{role.value}(run {run_id}): {len(salvage)} partial {noun}(s)",
+            title=f"{role.value}: {len(salvage)} partial {noun}(s) (run {run_id})",
+            body=f"{_PARTIAL_WARNING}\n\n{_table(salvage, with_reason=True)}",
             draft=True,
-            artifact_dirs=tuple(c.artifact_dir for c in partial),
+            artifact_dirs=tuple(c.artifact_dir for c in salvage),
         )
 
-    return CollectPlan(ready=ready_plan, partial=partial_plan)
+    return CollectPlan(ready=ready_plan, partial=partial_plan, skipped=skipped)
