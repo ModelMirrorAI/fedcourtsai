@@ -1197,6 +1197,13 @@ def _scope_filtered(
     manual run produced an empty matrix. ``scope == all`` passes every case
     through unchanged.
 
+    A SCOTUS-eligible case is still dropped if it is a **pre-1925
+    mandatory-jurisdiction matter** (:func:`corpus.is_historical_mandatory`, issue
+    #309): the ``evt-petition-disposition`` model targets modern discretionary
+    cert, and these historical appeals carry an incompatible disposition meaning.
+    The latch stays a pure "SCOTUS-touched" signal; the era filter layers on top
+    here so ingestion coverage is unaffected.
+
     Gating reads the corpus, so the corpus database must be on disk. If it is
     absent the gate cannot distinguish "case not eligible" from "corpus never
     provisioned" — :func:`corpus.connect` would silently create an empty database
@@ -1218,14 +1225,20 @@ def _scope_filtered(
     with corpus.connect(db_path) as conn:
         for case in cases:
             row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
-            if row is not None and row.predict_eligible:
-                kept.append(case)
-            else:
+            if row is None or not row.predict_eligible:
                 typer.echo(
                     f"Skipping {case.court}/{case.docket}: out of prediction scope "
                     f"(predict.scope=scotus_touched, not SCOTUS-eligible).",
                     err=True,
                 )
+            elif corpus.is_historical_mandatory(row):
+                typer.echo(
+                    f"Skipping {case.court}/{case.docket}: pre-1925 mandatory-jurisdiction "
+                    f"matter (issue #309); the discretionary-cert event model does not apply.",
+                    err=True,
+                )
+            else:
+                kept.append(case)
     return kept
 
 

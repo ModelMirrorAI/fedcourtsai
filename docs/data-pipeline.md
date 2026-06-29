@@ -30,7 +30,13 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   remand activity back in the courts of appeals, are predicted, while the ~42K/yr
   appeals cases that never reach SCOTUS are ingested but not predicted. The gate
   latches once and never clears; widening it beyond SCOTUS-touched cases is a later,
-  cost-data-driven decision ([milestones.md](milestones.md)).
+  cost-data-driven decision ([milestones.md](milestones.md)). One narrowing rides on
+  top of the latch: a **pre-1925 mandatory-jurisdiction matter** (detected by its
+  bare, non-Term-prefixed docket number, e.g. `801`) is dropped from the
+  predict/evaluate set — its `evt-petition-disposition` carries a merits, not a
+  discretionary-cert, meaning, so the modern event model does not fit it
+  (`corpus.is_historical_mandatory`). Ingestion still covers it; only prediction
+  is gated.
 
   Because the corpus keys a case by `<court>/<docket>`, the *same real-world case's*
   SCOTUS docket and originating court-of-appeals docket are **separate rows**. Both
