@@ -94,3 +94,40 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert json.loads(result.stdout) == {"ready": None, "partial": None, "skipped": []}
+
+
+def test_collect_reconcile_plan_emits_per_case_json(tmp_path: Path) -> None:
+    _write_cell(
+        tmp_path,
+        "reconcile-scotus-1",
+        court="scotus",
+        docket=1,
+        run_id="R",
+        settled=["evt-petition-disposition"],
+        validated=True,
+        agent_ok=True,
+    )
+    _write_cell(
+        tmp_path,
+        "reconcile-scotus-2",
+        court="scotus",
+        docket=2,
+        run_id="R",
+        settled=[],
+        validated=False,
+        agent_ok=True,
+    )
+
+    result = runner.invoke(
+        app,
+        ["collect-reconcile-plan", "--run-id", "R", "--status-dir", str(tmp_path), "--issue", "7"],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert plan["ready"]["branch"] == "reconcile/run-R"
+    assert plan["ready"]["commit_message"].startswith("reconcile:")
+    assert plan["ready"]["artifact_dirs"] == ["reconcile-scotus-1"]
+    assert "Closes #7" in plan["ready"]["body"]
+    # docket 2 settled nothing -> skipped, serialized as court/docket only.
+    assert plan["partial"] is None
+    assert plan["skipped"] == [{"court": "scotus", "docket": 2}]

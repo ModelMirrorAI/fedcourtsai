@@ -53,8 +53,9 @@ run:seed (weekly, chunked until done) → backfill bulk corpus chunk → commit 
                                     ├─ run:evaluate   (case that gained an outcome)
                                     └─ run:reconcile  (decided but not machine-readable
                                                        → agent reconciles by hand)
-       run:reconcile → plan → reconcile[matrix] → agent records outcome.json → PR per case
-                                 └─ on merge → run:evaluate  (the reconciled events)  ← APP TOKEN
+       run:reconcile → plan → reconcile[matrix] (outcome.json per case, as an artifact)
+                                 └─ collect → one auto-merged PR per run
+                                       └─ on merge → run:evaluate  (per reconciled case)  ← APP TOKEN
        run:predict → plan (build matrix) → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft PR for partials)
        run:evaluate → plan → evaluate[matrix] (artifact per cell)
@@ -116,17 +117,16 @@ matrix cell routes to Claude Code or Codex by the entry's `engine`. The agent
 writes files only. The workflow's `strategy.max-parallel` throttles the whole
 fan-out, however many cases it spans.
 
-How a cell's output becomes a PR differs by stage. **`run:predict`** and
-**`run:evaluate`** aggregate: each cell validates its own output and uploads it
-(plus a status file) as an artifact rather than opening a PR, and a final
-**`collect`** job unions the run's artifacts into **one PR** — auto-merged once
-`gate` + `paths` are green, and closing the triggering issue on merge — with any
-salvageable partial output split into a single companion **draft** PR. So a fan-out
-of dozens of cells yields one (or two) PRs for the run, not one per cell. The
-append-only `data/` path jail (`fedcourts assert-paths`) is enforced in `collect`
-before the commit and again as the required `paths` check, so an auto-merged PR can
-only add artifacts under `data/` (see [security.md](security.md)).
-**`run:reconcile`** still opens one PR per cell.
+How a cell's output becomes a PR is the same across **`run:predict`**,
+**`run:evaluate`**, and **`run:reconcile`**: each cell validates its own output and
+uploads it (plus a status file) as an artifact rather than opening a PR, and a
+final **`collect`** job unions the run's artifacts into **one PR** — auto-merged
+once `gate` + `paths` are green, and closing the triggering issue on merge — with
+any salvageable partial output split into a single companion **draft** PR. So a
+fan-out of dozens of cells yields one (or two) PRs for the run, not one per cell.
+The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in
+`collect` before the commit and again as the required `paths` check, so an
+auto-merged PR can only add artifacts under `data/` (see [security.md](security.md)).
 
 To trigger prediction/evaluation for **one** case, open an issue whose body
 contains a single object and apply `run:predict` (or `run:evaluate`):
@@ -166,10 +166,10 @@ or relabeling one never re-runs a full refresh.
 ` ```json ``` ` case block into a **per-case** matrix (`fedcourts
 reconcile-matrix`; one cell per case, because the agent must weigh a case's open
 events together to attribute the disposition), the agent reads the point-in-time
-snapshot and writes `outcome.json` for each event it can settle, and the workflow
-validates, commits, and opens one PR per case. An event the agent cannot settle
-with confidence is left open with a note on the issue — recording nothing beats a
-guess.
+snapshot and writes `outcome.json` for each event it can settle, and the `collect`
+job aggregates the run's cases into one auto-merged PR (whose `reconcile:` commit
+fires the evaluate handoff on merge). An event the agent cannot settle with
+confidence is left open with a note on the issue — recording nothing beats a guess.
 
 Closing the cascade gap: a reconciled `outcome.json` reaches the default branch
 only when its PR **merges**, so the handoff to evaluation is fired by the merge,
@@ -185,15 +185,12 @@ not the job. A step timeout (or a max-turns stop) fails only that step and leave
 the runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
 
-What salvage looks like depends on the stage. For **`run:predict`** and
-**`run:evaluate`**, each cell records its status and uploads its output
+What salvage looks like is uniform across **`run:predict`**, **`run:evaluate`**,
+and **`run:reconcile`**: each cell records its status and uploads its output
 (`if: !cancelled()`); the `collect` job then routes a cell that did not finish
 cleanly — or whose output failed schema validation — into the run's **draft** PR
 (never the auto-merging ready one), and a cell that produced nothing is warned
-about rather than committed. For **`run:reconcile`**, the per-cell finalize step
-commits whatever the agent produced and opens that cell's PR as a **draft** (with
-a note) rather than a ready one, and partial output that fails validation stays a
-draft for review instead of failing the job. In `run-dev`, where the agent does its own
+about rather than committed. In `run-dev`, where the agent does its own
 git, a rescue step commits any leftover changes on the issue branch and opens a
 **draft** PR for a maintainer to finish. A run that finished cleanly is
 unaffected: the draft path only triggers when the agent stopped early.

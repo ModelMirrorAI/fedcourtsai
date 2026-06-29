@@ -12,9 +12,11 @@ import pytest
 from fedcourtsai.collect import (
     CellStatus,
     PathJailError,
+    ReconcileCellStatus,
     assert_within_jail,
     collect_plan,
     parse_name_status,
+    reconcile_collect_plan,
 )
 from fedcourtsai.finalize import FinalizeRole
 
@@ -125,7 +127,7 @@ def test_salvageable_cell_drafts_skipped_cell_only_warns() -> None:
     assert plan.partial.artifact_dirs == ("cell-codex-baseline-1",)
     assert "failed validation" in plan.partial.body
     # The no-output cell is reported for a warning, never committed.
-    assert tuple(c.actor for c in plan.skipped) == ("gemini-baseline",)
+    assert tuple(c.actor for c in plan.skipped if isinstance(c, CellStatus)) == ("gemini-baseline",)
     # The ready PR points the reader at the companion draft (salvage count only).
     assert "1 cell(s) need review" in plan.ready.body
 
@@ -150,7 +152,7 @@ def test_only_skipped_opens_nothing_but_reports() -> None:
     )
     assert plan.ready is None
     assert plan.partial is None
-    assert tuple(c.actor for c in plan.skipped) == ("claude-baseline",)
+    assert tuple(c.actor for c in plan.skipped if isinstance(c, CellStatus)) == ("claude-baseline",)
 
 
 def test_no_cells_opens_nothing() -> None:
@@ -195,6 +197,62 @@ def test_skipped_only_cells_do_not_block_issue_close() -> None:
     assert "Closes #42" in plan.ready.body
 
 
-def test_reconcile_role_unsupported_for_now() -> None:
+def test_collect_plan_rejects_reconcile_role() -> None:
+    # The judgment collect_plan is predict/evaluate only; reconcile has its own.
     with pytest.raises(ValueError, match="predict/evaluate"):
         collect_plan(FinalizeRole.reconcile, run_id="R", cells=[])
+
+
+# --- reconcile collect plan (per-case) -------------------------------------
+
+
+def _rcell(
+    docket: int,
+    *,
+    settled: tuple[str, ...] = ("evt-petition-disposition",),
+    validated: bool = True,
+    agent_ok: bool = True,
+) -> ReconcileCellStatus:
+    return ReconcileCellStatus(
+        court="scotus",
+        docket=docket,
+        run_id="R",
+        settled=settled,
+        validated=validated,
+        agent_ok=agent_ok,
+        artifact_dir=f"reconcile-scotus-{docket}",
+    )
+
+
+def test_reconcile_ready_pr_starts_with_reconcile_for_the_handoff() -> None:
+    # The squash-merge subject must start with `reconcile:` so run-reconcile's
+    # push-triggered handoff picks it up and opens run:evaluate.
+    plan = reconcile_collect_plan(run_id="R", cells=[_rcell(1), _rcell(2)], issue=7)
+    assert plan.ready is not None
+    assert plan.ready.commit_message.startswith("reconcile:")
+    assert plan.ready.title.startswith("reconcile:")
+    assert "2 case(s)" in plan.ready.title
+    assert plan.ready.artifact_dirs == ("reconcile-scotus-1", "reconcile-scotus-2")
+    assert "run:evaluate" in plan.ready.body  # handoff note for reviewers
+    assert "Closes #7" in plan.ready.body
+    assert plan.partial is None
+
+
+def test_reconcile_case_that_settled_nothing_is_skipped_not_drafted() -> None:
+    plan = reconcile_collect_plan(
+        run_id="R",
+        cells=[_rcell(1), _rcell(2, settled=()), _rcell(3, validated=False)],
+        issue=7,
+    )
+    assert plan.ready is not None and plan.ready.artifact_dirs == ("reconcile-scotus-1",)
+    # docket 3 settled output but failed validation -> draft; docket 2 settled
+    # nothing -> skipped (warned, never committed).
+    assert plan.partial is not None and plan.partial.artifact_dirs == ("reconcile-scotus-3",)
+    assert tuple(c.docket for c in plan.skipped) == (2,)
+    # A pending draft keeps the trigger issue open.
+    assert "Closes #7" not in plan.ready.body
+
+
+def test_reconcile_no_cells_opens_nothing() -> None:
+    plan = reconcile_collect_plan(run_id="R", cells=[])
+    assert plan.ready is None and plan.partial is None and plan.skipped == ()

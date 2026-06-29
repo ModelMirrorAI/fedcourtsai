@@ -5,13 +5,14 @@ name: run-reconcile
 # a missing decision date, or a case-level disposition that cannot be attributed
 # to one of several open events). Fans out one agent per flagged case; the agent
 # confirms the disposition from the point-in-time snapshot and writes `outcome.json`
-# for each event it can settle. The agent only writes files; the workflow validates,
-# commits, and opens one PR per case. (run-predict aggregates its cells into one PR
-# per run via a collect job; run-reconcile has not yet been converted to that pattern.)
+# for each event it can settle. The agent only writes files; each cell (one case)
+# uploads its output as an artifact and the `collect` job aggregates the whole run
+# into one auto-merged PR (plus a draft PR for partials). The ready PR's commit and
+# title start with `reconcile:` so the squash-merge fires the handoff below.
 #
 # Closing the cascade: when that PR merges (outcome.json now on the default branch)
-# the `handoff` job opens a `run:evaluate` issue for the settled events, so a
-# reconciled outcome reaches evaluation exactly as a deterministically-detected one
+# the `handoff` job opens a `run:evaluate` issue per case for the settled events, so
+# a reconciled outcome reaches evaluation exactly as a deterministically-detected one
 # does. The reconcile issue itself is labeled `run:reconcile` (not `run:pull`), so
 # filing or relabeling it never re-fires the full deterministic pull.
 on:
@@ -91,29 +92,22 @@ jobs:
     timeout-minutes: 60
     environment: runner
     permissions:
-      contents: write
-      pull-requests: write
+      # The cell no longer commits or opens a PR — it only reads the repo and
+      # uploads an artifact; the collect job does the git/PR with its own token.
+      contents: read
       id-token: write # assume the AWS role for the DVC S3 remote (read-only)
     strategy:
       fail-fast: false
       max-parallel: 4
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
-      - name: Mint app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-
       - name: Mint agent comment token
         id: agent-token
         # Least-privilege token the agent itself uses to comment on the triggering
-        # issue. No contents:write — the agent only writes files locally and the
-        # workflow (app-token above) does the commit/PR, so a prompt injection in
-        # docket text cannot push code or record an outcome with this token.
+        # issue. No contents:write — the agent only writes files locally, which ride
+        # to the collect job as an artifact; that job (its own token) does the
+        # commit/PR, so a prompt injection in docket text cannot push code or record
+        # an outcome with this token.
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
@@ -230,94 +224,178 @@ jobs:
             --max-turns 120
             --permission-mode bypassPermissions
 
-      # Finalize even when the agent step failed or timed out (`!cancelled()`), so a
-      # run stopped by max-turns or the step timeout still hands the outcomes it did
-      # settle to a maintainer instead of vanishing with the runner.
-      - name: Configure git identity
+      # The cell no longer opens a PR. Even when the agent failed or timed out
+      # (`!cancelled()`), record which events it settled and hand its output to the
+      # collect job; that job aggregates the whole run into one PR.
+      - name: Record cell status
         if: ${{ !cancelled() }}
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_IDS: ${{ matrix.events }}
+          RUN_ID: ${{ matrix.run_id }}
+          # Did the agent finish cleanly? On max-turns or a step timeout it fails;
+          # whatever it settled still rides to the collect job, which routes it to a
+          # draft PR a maintainer completes — never the auto-merging ready one.
+          AGENT_OK: ${{ steps.reconcile_claude.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          # Settled = the cell's events that now have an outcome.json on disk (the
+          # agent writes outcome.json only for events it can settle; event.yaml is
+          # materialized for every event, so it is the outcome.json that is the
+          # signal). The append-only data/ jail in collect rejects a modified
+          # outcome.json, so a pre-existing one can never be mistaken for settled.
+          settled=()
+          for eid in $EVENT_IDS; do
+            if [ -f "data/cases/${COURT_ID}/${DOCKET_ID}/events/${eid}/outcome.json" ]; then
+              settled+=("$eid")
+            fi
+          done
+          validated=false
+          if [ "${#settled[@]}" -gt 0 ] && uv run fedcourts validate data; then
+            validated=true
+          fi
+          settled_json=$(printf '%s\n' "${settled[@]:-}" | jq -R . | jq -s 'map(select(length > 0))')
+          jq -n \
+            --arg court "$COURT_ID" --argjson docket "$DOCKET_ID" --arg run_id "$RUN_ID" \
+            --argjson settled "$settled_json" \
+            --argjson validated "$validated" --argjson agent_ok "$AGENT_OK" \
+            '{court:$court,docket:$docket,run_id:$run_id,settled:$settled,validated:$validated,agent_ok:$agent_ok}' \
+            > status.json
+
+      # One artifact per cell (per case): its status.json plus its data/ subtree.
+      # The name is unique per case so concurrent cells never collide, and the
+      # collect job keys the download on the `reconcile-` prefix.
+      - name: Upload cell output
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: reconcile-${{ matrix.court }}-${{ matrix.docket }}
+          path: |
+            status.json
+            data
+          if-no-files-found: error
+          retention-days: 7
+
+  collect:
+    needs: [plan, reconcile]
+    # Run after the whole fan-out even if some cells failed, as long as the plan
+    # queued jobs (and only on the issue trigger, not the handoff push). This is the
+    # only writer: it unions the cells' artifacts into one PR per run (auto-merged
+    # when green) plus, if any case left salvageable output, one draft PR.
+    if: ${{ always() && github.event_name == 'issues' && needs.plan.outputs.has_jobs == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: runner
+    permissions:
+      contents: write # commit the run's outcomes to a branch
+      pull-requests: write # open the run PR and enable auto-merge
+    steps:
+      # The collect job opens the PR with the dev App token. The dev App is *not* a
+      # branch-protection bypass actor (see docs/security.md), so its auto-merge is
+      # bound by the required `gate` + `paths` checks rather than skipping them.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
-      - name: Validate and open PR
-        if: ${{ !cancelled() }}
+      - name: Download cell artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: cell-artifacts
+          pattern: reconcile-*
+
+      - name: Aggregate the run into one PR
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
-          COURT_ID: ${{ matrix.court }}
-          DOCKET_ID: ${{ matrix.docket }}
-          RUN_ID: ${{ matrix.run_id }}
           ISSUE: ${{ github.event.issue.number }}
-          # Did the agent finish cleanly? On max-turns or a step timeout it fails;
-          # we still commit whatever outcomes it settled, but as a *draft* PR. A
-          # draft never merges, so its `reconcile:` commit can't fire the evaluate
-          # handoff until a maintainer reviews and merges it.
-          AGENT_OK: ${{ steps.reconcile_claude.outcome == 'success' }}
         run: |
           set -euo pipefail
           gh auth setup-git
-          # Branch name, draft-vs-ready routing, and the PR title/body are computed
-          # by the tested `finalize-branch` / `finalize-pr` commands; this step only
-          # runs git and gh.
-          branch=$(uv run fedcourts finalize-branch --role reconcile \
-            --court "$COURT_ID" --docket "$DOCKET_ID" --run-id "$RUN_ID")
-          git checkout -b "$branch"
-          # data/ may not exist yet (no derived artifact has ever been committed),
-          # so guard the add: a run that settles nothing then yields the "no outcome
-          # recorded" plan below instead of aborting on a missing pathspec.
-          if [ -d data ]; then
+          # Every cell was cancelled before it could upload — nothing to collect.
+          if [ ! -d cell-artifacts ] || [ -z "$(ls -A cell-artifacts)" ]; then
+            echo "::warning::no cell artifacts to collect"; exit 0
+          fi
+          # All cells share the plan's run id; read it off any status file.
+          run_id=$(jq -r '.run_id' cell-artifacts/*/status.json | head -n1)
+          # The ready/draft partition, branch names, and PR prose are computed by the
+          # tested `collect-reconcile-plan`; this step only runs git and gh. The ready
+          # PR's `reconcile:` commit subject fires the evaluate handoff on merge, and
+          # it closes the triggering issue (unless a draft still has work).
+          plan=$(uv run fedcourts collect-reconcile-plan --run-id "$run_id" \
+            --status-dir cell-artifacts --issue "$ISSUE")
+          # Never silently drop a case: warn for each that settled nothing.
+          jq -r '.skipped[] | "::warning::reconcile settled nothing for \(.court)/\(.docket)"' <<<"$plan"
+          for kind in ready partial; do
+            pr=$(jq -c ".${kind}" <<<"$plan")
+            [ "$pr" = "null" ] && continue
+            git checkout -q main
+            branch=$(jq -r '.branch' <<<"$pr")
+            git checkout -q -b "$branch"
+            # Union each member case's data/ subtree onto the clean main checkout.
+            # Cases write disjoint paths, so the union is conflict-free.
+            while IFS= read -r dir; do
+              cp -a "cell-artifacts/${dir}/data/." data/
+            done < <(jq -r '.artifact_dirs[]' <<<"$pr")
             git add data/
-          fi
-          # The settled events are exactly the outcome.json files this run added
-          # under the case (the agent writes only outcome.json — event open/resolved
-          # state is a corpus fact, not a git file). The `reconcile:` commit subject
-          # and these added paths are what the push-triggered handoff reads to queue
-          # run:evaluate, so an event the agent left ambiguous is never queued.
-          prefix="data/cases/${COURT_ID}/${DOCKET_ID}/events"
-          mapfile -t settled < <(
-            git diff --cached --name-only --diff-filter=A -- "$prefix" \
-              | sed -n "s#^${prefix}/\([^/]*\)/outcome.json\$#\1#p"
-          )
-          # A clean run must produce schema-valid outcomes (hard fail keeps the ledger
-          # honest); validate only when something was settled (else finalize-pr skips).
-          validated=true
-          if [ "${#settled[@]}" -gt 0 ]; then
-            uv run fedcourts validate data || validated=false
-          fi
-          plan=$(uv run fedcourts finalize-pr --role reconcile \
-            --court "$COURT_ID" --docket "$DOCKET_ID" --run-id "$RUN_ID" \
-            --agent-ok "$AGENT_OK" --validated "$validated" --issue "$ISSUE" \
-            --settled "$(IFS=,; echo "${settled[*]:-}")")
-          case "$(jq -r '.action' <<<"$plan")" in
-            skip) echo "::warning::$(jq -r '.message' <<<"$plan")"; exit 0 ;;
-            fail) echo "::error::$(jq -r '.message' <<<"$plan")"; exit 1 ;;
-          esac
-          git commit -m "$(jq -r '.commit_message' <<<"$plan")"
-          # claude-code-action leaves its contents:read agent token as the ambient
-          # git credential (a global http extraheader / credential helper), which
-          # overrides the contents:write app token and 403s a plain push. Push with
-          # the app token explicitly: inline URL credentials bypass any credential
-          # helper, and blanking http.extraHeader at command scope (highest config
-          # precedence) drops any ambient Authorization header — so the write token
-          # authenticates.
-          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
-            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
-            "HEAD:refs/heads/${branch}"
-          jq -r '.body' <<<"$plan" > pr-body.md
-          flags=()
-          if [ "$(jq -r '.draft' <<<"$plan")" = "true" ]; then flags+=(--draft); fi
-          gh pr create --base main --head "$branch" "${flags[@]}" \
-            --title "$(jq -r '.title' <<<"$plan")" \
-            --body-file pr-body.md
+            draft=$(jq -r '.draft' <<<"$pr")
+            auto=true
+            # Enforce the append-only data/ jail and a final schema check here,
+            # producer-side. Either failing downgrades the PR to a draft for review
+            # instead of auto-merging something unexpected (CI re-checks the jail).
+            git diff --cached --name-status > changes.txt
+            if ! uv run fedcourts assert-paths --name-status-file changes.txt; then
+              draft=true; auto=false; echo "::warning::path jail tripped; opening ${branch} as a draft"
+            fi
+            if ! uv run fedcourts validate data; then
+              draft=true; auto=false; echo "::warning::validation failed; opening ${branch} as a draft"
+            fi
+            git commit -q -m "$(jq -r '.commit_message' <<<"$pr")"
+            # Push with the app (write) token explicitly; blank any ambient
+            # extraheader at command scope so the write token authenticates.
+            git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+              push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+              "HEAD:refs/heads/${branch}"
+            jq -r '.body' <<<"$pr" > pr-body.md
+            flags=()
+            [ "$draft" = "true" ] && flags+=(--draft)
+            url=$(gh pr create --base main --head "$branch" "${flags[@]}" \
+              --title "$(jq -r '.title' <<<"$pr")" --body-file pr-body.md)
+            # Enable auto-merge only for a ready (non-draft, jail-clean) PR. A miss
+            # (e.g. the repo's "Allow auto-merge" is off) leaves the PR open for a
+            # manual merge rather than failing the run.
+            if [ "$draft" != "true" ] && [ "$auto" = "true" ]; then
+              gh pr merge --auto --squash "$url" \
+                || echo "::warning::could not enable auto-merge on ${url}"
+            fi
+          done
 
   # When a reconcile PR's outcome.json lands on main, hand off to evaluation —
   # mirrors run-pull's "open run:evaluate for newly resolved events", but fired by
   # the merge rather than by detection (reconcile resolves by hand). Reads the push
-  # payload directly (no checkout): each commit subject-prefixed `reconcile:` names
-  # a case, and its added outcome.json paths name the settled events; run-pull's
-  # own `pull:` outcome commits are ignored, so a deterministic outcome is not
-  # double-queued (run-pull already queues it).
+  # payload directly (no checkout): a `reconcile:`-subject commit's added
+  # outcome.json paths name the settled events, grouped per case (the collect job's
+  # squash commit covers every case in the run at once); run-pull's own `pull:`
+  # outcome commits are ignored, so a deterministic outcome is not double-queued
+  # (run-pull already queues it). One run:evaluate issue is opened per case.
   handoff:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
