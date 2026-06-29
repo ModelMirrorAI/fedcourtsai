@@ -15,8 +15,10 @@ from fedcourtsai.collect import (
     ReconcileCellStatus,
     assert_within_jail,
     collect_plan,
+    feedback_marker,
     parse_name_status,
     reconcile_collect_plan,
+    render_feedback_comment,
     render_flags,
 )
 from fedcourtsai.finalize import FinalizeRole
@@ -281,6 +283,49 @@ def test_collect_plan_flags_survive_with_no_pr() -> None:
     )
     assert plan.ready is None and plan.partial is None
     assert "🚩 Agent flags" in plan.flags_markdown
+
+
+# --- agent-feedback tracking issue ------------------------------------------
+
+
+def test_render_feedback_comment_empty_when_no_flags() -> None:
+    # No flags this run -> nothing to post to the latched issue.
+    assert render_feedback_comment(FinalizeRole.predict, "R", "") == ""
+
+
+def test_render_feedback_comment_leads_with_marker_and_header() -> None:
+    comment = render_feedback_comment(
+        FinalizeRole.evaluate, "20260101T000000Z", "## 🚩 Agent flags"
+    )
+    # First line is the dedupe marker keyed on role/run, so a re-run posts once.
+    assert comment.splitlines()[0] == feedback_marker(FinalizeRole.evaluate, "20260101T000000Z")
+    assert "evaluate · run `20260101T000000Z`" in comment
+    assert comment.endswith("## 🚩 Agent flags")
+
+
+def test_feedback_marker_distinguishes_role_and_run() -> None:
+    # The marker keys on both stage and run so two stages of the same run, and two
+    # runs of the same stage, never collide as "already posted".
+    assert feedback_marker(FinalizeRole.predict, "R") != feedback_marker(FinalizeRole.evaluate, "R")
+    assert feedback_marker(FinalizeRole.predict, "R1") != feedback_marker(
+        FinalizeRole.predict, "R2"
+    )
+
+
+def test_collect_plan_carries_feedback_comment_with_flags() -> None:
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        flags=[_flagset("claude-baseline", AgentFlag(category=FlagCategory.scope, message="q"))],
+    )
+    assert plan.feedback_comment.startswith(feedback_marker(FinalizeRole.predict, "R"))
+    assert "🚩 Agent flags" in plan.feedback_comment
+
+
+def test_collect_plan_feedback_comment_blank_without_flags() -> None:
+    plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[_cell("claude-baseline")])
+    assert plan.feedback_comment == ""
 
 
 def test_collect_plan_without_flags_leaves_body_clean() -> None:

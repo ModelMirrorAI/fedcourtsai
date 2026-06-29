@@ -48,11 +48,16 @@ The optional `flags.json` (an `AgentFlags`) is a cell's **durable feedback
 channel**: a headless predictor/evaluator writes one only when it has a structured
 note to surface — a data-quality problem, a scope question, an ambiguous event, or
 the reason it was blocked. Each flag is a typed `{category, severity, message}`.
-The `collect` job rolls every cell's flags into the run PR body and the Actions
-summary (reading even a blocked cell that produced no judgment), so the note
-survives the trigger issue's closure and a maintainer sees it without opening every
-`reasoning.md`. The agent token stays comment-only: the file is written locally and
-the trusted `collect` job does the surfacing.
+The `collect` job rolls every cell's flags into the run PR body, the Actions
+summary, and one long-lived **agent-feedback** tracking issue (reading even a
+blocked cell that produced no judgment), so the note survives the trigger issue's
+closure — and even a fully-failed run that opens no PR — and a maintainer sees it
+without opening every `reasoning.md`. The tracking issue is the single latched
+issue pattern of `ops-dashboard` / `data-validation`: find-or-create one issue
+under a non-triggering `agent-feedback` label, then post each flagged run's roll-up
+as one comment (a hidden per-run marker keeps a `collect` re-run from duplicating
+it). The agent token stays comment-only: the file is written locally and the
+trusted `collect` job does the surfacing.
 
 The raw facts an event is predicted from — its docket, the snapshot, the event
 definition itself — live in the corpus, not here. Predictors and evaluators read

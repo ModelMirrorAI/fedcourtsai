@@ -372,6 +372,7 @@ jobs:
     permissions:
       contents: write # commit the run's evaluations to a branch
       pull-requests: write # open the run PR and enable auto-merge
+      issues: write # post the run's flags to the long-lived agent-feedback issue
     steps:
       # The collect job opens the PR with the dev App token. The dev App is *not* a
       # branch-protection bypass actor (see docs/security.md), so its auto-merge is
@@ -384,6 +385,7 @@ jobs:
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
+          permission-issues: write # latch the run's flags onto the agent-feedback issue
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -429,6 +431,32 @@ jobs:
           flags=$(jq -r '.flags' <<<"$plan")
           if [ -n "$flags" ] && [ "$flags" != "null" ]; then
             printf '%s\n' "$flags" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # Latch this run's flags onto ONE long-lived agent-feedback issue so a note
+          # survives even a fully-failed run that opens no PR, and triage centralizes
+          # in one place. `feedback_comment` (rendered by collect-plan) is empty when
+          # the run raised no flags. find-or-create the single issue, then post once —
+          # its first line is a hidden per-run marker, so a collect re-run never dupes.
+          feedback=$(jq -r '.feedback_comment' <<<"$plan")
+          if [ -n "$feedback" ] && [ "$feedback" != "null" ]; then
+            printf '%s\n' "$feedback" > feedback-comment.md
+            marker=$(head -n1 feedback-comment.md)
+            # `agent-feedback` is a NON-triggering label by design (no run:* workflow
+            # keys on it). Create it idempotently so the first run does not fail.
+            gh label create agent-feedback --repo "$REPO" --force \
+              --color fbca04 --description "Long-lived agent feedback flags (predict/evaluate collect roll-up)"
+            num=$(gh issue list --repo "$REPO" --label agent-feedback --state open \
+              --json number --jq '.[0].number')
+            if [ -z "$num" ]; then
+              url=$(gh issue create --repo "$REPO" --title "Agent feedback" --label agent-feedback \
+                --body "Long-lived tracking issue for the agent flags the predict/evaluate \`collect\` job rolls up. Each run that surfaces a flag adds a comment below; triage them and close the issue only if you retire the channel. See docs/data-model.md (the \`flags.json\` channel) and docs/pipeline.md.")
+              num=$(basename "$url")
+            fi
+            # Post this run's note once: skip if a comment already carries its marker.
+            if ! gh issue view "$num" --repo "$REPO" --json comments --jq '.comments[].body' \
+                 | grep -qF "$marker"; then
+              gh issue comment "$num" --repo "$REPO" --body-file feedback-comment.md
+            fi
           fi
           # Never silently drop a cell: warn for each that produced no output.
           jq -r '.skipped[] | "::warning::no evaluation for \(.actor) on \(.court)/\(.docket) \(.event_id)"' <<<"$plan"

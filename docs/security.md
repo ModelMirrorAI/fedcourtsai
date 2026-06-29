@@ -109,6 +109,18 @@ dev App that opens these PRs is not a branch-protection bypass actor (above), so
 the checks bind. The append-only `data/` jail (`paths`) is what makes
 auto-merging agent output safe.
 
+The predict/evaluate `collect` job also holds **`issues: write`** (its minted dev
+App token grants `issues` write) so it can latch each run's rolled-up agent flags
+onto one long-lived `agent-feedback` tracking issue — the durable, centralized home
+for a note that must survive even a fully-failed run that opens no PR. This is a
+deliberate privilege expansion on a trusted, auto-merging job, kept narrow: the
+scope is issue comments/creation, never `contents` beyond the `data/` jail it
+already commits; and the token is the *collect* job's, never handed to the agent
+(the per-cell agent token stays comment-only and writes `flags.json` locally — the
+trusted `collect` job does the surfacing). So docket text the agent ingests cannot
+reach this token, and the worst a misbehaving `collect` run can do with it is post
+an issue comment.
+
 ## The `runner` environment
 
 Every secret and both S3 role ARNs live on the `runner` environment — the App

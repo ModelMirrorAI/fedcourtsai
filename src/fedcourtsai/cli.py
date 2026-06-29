@@ -1460,6 +1460,7 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
             if isinstance(c, CellStatus)
         ],
         "flags": plan.flags_markdown,
+        "feedback_comment": plan.feedback_comment,
     }
 
 
@@ -1500,7 +1501,10 @@ def collect_plan_cmd(
     ``draft`` and the ``artifact_dirs`` whose ``data/`` the collect job copies into
     that PR. The ready ``body`` closes ``--issue`` on merge unless a draft remains.
     ``flags`` is the run's rolled-up agent flags (also appended to the PR body),
-    which the collect step echoes into the Actions summary.
+    which the collect step echoes into the Actions summary; ``feedback_comment``
+    is the same roll-up wrapped for the long-lived agent-feedback tracking issue
+    (empty when no flags), which the collect step posts so a note survives even a
+    fully-failed run that opens no PR.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):

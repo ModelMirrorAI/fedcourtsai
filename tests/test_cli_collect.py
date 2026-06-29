@@ -98,6 +98,7 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         "partial": None,
         "skipped": [],
         "flags": "",
+        "feedback_comment": "",
     }
 
 
@@ -153,6 +154,9 @@ def test_collect_plan_rolls_up_flag_files(tmp_path: Path) -> None:
     assert "🚩 Agent flags (2)" in plan["flags"]
     assert "`codex-baseline`" in plan["flags"]  # the blocked, uncommitted cell's flag still shows
     assert "🚩 Agent flags" in plan["ready"]["body"]
+    # The same roll-up is wrapped for the latched agent-feedback issue, marker first.
+    assert plan["feedback_comment"].startswith("<!-- agent-feedback-run: predict/R -->")
+    assert "🚩 Agent flags" in plan["feedback_comment"]
 
 
 def test_collect_plan_tolerates_malformed_flag_file(tmp_path: Path) -> None:
