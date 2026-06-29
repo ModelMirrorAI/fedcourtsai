@@ -38,7 +38,7 @@ trigger the next stage. Several stages delegate to agentic coding tools
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
 | `run:seed`     | `run-seed`      | Ingest initial dockets from CourtListener into the corpus            | Script |
-| `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script (agent only if ambiguous) |
+| `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script |
 | `run:reconcile`| `run-reconcile` | Confirm a decided event's `outcome.json` from the docket when pull can't | Claude Code |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex |
