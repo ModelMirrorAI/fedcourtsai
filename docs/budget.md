@@ -277,7 +277,7 @@ variable that scope controls. Two reference points:
 ### A. Pilot / low-volume (gated slice, API-metered)
 
 Development plus the **SCOTUS-interaction gate** at its entry point — the
-long-conference cert batch on the Batch API (see *The pilot slice* above).
+long-conference cert batch on the API (see *The pilot slice* above).
 Interactive development draws on the Max subscription; the automated predict/eval
 batch is API-metered (both engines).
 
