@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/1004289",
+  "run_id": "20260629T202043Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "fedcourts paths resolved the snapshot/event/outcome paths instantly",
+    "fedcourts validate data confirmed the artifacts before finishing"
+  ],
+  "gaps": [
+    "fedcourts query returned old reported opinions, not modern SCOTUS cert-petition priors, so it gave no calibration for IFP cert-denial base rates",
+    "no way to filter priors by petition posture (paid vs IFP docket) or by docket-number range",
+    "an aggregate base-rate lookup (e.g. SCOTUS cert grant rate by docket/Term) would beat re-deriving it from general knowledge each run"
+  ],
+  "notes": "Snapshot was a bare metadata stub (empty docket_entries, all dates null); the prediction rested on the IFP cert-denial base rate inferred from the structural docket number 93-7515 and party posture."
+}
