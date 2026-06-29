@@ -1571,13 +1571,18 @@ def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
     run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
     status_dir: Annotated[Path, typer.Option(help="Root the cell artifacts were downloaded into.")],
+    issue: Annotated[
+        int,
+        typer.Option(help="Triggering issue number; the ready PR closes it on merge (0 = none)."),
+    ] = 0,
 ) -> None:
     """Emit the per-run aggregate PR decision as compact JSON.
 
     Reads every ``status.json`` under ``status_dir`` (one per matrix cell), then
-    prints ``{"ready": <pr|null>, "partial": <pr|null>}`` where each ``pr`` carries
-    ``branch`` / ``commit_message`` / ``title`` / ``body`` / ``draft`` and the
-    ``artifact_dirs`` whose ``data/`` the collect job copies into that PR.
+    prints ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [...]}`` where
+    each ``pr`` carries ``branch`` / ``commit_message`` / ``title`` / ``body`` /
+    ``draft`` and the ``artifact_dirs`` whose ``data/`` the collect job copies into
+    that PR. The ready ``body`` closes ``--issue`` on merge unless a draft remains.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -1585,7 +1590,7 @@ def collect_plan_cmd(
         cells.append(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
-    plan = collect_plan(role, run_id=run_id, cells=cells)
+    plan = collect_plan(role, run_id=run_id, cells=cells, issue=issue or None)
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 
 

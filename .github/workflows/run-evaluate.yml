@@ -3,9 +3,9 @@ name: run-evaluate
 # Triggered by `run:evaluate`. Fans out over every enabled evaluator x resolved
 # event and runs the matching coding agent. Each evaluator scores every
 # predictor's prediction for the event internally, so predictors are not a
-# matrix dimension. The agent only writes files; the workflow commits and opens
-# one PR per cell. (run-predict aggregates its cells into one PR per run via a
-# collect job; run-evaluate has not yet been converted to that pattern.)
+# matrix dimension. The agent only writes files; each cell uploads its output as
+# an artifact and the `collect` job aggregates the whole run into one auto-merged
+# PR (plus a draft PR for any partial output). Mirrors run-predict.yml.
 on:
   issues:
     types: [labeled]
@@ -107,29 +107,21 @@ jobs:
     timeout-minutes: 60
     environment: runner
     permissions:
-      contents: write
-      pull-requests: write
+      # The cell no longer commits or opens a PR — it only reads the repo and
+      # uploads an artifact; the collect job does the git/PR with its own token.
+      contents: read
       id-token: write # assume the AWS role for the DVC S3 remote (read-only)
     strategy:
       fail-fast: false
       max-parallel: 4
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
-      - name: Mint app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-
       - name: Mint agent comment token
         id: agent-token
         # Least-privilege token the agent itself uses to comment on the triggering
-        # issue/PR. No contents:write — the agent only writes files locally and the
-        # workflow (app-token above) does the commit/PR, so a prompt injection in
-        # docket text cannot push code with this token.
+        # issue/PR. No contents:write — the agent only writes files locally, which
+        # ride to the collect job as an artifact; that job (its own token) does the
+        # commit/PR, so a prompt injection in docket text cannot push code here.
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
@@ -315,79 +307,164 @@ jobs:
       # Finalize even when the agent step failed or timed out (`!cancelled()`), so a
       # run stopped by max-turns or the step timeout still hands its partial output
       # to a maintainer instead of vanishing with the runner.
-      - name: Configure git identity
-        if: ${{ !cancelled() }}
-        uses: ./.github/actions/configure-git-identity
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          app-slug: ${{ steps.app-token.outputs.app-slug }}
-
-      - name: Validate and open PR
+      # The cell no longer opens a PR. Even when the agent failed or timed out
+      # (`!cancelled()`), record what it produced and hand its output to the
+      # collect job; that job aggregates the whole run into one PR. The decisions
+      # (produced? validated?) use the same tested commands the old finalize step
+      # did — this step only records them into a status file the collect job reads.
+      - name: Record cell status
         if: ${{ !cancelled() }}
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
           EVENT_ID: ${{ matrix.event_id }}
           EVALUATOR_ID: ${{ matrix.evaluator_id }}
           RUN_ID: ${{ matrix.run_id }}
           # Did the agent finish cleanly? On max-turns or a step timeout the engine
-          # step fails; we still commit whatever valid output it left, but as a
-          # *draft* PR a maintainer must complete, never as a ready evaluation.
+          # step fails; its partial output still rides to the collect job, which
+          # routes it to a draft PR a maintainer completes — never the ready one.
           AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.evaluate_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.evaluate_codex.outcome == 'success') }}
         run: |
           set -euo pipefail
-          gh auth setup-git
-          # Branch name, draft-vs-ready routing, and the PR title/body are computed
-          # by the tested `finalize-branch` / `finalize-pr` commands; this step only
-          # runs git and gh. The case + event + actor ride in the branch so two
-          # concurrent cells sharing a second-granular run id never collide on a ref.
-          branch=$(uv run fedcourts finalize-branch --role evaluate \
+          # The event.yaml is materialized before the agent runs, so a staged change
+          # is not proof of an evaluation. `finalize-produced` checks for this
+          # evaluator's own evaluation.json; only a produced cell is validated, and
+          # the collect job commits only produced cells (a no-output cell is warned).
+          produced=$(uv run fedcourts finalize-produced --role evaluate \
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
             --actor "$EVALUATOR_ID" --run-id "$RUN_ID")
-          git checkout -b "$branch"
-          # The event.yaml is materialized before the agent runs, so a staged change
-          # is not proof of an evaluation — a failed/empty agent leaves only that
-          # scaffold. Stage data/ (and open a PR) only when this evaluator's own
-          # evaluation.json exists; otherwise the cell is skipped with a warning
-          # rather than opening a draft PR that carries no evaluation.
-          if [ "$(uv run fedcourts finalize-produced --role evaluate \
-              --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
-              --actor "$EVALUATOR_ID" --run-id "$RUN_ID")" = "true" ]; then
-            changed=true
+          validated=false
+          if [ "$produced" = "true" ] && uv run fedcourts validate data; then
+            validated=true
+          fi
+          jq -n \
+            --arg court "$COURT_ID" --argjson docket "$DOCKET_ID" \
+            --arg event_id "$EVENT_ID" --arg actor "$EVALUATOR_ID" --arg run_id "$RUN_ID" \
+            --argjson produced "$produced" --argjson validated "$validated" \
+            --argjson agent_ok "$AGENT_OK" \
+            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok}' \
+            > status.json
+
+      # One artifact per cell: its status.json plus its data/ subtree. The name is
+      # unique per evaluator x case x event so concurrent cells never collide, and
+      # the collect job keys the download on the `evaluate-` prefix.
+      - name: Upload cell output
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: evaluate-${{ matrix.evaluator_id }}-${{ matrix.court }}-${{ matrix.docket }}-${{ matrix.event_id }}
+          path: |
+            status.json
+            data
+          if-no-files-found: error
+          retention-days: 7
+
+  collect:
+    needs: [plan, evaluate]
+    # Run after the whole fan-out even if some cells failed, as long as the plan
+    # queued jobs. This is the only writer: it unions the cells' artifacts into one
+    # PR per run (auto-merged when green) plus, if any cell left salvageable
+    # partial output, one draft PR a maintainer finishes.
+    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: runner
+    permissions:
+      contents: write # commit the run's evaluations to a branch
+      pull-requests: write # open the run PR and enable auto-merge
+    steps:
+      # The collect job opens the PR with the dev App token. The dev App is *not* a
+      # branch-protection bypass actor (see docs/security.md), so its auto-merge is
+      # bound by the required `gate` + `paths` checks rather than skipping them.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      - name: Download cell artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: cell-artifacts
+          pattern: evaluate-*
+
+      - name: Aggregate the run into one PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          # Every cell was cancelled before it could upload — nothing to collect.
+          if [ ! -d cell-artifacts ] || [ -z "$(ls -A cell-artifacts)" ]; then
+            echo "::warning::no cell artifacts to collect"; exit 0
+          fi
+          # All cells share the plan's run id; read it off any status file.
+          run_id=$(jq -r '.run_id' cell-artifacts/*/status.json | head -n1)
+          # The ready/draft partition, branch names, and PR prose are computed by the
+          # tested `collect-plan`; this step only runs git and gh. The ready PR
+          # closes the triggering issue on merge (unless a draft still has work).
+          plan=$(uv run fedcourts collect-plan --role evaluate --run-id "$run_id" \
+            --status-dir cell-artifacts --issue "$ISSUE")
+          # Never silently drop a cell: warn for each that produced no output.
+          jq -r '.skipped[] | "::warning::no evaluation for \(.actor) on \(.court)/\(.docket) \(.event_id)"' <<<"$plan"
+          for kind in ready partial; do
+            pr=$(jq -c ".${kind}" <<<"$plan")
+            [ "$pr" = "null" ] && continue
+            git checkout -q main
+            branch=$(jq -r '.branch' <<<"$pr")
+            git checkout -q -b "$branch"
+            # Union each member cell's data/ subtree onto the clean main checkout.
+            # Cells write disjoint paths, so the union is conflict-free.
+            while IFS= read -r dir; do
+              cp -a "cell-artifacts/${dir}/data/." data/
+            done < <(jq -r '.artifact_dirs[]' <<<"$pr")
             git add data/
-          else
-            changed=false
-          fi
-          # Only validate when there is output; a clean run must validate (hard fail),
-          # a partial run's invalid output becomes a draft (decided in finalize-pr).
-          validated=true
-          if [ "$changed" = "true" ]; then
-            uv run fedcourts validate data || validated=false
-          fi
-          plan=$(uv run fedcourts finalize-pr --role evaluate \
-            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
-            --actor "$EVALUATOR_ID" --run-id "$RUN_ID" \
-            --agent-ok "$AGENT_OK" --changed "$changed" --validated "$validated")
-          case "$(jq -r '.action' <<<"$plan")" in
-            skip) echo "::warning::$(jq -r '.message' <<<"$plan")"; exit 0 ;;
-            fail) echo "::error::$(jq -r '.message' <<<"$plan")"; exit 1 ;;
-          esac
-          git commit -m "$(jq -r '.commit_message' <<<"$plan")"
-          # claude-code-action leaves its contents:read agent token as the ambient
-          # git credential (a global http extraheader / credential helper), which
-          # overrides the contents:write app token and 403s a plain push. Push with
-          # the app token explicitly: inline URL credentials bypass any credential
-          # helper, and blanking http.extraHeader at command scope (highest config
-          # precedence) drops any ambient Authorization header — so the write token
-          # authenticates.
-          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
-            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
-            "HEAD:refs/heads/${branch}"
-          jq -r '.body' <<<"$plan" > pr-body.md
-          flags=()
-          if [ "$(jq -r '.draft' <<<"$plan")" = "true" ]; then flags+=(--draft); fi
-          gh pr create --base main --head "$branch" "${flags[@]}" \
-            --title "$(jq -r '.title' <<<"$plan")" \
-            --body-file pr-body.md
+            draft=$(jq -r '.draft' <<<"$pr")
+            auto=true
+            # Enforce the append-only data/ jail and a final schema check here,
+            # producer-side. Either failing downgrades the PR to a draft for review
+            # instead of auto-merging something unexpected (CI re-checks the jail).
+            git diff --cached --name-status > changes.txt
+            if ! uv run fedcourts assert-paths --name-status-file changes.txt; then
+              draft=true; auto=false; echo "::warning::path jail tripped; opening ${branch} as a draft"
+            fi
+            if ! uv run fedcourts validate data; then
+              draft=true; auto=false; echo "::warning::validation failed; opening ${branch} as a draft"
+            fi
+            git commit -q -m "$(jq -r '.commit_message' <<<"$pr")"
+            # Push with the app (write) token explicitly; blank any ambient
+            # extraheader at command scope so the write token authenticates.
+            git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+              push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+              "HEAD:refs/heads/${branch}"
+            jq -r '.body' <<<"$pr" > pr-body.md
+            flags=()
+            [ "$draft" = "true" ] && flags+=(--draft)
+            url=$(gh pr create --base main --head "$branch" "${flags[@]}" \
+              --title "$(jq -r '.title' <<<"$pr")" --body-file pr-body.md)
+            # Enable auto-merge only for a ready (non-draft, jail-clean) PR. A miss
+            # (e.g. the repo's "Allow auto-merge" is off) leaves the PR open for a
+            # manual merge rather than failing the run.
+            if [ "$draft" != "true" ] && [ "$auto" = "true" ]; then
+              gh pr merge --auto --squash "$url" \
+                || echo "::warning::could not enable auto-merge on ${url}"
+            fi
+          done
