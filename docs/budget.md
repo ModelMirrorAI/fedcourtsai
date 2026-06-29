@@ -48,18 +48,19 @@ Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-th
 **Per-run cost.** A single predict or evaluate run is an *agentic* job: the agent
 reads the prompt, AGENTS.md, the case snapshot, and a handful of retrieved
 priors, then writes its artifacts over several tool-use turns. Effective token
-usage is therefore much larger than the visible artifacts — roughly **~240K
+usage is therefore much larger than the visible artifacts — roughly **~280–400K
 effective input (the large majority served from cache) + ~6K output per run**.
 
-This used to be a planning assumption (~$1–2/run); it is now **measured**. Every
+This was once a planning assumption (~$1–2/run); it is now **measured**. Every
 predict/evaluate run records its tokens and an estimated cost (at the rates in
 this section, kept in `fedcourtsai.pricing`) to a `usage.json` beside its output,
-and `fedcourts usage-summary` rolls those up. The first predict runs land at
-**≈ $0.50/run** (claude-baseline ~$0.43, codex-baseline ~$0.57) — about a third
-of the old estimate, because prompt caching on the stable prefix is working as
-designed. **Caveat:** this is the *predict* figure; no event has resolved yet, so
-**evaluate per-run cost is still unmeasured** — the estimates below assume it is
-comparable (~$0.50) and should be re-checked against the first real evaluations.
+and `fedcourts usage-summary` rolls those up. Across the 82 predict runs to date
+(41 per predictor) the cost holds at **≈ $0.50/run** (claude-baseline ~$0.42,
+codex-baseline ~$0.56) — roughly a third of the old assumption, because prompt
+caching on the stable prefix is working as designed. **Caveat:** this is the
+*predict* figure; no event has resolved yet, so **evaluate per-run cost is still
+unmeasured** — the estimates below assume it is comparable (~$0.50) and should be
+re-checked against the first real evaluations.
 Note the two big discounts that produce that number:
 
 - **Prompt caching** — automatic on both engines. The stable prefix (AGENTS.md +
@@ -68,9 +69,10 @@ Note the two big discounts that produce that number:
   turns; cached reads bill at ~0.1× and cache writes at ~1.25× (both in
   `fedcourtsai.pricing`, and recorded per run in `usage.json`). Keep that prefix
   byte-stable to capture it. The predict and evaluate workflows request the
-  1-hour cache TTL explicitly: it is free on the Claude Max subscription and keeps
-  the cache from expiring mid-run should Claude auth move to the Anthropic API,
-  whose default TTL is only 5 minutes.
+  1-hour cache TTL explicitly: the agentic workflows now run against the Anthropic
+  API (whose default TTL is only 5 minutes), so the longer TTL keeps the prefix
+  cached across a run's tool-use turns; the same 1-hour TTL is free on the Claude
+  Max subscription used for interactive dev.
 - **Batch API (Claude)** — 50% off for non-latency-sensitive work
   (back-testing, bulk re-scoring). Live pull-triggered predictions are
   latency-sensitive and stay on-demand.
@@ -106,10 +108,9 @@ evaluations  = resolved_events/yr × (evaluators × predictors) × $/run
 ```
 
 That figure is still large: it is what "predict and evaluate *everything, with
-everything*" costs, and it is why the levers below exist. It is ~3× below the
-original forecast now that the per-run cost is measured rather than assumed — but
-full scope remains far above all other costs combined, so the prediction *slice*
-and engine fan-out stay the controlling decisions.
+everything*" costs, and it is why the levers below exist. Even so, full scope
+remains far above all other costs combined, so the prediction *slice* and engine
+fan-out stay the controlling decisions.
 
 **Levers** (each is independent; combine them):
 
@@ -276,7 +277,7 @@ variable that scope controls. Two reference points:
 ### A. Pilot / low-volume (gated slice, API-metered)
 
 Development plus the **SCOTUS-interaction gate** at its entry point — the
-long-conference cert batch on the Batch API (see *The pilot slice* above).
+long-conference cert batch on the API (see *The pilot slice* above).
 Interactive development draws on the Max subscription; the automated predict/eval
 batch is API-metered (both engines).
 
@@ -303,8 +304,8 @@ batch is API-metered (both engines).
 
 The gap between A and B is almost entirely the prediction *slice* and the
 two-engine fan-out. The budget is governed by choosing where on that line to
-operate: start at **A** (the long-conference batch on the subscription), measure
+operate: start at **A** (the long-conference batch on the Batch API), measure
 real per-run token cost (now done — ~$0.50/run, folded into the figures above),
 then open the **SCOTUS-interaction gate** to its steady state (~$17K/yr inference
-— roughly 1/8 of B) before deciding, with a
-year of cost data, whether to widen the gate toward full scope.
+— roughly 1/8 of B) before deciding, with a year of cost data, whether to widen
+the gate toward full scope.
