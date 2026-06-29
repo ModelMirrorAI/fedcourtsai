@@ -490,30 +490,15 @@ jobs:
         # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev
         # App token: latching needs no cross-workflow trigger (`agent-feedback` is a
         # non-triggering label), so issue-write stays off this job's contents-write
-        # token. Same find-or-create latched-issue idiom as run-ops' dashboard. Runs
-        # even if the aggregate step failed, so a fully-failed run still leaves a note.
+        # token. The find-or-create and once-only idempotency are the tested
+        # `post-agent-feedback` command (agent_feedback.py); this only invokes it.
+        # Runs even if the aggregate step failed, so a fully-failed run still leaves a
+        # note. The file is empty/absent when the run raised no flags.
         if: ${{ always() }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Written by the aggregate step; empty/absent when the run raised no flags.
           [ -s feedback-comment.md ] || exit 0
-          marker=$(head -n1 feedback-comment.md)
-          # `agent-feedback` is a NON-triggering label by design (no run:* workflow
-          # keys on it). Create it idempotently so the first run does not fail.
-          gh label create agent-feedback --repo "$REPO" --force \
-            --color fbca04 --description "Long-lived agent feedback flags (predict/evaluate collect roll-up)"
-          num=$(gh issue list --repo "$REPO" --label agent-feedback --state open \
-            --json number --jq '.[0].number')
-          if [ -z "$num" ]; then
-            url=$(gh issue create --repo "$REPO" --title "Agent feedback" --label agent-feedback \
-              --body "Long-lived tracking issue for the agent flags the predict/evaluate \`collect\` job rolls up. Each run that surfaces a flag adds a comment below; triage them and close the issue only if you retire the channel. See docs/data-model.md (the \`flags.json\` channel) and docs/pipeline.md.")
-            num=$(basename "$url")
-          fi
-          # Post this run's note once: skip if a comment already carries its marker.
-          if ! gh issue view "$num" --repo "$REPO" --json comments --jq '.comments[].body' \
-               | grep -qF "$marker"; then
-            gh issue comment "$num" --repo "$REPO" --body-file feedback-comment.md
-          fi
+          uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md

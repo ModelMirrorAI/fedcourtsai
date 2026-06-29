@@ -87,6 +87,7 @@ Helpers the workflows and agents use to fan out and stay in contract.
 | `assert-paths` | Enforce the append-only `data/` path jail on a change set (`git diff --name-status`): exit non-zero on any path outside `data/` or any non-addition. The collect jobs and the required CI `paths` check both call it. | `--name-status-file`, `--run-id` |
 | `collect-plan` | Emit the per-run aggregate PR decision for predict/evaluate — one ready PR (auto-merged, closing the trigger issue) plus a draft for salvageable partials — as compact JSON. | `--role`, `--run-id`, `--status-dir`, `--issue` |
 | `collect-reconcile-plan` | Emit the per-run aggregate reconcile PR decision (per case) as compact JSON; the ready PR's `reconcile:` commit fires the evaluate handoff on merge. | `--run-id`, `--status-dir`, `--issue` |
+| `post-agent-feedback` | Latch a predict/evaluate run's agent-flag roll-up (`collect-plan`'s `feedback_comment`) onto the single long-lived `agent-feedback` issue: find-or-create, post once (marker-deduped). The collect job calls it with the ambient `GITHUB_TOKEN`. | `--body-file`, `--repo` |
 | `predictors` | List configured predictors (id, engine, model, enabled). | — |
 | `evaluators` | List configured evaluators (id, engine, model, enabled). | — |
 | `export-schemas` | Write JSON Schema for every pydantic model into `schemas/` (for agents and Codex `--output-schema`). CI fails if the committed schemas drift. | `OUT` (default `schemas`) |

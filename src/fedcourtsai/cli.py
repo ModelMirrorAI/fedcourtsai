@@ -17,6 +17,7 @@ from typing import Annotated
 import typer
 
 from . import corpus, dvc, ids
+from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .collect import (
@@ -1516,6 +1517,27 @@ def collect_plan_cmd(
         role, run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
     )
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
+
+
+@app.command("post-agent-feedback")
+def post_agent_feedback_cmd(
+    body_file: Annotated[
+        Path, typer.Option(help="The rendered feedback comment (collect-plan's feedback_comment).")
+    ],
+    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
+) -> None:
+    """Latch a run's agent-flag roll-up onto the long-lived agent-feedback issue.
+
+    Reads the rendered comment from ``--body-file`` (an empty/blank file means the
+    run raised no flags, so nothing is posted), then find-or-creates the single
+    ``agent-feedback`` issue and posts the comment once (marker-deduped, so a
+    ``collect`` re-run never duplicates it). The predict/evaluate collect job calls
+    this with the ambient ``GITHUB_TOKEN`` — off its contents-write App token, since
+    the label is non-triggering. The find-or-create and idempotency are tested in
+    ``agent_feedback.py``; this command is the thin gh-invoking wrapper.
+    """
+    comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
+    typer.echo(post_agent_feedback(comment, repo))
 
 
 def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
