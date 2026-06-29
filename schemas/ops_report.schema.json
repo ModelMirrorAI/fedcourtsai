@@ -41,10 +41,10 @@
     },
     "AgentFlags": {
       "additionalProperties": false,
-      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to surface* \u2014 a\ndata-quality problem, a scope question, an ambiguous event, or the reason it was\nblocked. It rides the cell's artifact to the ``collect`` job, which rolls every\ncell's flags into the run PR body (and the Actions summary), so a note survives\nthe trigger issue's closure and a maintainer sees it without reading every\n``reasoning.md``. The agent token stays comment-only: the file is written\nlocally and the trusted ``collect`` job does the surfacing.",
+      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate/reconcile cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote survives the trigger issue's closure and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
       "properties": {
         "actor_id": {
-          "description": "The predictor_id (predict) or evaluator_id (evaluate)",
+          "description": "The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id",
           "title": "Actor Id",
           "type": "string"
         },
@@ -84,6 +84,90 @@
         "flags"
       ],
       "title": "AgentFlags",
+      "type": "object"
+    },
+    "AgentToolingFeedback": {
+      "additionalProperties": false,
+      "description": "``tooling.json`` \u2014 a cell's self-report on the agent tooling it was given.\n\nUnlike :class:`AgentFlags` (exception-based \u2014 written only on a problem with the\n*data or task*), every predict/evaluate/reconcile cell is *invited* to write this\nshort, structured note about its *environment*: whether it used the ``fedcourts``\ncorpus-query CLI, which abilities actually helped, and what was missing. Rolled up\nacross runs on the run-ops dashboard, it tells maintainers whether the corpus\ntooling earns its keep and where to invest next. It is the agent's own account \u2014\nsubjective, advisory, and never a gate. The token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job commits it with the cell's output.",
+      "properties": {
+        "actor_id": {
+          "description": "The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id",
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "gaps": {
+          "description": "Missing or wished-for tools/abilities that would have helped",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Gaps",
+          "type": "array"
+        },
+        "helpful": {
+          "description": "What materially helped, shortest first",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Helpful",
+          "type": "array"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Free-text remarks about the tooling, optional",
+          "title": "Notes"
+        },
+        "role": {
+          "$ref": "#/$defs/UsageRole",
+          "description": "Which stage produced the report"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tools_used": {
+          "description": "Tools/abilities the agent reports using this run (e.g. fedcourts query, MCP)",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Tools Used",
+          "type": "array"
+        },
+        "used_corpus_query": {
+          "description": "Whether the cell used the fedcourts corpus-query CLI (query/open-events/etc.)",
+          "title": "Used Corpus Query",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "case_id",
+        "run_id",
+        "role",
+        "actor_id",
+        "used_corpus_query"
+      ],
+      "title": "AgentToolingFeedback",
       "type": "object"
     },
     "BackfillCourt": {
@@ -618,11 +702,84 @@
       "title": "SpendSummary",
       "type": "object"
     },
+    "ToolingCount": {
+      "additionalProperties": false,
+      "description": "One free-text tooling item with how many reports mentioned it.",
+      "properties": {
+        "count": {
+          "description": "Reports that mentioned it",
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "label": {
+          "description": "The helpful ability or wished-for gap, verbatim",
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "count"
+      ],
+      "title": "ToolingCount",
+      "type": "object"
+    },
+    "ToolingDigest": {
+      "additionalProperties": false,
+      "description": "Agent tooling self-reports (`tooling.json`) rolled up for the run-ops dashboard.\n\nA read-only roll-up of the committed :class:`AgentToolingFeedback` records so a\nmaintainer can see, across runs, whether the corpus tooling earns its keep:\n``corpus_query_uses`` of ``reports`` cells used the query CLI, and ``helpful`` /\n``gaps`` are the most-mentioned abilities and missing tools (most common first,\ncapped). ``recent`` keeps the latest few full reports for detail; like\n:class:`FlagsDigest` the aggregate counts always cover every committed report.",
+      "properties": {
+        "corpus_query_uses": {
+          "description": "Reports that used the corpus-query CLI",
+          "minimum": 0,
+          "title": "Corpus Query Uses",
+          "type": "integer"
+        },
+        "gaps": {
+          "description": "Most-mentioned missing/wished-for tools, most common first",
+          "items": {
+            "$ref": "#/$defs/ToolingCount"
+          },
+          "title": "Gaps",
+          "type": "array"
+        },
+        "helpful": {
+          "description": "Most-mentioned helpful abilities, most common first",
+          "items": {
+            "$ref": "#/$defs/ToolingCount"
+          },
+          "title": "Helpful",
+          "type": "array"
+        },
+        "recent": {
+          "description": "Most recent full reports, newest first (capped)",
+          "items": {
+            "$ref": "#/$defs/AgentToolingFeedback"
+          },
+          "title": "Recent",
+          "type": "array"
+        },
+        "reports": {
+          "description": "Committed tooling.json reports scanned",
+          "minimum": 0,
+          "title": "Reports",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "reports",
+        "corpus_query_uses"
+      ],
+      "title": "ToolingDigest",
+      "type": "object"
+    },
     "UsageRole": {
       "description": "Which agentic stage a usage record belongs to.",
       "enum": [
         "predictor",
-        "evaluator"
+        "evaluator",
+        "reconciler"
       ],
       "title": "UsageRole",
       "type": "string"
@@ -734,7 +891,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove. ``flags`` is the open-agent-flags digest scanned from ``data/``, null on a\nreport built before the field existed (so an older snapshot read back as\n``previous`` still validates).",
+  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove. ``flags`` is the open-agent-flags digest scanned from ``data/`` and\n``tooling`` the agent tooling-feedback digest scanned the same way; both are null\non a report built before the field existed (so an older snapshot read back as\n``previous`` still validates).",
   "properties": {
     "backfill": {
       "$ref": "#/$defs/BackfillProgress"
@@ -786,6 +943,18 @@
     },
     "spend": {
       "$ref": "#/$defs/SpendSummary"
+    },
+    "tooling": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolingDigest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Agent tooling self-reports scanned from tooling.json under data/"
     }
   },
   "required": [

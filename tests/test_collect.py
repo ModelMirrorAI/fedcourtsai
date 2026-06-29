@@ -387,3 +387,41 @@ def test_reconcile_case_that_settled_nothing_is_skipped_not_drafted() -> None:
 def test_reconcile_no_cells_opens_nothing() -> None:
     plan = reconcile_collect_plan(run_id="R", cells=[])
     assert plan.ready is None and plan.partial is None and plan.skipped == ()
+
+
+def test_reconcile_rolls_up_flags_into_body_and_feedback() -> None:
+    # Reconcile uses the same durable channel as predict/evaluate (issue #325): an
+    # ambiguous event the agent could not settle rides the PR body and is wrapped for
+    # the long-lived agent-feedback issue, keyed on the reconcile role.
+    plan = reconcile_collect_plan(
+        run_id="R",
+        cells=[_rcell(1)],
+        flags=[
+            _flagset(
+                "codex",
+                AgentFlag(category=FlagCategory.ambiguous_event, message="cannot attribute"),
+            )
+        ],
+    )
+    assert "🚩 Agent flags" in plan.flags_markdown
+    assert plan.ready is not None and "🚩 Agent flags" in plan.ready.body
+    assert plan.feedback_comment.startswith(feedback_marker(FinalizeRole.reconcile, "R"))
+    assert "reconcile · run `R`" in plan.feedback_comment
+
+
+def test_reconcile_flags_survive_when_no_pr_opens() -> None:
+    # Every case blocked (settled nothing) -> no PR, but the flag still travels.
+    plan = reconcile_collect_plan(
+        run_id="R",
+        cells=[_rcell(1, settled=())],
+        flags=[_flagset("codex", AgentFlag(category=FlagCategory.blocked, message="stuck"))],
+    )
+    assert plan.ready is None and plan.partial is None
+    assert "🚩 Agent flags" in plan.flags_markdown
+    assert plan.feedback_comment.startswith(feedback_marker(FinalizeRole.reconcile, "R"))
+
+
+def test_reconcile_without_flags_leaves_body_and_feedback_clean() -> None:
+    plan = reconcile_collect_plan(run_id="R", cells=[_rcell(1)])
+    assert plan.flags_markdown == "" and plan.feedback_comment == ""
+    assert plan.ready is not None and "🚩 Agent flags" not in plan.ready.body

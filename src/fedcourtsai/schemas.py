@@ -51,6 +51,7 @@ class UsageRole(StrEnum):
 
     predictor = "predictor"
     evaluator = "evaluator"
+    reconciler = "reconciler"
 
 
 class FlagCategory(StrEnum):
@@ -213,22 +214,65 @@ class AgentFlag(_Strict):
 class AgentFlags(_Strict):
     """``flags.json`` — a cell's durable, structured feedback for maintainer triage.
 
-    A predict/evaluate cell writes this *only when it has something to surface* — a
-    data-quality problem, a scope question, an ambiguous event, or the reason it was
-    blocked. It rides the cell's artifact to the ``collect`` job, which rolls every
-    cell's flags into the run PR body (and the Actions summary), so a note survives
-    the trigger issue's closure and a maintainer sees it without reading every
-    ``reasoning.md``. The agent token stays comment-only: the file is written
-    locally and the trusted ``collect`` job does the surfacing.
+    A predict/evaluate/reconcile cell writes this *only when it has something to
+    surface* — a data-quality problem, a scope question, an ambiguous event, or the
+    reason it was blocked. It rides the cell's artifact to the ``collect`` job, which
+    rolls every cell's flags into the run PR body (and the Actions summary), so a
+    note survives the trigger issue's closure and a maintainer sees it without
+    reading every ``reasoning.md``. The agent token stays comment-only: the file is
+    written locally and the trusted ``collect`` job does the surfacing.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     case_id: str
     run_id: str
     role: UsageRole = Field(description="Which stage raised the flags")
-    actor_id: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate)")
+    actor_id: str = Field(
+        description="The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id"
+    )
     flags: list[AgentFlag] = Field(
         min_length=1, description="The notes; write the file only when there is at least one"
+    )
+
+
+class AgentToolingFeedback(_Strict):
+    """``tooling.json`` — a cell's self-report on the agent tooling it was given.
+
+    Unlike :class:`AgentFlags` (exception-based — written only on a problem with the
+    *data or task*), every predict/evaluate/reconcile cell is *invited* to write this
+    short, structured note about its *environment*: whether it used the ``fedcourts``
+    corpus-query CLI, which abilities actually helped, and what was missing. Rolled up
+    across runs on the run-ops dashboard, it tells maintainers whether the corpus
+    tooling earns its keep and where to invest next. It is the agent's own account —
+    subjective, advisory, and never a gate. The token stays comment-only: the file is
+    written locally and the trusted ``collect`` job commits it with the cell's output.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    run_id: str
+    role: UsageRole = Field(description="Which stage produced the report")
+    actor_id: str = Field(
+        description="The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id"
+    )
+    used_corpus_query: bool = Field(
+        description="Whether the cell used the fedcourts corpus-query CLI (query/open-events/etc.)"
+    )
+    tools_used: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description="Tools/abilities the agent reports using this run (e.g. fedcourts query, MCP)",
+    )
+    helpful: list[str] = Field(
+        default_factory=list, max_length=50, description="What materially helped, shortest first"
+    )
+    gaps: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description="Missing or wished-for tools/abilities that would have helped",
+    )
+    notes: str | None = Field(
+        default=None, max_length=2000, description="Free-text remarks about the tooling, optional"
     )
 
 
@@ -518,6 +562,38 @@ class FlagsDigest(_Strict):
     )
 
 
+class ToolingCount(_Strict):
+    """One free-text tooling item with how many reports mentioned it."""
+
+    label: str = Field(min_length=1, description="The helpful ability or wished-for gap, verbatim")
+    count: int = Field(ge=1, description="Reports that mentioned it")
+
+
+class ToolingDigest(_Strict):
+    """Agent tooling self-reports (`tooling.json`) rolled up for the run-ops dashboard.
+
+    A read-only roll-up of the committed :class:`AgentToolingFeedback` records so a
+    maintainer can see, across runs, whether the corpus tooling earns its keep:
+    ``corpus_query_uses`` of ``reports`` cells used the query CLI, and ``helpful`` /
+    ``gaps`` are the most-mentioned abilities and missing tools (most common first,
+    capped). ``recent`` keeps the latest few full reports for detail; like
+    :class:`FlagsDigest` the aggregate counts always cover every committed report.
+    """
+
+    reports: int = Field(ge=0, description="Committed tooling.json reports scanned")
+    corpus_query_uses: int = Field(ge=0, description="Reports that used the corpus-query CLI")
+    helpful: list[ToolingCount] = Field(
+        default_factory=list, description="Most-mentioned helpful abilities, most common first"
+    )
+    gaps: list[ToolingCount] = Field(
+        default_factory=list,
+        description="Most-mentioned missing/wished-for tools, most common first",
+    )
+    recent: list[AgentToolingFeedback] = Field(
+        default_factory=list, description="Most recent full reports, newest first (capped)"
+    )
+
+
 class OpsReport(_Strict):
     """``metrics/ops.json`` — an operational snapshot: health, backfill, spend, cost.
 
@@ -530,8 +606,9 @@ class OpsReport(_Strict):
 
     ``data_health`` carries the data-validation verdict the dashboard also presents —
     null until the wiring supplies it, kept separate from the run-health analytics
-    above. ``flags`` is the open-agent-flags digest scanned from ``data/``, null on a
-    report built before the field existed (so an older snapshot read back as
+    above. ``flags`` is the open-agent-flags digest scanned from ``data/`` and
+    ``tooling`` the agent tooling-feedback digest scanned the same way; both are null
+    on a report built before the field existed (so an older snapshot read back as
     ``previous`` still validates).
     """
 
@@ -546,6 +623,9 @@ class OpsReport(_Strict):
     )
     flags: FlagsDigest | None = Field(
         default=None, description="Open agent flags scanned from committed flags.json under data/"
+    )
+    tooling: ToolingDigest | None = Field(
+        default=None, description="Agent tooling self-reports scanned from tooling.json under data/"
     )
 
 
@@ -621,6 +701,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "usage.json": ModelUsage,
     "ops.json": OpsReport,
     "flags.json": AgentFlags,
+    "tooling.json": AgentToolingFeedback,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -638,4 +719,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
     "agent_flags": AgentFlags,
+    "agent_tooling": AgentToolingFeedback,
 }

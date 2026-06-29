@@ -42,3 +42,22 @@ def test_flags_layout() -> None:
     assert ep.evaluation_flags("codex-judge", "r1") == Path(
         "data/cases/ca9/123/events/evt-motion-stay/evaluations/codex-judge/r1/flags.json"
     )
+
+
+def test_tooling_layout() -> None:
+    ep = CasePaths(Path("data"), "ca9", 123).event("evt-motion-stay")
+    # tooling.json sits beside its stage's flags.json.
+    assert ep.prediction_tooling("claude-baseline", "r1") == Path(
+        "data/cases/ca9/123/events/evt-motion-stay/predictions/claude-baseline/r1/tooling.json"
+    )
+    assert ep.evaluation_tooling("codex-judge", "r1") == Path(
+        "data/cases/ca9/123/events/evt-motion-stay/evaluations/codex-judge/r1/tooling.json"
+    )
+
+
+def test_reconcile_layout_is_case_level() -> None:
+    # Reconcile fans out per case, so its flags/tooling live at the case root, above
+    # the per-event outcomes (issue #325).
+    cp = CasePaths(Path("data"), "ca9", 123)
+    assert cp.reconcile_flags("r1") == Path("data/cases/ca9/123/reconcile/r1/flags.json")
+    assert cp.reconcile_tooling("r1") == Path("data/cases/ca9/123/reconcile/r1/tooling.json")

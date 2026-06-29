@@ -11,8 +11,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from . import corpus, ids
-from .schemas import AgentFlags, Evaluation, ModelUsage
+from .schemas import AgentFlags, AgentToolingFeedback, Evaluation, ModelUsage
 from .serialize import read_model
 
 
@@ -129,21 +131,46 @@ def iter_usage(data_root: Path) -> list[ModelUsage]:
     return [read_model(path, ModelUsage) for path in paths]
 
 
+# The committed agent-artifact layout each stage writes, relative to data/cases:
+# predict lives under a per-event prediction dir, evaluate under a per-event
+# evaluator x run dir, and reconcile (per case) at the case root above the events.
+_PREDICT_GLOB = "*/*/events/*/predictions/*/*/{name}"
+_EVALUATE_GLOB = "*/*/events/*/evaluations/*/*/{name}"
+_RECONCILE_GLOB = "*/*/reconcile/*/{name}"
+
+
 def iter_flags(data_root: Path) -> list[AgentFlags]:
     """Every committed ``flags.json`` in the derived ledger, in stable path order.
 
     A cell writes one only when it surfaced something to triage; predict flags live
-    at ``predictions/<predictor>/<run>/flags.json`` and evaluate flags at
-    ``evaluations/<evaluator>/<run>/flags.json``. Both are matched and validated so
-    the run-ops dashboard rolls up only well-formed records. Returns nothing if the
+    at ``predictions/<predictor>/<run>/flags.json``, evaluate at
+    ``evaluations/<evaluator>/<run>/flags.json``, and reconcile at
+    ``reconcile/<run>/flags.json`` (per case). All are matched and validated so the
+    run-ops dashboard rolls up only well-formed records. Returns nothing if the
     ledger does not exist yet (reading must not create it).
     """
+    return _iter_agent_artifact(data_root, "flags.json", AgentFlags)
+
+
+def iter_tooling(data_root: Path) -> list[AgentToolingFeedback]:
+    """Every committed ``tooling.json`` self-report in the ledger, in stable path order.
+
+    Mirrors :func:`iter_flags` across the three stages' layouts; the run-ops dashboard
+    rolls these into the agent tooling-feedback digest. Returns nothing if the ledger
+    does not exist yet (reading must not create it).
+    """
+    return _iter_agent_artifact(data_root, "tooling.json", AgentToolingFeedback)
+
+
+def _iter_agent_artifact[T: BaseModel](data_root: Path, name: str, model: type[T]) -> list[T]:
+    """Read every committed ``name`` agent artifact across all stages, validated."""
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return []
     patterns = (
-        "*/*/events/*/predictions/*/*/flags.json",
-        "*/*/events/*/evaluations/*/*/flags.json",
+        _PREDICT_GLOB.format(name=name),
+        _EVALUATE_GLOB.format(name=name),
+        _RECONCILE_GLOB.format(name=name),
     )
     paths = sorted(path for pattern in patterns for path in cases_dir.glob(pattern))
-    return [read_model(path, AgentFlags) for path in paths]
+    return [read_model(path, model) for path in paths]

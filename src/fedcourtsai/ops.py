@@ -13,12 +13,14 @@ view: it carries ``generated_at`` and run durations, so it is not byte-stable.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timedelta
 
 from .collect import flags_table
 from .schemas import (
     AgentFlags,
+    AgentToolingFeedback,
     BackfillCourt,
     BackfillProgress,
     CostEstimate,
@@ -29,6 +31,8 @@ from .schemas import (
     OpsReport,
     SeedProgress,
     SpendSummary,
+    ToolingCount,
+    ToolingDigest,
     WorkflowHealth,
 )
 
@@ -205,6 +209,45 @@ def summarize_flags(
     )
 
 
+# How many of the most recent full tooling reports the dashboard lists in detail;
+# the aggregate counts still cover every committed report.
+_TOOLING_RECENT_LIMIT = 8
+# How many distinct helpful/gap items the dashboard ranks (the long tail is noise).
+_TOOLING_ITEMS_LIMIT = 10
+
+
+def _rank_items(items: Iterable[str], *, limit: int) -> list[ToolingCount]:
+    """Count free-text items and return the most common first, ties stable by label."""
+    counts = Counter(item.strip() for item in items if item.strip())
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
+    return [ToolingCount(label=label, count=count) for label, count in ranked]
+
+
+def summarize_tooling(
+    reports: Iterable[AgentToolingFeedback],
+    *,
+    recent_limit: int = _TOOLING_RECENT_LIMIT,
+    items_limit: int = _TOOLING_ITEMS_LIMIT,
+) -> ToolingDigest:
+    """Roll committed ``tooling.json`` self-reports into the dashboard's tooling digest.
+
+    ``corpus_query_uses`` of ``reports`` cells used the query CLI; ``helpful`` /
+    ``gaps`` rank the most-mentioned abilities and missing tools across every report;
+    ``recent`` keeps the latest few full reports (by run id, newest first) for detail.
+    """
+    items = list(reports)
+    recent = sorted(items, key=lambda r: (r.run_id, r.case_id, r.actor_id), reverse=True)[
+        :recent_limit
+    ]
+    return ToolingDigest(
+        reports=len(items),
+        corpus_query_uses=sum(1 for r in items if r.used_corpus_query),
+        helpful=_rank_items((h for r in items for h in r.helpful), limit=items_limit),
+        gaps=_rank_items((g for r in items for g in r.gaps), limit=items_limit),
+        recent=recent,
+    )
+
+
 def _parse_iso(value: str) -> datetime | None:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -280,7 +323,7 @@ def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> 
     )
 
 
-def build_ops_report(
+def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only sources, one arg each
     *,
     generated_at: str,
     runs: Iterable[Mapping[str, object]],
@@ -288,6 +331,7 @@ def build_ops_report(
     courts: Sequence[str],
     usage: Iterable[ModelUsage],
     flags: Iterable[AgentFlags] = (),
+    tooling: Iterable[AgentToolingFeedback] = (),
     previous: OpsReport | None = None,
     data_health: DataHealth | None = None,
 ) -> OpsReport:
@@ -298,7 +342,8 @@ def build_ops_report(
     data-validation verdict the dashboard presents alongside run health; it is
     surfaced as supplied (the wiring layer owns producing it), null when absent.
     ``flags`` is the committed ``flags.json`` ledger the dashboard rolls into its
-    open-flags digest (empty when none have been committed).
+    open-flags digest and ``tooling`` the committed ``tooling.json`` self-reports it
+    rolls into the tooling-feedback digest (each empty when none are committed).
     """
     run_list = list(runs)
     spend = summarize_spend(usage)
@@ -311,6 +356,7 @@ def build_ops_report(
         cost=estimate_cost(run_list, spend),
         data_health=data_health,
         flags=summarize_flags(flags),
+        tooling=summarize_tooling(tooling),
     )
 
 
@@ -418,6 +464,35 @@ def render_flags_digest(digest: FlagsDigest) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _tooling_item_line(item: ToolingCount) -> str:
+    label = " ".join(item.label.split()).replace("|", "\\|")
+    suffix = f" ({item.count})" if item.count > 1 else ""
+    return f"- {label}{suffix}"
+
+
+def render_tooling_digest(digest: ToolingDigest) -> str:
+    """Render the dashboard's agent tooling-feedback section from the digest.
+
+    Leads with how many cells used the corpus-query CLI, then the most-mentioned
+    helpful abilities and missing tools — the across-runs signal on whether the
+    tooling earns its keep and where to invest. An empty ledger gets a one-line note.
+    """
+    if digest.reports == 0:
+        return "## Agent tooling feedback\n\n_No tooling reports on record._\n"
+    share = f"{digest.corpus_query_uses}/{digest.reports}"
+    lines = [
+        "## Agent tooling feedback",
+        "",
+        f"**{digest.reports}** self-report(s) — corpus-query CLI used by **{share}**. "
+        "What agents say helped and what they wished they had.",
+    ]
+    if digest.helpful:
+        lines += ["", "**Most helpful**", *[_tooling_item_line(i) for i in digest.helpful]]
+    if digest.gaps:
+        lines += ["", "**Wished-for / missing**", *[_tooling_item_line(i) for i in digest.gaps]]
+    return "\n".join(lines) + "\n"
+
+
 def render_markdown(report: OpsReport) -> str:
     """Render the dashboard body posted to the run-ops issue / step summary."""
     lines: list[str] = [
@@ -498,6 +573,9 @@ def render_markdown(report: OpsReport) -> str:
 
     if report.flags is not None:
         lines += ["", render_flags_digest(report.flags).rstrip("\n")]
+
+    if report.tooling is not None:
+        lines += ["", render_tooling_digest(report.tooling).rstrip("\n")]
 
     if report.data_health is not None:
         lines += ["", render_data_health(report.data_health).rstrip("\n")]

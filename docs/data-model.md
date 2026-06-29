@@ -31,13 +31,19 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
     reasoning.md                  # predicted reasoning (qualitative)
     usage.json                    # ModelUsage: measured tokens + estimated cost
     flags.json                    # AgentFlags: structured feedback (optional)
+    tooling.json                  # AgentToolingFeedback: tooling self-report
   evaluations/<evaluator_id>/<run_id>/
     usage.json                    # ModelUsage for the evaluator's run (all predictors)
     flags.json                    # AgentFlags: structured feedback (optional)
+    tooling.json                  # AgentToolingFeedback: tooling self-report
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
     evaluation.json               # Evaluation: correctness, Brier, vote acc, quality
     evaluation.md                 # qualitative critique
 ```
+
+Reconcile fans out per case, so its optional `flags.json` / `tooling.json` live at
+the case root (`data/cases/<court>/<docket>/reconcile/<run_id>/`), above the
+per-event subtree shown above.
 
 Each `usage.json` records one matrix cell's token usage and an estimated USD cost
 (rates in `fedcourtsai.pricing`, kept in sync with [budget.md](budget.md)). The
@@ -59,7 +65,24 @@ each flagged run's roll-up as one comment (a hidden per-run marker keeps a
 `collect` re-run from duplicating it). Once committed, the `run-ops` dashboard also
 scans these files into an **open agent flags** section, so a note stays
 discoverable beyond the run that raised it. The agent token stays comment-only: the
-file is written locally and the trusted `collect` job does the surfacing.
+file is written locally and the trusted `collect` job does the surfacing. Because
+reconcile fans out per case, its flags are case-level: a reconcile cell writes
+`data/cases/<court>/<docket>/reconcile/<run_id>/flags.json` (role `reconciler`)
+rather than under an event subtree.
+
+A sibling channel, `tooling.json` (an `AgentToolingFeedback`, schema
+`schemas/agent_tooling.schema.json`), is **solicited every run** rather than
+written only on a problem: every predict/evaluate/reconcile cell is invited to file
+a short self-report on its *environment and tooling* — `used_corpus_query` (did it
+use the `fedcourts` corpus-query CLI, e.g. `query` / `open-events`), `tools_used`,
+`helpful` abilities, `gaps` (missing or wished-for tools), and optional `notes`. It
+lives alongside the cell's other output (`predictions/<predictor>/<run>/tooling.json`,
+`evaluations/<evaluator>/<run>/tooling.json`, `reconcile/<run>/tooling.json`) and is
+committed with that output like `usage.json`, **not** rolled into the per-run
+PR/issue. Instead the `run-ops` dashboard scans committed `tooling.json` into an
+**agent tooling feedback** digest — how many reports used the corpus-query CLI and
+the most-mentioned `helpful` abilities and `gaps`. It is subjective and advisory,
+and never gates anything.
 
 The raw facts an event is predicted from — its docket, the snapshot, the event
 definition itself — live in the corpus, not here. Predictors and evaluators read

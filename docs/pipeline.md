@@ -129,12 +129,16 @@ The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in
 `collect` before the commit and again as the required `paths` check, so an
 auto-merged PR can only add artifacts under `data/` (see [security.md](security.md)).
 
-For `run:predict` / `run:evaluate`, `collect` also rolls up any agent feedback
-(`flags.json`) the run surfaced and posts it three ways — the run PR body, the
-Actions summary, and one long-lived **agent-feedback** tracking issue (the single
-latched-issue pattern of `ops-dashboard` / `data-validation`) — so a note reaches a
-durable, centralized home even when a fully-failed run opens no PR. See the
-`flags.json` channel in [data-model.md](data-model.md).
+For `run:predict`, `run:evaluate`, and `run:reconcile`, `collect` also rolls up any
+agent feedback (`flags.json`) the run surfaced and posts it three ways — the run PR
+body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
+single latched-issue pattern of `ops-dashboard` / `data-validation`) — so a note
+reaches a durable, centralized home even when a fully-failed run opens no PR.
+Separately, every cell may also write a `tooling.json` self-report on its
+environment/tooling, committed with the cell's output rather than rolled into the
+per-run PR/issue; the `run-ops` dashboard scans these into a tooling-feedback
+digest. See the `flags.json` and `tooling.json` channels in
+[data-model.md](data-model.md).
 
 To trigger prediction/evaluation for **one** case, open an issue whose body
 contains a single object and apply `run:predict` (or `run:evaluate`):

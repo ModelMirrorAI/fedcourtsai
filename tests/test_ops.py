@@ -9,6 +9,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
+    AgentToolingFeedback,
     CorpusCheck,
     CorpusValidation,
     CourtProgress,
@@ -431,6 +432,81 @@ def test_render_flags_digest_lists_recent_and_notes_truncation() -> None:
 
 def test_render_flags_digest_clean_ledger_reads_as_none() -> None:
     assert "_No agent flags on record._" in ops.render_flags_digest(ops.summarize_flags([]))
+
+
+def _tooling(
+    run_id: str,
+    *,
+    used: bool = True,
+    helpful: list[str] | None = None,
+    gaps: list[str] | None = None,
+    actor: str = "p",
+) -> AgentToolingFeedback:
+    return AgentToolingFeedback(
+        case_id="ca9/1",
+        run_id=run_id,
+        role=UsageRole.predictor,
+        actor_id=actor,
+        used_corpus_query=used,
+        helpful=helpful or [],
+        gaps=gaps or [],
+    )
+
+
+def test_summarize_tooling_counts_corpus_use_and_ranks_items() -> None:
+    reports = [
+        _tooling("20260101T000000Z", used=True, helpful=["query"], gaps=["a citation tool"]),
+        _tooling("20260102T000000Z", used=True, helpful=["query"], gaps=["docket diff"]),
+        _tooling("20260103T000000Z", used=False, helpful=["MCP"], gaps=["a citation tool"]),
+    ]
+    digest = ops.summarize_tooling(reports, recent_limit=2)
+    assert digest.reports == 3
+    assert digest.corpus_query_uses == 2
+    # Most-mentioned first: "query" (2) ahead of "MCP" (1); gaps the same way.
+    assert [(c.label, c.count) for c in digest.helpful] == [("query", 2), ("MCP", 1)]
+    assert digest.gaps[0].label == "a citation tool" and digest.gaps[0].count == 2
+    # recent is newest-first and capped.
+    assert [r.run_id for r in digest.recent] == ["20260103T000000Z", "20260102T000000Z"]
+
+
+def test_summarize_tooling_empty_is_zero() -> None:
+    digest = ops.summarize_tooling([])
+    assert (digest.reports, digest.corpus_query_uses, digest.helpful, digest.gaps) == (0, 0, [], [])
+
+
+def test_render_tooling_digest_shows_share_and_items() -> None:
+    md = ops.render_tooling_digest(
+        ops.summarize_tooling(
+            [_tooling("r1", used=True, helpful=["query"]), _tooling("r2", used=False, gaps=["x"])]
+        )
+    )
+    assert "## Agent tooling feedback" in md
+    assert "used by **1/2**" in md
+    assert "Most helpful" in md and "query" in md
+    assert "Wished-for / missing" in md and "x" in md
+
+
+def test_render_tooling_digest_empty_reads_as_none() -> None:
+    assert "_No tooling reports on record._" in ops.render_tooling_digest(ops.summarize_tooling([]))
+
+
+def test_ops_report_rolls_up_committed_tooling(tmp_path: Path) -> None:
+    report = _tooling("20260615T000000Z", used=True, helpful=["fedcourts query"], actor="codex")
+    path = (
+        tmp_path
+        / "data/cases/ca9/1/events/evt-motion-x/predictions/codex/20260615T000000Z/tooling.json"
+    )
+    path.parent.mkdir(parents=True)
+    path.write_text(report.model_dump_json())
+
+    json_out = tmp_path / "ops.json"
+    result = runner.invoke(app, ["ops-report", "--json", str(json_out)], env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "## Agent tooling feedback" in result.output and "fedcourts query" in result.output
+
+    parsed = json.loads(json_out.read_text())
+    assert parsed["tooling"]["reports"] == 1 and parsed["tooling"]["corpus_query_uses"] == 1
+    assert parsed["tooling"]["helpful"][0]["label"] == "fedcourts query"
 
 
 def test_render_markdown_includes_agent_flags_section() -> None:

@@ -77,6 +77,7 @@ from .store import (
     cases_due_for_pull,
     iter_evaluations,
     iter_flags,
+    iter_tooling,
     iter_usage,
     open_events,
     resolved_events,
@@ -536,6 +537,7 @@ def ops_report(
         courts=courts,
         usage=iter_usage(settings.data_root),
         flags=iter_flags(settings.data_root),
+        tooling=iter_tooling(settings.data_root),
         previous=prior,
         data_health=data_health,
     )
@@ -1550,6 +1552,8 @@ def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "ready": _pr_plan_json(plan.ready),
         "partial": _pr_plan_json(plan.partial),
         "skipped": [{"court": c.court, "docket": c.docket} for c in plan.skipped],
+        "flags": plan.flags_markdown,
+        "feedback_comment": plan.feedback_comment,
     }
 
 
@@ -1565,10 +1569,13 @@ def collect_reconcile_plan_cmd(
     """Emit the per-run aggregate reconcile PR decision as compact JSON.
 
     Reads every per-case ``status.json`` under ``status_dir``, then prints
-    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}]}``.
-    The ready ``commit_message`` / ``title`` start with ``reconcile:`` so the
-    squash-merge to ``main`` fires the evaluate handoff, and the ready ``body``
-    closes ``--issue`` on merge unless a draft remains.
+    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}],
+    "flags": <md>, "feedback_comment": <md>}``. The ready ``commit_message`` /
+    ``title`` start with ``reconcile:`` so the squash-merge to ``main`` fires the
+    evaluate handoff, and the ready ``body`` closes ``--issue`` on merge unless a
+    draft remains. ``flags`` / ``feedback_comment`` carry the run's rolled-up agent
+    flags for the Actions summary and the long-lived agent-feedback issue, like
+    ``collect-plan``.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -1578,7 +1585,9 @@ def collect_reconcile_plan_cmd(
                 json.loads(status_path.read_text()), artifact_dir=artifact_dir
             )
         )
-    plan = reconcile_collect_plan(run_id=run_id, cells=cells, issue=issue or None)
+    plan = reconcile_collect_plan(
+        run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
+    )
     typer.echo(json.dumps(_reconcile_collect_plan_json(plan), separators=(",", ":")))
 
 

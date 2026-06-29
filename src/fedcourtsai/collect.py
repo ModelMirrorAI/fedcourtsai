@@ -456,6 +456,7 @@ def reconcile_collect_plan(
     run_id: str,
     cells: Sequence[ReconcileCellStatus],
     issue: int | None = None,
+    flags: Sequence[AgentFlags] = (),
 ) -> CollectPlan:
     """Partition a reconcile run's per-case cells into one ready PR + one draft PR.
 
@@ -466,6 +467,13 @@ def reconcile_collect_plan(
     title and commit subject start with ``reconcile:`` so the squash-merge to
     ``main`` fires run-reconcile's evaluate handoff, and it closes the trigger
     issue on merge unless a salvage draft remains.
+
+    ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags` — the
+    same durable channel predict/evaluate use (e.g. an ambiguous disposition the
+    reconcile agent could not settle). Their roll-up rides whichever PR opens and is
+    returned as ``flags_markdown`` / ``feedback_comment`` so the workflow surfaces it
+    in the Actions summary and the long-lived agent-feedback issue even when a fully
+    blocked run opens no PR.
     """
     ready = [c for c in cells if c.ready]
     salvage = [c for c in cells if c.produced and not c.ready]
@@ -505,4 +513,12 @@ def reconcile_collect_plan(
             artifact_dirs=tuple(c.artifact_dir for c in salvage),
         )
 
-    return CollectPlan(ready=ready_plan, partial=partial_plan, skipped=skipped)
+    flags_md = render_flags(flags)
+    ready_plan, partial_plan = _append_flags(ready_plan, partial_plan, flags_md)
+    return CollectPlan(
+        ready=ready_plan,
+        partial=partial_plan,
+        skipped=skipped,
+        flags_markdown=flags_md,
+        feedback_comment=render_feedback_comment(FinalizeRole.reconcile, run_id, flags_md),
+    )
