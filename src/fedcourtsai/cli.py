@@ -24,9 +24,11 @@ from .collect import (
     CollectPlan,
     PathJailError,
     PrPlan,
+    ReconcileCellStatus,
     assert_within_jail,
     collect_plan,
     parse_name_status,
+    reconcile_collect_plan,
 )
 from .config import (
     PredictScope,
@@ -1562,6 +1564,7 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "skipped": [
             {"actor": c.actor, "court": c.court, "docket": c.docket, "event_id": c.event_id}
             for c in plan.skipped
+            if isinstance(c, CellStatus)
         ],
     }
 
@@ -1592,6 +1595,44 @@ def collect_plan_cmd(
         )
     plan = collect_plan(role, run_id=run_id, cells=cells, issue=issue or None)
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
+
+
+def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
+    # Reconcile skips are per case (no actor/event), so serialize court/docket only.
+    return {
+        "ready": _pr_plan_json(plan.ready),
+        "partial": _pr_plan_json(plan.partial),
+        "skipped": [{"court": c.court, "docket": c.docket} for c in plan.skipped],
+    }
+
+
+@app.command("collect-reconcile-plan")
+def collect_reconcile_plan_cmd(
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    status_dir: Annotated[Path, typer.Option(help="Root the cell artifacts were downloaded into.")],
+    issue: Annotated[
+        int,
+        typer.Option(help="Triggering issue number; the ready PR closes it on merge (0 = none)."),
+    ] = 0,
+) -> None:
+    """Emit the per-run aggregate reconcile PR decision as compact JSON.
+
+    Reads every per-case ``status.json`` under ``status_dir``, then prints
+    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}]}``.
+    The ready ``commit_message`` / ``title`` start with ``reconcile:`` so the
+    squash-merge to ``main`` fires the evaluate handoff, and the ready ``body``
+    closes ``--issue`` on merge unless a draft remains.
+    """
+    cells = []
+    for status_path in sorted(status_dir.glob("**/status.json")):
+        artifact_dir = str(status_path.parent.relative_to(status_dir))
+        cells.append(
+            ReconcileCellStatus.from_dict(
+                json.loads(status_path.read_text()), artifact_dir=artifact_dir
+            )
+        )
+    plan = reconcile_collect_plan(run_id=run_id, cells=cells, issue=issue or None)
+    typer.echo(json.dumps(_reconcile_collect_plan_json(plan), separators=(",", ":")))
 
 
 def main() -> None:
