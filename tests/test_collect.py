@@ -17,8 +17,16 @@ from fedcourtsai.collect import (
     collect_plan,
     parse_name_status,
     reconcile_collect_plan,
+    render_flags,
 )
 from fedcourtsai.finalize import FinalizeRole
+from fedcourtsai.schemas import AgentFlag, AgentFlags, FlagCategory, FlagSeverity, UsageRole
+
+
+def _flagset(actor: str, *flags: AgentFlag, case: str = "scotus/1") -> AgentFlags:
+    return AgentFlags(
+        case_id=case, run_id="R", role=UsageRole.predictor, actor_id=actor, flags=list(flags)
+    )
 
 
 def _cell(
@@ -201,6 +209,84 @@ def test_collect_plan_rejects_reconcile_role() -> None:
     # The judgment collect_plan is predict/evaluate only; reconcile has its own.
     with pytest.raises(ValueError, match="predict/evaluate"):
         collect_plan(FinalizeRole.reconcile, run_id="R", cells=[])
+
+
+# --- agent flags -----------------------------------------------------------
+
+
+def test_render_flags_empty_is_blank() -> None:
+    assert render_flags([]) == ""  # a run with no flag files renders nothing
+
+
+def test_render_flags_orders_loudest_first() -> None:
+    md = render_flags(
+        [
+            _flagset(
+                "claude-baseline",
+                AgentFlag(category=FlagCategory.scope, message="out of scope?"),
+                AgentFlag(
+                    category=FlagCategory.blocked,
+                    severity=FlagSeverity.blocker,
+                    message="no snapshot",
+                ),
+            )
+        ]
+    )
+    assert "🚩 Agent flags (2)" in md
+    # The blocker sorts above the info-level scope note regardless of input order.
+    assert md.index("no snapshot") < md.index("out of scope?")
+    assert "`claude-baseline`" in md
+
+
+def test_render_flags_escapes_pipes_and_newlines() -> None:
+    md = render_flags([_flagset("a", AgentFlag(category=FlagCategory.other, message="a | b\nc"))])
+    # The message stays on one table row: newline collapsed, pipe escaped.
+    assert "a \\| b c" in md
+    assert "\nc |" not in md
+
+
+def test_collect_plan_folds_flags_into_ready_body() -> None:
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        flags=[
+            _flagset("claude-baseline", AgentFlag(category=FlagCategory.data_quality, message="x"))
+        ],
+    )
+    assert plan.ready is not None
+    assert "🚩 Agent flags" in plan.ready.body
+    assert "🚩 Agent flags" in plan.flags_markdown
+
+
+def test_collect_plan_folds_flags_into_draft_when_no_ready() -> None:
+    # A fully-blocked-but-salvageable run still surfaces its flags on the draft.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", agent_ok=False)],
+        flags=[_flagset("claude-baseline", AgentFlag(category=FlagCategory.blocked, message="y"))],
+    )
+    assert plan.ready is None
+    assert plan.partial is not None and "🚩 Agent flags" in plan.partial.body
+
+
+def test_collect_plan_flags_survive_with_no_pr() -> None:
+    # Every cell produced nothing -> no PR at all, but the roll-up still travels.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", produced=False)],
+        flags=[_flagset("claude-baseline", AgentFlag(category=FlagCategory.blocked, message="z"))],
+    )
+    assert plan.ready is None and plan.partial is None
+    assert "🚩 Agent flags" in plan.flags_markdown
+
+
+def test_collect_plan_without_flags_leaves_body_clean() -> None:
+    plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[_cell("claude-baseline")])
+    assert plan.flags_markdown == ""
+    assert plan.ready is not None and "Agent flags" not in plan.ready.body
 
 
 # --- reconcile collect plan (per-case) -------------------------------------

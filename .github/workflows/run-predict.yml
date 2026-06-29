@@ -421,6 +421,13 @@ jobs:
           # closes the triggering issue on merge (unless a draft still has work).
           plan=$(uv run fedcourts collect-plan --role predict --run-id "$run_id" \
             --status-dir cell-artifacts --issue "$ISSUE")
+          # Surface this run's agent flags in the Actions summary so they are seen
+          # even when no PR opens (e.g. every cell was blocked). They also ride in
+          # the ready/draft PR body, and each produced cell's flags.json is committed.
+          flags=$(jq -r '.flags' <<<"$plan")
+          if [ -n "$flags" ] && [ "$flags" != "null" ]; then
+            printf '%s\n' "$flags" >> "$GITHUB_STEP_SUMMARY"
+          fi
           # Never silently drop a cell: warn for each that produced no output.
           jq -r '.skipped[] | "::warning::no prediction for \(.actor) on \(.court)/\(.docket) \(.event_id)"' <<<"$plan"
           for kind in ready partial; do

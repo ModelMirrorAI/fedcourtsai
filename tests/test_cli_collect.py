@@ -93,7 +93,89 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
     )
     assert result.exit_code == 0
-    assert json.loads(result.stdout) == {"ready": None, "partial": None, "skipped": []}
+    assert json.loads(result.stdout) == {
+        "ready": None,
+        "partial": None,
+        "skipped": [],
+        "flags": "",
+    }
+
+
+def _write_flags(root: Path, cell: str, actor: str) -> None:
+    # A cell's flags.json lands somewhere under its data/ subtree, like the agent writes it.
+    flag_dir = root / cell / "data" / "cases" / "scotus" / "1" / "events" / "evt-x"
+    flag_dir.mkdir(parents=True, exist_ok=True)
+    (flag_dir / "flags.json").write_text(
+        json.dumps(
+            {
+                "case_id": "scotus/1",
+                "run_id": "R",
+                "role": "predictor",
+                "actor_id": actor,
+                "flags": [{"category": "data-quality", "severity": "warning", "message": "thin"}],
+            }
+        )
+    )
+
+
+def test_collect_plan_rolls_up_flag_files(tmp_path: Path) -> None:
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_flags(tmp_path, "cell-a", "claude-baseline")
+    # A blocked cell that produced no judgment still surfaces its flag in the roll-up.
+    _write_cell(
+        tmp_path,
+        "cell-b",
+        actor="codex-baseline",
+        produced=False,
+        validated=False,
+        agent_ok=False,
+        **base,
+    )
+    _write_flags(tmp_path, "cell-b", "codex-baseline")
+    # A malformed flag file is skipped, not fatal.
+    (tmp_path / "cell-a" / "data" / "junk-flags").mkdir()
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert "🚩 Agent flags (2)" in plan["flags"]
+    assert "`codex-baseline`" in plan["flags"]  # the blocked, uncommitted cell's flag still shows
+    assert "🚩 Agent flags" in plan["ready"]["body"]
+
+
+def test_collect_plan_tolerates_malformed_flag_file(tmp_path: Path) -> None:
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    bad = tmp_path / "cell-a" / "data"
+    bad.mkdir(parents=True, exist_ok=True)
+    (bad / "flags.json").write_text("{ not json")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["flags"] == ""
 
 
 def test_collect_reconcile_plan_emits_per_case_json(tmp_path: Path) -> None:

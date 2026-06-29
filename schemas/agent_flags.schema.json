@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "AgentFlag": {
+      "additionalProperties": false,
+      "description": "One structured note a headless agent surfaces for maintainer triage.\n\nA typed alternative to burying a remark in ``reasoning.md`` or a trigger-issue\ncomment: a ``category`` and ``severity`` so the roll-up can sort and filter, and\na free-text ``message``. ``event_id`` narrows the flag to a single event when\nthe cell spans more than one; left null it applies to the cell as a whole.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/FlagCategory"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The specific event this flag is about, if narrower than the cell",
+          "title": "Event Id"
+        },
+        "message": {
+          "description": "What the maintainer should know, in prose",
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/FlagSeverity",
+          "default": "info"
+        }
+      },
+      "required": [
+        "category",
+        "message"
+      ],
+      "title": "AgentFlag",
+      "type": "object"
+    },
+    "FlagCategory": {
+      "description": "What kind of thing an agent flag is about, for maintainer triage.",
+      "enum": [
+        "data-quality",
+        "scope",
+        "ambiguous-event",
+        "blocked",
+        "other"
+      ],
+      "title": "FlagCategory",
+      "type": "string"
+    },
+    "FlagSeverity": {
+      "description": "How loud an agent flag is. ``blocker`` means the cell could not finish cleanly.",
+      "enum": [
+        "info",
+        "warning",
+        "blocker"
+      ],
+      "title": "FlagSeverity",
+      "type": "string"
+    },
+    "UsageRole": {
+      "description": "Which agentic stage a usage record belongs to.",
+      "enum": [
+        "predictor",
+        "evaluator"
+      ],
+      "title": "UsageRole",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to surface* \u2014 a\ndata-quality problem, a scope question, an ambiguous event, or the reason it was\nblocked. It rides the cell's artifact to the ``collect`` job, which rolls every\ncell's flags into the run PR body (and the Actions summary), so a note survives\nthe trigger issue's closure and a maintainer sees it without reading every\n``reasoning.md``. The agent token stays comment-only: the file is written\nlocally and the trusted ``collect`` job does the surfacing.",
+  "properties": {
+    "actor_id": {
+      "description": "The predictor_id (predict) or evaluator_id (evaluate)",
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "flags": {
+      "description": "The notes; write the file only when there is at least one",
+      "items": {
+        "$ref": "#/$defs/AgentFlag"
+      },
+      "minItems": 1,
+      "title": "Flags",
+      "type": "array"
+    },
+    "role": {
+      "$ref": "#/$defs/UsageRole",
+      "description": "Which stage raised the flags"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "run_id",
+    "role",
+    "actor_id",
+    "flags"
+  ],
+  "title": "AgentFlags",
+  "type": "object"
+}

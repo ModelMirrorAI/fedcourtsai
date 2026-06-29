@@ -61,6 +61,7 @@ from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import load_evaluators, load_predictors
 from .schemas import (
     EXPORTABLE_MODELS,
+    AgentFlags,
     CorpusValidation,
     DataHealth,
     Disposition,
@@ -1458,7 +1459,27 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
             for c in plan.skipped
             if isinstance(c, CellStatus)
         ],
+        "flags": plan.flags_markdown,
     }
+
+
+def _load_flag_sets(status_dir: Path) -> list[AgentFlags]:
+    """Parse every cell's ``flags.json`` under ``status_dir`` into validated models.
+
+    The collect job downloads each cell's artifact (its ``status.json`` plus its
+    ``data/`` subtree); a cell that surfaced feedback wrote a ``flags.json`` somewhere
+    under that subtree. Read them wherever they landed so the roll-up sees flags from
+    *every* cell — including a blocked cell that produced no judgment and is never
+    committed. A malformed flag file is skipped (the cell's own status already
+    reflects its failure) rather than aborting the run's aggregation.
+    """
+    flag_sets: list[AgentFlags] = []
+    for path in sorted(status_dir.glob("**/flags.json")):
+        try:
+            flag_sets.append(AgentFlags.model_validate_json(path.read_text()))
+        except (OSError, ValueError):
+            continue
+    return flag_sets
 
 
 @app.command("collect-plan")
@@ -1478,6 +1499,8 @@ def collect_plan_cmd(
     each ``pr`` carries ``branch`` / ``commit_message`` / ``title`` / ``body`` /
     ``draft`` and the ``artifact_dirs`` whose ``data/`` the collect job copies into
     that PR. The ready ``body`` closes ``--issue`` on merge unless a draft remains.
+    ``flags`` is the run's rolled-up agent flags (also appended to the PR body),
+    which the collect step echoes into the Actions summary.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -1485,7 +1508,9 @@ def collect_plan_cmd(
         cells.append(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
-    plan = collect_plan(role, run_id=run_id, cells=cells, issue=issue or None)
+    plan = collect_plan(
+        role, run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
+    )
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 
 
