@@ -67,8 +67,18 @@ branch:
   go through a reviewed PR. The dev App is deliberately **absent** from this
   bypass list. Required approvals are `0` (a maintainer reviews at merge time); set
   to `1` if a second reviewer exists.
-  - Only `gate` is a required check. **Not** `zizmor` — it is path-filtered to
-    `.github/**`, so requiring it would hang any PR that does not touch workflows.
+  - Required checks are `gate` and `paths`. **Not** `zizmor` — it is path-filtered
+    to `.github/**`, so requiring it would hang any PR that does not touch workflows.
+  - `paths` is the **auto-merge path jail**. The predict/evaluate/reconcile
+    collect jobs open one PR per run that auto-merges when green, opened with the
+    **dev App** token — which is *absent* from this bypass list, so its auto-merge
+    is bound by these required checks rather than skipping them. `paths` enforces
+    that such a PR only *adds* files under `data/` (the tested `fedcourts
+    assert-paths`): a change touching code, a workflow, config, or an existing
+    artifact fails the check and cannot auto-merge. It is a no-op that passes on
+    every non-`*/run-*` branch, so requiring it never blocks an ordinary PR. The
+    same jail runs producer-side in each collect job; requiring it here enforces
+    the guarantee independently of the workflow that produced the branch.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
   bypass — neither App.** This is what guarantees the predictions, outcomes,
   and evaluations under `data/` cannot be rewritten or dropped, even by a
