@@ -1,0 +1,20 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1004490",
+  "gaps": [
+    "A base-rate prior for SCOTUS certiorari grants (overall and paid-docket) surfaced directly from the corpus would beat heterogeneous historical opinions.",
+    "fedcourts query returns old published opinions whose disposition labels do not map onto modern cert grant/deny practice; a filter for cert-stage dispositions would help."
+  ],
+  "helpful": [
+    "fedcourts paths to resolve the snapshot/event paths.",
+    "schemas/prediction.schema.json as the exact output contract."
+  ],
+  "role": "predictor",
+  "run_id": "20260629T202043Z",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query"
+  ],
+  "used_corpus_query": true,
+  "notes": "Snapshot encodes no realized disposition (cert grant/deny/terminated dates all null), so the call rests on Rule 10 and the cert base rate. Corpus priors were not informative for this decision class."
+}

@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1004289",
+  "gaps": [
+    "A structured local query for historical SCOTUS petition outcomes by event kind would improve calibration."
+  ],
+  "helpful": [
+    "Path helper resolved the event file and expected output location.",
+    "Local corpus query confirmed available disposition labels and broad SCOTUS priors."
+  ],
+  "notes": "Prediction relied mainly on the provisioned snapshot; the corpus query was useful only as broad prior context, not case-specific fact retrieval.",
+  "role": "predictor",
+  "run_id": "20260629T202043Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "local snapshot/event files"
+  ],
+  "used_corpus_query": true
+}
