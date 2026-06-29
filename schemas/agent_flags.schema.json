@@ -65,17 +65,18 @@
       "description": "Which agentic stage a usage record belongs to.",
       "enum": [
         "predictor",
-        "evaluator"
+        "evaluator",
+        "reconciler"
       ],
       "title": "UsageRole",
       "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to surface* \u2014 a\ndata-quality problem, a scope question, an ambiguous event, or the reason it was\nblocked. It rides the cell's artifact to the ``collect`` job, which rolls every\ncell's flags into the run PR body (and the Actions summary), so a note survives\nthe trigger issue's closure and a maintainer sees it without reading every\n``reasoning.md``. The agent token stays comment-only: the file is written\nlocally and the trusted ``collect`` job does the surfacing.",
+  "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate/reconcile cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote survives the trigger issue's closure and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
   "properties": {
     "actor_id": {
-      "description": "The predictor_id (predict) or evaluator_id (evaluate)",
+      "description": "The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id",
       "title": "Actor Id",
       "type": "string"
     },

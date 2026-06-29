@@ -98,6 +98,7 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         "partial": None,
         "skipped": [],
         "flags": "",
+        "feedback_comment": "",
     }
 
 
@@ -153,6 +154,9 @@ def test_collect_plan_rolls_up_flag_files(tmp_path: Path) -> None:
     assert "🚩 Agent flags (2)" in plan["flags"]
     assert "`codex-baseline`" in plan["flags"]  # the blocked, uncommitted cell's flag still shows
     assert "🚩 Agent flags" in plan["ready"]["body"]
+    # The same roll-up is wrapped for the latched agent-feedback issue, marker first.
+    assert plan["feedback_comment"].startswith("<!-- agent-feedback-run: predict/R -->")
+    assert "🚩 Agent flags" in plan["feedback_comment"]
 
 
 def test_collect_plan_tolerates_malformed_flag_file(tmp_path: Path) -> None:
@@ -213,3 +217,29 @@ def test_collect_reconcile_plan_emits_per_case_json(tmp_path: Path) -> None:
     # docket 2 settled nothing -> skipped, serialized as court/docket only.
     assert plan["partial"] is None
     assert plan["skipped"] == [{"court": "scotus", "docket": 2}]
+
+
+def test_collect_reconcile_plan_rolls_up_flag_files(tmp_path: Path) -> None:
+    # Reconcile flags ride the same channel as predict/evaluate (issue #325).
+    _write_cell(
+        tmp_path,
+        "reconcile-scotus-1",
+        court="scotus",
+        docket=1,
+        run_id="R",
+        settled=["evt-petition-disposition"],
+        validated=True,
+        agent_ok=True,
+    )
+    _write_flags(tmp_path, "reconcile-scotus-1", "codex")
+
+    result = runner.invoke(
+        app,
+        ["collect-reconcile-plan", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert "🚩 Agent flags" in plan["flags"]
+    assert "🚩 Agent flags" in plan["ready"]["body"]
+    # Wrapped for the latched agent-feedback issue, keyed on the reconcile role.
+    assert plan["feedback_comment"].startswith("<!-- agent-feedback-run: reconcile/R -->")

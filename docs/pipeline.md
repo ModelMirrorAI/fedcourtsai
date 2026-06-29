@@ -16,9 +16,10 @@ stage.
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics — pipeline health (the Actions run history), backfill
-progress + rate/ETA (the seed cursor vs the previous snapshot), and spend (the
-`usage.json` ledger + Actions minutes from run durations) — rendered by
-`fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
+progress + rate/ETA (the seed cursor vs the previous snapshot), spend (the
+`usage.json` ledger + Actions minutes from run durations), and open agent flags
+(the committed `flags.json` files, so agent-surfaced feedback is visible beyond
+the run PR that produced it) — rendered by `fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
 dashboard" issue and appends each JSON snapshot to a dedicated **`ops-metrics`
 branch** (an orphan time-series that never merges to `main`, so the default branch
 stays clean and the prior snapshot is available for the rate/ETA). It triggers
@@ -127,6 +128,17 @@ fan-out of dozens of cells yields one (or two) PRs for the run, not one per cell
 The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in
 `collect` before the commit and again as the required `paths` check, so an
 auto-merged PR can only add artifacts under `data/` (see [security.md](security.md)).
+
+For `run:predict`, `run:evaluate`, and `run:reconcile`, `collect` also rolls up any
+agent feedback (`flags.json`) the run surfaced and posts it three ways — the run PR
+body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
+single latched-issue pattern of `ops-dashboard` / `data-validation`) — so a note
+reaches a durable, centralized home even when a fully-failed run opens no PR.
+Separately, every cell may also write a `tooling.json` self-report on its
+environment/tooling, committed with the cell's output rather than rolled into the
+per-run PR/issue; the `run-ops` dashboard scans these into a tooling-feedback
+digest. See the `flags.json` and `tooling.json` channels in
+[data-model.md](data-model.md).
 
 To trigger prediction/evaluation for **one** case, open an issue whose body
 contains a single object and apply `run:predict` (or `run:evaluate`):

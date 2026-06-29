@@ -221,12 +221,16 @@ class CollectPlan:
     never silently drops a cell. ``flags_markdown`` is the run's rolled-up agent
     flags (empty when none); it is also appended to whichever PR body the run
     opens, so the workflow can surface it in the Actions summary even when no PR is.
+    ``feedback_comment`` wraps that same roll-up for the long-lived agent-feedback
+    tracking issue (empty when no flags), so a note reaches a durable, centralized
+    home even when a fully-failed run opens no PR.
     """
 
     ready: PrPlan | None
     partial: PrPlan | None
     skipped: tuple[CellStatus | ReconcileCellStatus, ...] = ()
     flags_markdown: str = ""
+    feedback_comment: str = ""
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -256,14 +260,20 @@ def _md_cell(value: object) -> str:
     return " ".join(str(value).split()).replace("|", "\\|") or "—"
 
 
-def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
-    """Roll a run's per-cell ``flags.json`` into one markdown section, or ``""``.
+# The columns a maintainer triages flags on, shared by every flag table.
+FLAGS_TABLE_HEADER = (
+    "| severity | category | actor | case | event | note |\n|---|---|---|---|---|---|"
+)
 
-    One row per flag, loudest severity first, so a maintainer reading the run PR (or
-    the Actions summary) sees every agent-surfaced note — a data-quality problem, a
-    scope question, the reason a cell was blocked — in one place rather than buried
-    across the run's ``reasoning.md`` files. Returns the empty string when no cell
-    raised a flag, so the caller can omit the section entirely.
+
+def flags_table(flag_sets: Sequence[AgentFlags]) -> str:
+    """Render flag sets as one severity-sorted markdown table, or ``""`` if none.
+
+    The shared table body behind both the per-run roll-up (:func:`render_flags`) and
+    the run-ops dashboard's open-flags section: one row per flag, loudest severity
+    first, carrying the columns a maintainer triages on (severity, category, actor,
+    case, event, note). Flag messages are agent-authored, so each cell is collapsed
+    to one line and pipe-escaped. Returns ``""`` when no set raised a flag.
     """
     rows: list[tuple[int, str, str, str]] = []
     for fs in flag_sets:
@@ -284,12 +294,50 @@ def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
     if not rows:
         return ""
     body = "\n".join(row[3] for row in sorted(rows, key=lambda r: r[:3]))
+    return f"{FLAGS_TABLE_HEADER}\n{body}"
+
+
+def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
+    """Roll a run's per-cell ``flags.json`` into one markdown section, or ``""``.
+
+    One row per flag, loudest severity first, so a maintainer reading the run PR (or
+    the Actions summary) sees every agent-surfaced note — a data-quality problem, a
+    scope question, the reason a cell was blocked — in one place rather than buried
+    across the run's ``reasoning.md`` files. Returns the empty string when no cell
+    raised a flag, so the caller can omit the section entirely.
+    """
+    table = flags_table(flag_sets)
+    if not table:
+        return ""
+    count = sum(len(fs.flags) for fs in flag_sets)
     return (
-        f"## 🚩 Agent flags ({len(rows)})\n\n"
-        "Structured notes the agents surfaced this run, for triage.\n\n"
-        "| severity | category | actor | case | event | note |\n"
-        "|---|---|---|---|---|---|\n" + body
+        f"## 🚩 Agent flags ({count})\n\n"
+        "Structured notes the agents surfaced this run, for triage.\n\n" + table
     )
+
+
+def feedback_marker(role: FinalizeRole, run_id: str) -> str:
+    """The hidden HTML marker that keys one run's note on the agent-feedback issue.
+
+    Embedded as the first line of :func:`render_feedback_comment`'s output so the
+    collect job can grep an existing comment for it and post each run's roll-up
+    exactly once to the single long-lived issue — even if the job re-runs.
+    """
+    return f"<!-- agent-feedback-run: {role.value}/{run_id} -->"
+
+
+def render_feedback_comment(role: FinalizeRole, run_id: str, flags_markdown: str) -> str:
+    """Wrap a run's flag roll-up as a comment for the latched agent-feedback issue.
+
+    Returns ``""`` when the run raised no flags (``flags_markdown`` empty) so the
+    caller posts nothing. Otherwise leads with a per-run :func:`feedback_marker`
+    (for one-time posting) and a header naming the stage and run, then the roll-up —
+    so the single long-lived issue accrues one comment per flagged run, a durable
+    home that survives even a fully-failed run that opens no PR.
+    """
+    if not flags_markdown:
+        return ""
+    return f"{feedback_marker(role, run_id)}\n### {role.value} · run `{run_id}`\n\n{flags_markdown}"
 
 
 def collect_plan(
@@ -317,8 +365,9 @@ def collect_plan(
     ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags`. Their
     roll-up is appended to whichever PR body opens (the ready PR, else the draft)
     and returned as ``flags_markdown`` so the workflow can also surface it in the
-    Actions summary — a durable, discoverable home for an agent's note that
-    survives the trigger issue's closure.
+    Actions summary, and as ``feedback_comment`` for the long-lived agent-feedback
+    tracking issue — a durable, centralized home for an agent's note that survives
+    the trigger issue's closure and even a fully-failed run that opens no PR.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
@@ -363,7 +412,11 @@ def collect_plan(
     flags_md = render_flags(flags)
     ready_plan, partial_plan = _append_flags(ready_plan, partial_plan, flags_md)
     return CollectPlan(
-        ready=ready_plan, partial=partial_plan, skipped=skipped, flags_markdown=flags_md
+        ready=ready_plan,
+        partial=partial_plan,
+        skipped=skipped,
+        flags_markdown=flags_md,
+        feedback_comment=render_feedback_comment(role, run_id, flags_md),
     )
 
 
@@ -403,6 +456,7 @@ def reconcile_collect_plan(
     run_id: str,
     cells: Sequence[ReconcileCellStatus],
     issue: int | None = None,
+    flags: Sequence[AgentFlags] = (),
 ) -> CollectPlan:
     """Partition a reconcile run's per-case cells into one ready PR + one draft PR.
 
@@ -413,6 +467,13 @@ def reconcile_collect_plan(
     title and commit subject start with ``reconcile:`` so the squash-merge to
     ``main`` fires run-reconcile's evaluate handoff, and it closes the trigger
     issue on merge unless a salvage draft remains.
+
+    ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags` — the
+    same durable channel predict/evaluate use (e.g. an ambiguous disposition the
+    reconcile agent could not settle). Their roll-up rides whichever PR opens and is
+    returned as ``flags_markdown`` / ``feedback_comment`` so the workflow surfaces it
+    in the Actions summary and the long-lived agent-feedback issue even when a fully
+    blocked run opens no PR.
     """
     ready = [c for c in cells if c.ready]
     salvage = [c for c in cells if c.produced and not c.ready]
@@ -452,4 +513,12 @@ def reconcile_collect_plan(
             artifact_dirs=tuple(c.artifact_dir for c in salvage),
         )
 
-    return CollectPlan(ready=ready_plan, partial=partial_plan, skipped=skipped)
+    flags_md = render_flags(flags)
+    ready_plan, partial_plan = _append_flags(ready_plan, partial_plan, flags_md)
+    return CollectPlan(
+        ready=ready_plan,
+        partial=partial_plan,
+        skipped=skipped,
+        flags_markdown=flags_md,
+        feedback_comment=render_feedback_comment(FinalizeRole.reconcile, run_id, flags_md),
+    )

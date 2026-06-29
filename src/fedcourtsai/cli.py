@@ -17,6 +17,7 @@ from typing import Annotated
 import typer
 
 from . import corpus, dvc, ids
+from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .collect import (
@@ -75,6 +76,8 @@ from .serialize import write_json, write_raw_json, write_yaml
 from .store import (
     cases_due_for_pull,
     iter_evaluations,
+    iter_flags,
+    iter_tooling,
     iter_usage,
     open_events,
     resolved_events,
@@ -487,8 +490,10 @@ def ops_report(
     """Roll pipeline health, backfill, spend, and data health into an ops snapshot.
 
     A read-only view of authoritative sources — the GitHub Actions run history
-    (``--runs``), the seed cursor (``config/seed-progress.yaml``), and the recorded
-    ``usage.json`` ledger under ``data/``. Also presents the **data-health** verdict:
+    (``--runs``), the seed cursor (``config/seed-progress.yaml``), the recorded
+    ``usage.json`` ledger under ``data/``, and the committed ``flags.json`` files
+    agents leave there (rolled into the **open agent flags** section). Also presents
+    the **data-health** verdict:
     it runs the git-only ``validate`` over ``data/`` itself and folds in the latest
     corpus verdict from ``--corpus-validation`` (produced where the corpus is already
     pulled). Prints the dashboard Markdown to stdout (the run-ops issue body / step
@@ -531,6 +536,8 @@ def ops_report(
         progress=progress,
         courts=courts,
         usage=iter_usage(settings.data_root),
+        flags=iter_flags(settings.data_root),
+        tooling=iter_tooling(settings.data_root),
         previous=prior,
         data_health=data_health,
     )
@@ -1460,6 +1467,7 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
             if isinstance(c, CellStatus)
         ],
         "flags": plan.flags_markdown,
+        "feedback_comment": plan.feedback_comment,
     }
 
 
@@ -1500,7 +1508,10 @@ def collect_plan_cmd(
     ``draft`` and the ``artifact_dirs`` whose ``data/`` the collect job copies into
     that PR. The ready ``body`` closes ``--issue`` on merge unless a draft remains.
     ``flags`` is the run's rolled-up agent flags (also appended to the PR body),
-    which the collect step echoes into the Actions summary.
+    which the collect step echoes into the Actions summary; ``feedback_comment``
+    is the same roll-up wrapped for the long-lived agent-feedback tracking issue
+    (empty when no flags), which the collect step posts so a note survives even a
+    fully-failed run that opens no PR.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -1514,12 +1525,35 @@ def collect_plan_cmd(
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 
 
+@app.command("post-agent-feedback")
+def post_agent_feedback_cmd(
+    body_file: Annotated[
+        Path, typer.Option(help="The rendered feedback comment (collect-plan's feedback_comment).")
+    ],
+    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
+) -> None:
+    """Latch a run's agent-flag roll-up onto the long-lived agent-feedback issue.
+
+    Reads the rendered comment from ``--body-file`` (an empty/blank file means the
+    run raised no flags, so nothing is posted), then find-or-creates the single
+    ``agent-feedback`` issue and posts the comment once (marker-deduped, so a
+    ``collect`` re-run never duplicates it). The predict/evaluate collect job calls
+    this with the ambient ``GITHUB_TOKEN`` — off its contents-write App token, since
+    the label is non-triggering. The find-or-create and idempotency are tested in
+    ``agent_feedback.py``; this command is the thin gh-invoking wrapper.
+    """
+    comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
+    typer.echo(post_agent_feedback(comment, repo))
+
+
 def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
     # Reconcile skips are per case (no actor/event), so serialize court/docket only.
     return {
         "ready": _pr_plan_json(plan.ready),
         "partial": _pr_plan_json(plan.partial),
         "skipped": [{"court": c.court, "docket": c.docket} for c in plan.skipped],
+        "flags": plan.flags_markdown,
+        "feedback_comment": plan.feedback_comment,
     }
 
 
@@ -1535,10 +1569,13 @@ def collect_reconcile_plan_cmd(
     """Emit the per-run aggregate reconcile PR decision as compact JSON.
 
     Reads every per-case ``status.json`` under ``status_dir``, then prints
-    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}]}``.
-    The ready ``commit_message`` / ``title`` start with ``reconcile:`` so the
-    squash-merge to ``main`` fires the evaluate handoff, and the ready ``body``
-    closes ``--issue`` on merge unless a draft remains.
+    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}],
+    "flags": <md>, "feedback_comment": <md>}``. The ready ``commit_message`` /
+    ``title`` start with ``reconcile:`` so the squash-merge to ``main`` fires the
+    evaluate handoff, and the ready ``body`` closes ``--issue`` on merge unless a
+    draft remains. ``flags`` / ``feedback_comment`` carry the run's rolled-up agent
+    flags for the Actions summary and the long-lived agent-feedback issue, like
+    ``collect-plan``.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -1548,7 +1585,9 @@ def collect_reconcile_plan_cmd(
                 json.loads(status_path.read_text()), artifact_dir=artifact_dir
             )
         )
-    plan = reconcile_collect_plan(run_id=run_id, cells=cells, issue=issue or None)
+    plan = reconcile_collect_plan(
+        run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
+    )
     typer.echo(json.dumps(_reconcile_collect_plan_json(plan), separators=(",", ":")))
 
 

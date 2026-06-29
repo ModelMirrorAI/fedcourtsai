@@ -372,6 +372,7 @@ jobs:
     permissions:
       contents: write # commit the run's evaluations to a branch
       pull-requests: write # open the run PR and enable auto-merge
+      issues: write # GITHUB_TOKEN posts flags to the agent-feedback issue (not the App token)
     steps:
       # The collect job opens the PR with the dev App token. The dev App is *not* a
       # branch-protection bypass actor (see docs/security.md), so its auto-merge is
@@ -430,6 +431,15 @@ jobs:
           if [ -n "$flags" ] && [ "$flags" != "null" ]; then
             printf '%s\n' "$flags" >> "$GITHUB_STEP_SUMMARY"
           fi
+          # Roll this run's agent flags to a file for the next step to latch onto the
+          # long-lived agent-feedback issue. That step posts with the ambient
+          # GITHUB_TOKEN rather than this job's contents-write App token (least
+          # privilege — see the step's comment). `feedback_comment` (rendered by
+          # collect-plan) is empty when the run raised no flags, so the file is too.
+          feedback=$(jq -r '.feedback_comment' <<<"$plan")
+          if [ -n "$feedback" ] && [ "$feedback" != "null" ]; then
+            printf '%s\n' "$feedback" > feedback-comment.md
+          fi
           # Never silently drop a cell: warn for each that produced no output.
           jq -r '.skipped[] | "::warning::no evaluation for \(.actor) on \(.court)/\(.docket) \(.event_id)"' <<<"$plan"
           for kind in ready partial; do
@@ -475,3 +485,20 @@ jobs:
                 || echo "::warning::could not enable auto-merge on ${url}"
             fi
           done
+
+      - name: Latch run flags onto the agent-feedback issue
+        # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev
+        # App token: latching needs no cross-workflow trigger (`agent-feedback` is a
+        # non-triggering label), so issue-write stays off this job's contents-write
+        # token. The find-or-create and once-only idempotency are the tested
+        # `post-agent-feedback` command (agent_feedback.py); this only invokes it.
+        # Runs even if the aggregate step failed, so a fully-failed run still leaves a
+        # note. The file is empty/absent when the run raised no flags.
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -s feedback-comment.md ] || exit 0
+          uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md

@@ -73,12 +73,13 @@ attribute it to the event(s) the disposing order actually references; do not cop
 it onto an event the docket does not tie it to.
 
 If the docket does **not** let you settle an event with confidence, **do not
-guess and do not write its `outcome.json`.** Leave it open and explain why in a
-comment on the triggering issue (its number is in the run prompt; post with
-`gh issue comment`) so a maintainer can follow up. Recording nothing is the
-correct, conservative outcome for a genuinely ambiguous event.
+guess and do not write its `outcome.json`.** Leave it open and record a `flags.json`
+note (see Outputs below) explaining why, so a maintainer can follow up on a durable,
+triageable channel. Recording nothing is the correct, conservative outcome for a
+genuinely ambiguous event. (A trigger-issue comment is fine as an extra, but the
+issue is closed when the run lands — `flags.json` is the channel that survives.)
 
-## Outputs (write only outcomes you are confident in)
+## Outputs (settled outcomes, plus optional `flags.json` / `tooling.json`)
 
 For each event you settle, write
 `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/outcome.json`, validating
@@ -94,13 +95,37 @@ An event's open/resolved state is a raw fact tracked in the corpus, and the
 pipeline closes the event there; you only write the derived `outcome.json` the
 ledger keeps in git.
 
+Write these per-case files at
+`data/cases/$COURT_ID/$DOCKET_ID/reconcile/$RUN_ID/`:
+
+- **`flags.json`** *(optional — write it only when you have a durable note to
+  surface)* — must validate against `schemas/agent_flags.schema.json` (the
+  `AgentFlags` model). This is the **durable channel** for an event you could not
+  settle, a data-quality problem, or a scope concern: the `collect` job rolls every
+  cell's flags into the run PR, the Actions summary, and a long-lived agent-feedback
+  issue, so your note survives the trigger issue's closure. Set
+  `case_id` = `$COURT_ID/$DOCKET_ID`, `run_id` = `$RUN_ID`, `role` = `reconciler`,
+  `actor_id` = the reconcile agent id (your engine, `claude-code` or `codex`), and
+  `flags` = a non-empty list of `{category, severity, message, event_id?}` — where
+  `category` is one of `data-quality`/`scope`/`ambiguous-event`/`blocked`/`other`
+  (use `ambiguous-event` for an event you left open) and `severity` is
+  `info`/`warning`/`blocker`. Don't write it when you have nothing to flag.
+- **`tooling.json`** *(write a brief one every run)* — must validate against
+  `schemas/agent_tooling.schema.json` (the `AgentToolingFeedback` model). A short
+  self-report on the **tooling** you were given, so maintainers can see across runs
+  what helps: set `case_id`, `run_id`, `role` = `reconciler`, `actor_id` as above,
+  `used_corpus_query` (did you use `fedcourts query` / `open-events` to consult the
+  corpus?), and the optional lists `tools_used`, `helpful`, `gaps` (tools/abilities
+  you wished you had), and `notes`. Be candid — this is advisory, never graded.
+
 ## Rules
 
-- Write **only** `outcome.json` files. Never edit snapshots, predictions, another
-  case's files, or anything else.
+- Stay in your lane: write **only** `outcome.json` files plus, under your own
+  `reconcile/$RUN_ID/` path, the optional `flags.json` and `tooling.json` above.
+  Never edit snapshots, predictions, another case's files, or anything else.
 - **You run headless** (in CI, no interactive input). Never stall waiting for an
   answer; make the most conservative reasonable call, leave anything you cannot
-  settle for a maintainer (issue comment), and finish.
+  settle for a maintainer (a `flags.json` note), and finish.
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure `uv run fedcourts validate data` would pass for the
   files you wrote.

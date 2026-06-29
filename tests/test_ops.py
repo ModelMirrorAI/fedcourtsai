@@ -7,11 +7,16 @@ from typer.testing import CliRunner
 from fedcourtsai import ops
 from fedcourtsai.cli import app
 from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
+    AgentToolingFeedback,
     CorpusCheck,
     CorpusValidation,
     CourtProgress,
     DataHealth,
     Engine,
+    FlagCategory,
+    FlagSeverity,
     LedgerValidation,
     ModelUsage,
     OpsReport,
@@ -374,6 +379,158 @@ def test_render_markdown_omits_data_health_when_absent() -> None:
     assert "## Data health" not in ops.render_markdown(report)
 
 
+# --- agent-flags digest -------------------------------------------------------
+
+
+def _flags(run_id: str, *flags: AgentFlag, case: str = "ca9/1", actor: str = "p") -> AgentFlags:
+    return AgentFlags(
+        case_id=case, run_id=run_id, role=UsageRole.predictor, actor_id=actor, flags=list(flags)
+    )
+
+
+def test_summarize_flags_counts_every_flag_and_caps_recent_newest_first() -> None:
+    older = _flags(
+        "20260101T000000Z",
+        AgentFlag(category=FlagCategory.scope, severity=FlagSeverity.info, message="old"),
+    )
+    newer = _flags(
+        "20260201T000000Z",
+        AgentFlag(category=FlagCategory.blocked, severity=FlagSeverity.blocker, message="stuck"),
+        AgentFlag(category=FlagCategory.data_quality, severity=FlagSeverity.warning, message="odd"),
+    )
+    digest = ops.summarize_flags([older, newer], limit=1)
+    # Counts cover every committed flag, not just the capped recent window.
+    assert (digest.total, digest.cells) == (3, 2)
+    assert (digest.blockers, digest.warnings, digest.infos) == (1, 1, 1)
+    # Newest run first, and the cap keeps only the most recent cell.
+    assert [fs.run_id for fs in digest.recent] == ["20260201T000000Z"]
+
+
+def test_summarize_flags_empty_is_all_zero() -> None:
+    digest = ops.summarize_flags([])
+    assert (digest.total, digest.cells, digest.recent) == (0, 0, [])
+
+
+def test_render_flags_digest_lists_recent_and_notes_truncation() -> None:
+    sets = [
+        _flags(
+            f"202602{n:02d}T000000Z",
+            AgentFlag(category=FlagCategory.other, severity=FlagSeverity.info, message=f"n{n}"),
+            actor=f"p{n}",
+        )
+        for n in range(1, 4)
+    ]
+    md = ops.render_flags_digest(ops.summarize_flags(sets, limit=2))
+    assert "## Agent flags" in md
+    assert "**3** flag(s) across **3** cell(s)" in md
+    assert "showing the 2 most recent" in md
+    # The shared collect table renders the triage columns.
+    assert "| severity | category | actor | case | event | note |" in md
+    # Only the two most recent cells appear in the table.
+    assert "`p3`" in md and "`p2`" in md and "`p1`" not in md
+
+
+def test_render_flags_digest_clean_ledger_reads_as_none() -> None:
+    assert "_No agent flags on record._" in ops.render_flags_digest(ops.summarize_flags([]))
+
+
+def _tooling(
+    run_id: str,
+    *,
+    used: bool = True,
+    helpful: list[str] | None = None,
+    gaps: list[str] | None = None,
+    actor: str = "p",
+) -> AgentToolingFeedback:
+    return AgentToolingFeedback(
+        case_id="ca9/1",
+        run_id=run_id,
+        role=UsageRole.predictor,
+        actor_id=actor,
+        used_corpus_query=used,
+        helpful=helpful or [],
+        gaps=gaps or [],
+    )
+
+
+def test_summarize_tooling_counts_corpus_use_and_ranks_items() -> None:
+    reports = [
+        _tooling("20260101T000000Z", used=True, helpful=["query"], gaps=["a citation tool"]),
+        _tooling("20260102T000000Z", used=True, helpful=["query"], gaps=["docket diff"]),
+        _tooling("20260103T000000Z", used=False, helpful=["MCP"], gaps=["a citation tool"]),
+    ]
+    digest = ops.summarize_tooling(reports, recent_limit=2)
+    assert digest.reports == 3
+    assert digest.corpus_query_uses == 2
+    # Most-mentioned first: "query" (2) ahead of "MCP" (1); gaps the same way.
+    assert [(c.label, c.count) for c in digest.helpful] == [("query", 2), ("MCP", 1)]
+    assert digest.gaps[0].label == "a citation tool" and digest.gaps[0].count == 2
+    # recent is newest-first and capped.
+    assert [r.run_id for r in digest.recent] == ["20260103T000000Z", "20260102T000000Z"]
+
+
+def test_summarize_tooling_empty_is_zero() -> None:
+    digest = ops.summarize_tooling([])
+    assert (digest.reports, digest.corpus_query_uses, digest.helpful, digest.gaps) == (0, 0, [], [])
+
+
+def test_render_tooling_digest_shows_share_and_items() -> None:
+    md = ops.render_tooling_digest(
+        ops.summarize_tooling(
+            [_tooling("r1", used=True, helpful=["query"]), _tooling("r2", used=False, gaps=["x"])]
+        )
+    )
+    assert "## Agent tooling feedback" in md
+    assert "used by **1/2**" in md
+    assert "Most helpful" in md and "query" in md
+    assert "Wished-for / missing" in md and "x" in md
+
+
+def test_render_tooling_digest_empty_reads_as_none() -> None:
+    assert "_No tooling reports on record._" in ops.render_tooling_digest(ops.summarize_tooling([]))
+
+
+def test_ops_report_rolls_up_committed_tooling(tmp_path: Path) -> None:
+    report = _tooling("20260615T000000Z", used=True, helpful=["fedcourts query"], actor="codex")
+    path = (
+        tmp_path
+        / "data/cases/ca9/1/events/evt-motion-x/predictions/codex/20260615T000000Z/tooling.json"
+    )
+    path.parent.mkdir(parents=True)
+    path.write_text(report.model_dump_json())
+
+    json_out = tmp_path / "ops.json"
+    result = runner.invoke(app, ["ops-report", "--json", str(json_out)], env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "## Agent tooling feedback" in result.output and "fedcourts query" in result.output
+
+    parsed = json.loads(json_out.read_text())
+    assert parsed["tooling"]["reports"] == 1 and parsed["tooling"]["corpus_query_uses"] == 1
+    assert parsed["tooling"]["helpful"][0]["label"] == "fedcourts query"
+
+
+def test_render_markdown_includes_agent_flags_section() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(),
+        courts=[],
+        usage=[],
+        flags=[
+            _flags(
+                "20260601T000000Z",
+                AgentFlag(
+                    category=FlagCategory.scope, severity=FlagSeverity.warning, message="check"
+                ),
+            )
+        ],
+    )
+    md = ops.render_markdown(report)
+    assert "## Agent flags" in md and "1 warning" in md
+    # The digest round-trips through the strict schema.
+    assert OpsReport.model_validate(report.model_dump()) == report
+
+
 # --- ops-report CLI: data-health wiring ---------------------------------------
 
 runner = CliRunner()
@@ -448,3 +605,28 @@ def test_ops_report_without_corpus_verdict_still_has_ledger_health(tmp_path: Pat
     assert report["data_health"]["corpus"] is None
     assert report["data_health"]["ledger"]["ok"] is True
     assert report["data_health"]["ok"] is True
+
+
+def test_ops_report_rolls_up_committed_flags(tmp_path: Path) -> None:
+    flags = _flags(
+        "20260615T000000Z",
+        AgentFlag(category=FlagCategory.scope, severity=FlagSeverity.warning, message="ambiguous"),
+        case="ca9/123",
+        actor="claude-baseline",
+    )
+    flags_path = (
+        tmp_path
+        / "data/cases/ca9/123/events/evt-motion-x/predictions/claude-baseline/20260615T000000Z"
+        / "flags.json"
+    )
+    flags_path.parent.mkdir(parents=True)
+    flags_path.write_text(flags.model_dump_json())
+
+    json_out = tmp_path / "ops.json"
+    result = runner.invoke(app, ["ops-report", "--json", str(json_out)], env=_ops_env(tmp_path))
+    assert result.exit_code == 0, result.output
+    assert "## Agent flags" in result.output and "ambiguous" in result.output
+
+    report = json.loads(json_out.read_text())
+    assert report["flags"]["total"] == 1 and report["flags"]["warnings"] == 1
+    assert report["flags"]["recent"][0]["actor_id"] == "claude-baseline"
