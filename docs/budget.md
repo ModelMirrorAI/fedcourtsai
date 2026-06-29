@@ -48,16 +48,19 @@ Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-th
 **Per-run cost.** A single predict or evaluate run is an *agentic* job: the agent
 reads the prompt, AGENTS.md, the case snapshot, and a handful of retrieved
 priors, then writes its artifacts over several tool-use turns. Effective token
-usage is therefore much larger than the visible artifacts. Planning assumption:
-**~200K effective input + ~12K output per run**, which is **≈ $1–2 per run** on
-either engine before discounts. This is the single most sensitive number in the
-budget — replace it with **measured per-run usage from the first real runs**.
+usage is therefore much larger than the visible artifacts — roughly **~240K
+effective input (the large majority served from cache) + ~6K output per run**.
 
-Every predict/evaluate run now records its measured tokens and an estimated cost
-(at the rates in this section, kept in `fedcourtsai.pricing`) to a `usage.json`
-beside its output; `fedcourts usage-summary` rolls those up into an actual \$/run.
-Once enough real runs have accumulated, update the assumption above from that
-figure. Note the two big discounts that apply to it:
+This used to be a planning assumption (~$1–2/run); it is now **measured**. Every
+predict/evaluate run records its tokens and an estimated cost (at the rates in
+this section, kept in `fedcourtsai.pricing`) to a `usage.json` beside its output,
+and `fedcourts usage-summary` rolls those up. The first predict runs land at
+**≈ $0.50/run** (claude-baseline ~$0.43, codex-baseline ~$0.57) — about a third
+of the old estimate, because prompt caching on the stable prefix is working as
+designed. **Caveat:** this is the *predict* figure; no event has resolved yet, so
+**evaluate per-run cost is still unmeasured** — the estimates below assume it is
+comparable (~$0.50) and should be re-checked against the first real evaluations.
+Note the two big discounts that produce that number:
 
 - **Prompt caching** — automatic on both engines. The stable prefix (AGENTS.md +
   the prompt template + schema) is byte-identical across runs and is read before
@@ -79,6 +82,16 @@ and SCOTUS docket activity adds **~5K cases/term** with **~70 cert grants**
 At roughly one baseline predictable event per docket that is **~45–50K events/yr
 ≈ ~130/day**.
 
+**Pull cadence does not multiply this.** Pull now runs four windows a day and each
+window that finds changed cases files a `run:predict`, so predictions are spread
+across up to four runs daily rather than one — but the annual *event* count is the
+cost driver, not the number of pull windows. `predict_on_change_only` predicts an
+open event once and re-predicts only when the case's facts actually change, so a
+higher pull cadence improves freshness/latency without re-billing unchanged cases.
+The only second-order cost is an event whose case changes in more than one window
+on the same day (predicted more than once); under the SCOTUS gate this is a small
+tail, not a multiplier.
+
 **Annual inference at full scope** (every event, both predictors, both
 evaluators), using the model below:
 
@@ -86,16 +99,17 @@ evaluators), using the model below:
 predictions  = events/yr × predictors × $/run
 evaluations  = resolved_events/yr × (evaluators × predictors) × $/run
 
-≈ 48,000 × 2 × $1.6      ≈ $154K   predictions
-≈ 42,000 × (2×2) × $1.5  ≈ $252K   evaluations
-                          ───────
-                          ≈ $400K / yr   (≈ $33K / mo)
+≈ 48,000 × 2 × $0.50      ≈ $48K   predictions
+≈ 42,000 × (2×2) × $0.50  ≈ $84K   evaluations
+                           ───────
+                           ≈ $132K / yr   (≈ $11K / mo)
 ```
 
-That figure is deliberately alarming: it is what "predict and evaluate
-*everything, with everything*" costs, and it is why the levers below exist. Even
-if the per-run assumption is 3× too high, full scope is still ~$130K/yr — far
-above all other costs combined.
+That figure is still large: it is what "predict and evaluate *everything, with
+everything*" costs, and it is why the levers below exist. It is ~3× below the
+original forecast now that the per-run cost is measured rather than assumed — but
+full scope remains far above all other costs combined, so the prediction *slice*
+and engine fan-out stay the controlling decisions.
 
 **Levers** (each is independent; combine them):
 
@@ -134,10 +148,10 @@ grant/deny event — plus the ~70–80 merits cases and their downstream events:
 
 ```
 gated_events/yr ≈ ~5.5K cert decisions + a merits tail
-predictions ≈ 5,500 × 2 × $1.6      ≈ $18K
-evaluations ≈ 5,500 × (2×2) × $1.5  ≈ $33K
-                                     ───────
-                                     ≈ $50K / yr   — roughly 1/8 of full scope
+predictions ≈ 5,500 × 2 × $0.50      ≈ $5.5K
+evaluations ≈ 5,500 × (2×2) × $0.50  ≈ $11K
+                                      ───────
+                                      ≈ $17K / yr   — roughly 1/8 of full scope
 ```
 
 and it tunes far below that for the first release. The **long-conference batch**
@@ -269,7 +283,7 @@ batch is API-metered (both engines).
 | Item | Monthly | Yearly |
 |------|---------|--------|
 | Claude Max 20x (interactive dev only) | $200 | $2,400 |
-| Predict/eval inference — Claude + Codex **API** (gated) | ~$200–800 | ~$2.4–10K |
+| Predict/eval inference — Claude + Codex **API** (gated) | ~$100–500 | ~$1.2–6K |
 | CourtListener Tier 2 | $25 | $250 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |
@@ -280,16 +294,17 @@ batch is API-metered (both engines).
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
-| **Model inference (predict + evaluate, API-metered)** | **≈ $33K** | **≈ $400K** |
+| **Model inference (predict + evaluate, API-metered)** | **≈ $11K** | **≈ $132K** |
 | CourtListener Tier 4 | $100 | $1,200 |
 | GitHub Actions (private repo; ~$0 if public) | ~$1–3K | ~$12–36K |
 | Codespaces | ~$50 | ~$600 |
 | S3 / DVC | ~$10 | ~$120 |
-| **Total** | **≈ $34–36K/mo** | **≈ $415K/yr** |
+| **Total** | **≈ $12–14K/mo** | **≈ $145K/yr** |
 
 The gap between A and B is almost entirely the prediction *slice* and the
 two-engine fan-out. The budget is governed by choosing where on that line to
 operate: start at **A** (the long-conference batch on the subscription), measure
-real per-run token cost, then open the **SCOTUS-interaction gate** to its steady
-state (~$50K/yr inference — an order of magnitude under B) before deciding, with a
+real per-run token cost (now done — ~$0.50/run, folded into the figures above),
+then open the **SCOTUS-interaction gate** to its steady state (~$17K/yr inference
+— roughly 1/8 of B) before deciding, with a
 year of cost data, whether to widen the gate toward full scope.
