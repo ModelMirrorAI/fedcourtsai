@@ -4,6 +4,7 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
@@ -286,7 +287,31 @@ def test_future_decided_date_fails(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is False
 
 
-def test_decided_before_filed_fails(tmp_path: Path) -> None:
+def test_decided_before_filed_within_baseline_passes(tmp_path: Path) -> None:
+    # A `date_decided < date_filed` row is a faithful upstream quirk (#171); within
+    # the accepted baseline the check passes but still records the true count, so the
+    # monitor can read it.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET date_filed = '2026-02-01', date_decided = '2026-01-01' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    check = next(c for c in verdict.checks if c.name == CHECK_CASE_DATES)
+    assert check.passed
+    assert check.failures == 1
+    assert verdict.ok
+
+
+def test_decided_before_filed_above_baseline_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A material climb above the accepted floor must still fail — the regression
+    # signal #171 relies on. Drop the baseline to 0 so a single bad row trips it.
+    monkeypatch.setattr("fedcourtsai.validate._CASE_DATE_ORDER_BASELINE", 0)
     db = tmp_path / "corpus.db"
     _seed_corpus(db)
     with corpus.connect(db) as conn:
@@ -297,9 +322,7 @@ def test_decided_before_filed_fails(tmp_path: Path) -> None:
         conn.commit()
     verdict = _run(db, tmp_path / "data")
     assert not verdict.ok
-    check = next(c for c in verdict.checks if c.name == CHECK_CASE_DATES)
-    assert not check.passed
-    assert check.failures == 1
+    assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is False
 
 
 def test_ordered_dates_pass(tmp_path: Path) -> None:
