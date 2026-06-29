@@ -19,6 +19,15 @@ import typer
 from . import corpus, dvc, ids
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
+from .collect import (
+    CellStatus,
+    CollectPlan,
+    PathJailError,
+    PrPlan,
+    assert_within_jail,
+    collect_plan,
+    parse_name_status,
+)
 from .config import (
     PredictScope,
     get_settings,
@@ -1506,6 +1515,71 @@ def finalize_pr_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inp
             separators=(",", ":"),
         )
     )
+
+
+@app.command("assert-paths")
+def assert_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+    run_id: Annotated[
+        str, typer.Option(help="If set, every changed path must be under this run id.")
+    ] = "",
+) -> None:
+    """Enforce the data/ path jail; exit non-zero (with ::error::) on any violation.
+
+    An auto-merged predict/evaluate/reconcile PR may only *add* files under
+    ``data/``. The collect job runs this before it commits, and CI runs it as a
+    required status check on the PR, so a change that touches code, a workflow, or
+    an existing artifact cannot reach ``main`` without review.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_within_jail(changes, run_id=run_id or None)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"path jail OK ({len(changes)} change(s))")
+
+
+def _pr_plan_json(plan: PrPlan | None) -> dict[str, object] | None:
+    if plan is None:
+        return None
+    return {
+        "branch": plan.branch,
+        "commit_message": plan.commit_message,
+        "title": plan.title,
+        "body": plan.body,
+        "draft": plan.draft,
+        "artifact_dirs": list(plan.artifact_dirs),
+    }
+
+
+def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
+    return {"ready": _pr_plan_json(plan.ready), "partial": _pr_plan_json(plan.partial)}
+
+
+@app.command("collect-plan")
+def collect_plan_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    status_dir: Annotated[Path, typer.Option(help="Root the cell artifacts were downloaded into.")],
+) -> None:
+    """Emit the per-run aggregate PR decision as compact JSON.
+
+    Reads every ``status.json`` under ``status_dir`` (one per matrix cell), then
+    prints ``{"ready": <pr|null>, "partial": <pr|null>}`` where each ``pr`` carries
+    ``branch`` / ``commit_message`` / ``title`` / ``body`` / ``draft`` and the
+    ``artifact_dirs`` whose ``data/`` the collect job copies into that PR.
+    """
+    cells = []
+    for status_path in sorted(status_dir.glob("**/status.json")):
+        artifact_dir = str(status_path.parent.relative_to(status_dir))
+        cells.append(
+            CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
+        )
+    plan = collect_plan(role, run_id=run_id, cells=cells)
+    typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 
 
 def main() -> None:

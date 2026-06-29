@@ -57,3 +57,36 @@ jobs:
         run: |
           uv run fedcourts export-schemas schemas
           git diff --exit-code schemas
+
+  paths:
+    # Defense-in-depth path jail for the auto-merged data-production PRs: a
+    # predict/evaluate/reconcile run branch may only *add* files under data/, so a
+    # PR that auto-merges without a human cannot carry a code, workflow, or
+    # config change. A no-op that passes for every other branch, so it is safe to
+    # make a required status check on all PRs. The jail also runs producer-side in
+    # each collect job; this required check enforces it independently of the
+    # workflow that produced the branch. Logic lives in the tested `assert-paths`
+    # command; this step only runs git.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-env
+      - name: Enforce the data/ path jail on data-production branches
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          case "$HEAD_REF" in
+            predict/run-*|evaluate/run-*|reconcile/run-*) ;;
+            *) echo "not a data-production branch; path jail not applicable"; exit 0 ;;
+          esac
+          git diff --name-status "${BASE_SHA}...HEAD" > changes.txt
+          uv run fedcourts assert-paths --name-status-file changes.txt
