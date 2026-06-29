@@ -1,10 +1,11 @@
 """Operational analytics roll-up: pipeline health, backfill progress, spend.
 
 A *read-only* snapshot of authoritative sources — the GitHub Actions run history,
-the seed cursor, and the recorded usage ledger — so no pipeline run has to write
-an ops record (which would reintroduce the concurrent-writer problem the corpus
-already manages). ``fedcourts ops-report`` renders this to Markdown (the run-ops
-dashboard issue) and optionally to JSON.
+the seed cursor, the recorded usage ledger, and the committed ``flags.json`` files
+agents leave under ``data/`` — so no pipeline run has to write an ops record (which
+would reintroduce the concurrent-writer problem the corpus already manages).
+``fedcourts ops-report`` renders this to Markdown (the run-ops dashboard issue) and
+optionally to JSON.
 
 Unlike the deterministic leaderboard / back-test roll-ups, this is a point-in-time
 view: it carries ``generated_at`` and run durations, so it is not byte-stable.
@@ -15,11 +16,15 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timedelta
 
+from .collect import flags_table
 from .schemas import (
+    AgentFlags,
     BackfillCourt,
     BackfillProgress,
     CostEstimate,
     DataHealth,
+    FlagsDigest,
+    FlagSeverity,
     ModelUsage,
     OpsReport,
     SeedProgress,
@@ -169,6 +174,37 @@ def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
     )
 
 
+# How many of the most recent flag-raising cells the dashboard table lists; the
+# severity counts still cover every committed flag, so the cap never hides volume.
+_FLAGS_RECENT_LIMIT = 20
+
+
+def summarize_flags(
+    flag_sets: Iterable[AgentFlags], *, limit: int = _FLAGS_RECENT_LIMIT
+) -> FlagsDigest:
+    """Roll committed ``flags.json`` sets into the dashboard's open-flags digest.
+
+    Severity counts are over *every* flag supplied; ``recent`` keeps the most recent
+    flag-raising cells (by run id, newest first) capped at ``limit``, so a long
+    history never bloats the dashboard while the counts still report the true volume.
+    """
+    sets = list(flag_sets)
+    counts = {FlagSeverity.blocker: 0, FlagSeverity.warning: 0, FlagSeverity.info: 0}
+    for fs in sets:
+        for flag in fs.flags:
+            counts[FlagSeverity(flag.severity)] += 1
+    # Run ids are UTC timestamps, so descending lexical order is newest-first.
+    recent = sorted(sets, key=lambda fs: (fs.run_id, fs.case_id, fs.actor_id), reverse=True)[:limit]
+    return FlagsDigest(
+        total=sum(counts.values()),
+        cells=len(sets),
+        blockers=counts[FlagSeverity.blocker],
+        warnings=counts[FlagSeverity.warning],
+        infos=counts[FlagSeverity.info],
+        recent=recent,
+    )
+
+
 def _parse_iso(value: str) -> datetime | None:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -251,6 +287,7 @@ def build_ops_report(
     progress: SeedProgress,
     courts: Sequence[str],
     usage: Iterable[ModelUsage],
+    flags: Iterable[AgentFlags] = (),
     previous: OpsReport | None = None,
     data_health: DataHealth | None = None,
 ) -> OpsReport:
@@ -260,6 +297,8 @@ def build_ops_report(
     backfill rate + ETA; without it those fields stay null. ``data_health`` is the
     data-validation verdict the dashboard presents alongside run health; it is
     surfaced as supplied (the wiring layer owns producing it), null when absent.
+    ``flags`` is the committed ``flags.json`` ledger the dashboard rolls into its
+    open-flags digest (empty when none have been committed).
     """
     run_list = list(runs)
     spend = summarize_spend(usage)
@@ -271,6 +310,7 @@ def build_ops_report(
         spend=spend,
         cost=estimate_cost(run_list, spend),
         data_health=data_health,
+        flags=summarize_flags(flags),
     )
 
 
@@ -342,6 +382,39 @@ def render_data_health(health: DataHealth) -> str:
         lines += ["", "_Monitored (within accepted baselines):_"]
         lines += [f"- {c.name}: {c.detail}" for c in monitored]
 
+    return "\n".join(lines) + "\n"
+
+
+def render_flags_digest(digest: FlagsDigest) -> str:
+    """Render the dashboard's open-agent-flags section from the digest.
+
+    Leads with the severity breakdown over every committed flag, then lists the most
+    recent flag-raising cells using the same table the per-run roll-up renders
+    (:func:`fedcourtsai.collect.flags_table`). A healthy ledger gets a one-line note
+    instead of an empty table.
+    """
+    if digest.total == 0:
+        return "## Agent flags\n\n_No agent flags on record._\n"
+    breakdown = " · ".join(
+        part
+        for part in (
+            f"🛑 {digest.blockers} blocker" if digest.blockers else "",
+            f"⚠️ {digest.warnings} warning" if digest.warnings else "",
+            f"{digest.infos} info" if digest.infos else "",
+        )
+        if part
+    )
+    shown = sum(len(fs.flags) for fs in digest.recent)
+    note = f" · showing the {shown} most recent" if shown < digest.total else ""
+    lines = [
+        "## Agent flags",
+        "",
+        f"**{digest.total}** flag(s) across **{digest.cells}** cell(s) — {breakdown}{note}.",
+        "",
+        "Notes agents surfaced from committed `flags.json`, for triage.",
+        "",
+        flags_table(digest.recent),
+    ]
     return "\n".join(lines) + "\n"
 
 
@@ -422,6 +495,9 @@ def render_markdown(report: OpsReport) -> str:
         "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
         "no billing-API access); check the provider billing dashboards for ground truth.",
     ]
+
+    if report.flags is not None:
+        lines += ["", render_flags_digest(report.flags).rstrip("\n")]
 
     if report.data_health is not None:
         lines += ["", render_data_health(report.data_health).rstrip("\n")]

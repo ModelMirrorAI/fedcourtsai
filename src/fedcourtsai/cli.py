@@ -75,6 +75,7 @@ from .serialize import write_json, write_raw_json, write_yaml
 from .store import (
     cases_due_for_pull,
     iter_evaluations,
+    iter_flags,
     iter_usage,
     open_events,
     resolved_events,
@@ -487,8 +488,10 @@ def ops_report(
     """Roll pipeline health, backfill, spend, and data health into an ops snapshot.
 
     A read-only view of authoritative sources — the GitHub Actions run history
-    (``--runs``), the seed cursor (``config/seed-progress.yaml``), and the recorded
-    ``usage.json`` ledger under ``data/``. Also presents the **data-health** verdict:
+    (``--runs``), the seed cursor (``config/seed-progress.yaml``), the recorded
+    ``usage.json`` ledger under ``data/``, and the committed ``flags.json`` files
+    agents leave there (rolled into the **open agent flags** section). Also presents
+    the **data-health** verdict:
     it runs the git-only ``validate`` over ``data/`` itself and folds in the latest
     corpus verdict from ``--corpus-validation`` (produced where the corpus is already
     pulled). Prints the dashboard Markdown to stdout (the run-ops issue body / step
@@ -531,6 +534,7 @@ def ops_report(
         progress=progress,
         courts=courts,
         usage=iter_usage(settings.data_root),
+        flags=iter_flags(settings.data_root),
         previous=prior,
         data_health=data_health,
     )

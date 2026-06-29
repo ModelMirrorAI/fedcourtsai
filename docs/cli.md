@@ -69,7 +69,7 @@ committed), plus the spend ledger.
 |---------|---------|-----------|
 | `leaderboard` | Rank predictors from the evaluations ledger into `metrics/leaderboard.json`. | `--out` |
 | `backtest` | Replay the reference predictors over resolved corpus events into `metrics/backtest.json`. | `--out`, `--court`, `--limit` |
-| `ops-report` | Roll pipeline health, backfill progress, spend, and data health into the ops dashboard Markdown (and optional JSON). | `--runs`, `--json`, `--previous`, `--generated-at`, `--corpus-validation`, `--data-health-out` |
+| `ops-report` | Roll pipeline health, backfill progress, spend, open agent flags, and data health into the ops dashboard Markdown (and optional JSON). | `--runs`, `--json`, `--previous`, `--generated-at`, `--corpus-validation`, `--data-health-out` |
 | `record-usage` | Record one run's measured token usage and estimated cost next to its prediction/evaluation output. | `--court`, `--docket`, `--event`, `--run-id`, `--engine`, `--role`, `--actor`, `--model`, `--*-tokens`, `--claude-execution-file`, `--codex-sessions-dir` |
 | `usage-summary` | Sum the recorded `usage.json` ledger into an actual \$/run, as JSON on stdout. | — |
 

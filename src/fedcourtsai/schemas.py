@@ -498,6 +498,26 @@ class DataHealth(_Strict):
     )
 
 
+class FlagsDigest(_Strict):
+    """Open agent flags scanned from the committed ``flags.json`` files under ``data/``.
+
+    A read-only roll-up the run-ops dashboard presents so agent-surfaced feedback is
+    visible alongside the other operational analytics — not only in the run PR that
+    produced it. The severity counts are over *every* committed flag; ``recent`` keeps
+    the most recent flag-raising cells (newest first, capped), so a long history never
+    bloats the dashboard while the counts still report the true volume.
+    """
+
+    total: int = Field(ge=0, description="Individual flags across all committed flags.json")
+    cells: int = Field(ge=0, description="Cells (flags.json files) that raised at least one flag")
+    blockers: int = Field(ge=0, description="Flags at blocker severity")
+    warnings: int = Field(ge=0, description="Flags at warning severity")
+    infos: int = Field(ge=0, description="Flags at info severity")
+    recent: list[AgentFlags] = Field(
+        default_factory=list, description="Most recent flag-raising cells, newest first (capped)"
+    )
+
+
 class OpsReport(_Strict):
     """``metrics/ops.json`` — an operational snapshot: health, backfill, spend, cost.
 
@@ -510,7 +530,9 @@ class OpsReport(_Strict):
 
     ``data_health`` carries the data-validation verdict the dashboard also presents —
     null until the wiring supplies it, kept separate from the run-health analytics
-    above.
+    above. ``flags`` is the open-agent-flags digest scanned from ``data/``, null on a
+    report built before the field existed (so an older snapshot read back as
+    ``previous`` still validates).
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -521,6 +543,9 @@ class OpsReport(_Strict):
     cost: CostEstimate
     data_health: DataHealth | None = Field(
         default=None, description="Data-validation verdict (schema + corpus), when available"
+    )
+    flags: FlagsDigest | None = Field(
+        default=None, description="Open agent flags scanned from committed flags.json under data/"
     )
 
 

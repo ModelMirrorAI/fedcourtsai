@@ -51,8 +51,10 @@ the reason it was blocked. Each flag is a typed `{category, severity, message}`.
 The `collect` job rolls every cell's flags into the run PR body and the Actions
 summary (reading even a blocked cell that produced no judgment), so the note
 survives the trigger issue's closure and a maintainer sees it without opening every
-`reasoning.md`. The agent token stays comment-only: the file is written locally and
-the trusted `collect` job does the surfacing.
+`reasoning.md`. Once committed, the `run-ops` dashboard also scans these files into
+an **open agent flags** section, so a note stays discoverable beyond the run that
+raised it. The agent token stays comment-only: the file is written locally and the
+trusted `collect` job does the surfacing.
 
 The raw facts an event is predicted from — its docket, the snapshot, the event
 definition itself — live in the corpus, not here. Predictors and evaluators read

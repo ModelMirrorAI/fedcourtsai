@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import corpus, ids
-from .schemas import Evaluation, ModelUsage
+from .schemas import AgentFlags, Evaluation, ModelUsage
 from .serialize import read_model
 
 
@@ -127,3 +127,23 @@ def iter_usage(data_root: Path) -> list[ModelUsage]:
     )
     paths = sorted(path for pattern in patterns for path in cases_dir.glob(pattern))
     return [read_model(path, ModelUsage) for path in paths]
+
+
+def iter_flags(data_root: Path) -> list[AgentFlags]:
+    """Every committed ``flags.json`` in the derived ledger, in stable path order.
+
+    A cell writes one only when it surfaced something to triage; predict flags live
+    at ``predictions/<predictor>/<run>/flags.json`` and evaluate flags at
+    ``evaluations/<evaluator>/<run>/flags.json``. Both are matched and validated so
+    the run-ops dashboard rolls up only well-formed records. Returns nothing if the
+    ledger does not exist yet (reading must not create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    patterns = (
+        "*/*/events/*/predictions/*/*/flags.json",
+        "*/*/events/*/evaluations/*/*/flags.json",
+    )
+    paths = sorted(path for pattern in patterns for path in cases_dir.glob(pattern))
+    return [read_model(path, AgentFlags) for path in paths]
