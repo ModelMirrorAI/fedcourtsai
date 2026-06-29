@@ -2,11 +2,10 @@
 
 A target timeline for fedcourtsai, anchored to the Supreme Court's term calendar
 so that public "releases" land when the Court is producing the events worth
-predicting. This is a sequence anchored to the Supreme Court's term calendar, not a set of
-dated commitments. The external anchors — the long conference, the end of term —
-are fixed; the internal ordering is load-bearing; the specific timing is our best
-estimate and, like any forecast this project makes, will be reported against
-honestly rather than quietly revised.
+predicting. It is a sequence, not a set of dated commitments: the external
+anchors — the long conference, the end of term — are fixed; the internal ordering
+is load-bearing; the specific timing is our best estimate and, like any forecast
+this project makes, will be reported against honestly rather than quietly revised.
 
 ## Why anchor to the SCOTUS calendar
 
@@ -59,8 +58,8 @@ Everything in the next three months is sequenced to make that release possible.
 - **Pull running daily.** Forward freshness keeps the live frontier current within
   the CourtListener budget; secure the membership tier the budget calls for.
 - **One full cascade proven.** A single case flows seed/pull → `run:predict` →
-  `run:evaluate` end-to-end, producing valid ledger artifacts — even if hand-
-  triggered. This validates the contract before scale.
+  `run:evaluate` end-to-end, producing valid ledger artifacts — even if
+  hand-triggered. This validates the contract before scale.
 - **Cost instrumentation.** Capture real per-run token usage from the first
   predict/evaluate runs and replace the planning assumption in
   [budget.md](budget.md); set billing budgets + alerts.
@@ -117,14 +116,3 @@ new predictor designs, registers them in the registry, and lets `run-predict` /
 flow has to change for it — a predictor is just an id, an engine, and a prompt —
 so it is sequenced after the loop and the leaderboard are proven, and after
 back-testing gives a cheap way to screen candidates before they spend live budget.
-
-## Recurring release rhythm
-
-Once the loop is steady, the calendar yields a repeatable publishing cadence
-without inventing new work:
-
-- **Late Sept / early Oct** — long-conference cert release (the anchor).
-- **Oct–Apr** — periodic merits-prediction updates as arguments and order lists
-  land.
-- **Late June** — end-of-term retrospective across the full merits docket.
-- **Annually** — predictor leaderboard for the completed term.
