@@ -192,6 +192,7 @@ def collect_plan(
     *,
     run_id: str,
     cells: Sequence[CellStatus],
+    issue: int | None = None,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -202,6 +203,10 @@ def collect_plan(
     one-PR-per-cell flow had); or **skipped** (it produced nothing) → nothing to
     commit, returned only so the workflow can warn. A run with no ready cells
     opens no ready PR; with nothing to salvage, no draft.
+
+    ``issue`` is the triggering issue, which the ready PR closes on merge — but
+    only when nothing is left to salvage, so a run with a pending draft keeps its
+    trigger issue open until a maintainer finishes that draft.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
@@ -217,12 +222,16 @@ def collect_plan(
             if salvage
             else ""
         )
+        # Close the trigger issue from the ready PR, but not while a draft still
+        # carries unfinished work for the same run.
+        closes = f"\n\nCloses #{issue}" if issue is not None and not salvage else ""
         ready_plan = PrPlan(
             branch=f"{role.value}/run-{run_id}",
             commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s)",
             title=f"{role.value}: {len(ready)} {noun}(s) (run {run_id})",
             body=(
-                f"Automated {noun}s for run `{run_id}`.\n\n{_table(ready, with_reason=False)}{note}"
+                f"Automated {noun}s for run `{run_id}`."
+                f"\n\n{_table(ready, with_reason=False)}{note}{closes}"
             ),
             draft=False,
             artifact_dirs=tuple(c.artifact_dir for c in ready),

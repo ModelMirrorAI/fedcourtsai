@@ -160,6 +160,41 @@ def test_no_cells_opens_nothing() -> None:
     assert plan.skipped == ()
 
 
+def test_ready_pr_closes_trigger_issue_when_nothing_pending() -> None:
+    plan = collect_plan(
+        FinalizeRole.predict, run_id="R", cells=[_cell("claude-baseline")], issue=42
+    )
+    assert plan.ready is not None
+    assert "Closes #42" in plan.ready.body
+
+
+def test_ready_pr_keeps_issue_open_while_a_draft_remains() -> None:
+    # A salvageable partial means unfinished work for the run, so the ready PR must
+    # not close the trigger issue — the maintainer closes it after the draft.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline"), _cell("codex-baseline", validated=False)],
+        issue=42,
+    )
+    assert plan.ready is not None
+    assert "Closes #42" not in plan.ready.body
+    assert plan.partial is not None and "Closes #42" not in plan.partial.body
+
+
+def test_skipped_only_cells_do_not_block_issue_close() -> None:
+    # A no-output cell will be retried on the next cycle; it does not keep the
+    # trigger issue open the way a pending draft does.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline"), _cell("codex-baseline", produced=False)],
+        issue=42,
+    )
+    assert plan.ready is not None
+    assert "Closes #42" in plan.ready.body
+
+
 def test_reconcile_role_unsupported_for_now() -> None:
     with pytest.raises(ValueError, match="predict/evaluate"):
         collect_plan(FinalizeRole.reconcile, run_id="R", cells=[])
