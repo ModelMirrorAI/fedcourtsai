@@ -89,6 +89,26 @@ branch:
   impede it; it guards the metrics history from accidental or malicious rewrite once
   the repo is public. No required PR (the job pushes directly) and no bypass needed.
 
+## Repository merge settings
+
+Settings → General → Pull Requests. The predict `collect` job (and, as they are
+converted, evaluate/reconcile) opens one PR per run and asks GitHub to merge it
+when the required checks pass; these settings are what let that happen and keep
+the branch list clean. To reproduce the repo (or use it as a template), set:
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| **Allow auto-merge** | **on** | The `collect` job runs `gh pr merge --auto --squash`. With it off that call errors — the job degrades gracefully (logs a warning, leaves the PR open for a manual merge) but nothing auto-merges. |
+| **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
+| **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. |
+
+Merge-commit and rebase-merge are not used by the pipeline; leave them at
+whatever the repo prefers. Auto-merge does **not** weaken the gate: it is a
+deferred merge that still waits for the required `gate` + `paths` checks, and the
+dev App that opens these PRs is not a branch-protection bypass actor (above), so
+the checks bind. The append-only `data/` jail (`paths`) is what makes
+auto-merging agent output safe.
+
 ## The `runner` environment
 
 Every secret and both S3 role ARNs live on the `runner` environment — the App
