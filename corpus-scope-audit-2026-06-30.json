@@ -1,11 +1,11 @@
 {
-  "corpus_rows": 2136400,
+  "corpus_rows": 2136407,
   "exclusions": [
     {
       "cases": 16525,
       "open_events": 16525,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 13869,
+      "recoverable": 13867,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -23,7 +23,7 @@
       "cases": 123101,
       "open_events": 123101,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 13252,
+      "recoverable": 13250,
       "sample_cases": [
         "scotus/100001",
         "scotus/1000145",
@@ -89,6 +89,68 @@
         "scotus/1013205",
         "scotus/1013618"
       ]
+    }
+  ],
+  "unparseable_docket_shapes": [
+    {
+      "count": 195399,
+      "shape": "Aa. 99-9999"
+    },
+    {
+      "count": 49307,
+      "shape": "Aa. 999"
+    },
+    {
+      "count": 39987,
+      "shape": "Aa. 99-999"
+    },
+    {
+      "count": 19063,
+      "shape": "99A999"
+    },
+    {
+      "count": 10423,
+      "shape": "Aa. 9999"
+    },
+    {
+      "count": 7868,
+      "shape": "Aa. 99-99999"
+    },
+    {
+      "count": 5140,
+      "shape": "Aa. A-9999"
+    },
+    {
+      "count": 4630,
+      "shape": "99A9999"
+    },
+    {
+      "count": 4624,
+      "shape": "Aa. 99"
+    },
+    {
+      "count": 4204,
+      "shape": "Aa. 99\u20139999."
+    },
+    {
+      "count": 4068,
+      "shape": "Aa. 99-99"
+    },
+    {
+      "count": 4060,
+      "shape": "Aa. A-999"
+    },
+    {
+      "count": 3459,
+      "shape": "Aa. 99-9999; Aa. 99-9999"
+    },
+    {
+      "count": 2070,
+      "shape": "99A99"
+    },
+    {
+      "count": 1622,
+      "shape": "Aa. 999, Aaaa."
     }
   ]
 }
