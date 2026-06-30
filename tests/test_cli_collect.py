@@ -92,12 +92,34 @@ def test_cleanup_predictions_dry_run_lists_without_deleting(tmp_path: Path) -> N
     pred_root = Path(env["FEDCOURTS_DATA_ROOT"]) / (
         "cases/scotus/1004191/events/evt-petition-disposition/predictions"
     )
-    result = runner.invoke(app, ["cleanup-out-of-scope-predictions"], env=env)
+    result = runner.invoke(
+        app,
+        ["cleanup-out-of-scope-predictions", "--run-id", "RID", "--issue", "320"],
+        env=env,
+    )
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["removed"] is False
     assert payload["prunable"][0]["case_id"] == "scotus/1004191"
+    # The PR block (branch/title/body) is rendered by the command, not the workflow.
+    assert payload["pr"]["branch"] == "cleanup/out-of-scope-predictions-RID"
+    assert "Closes #320." in payload["pr"]["body"]
     assert pred_root.exists()  # dry-run leaves the tree intact
+
+
+def test_cleanup_predictions_empty_emits_null_pr(tmp_path: Path) -> None:
+    # No out-of-scope cases -> nothing to prune and no PR to open.
+    corpus_root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/2400001", court="scotus", docket_number="24-101")],
+        )
+    env = {"FEDCOURTS_DATA_ROOT": str(tmp_path / "data"), "FEDCOURTS_CORPUS_ROOT": str(corpus_root)}
+    result = runner.invoke(app, ["cleanup-out-of-scope-predictions"], env=env)
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["prunable"] == [] and payload["pr"] is None
 
 
 def test_cleanup_predictions_apply_removes_dirs(tmp_path: Path) -> None:

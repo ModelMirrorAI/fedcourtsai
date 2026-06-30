@@ -98,3 +98,34 @@ def test_remove_is_idempotent(tmp_path: Path) -> None:
 def test_find_handles_missing_tree_or_corpus(tmp_path: Path) -> None:
     # No data/ tree and/or no corpus database -> nothing to do, no crash.
     assert cleanup.find_out_of_scope_predictions(tmp_path / "data", tmp_path / "corpus.db") == []
+
+
+def test_render_cleanup_pr_table_and_closes() -> None:
+    prunable = [
+        cleanup.PrunableCase(
+            case_id="scotus/1004191",
+            reason="stale unresolvable old SCOTUS petition (#333)",
+            paths=["data/cases/scotus/1004191/events/evt-petition-disposition/predictions"],
+        ),
+        cleanup.PrunableCase(
+            case_id="scotus/1001931",
+            reason="pre-1925 mandatory-jurisdiction matter (#309)",
+            paths=["p1", "p2"],
+        ),
+    ]
+    pr = cleanup.render_cleanup_pr(prunable, run_id="RID", issue=320)
+    assert pr.branch == "cleanup/out-of-scope-predictions-RID"
+    assert pr.title == "cleanup: prune predictions for 2 out-of-scope cases"
+    assert pr.commit_message == pr.title
+    assert "| `scotus/1004191` | stale unresolvable old SCOTUS petition (#333) | 1 |" in pr.body
+    assert "| `scotus/1001931` | pre-1925 mandatory-jurisdiction matter (#309) | 2 |" in pr.body
+    assert "Closes #320." in pr.body
+    assert "not** auto-merged" in pr.body
+
+
+def test_render_cleanup_pr_singular_and_no_issue() -> None:
+    pr = cleanup.render_cleanup_pr(
+        [cleanup.PrunableCase(case_id="scotus/1004191", reason="r", paths=["p"])], run_id="RID"
+    )
+    assert pr.title == "cleanup: prune predictions for 1 out-of-scope case"
+    assert "Closes #" not in pr.body

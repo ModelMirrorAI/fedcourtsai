@@ -36,10 +36,19 @@ jobs:
       contents: read
       id-token: write # assume the read-only AWS role to dvc pull the corpus
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
       # A label on a public-repo issue form can be applied by anyone, so require the
-      # trigger to come from the pipeline App or a maintainer with write access; fail
-      # closed before any credential is minted. (Manual dispatch is already write-gated
-      # by GitHub, so it skips this.)
+      # trigger to come from the pipeline App or a maintainer with write access. The
+      # decision (and its fail-closed default) lives in the tested `authorize-trigger`
+      # command; it refuses *before* the steps below mint the dev App token, assume the
+      # S3 role, or read the corpus. (Manual dispatch is already write-gated by GitHub,
+      # so it skips this. Checkout + env setup above touch no secrets.)
       - name: Authorize the trigger (label from the pipeline App or a maintainer)
         if: ${{ github.event_name == 'issues' }}
         env:
@@ -48,20 +57,8 @@ jobs:
           ACTOR: ${{ github.actor }}
           SENDER_TYPE: ${{ github.event.sender.type }}
         run: |
-          set -euo pipefail
-          if [ "$SENDER_TYPE" = "Bot" ]; then
-            echo "Authorized ${ACTOR} (pipeline App handoff)."
-            exit 0
-          fi
-          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" \
-            --jq '.permission' 2>/dev/null || echo none)
-          case "$perm" in
-            admin | maintain | write) echo "Authorized ${ACTOR} (${perm} access)." ;;
-            *)
-              echo "::error::${ACTOR} lacks write access (permission: ${perm}); refusing to run." >&2
-              exit 1
-              ;;
-          esac
+          uv run fedcourts authorize-trigger \
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
 
       # The cleanup PR is opened with the dev App token. The dev App is not a
       # branch-protection bypass actor, so the PR still faces the required `gate` and
@@ -74,13 +71,6 @@ jobs:
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - uses: ./.github/actions/setup-python-env
 
       - name: Configure git identity
         uses: ./.github/actions/configure-git-identity
@@ -102,6 +92,10 @@ jobs:
       - name: Pull the corpus
         run: uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
 
+      # The sweep, branch name, and PR prose are all computed by the tested
+      # `cleanup-out-of-scope-predictions` (`--apply` removes the dirs and emits the
+      # `pr` block); this step only runs git/gh, mirroring the predict/evaluate collect
+      # jobs. The cleanup jail is re-checked producer-side via the tested command.
       - name: Sweep and open a review PR
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -110,47 +104,23 @@ jobs:
         run: |
           set -euo pipefail
           gh auth setup-git
-          # Apply the sweep, capturing the JSON summary of what it removed. Today there
-          # is one rule; the workflow_dispatch `rule` input is the seam for more.
-          plan=$(uv run fedcourts cleanup-out-of-scope-predictions --apply)
-          count=$(jq '.prunable | length' <<<"$plan")
-          if [ "$count" -eq 0 ]; then
+          plan=$(uv run fedcourts cleanup-out-of-scope-predictions --apply \
+            --run-id "$GITHUB_RUN_ID" --issue "${ISSUE:-0}")
+          if [ "$(jq '.prunable | length' <<<"$plan")" -eq 0 ]; then
             echo "No out-of-scope predictions to prune." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-
-          branch="cleanup/out-of-scope-predictions-${GITHUB_RUN_ID}"
+          branch=$(jq -r '.pr.branch' <<<"$plan")
           git checkout -q -b "$branch"
           git add -A data/
-          # Enforce the cleanup jail producer-side (CI re-checks it): the sweep may
-          # only delete files under a predictions/ subtree. A violation is a bug in
-          # the rule, so fail the run rather than open a PR that touches anything else.
           git diff --cached --name-status > changes.txt
           uv run fedcourts assert-cleanup-paths --name-status-file changes.txt
-
-          # PR body: the per-case list the sweep removed, for the reviewer.
-          {
-            echo "Deterministic cleanup sweep: pruned merged predictions for cases now"
-            echo "out of predict scope (gated on the live corpus row, not a proxy)."
-            echo "The event definitions and any \`outcome.json\` are untouched."
-            echo
-            echo "| case | reason | dirs removed |"
-            echo "|------|--------|--------------|"
-            jq -r '.prunable[] | "| `\(.case_id)` | \(.reason) | \(.paths | length) |"' <<<"$plan"
-            echo
-            if [ -n "${ISSUE:-}" ] && [ "${ISSUE:-}" != "null" ]; then
-              echo "Closes #${ISSUE}."
-            fi
-            echo
-            echo "Review and merge — this PR is intentionally **not** auto-merged."
-          } > pr-body.md
-
-          git commit -q -m "cleanup: prune ${count} out-of-scope case(s)' predictions"
+          jq -r '.pr.body' <<<"$plan" > pr-body.md
+          git commit -q -m "$(jq -r '.pr.commit_message' <<<"$plan")"
           # Push with the app (write) token; blank any ambient extraheader so it authenticates.
           git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
             push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
             "HEAD:refs/heads/${branch}"
           url=$(gh pr create --base main --head "$branch" \
-            --title "cleanup: prune ${count} out-of-scope case(s)' predictions" \
-            --body-file pr-body.md)
+            --title "$(jq -r '.pr.title' <<<"$plan")" --body-file pr-body.md)
           echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"

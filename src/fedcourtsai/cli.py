@@ -1491,6 +1491,12 @@ def cleanup_out_of_scope_predictions_cmd(
         bool,
         typer.Option("--apply", help="Delete the directories; omit for a dry-run that only lists."),
     ] = False,
+    run_id: Annotated[
+        str, typer.Option(help="Run id for the review PR's branch name; defaults to now (UTC).")
+    ] = "",
+    issue: Annotated[
+        int, typer.Option(help="Trigger issue the PR closes on merge (0 = none).")
+    ] = 0,
 ) -> None:
     """Prune committed predictions for cases now out of predict scope (issues #320/#333).
 
@@ -1499,10 +1505,10 @@ def cleanup_out_of_scope_predictions_cmd(
     pre-1925 mandatory jurisdiction (#309) or a stale unresolvable old SCOTUS petition
     (#333); the event definition and any ``outcome.json`` stay, only the out-of-scope
     predictions go. Prints a JSON summary
-    ``{"prunable":[{case_id,reason,paths}],"removed":<bool>}``; with ``--apply`` it also
-    removes the directories. The run-cleanup workflow runs the dry-run for the PR body,
-    then ``--apply`` for the change set, and the result lands as a reviewed PR. Gating on
-    the real corpus row only — a case with predictions but no corpus row is left alone.
+    ``{"prunable":[{case_id,reason,paths}],"removed":<bool>,"pr":<branch/title/commit/body|null>}``;
+    with ``--apply`` it also removes the directories. The ``pr`` block (rendered here, not
+    in the workflow) is what the run-cleanup job commits and opens as a reviewed PR. Gating
+    on the real corpus row only — a case with predictions but no corpus row is left alone.
     """
     settings = get_settings()
     corpus_db = corpus.corpus_db_path(settings.corpus_root)
@@ -1516,9 +1522,18 @@ def cleanup_out_of_scope_predictions_cmd(
     prunable = cleanup.find_out_of_scope_predictions(settings.data_root, corpus_db)
     if apply:
         cleanup.remove(prunable, settings.data_root.parent)
+    pr = (
+        cleanup.render_cleanup_pr(prunable, run_id or ids.run_id(), issue or None)
+        if prunable
+        else None
+    )
     typer.echo(
         json.dumps(
-            {"prunable": [case.model_dump() for case in prunable], "removed": apply},
+            {
+                "prunable": [case.model_dump() for case in prunable],
+                "removed": apply,
+                "pr": pr.model_dump() if pr is not None else None,
+            },
             separators=(",", ":"),
         )
     )

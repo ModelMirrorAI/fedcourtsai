@@ -44,6 +44,50 @@ class PrunableCase(BaseModel):
     paths: list[str]  # repo-relative `…/predictions` directories to remove
 
 
+class CleanupPr(BaseModel):
+    """The branch and PR prose for a sweep, rendered here so the workflow only plumbs."""
+
+    branch: str
+    title: str
+    commit_message: str
+    body: str
+
+
+def render_cleanup_pr(
+    prunable: list[PrunableCase], run_id: str, issue: int | None = None
+) -> CleanupPr:
+    """Render the review PR (branch / title / commit / body) for a sweep's results.
+
+    Keeps the branch name and the markdown — the per-case table and the optional
+    ``Closes #<issue>`` line — in tested code rather than assembled with ``jq`` and a
+    heredoc in the workflow (mirroring how ``collect_plan`` renders the run PR). The
+    workflow passes its run id for a unique branch and the trigger issue (if any).
+    """
+    count = len(prunable)
+    plural = "" if count == 1 else "s"
+    title = f"cleanup: prune predictions for {count} out-of-scope case{plural}"
+    rows = "\n".join(
+        f"| `{case.case_id}` | {case.reason} | {len(case.paths)} |" for case in prunable
+    )
+    closes = f"\nCloses #{issue}.\n" if issue is not None else ""
+    body = (
+        "Deterministic cleanup sweep: pruned merged predictions for cases now out of "
+        "predict scope (gated on the live corpus row, not a proxy). The event "
+        "definitions and any `outcome.json` are untouched.\n\n"
+        "| case | reason | dirs removed |\n"
+        "|------|--------|--------------|\n"
+        f"{rows}\n"
+        f"{closes}\n"
+        "Review and merge — this PR is intentionally **not** auto-merged.\n"
+    )
+    return CleanupPr(
+        branch=f"cleanup/out-of-scope-predictions-{run_id}",
+        title=title,
+        commit_message=title,
+        body=body,
+    )
+
+
 def _out_of_scope_reason(row: CorpusRow) -> str | None:
     """The first exclusion reason that matches ``row``, or ``None`` if in scope."""
     for predicate, reason in OUT_OF_SCOPE_RULES:
