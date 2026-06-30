@@ -475,6 +475,17 @@ def render_scope_audit(audit: CorpusScopeAudit) -> str:
         ]
         for u in audit.unclassified:
             lines.append(f"| {u.reason} | {u.open_events:,} |")
+    if audit.unparseable_docket_shapes:
+        lines += [
+            "",
+            "_Top docket shapes in the not-parseable bucket (`9`=digit, `A`/`a`=letter) — "
+            "the formats a Term-parser broadening would target:_",
+            "",
+            "| shape | open events |",
+            "|-------|------------:|",
+        ]
+        for s in audit.unparseable_docket_shapes:
+            lines.append(f"| `{s.shape}` | {s.count:,} |")
     return "\n".join(lines) + "\n"
 
 

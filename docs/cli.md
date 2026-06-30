@@ -58,7 +58,7 @@ The offline checks the PR gate can run without the DVC remote.
 |---------|---------|-----------|
 | `validate` | Validate the git ledger under a path: schema conformance plus git-only references. This is what CI runs on every PR. | `PATH` (default `data`) |
 | `validate-corpus` | Open the corpus and assert the cross-store integrity + referential invariants, emitting a `CorpusValidation` verdict. Skips gracefully when the corpus is absent. | `--out`, `--baseline-count`, `--today` |
-| `corpus-scope-audit` | Census the corpus's still-open SCOTUS events that the predict scope excludes (pre-1925 mandatory jurisdiction #309, stale unresolvable #333, inconsistent dates #171), with a recoverable-vs-bare split, plus a breakdown of the *unclassified* open events (why each stays in scope — the #343 refinement signal). The read-only input for the seed-side corpus reconcile. Emits a `CorpusScopeAudit`; skips gracefully when the corpus is absent. | `--out` |
+| `corpus-scope-audit` | Census the corpus's still-open SCOTUS events that the predict scope excludes (pre-1925 mandatory jurisdiction #309, stale unresolvable #333, inconsistent dates #171), with a recoverable-vs-bare split, plus a breakdown of the *unclassified* open events (why each stays in scope) and a docket-number **shape histogram** for the not-parseable bucket — the #343 refinement signal (the concrete formats a Term-parser broadening would target). The read-only input for the seed-side corpus reconcile. Emits a `CorpusScopeAudit`; skips gracefully when the corpus is absent. | `--out` |
 | `dvc-status` | Check the committed DVC metadata is internally consistent — the offline half of `dvc status`. | `PATH` (default `.`) |
 
 ## Metrics & reporting

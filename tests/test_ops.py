@@ -21,6 +21,7 @@ from fedcourtsai.schemas import (
     LedgerValidation,
     ModelUsage,
     OpsReport,
+    ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
     SeedProgress,
@@ -326,6 +327,7 @@ def test_render_scope_audit_tabulates_exclusions_and_recoverable() -> None:
                 reason="docket Term not parseable (a format the predicate skips)", open_events=3
             )
         ],
+        unparseable_docket_shapes=[ScopeDocketShape(shape="99A999", count=3)],
     )
     md = ops.render_scope_audit(audit)
     assert "## Out-of-scope open events" in md
@@ -335,6 +337,8 @@ def test_render_scope_audit_tabulates_exclusions_and_recoverable() -> None:
     # The #343 refinement breakdown renders too.
     assert "the #343 refinement signal" in md
     assert "| docket Term not parseable (a format the predicate skips) | 3 |" in md
+    # …and the docket-shape histogram that targets the parser broadening.
+    assert "| `99A999` | 3 |" in md
 
 
 def test_render_scope_audit_clean_and_skipped() -> None:
