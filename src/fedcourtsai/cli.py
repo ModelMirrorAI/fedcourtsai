@@ -1217,8 +1217,11 @@ def _scope_filtered(
     mandatory-jurisdiction matter** (:func:`corpus.is_historical_mandatory`, issue
     #309): the ``evt-petition-disposition`` model targets modern discretionary
     cert, and these historical appeals carry an incompatible disposition meaning.
-    The latch stays a pure "SCOTUS-touched" signal; the era filter layers on top
-    here so ingestion coverage is unaffected.
+    It is likewise dropped if it is an **old SCOTUS petition the corpus cannot
+    resolve** (:func:`corpus.is_stale_unresolvable`, issue #333) — a decades-old
+    docket left perpetually open by a bare-stub snapshot, with no recoverable
+    disposition to predict against. The latch stays a pure "SCOTUS-touched" signal;
+    these era/staleness filters layer on top here so ingestion coverage is unaffected.
 
     Gating reads the corpus, so the corpus database must be on disk. If it is
     absent the gate cannot distinguish "case not eligible" from "corpus never
@@ -1251,6 +1254,12 @@ def _scope_filtered(
                 typer.echo(
                     f"Skipping {case.court}/{case.docket}: pre-1925 mandatory-jurisdiction "
                     f"matter (issue #309); the discretionary-cert event model does not apply.",
+                    err=True,
+                )
+            elif corpus.is_stale_unresolvable(row):
+                typer.echo(
+                    f"Skipping {case.court}/{case.docket}: old SCOTUS petition the corpus "
+                    f"cannot resolve (issue #333); no recoverable disposition to predict against.",
                     err=True,
                 )
             else:

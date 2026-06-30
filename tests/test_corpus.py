@@ -330,6 +330,53 @@ def test_is_historical_mandatory_only_applies_to_scotus() -> None:
     assert corpus.is_historical_mandatory(row) is False
 
 
+def test_is_stale_unresolvable_detects_old_open_scotus_petition() -> None:
+    # Issue #333: a modern-format docket from an old Term ("93-7515" -> OT1993),
+    # still open in the corpus (no disposition, no decision date), is unresolvable.
+    row = corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number="93-7515")
+    assert corpus.is_stale_unresolvable(row) is True
+
+
+def test_is_stale_unresolvable_keeps_recent_open_petition() -> None:
+    # A recent Term's petition may legitimately be open and pending — never drop it.
+    row = corpus.CorpusRow(case_id="scotus/9", court="scotus", docket_number="24-101")
+    assert corpus.is_stale_unresolvable(row) is False
+
+
+def test_is_stale_unresolvable_keeps_resolved_old_petition() -> None:
+    # An old docket the corpus *did* resolve carries ground truth to score against,
+    # so it stays in scope; only the unresolvable stubs are dropped.
+    decided = corpus.CorpusRow(
+        case_id="scotus/10",
+        court="scotus",
+        docket_number="01-7700",
+        disposition=Disposition.denied,
+        date_decided=date(2002, 1, 7),
+    )
+    assert corpus.is_stale_unresolvable(decided) is False
+
+
+def test_is_stale_unresolvable_ignores_unparseable_and_non_scotus() -> None:
+    # Conservative: a docket whose Term year can't be parsed (bare/original/blank) is
+    # left in scope rather than guessed, and the predicate is SCOTUS-only.
+    bare = corpus.CorpusRow(case_id="scotus/801", court="scotus", docket_number="801")
+    original = corpus.CorpusRow(case_id="scotus/11", court="scotus", docket_number="22O141")
+    blank = corpus.CorpusRow(case_id="scotus/12", court="scotus", docket_number="")
+    lower = corpus.CorpusRow(case_id="ca9/13", court="ca9", docket_number="01-7700")
+    assert corpus.is_stale_unresolvable(bare) is False
+    assert corpus.is_stale_unresolvable(original) is False
+    assert corpus.is_stale_unresolvable(blank) is False
+    assert corpus.is_stale_unresolvable(lower) is False
+
+
+def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
+    assert corpus._scotus_term_year("01-7700") == 2001
+    assert corpus._scotus_term_year("93-7515") == 1993
+    assert corpus._scotus_term_year("24-101") == 2024
+    assert corpus._scotus_term_year("801") is None
+    assert corpus._scotus_term_year("22A123") is None
+
+
 def test_upsert_without_stamp_preserves_prior_last_pulled(tmp_path: Path) -> None:
     # A bulk re-ingest (no stamp) must not reset a timestamp a prior pull recorded,
     # else the governor would treat a freshly-refreshed case as never-pulled.

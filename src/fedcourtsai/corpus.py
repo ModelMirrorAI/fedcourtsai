@@ -473,6 +473,59 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
     return bare_sequential or pre_discretionary
 
 
+# Modern SCOTUS docket numbers lead with a two-digit October-Term year ("01-7700"
+# -> OT2001, "93-7515" -> OT1993). Term-style numbering began OT1971, so a 70-99
+# prefix is 19xx and 00-69 is 20xx — a pivot good through OT2069.
+_SCOTUS_TERM_RE = re.compile(r"^(\d{2})-\d+")
+
+# Provisional staleness cutoff (issue #343 refines it against the corpus). A SCOTUS
+# Term before this is long past any pending-petition horizon; far enough back that a
+# genuinely open modern cert petition is never caught.
+_STALE_TERM_CUTOFF_YEAR = 2015
+
+
+def _scotus_term_year(docket_number: str) -> int | None:
+    """Parse the October-Term year from a modern SCOTUS docket number, or ``None``.
+
+    ``"01-7700"`` -> ``2001``, ``"93-7515"`` -> ``1993``. Returns ``None`` for
+    anything that is not the modern ``YY-NNNN`` form — bare sequential historical
+    numbers (``"801"``), application/original dockets (``"22A123"``, ``"22O141"``),
+    or blank — so callers fall through rather than guess a year.
+    """
+    match = _SCOTUS_TERM_RE.match(docket_number.strip())
+    if match is None:
+        return None
+    two_digit = int(match.group(1))
+    return 1900 + two_digit if two_digit >= 70 else 2000 + two_digit
+
+
+def is_stale_unresolvable(row: CorpusRow) -> bool:
+    """Whether a SCOTUS row is an old petition the corpus can never resolve (issue #333).
+
+    Modern-format SCOTUS petitions from old Terms (e.g. ``93-7515`` -> OT1993,
+    ``01-7700`` -> OT2001) whose snapshots are bare stubs — empty docket entries,
+    null cert dates — sit perpetually open because deterministic outcome detection
+    has nothing to resolve them from, so they are re-predicted every run decades
+    after they actually resolved (the bulk of the noise on the #333 feedback issue).
+    Distinct from :func:`is_historical_mandatory`: those are *pre-1925* mandatory-
+    jurisdiction matters with bare sequential numbers; these are post-1925
+    discretionary-cert dockets that are simply too old to still be pending.
+
+    **Provisional and deliberately conservative — issue #343 refines it.** Caught
+    only when: SCOTUS; no realized ``disposition`` and no ``date_decided`` (still
+    open in the corpus); and a docket-number Term year older than
+    ``_STALE_TERM_CUTOFF_YEAR``. Rows whose Term year cannot be parsed from the
+    docket number are left in scope, so the rule may under-catch (a stub still
+    flags) but never drops a live modern petition.
+    """
+    if row.court != "scotus":
+        return False
+    if row.disposition is not None or row.date_decided is not None:
+        return False
+    term_year = _scotus_term_year(row.docket_number)
+    return term_year is not None and term_year < _STALE_TERM_CUTOFF_YEAR
+
+
 def get_row(conn: sqlite3.Connection, case_id: str) -> CorpusRow | None:
     """Fetch a single case row, or ``None`` if it is not in the corpus."""
     cur = conn.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,))
