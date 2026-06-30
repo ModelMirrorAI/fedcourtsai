@@ -131,6 +131,12 @@ token stays comment-only and writes `flags.json` locally — the trusted `collec
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
 worst a misbehaving `collect` run can do with it is post an issue comment.
 
+The predict/evaluate `plan` job carries the same **ambient `GITHUB_TOKEN`
+`issues: write`** for the same reason: when the scope gate empties the matrix it
+closes the trigger issue (with a note) so the run doesn't orphan it, and closing an
+issue triggers no workflow — so this stays on the lower-trust ambient token, never
+the App token.
+
 ## The `runner` environment
 
 Every secret and both S3 role ARNs live on the `runner` environment — the App

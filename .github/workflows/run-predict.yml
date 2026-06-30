@@ -23,6 +23,7 @@ jobs:
     permissions:
       contents: read
       id-token: write # assume the AWS role to dvc pull the corpus for scope gating
+      issues: write # close the trigger issue when the matrix is empty (nothing in scope)
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
@@ -98,6 +99,24 @@ jobs:
           fi
           # Ops analytics (#89): record the planned fan-out in the Actions UI.
           echo "## run-predict — queued ${count} prediction job(s)" >> "$GITHUB_STEP_SUMMARY"
+
+      # An empty matrix means every queued case was out of scope (or already
+      # predicted): the `predict`/`collect` jobs are skipped (`needs` + `has_jobs`),
+      # so nothing would otherwise close the trigger issue. Close it here with a note
+      # rather than leave it orphaned open. Uses the ambient GITHUB_TOKEN (closing
+      # triggers nothing) — least privilege, no App token.
+      - name: Close the trigger issue when nothing is in scope
+        if: ${{ steps.plan.outputs.has_jobs == 'false' && github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          # One atomic call: close with the explanatory comment, so there's no
+          # commented-but-still-open state if a separate close were to fail.
+          gh issue close "$ISSUE" --repo "$REPO" --comment \
+            "No predictable cases in scope this run — every queued case was dropped by the predict-scope gate (out of scope, or already predicted). Closing; nothing to predict."
 
   predict:
     needs: plan
