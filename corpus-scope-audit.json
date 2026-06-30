@@ -1,0 +1,44 @@
+{
+  "corpus_rows": 2136391,
+  "exclusions": [
+    {
+      "cases": 16525,
+      "open_events": 16525,
+      "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
+      "recoverable": 13869,
+      "sample_cases": [
+        "scotus/1000314",
+        "scotus/1000316",
+        "scotus/1000513",
+        "scotus/1001349",
+        "scotus/1001350",
+        "scotus/1001351",
+        "scotus/1001352",
+        "scotus/1001353",
+        "scotus/1001355",
+        "scotus/1001356"
+      ]
+    },
+    {
+      "cases": 123101,
+      "open_events": 123101,
+      "reason": "stale unresolvable old SCOTUS petition (#333)",
+      "recoverable": 13255,
+      "sample_cases": [
+        "scotus/100001",
+        "scotus/1000145",
+        "scotus/100042",
+        "scotus/100054",
+        "scotus/100073",
+        "scotus/100079",
+        "scotus/1001131",
+        "scotus/1001151",
+        "scotus/1001152",
+        "scotus/1001173"
+      ]
+    }
+  ],
+  "schema_version": "1.0",
+  "scotus_open_events": 581608,
+  "skipped": false
+}
