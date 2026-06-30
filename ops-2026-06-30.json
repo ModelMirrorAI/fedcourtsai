@@ -110,13 +110,13 @@
     "snapshot": "2026-03-31"
   },
   "cost": {
-    "actions_cost_usd": 1.3223,
-    "actions_minutes": 220.4,
-    "actions_monthly_usd": 46.11,
-    "estimated_monthly_usd": 101.11,
+    "actions_cost_usd": 1.1889,
+    "actions_minutes": 198.2,
+    "actions_monthly_usd": 43.49,
+    "estimated_monthly_usd": 98.49,
     "fixed_monthly_usd": 55.0,
-    "model_cost_usd": 63.273923,
-    "window_days": 0.9
+    "model_cost_usd": 10.450574,
+    "window_days": 0.8
   },
   "data_health": {
     "corpus": {
@@ -130,15 +130,15 @@
           "problems": []
         },
         {
-          "checked": 2136382,
-          "detail": "2136382 rows vs baseline 2136382",
+          "checked": 2136391,
+          "detail": "2136391 rows vs baseline 2136382",
           "failures": 0,
           "name": "row_count_monotonic",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 4273049,
+          "checked": 4273097,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -146,7 +146,7 @@
           "problems": []
         },
         {
-          "checked": 285,
+          "checked": 315,
           "detail": "as of 2026-06-30",
           "failures": 0,
           "name": "snapshot_not_future_dated",
@@ -154,7 +154,7 @@
           "problems": []
         },
         {
-          "checked": 2136382,
+          "checked": 2136391,
           "detail": "0 future-dated, 21 decided-before-filed vs accepted baseline 50 (as of 2026-06-30); see #171",
           "failures": 21,
           "name": "case_dates_ordered",
@@ -183,7 +183,7 @@
           ]
         },
         {
-          "checked": 4272764,
+          "checked": 4272782,
           "detail": "",
           "failures": 0,
           "name": "domain_values_valid",
@@ -191,7 +191,7 @@
           "problems": []
         },
         {
-          "checked": 4273049,
+          "checked": 4273097,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -199,7 +199,7 @@
           "problems": []
         },
         {
-          "checked": 102,
+          "checked": 16,
           "detail": "",
           "failures": 0,
           "name": "ledger_references_exist",
@@ -223,14 +223,14 @@
           "problems": []
         }
       ],
-      "corpus_events": 2136382,
-      "corpus_rows": 2136382,
+      "corpus_events": 2136391,
+      "corpus_rows": 2136391,
       "ok": true,
       "schema_version": "1.0",
       "skipped": false
     },
     "ledger": {
-      "checked": 322,
+      "checked": 94,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -239,75 +239,9 @@
   },
   "flags": {
     "blockers": 0,
-    "cells": 14,
-    "infos": 3,
+    "cells": 2,
+    "infos": 0,
     "recent": [
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1006280",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The supplied snapshot is materially sparse for a cert-disposition prediction: it has no docket entries, cert dates, lower-court link, issue description, or procedural history, while also containing an opinion-cluster URL that may be post-disposition metadata. The forecast is therefore mostly base-rate driven.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1006273",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot for evt-petition-disposition is sparse: it has no docket_entries, petition disposition dates, argument date, appeal_from details, or event description. The prediction therefore relies mainly on the attached Supreme Court opinion cluster as a merits-review signal.",
-            "severity": "warning"
-          },
-          {
-            "category": "ambiguous-event",
-            "event_id": "evt-petition-disposition",
-            "message": "The event is labeled as a petition disposition, but the historical Supreme Court snapshot does not identify whether the review vehicle was certiorari, direct appeal, or another jurisdictional path; I interpreted granted as acceptance for merits review.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1005732",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot contains zero docket entries and no populated cert disposition dates for a 2002 Supreme Court petition, so the prediction rests mostly on limited docket metadata and certiorari base rates.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1005659",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot has no docket entries and null cert-grant, cert-denial, argument, and termination fields. It includes a linked cluster, but the snapshot does not classify whether that cluster reflects a merits opinion, an order, or a denial-related entry. The prediction is completed from the snapshot, but this sparsity materially limits confidence.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0"
-      },
       {
         "actor_id": "codex-baseline",
         "case_id": "scotus/1005618",
@@ -325,66 +259,6 @@
       },
       {
         "actor_id": "codex-baseline",
-        "case_id": "scotus/1005398",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The supplied Supreme Court snapshot is sparse for a 2004 petition: it has no docket entries and no certiorari disposition or termination dates. The prediction was still completed, but it necessarily relies heavily on petition base rates and the absence of grant indicators in the snapshot.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T020717Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1005313",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot contains zero docket entries and no populated cert disposition dates for a 2004 Supreme Court petition, so the prediction rests mostly on limited docket metadata and certiorari base rates.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T020717Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1005078",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot describes a 2003 SCOTUS petition that remains unresolved for prediction purposes, with no docket entries and null cert-grant/cert-denial fields. The prediction is still completed from the snapshot, but the sparse fields materially limit confidence.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T020717Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1004993",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot for this SCOTUS petition-disposition event is very sparse: it has no docket entries, no issue or petition text, no lower-court metadata, and null cert-date fields. The prediction therefore relies mainly on the ordinary certiorari denial base rate and the absence of grant or argument signals.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260630T020717Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
         "case_id": "scotus/1004865",
         "flags": [
           {
@@ -397,135 +271,86 @@
         "role": "predictor",
         "run_id": "20260630T020717Z",
         "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1004490",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot is for a Supreme Court petition filed on 2002-02-21, but the event remains unresolved in the 2026-06-29 corpus snapshot and has no date_cert_denied or date_cert_granted. The prediction was completed using the snapshot facts, but the case may be a stale or incomplete disposition record.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260629T202043Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1004289",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "Snapshot has no docket entries and no cert disposition dates for an old SCOTUS docket, but does include a linked opinion cluster. Prediction could be sharpened if the provisioned snapshot exposed the cluster disposition or docket entries.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260629T202043Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/1004289",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "Snapshot is a bare metadata stub: docket_entries is empty and date_filed/date_argued/date_cert_granted/date_cert_denied/date_terminated are all null. No substantive docket content, question presented, or order text is available, so the disposition prediction rests entirely on structural base rates (docket number 93-7515 -> OT1993 IFP docket; petitioner vs the United States). Expected for an older SCOTUS stub, not a run failure, but the estimate cannot be refined beyond the IFP cert-denial base rate.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260629T202043Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1004191",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot for this 2002 Supreme Court petition has no docket entries, no cert-grant or cert-denial date, and no issue description. The prediction therefore relies heavily on the ordinary certiorari baseline and the limited case metadata in the snapshot.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260629T202043Z",
-        "schema_version": "1.0"
       }
     ],
-    "total": 15,
-    "warnings": 12
+    "total": 2,
+    "warnings": 2
   },
-  "generated_at": "2026-06-30T09:19:17.135701+00:00",
+  "generated_at": "2026-06-30T13:30:12.095987+00:00",
   "health": [
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-06-30T08:47:26Z",
-      "median_seconds": 56,
-      "p95_seconds": 65,
-      "runs_considered": 32,
+      "last_run_at": "2026-06-30T13:26:20Z",
+      "median_seconds": 57,
+      "p95_seconds": 66,
+      "runs_considered": 44,
       "success_rate": 1.0,
-      "successes": 32,
+      "successes": 44,
       "workflow": "CodeQL"
     },
     {
-      "failures": 1,
+      "failures": 2,
       "last_conclusion": "success",
-      "last_run_at": "2026-06-30T08:47:27Z",
-      "median_seconds": 39,
-      "p95_seconds": 47,
-      "runs_considered": 32,
-      "success_rate": 0.96875,
-      "successes": 31,
+      "last_run_at": "2026-06-30T13:26:21Z",
+      "median_seconds": 40,
+      "p95_seconds": 45,
+      "runs_considered": 44,
+      "success_rate": 0.9545454545454546,
+      "successes": 42,
       "workflow": "ci"
     },
     {
-      "failures": 1,
+      "failures": 4,
       "last_conclusion": "success",
-      "last_run_at": "2026-06-30T08:47:27Z",
+      "last_run_at": "2026-06-30T13:26:21Z",
       "median_seconds": 66,
-      "p95_seconds": 72,
-      "runs_considered": 32,
-      "success_rate": 0.96875,
-      "successes": 31,
+      "p95_seconds": 74,
+      "runs_considered": 44,
+      "success_rate": 0.9090909090909091,
+      "successes": 40,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-06-29T17:41:03Z",
-      "median_seconds": 14,
-      "p95_seconds": 39,
-      "runs_considered": 7,
+      "last_run_at": "2026-06-30T13:15:44Z",
+      "median_seconds": 12,
+      "p95_seconds": 16,
+      "runs_considered": 12,
       "success_rate": 1.0,
-      "successes": 7,
+      "successes": 12,
       "workflow": "lint-actions"
     },
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-06-30T08:35:14Z",
+      "last_run_at": "2026-06-30T13:26:59Z",
+      "median_seconds": 11,
+      "p95_seconds": 28,
+      "runs_considered": 2,
+      "success_rate": 0.5,
+      "successes": 1,
+      "workflow": "run-cleanup"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-06-30T13:26:59Z",
       "median_seconds": 1,
-      "p95_seconds": 678,
-      "runs_considered": 15,
-      "success_rate": 0.26666666666666666,
-      "successes": 4,
+      "p95_seconds": 10,
+      "runs_considered": 8,
+      "success_rate": 0.0,
+      "successes": 0,
       "workflow": "run-dev"
     },
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-06-30T08:35:14Z",
-      "median_seconds": 1,
+      "last_run_at": "2026-06-30T13:26:59Z",
+      "median_seconds": 2,
       "p95_seconds": 2,
-      "runs_considered": 15,
+      "runs_considered": 8,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-evaluate"
@@ -533,43 +358,43 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-06-30T09:19:02Z",
-      "median_seconds": null,
-      "p95_seconds": null,
-      "runs_considered": 1,
-      "success_rate": null,
-      "successes": 0,
+      "last_run_at": "2026-06-30T13:29:57Z",
+      "median_seconds": 22,
+      "p95_seconds": 22,
+      "runs_considered": 2,
+      "success_rate": 1.0,
+      "successes": 1,
       "workflow": "run-ops"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-06-30T08:35:14Z",
-      "median_seconds": 2,
+      "last_run_at": "2026-06-30T13:26:59Z",
+      "median_seconds": 21,
       "p95_seconds": 697,
-      "runs_considered": 16,
-      "success_rate": 0.25,
+      "runs_considered": 8,
+      "success_rate": 0.5,
       "successes": 4,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-06-30T08:35:14Z",
-      "median_seconds": 1,
+      "last_run_at": "2026-06-30T13:26:59Z",
+      "median_seconds": 7,
       "p95_seconds": 540,
-      "runs_considered": 20,
-      "success_rate": 0.2,
+      "runs_considered": 12,
+      "success_rate": 0.3333333333333333,
       "successes": 4,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-06-30T08:35:14Z",
-      "median_seconds": 2,
-      "p95_seconds": 2,
-      "runs_considered": 15,
+      "last_run_at": "2026-06-30T13:26:59Z",
+      "median_seconds": 1,
+      "p95_seconds": 9,
+      "runs_considered": 8,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-reconcile"
@@ -577,56 +402,72 @@
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-06-30T08:35:14Z",
+      "last_run_at": "2026-06-30T13:26:59Z",
       "median_seconds": 1,
-      "p95_seconds": 7,
-      "runs_considered": 15,
+      "p95_seconds": 8,
+      "runs_considered": 8,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-seed"
     }
   ],
   "schema_version": "1.0",
+  "scope_audit": {
+    "corpus_rows": 2136391,
+    "exclusions": [
+      {
+        "cases": 16525,
+        "open_events": 16525,
+        "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
+        "recoverable": 13869,
+        "sample_cases": [
+          "scotus/1000314",
+          "scotus/1000316",
+          "scotus/1000513",
+          "scotus/1001349",
+          "scotus/1001350",
+          "scotus/1001351",
+          "scotus/1001352",
+          "scotus/1001353",
+          "scotus/1001355",
+          "scotus/1001356"
+        ]
+      },
+      {
+        "cases": 123101,
+        "open_events": 123101,
+        "reason": "stale unresolvable old SCOTUS petition (#333)",
+        "recoverable": 13255,
+        "sample_cases": [
+          "scotus/100001",
+          "scotus/1000145",
+          "scotus/100042",
+          "scotus/100054",
+          "scotus/100073",
+          "scotus/100079",
+          "scotus/1001131",
+          "scotus/1001151",
+          "scotus/1001152",
+          "scotus/1001173"
+        ]
+      }
+    ],
+    "schema_version": "1.0",
+    "scotus_open_events": 581608,
+    "skipped": false
+  },
   "spend": {
-    "estimated_cost_usd": 63.273923,
-    "mean_cost_usd_per_run": 0.564946,
-    "runs": 112,
-    "total_tokens": 46786222
+    "estimated_cost_usd": 10.450574,
+    "mean_cost_usd_per_run": 0.653161,
+    "runs": 16,
+    "total_tokens": 8109767
   },
   "tooling": {
-    "corpus_query_uses": 21,
+    "corpus_query_uses": 4,
     "gaps": [
       {
         "count": 1,
-        "label": "A --docket-number / docket-class signal (paid vs in forma pauperis) would let a predictor key on the strongest available structural prior"
-      },
-      {
-        "count": 1,
-        "label": "A base-rate prior for SCOTUS certiorari grants (overall and IFP-docket) surfaced directly from the corpus would beat reasoning from memory and reduce variance across runs."
-      },
-      {
-        "count": 1,
-        "label": "A base-rate prior for SCOTUS certiorari grants (overall and paid-docket) surfaced directly from the corpus would beat heterogeneous historical opinions."
-      },
-      {
-        "count": 1,
         "label": "A base-rate prior surfaced from the corpus for SCOTUS original-jurisdiction / extraordinary-writ dispositions (distinct from the cert docket) would beat reasoning from memory and reduce cross-run variance."
-      },
-      {
-        "count": 1,
-        "label": "A certiorari-specific aggregate base-rate query would be more useful than mixed SCOTUS disposition priors"
-      },
-      {
-        "count": 1,
-        "label": "A compact cert-petition prior by docket type and era would help calibrate sparse Supreme Court petition predictions."
-      },
-      {
-        "count": 1,
-        "label": "A compact cert-petition prior by docket type and era would help calibrate sparse Supreme Court petitions."
-      },
-      {
-        "count": 1,
-        "label": "A compact snapshot field that distinguishes merits clusters from denial or order clusters would improve SCOTUS petition predictions."
       },
       {
         "count": 1,
@@ -634,230 +475,187 @@
       },
       {
         "count": 1,
-        "label": "A compact snapshot summary that distinguishes merits clusters from denial/order clusters would improve SCOTUS petition predictions."
+        "label": "A petition-specific prior that distinguishes cert-stage grants from merits case disposition labels would make sparse SCOTUS snapshots easier to calibrate."
+      },
+      {
+        "count": 1,
+        "label": "A snapshot-derived flag distinguishing original-docket matters from certiorari petitions would make the strongest available signal explicit rather than inferred from the docket-number string."
+      },
+      {
+        "count": 1,
+        "label": "Corpus-local examples keyed by event kind and disposition label with short explanations of label assignment"
+      },
+      {
+        "count": 1,
+        "label": "Richer petition-stage docket snapshots for historic Supreme Court cases"
+      },
+      {
+        "count": 1,
+        "label": "query date_decided/date_filed are null for these historical rows, so I could not weight priors by era"
+      },
+      {
+        "count": 1,
+        "label": "the snapshot carries an opinion-cluster URL but no way to read the cluster's disposition as legal context without it counting as a new case fact; a snapshot field that already classifies the linked cluster's disposition would disambiguate other-vs-dismissed"
       }
     ],
     "helpful": [
-      {
-        "count": 4,
-        "label": "fedcourts paths to resolve the snapshot/event paths."
-      },
-      {
-        "count": 4,
-        "label": "schemas/prediction.schema.json as the exact output contract."
-      },
-      {
-        "count": 3,
-        "label": "JSON schemas"
-      },
-      {
-        "count": 3,
-        "label": "Resolved path helper"
-      },
-      {
-        "count": 2,
-        "label": "Local provisioned snapshot"
-      },
-      {
-        "count": 2,
-        "label": "The provisioned snapshot path kept case-fact review scoped."
-      },
-      {
-        "count": 2,
-        "label": "fedcourts paths identified the event path."
-      },
-      {
-        "count": 2,
-        "label": "fedcourts query provided a corpus-prior route, though the results were noisy for modern cert practice."
-      },
       {
         "count": 1,
         "label": "Corpus disposition counts provided useful base-rate calibration."
       },
       {
         "count": 1,
-        "label": "Corpus query CLI for high-level priors"
+        "label": "Existing local prediction artifacts clarified how opinion-cluster references are treated for SCOTUS petition events."
+      },
+      {
+        "count": 1,
+        "label": "JSON schemas"
+      },
+      {
+        "count": 1,
+        "label": "Local provisioned snapshot"
+      },
+      {
+        "count": 1,
+        "label": "Prior claude-baseline petition-disposition predictions as a calibration anchor."
+      },
+      {
+        "count": 1,
+        "label": "Resolved path helper"
+      },
+      {
+        "count": 1,
+        "label": "The materialized snapshot kept target-case facts point-in-time."
+      },
+      {
+        "count": 1,
+        "label": "fedcourts paths resolved the event path."
+      },
+      {
+        "count": 1,
+        "label": "fedcourts paths to resolve the snapshot/event paths."
+      },
+      {
+        "count": 1,
+        "label": "fedcourts provision-snapshot provided the exact point-in-time snapshot path."
       }
     ],
     "recent": [
       {
         "actor_id": "codex-baseline",
-        "case_id": "scotus/1006280",
+        "case_id": "scotus/1005618",
         "gaps": [
-          "A point-in-time pre-disposition snapshot would reduce leakage from historical metadata.",
-          "Structured cert-stage fields such as question presented, lower court, relist history, amicus support, and docket-entry text would materially improve the forecast."
+          "A compact snapshot summary of linked cluster contents would materially improve sparse historical SCOTUS petition predictions."
         ],
         "helpful": [
-          "The path helper and open-events command confirmed the target event.",
-          "The corpus query CLI and local corpus aggregates supplied broad base-rate context without fetching new case facts."
+          "fedcourts paths resolved the event path.",
+          "The materialized snapshot kept target-case facts point-in-time.",
+          "Corpus disposition counts provided useful base-rate calibration."
         ],
-        "notes": "The snapshot was valid but extremely sparse; the associated cluster field was useful context but ambiguous because it may reflect post-disposition data.",
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0",
-        "tools_used": [
-          "fedcourts paths",
-          "fedcourts open-events",
-          "fedcourts query",
-          "sqlite3 corpus aggregate checks"
-        ],
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/1006280",
-        "gaps": [
-          "A snapshot-level derived flag for paid vs. IFP docket (inferable from the docket number) and a boolean for whether a SCOTUS opinion cluster / argument audio is linked would make the strongest available cert-stage signals explicit instead of inferred per run.",
-          "A corpus-backed base rate for SCOTUS certiorari grants split by paid vs. IFP docket and by Term would beat reasoning from memory and reduce cross-run variance."
-        ],
-        "helpful": [
-          "fedcourts paths to resolve the snapshot/event paths.",
-          "schemas/prediction.schema.json as the exact output contract.",
-          "Prior claude-baseline predictions as calibration anchors: argued+audio+cluster snapshots score near 1.0 granted, bare IFP stubs near 0.01 denied; this case (cluster present, no argument/audio) sits between them."
-        ],
-        "notes": "Ran fedcourts query for SCOTUS priors; its realized-disposition labels (mostly 'other'/'dismissed' for old bulk-ingested cases) do not map cleanly onto cert-stage grant/deny practice, so it informed base-rate context only. The decisive signal was structural and on the face of the snapshot: paid docket (80-568, OT1980), counseled corporate posture, and a linked opinion cluster, tempered by the absence of an argument date or audio.",
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0",
-        "tools_used": [
-          "fedcourts paths",
-          "fedcourts query"
-        ],
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1006273",
-        "gaps": [
-          "Snapshot lacks docket entries and disposition dates for the petition event"
-        ],
-        "helpful": [
-          "Path resolution CLI",
-          "Provisioned point-in-time snapshot",
-          "JSON schemas"
-        ],
-        "notes": "No CourtListener or web lookup was used for case facts; the prediction was based on the provisioned snapshot and event definition.",
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0",
-        "tools_used": [
-          "fedcourts paths",
-          "local snapshot",
-          "repo schemas"
-        ],
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/1006273",
-        "gaps": [
-          "a corpus query to pull SCOTUS cert grant base rates conditioned on docket type (paid vs IFP) and petitioner class (State/government) would make the probability better calibrated",
-          "snapshots have no explicit petition-disposition field; I had to infer from the presence of a linked opinion cluster \u2014 a derived 'has_opinion_cluster' or recorded disposition flag would reduce reliance on a proxy"
-        ],
-        "helpful": [
-          "fedcourts paths resolved the snapshot/event/outcome paths cleanly",
-          "the provisioned snapshot JSON exposed the clusters[] link, which was the decisive structural signal"
-        ],
-        "notes": "Merits record was empty (no docket entries, all disposition dates null). Prediction rests on face-of-snapshot structural signals (linked opinion cluster, paid-docket number, State petitioner). I did not fetch the cluster contents or the historical outcome, per the predict-from-snapshot rule.",
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0",
-        "tools_used": [
-          "fedcourts paths",
-          "read snapshot/event yaml",
-          "ad-hoc python on snapshot JSON"
-        ],
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1005732",
-        "gaps": [
-          "A compact cert-petition prior by docket type and era would help calibrate sparse Supreme Court petition predictions.",
-          "A snapshot summary that distinguishes absent docket activity from unmaterialized docket-entry data would reduce ambiguity."
-        ],
-        "helpful": [
-          "fedcourts paths identified the event path.",
-          "The provisioned snapshot path kept case-fact review scoped.",
-          "fedcourts query provided a corpus-prior route, though the results were noisy for modern cert practice."
-        ],
-        "notes": "I did not fetch new docket facts. The prediction uses the provisioned snapshot, general certiorari standards, and limited corpus-prior probing.",
+        "notes": "I used fedcourts query and local corpus aggregate counts only for priors, not for additional target-case facts beyond the materialized snapshot.",
         "role": "predictor",
         "run_id": "20260630T083536Z",
         "schema_version": "1.0",
         "tools_used": [
           "fedcourts paths",
           "fedcourts query",
-          "sqlite3",
-          "shell file inspection"
-        ],
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/1005732",
-        "gaps": [
-          "No quick way to read sibling cases' snapshots for in-corpus calibration \u2014 only this case's snapshot is provisioned, so comparing my probability against siblings' docket numbers/cert signals required reading their already-written predictions without their inputs",
-          "fedcourts query returns mostly old published opinions rather than cert-petition disposition events, so it gave little signal on the IFP vs paid cert grant-rate prior I actually needed"
-        ],
-        "helpful": [
-          "fedcourts paths resolved the snapshot/event/outcome locations directly"
-        ],
-        "notes": "Prediction rested on the snapshot's docket-number signal (02-5080 = in forma pauperis block) plus the standard SCOTUS cert base rate. A corpus field exposing paid-vs-IFP and any cert-stage signals would directly improve this class of prediction.",
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0",
-        "tools_used": [
-          "fedcourts paths",
-          "fedcourts query",
-          "fedcourts validate data"
-        ],
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/1005659",
-        "gaps": [
-          "A compact snapshot field that distinguishes merits clusters from denial or order clusters would improve SCOTUS petition predictions."
-        ],
-        "helpful": [
-          "fedcourts paths resolved the materialized event location.",
-          "The materialized snapshot kept the prediction grounded in point-in-time case facts."
-        ],
-        "notes": "I used fedcourts query only for broad SCOTUS disposition calibration. The returned priors were noisy for this event because they mixed cert petitions, merits cases, and extraordinary writs.",
-        "role": "predictor",
-        "run_id": "20260630T083536Z",
-        "schema_version": "1.0",
-        "tools_used": [
-          "fedcourts paths",
-          "fedcourts query",
+          "sqlite aggregate counts",
           "local snapshot"
         ],
         "used_corpus_query": true
       },
       {
         "actor_id": "claude-baseline",
-        "case_id": "scotus/1005659",
+        "case_id": "scotus/1005618",
         "gaps": [
-          "The snapshot is very thin (no docket entries, no dates, no nature-of-suit). A derived feature exposing whether a SCOTUS docket number falls on the paid vs. in-forma-pauperis/miscellaneous docket would directly support cert-grant base rates.",
-          "fedcourts query priors were dominated by old reporter-era opinions and lacked a clean per-category cert grant-rate aggregate; a base-rate summary by court+event kind would calibrate petition predictions better than per-case rows."
+          "A base-rate prior surfaced from the corpus for SCOTUS original-jurisdiction / extraordinary-writ dispositions (distinct from the cert docket) would beat reasoning from memory and reduce cross-run variance.",
+          "A snapshot-derived flag distinguishing original-docket matters from certiorari petitions would make the strongest available signal explicit rather than inferred from the docket-number string."
         ],
         "helpful": [
-          "fedcourts paths resolved the case/event/snapshot paths cleanly.",
-          "fedcourts query let me pull SCOTUS priors by disposition without loading the bulk corpus."
+          "fedcourts paths to resolve the snapshot/event paths.",
+          "schemas/prediction.schema.json as the exact output contract.",
+          "Prior claude-baseline petition-disposition predictions as a calibration anchor."
         ],
-        "notes": "Predicted from the single provisioned snapshot only; no external case facts fetched.",
+        "notes": "Snapshot encodes no realized disposition (all disposition dates null, no docket entries) and no merits facts, so the call rests on the original-docket / ex parte structural signal and the extraordinary-writ base rate. Did not open the linked opinion cluster (that is the outcome under evaluation). Did not use the CourtListener MCP, to avoid pulling case-specific facts.",
         "role": "predictor",
         "run_id": "20260630T083536Z",
         "schema_version": "1.0",
         "tools_used": [
+          "fedcourts paths"
+        ],
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/1004865",
+        "gaps": [
+          "Richer petition-stage docket snapshots for historic Supreme Court cases",
+          "Corpus-local examples keyed by event kind and disposition label with short explanations of label assignment"
+        ],
+        "helpful": [
+          "Resolved path helper",
+          "JSON schemas",
+          "Local provisioned snapshot",
+          "fedcourts query for resolved SCOTUS priors"
+        ],
+        "notes": "The snapshot was enough to make a conservative non-grant prediction, but it lacked docket entries and petition-stage dates. I used local corpus priors only for aggregate context and did not fetch new case facts.",
+        "role": "predictor",
+        "run_id": "20260630T020717Z",
+        "schema_version": "1.0",
+        "tools_used": [
           "fedcourts paths",
           "fedcourts query",
-          "fedcourts validate data"
+          "fedcourts open-events",
+          "local event.yaml",
+          "local snapshot JSON",
+          "local corpus aggregate counts"
+        ],
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/1004865",
+        "gaps": [
+          "the snapshot carries an opinion-cluster URL but no way to read the cluster's disposition as legal context without it counting as a new case fact; a snapshot field that already classifies the linked cluster's disposition would disambiguate other-vs-dismissed",
+          "query date_decided/date_filed are null for these historical rows, so I could not weight priors by era"
+        ],
+        "helpful": [
+          "fedcourts query --court scotus gave the realized disposition base rates (other 75% / dismissed 19% / denied 4.5% / granted 1.6%) that anchored the call",
+          "filtering query summaries for railroad/commission/mootness priors surfaced comparable historical dispositions"
+        ],
+        "notes": "Thin snapshot (empty docket_entries, all dates null) for a pre-1925 mandatory-jurisdiction SCOTUS matter. The published opinion cluster signals a merits/dismissal disposition rather than a discretionary denial; base rates plus the railroad-regulation posture drove a dismissed call with granted=0.",
+        "role": "predictor",
+        "run_id": "20260630T020717Z",
+        "schema_version": "1.0",
+        "tools_used": [
+          "fedcourts query",
+          "fedcourts paths"
+        ],
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/1004607",
+        "gaps": [
+          "A petition-specific prior that distinguishes cert-stage grants from merits case disposition labels would make sparse SCOTUS snapshots easier to calibrate."
+        ],
+        "helpful": [
+          "fedcourts provision-snapshot provided the exact point-in-time snapshot path.",
+          "Existing local prediction artifacts clarified how opinion-cluster references are treated for SCOTUS petition events."
+        ],
+        "notes": "The corpus query output was broad, so the prediction relied primarily on the snapshot's cluster signal and local artifact conventions.",
+        "role": "predictor",
+        "run_id": "20260629T202043Z",
+        "schema_version": "1.0",
+        "tools_used": [
+          "fedcourts paths",
+          "fedcourts provision-snapshot",
+          "fedcourts query",
+          "sqlite aggregate corpus checks"
         ],
         "used_corpus_query": true
       }
     ],
-    "reports": 29
+    "reports": 5
   }
 }
