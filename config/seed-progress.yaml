@@ -45,13 +45,13 @@ courts:
     offset: 247636
     total: 247636
   cadc:
-    complete: false
-    offset: 48025
+    complete: true
+    offset: 57037
     total: 57037
   cafc:
     complete: false
-    offset: 0
-    total: null
+    offset: 988
+    total: 72586
   scotus:
     complete: true
     offset: 589557
