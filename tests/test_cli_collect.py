@@ -102,15 +102,18 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
     }
 
 
-def _write_flags(root: Path, cell: str, actor: str) -> None:
-    # A cell's flags.json lands somewhere under its data/ subtree, like the agent writes it.
-    flag_dir = root / cell / "data" / "cases" / "scotus" / "1" / "events" / "evt-x"
+def _write_flags(root: Path, cell: str, actor: str, *, run_id: str = "R", case: str = "1") -> None:
+    # A cell's flags.json lands under its data/ subtree, like the agent writes it:
+    # predictions/<actor>/<run_id>/, so different (actor, case, run) coexist in one cell.
+    flag_dir = (
+        root / cell / "data" / "cases" / "scotus" / case / "events" / "evt-x" / actor / run_id
+    )
     flag_dir.mkdir(parents=True, exist_ok=True)
     (flag_dir / "flags.json").write_text(
         json.dumps(
             {
-                "case_id": "scotus/1",
-                "run_id": "R",
+                "case_id": f"scotus/{case}",
+                "run_id": run_id,
                 "role": "predictor",
                 "actor_id": actor,
                 "flags": [{"category": "data-quality", "severity": "warning", "message": "thin"}],
@@ -157,6 +160,46 @@ def test_collect_plan_rolls_up_flag_files(tmp_path: Path) -> None:
     # The same roll-up is wrapped for the latched agent-feedback issue, marker first.
     assert plan["feedback_comment"].startswith("<!-- agent-feedback-run: predict/R -->")
     assert "🚩 Agent flags" in plan["feedback_comment"]
+
+
+def test_collect_plan_scopes_flags_to_run_and_dedupes(tmp_path: Path) -> None:
+    # Regression for #333: each cell artifact ships the whole data/ tree, so a prior
+    # run's committed flags ride along in every cell. They must not inflate this run's
+    # roll-up, and a note shipped in more than one cell counts once.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_cell(
+        tmp_path,
+        "cell-b",
+        actor="codex-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    # This run's flag — counted once even though it rides in both cells' data/ subtrees.
+    _write_flags(tmp_path, "cell-a", "claude-baseline")
+    _write_flags(tmp_path, "cell-b", "claude-baseline")
+    # A prior run's committed flag, carried along in every artifact — excluded.
+    _write_flags(tmp_path, "cell-a", "claude-baseline", run_id="Q", case="2")
+    _write_flags(tmp_path, "cell-b", "claude-baseline", run_id="Q", case="2")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert "🚩 Agent flags (1)" in plan["flags"]
+    assert "run `Q`" not in plan["flags"] and "scotus/2" not in plan["flags"]
 
 
 def test_collect_plan_tolerates_malformed_flag_file(tmp_path: Path) -> None:
