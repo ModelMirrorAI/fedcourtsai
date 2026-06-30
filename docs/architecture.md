@@ -17,7 +17,7 @@ fedcourtsai is a **label-driven pipeline** of GitHub Actions over two stores —
   - `cli.py` — `fedcourts`, the entry point used by scripts and workflows.
 - **Workflows (`.github/workflows/`)** — orchestration; see `pipeline.md`.
 - **Prompts (`.github/prompts/`)** — engine-agnostic task instructions shared by
-  Claude Code and Codex.
+  Claude Code, Codex, and Gemini.
 - **Config (`config/`)** — the predictor/evaluator registries and tracking knobs.
 - **Data (`data/`)** — the git ledger of derived outcomes, predictions, and
   evaluations. Raw facts (dockets, snapshots, judges, case and event metadata)

@@ -18,6 +18,12 @@ def test_default_models_have_rates() -> None:
         assert model in MODEL_RATES
 
 
+def test_gemini_default_model_and_rate() -> None:
+    assert DEFAULT_MODELS["gemini"] == "gemini-3.1-pro-preview"
+    rate = MODEL_RATES["gemini-3.1-pro-preview"]
+    assert (rate.input_per_mtok, rate.output_per_mtok) == (2.0, 12.0)
+
+
 def test_plain_input_output_cost() -> None:
     # 1M input + 1M output on claude-opus-4-8 ($5 in / $25 out) = $30.
     counts = TokenCounts(input_tokens=1_000_000, output_tokens=1_000_000)

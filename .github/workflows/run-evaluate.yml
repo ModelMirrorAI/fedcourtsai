@@ -263,12 +263,49 @@ jobs:
           sandbox: workspace-write
           safety-strategy: drop-sudo
 
+      - name: Evaluate with Gemini
+        id: evaluate_gemini
+        if: matrix.engine == 'gemini'
+        uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          EVALUATOR_ID: ${{ matrix.evaluator_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          # The agent's least-privilege token (no contents:write) for any `gh issue
+          # comment` it makes; the workflow's app-token does the commit/PR.
+          GITHUB_TOKEN: ${{ steps.agent-token.outputs.token }}
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          gemini_model: gemini-3.1-pro-preview
+          # Emit token usage to a local telemetry log the capture step parses; never
+          # log prompt/response bodies (docket text is untrusted third-party data).
+          settings: |
+            {
+              "telemetry": {
+                "enabled": true,
+                "target": "local",
+                "outfile": ".gemini/telemetry.log",
+                "logPrompts": false
+              }
+            }
+          prompt: |
+            Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
+            prediction for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment
+            variables against its outcome.json. Write ONLY the evaluation.json and
+            evaluation.md files. Do not commit, push, or open a PR — the workflow
+            handles git. You run headless with no interactive input; if you are
+            blocked, post a brief note on the triggering issue
+            (#${{ github.event.issue.number }}) with `gh issue comment` and explain
+            it in evaluation.md, then finish — do not wait for a reply.
+
       # Record measured token usage + estimated cost next to the evaluation so a
       # maintainer can sum it into a real $/run (docs/budget.md). Best-effort: the
       # engine logs are read here, never the agent's word, and a miss must not
       # fail the evaluation — hence continue-on-error.
       - name: Capture model usage
-        if: steps.evaluate_claude.conclusion == 'success' || steps.evaluate_codex.conclusion == 'success'
+        if: steps.evaluate_claude.conclusion == 'success' || steps.evaluate_codex.conclusion == 'success' || steps.evaluate_gemini.conclusion == 'success'
         continue-on-error: true
         env:
           COURT_ID: ${{ matrix.court }}
@@ -280,6 +317,7 @@ jobs:
           MODEL: ${{ matrix.model }}
           CLAUDE_EXECUTION_FILE: ${{ steps.evaluate_claude.outputs.execution_file }}
           CODEX_HOME: ${{ github.workspace }}/.codex
+          GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
         run: |
           args=(record-usage
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
@@ -288,6 +326,8 @@ jobs:
           if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
           if [ "$ENGINE" = "claude-code" ]; then
             args+=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+          elif [ "$ENGINE" = "gemini" ]; then
+            args+=(--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE")
           else
             args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
           fi
@@ -323,7 +363,7 @@ jobs:
           # Did the agent finish cleanly? On max-turns or a step timeout the engine
           # step fails; its partial output still rides to the collect job, which
           # routes it to a draft PR a maintainer completes — never the ready one.
-          AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.evaluate_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.evaluate_codex.outcome == 'success') }}
+          AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.evaluate_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.evaluate_codex.outcome == 'success') || (matrix.engine == 'gemini' && steps.evaluate_gemini.outcome == 'success') }}
         run: |
           set -euo pipefail
           # The event.yaml is materialized before the agent runs, so a staged change

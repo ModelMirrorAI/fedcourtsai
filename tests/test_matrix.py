@@ -18,10 +18,10 @@ def test_predict_matrix_is_predictor_by_event_product() -> None:
     cases = [CaseRequest("ca9", 123, ("evt-a", "evt-b"))]
     m = predict_matrix(PREDICTORS, cases, "RID")
     inc = m["include"]
-    # 2 enabled predictors x 1 case x 2 events
-    assert len(inc) == 4
+    # 3 enabled predictors x 1 case x 2 events
+    assert len(inc) == 6
     engines = {row["engine"] for row in inc}
-    assert engines == {"claude-code", "codex"}
+    assert engines == {"claude-code", "codex", "gemini"}
     row = inc[0]
     assert row["court"] == "ca9"
     assert row["docket"] == 123
@@ -42,8 +42,12 @@ def test_evaluate_matrix_is_evaluator_by_event_product() -> None:
     cases = [CaseRequest("ca9", 123, ("evt-a",))]
     m = evaluate_matrix(EVALUATORS, cases, "RID")
     inc = m["include"]
-    assert len(inc) == 2
-    assert {row["evaluator_id"] for row in inc} == {"claude-judge", "codex-judge"}
+    assert len(inc) == 3
+    assert {row["evaluator_id"] for row in inc} == {
+        "claude-judge",
+        "codex-judge",
+        "gemini-judge",
+    }
 
 
 def test_predict_matrix_fans_out_across_many_cases() -> None:
@@ -53,8 +57,8 @@ def test_predict_matrix_fans_out_across_many_cases() -> None:
     ]
     m = predict_matrix(PREDICTORS, cases, "RID")
     inc = m["include"]
-    # 2 predictors x (1 + 2) events across two cases
-    assert len(inc) == 6
+    # 3 predictors x (1 + 2) events across two cases
+    assert len(inc) == 9
     cells = {(row["court"], row["docket"], row["event_id"]) for row in inc}
     assert cells == {
         ("scotus", 1, "evt-petition-a"),

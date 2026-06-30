@@ -9,6 +9,7 @@ from fedcourtsai.schemas import (
     AgentFlags,
     Disposition,
     Engine,
+    Evaluation,
     FlagCategory,
     FlagSeverity,
     JudgeVote,
@@ -87,6 +88,43 @@ def test_model_usage_rejects_negative_tokens() -> None:
 def test_model_usage_forbids_extra_fields() -> None:
     with pytest.raises(ValidationError):
         _usage(surprise="nope")
+
+
+def _evaluation(**kw: object) -> Evaluation:
+    base: dict[str, object] = dict(
+        case_id="ca9/123",
+        event_id="evt-motion-stay",
+        predictor_id="claude-baseline",
+        evaluator_id="gemini-judge",
+        engine=Engine.gemini,
+        run_id="r1",
+        created_at=datetime(2026, 6, 24, tzinfo=UTC),
+        correct=1,
+    )
+    base.update(kw)
+    return Evaluation.model_validate(base)
+
+
+def test_engine_includes_gemini() -> None:
+    assert Engine("gemini") is Engine.gemini
+
+
+def test_evaluation_tracks_provider_engine() -> None:
+    assert _evaluation().engine == Engine.gemini
+
+
+def test_evaluation_requires_engine() -> None:
+    bad = {
+        "case_id": "ca9/123",
+        "event_id": "evt-motion-stay",
+        "predictor_id": "claude-baseline",
+        "evaluator_id": "gemini-judge",
+        "run_id": "r1",
+        "created_at": datetime(2026, 6, 24, tzinfo=UTC),
+        "correct": 1,
+    }
+    with pytest.raises(ValidationError):
+        Evaluation.model_validate(bad)
 
 
 def _flags(**kw: object) -> AgentFlags:

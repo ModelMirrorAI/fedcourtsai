@@ -37,7 +37,7 @@ Anthropic **API key**.
 
 ### 1. Model usage (the dominant cost)
 
-Two engines run the agentic stages, routed per registry entry
+Three engines run the agentic stages, routed per registry entry
 ([config/predictors.yaml](../config/predictors.yaml),
 [config/evaluators.yaml](../config/evaluators.yaml)):
 
@@ -45,10 +45,12 @@ Two engines run the agentic stages, routed per registry entry
 |--------|---------|---------|----------------------|
 | **Claude Code** (`claude-opus-4-8`) | `claude-baseline`, `claude-judge`, all `run:dev` | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x). API: **$5 in / $25 out** |
 | **Codex** (`gpt-5.5`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
+| **Gemini** (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | **$2 in / $12 out** (≤200K context) |
 
 Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-the-max-plan),
 [Claude API pricing](https://platform.claude.com/docs/en/pricing),
-[OpenAI API pricing](https://developers.openai.com/api/docs/pricing).
+[OpenAI API pricing](https://developers.openai.com/api/docs/pricing),
+[Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
 **Per-run cost.** A single predict or evaluate run is an *agentic* job: the agent
 reads the prompt, AGENTS.md, the case snapshot, and a handful of retrieved
@@ -62,14 +64,17 @@ this section, kept in `fedcourtsai.pricing`) to a `usage.json` beside its output
 and `fedcourts usage-summary` rolls those up. Across the 82 predict runs to date
 (41 per predictor) the cost holds at **≈ $0.50/run** (claude-baseline ~$0.42,
 codex-baseline ~$0.56) — roughly a third of the old assumption, because prompt
-caching on the stable prefix is working as designed. **Caveat:** this is the
+caching on the stable prefix is working as designed. **Caveats:** this is the
 *predict* figure; no event has resolved yet, so **evaluate per-run cost is still
-unmeasured** — the estimates below assume it is comparable (~$0.50) and should be
-re-checked against the first real evaluations.
+unmeasured**, and **Gemini is newly added and has not yet run**, so its per-run
+cost is unmeasured too. The estimates below assume both are comparable (~$0.50)
+and should be re-checked against the first real evaluations and Gemini runs —
+Gemini's lower token rate ($2/$12 vs Claude $5/$25, Codex $5/$30) makes a flat
+$0.50 a conservative ceiling for its share.
 
 That ≈ $0.50/run is an **on-demand** figure; one discount produces it:
 
-- **Prompt caching** — automatic on both engines. The stable prefix (AGENTS.md +
+- **Prompt caching** — automatic on all three engines. The stable prefix (AGENTS.md +
   the prompt template + schema) is byte-identical across runs and is read before
   any per-case facts, so it is served from cache across a run's many tool-use
   turns; cached reads bill at ~0.1× and cache writes at ~1.25× (both in
@@ -101,17 +106,17 @@ The only second-order cost is an event whose case changes in more than one windo
 on the same day (predicted more than once); under the SCOTUS gate this is a small
 tail, not a multiplier.
 
-**Annual inference at full scope** (every event, both predictors, both
+**Annual inference at full scope** (every event, all three predictors, all three
 evaluators, on-demand), using the model below:
 
 ```
 predictions  = events/yr × predictors × $/run
 evaluations  = resolved_events/yr × (evaluators × predictors) × $/run
 
-≈ 48,000 × 2 × $0.50      ≈ $48K   predictions
-≈ 42,000 × (2×2) × $0.50  ≈ $84K   evaluations
+≈ 48,000 × 3 × $0.50      ≈ $72K    predictions
+≈ 42,000 × (3×3) × $0.50  ≈ $189K   evaluations
                            ───────
-                           ≈ $132K / yr   (≈ $11K / mo)
+                           ≈ $261K / yr   (≈ $22K / mo)
 ```
 
 That figure is still large: it is what "predict and evaluate *everything, with
@@ -124,7 +129,7 @@ fan-out stay the controlling decisions.
 | Lever | Effect |
 |-------|--------|
 | **Gate the prediction scope** — predict only cases that have interacted with SCOTUS (the pilot gate; see below) rather than every event | Linear cut; the biggest dial |
-| **One engine per stage** instead of two competing | ~50% |
+| **One engine per stage** instead of three competing | ~67% predict, more on evaluate (which scales with evaluators × predictors) |
 | **Cheaper competitor model** — run one predictor on `claude-haiku-4-5` ($1/$5) or `claude-sonnet-4-6` ($3/$15) | Large cut on that predictor |
 | **Batch API** for back-testing / bulk re-scoring (not used today) | ~50% on eligible work |
 | **Prompt caching** on the stable prefix (already on) | Up to ~90% of the input portion |
@@ -151,18 +156,18 @@ grant/deny event — plus the ~70–80 merits cases and their downstream events:
 
 ```
 gated_events/yr ≈ ~5.5K cert decisions + a merits tail
-predictions ≈ 5,500 × 2 × $0.50      ≈ $5.5K
-evaluations ≈ 5,500 × (2×2) × $0.50  ≈ $11K
+predictions ≈ 5,500 × 3 × $0.50      ≈ $8K
+evaluations ≈ 5,500 × (3×3) × $0.50  ≈ $25K
                                       ───────
-                                      ≈ $17K / yr   — roughly 1/8 of full scope
+                                      ≈ $33K / yr   — roughly 1/8 of full scope
 ```
 
 and it tunes far below that for the first release. The **long-conference batch**
 is ~2,000 petitions resolved in one sitting. Sized at the measured ~$0.50/run
-on-demand, the head-to-head release the milestones describe (both predictors,
-cross-evaluated, same matrix as the figures above) is predict — 2,000 × 2 ≈ **$2K**
-— plus evaluate once the opening order list resolves them — 2,000 × (2×2) ≈ **$4K**
-— on the order of **$6–7K for the entire batch** with rerun headroom. A
+on-demand, the head-to-head release the milestones describe (all three predictors,
+cross-evaluated, same matrix as the figures above) is predict — 2,000 × 3 ≈ **$3K**
+— plus evaluate once the opening order list resolves them — 2,000 × (3×3) ≈ **$9K**
+— on the order of **$12–13K for the entire batch** with rerun headroom. A
 deliberately lean **single-engine** first release (one predictor, one evaluator)
 would instead be ~$2K predict + evaluate, on the order of **$2–3K**. Either is the
 entry point the OT2026 cert mini-release is sized against; the steady-state gate
@@ -222,7 +227,7 @@ The realistic runner-minute footprint, free at every level:
 - **Steady pilot:** `run:pull`'s four daily windows are deterministic and light
   (**~700 min/month**); gated predict/evaluate add roughly **~2–4K min/month**
   depending on SCOTUS activity.
-- **September long-conference burst:** ~2,000 petitions × 2 engines is a one-time
+- **September long-conference burst:** ~2,000 petitions × 3 engines is a one-time
   spike of **tens of thousands** of runner-minutes around the conference
   (`max_parallel: 4` bounds concurrency, not the total).
 
@@ -272,34 +277,34 @@ variable that scope controls. Two reference points:
 Development plus the **SCOTUS-interaction gate** at its entry point — the
 long-conference cert batch on the on-demand API (see *The pilot slice* above).
 Interactive development draws on the Max subscription; the automated predict/eval
-batch is API-metered (both engines).
+batch is API-metered (all three engines).
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
 | Claude Max 20x (interactive dev) | $200 | $2,400 |
-| Predict/eval inference — Claude + Codex **API** | ~$100–500 | ~$1.2–6K |
+| Predict/eval inference — Claude + Codex + Gemini **API** (gated) | ~$150–1,100 | ~$1.8–13K |
 | CourtListener Tier 2 (annual) | ~$21 | $250 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |
 | S3 / DVC | ~$5 | ~$60 |
-| **Total** | **≈ $325–775/mo** | **≈ $3.9–9.3K/yr** |
+| **Total** | **≈ $375–1,375/mo** | **≈ $4.5–16K/yr** |
 
-### B. Full scope (all 14 courts, both engines, every event)
+### B. Full scope (all 14 courts, all three engines, every event)
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
-| **Model inference (predict + evaluate, on-demand API)** | **≈ $11K** | **≈ $132K** |
+| **Model inference (predict + evaluate, on-demand API)** | **≈ $22K** | **≈ $261K** |
 | CourtListener Tier 4 | $100 | $1,200 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$50 | ~$600 |
 | S3 / DVC | ~$10 | ~$120 |
-| **Total** | **≈ $11.2K/mo** | **≈ $134K/yr** |
+| **Total** | **≈ $22.2K/mo** | **≈ $263K/yr** |
 
 The gap between A and B is almost entirely the prediction *slice* and the
-two-engine fan-out. The budget is governed by choosing where on that line to
+three-engine fan-out. The budget is governed by choosing where on that line to
 operate: start at **A** (the long-conference batch on the on-demand API), measure
 real per-run token cost (≈$0.50/run, folded into the figures above), then open the
-**SCOTUS-interaction gate** to its steady state (≈$17K/yr inference — roughly 1/8
+**SCOTUS-interaction gate** to its steady state (≈$33K/yr inference — roughly 1/8
 of B) before deciding, with a year of cost data, whether to widen the gate toward
 full scope.
 

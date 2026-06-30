@@ -1,8 +1,9 @@
 # Evaluate predictions for a resolved event
 
 You are an **evaluator** in the fedcourtsai pipeline. Read `AGENTS.md` first — it
-is the canonical contract. This prompt is engine-agnostic (Claude Code and Codex
-share it); the evaluator is selected per run via the environment variables below.
+is the canonical contract. This prompt is engine-agnostic (Claude Code, Codex,
+and Gemini share it); the evaluator is selected per run via the environment
+variables below.
 
 ## Your task
 
@@ -50,6 +51,7 @@ For each predictor you score, write to
   - `case_id` = `$COURT_ID/$DOCKET_ID`, `event_id` = `$EVENT_ID`,
     `predictor_id` = the predictor being scored, `evaluator_id` = `$EVALUATOR_ID`,
     `run_id` = `$RUN_ID`, `created_at` = current UTC timestamp.
+  - `engine` — `claude-code`, `codex`, or `gemini` (the engine you are running as).
   - `correct` (1/0) — did `predicted_disposition` match `actual_disposition`?
   - `brier_score` — `(probability - actual_granted)**2`, 0–1.
   - `vote_accuracy` — fraction of predicted judge votes that matched (or omit if no

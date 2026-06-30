@@ -140,6 +140,51 @@ def test_record_usage_reads_claude_execution_file(_data_root: Path, tmp_path: Pa
     assert usage.cache_read_input_tokens == 30_000
 
 
+def test_record_usage_reads_gemini_telemetry_file(_data_root: Path, tmp_path: Path) -> None:
+    log = tmp_path / "telemetry.log"
+    log.write_text(
+        json.dumps(
+            {
+                "name": "gemini_cli.api_response",
+                "model": "gemini-3.1-pro-preview",
+                "input_token_count": 90_000,
+                "cached_content_token_count": 20_000,
+                "output_token_count": 4_000,
+                "thoughts_token_count": 1_000,
+            }
+        )
+    )
+    result = runner.invoke(
+        app,
+        [
+            "record-usage",
+            "--court",
+            "ca9",
+            "--docket",
+            "123",
+            "--event",
+            "evt-motion-stay",
+            "--run-id",
+            "20260624T103000Z",
+            "--engine",
+            "gemini",
+            "--role",
+            "predictor",
+            "--actor",
+            "gemini-baseline",
+            "--gemini-telemetry-file",
+            str(log),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    usage = iter_usage(_data_root)[0]
+    assert usage.engine == "gemini"
+    assert usage.model == "gemini-3.1-pro-preview"  # engine default applied
+    assert usage.input_tokens == 70_000  # 90k - 20k cached
+    assert usage.cache_read_input_tokens == 20_000
+    assert usage.output_tokens == 5_000  # 4k + 1k thoughts
+
+
 def test_record_usage_no_tokens_is_non_fatal_and_writes_nothing(_data_root: Path) -> None:
     result = runner.invoke(
         app,

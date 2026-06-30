@@ -125,6 +125,7 @@ def _write_evaluation(
         event_id=event,
         predictor_id=predictor,
         evaluator_id=evaluator,
+        engine=Engine.claude_code,
         run_id="2026-02-01T00-00-00Z",
         created_at=datetime(2026, 2, 1),
         correct=1,

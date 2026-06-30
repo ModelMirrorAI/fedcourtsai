@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import build_leaderboard
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.schemas import Evaluation, Leaderboard
+from fedcourtsai.schemas import Engine, Evaluation, Leaderboard
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import iter_evaluations
 
@@ -21,6 +21,7 @@ def _evaluation(predictor_id: str, **kw: object) -> Evaluation:
         event_id="evt-motion-stay",
         predictor_id=predictor_id,
         evaluator_id="eval-a",
+        engine=Engine.claude_code,
         run_id="r1",
         created_at=datetime(2026, 6, 24, tzinfo=UTC),
         correct=1,
