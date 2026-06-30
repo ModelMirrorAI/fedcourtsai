@@ -33,13 +33,13 @@ courts:
     offset: 142305
     total: 142305
   ca7:
-    complete: false
-    offset: 88252
+    complete: true
+    offset: 92080
     total: 92080
   ca8:
     complete: false
-    offset: 0
-    total: null
+    offset: 6172
+    total: 103363
   ca9:
     complete: false
     offset: 0
