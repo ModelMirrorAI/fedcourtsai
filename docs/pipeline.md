@@ -36,9 +36,12 @@ staying a read-only presenter that never touches the corpus.
 **seed** loads the historical backlog from CourtListener **bulk data** — chunked
 catch-up while backfilling, then a weekly snapshot-id check that reconciles when a
 new quarterly bulk snapshot drops; **pull** keeps the active set current from
-the rate-limited **REST API** and owns the 125/day budget. The full design —
-sources, budget boundary, the corpus/ledger storage split, and the historical
-corpus — is in [data-pipeline.md](data-pipeline.md).
+the rate-limited **REST API** and owns the 125/day budget. After backfilling, seed
+also runs the **predict-scope reconcile** (`fedcourts reconcile-scope`): it latches
+out-of-scope cases (#309 / #333 / #171) in the corpus so they leave the predictable
+set at the source, then `dvc push`es the pointer like any other corpus write. The
+full design — sources, budget boundary, the corpus/ledger storage split, and the
+historical corpus — is in [data-pipeline.md](data-pipeline.md).
 
 ## Cascade
 
