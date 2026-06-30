@@ -87,8 +87,12 @@ def test_remove_is_idempotent(tmp_path: Path) -> None:
     _write_prediction(data_root, "scotus/1004191")
     prunable = cleanup.find_out_of_scope_predictions(data_root, corpus_db)
 
-    assert cleanup.remove(prunable, data_root.parent) == 1
-    assert cleanup.remove(prunable, data_root.parent) == 0  # already gone, no error
+    # Call outside the assert: remove() has a side effect (deleting dirs), which an
+    # `assert f() == n` would drop under `python -O`.
+    first_pass = cleanup.remove(prunable, data_root.parent)
+    second_pass = cleanup.remove(prunable, data_root.parent)
+    assert first_pass == 1
+    assert second_pass == 0  # already gone, no error
 
 
 def test_find_handles_missing_tree_or_corpus(tmp_path: Path) -> None:
