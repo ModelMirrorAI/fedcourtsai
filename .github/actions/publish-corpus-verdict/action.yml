@@ -1,12 +1,14 @@
-name: Publish corpus verdict
+name: Publish corpus verdicts
 description: >
-  Run `fedcourts validate-corpus` where the corpus is already pulled and publish
-  the JSON verdict to the orphan `ops-metrics` branch for the run-ops dashboard to
-  present. NON-BLOCKING by design: a failing verdict (or a publish hiccup) must not
-  fail the host run, so the workflow step that uses this action sets
-  `continue-on-error: true`. The prior published verdict supplies the monotonic
-  row-count baseline; the new verdict overwrites `corpus-validation.json` (the
-  latest, and the next baseline) and is also kept as a dated snapshot.
+  Run the read-only corpus verdicts where the corpus is already pulled —
+  `fedcourts validate-corpus` (integrity + referential) and `fedcourts
+  corpus-scope-audit` (open events the predict scope excludes, #343) — and publish
+  both JSONs to the orphan `ops-metrics` branch for the run-ops dashboard to present.
+  NON-BLOCKING by design: a failing verdict (or a publish hiccup) must not fail the
+  host run, so the workflow step that uses this action sets `continue-on-error: true`.
+  The prior published verdict supplies the monotonic row-count baseline; each new
+  verdict overwrites its latest file (also the next baseline) and is kept as a dated
+  snapshot.
 
 inputs:
   token:
@@ -46,6 +48,10 @@ runs:
         # continue-on-error regardless.
         uv run fedcourts validate-corpus --out corpus-validation.json "${baseline_args[@]}" || true
 
+        # The read-only predict-scope census (#343), produced the same way — also
+        # loud-not-fatal, so a hiccup never fails the host run.
+        uv run fedcourts corpus-scope-audit --out corpus-scope-audit.json || true
+
         # Publish to the orphan ops-metrics branch (same branch the ops snapshot
         # rides). Touch only the corpus-validation files so a concurrent run-ops push
         # of the ops snapshot rebases cleanly.
@@ -62,11 +68,13 @@ runs:
         fi
         cp corpus-validation.json "$tree/corpus-validation.json"            # latest + next baseline
         cp corpus-validation.json "$tree/corpus-validation-${day}.json"     # dated history
+        cp corpus-scope-audit.json "$tree/corpus-scope-audit.json"          # latest scope census
+        cp corpus-scope-audit.json "$tree/corpus-scope-audit-${day}.json"   # dated history
         git -C "$tree" add -A
         if git -C "$tree" diff --cached --quiet; then
           echo "No verdict change to persist."
         else
-          git -C "$tree" commit -m "validate: corpus verdict ${stamp}"
+          git -C "$tree" commit -m "validate: corpus verdict + scope audit ${stamp}"
           for attempt in 1 2 3; do
             if git -C "$tree" push origin ops-metrics; then
               break

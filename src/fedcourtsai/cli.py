@@ -64,6 +64,7 @@ from .registry import load_evaluators, load_predictors
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
+    CorpusScopeAudit,
     CorpusValidation,
     DataHealth,
     Disposition,
@@ -540,6 +541,13 @@ def ops_report(
         Path | None,
         typer.Option(help="Write the data-health section Markdown here (the escalation body)."),
     ] = None,
+    scope_audit: Annotated[
+        Path | None,
+        typer.Option(
+            help="Latest `corpus-scope-audit` JSON (e.g. from the ops-metrics branch) for the "
+            "out-of-scope-open-events section. Ignored if missing or unreadable."
+        ),
+    ] = None,
 ) -> None:
     """Roll pipeline health, backfill, spend, and data health into an ops snapshot.
 
@@ -583,6 +591,14 @@ def ops_report(
         ledger=ledger,
         corpus=corpus_verdict,
     )
+    # The scope audit is surfaced like the corpus verdict: read back from the producer
+    # path if published, best-effort (a missing/unreadable file just drops the section).
+    scope_verdict: CorpusScopeAudit | None = None
+    if scope_audit is not None and scope_audit.exists():
+        try:
+            scope_verdict = CorpusScopeAudit.model_validate_json(scope_audit.read_text())
+        except ValueError:
+            scope_verdict = None
     when = generated_at or datetime.now(UTC).isoformat()
     report = build_ops_report(
         generated_at=when,
@@ -594,6 +610,7 @@ def ops_report(
         tooling=iter_tooling(settings.data_root),
         previous=prior,
         data_health=data_health,
+        scope_audit=scope_verdict,
     )
     if json_out is not None:
         write_json(json_out, report)
