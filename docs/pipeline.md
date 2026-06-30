@@ -125,6 +125,12 @@ matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
 whole fan-out, however many cases it spans.
 
+If the matrix comes back **empty** — every queued case was out of scope (or already
+predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing
+would otherwise close the trigger issue; the `plan` job closes it with a note
+instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
+in the first place; this is the backstop for a manually-filed or partial one.)
+
 How a cell's output becomes a PR is the same across **`run:predict`**,
 **`run:evaluate`**, and **`run:reconcile`**: each cell validates its own output and
 uploads it (plus a status file) as an artifact rather than opening a PR, and a
