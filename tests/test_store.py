@@ -160,6 +160,18 @@ def test_open_and_resolved_events_partition_corpus_events(tmp_path: Path) -> Non
     assert resolved_events(db, "ca9", 7) == ["evt-motion-stay"]
 
 
+def test_open_events_drops_a_predict_excluded_case(tmp_path: Path) -> None:
+    # A case the scope reconcile latched out of scope (#343) yields no predictable
+    # events, so it leaves the predict/queueing universe at the source.
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="ca9/7", court="ca9")])
+        corpus.upsert_events(conn, [_event("evt-appeal-disposition", resolved=False)])
+        assert open_events(db, "ca9", 7) == ["evt-appeal-disposition"]  # in scope
+        corpus.set_predict_excluded(conn, "ca9/7", True)
+    assert open_events(db, "ca9", 7) == []  # latched out of scope
+
+
 def test_event_queries_missing_corpus_is_empty(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     assert open_events(db, "ca9", 7) == []
