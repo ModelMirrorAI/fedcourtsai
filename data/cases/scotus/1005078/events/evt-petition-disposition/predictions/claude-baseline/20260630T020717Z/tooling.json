@@ -1,0 +1,20 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1005078",
+  "gaps": [
+    "A base-rate prior for SCOTUS certiorari grants (overall and IFP-docket) surfaced directly from the corpus would beat reasoning from memory and reduce variance across runs.",
+    "A field on the snapshot flagging IFP vs. paid docket (derivable from the docket number) would make the strongest available signal explicit rather than inferred."
+  ],
+  "helpful": [
+    "fedcourts paths to resolve the snapshot/event paths.",
+    "schemas/prediction.schema.json as the exact output contract.",
+    "Prior claude-baseline predictions on near-identical IFP cert petitions as a calibration anchor."
+  ],
+  "role": "predictor",
+  "run_id": "20260630T020717Z",
+  "tools_used": [
+    "fedcourts paths"
+  ],
+  "used_corpus_query": false,
+  "notes": "Snapshot encodes no realized disposition (cert grant/deny/terminated dates all null) and no merits facts, so the call rests on the IFP-docket structural signal and the cert base rate. Did not run fedcourts query: prior runs report its published-opinion dispositions do not map onto cert-stage grant/deny practice."
+}
