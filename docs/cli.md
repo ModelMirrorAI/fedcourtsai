@@ -102,6 +102,7 @@ writers can never remove. They need the corpus, so they run in `run-cleanup`
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
 | `cleanup-out-of-scope-predictions` | Prune committed predictions for cases now out of predict scope — pre-1925 mandatory jurisdiction (#309) or stale unresolvable old SCOTUS petitions (#333), gated on the real corpus row (the same predicates `predict-matrix` drops on). The event definition and any `outcome.json` stay; only the predictions go. Prints `{"prunable":[…],"removed":<bool>}`; dry-run by default. | `--apply` |
+| `reconcile-scope` | The **corpus**-side counterpart: over the predict-eligible cases, latch `predict_excluded` on those an exclusion predicate now matches (#309 / #333 / inconsistent dates #171) and clear it on those back in scope, so `open-events` drops them at the source. Run where the corpus is pulled (seed), `dvc push` after; prints a `ScopeReconcileResult`. Dry-run by default. | `--apply` |
 | `assert-cleanup-paths` | Enforce the **cleanup jail** on a change set (`git diff --name-status`): exit non-zero unless every change is a *delete* under a `data/cases/**/events/*/predictions/` subtree. The cleanup job and the required CI check both call it — the destructive counterpart to `assert-paths`. | `--name-status-file` |
 
 ## Local iteration — the full cascade off Actions

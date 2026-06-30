@@ -52,6 +52,7 @@ from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.refresh import full_refresh as run_full_refresh
 from .pipeline.runner import EngineFailed, EngineUnavailable
+from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pipeline.seed import (
     CourtListenerBulkSource,
     backfill,
@@ -263,6 +264,44 @@ def corpus_scope_audit_cmd(
         )
     for bucket in audit.unclassified:
         typer.echo(f"  · in scope — {bucket.reason}: {bucket.open_events} event(s)")
+
+
+@app.command("reconcile-scope")
+def reconcile_scope_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Write the latch changes; omit for a dry-run that only counts."
+        ),
+    ] = False,
+) -> None:
+    """Reconcile the corpus's out-of-scope latch with the predicate set (issue #343).
+
+    The write counterpart of `corpus-scope-audit`: over the predict-eligible cases, it
+    latches `predict_excluded` on those an exclusion predicate now matches (pre-1925
+    mandatory jurisdiction #309, stale unresolvable #333, inconsistent dates #171) and
+    clears it on those back in scope — so `open-events` (and thus the predict/queueing
+    paths) drop excluded cases at the source. Dry-run by default; `--apply` writes (the
+    seed run then `dvc push`es the corpus). Prints a `ScopeReconcileResult`. Fails loud
+    if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (dvc pull) "
+            "before running the scope reconcile.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = reconcile_predict_scope(conn, apply=apply)
+    verb = "latched out / released" if apply else "would latch out / release"
+    typer.echo(
+        f"reconcile-scope ({'applied' if apply else 'dry-run'}): {verb} "
+        f"{result.excluded} / {result.released} of {result.eligible_cases} eligible case(s)"
+    )
+    typer.echo(result.model_dump_json())
 
 
 @app.command("dvc-status")

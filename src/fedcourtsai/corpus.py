@@ -109,6 +109,14 @@ class CorpusRow(BaseModel):
         "SCOTUS, gating the agentic predict/evaluate stages. Set by the ingestion "
         "rule and never cleared by a later re-ingest; ingestion coverage is unaffected.",
     )
+    predict_excluded: bool = Field(
+        default=False,
+        description="Out-of-scope latch (issue #343): True when the seed reconcile has "
+        "marked this case excluded from predict scope (an out-of-scope predicate matched). "
+        "Owned by the reconcile — not monotonic (cleared when a case returns to scope) and "
+        "preserved across ingestion re-writes. Read by `open_events` so excluded cases yield "
+        "no predictable events.",
+    )
     originating_court: str | None = Field(
         default=None,
         description="Lower-court linkage: the court id this appellate / SCOTUS docket "
@@ -187,6 +195,7 @@ CREATE TABLE IF NOT EXISTS cases (
     summary             TEXT,
     last_pulled         TEXT,
     predict_eligible    INTEGER NOT NULL DEFAULT 0,
+    predict_excluded    INTEGER NOT NULL DEFAULT 0,
     originating_court            TEXT,
     originating_docket_number    TEXT
 );
@@ -254,6 +263,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "summary": "TEXT",
     "last_pulled": "TEXT",
     "predict_eligible": "INTEGER NOT NULL DEFAULT 0",
+    "predict_excluded": "INTEGER NOT NULL DEFAULT 0",
     "originating_court": "TEXT",
     "originating_docket_number": "TEXT",
 }
@@ -334,6 +344,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "summary": row.summary,
         "last_pulled": row.last_pulled.isoformat() if row.last_pulled else None,
         "predict_eligible": int(row.predict_eligible),
+        "predict_excluded": int(row.predict_excluded),
         "originating_court": row.originating_court,
         "originating_docket_number": row.originating_docket_number,
     }
@@ -361,6 +372,7 @@ def _from_record(record: sqlite3.Row) -> CorpusRow:
         summary=record["summary"],
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
         predict_eligible=bool(record["predict_eligible"]),
+        predict_excluded=bool(record["predict_excluded"]),
         originating_court=record["originating_court"],
         originating_docket_number=record["originating_docket_number"],
     )
@@ -369,16 +381,22 @@ def _from_record(record: sqlite3.Row) -> CorpusRow:
 def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
-    Most columns take the incoming value (``excluded``). Two never regress:
+    Most columns take the incoming value (``excluded``). Three are special:
     ``last_pulled`` only ever advances — a write without a fresh stamp (e.g. a
-    bulk seed re-ingest) keeps the timestamp a prior pull recorded — and
-    ``predict_eligible`` only ever latches on, so once a case is in prediction
-    scope a later re-ingest (under a narrower rule) cannot drop it back out.
+    bulk seed re-ingest) keeps the timestamp a prior pull recorded; ``predict_eligible``
+    only ever latches on, so once a case is in prediction scope a later re-ingest
+    (under a narrower rule) cannot drop it back out; and ``predict_excluded`` is owned
+    by the seed reconcile (not an ingestion fact), so an upsert keeps the stored value
+    rather than resetting it to the model default.
     """
     if column == "last_pulled":
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column == "predict_eligible":
         return f"{column}=MAX(excluded.{column}, cases.{column})"
+    if column == "predict_excluded":
+        # The seed reconcile owns this flag (it is not an ingestion fact and is not
+        # monotonic), so a re-ingest must never clobber it — keep the stored value.
+        return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
 
@@ -581,12 +599,14 @@ def iter_rows(
     *,
     court: str | None = None,
     disposition: Disposition | None = None,
+    predict_eligible: bool | None = None,
 ) -> Iterator[CorpusRow]:
     """Yield rows in ``case_id`` order, optionally filtered by court / disposition.
 
     The filters cover the common retrieval and back-test selections; richer
     querying (by judge, topic, citation, or semantic similarity) is layered on
-    top of this same store.
+    top of this same store. ``predict_eligible`` scopes to the prediction universe
+    (the scope reconcile only weighs cases that could actually be predicted).
     """
     clauses: list[str] = []
     params: list[object] = []
@@ -596,10 +616,26 @@ def iter_rows(
     if disposition is not None:
         clauses.append("disposition = ?")
         params.append(Disposition(disposition).value)
+    if predict_eligible is not None:
+        clauses.append("predict_eligible = ?")
+        params.append(int(predict_eligible))
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     cur = conn.execute(f"SELECT * FROM cases{where} ORDER BY case_id", params)
     for record in cur:
         yield _from_record(record)
+
+
+def set_predict_excluded(conn: sqlite3.Connection, case_id: str, excluded: bool) -> None:
+    """Set a case's out-of-scope latch (issue #343). The seed reconcile's sole writer.
+
+    Owned here rather than through ``upsert_rows`` so ingestion never disturbs it
+    (the upsert keeps the stored value — see :func:`_update_clause`) and so the
+    reconcile can both set and clear it as a case leaves or re-enters scope.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET predict_excluded = ? WHERE case_id = ?", (int(excluded), case_id)
+        )
 
 
 DEFAULT_PRIOR_LIMIT = 20

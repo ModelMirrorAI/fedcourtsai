@@ -73,11 +73,19 @@ def open_events(corpus_db_path: Path, court_id: str, docket_id: int) -> list[str
     event(s) open, and outcome detection flips each event's ``resolved`` flag when
     it records that event's ``outcome.json``. These are the events ``run-predict``
     should target. Empty (not created) if the corpus does not exist yet.
+
+    A case the seed reconcile has latched **out of scope** (``predict_excluded``,
+    issue #343) yields no predictable events here — so a stale/unresolvable or
+    inconsistent case is dropped at the source, not just at the read-time matrix
+    gate. The reconcile clears the latch if the case ever returns to scope.
     """
     if not corpus_db_path.exists():
         return []
     case_id = ids.case_id(court_id, docket_id)
     with corpus.connect(corpus_db_path) as conn:
+        row = corpus.get_row(conn, case_id)
+        if row is not None and row.predict_excluded:
+            return []
         events = corpus.events_for_case(conn, case_id)
     return [event.event_id for event in events if not event.resolved]
 

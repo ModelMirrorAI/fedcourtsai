@@ -569,6 +569,26 @@ class CorpusScopeAudit(_Strict):
     )
 
 
+class ScopeReconcileResult(_Strict):
+    """``reconcile-scope`` result: what the seed scope reconcile changed (issue #343).
+
+    The write counterpart of :class:`CorpusScopeAudit`: it sets the ``predict_excluded``
+    latch on cases an exclusion predicate now matches and clears it on cases that have
+    returned to scope. ``applied`` is False on a dry run (counts only, no write).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    applied: bool = Field(default=False, description="False on a dry run (no corpus write)")
+    skipped: bool = Field(default=False, description="True when no corpus was present")
+    eligible_cases: int = Field(default=0, ge=0, description="Predict-eligible cases weighed")
+    excluded: int = Field(default=0, ge=0, description="Cases newly latched out of scope")
+    released: int = Field(
+        default=0, ge=0, description="Cases whose latch was cleared (back in scope)"
+    )
+    sample_excluded: list[str] = Field(default_factory=list)
+    sample_released: list[str] = Field(default_factory=list)
+
+
 class LedgerValidation(_Strict):
     """``validate`` result over the git ledger under ``data/`` — schema conformance only.
 
