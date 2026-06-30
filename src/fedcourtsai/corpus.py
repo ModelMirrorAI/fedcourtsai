@@ -482,11 +482,16 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
 
     Non-SCOTUS rows are never historical-mandatory here — the regime is a Supreme
     Court concept, and the gate only ever sees a case once it is SCOTUS-eligible.
+
+    The bare-number test is applied to the *normalized* docket (issue #343): a great
+    many historical SCOTUS dockets carry a ``No.`` label (``"No. 123"``), which a raw
+    ``isdigit`` misses; :func:`normalize_docket_number` strips that, so they read as
+    the bare sequential numbers they are.
     """
     if row.court != "scotus":
         return False
-    docket_number = row.docket_number.strip()
-    bare_sequential = bool(docket_number) and docket_number.isdigit()
+    docket_number = normalize_docket_number(row.docket_number) or ""
+    bare_sequential = docket_number.isdigit()
     pre_discretionary = row.date_filed is not None and row.date_filed.year < _DISCRETIONARY_ERA_YEAR
     return bare_sequential or pre_discretionary
 
@@ -505,13 +510,15 @@ _STALE_TERM_CUTOFF_YEAR = 2015
 def scotus_term_year(docket_number: str) -> int | None:
     """Parse the October-Term year from a modern SCOTUS docket number, or ``None``.
 
-    ``"01-7700"`` -> ``2001``, ``"93-7515"`` -> ``1993``. Returns ``None`` for
-    anything that is not the modern ``YY-NNNN`` form — bare sequential historical
-    numbers (``"801"``), application/original dockets (``"22A123"``, ``"22O141"``),
-    or blank — so callers fall through rather than guess a year. Public so the scope
-    audit can bucket the open events the predicate does *not* catch (#343).
+    ``"01-7700"`` -> ``2001``, ``"93-7515"`` -> ``1993``, and (after normalization)
+    ``"No. 01-7700"`` -> ``2001`` — the ``No.`` label dominates the historical SCOTUS
+    dockets the raw parser used to miss (issue #343). Returns ``None`` for anything
+    that is still not the modern ``YY-NNNN`` form — bare sequential numbers (``"801"``),
+    application/original dockets (``"22A123"``, ``"22O141"``), or blank — so callers
+    fall through rather than guess a year. Public so the scope audit can bucket the
+    open events the predicate does *not* catch.
     """
-    match = _SCOTUS_TERM_RE.match(docket_number.strip())
+    match = _SCOTUS_TERM_RE.match(normalize_docket_number(docket_number) or "")
     if match is None:
         return None
     two_digit = int(match.group(1))
