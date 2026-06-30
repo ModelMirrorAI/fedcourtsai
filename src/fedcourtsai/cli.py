@@ -261,6 +261,8 @@ def corpus_scope_audit_cmd(
             f"  - {exclusion.reason}: {exclusion.open_events} event(s) on {exclusion.cases} "
             f"case(s), {exclusion.recoverable} recoverable"
         )
+    for bucket in audit.unclassified:
+        typer.echo(f"  · in scope — {bucket.reason}: {bucket.open_events} event(s)")
 
 
 @app.command("dvc-status")

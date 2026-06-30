@@ -22,6 +22,7 @@ from fedcourtsai.schemas import (
     ModelUsage,
     OpsReport,
     ScopeExclusion,
+    ScopeUnclassified,
     SeedProgress,
     UsageRole,
 )
@@ -320,12 +321,20 @@ def test_render_scope_audit_tabulates_exclusions_and_recoverable() -> None:
                 recoverable=0,
             ),
         ],
+        unclassified=[
+            ScopeUnclassified(
+                reason="docket Term not parseable (a format the predicate skips)", open_events=3
+            )
+        ],
     )
     md = ops.render_scope_audit(audit)
     assert "## Out-of-scope open events" in md
     assert "**47** of 50 open SCOTUS event(s) are out of scope" in md
     assert "**12** carry a disposition signal" in md
     assert "| stale unresolvable old SCOTUS petition (#333) | 32 | 32 | 12 |" in md
+    # The #343 refinement breakdown renders too.
+    assert "the #343 refinement signal" in md
+    assert "| docket Term not parseable (a format the predicate skips) | 3 |" in md
 
 
 def test_render_scope_audit_clean_and_skipped() -> None:

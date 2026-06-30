@@ -463,6 +463,18 @@ def render_scope_audit(audit: CorpusScopeAudit) -> str:
     ]
     for e in audit.exclusions:
         lines.append(f"| {e.reason} | {e.cases:,} | {e.open_events:,} | {e.recoverable:,} |")
+    if audit.unclassified:
+        in_scope = sum(u.open_events for u in audit.unclassified)
+        lines += [
+            "",
+            f"_Not excluded ({in_scope:,} open SCOTUS event(s)) — why the scope keeps them, the "
+            "#343 refinement signal:_",
+            "",
+            "| in-scope reason | open events |",
+            "|-----------------|------------:|",
+        ]
+        for u in audit.unclassified:
+            lines.append(f"| {u.reason} | {u.open_events:,} |")
     return "\n".join(lines) + "\n"
 
 

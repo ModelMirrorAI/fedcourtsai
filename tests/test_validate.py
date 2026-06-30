@@ -150,6 +150,43 @@ def test_run_scope_audit_tallies_open_exclusions_with_recoverable_split(tmp_path
     assert stale.sample_cases == ["scotus/1004191", "scotus/1004289"]
     hist = by_reason["pre-1925 mandatory-jurisdiction matter (#309)"]
     assert (hist.cases, hist.open_events, hist.recoverable) == (1, 1, 0)
+    # The one in-scope open event (recent Term 24-101) lands in the unclassified breakdown.
+    assert {u.reason: u.open_events for u in audit.unclassified} == {
+        "recent or current Term (legitimately pending)": 1
+    }
+
+
+def test_run_scope_audit_buckets_unclassified_by_reason(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # recent Term, unresolved -> "recent or current Term"
+                corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="24-101"),
+                # original-jurisdiction docket the parser can't read -> "Term not parseable"
+                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="22O141"),
+                # open event but a disposition is recorded -> "carries a disposition signal"
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="10-5",
+                    disposition=Disposition.denied,
+                ),
+                # no docket number at all -> "no docket number"
+                corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number=""),
+            ],
+        )
+        corpus.upsert_events(conn, [_open_petition(f"scotus/{n}") for n in (1, 2, 3, 4)])
+    audit = run_scope_audit(corpus_db_path=db)
+
+    assert audit.exclusions == []  # none match an exclusion predicate
+    assert {u.reason: u.open_events for u in audit.unclassified} == {
+        "recent or current Term (legitimately pending)": 1,
+        "docket Term not parseable (a format the predicate skips)": 1,
+        "carries a disposition signal (open despite a recorded decision)": 1,
+        "no docket number": 1,
+    }
 
 
 def _write_event(data_root: Path, court: str, docket: int, event: str) -> Path:

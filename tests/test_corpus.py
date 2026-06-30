@@ -370,11 +370,31 @@ def test_is_stale_unresolvable_ignores_unparseable_and_non_scotus() -> None:
 
 
 def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
-    assert corpus._scotus_term_year("01-7700") == 2001
-    assert corpus._scotus_term_year("93-7515") == 1993
-    assert corpus._scotus_term_year("24-101") == 2024
-    assert corpus._scotus_term_year("801") is None
-    assert corpus._scotus_term_year("22A123") is None
+    assert corpus.scotus_term_year("01-7700") == 2001
+    assert corpus.scotus_term_year("93-7515") == 1993
+    assert corpus.scotus_term_year("24-101") == 2024
+    assert corpus.scotus_term_year("801") is None
+    assert corpus.scotus_term_year("22A123") is None
+
+
+def test_is_date_inconsistent_flags_decided_before_filed() -> None:
+    # Issue #171: decided before filed — court-agnostic, excluded from prediction.
+    bad = corpus.CorpusRow(
+        case_id="ca1/4490126",
+        court="ca1",
+        date_filed=date(2016, 6, 17),
+        date_decided=date(2014, 1, 29),
+    )
+    ok = corpus.CorpusRow(
+        case_id="ca1/2", court="ca1", date_filed=date(2014, 1, 1), date_decided=date(2016, 1, 1)
+    )
+    open_case = corpus.CorpusRow(case_id="ca1/3", court="ca1", date_filed=date(2016, 6, 17))
+    assert corpus.is_date_inconsistent(bad) is True
+    assert corpus.is_date_inconsistent(ok) is False  # normal ordering
+    assert corpus.is_date_inconsistent(open_case) is False  # undecided -> not inconsistent
+    assert corpus.out_of_scope_reason(bad) == (
+        "internally inconsistent dates — decided before filed (#171)"
+    )
 
 
 def test_upsert_without_stamp_preserves_prior_last_pulled(tmp_path: Path) -> None:
