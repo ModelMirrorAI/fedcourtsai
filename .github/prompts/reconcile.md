@@ -105,7 +105,7 @@ Write these per-case files at
   cell's flags into the run PR, the Actions summary, and a long-lived agent-feedback
   issue, so your note survives the trigger issue's closure. Set
   `case_id` = `$COURT_ID/$DOCKET_ID`, `run_id` = `$RUN_ID`, `role` = `reconciler`,
-  `actor_id` = the reconcile agent id (your engine, `claude-code` or `codex`), and
+  `actor_id` = the reconcile agent id (your engine, `claude-code`), and
   `flags` = a non-empty list of `{category, severity, message, event_id?}` — where
   `category` is one of `data-quality`/`scope`/`ambiguous-event`/`blocked`/`other`
   (use `ambiguous-event` for an event you left open) and `severity` is
