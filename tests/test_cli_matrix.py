@@ -137,6 +137,35 @@ def test_predict_matrix_drops_pre_1925_mandatory_jurisdiction_case(tmp_path: Pat
     assert "mandatory-jurisdiction" in result.stderr
 
 
+def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Both cases are SCOTUS-eligible, but 24002 is an old-Term petition ("01-7700" ->
+    # OT2001) the corpus never resolved (no disposition / decision date) — a stale,
+    # unresolvable stub (issue #333) — so it is dropped even with its latch on.
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/24002",
+                    court="scotus",
+                    docket_number="01-7700",
+                    predict_eligible=True,
+                )
+            ],
+        )
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
+    # The drop is explained on stderr, distinct from the out-of-scope and #309 notes.
+    assert "24002" in result.stderr
+    assert "cannot resolve" in result.stderr
+
+
 def test_predict_matrix_scope_all_keeps_every_case(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
