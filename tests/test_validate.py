@@ -13,6 +13,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
+    CorpusScopeAudit,
     CorpusValidation,
     Disposition,
     Engine,
@@ -41,6 +42,7 @@ from fedcourtsai.validate import (
     check_no_duplicates,
     run_corpus_validation,
     run_ledger_referential_checks,
+    run_scope_audit,
     validate_ledger,
 )
 
@@ -72,6 +74,82 @@ def _seed_corpus(db: Path) -> None:
             ],
         )
         corpus.upsert_snapshot(conn, "ca9/1", date(2026, 1, 1), {"docket": "ca9/1"})
+
+
+def _open_petition(
+    case_id: str, court: str = "scotus", *, resolved: bool = False
+) -> corpus.CorpusEvent:
+    return corpus.CorpusEvent(
+        event_id="evt-petition-disposition",
+        case_id=case_id,
+        court=court,
+        kind=EventKind.petition,
+        resolved=resolved,
+    )
+
+
+def _seed_scope_corpus(db: Path) -> None:
+    """A corpus exercising every scope-audit branch: in-scope, both exclusions
+    (recoverable + bare), a resolved exclusion, and a non-SCOTUS open event."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Stale-unresolvable (#333), recoverable — carries a citation signal.
+                corpus.CorpusRow(
+                    case_id="scotus/1004191",
+                    court="scotus",
+                    docket_number="01-7700",
+                    citations=["537 U.S. 1"],
+                ),
+                # Stale-unresolvable (#333), bare — no recoverability signal.
+                corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number="93-7515"),
+                # Historical-mandatory (#309), bare.
+                corpus.CorpusRow(case_id="scotus/1001931", court="scotus", docket_number="801"),
+                # In scope: a recent open petition — counts toward the denominator only.
+                corpus.CorpusRow(case_id="scotus/2400001", court="scotus", docket_number="24-101"),
+                # Out of scope but already resolved — must not be counted (not open).
+                corpus.CorpusRow(case_id="scotus/1005000", court="scotus", docket_number="00-100"),
+                # A lower court open event — excluded (predicates are SCOTUS-only).
+                corpus.CorpusRow(case_id="ca9/9", court="ca9", docket_number="9"),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                _open_petition("scotus/1004191"),
+                _open_petition("scotus/1004289"),
+                _open_petition("scotus/1001931"),
+                _open_petition("scotus/2400001"),
+                _open_petition("scotus/1005000", resolved=True),
+                _open_petition("ca9/9", court="ca9"),
+            ],
+        )
+
+
+def test_run_scope_audit_skips_without_corpus(tmp_path: Path) -> None:
+    audit = run_scope_audit(corpus_db_path=tmp_path / "absent.db")
+    assert audit.skipped is True and audit.exclusions == []
+
+
+def test_run_scope_audit_tallies_open_exclusions_with_recoverable_split(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed_scope_corpus(db)
+    audit = run_scope_audit(corpus_db_path=db)
+
+    assert audit.skipped is False
+    # Denominator: the four open SCOTUS events (the resolved one and the ca9 one excluded).
+    assert audit.scotus_open_events == 4
+    by_reason = {e.reason: e for e in audit.exclusions}
+    assert set(by_reason) == {
+        "pre-1925 mandatory-jurisdiction matter (#309)",
+        "stale unresolvable old SCOTUS petition (#333)",
+    }
+    stale = by_reason["stale unresolvable old SCOTUS petition (#333)"]
+    assert (stale.cases, stale.open_events, stale.recoverable) == (2, 2, 1)
+    assert stale.sample_cases == ["scotus/1004191", "scotus/1004289"]
+    hist = by_reason["pre-1925 mandatory-jurisdiction matter (#309)"]
+    assert (hist.cases, hist.open_events, hist.recoverable) == (1, 1, 0)
 
 
 def _write_event(data_root: Path, court: str, docket: int, event: str) -> Path:
@@ -609,6 +687,37 @@ def test_cli_absent_corpus_exits_zero(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "skipped" in result.output
     assert read_model(out, CorpusValidation).skipped
+
+
+def test_cli_scope_audit_writes_audit_and_summary(tmp_path: Path) -> None:
+    corpus_root = tmp_path / "corpus"
+    _seed_scope_corpus(corpus.corpus_db_path(corpus_root))
+    out = tmp_path / "scope-audit.json"
+    result = runner.invoke(
+        app,
+        ["corpus-scope-audit", "--out", str(out)],
+        env=_cli_env(tmp_path, corpus_root),
+    )
+    assert result.exit_code == 0, result.output
+    assert "corpus-scope-audit: 3 out-of-scope open event(s)" in result.output
+    audit = read_model(out, CorpusScopeAudit)
+    assert audit.scotus_open_events == 4
+    assert {e.reason for e in audit.exclusions} == {
+        "pre-1925 mandatory-jurisdiction matter (#309)",
+        "stale unresolvable old SCOTUS petition (#333)",
+    }
+
+
+def test_cli_scope_audit_absent_corpus_exits_zero(tmp_path: Path) -> None:
+    out = tmp_path / "scope-audit.json"
+    result = runner.invoke(
+        app,
+        ["corpus-scope-audit", "--out", str(out)],
+        env=_cli_env(tmp_path, tmp_path / "corpus"),
+    )
+    assert result.exit_code == 0, result.output
+    assert "skipped" in result.output
+    assert read_model(out, CorpusScopeAudit).skipped
 
 
 def test_cli_validate_flags_git_orphan(tmp_path: Path) -> None:

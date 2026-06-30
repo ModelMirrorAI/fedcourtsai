@@ -20,20 +20,11 @@ out-of-scope predictions go.
 from __future__ import annotations
 
 import shutil
-from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from . import corpus
-from .corpus import CorpusRow
-
-# Each (predicate, reason) the matrix gate excludes a case on also makes that case's
-# already-merged predictions prunable. Keep in sync with ``cli._scope_filtered``.
-OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
-    (corpus.is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter (#309)"),
-    (corpus.is_stale_unresolvable, "stale unresolvable old SCOTUS petition (#333)"),
-]
 
 
 class PrunableCase(BaseModel):
@@ -88,14 +79,6 @@ def render_cleanup_pr(
     )
 
 
-def _out_of_scope_reason(row: CorpusRow) -> str | None:
-    """The first exclusion reason that matches ``row``, or ``None`` if in scope."""
-    for predicate, reason in OUT_OF_SCOPE_RULES:
-        if predicate(row):
-            return reason
-    return None
-
-
 def find_out_of_scope_predictions(data_root: Path, corpus_db: Path) -> list[PrunableCase]:
     """Committed prediction directories belonging to out-of-scope cases.
 
@@ -124,7 +107,7 @@ def find_out_of_scope_predictions(data_root: Path, corpus_db: Path) -> list[Prun
             row = corpus.get_row(conn, case_id)
             if row is None:
                 continue
-            reason = _out_of_scope_reason(row)
+            reason = corpus.out_of_scope_reason(row)
             if reason is not None:
                 prunable.append(
                     PrunableCase(case_id=case_id, reason=reason, paths=sorted(by_case[case_id]))

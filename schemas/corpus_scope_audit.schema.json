@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "ScopeExclusion": {
+      "additionalProperties": false,
+      "description": "One exclusion predicate's footprint among the corpus's open events.",
+      "properties": {
+        "cases": {
+          "default": 0,
+          "description": "Distinct cases matched",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "open_events": {
+          "default": 0,
+          "description": "Open (unresolved) events on those cases",
+          "minimum": 0,
+          "title": "Open Events",
+          "type": "integer"
+        },
+        "reason": {
+          "description": "The exclusion reason, e.g. 'stale unresolvable \u2026 (#333)'",
+          "title": "Reason",
+          "type": "string"
+        },
+        "recoverable": {
+          "default": 0,
+          "description": "Of those open events, how many sit on a case carrying an opinion / citation / decision-date signal \u2014 a hint the disposition may be recoverable (an ingestion gap) rather than genuinely absent",
+          "minimum": 0,
+          "title": "Recoverable",
+          "type": "integer"
+        },
+        "sample_cases": {
+          "description": "A bounded sample of matched case ids, for triage",
+          "items": {
+            "type": "string"
+          },
+          "title": "Sample Cases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "ScopeExclusion",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes (issue #343).\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction #309, stale\nunresolvable old SCOTUS petitions #333). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the seed-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
+  "properties": {
+    "corpus_rows": {
+      "default": 0,
+      "description": "Case rows in the corpus",
+      "minimum": 0,
+      "title": "Corpus Rows",
+      "type": "integer"
+    },
+    "exclusions": {
+      "description": "One entry per exclusion predicate that matched",
+      "items": {
+        "$ref": "#/$defs/ScopeExclusion"
+      },
+      "title": "Exclusions",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scotus_open_events": {
+      "default": 0,
+      "description": "Total open (unresolved) SCOTUS events \u2014 the audit's denominator",
+      "minimum": 0,
+      "title": "Scotus Open Events",
+      "type": "integer"
+    },
+    "skipped": {
+      "default": false,
+      "description": "True when no corpus was present; nothing was audited",
+      "title": "Skipped",
+      "type": "boolean"
+    }
+  },
+  "title": "CorpusScopeAudit",
+  "type": "object"
+}

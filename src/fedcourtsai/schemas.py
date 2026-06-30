@@ -505,6 +505,52 @@ class CorpusValidation(_Strict):
     checks: list[CorpusCheck] = Field(default_factory=list)
 
 
+class ScopeExclusion(_Strict):
+    """One exclusion predicate's footprint among the corpus's open events."""
+
+    reason: str = Field(description="The exclusion reason, e.g. 'stale unresolvable … (#333)'")
+    cases: int = Field(default=0, ge=0, description="Distinct cases matched")
+    open_events: int = Field(default=0, ge=0, description="Open (unresolved) events on those cases")
+    recoverable: int = Field(
+        default=0,
+        ge=0,
+        description="Of those open events, how many sit on a case carrying an opinion / "
+        "citation / decision-date signal — a hint the disposition may be recoverable "
+        "(an ingestion gap) rather than genuinely absent",
+    )
+    sample_cases: list[str] = Field(
+        default_factory=list, description="A bounded sample of matched case ids, for triage"
+    )
+
+
+class CorpusScopeAudit(_Strict):
+    """``corpus-scope-audit`` verdict: open events the predict scope excludes (issue #343).
+
+    A read-only census of the corpus's still-**open** events whose case an exclusion
+    predicate drops at the matrix gate (pre-1925 mandatory jurisdiction #309, stale
+    unresolvable old SCOTUS petitions #333). These sit open in the corpus forever
+    because nothing resolves them, so they are the candidates for the seed-side
+    corpus reconcile (resolve if recoverable, else latch out of scope). The
+    ``recoverable`` split is what tells those two paths apart. ``skipped`` is set
+    (with empty exclusions) when the corpus is absent, so it is safe before a
+    ``dvc pull``. A pure function of the corpus, so it carries no timestamp.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    skipped: bool = Field(
+        default=False, description="True when no corpus was present; nothing was audited"
+    )
+    corpus_rows: int = Field(default=0, ge=0, description="Case rows in the corpus")
+    scotus_open_events: int = Field(
+        default=0,
+        ge=0,
+        description="Total open (unresolved) SCOTUS events — the audit's denominator",
+    )
+    exclusions: list[ScopeExclusion] = Field(
+        default_factory=list, description="One entry per exclusion predicate that matched"
+    )
+
+
 class LedgerValidation(_Strict):
     """``validate`` result over the git ledger under ``data/`` — schema conformance only.
 
@@ -720,6 +766,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "usage": ModelUsage,
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
+    "corpus_scope_audit": CorpusScopeAudit,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
 }

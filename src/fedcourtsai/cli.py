@@ -84,7 +84,12 @@ from .store import (
     resolved_events,
 )
 from .usage import parse_claude_usage, parse_codex_usage, parse_gemini_usage
-from .validate import run_corpus_validation, run_ledger_referential_checks, validate_ledger
+from .validate import (
+    run_corpus_validation,
+    run_ledger_referential_checks,
+    run_scope_audit,
+    validate_ledger,
+)
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -215,6 +220,46 @@ def validate_corpus_cmd(
             if not check.passed:
                 typer.echo(f"FAIL {check.name}: {check.failures} problem(s)", err=True)
         raise typer.Exit(code=1)
+
+
+@app.command("corpus-scope-audit")
+def corpus_scope_audit_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the audit JSON here (default: <metrics_root>/corpus-scope-audit.json)."
+        ),
+    ] = None,
+) -> None:
+    """Census open corpus events the predict scope excludes; emit a JSON audit (#343).
+
+    Read-only: opens the packed corpus and, for every still-open SCOTUS event, tallies
+    by exclusion reason (pre-1925 mandatory jurisdiction #309, stale unresolvable #333)
+    the cases, open events, and the recoverable subset (those whose case carries an
+    opinion/citation/decision-date signal — a hint the disposition is an ingestion gap
+    rather than genuinely absent). Writes the `CorpusScopeAudit` and prints a summary.
+    Graceful when the corpus is absent (run before `dvc pull`): writes a skipped audit
+    and exits 0. The corpus-writer path publishes this for `run-ops` to present.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    audit = run_scope_audit(corpus_db_path=db_path)
+    destination = out if out is not None else settings.metrics_root / "corpus-scope-audit.json"
+    write_json(destination, audit)
+    if audit.skipped:
+        typer.echo(f"corpus-scope-audit: skipped (no corpus at {db_path}) -> {destination}")
+        return
+    total = sum(e.open_events for e in audit.exclusions)
+    typer.echo(
+        f"corpus-scope-audit: {total} out-of-scope open event(s) across "
+        f"{len(audit.exclusions)} reason(s), of {audit.scotus_open_events} SCOTUS open "
+        f"-> {destination}"
+    )
+    for exclusion in audit.exclusions:
+        typer.echo(
+            f"  - {exclusion.reason}: {exclusion.open_events} event(s) on {exclusion.cases} "
+            f"case(s), {exclusion.recoverable} recoverable"
+        )
 
 
 @app.command("dvc-status")

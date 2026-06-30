@@ -35,6 +35,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
@@ -44,12 +45,17 @@ from . import corpus
 from .schemas import (
     FILENAME_MODELS,
     CorpusCheck,
+    CorpusScopeAudit,
     CorpusValidation,
     Disposition,
     EventKind,
     LedgerValidation,
+    ScopeExclusion,
     SeedProgress,
 )
+
+# Bounded sample of matched case ids per exclusion, so the scope audit stays small.
+_MAX_SAMPLE = 10
 
 # Cap the per-check problem sample so a pathological corpus cannot produce an
 # unbounded verdict; `CorpusCheck.failures` still carries the true total.
@@ -616,3 +622,74 @@ def run_corpus_validation(
             checked=1,
         )
         return CorpusValidation(ok=False, skipped=False, checks=[opens])
+
+
+def _recoverable_signal(row: corpus.CorpusRow) -> bool:
+    """Whether a case carries a hint its disposition is recoverable (ingestion gap).
+
+    An opinion, a citation, a citation count, or a decision date means the corpus
+    already knows the case was decided — so a still-open event on it is likely a
+    missed disposition (re-ingestible) rather than a genuinely absent one.
+    """
+    return bool(
+        row.opinion_text or row.citations or row.citation_count or row.date_decided is not None
+    )
+
+
+@dataclass
+class _ReasonAgg:
+    """Mutable tally for one exclusion reason while scanning open events."""
+
+    cases: set[str] = field(default_factory=set)
+    open_events: int = 0
+    recoverable: int = 0
+    sample: list[str] = field(default_factory=list)
+
+
+def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
+    """Census the corpus's open events that the predict scope excludes (issue #343).
+
+    For every still-open SCOTUS event, classify its case by the shared exclusion
+    predicates (`corpus.out_of_scope_reason`) and tally, per reason, the cases, open
+    events, and the recoverable subset. Read-only and a pure function of the corpus;
+    graceful (skipped) when the corpus is absent, like :func:`run_corpus_validation`.
+    """
+    if not corpus_db_path.exists():
+        return CorpusScopeAudit(skipped=True)
+    by_reason: dict[str, _ReasonAgg] = {}
+    seen_rows: dict[str, corpus.CorpusRow | None] = {}
+    open_events = 0
+    with corpus.connect(corpus_db_path) as conn:
+        corpus_rows = corpus.count(conn)
+        # Predicates are SCOTUS-only, so only SCOTUS open events can be excluded.
+        for event in corpus.iter_open_events(conn, court="scotus"):
+            open_events += 1
+            row = seen_rows.setdefault(event.case_id, corpus.get_row(conn, event.case_id))
+            if row is None:
+                continue
+            reason = corpus.out_of_scope_reason(row)
+            if reason is None:
+                continue
+            agg = by_reason.setdefault(reason, _ReasonAgg())
+            agg.cases.add(event.case_id)
+            agg.open_events += 1
+            if _recoverable_signal(row):
+                agg.recoverable += 1
+            if event.case_id not in agg.sample and len(agg.sample) < _MAX_SAMPLE:
+                agg.sample.append(event.case_id)
+    exclusions = [
+        ScopeExclusion(
+            reason=reason,
+            cases=len(agg.cases),
+            open_events=agg.open_events,
+            recoverable=agg.recoverable,
+            sample_cases=sorted(agg.sample),
+        )
+        for reason, agg in sorted(by_reason.items())
+    ]
+    return CorpusScopeAudit(
+        skipped=False,
+        corpus_rows=corpus_rows,
+        scotus_open_events=open_events,
+        exclusions=exclusions,
+    )
