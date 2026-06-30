@@ -49,8 +49,8 @@ courts:
     offset: 57037
     total: 57037
   cafc:
-    complete: false
-    offset: 70988
+    complete: true
+    offset: 72586
     total: 72586
   scotus:
     complete: true
