@@ -537,6 +537,19 @@ class ScopeUnclassified(_Strict):
     sample_cases: list[str] = Field(default_factory=list)
 
 
+class ScopeDocketShape(_Strict):
+    """A docket-number *shape* and how many unparseable open events carry it (#343).
+
+    The shape masks digits→``9`` and letters→``A``/``a`` (punctuation/space kept), so
+    ``01-7700`` → ``99-9999`` and ``22O141`` → ``99A999``. It tells us, concretely,
+    which docket formats drive the "Term not parseable" bucket — i.e. exactly what the
+    Term parser would need to handle to bring those events into scope.
+    """
+
+    shape: str = Field(description="Digit/letter-masked docket-number shape")
+    count: int = Field(default=0, ge=0, description="Unparseable open events with this shape")
+
+
 class CorpusScopeAudit(_Strict):
     """``corpus-scope-audit`` verdict: open events the predict scope excludes (issue #343).
 
@@ -566,6 +579,11 @@ class CorpusScopeAudit(_Strict):
     unclassified: list[ScopeUnclassified] = Field(
         default_factory=list,
         description="Open SCOTUS events no predicate excluded, bucketed by why (#343)",
+    )
+    unparseable_docket_shapes: list[ScopeDocketShape] = Field(
+        default_factory=list,
+        description="Top docket-number shapes in the 'Term not parseable' bucket — the "
+        "concrete formats a parser broadening would target (#343)",
     )
 
 

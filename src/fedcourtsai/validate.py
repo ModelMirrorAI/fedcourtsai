@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import date
@@ -50,6 +51,7 @@ from .schemas import (
     Disposition,
     EventKind,
     LedgerValidation,
+    ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
     SeedProgress,
@@ -655,6 +657,15 @@ class _Bucket:
     sample: list[str] = field(default_factory=list)
 
 
+# The bucket whose docket-number shapes we histogram, so a refinement (#343) can see
+# exactly which formats the Term parser would need to handle. Kept as a constant so the
+# tally below and the bucket label never drift apart.
+_UNPARSEABLE_REASON = "docket Term not parseable (a format the predicate skips)"
+
+# Top docket-number shapes to report — enough to see the long tail, still bounded.
+_MAX_SHAPES = 15
+
+
 def _unclassified_reason(row: corpus.CorpusRow) -> str:
     """Why an open SCOTUS event no predicate excluded stays in scope (#343 bucketing)."""
     if row.disposition is not None or row.date_decided is not None:
@@ -662,8 +673,25 @@ def _unclassified_reason(row: corpus.CorpusRow) -> str:
     if corpus.scotus_term_year(row.docket_number) is not None:
         return "recent or current Term (legitimately pending)"
     if row.docket_number.strip():
-        return "docket Term not parseable (a format the predicate skips)"
+        return _UNPARSEABLE_REASON
     return "no docket number"
+
+
+def _docket_shape(docket_number: str) -> str:
+    """Mask a docket number to its shape: digit→``9``, letter→``A``/``a``, else kept.
+
+    ``"01-7700"`` -> ``"99-9999"``, ``"22O141"`` -> ``"99A999"`` — so distinct numbers
+    of the same format collapse to one shape we can count.
+    """
+    out = []
+    for ch in docket_number.strip():
+        if ch.isdigit():
+            out.append("9")
+        elif ch.isalpha():
+            out.append("A" if ch.isupper() else "a")
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
@@ -680,6 +708,7 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
         return CorpusScopeAudit(skipped=True)
     by_reason: dict[str, _ReasonAgg] = {}
     by_bucket: dict[str, _Bucket] = {}
+    shapes: Counter[str] = Counter()
     seen_rows: dict[str, corpus.CorpusRow | None] = {}
     open_events = 0
     with corpus.connect(corpus_db_path) as conn:
@@ -691,10 +720,13 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
                 continue
             reason = corpus.out_of_scope_reason(row)
             if reason is None:
-                bucket = by_bucket.setdefault(_unclassified_reason(row), _Bucket())
+                bucket_reason = _unclassified_reason(row)
+                bucket = by_bucket.setdefault(bucket_reason, _Bucket())
                 bucket.open_events += 1
                 if event.case_id not in bucket.sample and len(bucket.sample) < _MAX_SAMPLE:
                     bucket.sample.append(event.case_id)
+                if bucket_reason == _UNPARSEABLE_REASON:
+                    shapes[_docket_shape(row.docket_number)] += 1
                 continue
             agg = by_reason.setdefault(reason, _ReasonAgg())
             agg.cases.add(event.case_id)
@@ -717,9 +749,14 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
         ScopeUnclassified(reason=reason, open_events=b.open_events, sample_cases=sorted(b.sample))
         for reason, b in sorted(by_bucket.items(), key=lambda kv: -kv[1].open_events)
     ]
+    docket_shapes = [
+        ScopeDocketShape(shape=shape, count=count)
+        for shape, count in shapes.most_common(_MAX_SHAPES)
+    ]
     return CorpusScopeAudit(
         skipped=False,
         unclassified=unclassified,
+        unparseable_docket_shapes=docket_shapes,
         corpus_rows=corpus_rows,
         scotus_open_events=open_events,
         exclusions=exclusions,

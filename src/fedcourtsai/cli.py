@@ -264,6 +264,8 @@ def corpus_scope_audit_cmd(
         )
     for bucket in audit.unclassified:
         typer.echo(f"  · in scope — {bucket.reason}: {bucket.open_events} event(s)")
+    for shape in audit.unparseable_docket_shapes:
+        typer.echo(f"    · shape {shape.shape!r}: {shape.count} event(s)")
 
 
 @app.command("reconcile-scope")
