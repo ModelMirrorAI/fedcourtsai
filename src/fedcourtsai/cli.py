@@ -1479,22 +1479,42 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
     }
 
 
-def _load_flag_sets(status_dir: Path) -> list[AgentFlags]:
-    """Parse every cell's ``flags.json`` under ``status_dir`` into validated models.
+def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
+    """Parse this run's per-cell ``flags.json`` under ``status_dir`` into models.
 
-    The collect job downloads each cell's artifact (its ``status.json`` plus its
-    ``data/`` subtree); a cell that surfaced feedback wrote a ``flags.json`` somewhere
-    under that subtree. Read them wherever they landed so the roll-up sees flags from
-    *every* cell — including a blocked cell that produced no judgment and is never
-    committed. A malformed flag file is skipped (the cell's own status already
-    reflects its failure) rather than aborting the run's aggregation.
+    The collect job downloads each cell's artifact (its ``status.json`` plus the
+    cell's whole ``data/`` subtree); a cell that surfaced feedback wrote a
+    ``flags.json`` somewhere under that subtree. Read them wherever they landed so
+    the roll-up sees flags from *every* cell — including a blocked cell that produced
+    no judgment and is never committed.
+
+    Because every artifact carries the full ``data/`` tree, *previously committed*
+    flag files from earlier runs ride along in each cell, so two filters keep the
+    per-run roll-up honest (without them a prior run's flags reappear once per cell,
+    growing with both history and matrix width — see issue #333):
+
+    * **run id** — keep only flags from this ``run_id``; an earlier run's committed
+      flags are not this run's feedback.
+    * **identity** — collapse byte-identical flag files, so the same note shipped in
+      more than one cell's artifact counts once.
+
+    A malformed flag file is skipped (the cell's own status already reflects its
+    failure) rather than aborting the run's aggregation.
     """
+    seen: set[str] = set()
     flag_sets: list[AgentFlags] = []
     for path in sorted(status_dir.glob("**/flags.json")):
         try:
-            flag_sets.append(AgentFlags.model_validate_json(path.read_text()))
+            flag_set = AgentFlags.model_validate_json(path.read_text())
         except (OSError, ValueError):
             continue
+        if flag_set.run_id != run_id:
+            continue
+        identity = flag_set.model_dump_json()
+        if identity in seen:
+            continue
+        seen.add(identity)
+        flag_sets.append(flag_set)
     return flag_sets
 
 
@@ -1528,7 +1548,11 @@ def collect_plan_cmd(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
     plan = collect_plan(
-        role, run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
+        role,
+        run_id=run_id,
+        cells=cells,
+        issue=issue or None,
+        flags=_load_flag_sets(status_dir, run_id),
     )
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 
@@ -1594,7 +1618,7 @@ def collect_reconcile_plan_cmd(
             )
         )
     plan = reconcile_collect_plan(
-        run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
+        run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir, run_id)
     )
     typer.echo(json.dumps(_reconcile_collect_plan_json(plan), separators=(",", ":")))
 
