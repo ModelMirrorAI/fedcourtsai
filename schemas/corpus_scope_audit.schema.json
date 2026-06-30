@@ -44,6 +44,35 @@
       ],
       "title": "ScopeExclusion",
       "type": "object"
+    },
+    "ScopeUnclassified": {
+      "additionalProperties": false,
+      "description": "Why an open SCOTUS event the scope did *not* exclude stays in scope (#343 signal).\n\nThe refinement surface: buckets the open events no predicate caught by the reason\neach is still in scope \u2014 a recent/current Term (legitimately pending), a docket\nTerm the parser cannot read (a format the predicate skips \u2192 a broadening\ncandidate), a recorded disposition the event-state missed, or no docket number.",
+      "properties": {
+        "open_events": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Open Events",
+          "type": "integer"
+        },
+        "reason": {
+          "description": "Why this open event was not excluded",
+          "title": "Reason",
+          "type": "string"
+        },
+        "sample_cases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sample Cases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "ScopeUnclassified",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -82,6 +111,14 @@
       "description": "True when no corpus was present; nothing was audited",
       "title": "Skipped",
       "type": "boolean"
+    },
+    "unclassified": {
+      "description": "Open SCOTUS events no predicate excluded, bucketed by why (#343)",
+      "items": {
+        "$ref": "#/$defs/ScopeUnclassified"
+      },
+      "title": "Unclassified",
+      "type": "array"
     }
   },
   "title": "CorpusScopeAudit",

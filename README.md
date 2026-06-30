@@ -83,6 +83,10 @@ publish predictions we can't stand behind. Currently out of scope:
   only as bare stubs — no docket entries, no recorded disposition — that the corpus
   can never resolve. They are excluded rather than predicted in perpetuity against
   ground truth that does not exist.
+- **Cases with internally inconsistent dates.** A docket that looks decided before
+  it was filed (a faithful but nonsensical upstream record) can't anchor a
+  meaningful prediction, so it is excluded — without altering the data or the
+  validation monitor that tracks the count.
 
 These exclusions are applied deterministically from the corpus at the prediction
 matrix, and any predictions merged for such cases before an exclusion landed are

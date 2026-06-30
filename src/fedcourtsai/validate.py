@@ -51,6 +51,7 @@ from .schemas import (
     EventKind,
     LedgerValidation,
     ScopeExclusion,
+    ScopeUnclassified,
     SeedProgress,
 )
 
@@ -646,22 +647,43 @@ class _ReasonAgg:
     sample: list[str] = field(default_factory=list)
 
 
+@dataclass
+class _Bucket:
+    """Mutable tally for one unclassified (in-scope) bucket."""
+
+    open_events: int = 0
+    sample: list[str] = field(default_factory=list)
+
+
+def _unclassified_reason(row: corpus.CorpusRow) -> str:
+    """Why an open SCOTUS event no predicate excluded stays in scope (#343 bucketing)."""
+    if row.disposition is not None or row.date_decided is not None:
+        return "carries a disposition signal (open despite a recorded decision)"
+    if corpus.scotus_term_year(row.docket_number) is not None:
+        return "recent or current Term (legitimately pending)"
+    if row.docket_number.strip():
+        return "docket Term not parseable (a format the predicate skips)"
+    return "no docket number"
+
+
 def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
     """Census the corpus's open events that the predict scope excludes (issue #343).
 
     For every still-open SCOTUS event, classify its case by the shared exclusion
-    predicates (`corpus.out_of_scope_reason`) and tally, per reason, the cases, open
-    events, and the recoverable subset. Read-only and a pure function of the corpus;
-    graceful (skipped) when the corpus is absent, like :func:`run_corpus_validation`.
+    predicates (`corpus.out_of_scope_reason`): the matched ones are tallied per reason
+    (cases / open events / recoverable subset), and the rest are bucketed by *why* the
+    scope still keeps them — the refinement signal for broadening the predicate.
+    Read-only and a pure function of the corpus; graceful (skipped) when the corpus is
+    absent, like :func:`run_corpus_validation`.
     """
     if not corpus_db_path.exists():
         return CorpusScopeAudit(skipped=True)
     by_reason: dict[str, _ReasonAgg] = {}
+    by_bucket: dict[str, _Bucket] = {}
     seen_rows: dict[str, corpus.CorpusRow | None] = {}
     open_events = 0
     with corpus.connect(corpus_db_path) as conn:
         corpus_rows = corpus.count(conn)
-        # Predicates are SCOTUS-only, so only SCOTUS open events can be excluded.
         for event in corpus.iter_open_events(conn, court="scotus"):
             open_events += 1
             row = seen_rows.setdefault(event.case_id, corpus.get_row(conn, event.case_id))
@@ -669,6 +691,10 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
                 continue
             reason = corpus.out_of_scope_reason(row)
             if reason is None:
+                bucket = by_bucket.setdefault(_unclassified_reason(row), _Bucket())
+                bucket.open_events += 1
+                if event.case_id not in bucket.sample and len(bucket.sample) < _MAX_SAMPLE:
+                    bucket.sample.append(event.case_id)
                 continue
             agg = by_reason.setdefault(reason, _ReasonAgg())
             agg.cases.add(event.case_id)
@@ -687,8 +713,13 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
         )
         for reason, agg in sorted(by_reason.items())
     ]
+    unclassified = [
+        ScopeUnclassified(reason=reason, open_events=b.open_events, sample_cases=sorted(b.sample))
+        for reason, b in sorted(by_bucket.items(), key=lambda kv: -kv[1].open_events)
+    ]
     return CorpusScopeAudit(
         skipped=False,
+        unclassified=unclassified,
         corpus_rows=corpus_rows,
         scotus_open_events=open_events,
         exclusions=exclusions,

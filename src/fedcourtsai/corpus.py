@@ -484,13 +484,14 @@ _SCOTUS_TERM_RE = re.compile(r"^(\d{2})-\d+")
 _STALE_TERM_CUTOFF_YEAR = 2015
 
 
-def _scotus_term_year(docket_number: str) -> int | None:
+def scotus_term_year(docket_number: str) -> int | None:
     """Parse the October-Term year from a modern SCOTUS docket number, or ``None``.
 
     ``"01-7700"`` -> ``2001``, ``"93-7515"`` -> ``1993``. Returns ``None`` for
     anything that is not the modern ``YY-NNNN`` form — bare sequential historical
     numbers (``"801"``), application/original dockets (``"22A123"``, ``"22O141"``),
-    or blank — so callers fall through rather than guess a year.
+    or blank — so callers fall through rather than guess a year. Public so the scope
+    audit can bucket the open events the predicate does *not* catch (#343).
     """
     match = _SCOTUS_TERM_RE.match(docket_number.strip())
     if match is None:
@@ -522,8 +523,25 @@ def is_stale_unresolvable(row: CorpusRow) -> bool:
         return False
     if row.disposition is not None or row.date_decided is not None:
         return False
-    term_year = _scotus_term_year(row.docket_number)
+    term_year = scotus_term_year(row.docket_number)
     return term_year is not None and term_year < _STALE_TERM_CUTOFF_YEAR
+
+
+def is_date_inconsistent(row: CorpusRow) -> bool:
+    """Whether a case's filing/decision dates are internally inconsistent (issue #171).
+
+    ``date_decided`` before ``date_filed`` — a case that looks decided before it was
+    filed. A faithful but nonsensical CourtListener ordering the validation monitor
+    (#171) tracks *without* rewriting; such a case cannot yield a meaningful
+    prediction, so the predict scope excludes it. Court-agnostic (the malformation is
+    not SCOTUS-specific). This does **not** weaken the monitor — the validation check
+    still counts these rows; only prediction skips them.
+    """
+    return (
+        row.date_filed is not None
+        and row.date_decided is not None
+        and row.date_decided < row.date_filed
+    )
 
 
 # Each (predicate, reason) the predict-scope gate excludes a case on — the single
@@ -533,6 +551,7 @@ def is_stale_unresolvable(row: CorpusRow) -> bool:
 OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter (#309)"),
     (is_stale_unresolvable, "stale unresolvable old SCOTUS petition (#333)"),
+    (is_date_inconsistent, "internally inconsistent dates — decided before filed (#171)"),
 ]
 
 

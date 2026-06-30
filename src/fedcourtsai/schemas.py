@@ -523,6 +523,20 @@ class ScopeExclusion(_Strict):
     )
 
 
+class ScopeUnclassified(_Strict):
+    """Why an open SCOTUS event the scope did *not* exclude stays in scope (#343 signal).
+
+    The refinement surface: buckets the open events no predicate caught by the reason
+    each is still in scope — a recent/current Term (legitimately pending), a docket
+    Term the parser cannot read (a format the predicate skips → a broadening
+    candidate), a recorded disposition the event-state missed, or no docket number.
+    """
+
+    reason: str = Field(description="Why this open event was not excluded")
+    open_events: int = Field(default=0, ge=0)
+    sample_cases: list[str] = Field(default_factory=list)
+
+
 class CorpusScopeAudit(_Strict):
     """``corpus-scope-audit`` verdict: open events the predict scope excludes (issue #343).
 
@@ -548,6 +562,10 @@ class CorpusScopeAudit(_Strict):
     )
     exclusions: list[ScopeExclusion] = Field(
         default_factory=list, description="One entry per exclusion predicate that matched"
+    )
+    unclassified: list[ScopeUnclassified] = Field(
+        default_factory=list,
+        description="Open SCOTUS events no predicate excluded, bucketed by why (#343)",
     )
 
 
