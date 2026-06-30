@@ -99,6 +99,14 @@ and `actionlint` (syntax + `run:` shell). See `.github/workflows/lint-actions.ym
 for the pinned versions, and *Authoring or changing a workflow* in
 `docs/pipeline.md` for the cross-cutting traps these checks do **not** catch.
 
+**Before you push any change under `.github/workflows` or `.github/actions`, run
+the `workflow-reviewer` subagent** (`.claude/agents/workflow-reviewer.md`) on the
+diff and resolve its blockers. It runs the linters above and reviews for what they
+miss: the security model (fail-closed authorization, the handoff-token gotcha,
+expression injection, least privilege) and this repo's **logic-in-tested-Python,
+bash-only-plumbs** rule. Treat a clean linter run as necessary but not sufficient.
+If you cannot invoke the subagent, self-review against its checklist.
+
 Two things hold no matter what you skip locally:
 
 - **Schema is law.** Every data artifact you write must pass

@@ -105,7 +105,10 @@ pattern rather than rediscovering it:
   reuse it across chunks via a `staging_path` rather than per chunk.
 
 Validate any `.github/` change locally with the linters CI enforces (see the
-local gate in [AGENTS.md](../AGENTS.md)).
+local gate in [AGENTS.md](../AGENTS.md)), and run the **`workflow-reviewer`**
+subagent (`.claude/agents/workflow-reviewer.md`) on the diff before pushing — it
+runs those linters and reviews for what they miss (the security model and the
+logic-in-tested-Python convention above).
 
 ## The predict/evaluate matrix
 
