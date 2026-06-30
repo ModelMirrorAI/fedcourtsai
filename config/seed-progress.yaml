@@ -17,13 +17,13 @@ courts:
     offset: 120920
     total: 120920
   ca3:
-    complete: false
-    offset: 104191
+    complete: true
+    offset: 112957
     total: 112957
   ca4:
     complete: false
-    offset: 0
-    total: null
+    offset: 1234
+    total: 187217
   ca5:
     complete: false
     offset: 0
