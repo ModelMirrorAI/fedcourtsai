@@ -104,11 +104,20 @@ class PullQueues:
     failed: list[dict[str, object]] = field(default_factory=list)
 
 
-def _predict_eligible(corpus_db_path: Path, case_id: str) -> bool:
-    """Read a case's latched prediction-scope flag from the corpus."""
+def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
+    """Whether a case is in predict scope: SCOTUS-eligible *and* not excluded.
+
+    Reads the latched ``predict_eligible`` flag and applies the same out-of-scope
+    predicates the matrix backstop uses (``corpus.out_of_scope_reason`` — pre-1925
+    mandatory #309, stale unresolvable #333, inconsistent dates #171). Checking them
+    here, at queue time, means pull never opens a ``run-predict`` issue for a case
+    the gate would only drop — so a batch of nothing-but-out-of-scope cases never
+    files an empty run (the live predicate also covers cases the seed reconcile has
+    not yet latched ``predict_excluded``).
+    """
     with corpus.connect(corpus_db_path) as conn:
         row = corpus.get_row(conn, case_id)
-    return bool(row and row.predict_eligible)
+    return bool(row and row.predict_eligible and corpus.out_of_scope_reason(row) is None)
 
 
 def pull_cases(
@@ -150,7 +159,7 @@ def pull_cases(
                 {"court": court, "docket": docket, "reason": f"{type(exc).__name__}: {exc}"}
             )
             continue
-        in_scope = not gated or _predict_eligible(corpus_db_path, result.case_id)
+        in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
         events = open_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:
             queues.predict.append({"court": court, "docket": docket, "events": events})

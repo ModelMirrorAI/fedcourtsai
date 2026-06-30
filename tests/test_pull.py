@@ -10,7 +10,7 @@ from fedcourtsai.config import PredictScope
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.discover import discover_cases
-from fedcourtsai.pipeline.pull import pull_case, pull_cases
+from fedcourtsai.pipeline.pull import _in_predict_scope, pull_case, pull_cases
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.store import open_events, resolved_events
 
@@ -158,6 +158,38 @@ def test_pull_cases_scope_all_enqueues_every_changed_case(tmp_path: Path) -> Non
     queues = _gate_queues(tmp_path, PredictScope.all)
     # No gate: both changed cases with open events are queued (today's behavior).
     assert {(e["court"], e["docket"]) for e in queues.predict} == {("scotus", 900), ("ca9", 901)}
+
+
+def test_in_predict_scope_excludes_eligible_but_out_of_scope_cases(tmp_path: Path) -> None:
+    # The queue-time gate matches the matrix backstop: a SCOTUS-eligible case is still
+    # out of scope if an exclusion predicate matches, so pull never queues it (and so
+    # never files an all-out-of-scope, empty predict run).
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # eligible + in scope (recent Term) -> predictable
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-101",
+                    predict_eligible=True,
+                ),
+                # eligible but stale-unresolvable (#333) -> out of scope
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="93-7515",
+                    predict_eligible=True,
+                ),
+                # SCOTUS-touched but not eligible -> out (the existing latch)
+                corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24-9"),
+            ],
+        )
+    assert _in_predict_scope(db, "scotus/1") is True
+    assert _in_predict_scope(db, "scotus/2") is False
+    assert _in_predict_scope(db, "scotus/3") is False
 
 
 class FakeDiscoverPullClient:
