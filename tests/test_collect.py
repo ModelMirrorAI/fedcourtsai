@@ -13,6 +13,7 @@ from fedcourtsai.collect import (
     CellStatus,
     PathJailError,
     ReconcileCellStatus,
+    assert_cleanup_within_jail,
     assert_within_jail,
     collect_plan,
     feedback_marker,
@@ -77,6 +78,43 @@ def test_non_addition_is_rejected(status: str) -> None:
     changes = parse_name_status(f"{status}\tdata/cases/scotus/1/events/e/outcome.json\n")
     with pytest.raises(PathJailError, match="data PRs only add files"):
         assert_within_jail(changes)
+
+
+# --- cleanup jail ----------------------------------------------------------
+
+
+def test_cleanup_deletions_under_predictions_pass() -> None:
+    changes = parse_name_status(
+        "D\tdata/cases/scotus/1004191/events/evt-petition-disposition/predictions/codex-baseline/R/prediction.json\n"
+        "D\tdata/cases/scotus/1004191/events/evt-petition-disposition/predictions/codex-baseline/R/reasoning.md\n"
+    )
+    assert_cleanup_within_jail(changes)  # does not raise
+
+
+def test_cleanup_non_delete_is_rejected() -> None:
+    # The sweep only ever removes; adding or editing is a violation.
+    changes = parse_name_status(
+        "A\tdata/cases/scotus/1/events/e/predictions/codex-baseline/R/prediction.json\n"
+    )
+    with pytest.raises(PathJailError, match="cleanup PRs only delete files"):
+        assert_cleanup_within_jail(changes)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # the outcome and the event definition sit beside predictions/, never inside it
+        "data/cases/scotus/1/events/evt-petition-disposition/outcome.json",
+        "data/cases/scotus/1/events/evt-petition-disposition/event.yaml",
+        # a sibling artifact kind (evaluations) and code are both out of bounds
+        "data/cases/scotus/1/events/evt-petition-disposition/evaluations/claude-judge/cb/R/evaluation.json",
+        "src/fedcourtsai/cli.py",
+    ],
+)
+def test_cleanup_delete_outside_predictions_is_rejected(path: str) -> None:
+    changes = parse_name_status(f"D\t{path}\n")
+    with pytest.raises(PathJailError, match=r"not under a data/cases/.*predictions/ subtree"):
+        assert_cleanup_within_jail(changes)
 
 
 def test_run_id_scope_blocks_other_runs() -> None:

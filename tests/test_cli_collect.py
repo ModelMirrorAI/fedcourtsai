@@ -12,6 +12,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from fedcourtsai import corpus
 from fedcourtsai.cli import app
 
 runner = CliRunner()
@@ -45,6 +46,79 @@ def test_assert_paths_run_id_scope(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "not under run id 'R'" in result.output
+
+
+def test_assert_cleanup_paths_ok_exits_zero(tmp_path: Path) -> None:
+    changes = _write_changes(
+        tmp_path,
+        "D\tdata/cases/scotus/1004191/events/evt-petition-disposition/predictions/codex-baseline/R/prediction.json\n",
+    )
+    result = runner.invoke(app, ["assert-cleanup-paths", "--name-status-file", str(changes)])
+    assert result.exit_code == 0
+    assert "cleanup jail OK" in result.stdout
+
+
+def test_assert_cleanup_paths_violation_exits_one_with_workflow_error(tmp_path: Path) -> None:
+    # A delete outside a predictions subtree (here the event's outcome) is refused.
+    changes = _write_changes(
+        tmp_path, "D\tdata/cases/scotus/1/events/evt-petition-disposition/outcome.json\n"
+    )
+    result = runner.invoke(app, ["assert-cleanup-paths", "--name-status-file", str(changes)])
+    assert result.exit_code == 1
+    assert "::error::" in result.output
+    assert "predictions/ subtree" in result.output
+
+
+def _cleanup_env(tmp_path: Path) -> dict[str, str]:
+    """A corpus with one out-of-scope case plus a committed prediction for it."""
+    data_root = tmp_path / "data"
+    corpus_root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/1004191", court="scotus", docket_number="01-7700")],
+        )
+    pred_dir = (
+        data_root
+        / "cases/scotus/1004191/events/evt-petition-disposition/predictions/codex-baseline/RID"
+    )
+    pred_dir.mkdir(parents=True)
+    (pred_dir / "prediction.json").write_text("{}")
+    return {"FEDCOURTS_DATA_ROOT": str(data_root), "FEDCOURTS_CORPUS_ROOT": str(corpus_root)}
+
+
+def test_cleanup_predictions_dry_run_lists_without_deleting(tmp_path: Path) -> None:
+    env = _cleanup_env(tmp_path)
+    pred_root = Path(env["FEDCOURTS_DATA_ROOT"]) / (
+        "cases/scotus/1004191/events/evt-petition-disposition/predictions"
+    )
+    result = runner.invoke(app, ["cleanup-out-of-scope-predictions"], env=env)
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["removed"] is False
+    assert payload["prunable"][0]["case_id"] == "scotus/1004191"
+    assert pred_root.exists()  # dry-run leaves the tree intact
+
+
+def test_cleanup_predictions_apply_removes_dirs(tmp_path: Path) -> None:
+    env = _cleanup_env(tmp_path)
+    pred_root = Path(env["FEDCOURTS_DATA_ROOT"]) / (
+        "cases/scotus/1004191/events/evt-petition-disposition/predictions"
+    )
+    result = runner.invoke(app, ["cleanup-out-of-scope-predictions", "--apply"], env=env)
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["removed"] is True
+    assert not pred_root.exists()
+
+
+def test_cleanup_predictions_fails_loud_without_corpus(tmp_path: Path) -> None:
+    env = {
+        "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "nope"),
+    }
+    result = runner.invoke(app, ["cleanup-out-of-scope-predictions"], env=env)
+    assert result.exit_code == 1
+    assert "corpus database is missing" in result.output
 
 
 def _write_cell(root: Path, name: str, **fields: object) -> None:

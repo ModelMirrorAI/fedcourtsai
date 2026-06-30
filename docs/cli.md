@@ -92,6 +92,17 @@ Helpers the workflows and agents use to fan out and stay in contract.
 | `evaluators` | List configured evaluators (id, engine, model, enabled). | — |
 | `export-schemas` | Write JSON Schema for every pydantic model into `schemas/` (for agents and Codex `--output-schema`). CI fails if the committed schemas drift. | `OUT` (default `schemas`) |
 
+## Maintenance — corpus-informed cleanup
+
+Deterministic sweeps that prune already-merged derived artifacts the append-only
+writers can never remove. They need the corpus, so they run in `run-cleanup`
+(`dvc pull`'d) and land as a **reviewed** (not auto-merged) PR.
+
+| Command | Purpose | Key flags |
+|---------|---------|-----------|
+| `cleanup-out-of-scope-predictions` | Prune committed predictions for cases now out of predict scope — pre-1925 mandatory jurisdiction (#309) or stale unresolvable old SCOTUS petitions (#333), gated on the real corpus row (the same predicates `predict-matrix` drops on). The event definition and any `outcome.json` stay; only the predictions go. Prints `{"prunable":[…],"removed":<bool>}`; dry-run by default. | `--apply` |
+| `assert-cleanup-paths` | Enforce the **cleanup jail** on a change set (`git diff --name-status`): exit non-zero unless every change is a *delete* under a `data/cases/**/events/*/predictions/` subtree. The cleanup job and the required CI check both call it — the destructive counterpart to `assert-paths`. | `--name-status-file` |
+
 ## Local iteration — the full cascade off Actions
 
 `local-cascade` is the repeatable, local form of the "one full cascade proven"
