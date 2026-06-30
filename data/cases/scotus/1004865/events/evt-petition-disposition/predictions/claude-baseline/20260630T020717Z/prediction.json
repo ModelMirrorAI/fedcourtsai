@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/1004865",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-opus-4-8",
+  "run_id": "20260630T020717Z",
+  "created_at": "2026-06-30T02:10:29Z",
+  "input_snapshot": "data/cases/scotus/1004865/record/snapshots/2026-06-30.json",
+  "granted": 0,
+  "probability": 0.02,
+  "predicted_disposition": "dismissed",
+  "confidence": 0.5,
+  "reasoning_doc": "reasoning.md"
+}

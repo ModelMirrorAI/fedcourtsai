@@ -1,0 +1,16 @@
+{
+  "actor_id": "claude-baseline",
+  "cache_creation_input_tokens": 26677,
+  "cache_read_input_tokens": 407383,
+  "case_id": "scotus/1005202",
+  "created_at": "2026-06-30T02:07:17Z",
+  "engine": "claude-code",
+  "estimated_cost_usd": 0.55510275,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 2856,
+  "model": "claude-opus-4-8",
+  "output_tokens": 6816,
+  "role": "predictor",
+  "run_id": "20260630T020717Z",
+  "schema_version": "1.0"
+}

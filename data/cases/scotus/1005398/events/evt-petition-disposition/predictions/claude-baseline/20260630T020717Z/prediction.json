@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/1005398",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-opus-4-8",
+  "run_id": "20260630T020717Z",
+  "created_at": "2026-06-30T02:07:17Z",
+  "input_snapshot": "data/cases/scotus/1005398/record/snapshots/2026-06-30.json",
+  "granted": 0,
+  "probability": 0.005,
+  "predicted_disposition": "denied",
+  "confidence": 0.97,
+  "reasoning_doc": "reasoning.md"
+}

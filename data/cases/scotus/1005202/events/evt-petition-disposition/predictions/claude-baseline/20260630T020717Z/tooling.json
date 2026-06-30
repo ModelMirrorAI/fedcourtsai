@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/1005202",
+  "run_id": "20260630T020717Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "tools_used": [
+    "fedcourts paths",
+    "Read (snapshot + event + schema)"
+  ],
+  "helpful": [
+    "fedcourts paths resolved the case/event/snapshot paths up front",
+    "prediction.schema.json made the output contract unambiguous"
+  ],
+  "gaps": [
+    "no committed prior-outcome base rates for the IFP/state-prisoner-habeas cert docket to anchor probability quantitatively",
+    "snapshot lacks lower-court identity and docket-text, so posture is inferred only from the caption and the paupers docket-number range"
+  ],
+  "notes": "Thin snapshot (no docket entries, no dates). Predicted from SCOTUS cert base rates and the IFP/habeas posture inferred from caption (Warden respondent) and docket number 93-7131. Did not query the corpus; it lives in the DVC remote and was not needed for a base-rate call."
+}
