@@ -1,11 +1,11 @@
 {
-  "corpus_rows": 2136407,
+  "corpus_rows": 2151605,
   "exclusions": [
     {
-      "cases": 16525,
-      "open_events": 16525,
+      "cases": 82337,
+      "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 13867,
+      "recoverable": 29894,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -20,46 +20,30 @@
       ]
     },
     {
-      "cases": 123101,
-      "open_events": 123101,
+      "cases": 382175,
+      "open_events": 382175,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 13250,
+      "recoverable": 44286,
       "sample_cases": [
+        "scotus/1000",
         "scotus/100001",
         "scotus/1000145",
         "scotus/100042",
         "scotus/100054",
         "scotus/100073",
         "scotus/100079",
+        "scotus/1001",
         "scotus/1001131",
-        "scotus/1001151",
-        "scotus/1001152",
-        "scotus/1001173"
+        "scotus/1001151"
       ]
     }
   ],
   "schema_version": "1.0",
-  "scotus_open_events": 581608,
+  "scotus_open_events": 589266,
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 378812,
-      "reason": "docket Term not parseable (a format the predicate skips)",
-      "sample_cases": [
-        "scotus/1003943",
-        "scotus/1004607",
-        "scotus/1004865",
-        "scotus/1005618",
-        "scotus/1016450",
-        "scotus/1017888",
-        "scotus/101968",
-        "scotus/102043",
-        "scotus/1020660",
-        "scotus/1022319"
-      ]
-    },
-    {
-      "open_events": 53823,
+      "open_events": 58688,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/1119228",
@@ -75,7 +59,23 @@
       ]
     },
     {
-      "open_events": 9347,
+      "open_events": 56558,
+      "reason": "docket Term not parseable (a format the predicate skips)",
+      "sample_cases": [
+        "scotus/1003943",
+        "scotus/1004607",
+        "scotus/1004865",
+        "scotus/1005618",
+        "scotus/1016450",
+        "scotus/1017888",
+        "scotus/101968",
+        "scotus/102043",
+        "scotus/1020660",
+        "scotus/1022319"
+      ]
+    },
+    {
+      "open_events": 9508,
       "reason": "no docket number",
       "sample_cases": [
         "scotus/1000512",
@@ -93,64 +93,64 @@
   ],
   "unparseable_docket_shapes": [
     {
-      "count": 195399,
-      "shape": "Aa. 99-9999"
-    },
-    {
-      "count": 49307,
-      "shape": "Aa. 999"
-    },
-    {
-      "count": 39987,
-      "shape": "Aa. 99-999"
-    },
-    {
-      "count": 19063,
+      "count": 19951,
       "shape": "99A999"
-    },
-    {
-      "count": 10423,
-      "shape": "Aa. 9999"
-    },
-    {
-      "count": 7868,
-      "shape": "Aa. 99-99999"
     },
     {
       "count": 5140,
       "shape": "Aa. A-9999"
     },
     {
-      "count": 4630,
+      "count": 5115,
       "shape": "99A9999"
-    },
-    {
-      "count": 4624,
-      "shape": "Aa. 99"
     },
     {
       "count": 4204,
       "shape": "Aa. 99\u20139999."
     },
     {
-      "count": 4068,
-      "shape": "Aa. 99-99"
-    },
-    {
       "count": 4060,
       "shape": "Aa. A-999"
     },
     {
-      "count": 3459,
-      "shape": "Aa. 99-9999; Aa. 99-9999"
-    },
-    {
-      "count": 2070,
+      "count": 2161,
       "shape": "99A99"
     },
     {
       "count": 1622,
       "shape": "Aa. 999, Aaaa."
+    },
+    {
+      "count": 1526,
+      "shape": "Aa. 999; Aa. 999"
+    },
+    {
+      "count": 867,
+      "shape": "Aa. 99\u2013999."
+    },
+    {
+      "count": 622,
+      "shape": "Aa. A\u20139999."
+    },
+    {
+      "count": 508,
+      "shape": "Aa. 99A99."
+    },
+    {
+      "count": 467,
+      "shape": "Aa. 99A99"
+    },
+    {
+      "count": 437,
+      "shape": "Aaa. 999 aaa 999"
+    },
+    {
+      "count": 425,
+      "shape": "Aa. A-999 (99-9999)"
+    },
+    {
+      "count": 395,
+      "shape": "Aa. 999; Aa. 999; Aa. 999"
     }
   ]
 }
