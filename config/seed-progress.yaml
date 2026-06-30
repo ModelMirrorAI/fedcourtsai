@@ -6,8 +6,8 @@ courts:
     total: 45332
   ca10:
     complete: false
-    offset: 0
-    total: null
+    offset: 5173
+    total: 81529
   ca11:
     complete: false
     offset: 0
@@ -41,8 +41,8 @@ courts:
     offset: 103363
     total: 103363
   ca9:
-    complete: false
-    offset: 242809
+    complete: true
+    offset: 247636
     total: 247636
   cadc:
     complete: false
