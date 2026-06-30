@@ -1,5 +1,5 @@
 {
-  "corpus_rows": 2136391,
+  "corpus_rows": 2136400,
   "exclusions": [
     {
       "cases": 16525,
@@ -23,7 +23,7 @@
       "cases": 123101,
       "open_events": 123101,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 13255,
+      "recoverable": 13252,
       "sample_cases": [
         "scotus/100001",
         "scotus/1000145",
@@ -40,5 +40,55 @@
   ],
   "schema_version": "1.0",
   "scotus_open_events": 581608,
-  "skipped": false
+  "skipped": false,
+  "unclassified": [
+    {
+      "open_events": 378812,
+      "reason": "docket Term not parseable (a format the predicate skips)",
+      "sample_cases": [
+        "scotus/1003943",
+        "scotus/1004607",
+        "scotus/1004865",
+        "scotus/1005618",
+        "scotus/1016450",
+        "scotus/1017888",
+        "scotus/101968",
+        "scotus/102043",
+        "scotus/1020660",
+        "scotus/1022319"
+      ]
+    },
+    {
+      "open_events": 53823,
+      "reason": "recent or current Term (legitimately pending)",
+      "sample_cases": [
+        "scotus/1119228",
+        "scotus/113808",
+        "scotus/13585331",
+        "scotus/1376879",
+        "scotus/14557919",
+        "scotus/14557920",
+        "scotus/14557921",
+        "scotus/14560167",
+        "scotus/14560168",
+        "scotus/14564957"
+      ]
+    },
+    {
+      "open_events": 9347,
+      "reason": "no docket number",
+      "sample_cases": [
+        "scotus/1000512",
+        "scotus/1000515",
+        "scotus/1000525",
+        "scotus/1002339",
+        "scotus/1013004",
+        "scotus/1013114",
+        "scotus/1013133",
+        "scotus/1013192",
+        "scotus/1013205",
+        "scotus/1013618"
+      ]
+    }
+  ]
 }
