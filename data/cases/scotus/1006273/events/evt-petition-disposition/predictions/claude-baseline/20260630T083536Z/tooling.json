@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/1006273",
+  "run_id": "20260630T083536Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "tools_used": [
+    "fedcourts paths",
+    "read snapshot/event yaml",
+    "ad-hoc python on snapshot JSON"
+  ],
+  "helpful": [
+    "fedcourts paths resolved the snapshot/event/outcome paths cleanly",
+    "the provisioned snapshot JSON exposed the clusters[] link, which was the decisive structural signal"
+  ],
+  "gaps": [
+    "a corpus query to pull SCOTUS cert grant base rates conditioned on docket type (paid vs IFP) and petitioner class (State/government) would make the probability better calibrated",
+    "snapshots have no explicit petition-disposition field; I had to infer from the presence of a linked opinion cluster — a derived 'has_opinion_cluster' or recorded disposition flag would reduce reliance on a proxy"
+  ],
+  "notes": "Merits record was empty (no docket entries, all disposition dates null). Prediction rests on face-of-snapshot structural signals (linked opinion cluster, paid-docket number, State petitioner). I did not fetch the cluster contents or the historical outcome, per the predict-from-snapshot rule."
+}

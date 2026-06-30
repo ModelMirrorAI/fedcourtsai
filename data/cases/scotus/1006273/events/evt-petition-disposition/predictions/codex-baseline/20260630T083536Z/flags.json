@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1006273",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot for evt-petition-disposition is sparse: it has no docket_entries, petition disposition dates, argument date, appeal_from details, or event description. The prediction therefore relies mainly on the attached Supreme Court opinion cluster as a merits-review signal.",
+      "severity": "warning"
+    },
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "The event is labeled as a petition disposition, but the historical Supreme Court snapshot does not identify whether the review vehicle was certiorari, direct appeal, or another jurisdictional path; I interpreted granted as acceptance for merits review.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260630T083536Z",
+  "schema_version": "1.0"
+}

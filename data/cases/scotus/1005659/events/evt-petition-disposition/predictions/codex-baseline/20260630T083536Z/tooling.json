@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1005659",
+  "gaps": [
+    "A compact snapshot field that distinguishes merits clusters from denial or order clusters would improve SCOTUS petition predictions."
+  ],
+  "helpful": [
+    "fedcourts paths resolved the materialized event location.",
+    "The materialized snapshot kept the prediction grounded in point-in-time case facts."
+  ],
+  "notes": "I used fedcourts query only for broad SCOTUS disposition calibration. The returned priors were noisy for this event because they mixed cert petitions, merits cases, and extraordinary writs.",
+  "role": "predictor",
+  "run_id": "20260630T083536Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "local snapshot"
+  ],
+  "used_corpus_query": true
+}
