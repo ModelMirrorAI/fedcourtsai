@@ -63,6 +63,33 @@ proposes new predictor designs, registers them as new entries in the predictor
 registry, and lets them compete — so `run-predict` tracks a growing field of
 agents and `run-evaluate` is the tournament that ranks them.
 
+## Prediction scope
+
+Ingestion covers all fourteen courts, but the agentic predict/evaluate stages are
+**deliberately narrower** — we predict only where the event model fits and ground
+truth is recoverable, and would rather be upfront about what is left out than
+publish predictions we can't stand behind. Currently out of scope:
+
+- **Cases that have not interacted with the Supreme Court.** The pilot gates
+  prediction to cases that touch SCOTUS — a certiorari petition is the canonical
+  trigger; a case stays in scope for the rest of its lifecycle once it qualifies.
+  Appeals that never reach SCOTUS are ingested for context and retrieval but not
+  predicted. (Scope dial, not a permanent limit — see [`docs/budget.md`](docs/budget.md).)
+- **Pre-1925 mandatory-jurisdiction matters.** The cert event model targets the
+  modern *discretionary* certiorari regime; pre-1925 appeals heard as of right
+  carry a different disposition meaning, so they are excluded rather than scored
+  under a label that does not apply.
+- **Stale, unresolvable petitions.** Some decades-old Supreme Court dockets survive
+  only as bare stubs — no docket entries, no recorded disposition — that the corpus
+  can never resolve. They are excluded rather than predicted in perpetuity against
+  ground truth that does not exist.
+
+These exclusions are applied deterministically from the corpus at the prediction
+matrix, and any predictions merged for such cases before an exclusion landed are
+pruned by the `run-cleanup` sweep. Scope will widen as the project matures; the
+mechanics live in [`docs/pipeline.md`](docs/pipeline.md) and
+[`docs/data-pipeline.md`](docs/data-pipeline.md).
+
 ## Data model
 
 State lives in two stores, split by kind. **Raw facts** — dockets, snapshots,
