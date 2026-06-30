@@ -1,60 +1,60 @@
-completed: true
+completed: false
 courts:
   ca1:
-    complete: true
-    offset: 45172
-    total: 45172
+    complete: false
+    offset: 0
+    total: null
   ca10:
-    complete: true
-    offset: 81223
-    total: 81223
+    complete: false
+    offset: 0
+    total: null
   ca11:
-    complete: true
-    offset: 95071
-    total: 95071
+    complete: false
+    offset: 0
+    total: null
   ca2:
-    complete: true
-    offset: 120480
-    total: 120480
+    complete: false
+    offset: 0
+    total: null
   ca3:
-    complete: true
-    offset: 111938
-    total: 111938
+    complete: false
+    offset: 0
+    total: null
   ca4:
-    complete: true
-    offset: 186152
-    total: 186152
+    complete: false
+    offset: 0
+    total: null
   ca5:
-    complete: true
-    offset: 202764
-    total: 202764
+    complete: false
+    offset: 0
+    total: null
   ca6:
-    complete: true
-    offset: 141330
-    total: 141330
+    complete: false
+    offset: 0
+    total: null
   ca7:
-    complete: true
-    offset: 91875
-    total: 91875
+    complete: false
+    offset: 0
+    total: null
   ca8:
-    complete: true
-    offset: 102993
-    total: 102993
+    complete: false
+    offset: 0
+    total: null
   ca9:
-    complete: true
-    offset: 246604
-    total: 246604
+    complete: false
+    offset: 0
+    total: null
   cadc:
-    complete: true
-    offset: 56657
-    total: 56657
+    complete: false
+    offset: 0
+    total: null
   cafc:
-    complete: true
-    offset: 72225
-    total: 72225
+    complete: false
+    offset: 0
+    total: null
   scotus:
-    complete: true
-    offset: 583840
-    total: 583840
+    complete: false
+    offset: 10000
+    total: 589557
 schema_version: '1.0'
-snapshot: '2026-03-31'
+snapshot: '2026-06-30'
