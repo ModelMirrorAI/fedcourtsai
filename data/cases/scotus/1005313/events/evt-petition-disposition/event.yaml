@@ -1,0 +1,10 @@
+case_id: scotus/1005313
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2004-10-12'
+resolved: false
+schema_version: '1.0'
+title: Joseph V. Puranda v. Gene M. Johnson, Director, Virginia Department of Corrections

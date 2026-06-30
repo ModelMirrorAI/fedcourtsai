@@ -17,6 +17,7 @@ from typing import Annotated
 import typer
 
 from . import corpus, dvc, ids
+from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .collect import (
@@ -39,13 +40,7 @@ from .config import (
     load_seed_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
-from .finalize import (
-    FinalizeRole,
-    agent_produced_output,
-    branch_name,
-    finalize_judgment,
-    finalize_reconcile,
-)
+from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
@@ -67,6 +62,7 @@ from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import load_evaluators, load_predictors
 from .schemas import (
     EXPORTABLE_MODELS,
+    AgentFlags,
     CorpusValidation,
     DataHealth,
     Disposition,
@@ -80,6 +76,8 @@ from .serialize import write_json, write_raw_json, write_yaml
 from .store import (
     cases_due_for_pull,
     iter_evaluations,
+    iter_flags,
+    iter_tooling,
     iter_usage,
     open_events,
     resolved_events,
@@ -500,8 +498,10 @@ def ops_report(
     """Roll pipeline health, backfill, spend, and data health into an ops snapshot.
 
     A read-only view of authoritative sources — the GitHub Actions run history
-    (``--runs``), the seed cursor (``config/seed-progress.yaml``), and the recorded
-    ``usage.json`` ledger under ``data/``. Also presents the **data-health** verdict:
+    (``--runs``), the seed cursor (``config/seed-progress.yaml``), the recorded
+    ``usage.json`` ledger under ``data/``, and the committed ``flags.json`` files
+    agents leave there (rolled into the **open agent flags** section). Also presents
+    the **data-health** verdict:
     it runs the git-only ``validate`` over ``data/`` itself and folds in the latest
     corpus verdict from ``--corpus-validation`` (produced where the corpus is already
     pulled). Prints the dashboard Markdown to stdout (the run-ops issue body / step
@@ -544,6 +544,8 @@ def ops_report(
         progress=progress,
         courts=courts,
         usage=iter_usage(settings.data_root),
+        flags=iter_flags(settings.data_root),
+        tooling=iter_tooling(settings.data_root),
         previous=prior,
         data_health=data_health,
     )
@@ -1211,6 +1213,13 @@ def _scope_filtered(
     manual run produced an empty matrix. ``scope == all`` passes every case
     through unchanged.
 
+    A SCOTUS-eligible case is still dropped if it is a **pre-1925
+    mandatory-jurisdiction matter** (:func:`corpus.is_historical_mandatory`, issue
+    #309): the ``evt-petition-disposition`` model targets modern discretionary
+    cert, and these historical appeals carry an incompatible disposition meaning.
+    The latch stays a pure "SCOTUS-touched" signal; the era filter layers on top
+    here so ingestion coverage is unaffected.
+
     Gating reads the corpus, so the corpus database must be on disk. If it is
     absent the gate cannot distinguish "case not eligible" from "corpus never
     provisioned" — :func:`corpus.connect` would silently create an empty database
@@ -1232,14 +1241,20 @@ def _scope_filtered(
     with corpus.connect(db_path) as conn:
         for case in cases:
             row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
-            if row is not None and row.predict_eligible:
-                kept.append(case)
-            else:
+            if row is None or not row.predict_eligible:
                 typer.echo(
                     f"Skipping {case.court}/{case.docket}: out of prediction scope "
                     f"(predict.scope=scotus_touched, not SCOTUS-eligible).",
                     err=True,
                 )
+            elif corpus.is_historical_mandatory(row):
+                typer.echo(
+                    f"Skipping {case.court}/{case.docket}: pre-1925 mandatory-jurisdiction "
+                    f"matter (issue #309); the discretionary-cert event model does not apply.",
+                    err=True,
+                )
+            else:
+                kept.append(case)
     return kept
 
 
@@ -1359,20 +1374,6 @@ def reconcile_matrix_cmd(
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
-def _parse_workflow_bool(value: str, flag: str) -> bool:
-    """Parse a ``"true"``/``"false"`` workflow string into a bool.
-
-    The predict/evaluate/reconcile finalize steps pass GitHub Actions boolean
-    expressions (the strings ``"true"`` / ``"false"``) straight through; accept
-    exactly those so a typo fails loud rather than silently reading false.
-    """
-    if value == "true":
-        return True
-    if value == "false":
-        return False
-    raise typer.BadParameter(f"{flag} must be 'true' or 'false', not {value!r}")
-
-
 @app.command("authorize-trigger")
 def authorize_trigger_cmd(
     sender_type: Annotated[
@@ -1395,37 +1396,6 @@ def authorize_trigger_cmd(
         typer.echo(f"::error::{decision.message}", err=True)
         raise typer.Exit(code=1)
     typer.echo(decision.message)
-
-
-@app.command("finalize-branch")
-def finalize_branch_cmd(
-    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate | reconcile.")],
-    court: Annotated[str, typer.Option()],
-    docket: Annotated[int, typer.Option()],
-    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    event: Annotated[
-        str, typer.Option(help="Event id (predict/evaluate; ignored for reconcile).")
-    ] = "",
-    actor: Annotated[
-        str, typer.Option(help="predictor_id/evaluator_id (predict/evaluate; ignored otherwise).")
-    ] = "",
-) -> None:
-    """Print the unique branch name for a cell's PR.
-
-    The case (and, for predict/evaluate, the event and actor) ride in the branch so
-    two concurrent cells sharing a second-granular run id never collide on one ref.
-    """
-    is_judgment = role in (FinalizeRole.predict, FinalizeRole.evaluate)
-    typer.echo(
-        branch_name(
-            role,
-            court,
-            docket,
-            run_id,
-            event=event if is_judgment else None,
-            actor=actor if is_judgment else None,
-        )
-    )
 
 
 @app.command("finalize-produced")
@@ -1455,76 +1425,6 @@ def finalize_produced_cmd(
         run_id=run_id,
     )
     typer.echo("true" if produced else "false")
-
-
-@app.command("finalize-pr")
-def finalize_pr_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
-    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate | reconcile.")],
-    court: Annotated[str, typer.Option()],
-    docket: Annotated[int, typer.Option()],
-    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    agent_ok: Annotated[
-        str, typer.Option(help="'true' if the agent step finished cleanly, else 'false'.")
-    ],
-    validated: Annotated[
-        str, typer.Option(help="'true' if `validate data` accepted the output, else 'false'.")
-    ],
-    event: Annotated[str, typer.Option(help="Event id (predict/evaluate).")] = "",
-    actor: Annotated[str, typer.Option(help="predictor_id/evaluator_id (predict/evaluate).")] = "",
-    changed: Annotated[
-        str, typer.Option(help="'true' if the agent staged any change (predict/evaluate).")
-    ] = "false",
-    settled: Annotated[
-        str, typer.Option(help="Comma-separated settled event ids (reconcile).")
-    ] = "",
-    issue: Annotated[
-        int, typer.Option(help="Triggering reconcile issue number, closed by the PR (reconcile).")
-    ] = 0,
-) -> None:
-    """Emit the finalize decision for a cell as compact JSON.
-
-    The object carries ``action`` (``skip`` / ``fail`` / ``open``), the
-    ``message`` for skip/fail, and — when opening — ``draft`` plus
-    ``commit_message`` / ``title`` / ``body``. The workflow runs the git/PR
-    plumbing; every routing decision and string is computed here.
-    """
-    ok = _parse_workflow_bool(agent_ok, "--agent-ok")
-    valid = _parse_workflow_bool(validated, "--validated")
-    if role is FinalizeRole.reconcile:
-        plan = finalize_reconcile(
-            court=court,
-            docket=docket,
-            run_id=run_id,
-            settled=tuple(e for e in settled.split(",") if e),
-            agent_ok=ok,
-            validated=valid,
-            issue=issue,
-        )
-    else:
-        plan = finalize_judgment(
-            role,
-            court=court,
-            docket=docket,
-            event=event,
-            actor=actor,
-            run_id=run_id,
-            changed=_parse_workflow_bool(changed, "--changed"),
-            agent_ok=ok,
-            validated=valid,
-        )
-    typer.echo(
-        json.dumps(
-            {
-                "action": plan.action,
-                "draft": plan.draft,
-                "message": plan.message,
-                "commit_message": plan.commit_message,
-                "title": plan.title,
-                "body": plan.body,
-            },
-            separators=(",", ":"),
-        )
-    )
 
 
 @app.command("assert-paths")
@@ -1574,7 +1474,28 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
             for c in plan.skipped
             if isinstance(c, CellStatus)
         ],
+        "flags": plan.flags_markdown,
+        "feedback_comment": plan.feedback_comment,
     }
+
+
+def _load_flag_sets(status_dir: Path) -> list[AgentFlags]:
+    """Parse every cell's ``flags.json`` under ``status_dir`` into validated models.
+
+    The collect job downloads each cell's artifact (its ``status.json`` plus its
+    ``data/`` subtree); a cell that surfaced feedback wrote a ``flags.json`` somewhere
+    under that subtree. Read them wherever they landed so the roll-up sees flags from
+    *every* cell — including a blocked cell that produced no judgment and is never
+    committed. A malformed flag file is skipped (the cell's own status already
+    reflects its failure) rather than aborting the run's aggregation.
+    """
+    flag_sets: list[AgentFlags] = []
+    for path in sorted(status_dir.glob("**/flags.json")):
+        try:
+            flag_sets.append(AgentFlags.model_validate_json(path.read_text()))
+        except (OSError, ValueError):
+            continue
+    return flag_sets
 
 
 @app.command("collect-plan")
@@ -1594,6 +1515,11 @@ def collect_plan_cmd(
     each ``pr`` carries ``branch`` / ``commit_message`` / ``title`` / ``body`` /
     ``draft`` and the ``artifact_dirs`` whose ``data/`` the collect job copies into
     that PR. The ready ``body`` closes ``--issue`` on merge unless a draft remains.
+    ``flags`` is the run's rolled-up agent flags (also appended to the PR body),
+    which the collect step echoes into the Actions summary; ``feedback_comment``
+    is the same roll-up wrapped for the long-lived agent-feedback tracking issue
+    (empty when no flags), which the collect step posts so a note survives even a
+    fully-failed run that opens no PR.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -1601,8 +1527,31 @@ def collect_plan_cmd(
         cells.append(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
-    plan = collect_plan(role, run_id=run_id, cells=cells, issue=issue or None)
+    plan = collect_plan(
+        role, run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
+    )
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
+
+
+@app.command("post-agent-feedback")
+def post_agent_feedback_cmd(
+    body_file: Annotated[
+        Path, typer.Option(help="The rendered feedback comment (collect-plan's feedback_comment).")
+    ],
+    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
+) -> None:
+    """Latch a run's agent-flag roll-up onto the long-lived agent-feedback issue.
+
+    Reads the rendered comment from ``--body-file`` (an empty/blank file means the
+    run raised no flags, so nothing is posted), then find-or-creates the single
+    ``agent-feedback`` issue and posts the comment once (marker-deduped, so a
+    ``collect`` re-run never duplicates it). The predict/evaluate collect job calls
+    this with the ambient ``GITHUB_TOKEN`` — off its contents-write App token, since
+    the label is non-triggering. The find-or-create and idempotency are tested in
+    ``agent_feedback.py``; this command is the thin gh-invoking wrapper.
+    """
+    comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
+    typer.echo(post_agent_feedback(comment, repo))
 
 
 def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
@@ -1611,6 +1560,8 @@ def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "ready": _pr_plan_json(plan.ready),
         "partial": _pr_plan_json(plan.partial),
         "skipped": [{"court": c.court, "docket": c.docket} for c in plan.skipped],
+        "flags": plan.flags_markdown,
+        "feedback_comment": plan.feedback_comment,
     }
 
 
@@ -1626,10 +1577,13 @@ def collect_reconcile_plan_cmd(
     """Emit the per-run aggregate reconcile PR decision as compact JSON.
 
     Reads every per-case ``status.json`` under ``status_dir``, then prints
-    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}]}``.
-    The ready ``commit_message`` / ``title`` start with ``reconcile:`` so the
-    squash-merge to ``main`` fires the evaluate handoff, and the ready ``body``
-    closes ``--issue`` on merge unless a draft remains.
+    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}],
+    "flags": <md>, "feedback_comment": <md>}``. The ready ``commit_message`` /
+    ``title`` start with ``reconcile:`` so the squash-merge to ``main`` fires the
+    evaluate handoff, and the ready ``body`` closes ``--issue`` on merge unless a
+    draft remains. ``flags`` / ``feedback_comment`` carry the run's rolled-up agent
+    flags for the Actions summary and the long-lived agent-feedback issue, like
+    ``collect-plan``.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -1639,7 +1593,9 @@ def collect_reconcile_plan_cmd(
                 json.loads(status_path.read_text()), artifact_dir=artifact_dir
             )
         )
-    plan = reconcile_collect_plan(run_id=run_id, cells=cells, issue=issue or None)
+    plan = reconcile_collect_plan(
+        run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir)
+    )
     typer.echo(json.dumps(_reconcile_collect_plan_json(plan), separators=(",", ":")))
 
 

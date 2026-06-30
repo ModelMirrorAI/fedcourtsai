@@ -109,6 +109,21 @@ dev App that opens these PRs is not a branch-protection bypass actor (above), so
 the checks bind. The append-only `data/` jail (`paths`) is what makes
 auto-merging agent output safe.
 
+The predict/evaluate `collect` job latches each run's rolled-up agent flags onto
+one long-lived `agent-feedback` tracking issue — the durable, centralized home for
+a note that must survive even a fully-failed run that opens no PR. It posts that
+comment with the job's **ambient `GITHUB_TOKEN`** (job-scoped **`issues: write`**),
+*not* the dev App token: latching needs no cross-workflow trigger (`agent-feedback`
+is a non-triggering label), which is the only reason a workflow here ever reaches
+for the App token — so issue-write deliberately stays **off** the App token that
+carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
+which posts its `ops-dashboard` / `data-validation` issues with `GITHUB_TOKEN` the
+same way. The capability is therefore on the lower-trust, non-bypass token, scoped
+to issue comments/creation only; and the agent never touches it (the per-cell agent
+token stays comment-only and writes `flags.json` locally — the trusted `collect`
+job does the surfacing). So docket text the agent ingests cannot reach it, and the
+worst a misbehaving `collect` run can do with it is post an issue comment.
+
 ## The `runner` environment
 
 Every secret and both S3 role ARNs live on the `runner` environment — the App

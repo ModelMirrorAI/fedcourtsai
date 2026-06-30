@@ -1,0 +1,11 @@
+case_id: scotus/1003742
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2004-12-06'
+resolved: false
+schema_version: '1.0'
+title: Edward Esparza v. Doug Dretke, Director, Texas Department of Criminal Justice,
+  Correctional Institutions Division

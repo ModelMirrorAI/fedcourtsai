@@ -5,9 +5,13 @@ from pydantic import ValidationError
 
 from fedcourtsai.pipeline.evaluate import brier_score, is_correct, vote_accuracy
 from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
     Disposition,
     Engine,
     Evaluation,
+    FlagCategory,
+    FlagSeverity,
     JudgeVote,
     ModelUsage,
     Outcome,
@@ -121,6 +125,51 @@ def test_evaluation_requires_engine() -> None:
     }
     with pytest.raises(ValidationError):
         Evaluation.model_validate(bad)
+
+
+def _flags(**kw: object) -> AgentFlags:
+    base: dict[str, object] = dict(
+        case_id="ca9/123",
+        run_id="r1",
+        role=UsageRole.predictor,
+        actor_id="claude-baseline",
+        flags=[AgentFlag(category=FlagCategory.data_quality, message="snapshot is empty")],
+    )
+    base.update(kw)
+    return AgentFlags.model_validate(base)
+
+
+def test_agent_flags_round_trip() -> None:
+    flags = _flags(
+        flags=[
+            AgentFlag(
+                category=FlagCategory.blocked,
+                severity=FlagSeverity.blocker,
+                message="no snapshot provisioned",
+                event_id="evt-motion-stay",
+            )
+        ]
+    )
+    assert flags.flags[0].severity == FlagSeverity.blocker
+    assert flags.flags[0].event_id == "evt-motion-stay"
+    # use_enum_values makes the enum fields serialize as their wire strings.
+    assert flags.model_dump()["flags"][0]["category"] == "blocked"
+
+
+def test_agent_flags_requires_at_least_one_flag() -> None:
+    # The file is written only when there is something to say; an empty list is invalid.
+    with pytest.raises(ValidationError):
+        _flags(flags=[])
+
+
+def test_agent_flag_message_must_be_non_empty() -> None:
+    with pytest.raises(ValidationError):
+        AgentFlag(category=FlagCategory.other, message="")
+
+
+def test_agent_flags_forbids_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        _flags(surprise="nope")
 
 
 def test_scoring() -> None:

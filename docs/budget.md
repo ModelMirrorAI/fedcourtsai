@@ -8,7 +8,9 @@ be chosen with the bill in view. For how the phases work, see
 [data-pipeline.md](data-pipeline.md) and [pipeline.md](pipeline.md).
 
 All prices are USD, captured mid-2026; treat them as a snapshot and re-check the
-linked sources before committing spend.
+linked sources before committing spend. The repo is **public**, so all figures
+assume the free public-repo Actions tier, and all model inference is priced on
+the **on-demand API** (the pipeline does not use the Batch API today).
 
 ## The one thing that matters: inference dominates
 
@@ -25,14 +27,17 @@ full-scope volume. The subscription is metered by rolling 5-hour and weekly
 limits intended for interactive use, and per Anthropic's policy the subscription
 OAuth token is meant for Claude Code / claude.ai, not automated CI/CD — they
 direct automation at a pay-per-token API key. So the subscription is the right
-tool for **development and low-volume piloting**; sustained pipeline inference at
-scale is an **API-metered** cost. The budget reflects both modes.
+tool for **development and low-volume piloting**, while sustained pipeline
+inference is an **API-metered** cost. The pipeline reflects both modes: interactive
+development uses the Max subscription, and every automated stage (`run:predict`,
+`run:evaluate`, `run:reconcile`, `run:dev`) authenticates to Claude via the
+Anthropic **API key**.
 
 ## Cost drivers
 
 ### 1. Model usage (the dominant cost)
 
-Two engines run the agentic stages, routed per registry entry
+Three engines run the agentic stages, routed per registry entry
 ([config/predictors.yaml](../config/predictors.yaml),
 [config/evaluators.yaml](../config/evaluators.yaml)):
 
@@ -50,19 +55,21 @@ Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-th
 **Per-run cost.** A single predict or evaluate run is an *agentic* job: the agent
 reads the prompt, AGENTS.md, the case snapshot, and a handful of retrieved
 priors, then writes its artifacts over several tool-use turns. Effective token
-usage is therefore much larger than the visible artifacts — roughly **~240K
+usage is therefore much larger than the visible artifacts — roughly **~280–400K
 effective input (the large majority served from cache) + ~6K output per run**.
 
-This used to be a planning assumption (~$1–2/run); it is now **measured**. Every
+This was once a planning assumption (~$1–2/run); it is now **measured**. Every
 predict/evaluate run records its tokens and an estimated cost (at the rates in
 this section, kept in `fedcourtsai.pricing`) to a `usage.json` beside its output,
-and `fedcourts usage-summary` rolls those up. The first predict runs land at
-**≈ $0.50/run** (claude-baseline ~$0.43, codex-baseline ~$0.57) — about a third
-of the old estimate, because prompt caching on the stable prefix is working as
-designed. **Caveat:** this is the *predict* figure; no event has resolved yet, so
-**evaluate per-run cost is still unmeasured** — the estimates below assume it is
-comparable (~$0.50) and should be re-checked against the first real evaluations.
-Note the two big discounts that produce that number:
+and `fedcourts usage-summary` rolls those up. Across the 82 predict runs to date
+(41 per predictor) the cost holds at **≈ $0.50/run** (claude-baseline ~$0.42,
+codex-baseline ~$0.56) — roughly a third of the old assumption, because prompt
+caching on the stable prefix is working as designed. **Caveat:** this is the
+*predict* figure; no event has resolved yet, so **evaluate per-run cost is still
+unmeasured** — the estimates below assume it is comparable (~$0.50) and should be
+re-checked against the first real evaluations.
+
+That ≈ $0.50/run is an **on-demand** figure; one discount produces it:
 
 - **Prompt caching** — automatic on both engines. The stable prefix (AGENTS.md +
   the prompt template + schema) is byte-identical across runs and is read before
@@ -70,12 +77,14 @@ Note the two big discounts that produce that number:
   turns; cached reads bill at ~0.1× and cache writes at ~1.25× (both in
   `fedcourtsai.pricing`, and recorded per run in `usage.json`). Keep that prefix
   byte-stable to capture it. The predict and evaluate workflows request the
-  1-hour cache TTL explicitly: it is free on the Claude Max subscription and keeps
-  the cache from expiring mid-run should Claude auth move to the Anthropic API,
-  whose default TTL is only 5 minutes.
-- **Batch API (Claude)** — 50% off for non-latency-sensitive work
-  (back-testing, bulk re-scoring). Live pull-triggered predictions are
-  latency-sensitive and stay on-demand.
+  1-hour cache TTL explicitly: the agentic workflows run against the Anthropic API
+  (whose default TTL is only 5 minutes), so the longer TTL keeps the prefix cached
+  across a run's tool-use turns; the same 1-hour TTL is free on the Claude Max
+  subscription used for interactive dev.
+
+Live pull-triggered predictions are latency-sensitive and run on-demand. The
+**Batch API** (50% off, non-latency-sensitive) is not used today; it remains an
+available lever for back-testing / bulk re-scoring (see *Levers*).
 
 **Volume.** Scope is all fourteen courts. The courts of appeals terminate
 **~42K cases/yr** (~41K filed; [Judicial Business 2025, Table B](https://www.uscourts.gov/data-news/reports/statistical-reports/judicial-business-united-states-courts/judicial-business-2025/us-courts-appeals-judicial-business-2025)),
@@ -95,7 +104,7 @@ on the same day (predicted more than once); under the SCOTUS gate this is a smal
 tail, not a multiplier.
 
 **Annual inference at full scope** (every event, both predictors, both
-evaluators), using the model below:
+evaluators, on-demand), using the model below:
 
 ```
 predictions  = events/yr × predictors × $/run
@@ -108,10 +117,9 @@ evaluations  = resolved_events/yr × (evaluators × predictors) × $/run
 ```
 
 That figure is still large: it is what "predict and evaluate *everything, with
-everything*" costs, and it is why the levers below exist. It is ~3× below the
-original forecast now that the per-run cost is measured rather than assumed — but
-full scope remains far above all other costs combined, so the prediction *slice*
-and engine fan-out stay the controlling decisions.
+everything*" costs, and it is why the levers below exist. Even so, full scope
+remains far above all other costs combined, so the prediction *slice* and engine
+fan-out stay the controlling decisions.
 
 **Levers** (each is independent; combine them):
 
@@ -120,18 +128,13 @@ and engine fan-out stay the controlling decisions.
 | **Gate the prediction scope** — predict only cases that have interacted with SCOTUS (the pilot gate; see below) rather than every event | Linear cut; the biggest dial |
 | **One engine per stage** instead of two competing | ~50% |
 | **Cheaper competitor model** — run one predictor on `claude-haiku-4-5` ($1/$5) or `claude-sonnet-4-6` ($3/$15) | Large cut on that predictor |
-| **Batch API** for back-testing / bulk re-scoring | 50% on eligible work |
-| **Prompt caching** on the stable prefix | Up to ~90% of the input portion |
+| **Batch API** for back-testing / bulk re-scoring (not used today) | ~50% on eligible work |
+| **Prompt caching** on the stable prefix (already on) | Up to ~90% of the input portion |
 | **`predict_on_change_only`** (already set) | Avoids re-predicting unchanged cases |
 
-> **Recommendation.** The cost *model* — not any single funding source — is the
-> point: spend is governed by the prediction *slice* and the engine fan-out, so
-> decide those explicitly (the pilot's choice is the SCOTUS-interaction gate below).
-> Interactive development uses a Claude Max subscription; all automated pipeline
-> inference is API-metered from the outset, so there is no token-source ambiguity as
-> volume grows. This is now live: the agentic workflows (`run:predict`,
-> `run:evaluate`, `run:reconcile`, `run:dev`) authenticate to Claude via the
-> Anthropic **API key**, not the Max subscription OAuth token.
+The controlling choices are the first two rows: the prediction *slice* and the
+engine fan-out. The pilot fixes them explicitly with the SCOTUS-interaction gate
+below.
 
 #### The pilot slice: cases that touch SCOTUS
 
@@ -157,11 +160,15 @@ evaluations ≈ 5,500 × (2×2) × $0.50  ≈ $11K
 ```
 
 and it tunes far below that for the first release. The **long-conference batch**
-(~2,000 petitions resolved in one sitting) is not latency-sensitive, so it runs on
-the **Batch API** at 50% off behind a single engine — on the order of **$1.5–3K for
-the entire batch**. That is the lean entry point the OT2026 cert mini-release is
-sized against; the steady-state gate above is where it grows next, still an order of
-magnitude under full scope.
+is ~2,000 petitions resolved in one sitting. Sized at the measured ~$0.50/run
+on-demand, the head-to-head release the milestones describe (both predictors,
+cross-evaluated, same matrix as the figures above) is predict — 2,000 × 2 ≈ **$2K**
+— plus evaluate once the opening order list resolves them — 2,000 × (2×2) ≈ **$4K**
+— on the order of **$6–7K for the entire batch** with rerun headroom. A
+deliberately lean **single-engine** first release (one predictor, one evaluator)
+would instead be ~$2K predict + evaluate, on the order of **$2–3K**. Either is the
+entry point the OT2026 cert mini-release is sized against; the steady-state gate
+above is where it grows next, still an order of magnitude under full scope.
 
 ### 2. CourtListener API (membership for pull throughput)
 
@@ -187,7 +194,7 @@ set. **Tier 3 ($50/mo) is the recommended floor** (covers new filings plus a
 healthy refresh rotation); **Tier 4 ($100/mo)** buys comfortable headroom as the
 tracked set grows. Above Tier 4 is a custom commercial agreement (unpublished).
 
-The **pilot currently holds Tier 2 ($25/mo)**. Pull runs four windows a day, each
+The **pilot currently holds Tier 2 ($250/yr, billed annually)**. Pull runs four windows a day, each
 refreshing up to `max_cases_per_run` (30) dockets and discovering new filings — so
 ~120 refreshes/day plus discovery, comfortably inside Tier 2's 15/min · 150/hr ·
 600/day (~200 dockets/day): each window's ~30×3 ≈ 90 requests stays under the
@@ -200,29 +207,31 @@ whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to in the runne
 env (wired in `run-pull.yml` from repo variables, defaulting to the held tier), so
 realizing a higher rate means setting those variables — no code change.
 
-> **Line item: $300–1,200/yr** (pilot Tier 2 ≈ $250/yr; Tier 3–4 as scope widens).
+> **Line item: $250–1,200/yr** (pilot Tier 2 annual ≈ $250/yr; Tier 3–4 as scope widens).
 
 ### 3. GitHub Actions & Codespaces
 
 Every `run:*` stage executes on a GitHub-hosted runner, and the agent runs
 *inside* that runner — so predict/evaluate runner-minutes scale with agent
-wall-clock (jobs cap at 60 min).
-[Actions pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing):
-Linux 2-core is **$0.006/min** beyond the plan's included minutes (Free 2,000 /
-Pro 3,000 / Team 3,000 per month, **private repos only**); **public repos run
-standard runners free**.
+wall-clock (jobs cap at 60 min). The repo is **public**, and on a public repo
+**standard GitHub-hosted (2-core) runners are free and unlimited**
+([Actions pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing)).
+The realistic runner-minute footprint, free at every level:
 
-At ~130 events/day × 2 engines, predict alone is a few thousand runner-hours a
-month:
+- **Backfill (now):** `run:seed` is the spike — its daily loop runs to a ~4.5h
+  budget, so on the order of **~8K runner-min/month** while the backlog loads, then
+  drops to quarterly reconciliation.
+- **Steady pilot:** `run:pull`'s four daily windows are deterministic and light
+  (**~700 min/month**); gated predict/evaluate add roughly **~2–4K min/month**
+  depending on SCOTUS activity.
+- **September long-conference burst:** ~2,000 petitions × 2 engines is a one-time
+  spike of **tens of thousands** of runner-minutes around the conference
+  (`max_parallel: 4` bounds concurrency, not the total).
 
-- **Public repo:** **≈ $0** for Actions.
-- **Private repo:** **≈ $1–3K/mo** at full volume — real, but still a fraction of
-  inference. The matrix `max_parallel: 4` and `predict_on_change_only` already
-  bound it.
-
-The repo's public/private status is therefore a meaningful budget decision; if
-private, set a billing budget + alerts (the default spending limit is $0, which
-*blocks* runs past the free tier rather than charging silently).
+> **Line item: ≈ $0/mo** for Actions. It only turns non-zero if a job is pinned to
+> a **larger runner** (4-core+), which bills per-minute even on a public repo
+> (Linux 2-core is **$0.006/min**, for reference), or if the repo is flipped back
+> to private.
 
 **Codespaces** is development only:
 [120 free core-hours/mo](https://docs.github.com/billing/managing-billing-for-github-codespaces/about-billing-for-github-codespaces)
@@ -250,63 +259,64 @@ DVC keeps historical versions, so budget for a small multiple:
 
 > **Line item: < $10/mo** under current design. The one thing that would change
 > this materially is storing **embeddings** for semantic retrieval over the full
-> backlog (a future upgrade) — that adds both storage and a one-time embedding
-> compute cost; size it when that lands.
-
-### 5. Often-omitted factors
-
-- **Embedding generation** (future semantic retrieval): a one-time pass over
-  millions of dockets is its own inference bill; the CourtListener bulk set also
-  *ships* ~2 TB of precomputed case-law embeddings (free to use, ~$200 one-time S3
-  egress if downloaded). Prefer reusing those over regenerating.
-- **Agent reconcile runs:** ambiguous event-definition / resolution cases spawn
-  an agent (`run:pull` reconcile). Low volume by design (deterministic-first), but
-  it is non-zero model usage.
-- **`run:dev` model usage:** ongoing pipeline development by Claude Code draws on
-  the same subscription/API — budget it as part of driver #1, not free.
-- **Failed/retried runs:** CI retries, rebases, and re-runs consume runner
-  minutes and (for agent stages) tokens. Add ~10–15% headroom.
-- **Monitoring/billing hygiene:** set budgets + alerts on the OpenAI key, the
-  Anthropic API (if used), and GitHub Actions; the corpus and S3 are cheap but
-  the inference and (private-repo) Actions bills are not self-limiting.
+> backlog (a future upgrade) — that adds storage plus a one-time embedding compute
+> pass, though CourtListener's bulk set ships ~2 TB of precomputed case-law
+> embeddings (free to use, ~$200 one-time S3 egress if downloaded), so prefer
+> reusing those over regenerating; size it when that lands.
 
 ## Monthly and yearly summary
 
 Fixed/baseline costs are small and predictable; the inference line is the
 variable that scope controls. Two reference points:
 
-### A. Pilot / low-volume (gated slice, API-metered)
+### A. Pilot / low-volume (gated slice, on-demand API)
 
 Development plus the **SCOTUS-interaction gate** at its entry point — the
-long-conference cert batch on the Batch API (see *The pilot slice* above).
+long-conference cert batch on the on-demand API (see *The pilot slice* above).
 Interactive development draws on the Max subscription; the automated predict/eval
-batch is API-metered (both engines).
+batch is API-metered (all three engines).
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
-| Claude Max 20x (interactive dev only) | $200 | $2,400 |
+| Claude Max 20x (interactive dev) | $200 | $2,400 |
 | Predict/eval inference — Claude + Codex + Gemini **API** (gated) | ~$150–750 | ~$1.8–9K |
-| CourtListener Tier 2 | $25 | $250 |
+| CourtListener Tier 2 (annual) | ~$21 | $250 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |
 | S3 / DVC | ~$5 | ~$60 |
-| **Total** | **≈ $380–1,030/mo** | **≈ $5–12K/yr** |
+| **Total** | **≈ $375–1,025/mo** | **≈ $4.5–12K/yr** |
 
 ### B. Full scope (all 14 courts, both engines, every event)
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
-| **Model inference (predict + evaluate, API-metered)** | **≈ $11K** | **≈ $132K** |
+| **Model inference (predict + evaluate, on-demand API)** | **≈ $11K** | **≈ $132K** |
 | CourtListener Tier 4 | $100 | $1,200 |
-| GitHub Actions (private repo; ~$0 if public) | ~$1–3K | ~$12–36K |
+| GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$50 | ~$600 |
 | S3 / DVC | ~$10 | ~$120 |
-| **Total** | **≈ $12–14K/mo** | **≈ $145K/yr** |
+| **Total** | **≈ $11.2K/mo** | **≈ $134K/yr** |
 
 The gap between A and B is almost entirely the prediction *slice* and the
 two-engine fan-out. The budget is governed by choosing where on that line to
-operate: start at **A** (the long-conference batch on the subscription), measure
-real per-run token cost (now done — ~$0.50/run, folded into the figures above),
-then open the **SCOTUS-interaction gate** to its steady state (~$17K/yr inference
-— roughly 1/8 of B) before deciding, with a
-year of cost data, whether to widen the gate toward full scope.
+operate: start at **A** (the long-conference batch on the on-demand API), measure
+real per-run token cost (≈$0.50/run, folded into the figures above), then open the
+**SCOTUS-interaction gate** to its steady state (≈$17K/yr inference — roughly 1/8
+of B) before deciding, with a year of cost data, whether to widen the gate toward
+full scope.
+
+## Possible future options
+
+Not in scope today, but sized here so the trade-offs are explicit when they come up:
+
+- **Batch API for non-latency-sensitive work.** ~50% off predict/evaluate on
+  eligible batches (the long conference, back-testing, bulk re-scoring). The
+  pipeline runs on-demand today; adopting batch for the cert batch alone would
+  roughly halve that entry-point cost.
+- **Widen the prediction gate** past SCOTUS-touched cases — e.g. a rotating sample
+  of appeals that never reach SCOTUS — once a year of cost data is in hand.
+- **Embeddings for semantic retrieval** over the full backlog: a one-time compute
+  pass plus ongoing storage (see driver #4), or reuse of CourtListener's shipped
+  case-law embeddings.
+- **Higher CourtListener tier (3–4 or commercial)** if the gate widens toward
+  keeping all fourteen courts current at the live frontier.

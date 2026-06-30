@@ -107,6 +107,36 @@ def test_predict_matrix_drops_out_of_scope_case_with_note(tmp_path: Path) -> Non
     assert "out of prediction scope" in result.stderr
 
 
+def test_predict_matrix_drops_pre_1925_mandatory_jurisdiction_case(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Both requested cases are SCOTUS-eligible, but 24002 carries a bare historical
+    # docket number — a pre-1925 mandatory-jurisdiction matter (issue #309) — whose
+    # disposition meaning the modern cert model does not fit, so it is dropped even
+    # though its latch is on.
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/24002",
+                    court="scotus",
+                    docket_number="801",
+                    predict_eligible=True,
+                )
+            ],
+        )
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
+    # The drop is explained on stderr, distinct from the out-of-scope note.
+    assert "24002" in result.stderr
+    assert "mandatory-jurisdiction" in result.stderr
+
+
 def test_predict_matrix_scope_all_keeps_every_case(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)

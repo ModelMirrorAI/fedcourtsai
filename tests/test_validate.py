@@ -4,21 +4,26 @@ import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
     CorpusValidation,
     Disposition,
     Engine,
     Evaluation,
     EventKind,
+    FlagCategory,
     Outcome,
     PredictableEvent,
     Prediction,
     SeedProgress,
+    UsageRole,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
@@ -287,7 +292,31 @@ def test_future_decided_date_fails(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is False
 
 
-def test_decided_before_filed_fails(tmp_path: Path) -> None:
+def test_decided_before_filed_within_baseline_passes(tmp_path: Path) -> None:
+    # A `date_decided < date_filed` row is a faithful upstream quirk (#171); within
+    # the accepted baseline the check passes but still records the true count, so the
+    # monitor can read it.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET date_filed = '2026-02-01', date_decided = '2026-01-01' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    check = next(c for c in verdict.checks if c.name == CHECK_CASE_DATES)
+    assert check.passed
+    assert check.failures == 1
+    assert verdict.ok
+
+
+def test_decided_before_filed_above_baseline_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A material climb above the accepted floor must still fail — the regression
+    # signal #171 relies on. Drop the baseline to 0 so a single bad row trips it.
+    monkeypatch.setattr("fedcourtsai.validate._CASE_DATE_ORDER_BASELINE", 0)
     db = tmp_path / "corpus.db"
     _seed_corpus(db)
     with corpus.connect(db) as conn:
@@ -298,9 +327,7 @@ def test_decided_before_filed_fails(tmp_path: Path) -> None:
         conn.commit()
     verdict = _run(db, tmp_path / "data")
     assert not verdict.ok
-    check = next(c for c in verdict.checks if c.name == CHECK_CASE_DATES)
-    assert not check.passed
-    assert check.failures == 1
+    assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is False
 
 
 def test_ordered_dates_pass(tmp_path: Path) -> None:
@@ -503,6 +530,36 @@ def test_validate_ledger_empty_tree_is_a_pass(tmp_path: Path) -> None:
     result = validate_ledger(tmp_path / "data")  # never created
     assert result.ok
     assert result.checked == 0
+
+
+def test_validate_ledger_checks_flags_file(tmp_path: Path) -> None:
+    # A committed flags.json is schema law like any other artifact: a good one passes.
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "ca9", 1).event("evt-motion-stay")
+    write_json(
+        ep.prediction_flags("p1", "r1"),
+        AgentFlags(
+            case_id="ca9/1",
+            run_id="r1",
+            role=UsageRole.predictor,
+            actor_id="p1",
+            flags=[AgentFlag(category=FlagCategory.data_quality, message="snapshot looks thin")],
+        ),
+    )
+    result = validate_ledger(data_root)
+    assert result.ok
+    assert result.checked == 1
+
+
+def test_validate_ledger_flags_malformed_flags_file(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "ca9", 1).event("evt-motion-stay")
+    flags = ep.prediction_flags("p1", "r1")
+    flags.parent.mkdir(parents=True)
+    flags.write_text('{"flags": []}\n')  # empty list violates min_length
+    result = validate_ledger(data_root)
+    assert not result.ok
+    assert result.invalid == 1
 
 
 # --- CLI ----------------------------------------------------------------------

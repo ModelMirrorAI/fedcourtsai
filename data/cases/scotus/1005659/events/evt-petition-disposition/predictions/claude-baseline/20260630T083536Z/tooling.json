@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/1005659",
+  "run_id": "20260630T083536Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "fedcourts paths resolved the case/event/snapshot paths cleanly.",
+    "fedcourts query let me pull SCOTUS priors by disposition without loading the bulk corpus."
+  ],
+  "gaps": [
+    "The snapshot is very thin (no docket entries, no dates, no nature-of-suit). A derived feature exposing whether a SCOTUS docket number falls on the paid vs. in-forma-pauperis/miscellaneous docket would directly support cert-grant base rates.",
+    "fedcourts query priors were dominated by old reporter-era opinions and lacked a clean per-category cert grant-rate aggregate; a base-rate summary by court+event kind would calibrate petition predictions better than per-case rows."
+  ],
+  "notes": "Predicted from the single provisioned snapshot only; no external case facts fetched.",
+  "schema_version": "1.0"
+}

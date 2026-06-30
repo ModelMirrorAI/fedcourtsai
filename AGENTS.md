@@ -30,11 +30,15 @@ non-interactive** container. Two consequences shape everything you do:
   you are blocked, under-specified, or need a decision, your only channel is to
   **leave it in writing where a maintainer will see it**, using whatever your run
   grants you: a comment on the PR you open (`gh pr comment`) or its description in
-  `run:dev`; your reasoning/notes doc (`reasoning.md` / `evaluation.md`) plus a
-  comment on the triggering issue (`gh issue comment`, via the scoped token the
-  workflow provides) in `run:predict` / `run:evaluate`; the run log otherwise.
-  Then make the most conservative reasonable choice and finish — never stall
-  waiting for a reply that cannot come.
+  `run:dev`; a structured **`flags.json`** note alongside your output in
+  `run:predict` / `run:evaluate` (the durable, triageable channel — the `collect`
+  job rolls every cell's flags into the run PR and the Actions summary, so the note
+  survives the trigger issue's closure; see the task prompt and the `AgentFlags`
+  schema), with your reasoning/notes doc (`reasoning.md` / `evaluation.md`) for the
+  full detail; the run log otherwise. A trigger-issue comment (`gh issue comment`,
+  via the scoped token) still works but is lost when the issue closes, so prefer
+  `flags.json`. Then make the most conservative reasonable choice and finish —
+  never stall waiting for a reply that cannot come.
 - **The runner is thrown away.** Its filesystem (and any caches, scratch files, or
   local "memory") is discarded when the job ends. Work survives **only if it is
   pushed off the runner** before you finish:

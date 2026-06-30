@@ -291,6 +291,45 @@ def test_latch_originating_is_idempotent_and_never_clears(tmp_path: Path) -> Non
     assert coa is not None and coa.predict_eligible is True
 
 
+def test_is_historical_mandatory_detects_bare_scotus_docket() -> None:
+    # A pre-1925 mandatory-jurisdiction matter (issue #309): the snapshot is sparse
+    # and every activity date is null, but the bare sequential docket number ("801",
+    # no Term-year prefix) gives it away.
+    row = corpus.CorpusRow(case_id="scotus/1001931", court="scotus", docket_number="801")
+    assert corpus.is_historical_mandatory(row) is True
+
+
+def test_is_historical_mandatory_keeps_modern_scotus_docket() -> None:
+    # A modern discretionary-cert docket carries a Term-year prefix, so it is in
+    # scope; an undated / unnumbered SCOTUS row is not assumed historical either.
+    modern = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="01-7700")
+    bare_application = corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="22A123")
+    unknown = corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="")
+    assert corpus.is_historical_mandatory(modern) is False
+    assert corpus.is_historical_mandatory(bare_application) is False
+    assert corpus.is_historical_mandatory(unknown) is False
+
+
+def test_is_historical_mandatory_uses_pre_1925_filing_date() -> None:
+    # A filing date before the Judiciary Act of 1925 corroborates the era on the
+    # rare row that carries one, even if the docket number looks modern.
+    pre = corpus.CorpusRow(
+        case_id="scotus/5", court="scotus", docket_number="No. 5", date_filed=date(1897, 4, 1)
+    )
+    post = corpus.CorpusRow(
+        case_id="scotus/6", court="scotus", docket_number="01-7700", date_filed=date(1999, 1, 1)
+    )
+    assert corpus.is_historical_mandatory(pre) is True
+    assert corpus.is_historical_mandatory(post) is False
+
+
+def test_is_historical_mandatory_only_applies_to_scotus() -> None:
+    # The regime is a Supreme Court concept; a bare-numbered lower-court docket is
+    # not swept up (and the gate only sees a case once it is SCOTUS-eligible anyway).
+    row = corpus.CorpusRow(case_id="ca9/801", court="ca9", docket_number="801")
+    assert corpus.is_historical_mandatory(row) is False
+
+
 def test_upsert_without_stamp_preserves_prior_last_pulled(tmp_path: Path) -> None:
     # A bulk re-ingest (no stamp) must not reset a timestamp a prior pull recorded,
     # else the governor would treat a freshly-refreshed case as never-pulled.

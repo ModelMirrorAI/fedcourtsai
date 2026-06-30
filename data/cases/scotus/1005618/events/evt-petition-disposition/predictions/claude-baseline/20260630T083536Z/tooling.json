@@ -1,0 +1,20 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1005618",
+  "gaps": [
+    "A base-rate prior surfaced from the corpus for SCOTUS original-jurisdiction / extraordinary-writ dispositions (distinct from the cert docket) would beat reasoning from memory and reduce cross-run variance.",
+    "A snapshot-derived flag distinguishing original-docket matters from certiorari petitions would make the strongest available signal explicit rather than inferred from the docket-number string."
+  ],
+  "helpful": [
+    "fedcourts paths to resolve the snapshot/event paths.",
+    "schemas/prediction.schema.json as the exact output contract.",
+    "Prior claude-baseline petition-disposition predictions as a calibration anchor."
+  ],
+  "role": "predictor",
+  "run_id": "20260630T083536Z",
+  "tools_used": [
+    "fedcourts paths"
+  ],
+  "used_corpus_query": false,
+  "notes": "Snapshot encodes no realized disposition (all disposition dates null, no docket entries) and no merits facts, so the call rests on the original-docket / ex parte structural signal and the extraordinary-writ base rate. Did not open the linked opinion cluster (that is the outcome under evaluation). Did not use the CourtListener MCP, to avoid pulling case-specific facts."
+}
