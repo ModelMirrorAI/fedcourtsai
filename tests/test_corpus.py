@@ -323,6 +323,13 @@ def test_is_historical_mandatory_uses_pre_1925_filing_date() -> None:
     assert corpus.is_historical_mandatory(post) is False
 
 
+def test_is_historical_mandatory_detects_labeled_bare_docket() -> None:
+    # Issue #343: "No. 123" is a bare sequential number behind a label; normalization
+    # strips the label so it reads as historical-mandatory like a raw "123" would.
+    row = corpus.CorpusRow(case_id="scotus/12", court="scotus", docket_number="No. 123")
+    assert corpus.is_historical_mandatory(row) is True
+
+
 def test_is_historical_mandatory_only_applies_to_scotus() -> None:
     # The regime is a Supreme Court concept; a bare-numbered lower-court docket is
     # not swept up (and the gate only sees a case once it is SCOTUS-eligible anyway).
@@ -334,6 +341,13 @@ def test_is_stale_unresolvable_detects_old_open_scotus_petition() -> None:
     # Issue #333: a modern-format docket from an old Term ("93-7515" -> OT1993),
     # still open in the corpus (no disposition, no decision date), is unresolvable.
     row = corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number="93-7515")
+    assert corpus.is_stale_unresolvable(row) is True
+
+
+def test_is_stale_unresolvable_detects_labeled_old_petition() -> None:
+    # Issue #343: the dominant historical format carries a `No.` label that the raw
+    # parser missed; normalization makes "No. 01-7700" read as OT2001 -> stale.
+    row = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="No. 01-7700")
     assert corpus.is_stale_unresolvable(row) is True
 
 
@@ -375,6 +389,9 @@ def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     assert corpus.scotus_term_year("24-101") == 2024
     assert corpus.scotus_term_year("801") is None
     assert corpus.scotus_term_year("22A123") is None
+    # Issue #343: the `No.` label (the dominant historical format) is normalized away.
+    assert corpus.scotus_term_year("No. 01-7700") == 2001
+    assert corpus.scotus_term_year("No. 93-7515") == 1993
 
 
 def test_is_date_inconsistent_flags_decided_before_filed() -> None:
