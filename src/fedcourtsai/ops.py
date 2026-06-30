@@ -23,6 +23,7 @@ from .schemas import (
     AgentToolingFeedback,
     BackfillCourt,
     BackfillProgress,
+    CorpusScopeAudit,
     CostEstimate,
     DataHealth,
     FlagsDigest,
@@ -334,6 +335,7 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
     tooling: Iterable[AgentToolingFeedback] = (),
     previous: OpsReport | None = None,
     data_health: DataHealth | None = None,
+    scope_audit: CorpusScopeAudit | None = None,
 ) -> OpsReport:
     """Assemble the full operational snapshot. ``generated_at`` is passed in (no clock).
 
@@ -341,8 +343,9 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
     backfill rate + ETA; without it those fields stay null. ``data_health`` is the
     data-validation verdict the dashboard presents alongside run health; it is
     surfaced as supplied (the wiring layer owns producing it), null when absent.
-    ``flags`` is the committed ``flags.json`` ledger the dashboard rolls into its
-    open-flags digest and ``tooling`` the committed ``tooling.json`` self-reports it
+    ``scope_audit`` is the predict-scope census (``corpus-scope-audit``), surfaced the
+    same way. ``flags`` is the committed ``flags.json`` ledger the dashboard rolls into
+    its open-flags digest and ``tooling`` the committed ``tooling.json`` self-reports it
     rolls into the tooling-feedback digest (each empty when none are committed).
     """
     run_list = list(runs)
@@ -357,6 +360,7 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
         data_health=data_health,
         flags=summarize_flags(flags),
         tooling=summarize_tooling(tooling),
+        scope_audit=scope_audit,
     )
 
 
@@ -428,6 +432,37 @@ def render_data_health(health: DataHealth) -> str:
         lines += ["", "_Monitored (within accepted baselines):_"]
         lines += [f"- {c.name}: {c.detail}" for c in monitored]
 
+    return "\n".join(lines) + "\n"
+
+
+def render_scope_audit(audit: CorpusScopeAudit) -> str:
+    """Render the predict-scope census: open events the scope excludes, by reason.
+
+    The dashboard window onto issue #343 / the seed reconcile: how many still-open
+    SCOTUS events the corpus carries that the predict scope drops, split into a
+    ``recoverable`` subset (a disposition signal — re-ingestible) and the bare rest.
+    """
+    lines = ["## Out-of-scope open events"]
+    if audit.skipped:
+        lines.append("- _skipped (no corpus pulled)_")
+        return "\n".join(lines) + "\n"
+    excluded = sum(e.open_events for e in audit.exclusions)
+    if not excluded:
+        lines.append(
+            f"- None — all {audit.scotus_open_events:,} open SCOTUS event(s) are in scope."
+        )
+        return "\n".join(lines) + "\n"
+    recoverable = sum(e.recoverable for e in audit.exclusions)
+    lines += [
+        f"**{excluded:,}** of {audit.scotus_open_events:,} open SCOTUS event(s) are out of "
+        f"scope — **{recoverable:,}** carry a disposition signal (re-ingestible), the rest are "
+        "bare. Candidates for the seed-side corpus reconcile (#343).",
+        "",
+        "| reason | cases | open events | recoverable |",
+        "|--------|------:|------------:|------------:|",
+    ]
+    for e in audit.exclusions:
+        lines.append(f"| {e.reason} | {e.cases:,} | {e.open_events:,} | {e.recoverable:,} |")
     return "\n".join(lines) + "\n"
 
 
@@ -579,5 +614,8 @@ def render_markdown(report: OpsReport) -> str:
 
     if report.data_health is not None:
         lines += ["", render_data_health(report.data_health).rstrip("\n")]
+
+    if report.scope_audit is not None:
+        lines += ["", render_scope_audit(report.scope_audit).rstrip("\n")]
 
     return "\n".join(lines) + "\n"

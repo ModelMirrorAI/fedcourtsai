@@ -675,6 +675,10 @@ class OpsReport(_Strict):
     tooling: ToolingDigest | None = Field(
         default=None, description="Agent tooling self-reports scanned from tooling.json under data/"
     )
+    scope_audit: CorpusScopeAudit | None = Field(
+        default=None,
+        description="Census of open events the predict scope excludes (#343), when available",
+    )
 
 
 class CourtProgress(_Strict):

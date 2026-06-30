@@ -67,6 +67,9 @@ jobs:
             if git show origin/ops-metrics:corpus-validation.json > corpus-validation.json 2>/dev/null; then
               prev_args+=(--corpus-validation corpus-validation.json)
             fi
+            if git show origin/ops-metrics:corpus-scope-audit.json > corpus-scope-audit.json 2>/dev/null; then
+              prev_args+=(--scope-audit corpus-scope-audit.json)
+            fi
           fi
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.

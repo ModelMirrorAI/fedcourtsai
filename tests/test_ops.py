@@ -11,6 +11,7 @@ from fedcourtsai.schemas import (
     AgentFlags,
     AgentToolingFeedback,
     CorpusCheck,
+    CorpusScopeAudit,
     CorpusValidation,
     CourtProgress,
     DataHealth,
@@ -20,6 +21,7 @@ from fedcourtsai.schemas import (
     LedgerValidation,
     ModelUsage,
     OpsReport,
+    ScopeExclusion,
     SeedProgress,
     UsageRole,
 )
@@ -297,6 +299,63 @@ def _failing() -> DataHealth:
             ],
         ),
     )
+
+
+def test_render_scope_audit_tabulates_exclusions_and_recoverable() -> None:
+    audit = CorpusScopeAudit(
+        skipped=False,
+        corpus_rows=1000,
+        scotus_open_events=50,
+        exclusions=[
+            ScopeExclusion(
+                reason="stale unresolvable old SCOTUS petition (#333)",
+                cases=32,
+                open_events=32,
+                recoverable=12,
+            ),
+            ScopeExclusion(
+                reason="pre-1925 mandatory-jurisdiction matter (#309)",
+                cases=15,
+                open_events=15,
+                recoverable=0,
+            ),
+        ],
+    )
+    md = ops.render_scope_audit(audit)
+    assert "## Out-of-scope open events" in md
+    assert "**47** of 50 open SCOTUS event(s) are out of scope" in md
+    assert "**12** carry a disposition signal" in md
+    assert "| stale unresolvable old SCOTUS petition (#333) | 32 | 32 | 12 |" in md
+
+
+def test_render_scope_audit_clean_and_skipped() -> None:
+    clean = ops.render_scope_audit(CorpusScopeAudit(scotus_open_events=12))
+    assert "all 12 open SCOTUS event(s) are in scope" in clean
+    skipped = ops.render_scope_audit(CorpusScopeAudit(skipped=True))
+    assert "skipped (no corpus pulled)" in skipped
+
+
+def test_render_markdown_includes_scope_audit_when_present() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-06-30T00:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(courts={}),
+        courts=[],
+        usage=[],
+        scope_audit=CorpusScopeAudit(
+            scotus_open_events=10,
+            exclusions=[
+                ScopeExclusion(
+                    reason="stale unresolvable old SCOTUS petition (#333)",
+                    cases=3,
+                    open_events=3,
+                    recoverable=1,
+                )
+            ],
+        ),
+    )
+    assert report.scope_audit is not None
+    assert "## Out-of-scope open events" in ops.render_markdown(report)
 
 
 def test_render_data_health_healthy_has_no_failure_table() -> None:
