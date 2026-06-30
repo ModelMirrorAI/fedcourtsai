@@ -16,7 +16,7 @@ from typing import Annotated
 
 import typer
 
-from . import corpus, dvc, ids
+from . import cleanup, corpus, dvc, ids
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
@@ -26,6 +26,7 @@ from .collect import (
     PathJailError,
     PrPlan,
     ReconcileCellStatus,
+    assert_cleanup_within_jail,
     assert_within_jail,
     collect_plan,
     parse_name_status,
@@ -1459,6 +1460,83 @@ def assert_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"path jail OK ({len(changes)} change(s))")
+
+
+@app.command("assert-cleanup-paths")
+def assert_cleanup_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+) -> None:
+    """Enforce the cleanup jail; exit non-zero (with ::error::) on any violation.
+
+    A run-cleanup PR may only *delete* files, and only under a
+    ``data/cases/**/events/*/predictions/`` subtree. The cleanup job runs this before
+    it commits, and CI runs it as a required status check on the PR, so a sweep that
+    removed code, a workflow, an ``event.yaml`` / ``outcome.json``, or any
+    non-prediction artifact cannot reach ``main`` without review.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_cleanup_within_jail(changes)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"cleanup jail OK ({len(changes)} deletion(s))")
+
+
+@app.command("cleanup-out-of-scope-predictions")
+def cleanup_out_of_scope_predictions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Delete the directories; omit for a dry-run that only lists."),
+    ] = False,
+    run_id: Annotated[
+        str, typer.Option(help="Run id for the review PR's branch name; defaults to now (UTC).")
+    ] = "",
+    issue: Annotated[
+        int, typer.Option(help="Trigger issue the PR closes on merge (0 = none).")
+    ] = 0,
+) -> None:
+    """Prune committed predictions for cases now out of predict scope (issues #320/#333).
+
+    Reads the corpus (must be ``dvc pull``'d) and the committed ``data/`` tree and
+    finds every ``…/predictions`` directory whose case an exclusion predicate drops —
+    pre-1925 mandatory jurisdiction (#309) or a stale unresolvable old SCOTUS petition
+    (#333); the event definition and any ``outcome.json`` stay, only the out-of-scope
+    predictions go. Prints a JSON summary
+    ``{"prunable":[{case_id,reason,paths}],"removed":<bool>,"pr":<branch/title/commit/body|null>}``;
+    with ``--apply`` it also removes the directories. The ``pr`` block (rendered here, not
+    in the workflow) is what the run-cleanup job commits and opens as a reviewed PR. Gating
+    on the real corpus row only — a case with predictions but no corpus row is left alone.
+    """
+    settings = get_settings()
+    corpus_db = corpus.corpus_db_path(settings.corpus_root)
+    if not corpus_db.exists():
+        typer.echo(
+            f"the corpus database is missing at {corpus_db}; provision it (dvc pull) "
+            "before running cleanup.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    prunable = cleanup.find_out_of_scope_predictions(settings.data_root, corpus_db)
+    if apply:
+        cleanup.remove(prunable, settings.data_root.parent)
+    pr = (
+        cleanup.render_cleanup_pr(prunable, run_id or ids.run_id(), issue or None)
+        if prunable
+        else None
+    )
+    typer.echo(
+        json.dumps(
+            {
+                "prunable": [case.model_dump() for case in prunable],
+                "removed": apply,
+                "pr": pr.model_dump() if pr is not None else None,
+            },
+            separators=(",", ":"),
+        )
+    )
 
 
 def _pr_plan_json(plan: PrPlan | None) -> dict[str, object] | None:

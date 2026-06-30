@@ -90,3 +90,33 @@ jobs:
           esac
           git diff --name-status "${BASE_SHA}...HEAD" > changes.txt
           uv run fedcourts assert-paths --name-status-file changes.txt
+
+  cleanup-paths:
+    # The destructive counterpart of `paths`: a run-cleanup branch may only *delete*
+    # files under a data/cases/**/events/*/predictions/ subtree. A no-op that passes
+    # for every other branch, so it is safe as a required status check on all PRs.
+    # The jail also runs producer-side in run-cleanup; this enforces it independently.
+    # Logic lives in the tested `assert-cleanup-paths` command; this step only runs git.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-env
+      - name: Enforce the cleanup jail on run-cleanup branches
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          case "$HEAD_REF" in
+            cleanup/*) ;;
+            *) echo "not a run-cleanup branch; cleanup jail not applicable"; exit 0 ;;
+          esac
+          git diff --name-status "${BASE_SHA}...HEAD" > changes.txt
+          uv run fedcourts assert-cleanup-paths --name-status-file changes.txt

@@ -23,6 +23,7 @@ live here as small pure functions the CLI wraps so the YAML only runs git/gh:
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 
@@ -30,6 +31,11 @@ from .finalize import FinalizeRole
 from .schemas import AgentFlags, FlagSeverity
 
 DATA_JAIL = "data/"
+
+# A run-cleanup PR may only delete files under a case event's predictions subtree:
+# data/cases/<court>/<docket>/events/<event>/predictions/<...>. The trailing slash
+# means the event.yaml / outcome.json one level up never match.
+_PREDICTIONS_JAIL = re.compile(r"^data/cases/[^/]+/[^/]+/events/[^/]+/predictions/")
 
 # The judgment noun each role's aggregated PR is about, for human-facing text.
 _JUDGMENT_NOUN = {FinalizeRole.predict: "prediction", FinalizeRole.evaluate: "evaluation"}
@@ -97,6 +103,32 @@ def assert_within_jail(changes: Iterable[PathChange], *, run_id: str | None = No
             violations.append(f"{change.path!r} is not under run id {run_id!r}")
     if violations:
         raise PathJailError("path jail rejected the change set:\n- " + "\n- ".join(violations))
+
+
+def assert_cleanup_within_jail(changes: Iterable[PathChange]) -> None:
+    """Raise :class:`PathJailError` unless every change *deletes* a prediction file.
+
+    The run-cleanup sweep is the mirror of the append-only writers: it only ever
+    removes already-merged predictions for out-of-scope cases, never adds or edits.
+    So every change must be a delete (status ``D``) of a file under a
+    ``data/cases/<court>/<docket>/events/<event>/predictions/`` subtree — anything
+    else (a non-delete status, a path outside that subtree, an ``event.yaml`` /
+    ``outcome.json`` one level up, code, a workflow) is a violation. CI enforces this
+    on the cleanup PR, so a sweep cannot reach ``main`` having touched anything but
+    out-of-scope prediction artifacts.
+    """
+    violations: list[str] = []
+    for change in changes:
+        if change.status != "D":
+            violations.append(
+                f"{change.path!r} has status {change.status!r}; cleanup PRs only delete files"
+            )
+        elif not _PREDICTIONS_JAIL.match(change.path):
+            violations.append(
+                f"{change.path!r} is not under a data/cases/**/events/*/predictions/ subtree"
+            )
+    if violations:
+        raise PathJailError("cleanup jail rejected the change set:\n- " + "\n- ".join(violations))
 
 
 @dataclass(frozen=True)

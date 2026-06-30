@@ -79,6 +79,13 @@ branch:
     every non-`*/run-*` branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
     the guarantee independently of the workflow that produced the branch.
+  - `cleanup-paths` is the destructive counterpart for `run-cleanup`. That sweep
+    *deletes* out-of-scope predictions, so it is the one branch the append-only
+    `paths` jail cannot cover; `cleanup-paths` instead requires every change on a
+    `cleanup/*` branch to be a **delete** under a `data/cases/**/events/*/predictions/`
+    subtree (the tested `fedcourts assert-cleanup-paths`). A `run-cleanup` PR is
+    **never auto-merged** — a maintainer reviews it — so this is review-time
+    defense-in-depth, also run producer-side in the sweep. No-op on other branches.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
   bypass — neither App.** This is what guarantees the predictions, outcomes,
   and evaluations under `data/` cannot be rewritten or dropped, even by a
