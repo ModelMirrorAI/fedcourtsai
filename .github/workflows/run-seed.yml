@@ -402,6 +402,50 @@ jobs:
                   gh("issue", "edit", issue, "--repo", repo, "--body", new)
           PY
 
+      # Reconcile predict scope on the now-current corpus (issue #343): latch the
+      # out-of-scope cases (pre-1925 #309, stale unresolvable #333, inconsistent dates
+      # #171) so `open_events` drops them at the source, and clear the latch on any
+      # back in scope. The decision is the tested `reconcile-scope` command; this only
+      # persists the result the way the backfill checkpoint does — push the blob, then
+      # commit the small pointer straight to the default branch under the shared
+      # corpus-write lock. Runs BEFORE the completion-PR step (which switches HEAD onto
+      # a `seed/…` branch) so the pointer lands on the default branch, and before the
+      # verdict so the published scope audit reflects the new state. NON-BLOCKING: a
+      # hiccup must not fail the seed; the completion PR re-bases off fresh origin and
+      # so still includes whatever pointer this lands.
+      - name: Reconcile predict scope (latch out-of-scope cases)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db.dvc ]; then
+            echo "no corpus pointer yet; skipping scope reconcile"; exit 0
+          fi
+          gh auth setup-git  # persist-credentials is false on checkout
+          uv run fedcourts reconcile-scope --apply
+          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+          # Reclaim the runner's local DVC cache (cache.type is copy) like the loop's
+          # checkpoint — the blob is already on the remote, so prune workspace-only.
+          uvx --from 'dvc[s3]' dvc gc --workspace --force
+          git add corpus/corpus.db.dvc
+          if git diff --cached --quiet; then
+            echo "Scope latch already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed(reconcile): latch out-of-scope cases (#343)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "::warning::pointer push rejected (branch advanced); retry ${attempt}"
+            sleep 3
+          done
+          echo "::error::could not push the scope-latch pointer after 3 attempts"
+          exit 1
+
       - name: Open the backfill-completion PR when the backlog is done
         env:
           GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
