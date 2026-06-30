@@ -1,0 +1,156 @@
+name: run-cleanup
+
+# Deterministic, corpus-informed cleanup of committed derived artifacts that the
+# append-only writers can never remove. Triggered by `run:cleanup` (label an issue)
+# or manually (workflow_dispatch). It `dvc pull`s the corpus read-only, runs a
+# tested `fedcourts cleanup` sweep, and opens a **reviewed** PR with the deletions.
+# Unlike predict/evaluate this is destructive, so it never auto-merges — a
+# maintainer always reviews the change set (CI also enforces the cleanup jail).
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      rule:
+        description: Which cleanup sweep to run.
+        type: choice
+        options:
+          - out-of-scope-predictions
+        default: out-of-scope-predictions
+
+permissions: {}
+
+concurrency:
+  group: run-cleanup-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    # The label path fires only for `run:cleanup`; a manual dispatch always runs
+    # (workflow_dispatch is already restricted to actors with write access).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'run:cleanup' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: runner
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to dvc pull the corpus
+    steps:
+      # A label on a public-repo issue form can be applied by anyone, so require the
+      # trigger to come from the pipeline App or a maintainer with write access; fail
+      # closed before any credential is minted. (Manual dispatch is already write-gated
+      # by GitHub, so it skips this.)
+      - name: Authorize the trigger (label from the pipeline App or a maintainer)
+        if: ${{ github.event_name == 'issues' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
+        run: |
+          set -euo pipefail
+          if [ "$SENDER_TYPE" = "Bot" ]; then
+            echo "Authorized ${ACTOR} (pipeline App handoff)."
+            exit 0
+          fi
+          perm=$(gh api "repos/${REPO}/collaborators/${ACTOR}/permission" \
+            --jq '.permission' 2>/dev/null || echo none)
+          case "$perm" in
+            admin | maintain | write) echo "Authorized ${ACTOR} (${perm} access)." ;;
+            *)
+              echo "::error::${ACTOR} lacks write access (permission: ${perm}); refusing to run." >&2
+              exit 1
+              ;;
+          esac
+
+      # The cleanup PR is opened with the dev App token. The dev App is not a
+      # branch-protection bypass actor, so the PR still faces the required `gate` and
+      # `cleanup-paths` checks, and it is never auto-merged — review is mandatory.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The sweep gates on the corpus (the real rows, not a proxy), so it must be on
+      # disk. Assume the read-only S3 role via OIDC and dvc pull it.
+      - name: Configure AWS credentials (DVC S3 remote, read-only)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+      - name: Pull the corpus
+        run: uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+
+      - name: Sweep and open a review PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          # Apply the sweep, capturing the JSON summary of what it removed. Today there
+          # is one rule; the workflow_dispatch `rule` input is the seam for more.
+          plan=$(uv run fedcourts cleanup-out-of-scope-predictions --apply)
+          count=$(jq '.prunable | length' <<<"$plan")
+          if [ "$count" -eq 0 ]; then
+            echo "No out-of-scope predictions to prune." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          branch="cleanup/out-of-scope-predictions-${GITHUB_RUN_ID}"
+          git checkout -q -b "$branch"
+          git add -A data/
+          # Enforce the cleanup jail producer-side (CI re-checks it): the sweep may
+          # only delete files under a predictions/ subtree. A violation is a bug in
+          # the rule, so fail the run rather than open a PR that touches anything else.
+          git diff --cached --name-status > changes.txt
+          uv run fedcourts assert-cleanup-paths --name-status-file changes.txt
+
+          # PR body: the per-case list the sweep removed, for the reviewer.
+          {
+            echo "Deterministic cleanup sweep: pruned merged predictions for cases now"
+            echo "out of predict scope (gated on the live corpus row, not a proxy)."
+            echo "The event definitions and any \`outcome.json\` are untouched."
+            echo
+            echo "| case | reason | dirs removed |"
+            echo "|------|--------|--------------|"
+            jq -r '.prunable[] | "| `\(.case_id)` | \(.reason) | \(.paths | length) |"' <<<"$plan"
+            echo
+            if [ -n "${ISSUE:-}" ] && [ "${ISSUE:-}" != "null" ]; then
+              echo "Closes #${ISSUE}."
+            fi
+            echo
+            echo "Review and merge — this PR is intentionally **not** auto-merged."
+          } > pr-body.md
+
+          git commit -q -m "cleanup: prune ${count} out-of-scope case(s)' predictions"
+          # Push with the app (write) token; blank any ambient extraheader so it authenticates.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${branch}"
+          url=$(gh pr create --base main --head "$branch" \
+            --title "cleanup: prune ${count} out-of-scope case(s)' predictions" \
+            --body-file pr-body.md)
+          echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"

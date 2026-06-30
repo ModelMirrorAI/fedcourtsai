@@ -12,6 +12,7 @@ stage.
 | `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
+| `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
