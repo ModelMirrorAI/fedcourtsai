@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -526,6 +526,24 @@ def is_stale_unresolvable(row: CorpusRow) -> bool:
     return term_year is not None and term_year < _STALE_TERM_CUTOFF_YEAR
 
 
+# Each (predicate, reason) the predict-scope gate excludes a case on — the single
+# source of truth shared by the matrix backstop (``cli._scope_filtered``), the
+# run-cleanup sweep (``cleanup``), and the scope audit (``validate.run_scope_audit``),
+# so an exclusion that lands here is enforced at every point.
+OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
+    (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter (#309)"),
+    (is_stale_unresolvable, "stale unresolvable old SCOTUS petition (#333)"),
+]
+
+
+def out_of_scope_reason(row: CorpusRow) -> str | None:
+    """The first exclusion reason matching ``row``, or ``None`` if it is in predict scope."""
+    for predicate, reason in OUT_OF_SCOPE_RULES:
+        if predicate(row):
+            return reason
+    return None
+
+
 def get_row(conn: sqlite3.Connection, case_id: str) -> CorpusRow | None:
     """Fetch a single case row, or ``None`` if it is not in the corpus."""
     cur = conn.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,))
@@ -834,6 +852,26 @@ def events_for_case(conn: sqlite3.Connection, case_id: str) -> list[CorpusEvent]
     """Predictable events defined for one case, in ``event_id`` order."""
     cur = conn.execute("SELECT * FROM events WHERE case_id = ? ORDER BY event_id", (case_id,))
     return [_event_from_record(record) for record in cur]
+
+
+def iter_open_events(
+    conn: sqlite3.Connection, *, court: str | None = None
+) -> Iterator[CorpusEvent]:
+    """Yield unresolved (``resolved = 0``) events in ``(case_id, event_id)`` order.
+
+    Optionally filtered to one ``court``. The corpus-wide complement of
+    :func:`events_for_case`, for read-only censuses (e.g. the predict-scope audit)
+    that must scan every still-open event rather than one case's.
+    """
+    clauses = ["resolved = 0"]
+    params: list[object] = []
+    if court is not None:
+        clauses.append("court = ?")
+        params.append(court)
+    where = " AND ".join(clauses)
+    cur = conn.execute(f"SELECT * FROM events WHERE {where} ORDER BY case_id, event_id", params)
+    for record in cur:
+        yield _event_from_record(record)
 
 
 def set_event_resolved(
