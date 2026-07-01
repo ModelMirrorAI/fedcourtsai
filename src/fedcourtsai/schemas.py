@@ -276,6 +276,11 @@ class AgentToolingFeedback(_Strict):
     used_corpus_query: bool = Field(
         description="Whether the cell used the fedcourts corpus-query CLI (query/open-events/etc.)"
     )
+    used_base_rates: bool = Field(
+        default=False,
+        description="Whether the cell used `fedcourts stats` for corpus base-rate context. "
+        "Optional (defaults False) so reports written before the tool existed still validate.",
+    )
     tools_used: list[str] = Field(
         default_factory=list,
         max_length=50,
@@ -755,7 +760,8 @@ class ToolingDigest(_Strict):
 
     A read-only roll-up of the committed :class:`AgentToolingFeedback` records so a
     maintainer can see, across runs, whether the corpus tooling earns its keep:
-    ``corpus_query_uses`` of ``reports`` cells used the query CLI, and ``helpful`` /
+    ``corpus_query_uses`` / ``base_rate_uses`` of ``reports`` cells used the query and
+    base-rate ``stats`` CLIs, and ``helpful`` /
     ``gaps`` are the most-mentioned abilities and missing tools (most common first,
     capped). ``recent`` keeps the latest few full reports for detail; like
     :class:`FlagsDigest` the aggregate counts always cover every committed report.
@@ -763,6 +769,9 @@ class ToolingDigest(_Strict):
 
     reports: int = Field(ge=0, description="Committed tooling.json reports scanned")
     corpus_query_uses: int = Field(ge=0, description="Reports that used the corpus-query CLI")
+    base_rate_uses: int = Field(
+        default=0, ge=0, description="Reports that used the base-rate `stats` CLI"
+    )
     helpful: list[ToolingCount] = Field(
         default_factory=list, description="Most-mentioned helpful abilities, most common first"
     )

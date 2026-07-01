@@ -513,6 +513,7 @@ def _tooling(
     helpful: list[str] | None = None,
     gaps: list[str] | None = None,
     actor: str = "p",
+    base_rates: bool = False,
 ) -> AgentToolingFeedback:
     return AgentToolingFeedback(
         case_id="ca9/1",
@@ -520,6 +521,7 @@ def _tooling(
         role=UsageRole.predictor,
         actor_id=actor,
         used_corpus_query=used,
+        used_base_rates=base_rates,
         helpful=helpful or [],
         gaps=gaps or [],
     )
@@ -527,13 +529,20 @@ def _tooling(
 
 def test_summarize_tooling_counts_corpus_use_and_ranks_items() -> None:
     reports = [
-        _tooling("20260101T000000Z", used=True, helpful=["query"], gaps=["a citation tool"]),
+        _tooling(
+            "20260101T000000Z",
+            used=True,
+            base_rates=True,
+            helpful=["query"],
+            gaps=["a citation tool"],
+        ),
         _tooling("20260102T000000Z", used=True, helpful=["query"], gaps=["docket diff"]),
         _tooling("20260103T000000Z", used=False, helpful=["MCP"], gaps=["a citation tool"]),
     ]
     digest = ops.summarize_tooling(reports, recent_limit=2)
     assert digest.reports == 3
     assert digest.corpus_query_uses == 2
+    assert digest.base_rate_uses == 1
     # Most-mentioned first: "query" (2) ahead of "MCP" (1); gaps the same way.
     assert [(c.label, c.count) for c in digest.helpful] == [("query", 2), ("MCP", 1)]
     assert digest.gaps[0].label == "a citation tool" and digest.gaps[0].count == 2
@@ -549,11 +558,15 @@ def test_summarize_tooling_empty_is_zero() -> None:
 def test_render_tooling_digest_shows_share_and_items() -> None:
     md = ops.render_tooling_digest(
         ops.summarize_tooling(
-            [_tooling("r1", used=True, helpful=["query"]), _tooling("r2", used=False, gaps=["x"])]
+            [
+                _tooling("r1", used=True, base_rates=True, helpful=["query"]),
+                _tooling("r2", used=False, gaps=["x"]),
+            ]
         )
     )
     assert "## Agent tooling feedback" in md
     assert "used by **1/2**" in md
+    assert "base-rate `stats` by **1/2**" in md
     assert "Most helpful" in md and "query" in md
     assert "Wished-for / missing" in md and "x" in md
 
