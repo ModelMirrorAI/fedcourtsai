@@ -91,6 +91,16 @@ class CourtListenerClient:
         """Fetch a single docket by CourtListener docket id."""
         return self._get(f"dockets/{docket_id}/")
 
+    def get_opinion_cluster(self, cluster_id: int) -> JsonDict:
+        """Fetch a single opinion cluster by CourtListener cluster id.
+
+        A docket's ``clusters`` field lists opinion-cluster URLs; the trailing id
+        is what this resolves. Read-only, like every method here — used by the
+        recoverability probe to follow a docket's linked cluster for its
+        ``disposition`` / ``precedential_status`` / citations.
+        """
+        return self._get(f"clusters/{cluster_id}/")
+
     def list_docket_entries(self, docket_id: int, page: int = 1) -> JsonDict:
         """List docket entries (the timeline of filings/orders) for a docket."""
         return self._get("docket-entries/", {"docket": docket_id, "page": page})
