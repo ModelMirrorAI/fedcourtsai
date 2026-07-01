@@ -594,30 +594,39 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
 # is tolerated; the letter is what a cert docket's ``YY-NNNN`` never carries.
 _SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+)\.?$")
 _SCOTUS_ORIGINAL_RE = re.compile(r"^\d{2}O\d+\.?$")
+# The spelled-out original-jurisdiction marker ("No. 155, Orig." / "155, Original."),
+# the text-form counterpart of the numeric `22O141` — a tell that a cert docket's
+# `YY-NNNN` never carries.
+_SCOTUS_ORIGINAL_TEXT_RE = re.compile(r"ORIG")
 
 
 def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is an application or original-jurisdiction matter (issue #362).
 
     A stay / emergency **application** (``22A123``, older ``A-9999``) and an
-    **original-jurisdiction** case (``22O141`` — e.g. a State-v-State dispute) are not
-    the discretionary-cert form the ``evt-petition-disposition`` model targets: an
+    **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
+    ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute) are not the
+    discretionary-cert form the ``evt-petition-disposition`` model targets: an
     application's disposition is a stay grant/deny and an original case's is a merits
     judgment, neither the cert grant/deny the model calibrates on. So predict scope
-    excludes them (as it does the pre-1925 mandatory-jurisdiction regime, #309),
-    keyed on the term letter that distinguishes the format from a cert docket's
-    ``YY-NNNN``. SCOTUS-only.
+    excludes them (as it does the pre-1925 mandatory-jurisdiction regime, #309), keyed
+    on the term letter or ``Orig`` marker that a cert docket's ``YY-NNNN`` never
+    carries. SCOTUS-only.
 
     Conservative — it matches on format alone, so it never catches a modern cert
-    petition (which carries a hyphen, not a letter). If application *stays* are later
-    modeled as their own motion events (issue #372), refine this to spare those rather
-    than the whole case; today an application docket carries only the mis-fit cert
-    baseline, so excluding the case loses nothing.
+    petition (which carries a hyphen, no letter and no ``Orig`` marker). If application
+    *stays* are later modeled as their own motion events (issue #372), refine this to
+    spare those rather than the whole case; today an application docket carries only the
+    mis-fit cert baseline, so excluding the case loses nothing.
     """
     if row.court != "scotus":
         return False
     dn = normalize_docket_number(row.docket_number) or ""
-    return bool(_SCOTUS_APPLICATION_RE.match(dn) or _SCOTUS_ORIGINAL_RE.match(dn))
+    return bool(
+        _SCOTUS_APPLICATION_RE.match(dn)
+        or _SCOTUS_ORIGINAL_RE.match(dn)
+        or _SCOTUS_ORIGINAL_TEXT_RE.search(dn)
+    )
 
 
 def is_date_inconsistent(row: CorpusRow) -> bool:

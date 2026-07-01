@@ -434,9 +434,21 @@ def test_is_published_opinion_unresolvable_keeps_resolved_or_dated_or_non_scotus
 
 def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction() -> None:
     # Issue #362: a stay/emergency application ("22A123", older "A-9999") and an
-    # original-jurisdiction case ("22O141") are not discretionary cert, so the
-    # evt-petition-disposition model does not fit them — excluded by docket format.
-    for number in ("22A123", "24A99", "A-9999", "No. A-999", "No. 22A99.", "22O141"):
+    # original-jurisdiction case — numeric "22O141" or the spelled-out "No. 155, Orig."
+    # / "155, Original." text form — are not discretionary cert, so the
+    # evt-petition-disposition model does not fit them; excluded by docket format.
+    non_cert = (
+        "22A123",
+        "24A99",
+        "A-9999",
+        "No. A-999",
+        "No. 22A99.",
+        "22O141",
+        "No. 155, Orig.",
+        "155, Original.",
+        "Orig. 155",
+    )
+    for number in non_cert:
         row = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number=number)
         assert corpus.is_non_cert_scotus_form(row) is True, number
 
