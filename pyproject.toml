@@ -11,7 +11,7 @@ dependencies = [
     "pydantic>=2.11",
     "pydantic-settings>=2.7",
     "pyyaml>=6.0",
-    "typer>=0.15",
+    "typer>=0.26.8",
     "tenacity>=9.0",
     "python-dateutil>=2.9",
 ]
@@ -21,7 +21,7 @@ fedcourts = "fedcourtsai.cli:app"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.9",
+    "ruff>=0.15.20",
     "mypy>=1.15",
     "pytest>=8.3",
     "pytest-cov>=6.0",
