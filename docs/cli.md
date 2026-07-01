@@ -45,6 +45,7 @@ Read-only views, run after a `dvc pull` provisions the corpus.
 |---------|---------|-----------|
 | `corpus-info` | Show the packed corpus location, row count, and snapshot count. | — |
 | `query` | Retrieve relevant priors for a predictor, most relevant first, one JSON row per line. | `--court`, `--topic`, `--judge`, `--citation`, `--disposition`, `--include-open`, `--limit`, `--full` |
+| `stats` | Aggregate disposition **base-rates** over the corpus — the aggregate counterpart of `query`. Rolls the matched set into overall base-rates and, with `--group-by`, a per-group breakdown (court / topic / judge / SCOTUS `term_year` / disposition). Shares the `query` filter grammar plus a `--date-from`/`--date-to` filed-date window. Emits an `AnalyticsReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file. Skips gracefully (exit 0) when the corpus is absent. | `--court`, `--topic`, `--judge`, `--citation`, `--disposition`, `--date-from`, `--date-to`, `--resolved-only`, `--group-by`, `--summary-out` |
 | `open-events` | Print a case's unresolved (predictable) event ids, one per line. | `--court`, `--docket` |
 | `provision-snapshot` | Materialize a case's latest corpus snapshot to disk for an agent run. | `--court`, `--docket`, `--out` |
 | `materialize-event` | Project a predictable event's `event.yaml` from the corpus into the git ledger. | `--court`, `--docket`, `--event`, `--out` |
@@ -67,7 +68,7 @@ Measurements a maintainer runs to answer a build question, writing nothing.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a seed/pull backfill can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary). Needs a REST token, so it is dispatched by the `run-probe` workflow. | `--dockets`, `--summary-out` |
+| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a seed/pull backfill can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary). Needs a REST token, so it is dispatched by the `run-analytics` workflow (recoverability mode). | `--dockets`, `--summary-out` |
 
 `--dockets` takes one or more `court/docket` pairs, repeated and/or comma-separated
 (e.g. `--dockets scotus/1000512,scotus/1000515`).

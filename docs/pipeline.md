@@ -14,7 +14,7 @@ stage.
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
-| _(none)_        | `run-probe`      | manual dispatch only                | script (no agent)    |
+| _(none)_        | `run-analytics`  | manual dispatch only                | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics — pipeline health (the Actions run history), backfill
@@ -34,16 +34,20 @@ renders it as a **data-health** section and escalates a failing verdict to one
 long-lived issue — so the dashboard surfaces both run-health and data-health while
 staying a read-only presenter that never touches the corpus.
 
-`run-probe` is a manual, dispatch-only **diagnostic**, also outside
-the cascade. It runs `fedcourts probe-recoverability` to answer whether a sparse
-historical SCOTUS petition's disposition is actually recoverable from CourtListener
-(an ingestion gap a seed/pull backfill can close) or genuinely absent upstream — the
-question that decides whether such cases stay in scope. It exists as its own
-workflow purely because the CourtListener REST token lives in the runner secrets,
-not in `run-dev`; it is strictly **read-only** (least-privilege `contents: read`, no
-`id-token`, no App token) and writes its per-docket RECOVERABLE / ABSENT / AMBIGUOUS
-classification only to the Actions step summary and the run log — never the corpus,
-`data/`, DVC, or git, and it opens no PR or issue.
+`run-analytics` is a manual, dispatch-only **read-only analysis** surface, also
+outside the cascade, selected by a `mode` input. In `corpus-stats` mode it assumes
+the read-only S3 role, `dvc pull`s the corpus, and runs `fedcourts stats` to
+aggregate disposition base-rates (overall or grouped by court / topic / judge /
+SCOTUS Term / disposition). In `recoverability` mode it runs
+`fedcourts probe-recoverability` to answer whether a sparse historical SCOTUS
+petition's disposition is actually recoverable from CourtListener (an ingestion gap
+a seed/pull backfill can close) or genuinely absent upstream — the question that
+decides whether such cases stay in scope. The two modes have different credential
+needs (the S3 role vs the CourtListener REST token), so each runs as its own
+least-privilege job gated on `mode`, and neither is granted the other's credential.
+Both are strictly **read-only** and write their result only to the Actions step
+summary and the run log — never the corpus, `data/`, DVC, or git, and neither opens a
+PR or issue.
 
 **seed** loads the historical backlog from CourtListener **bulk data** — chunked
 catch-up while backfilling, then a weekly snapshot-id check that reconciles when a

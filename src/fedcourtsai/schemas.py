@@ -47,6 +47,22 @@ class EventKind(StrEnum):
     order = "order"
 
 
+class GroupBy(StrEnum):
+    """A dimension the ``stats`` aggregation buckets base-rates by.
+
+    ``judge`` is multi-valued — a case with a three-judge panel lands in each
+    judge's bucket — so grouped case counts can exceed the ungrouped total; every
+    other dimension is single-valued. ``term_year`` reads the October-Term year
+    from a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).
+    """
+
+    court = "court"
+    topic = "topic"
+    judge = "judge"
+    term_year = "term_year"
+    disposition = "disposition"
+
+
 class UsageRole(StrEnum):
     """Which agentic stage a usage record belongs to."""
 
@@ -587,6 +603,67 @@ class CorpusScopeAudit(_Strict):
     )
 
 
+class DispositionShare(_Strict):
+    """One realized outcome's count and share of the resolved cases in a slice.
+
+    ``share`` is ``count / resolved`` — the base rate for that disposition among the
+    *decided* cases in the bucket (open cases carry no label, so they are excluded
+    from the denominator). A bucket with no resolved cases carries no shares.
+    """
+
+    disposition: Disposition
+    count: int = Field(ge=0, description="Resolved cases carrying this disposition")
+    share: float = Field(
+        ge=0.0, le=1.0, description="count / resolved — the base rate among decided cases"
+    )
+
+
+class BaseRateBucket(_Strict):
+    """Disposition base-rates over one slice of the corpus (the whole set, or a group).
+
+    Used both for the overall filtered set (``key`` empty) and for each value of the
+    ``group_by`` dimension. ``cases`` counts every matched case in the slice,
+    ``resolved`` those carrying a realized disposition, and ``open`` the remainder;
+    ``dispositions`` is the base-rate breakdown over the resolved subset, most common
+    first (ties broken by disposition for a deterministic order).
+    """
+
+    key: str = Field(default="", description="The group value (court id, topic, …); empty overall")
+    cases: int = Field(default=0, ge=0, description="Matched cases in this slice")
+    resolved: int = Field(default=0, ge=0, description="Matched cases carrying a disposition")
+    open: int = Field(default=0, ge=0, description="Matched cases still unresolved")
+    dispositions: list[DispositionShare] = Field(
+        default_factory=list, description="Base-rate breakdown over the resolved cases"
+    )
+
+
+class AnalyticsReport(_Strict):
+    """``fedcourts stats`` verdict: aggregate disposition base-rates over the corpus.
+
+    A read-only roll-up of the corpus rows matching a structured query into base-rates
+    — the aggregate counterpart of the per-case priors ``fedcourts query`` returns. A
+    pure function of the corpus (no clock, no network), so it carries no timestamp and
+    reruns over an unchanged corpus reproduce it byte for byte. ``total`` is the base
+    rate over the whole matched set; when a ``group_by`` dimension is given, ``buckets``
+    breaks it down per group value (most cases first). ``skipped`` is set (with an empty
+    ``total``) when the corpus is absent, so it is safe to call before a ``dvc pull``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    skipped: bool = Field(
+        default=False, description="True when no corpus was present; nothing was aggregated"
+    )
+    group_by: GroupBy | None = Field(
+        default=None, description="The dimension buckets break down by; None for the total only"
+    )
+    total: BaseRateBucket = Field(
+        default_factory=BaseRateBucket, description="Base rate over the whole matched set"
+    )
+    buckets: list[BaseRateBucket] = Field(
+        default_factory=list, description="Per-group base-rate breakdown, most cases first"
+    )
+
+
 class ScopeReconcileResult(_Strict):
     """``reconcile-scope`` result: what the seed scope reconcile changed (issue #343).
 
@@ -827,6 +904,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
+    "analytics_report": AnalyticsReport,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
 }
