@@ -34,8 +34,10 @@ pull:
   # Reserve up to this many of each run's slots for the stalest predict-eligible
   # (SCOTUS-touched) cases, so the pilot set rotates ahead of the much larger
   # general active set and new docket activity is caught before a case resolves.
-  # Unused slots fall through to the normal rotation, so it never wastes budget.
-  eligible_refresh_reserve: 10
+  # Unused slots fall through to the normal rotation, so it never wastes budget —
+  # a large reserve is safe: it only bites when the eligible-open pool is big
+  # enough to fill it, which is exactly when the pilot should get priority.
+  eligible_refresh_reserve: 20
   # Discover newly-filed dockets in the tracked courts since the last run.
   discover_new_filings: true
   # Hard cap on new dockets onboarded per discovery run (its own slice of the
@@ -53,8 +55,10 @@ predict:
   #   all            — no gate: every changed case with open events is in-scope;
   #                    keep for dev / unrestricted back-testing.
   scope: scotus_touched
-  # Hard cap on concurrent predictor matrix jobs.
-  max_parallel: 4
+  # Hard cap on concurrent predictor matrix jobs. The enforced value is the
+  # `strategy.max-parallel` literal in run-predict/run-evaluate/run-reconcile;
+  # keep this in step with it (nothing reads this key today — it documents intent).
+  max_parallel: 6
   # Skip events already resolved (an outcome.json exists).
   skip_resolved: true
 
