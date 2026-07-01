@@ -232,7 +232,8 @@ def summarize_tooling(
 ) -> ToolingDigest:
     """Roll committed ``tooling.json`` self-reports into the dashboard's tooling digest.
 
-    ``corpus_query_uses`` of ``reports`` cells used the query CLI; ``helpful`` /
+    ``corpus_query_uses`` / ``base_rate_uses`` of ``reports`` cells used the query and
+    base-rate ``stats`` CLIs; ``helpful`` /
     ``gaps`` rank the most-mentioned abilities and missing tools across every report;
     ``recent`` keeps the latest few full reports (by run id, newest first) for detail.
     """
@@ -243,6 +244,7 @@ def summarize_tooling(
     return ToolingDigest(
         reports=len(items),
         corpus_query_uses=sum(1 for r in items if r.used_corpus_query),
+        base_rate_uses=sum(1 for r in items if r.used_base_rates),
         helpful=_rank_items((h for r in items for h in r.helpful), limit=items_limit),
         gaps=_rank_items((g for r in items for g in r.gaps), limit=items_limit),
         recent=recent,
@@ -531,17 +533,20 @@ def _tooling_item_line(item: ToolingCount) -> str:
 def render_tooling_digest(digest: ToolingDigest) -> str:
     """Render the dashboard's agent tooling-feedback section from the digest.
 
-    Leads with how many cells used the corpus-query CLI, then the most-mentioned
-    helpful abilities and missing tools — the across-runs signal on whether the
-    tooling earns its keep and where to invest. An empty ledger gets a one-line note.
+    Leads with how many cells used the corpus-query and base-rate CLIs, then the
+    most-mentioned helpful abilities and missing tools — the across-runs signal on
+    whether the tooling earns its keep and where to invest. An empty ledger gets a
+    one-line note.
     """
     if digest.reports == 0:
         return "## Agent tooling feedback\n\n_No tooling reports on record._\n"
-    share = f"{digest.corpus_query_uses}/{digest.reports}"
+    query_share = f"{digest.corpus_query_uses}/{digest.reports}"
+    base_rate_share = f"{digest.base_rate_uses}/{digest.reports}"
     lines = [
         "## Agent tooling feedback",
         "",
-        f"**{digest.reports}** self-report(s) — corpus-query CLI used by **{share}**. "
+        f"**{digest.reports}** self-report(s) — corpus-query CLI used by **{query_share}**, "
+        f"base-rate `stats` by **{base_rate_share}**. "
         "What agents say helped and what they wished they had.",
     ]
     if digest.helpful:

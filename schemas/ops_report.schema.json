@@ -154,6 +154,12 @@
           "title": "Tools Used",
           "type": "array"
         },
+        "used_base_rates": {
+          "default": false,
+          "description": "Whether the cell used `fedcourts stats` for corpus base-rate context. Optional (defaults False) so reports written before the tool existed still validate.",
+          "title": "Used Base Rates",
+          "type": "boolean"
+        },
         "used_corpus_query": {
           "description": "Whether the cell used the fedcourts corpus-query CLI (query/open-events/etc.)",
           "title": "Used Corpus Query",
@@ -883,8 +889,15 @@
     },
     "ToolingDigest": {
       "additionalProperties": false,
-      "description": "Agent tooling self-reports (`tooling.json`) rolled up for the run-ops dashboard.\n\nA read-only roll-up of the committed :class:`AgentToolingFeedback` records so a\nmaintainer can see, across runs, whether the corpus tooling earns its keep:\n``corpus_query_uses`` of ``reports`` cells used the query CLI, and ``helpful`` /\n``gaps`` are the most-mentioned abilities and missing tools (most common first,\ncapped). ``recent`` keeps the latest few full reports for detail; like\n:class:`FlagsDigest` the aggregate counts always cover every committed report.",
+      "description": "Agent tooling self-reports (`tooling.json`) rolled up for the run-ops dashboard.\n\nA read-only roll-up of the committed :class:`AgentToolingFeedback` records so a\nmaintainer can see, across runs, whether the corpus tooling earns its keep:\n``corpus_query_uses`` / ``base_rate_uses`` of ``reports`` cells used the query and\nbase-rate ``stats`` CLIs, and ``helpful`` /\n``gaps`` are the most-mentioned abilities and missing tools (most common first,\ncapped). ``recent`` keeps the latest few full reports for detail; like\n:class:`FlagsDigest` the aggregate counts always cover every committed report.",
       "properties": {
+        "base_rate_uses": {
+          "default": 0,
+          "description": "Reports that used the base-rate `stats` CLI",
+          "minimum": 0,
+          "title": "Base Rate Uses",
+          "type": "integer"
+        },
         "corpus_query_uses": {
           "description": "Reports that used the corpus-query CLI",
           "minimum": 0,

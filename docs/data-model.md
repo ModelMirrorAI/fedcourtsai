@@ -74,14 +74,15 @@ A sibling channel, `tooling.json` (an `AgentToolingFeedback`, schema
 `schemas/agent_tooling.schema.json`), is **solicited every run** rather than
 written only on a problem: every predict/evaluate/reconcile cell is invited to file
 a short self-report on its *environment and tooling* — `used_corpus_query` (did it
-use the `fedcourts` corpus-query CLI, e.g. `query` / `open-events`), `tools_used`,
-`helpful` abilities, `gaps` (missing or wished-for tools), and optional `notes`. It
+use the `fedcourts` corpus-query CLI, e.g. `query` / `open-events`), `used_base_rates`
+(did it use the `stats` base-rate CLI), `tools_used`, `helpful` abilities, `gaps`
+(missing or wished-for tools), and optional `notes`. It
 lives alongside the cell's other output (`predictions/<predictor>/<run>/tooling.json`,
 `evaluations/<evaluator>/<run>/tooling.json`, `reconcile/<run>/tooling.json`) and is
 committed with that output like `usage.json`, **not** rolled into the per-run
 PR/issue. Instead the `run-ops` dashboard scans committed `tooling.json` into an
-**agent tooling feedback** digest — how many reports used the corpus-query CLI and
-the most-mentioned `helpful` abilities and `gaps`. It is subjective and advisory,
+**agent tooling feedback** digest — how many reports used the corpus-query and
+base-rate CLIs and the most-mentioned `helpful` abilities and `gaps`. It is subjective and advisory,
 and never gates anything.
 
 The raw facts an event is predicted from — its docket, the snapshot, the event

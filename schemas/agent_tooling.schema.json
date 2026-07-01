@@ -78,6 +78,12 @@
       "title": "Tools Used",
       "type": "array"
     },
+    "used_base_rates": {
+      "default": false,
+      "description": "Whether the cell used `fedcourts stats` for corpus base-rate context. Optional (defaults False) so reports written before the tool existed still validate.",
+      "title": "Used Base Rates",
+      "type": "boolean"
+    },
     "used_corpus_query": {
       "description": "Whether the cell used the fedcourts corpus-query CLI (query/open-events/etc.)",
       "title": "Used Corpus Query",

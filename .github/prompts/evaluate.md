@@ -83,9 +83,10 @@ Also write **one** brief `tooling.json` for this cell every run, at
 `AgentToolingFeedback` model). A short self-report on the **tooling** you were
 given, so maintainers can see across runs what helps: set `case_id`, `run_id`,
 `role` = `evaluator`, `actor_id` = `$EVALUATOR_ID`, `used_corpus_query` (did you use
-`fedcourts query` / `open-events` to consult the corpus?), and the optional lists
-`tools_used`, `helpful`, `gaps` (tools/abilities you wished you had), and `notes`.
-Be candid — it is advisory and never graded.
+`fedcourts query` / `open-events` to consult the corpus?), `used_base_rates` (did you
+use `fedcourts stats` for base-rate context?), and the optional lists `tools_used`,
+`helpful`, `gaps` (tools/abilities you wished you had), and `notes`. Be candid — it is
+advisory and never graded.
 
 ## Rules
 
