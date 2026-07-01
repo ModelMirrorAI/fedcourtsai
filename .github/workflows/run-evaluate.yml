@@ -130,7 +130,7 @@ jobs:
       id-token: write # assume the AWS role for the DVC S3 remote (read-only)
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 6
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
       - name: Mint agent comment token

@@ -229,7 +229,7 @@ The realistic runner-minute footprint, free at every level:
   depending on SCOTUS activity.
 - **September long-conference burst:** ~2,000 petitions × 3 engines is a one-time
   spike of **tens of thousands** of runner-minutes around the conference
-  (`max_parallel: 4` bounds concurrency, not the total).
+  (`max_parallel: 6` bounds concurrency, not the total).
 
 > **Line item: ≈ $0/mo** for Actions. It only turns non-zero if a job is pinned to
 > a **larger runner** (4-core+), which bills per-minute even on a public repo
