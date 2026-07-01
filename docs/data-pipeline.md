@@ -36,13 +36,16 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predict/evaluate set — its `evt-petition-disposition` carries a merits, not a
   discretionary-cert, meaning, so the modern event model does not fit it
   (`corpus.is_historical_mandatory`). Ingestion still covers it; only prediction
-  is gated. Three sibling narrowings drop other cases the modern cert model cannot
+  is gated. Sibling narrowings drop other cases the modern cert model cannot
   score: a **stale, still-open petition** from a long-past October Term
   (`corpus.is_stale_unresolvable`); one whose only outcome signal is a **published
   opinion with no machine-readable disposition** — decided, but the outcome lives
   only in the opinion text and is a merits, not a cert, label
-  (`corpus.is_published_opinion_unresolvable`); and a court-agnostic guard for a case
-  with **internally inconsistent dates** (`corpus.is_date_inconsistent`). Each gates
+  (`corpus.is_published_opinion_unresolvable`); a **stay/emergency application**
+  (`22A123`) or **original-jurisdiction** matter (`22O141`), whose disposition is a
+  stay or merits ruling rather than a cert grant/deny
+  (`corpus.is_non_cert_scotus_form`); and a court-agnostic guard for a case with
+  **internally inconsistent dates** (`corpus.is_date_inconsistent`). Each gates
   prediction only, never ingestion, and the two-directional scope reconcile releases
   any case that later gains a real disposition.
 

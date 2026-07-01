@@ -432,6 +432,30 @@ def test_is_published_opinion_unresolvable_keeps_resolved_or_dated_or_non_scotus
     assert corpus.is_published_opinion_unresolvable(lower) is False
 
 
+def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction() -> None:
+    # Issue #362: a stay/emergency application ("22A123", older "A-9999") and an
+    # original-jurisdiction case ("22O141") are not discretionary cert, so the
+    # evt-petition-disposition model does not fit them — excluded by docket format.
+    for number in ("22A123", "24A99", "A-9999", "No. A-999", "No. 22A99.", "22O141"):
+        row = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number=number)
+        assert corpus.is_non_cert_scotus_form(row) is True, number
+
+
+def test_is_non_cert_scotus_form_keeps_cert_dockets_and_non_scotus() -> None:
+    # A modern cert docket carries a hyphen, not a term letter, so it is never caught;
+    # a bare or blank number falls to the other predicates; the rule is SCOTUS-only.
+    cert = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="24-101")
+    labeled_cert = corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="No. 93-7515")
+    bare = corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="801")
+    blank = corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="")
+    lower = corpus.CorpusRow(case_id="ca9/6", court="ca9", docket_number="22A123")
+    assert corpus.is_non_cert_scotus_form(cert) is False
+    assert corpus.is_non_cert_scotus_form(labeled_cert) is False
+    assert corpus.is_non_cert_scotus_form(bare) is False
+    assert corpus.is_non_cert_scotus_form(blank) is False
+    assert corpus.is_non_cert_scotus_form(lower) is False
+
+
 def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     assert corpus.scotus_term_year("01-7700") == 2001
     assert corpus.scotus_term_year("93-7515") == 1993
