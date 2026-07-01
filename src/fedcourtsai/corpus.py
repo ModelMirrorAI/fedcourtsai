@@ -560,7 +560,7 @@ def is_stale_unresolvable(row: CorpusRow) -> bool:
 def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
     """Whether a still-open SCOTUS row's disposition lives only in an opinion (issue #363).
 
-    The recoverability probe (`run-probe`) found these historical
+    The recoverability probe (`run-analytics`, recoverability mode) found these historical
     ``evt-petition-disposition`` cases carry a **linked published opinion** (a reporter
     citation / non-zero ``citation_count`` / ``opinion_text``) but **no machine-readable
     disposition** on either the docket or the cluster and no docket entries. The outcome

@@ -1,0 +1,149 @@
+name: run-analytics
+
+# Manual, READ-ONLY corpus analysis. One dispatch surface for on-demand,
+# non-destructive questions about the corpus, selected by `mode`:
+#
+#   - corpus-stats:    aggregate disposition base-rates over the packed corpus
+#                      (`fedcourts stats`) — the "what's the grant rate for X"
+#                      question. Reads the corpus read-only via a `dvc pull`.
+#   - recoverability:  for sparse historical SCOTUS `evt-petition-disposition`
+#                      cases, is the disposition recoverable from CourtListener
+#                      (an ingestion gap) or genuinely absent? (`probe-recoverability`,
+#                      REST-only.)
+#
+# Both modes are strictly read-only: neither writes the corpus, `data/`, DVC, or git,
+# opens a PR, or files an issue — every result goes to the Actions step summary and the
+# run log. The two modes have different privilege needs (corpus-stats assumes the
+# read-only S3 role to pull the corpus; recoverability holds the CourtListener REST
+# token), so each runs as its own least-privilege job gated on `mode` — neither is ever
+# granted the other's credential.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Which read-only analysis to run.
+        type: choice
+        options:
+          - corpus-stats
+          - recoverability
+        default: corpus-stats
+      # corpus-stats inputs (ignored by the recoverability mode). All are optional; an
+      # empty value means "no filter" / "no grouping".
+      court:
+        description: "corpus-stats: restrict to one court id (e.g. scotus). Empty = all courts."
+        type: string
+        default: ""
+      topic:
+        description: "corpus-stats: restrict to one exact nature-of-suit / topic. Empty = all."
+        type: string
+        default: ""
+      disposition:
+        description: "corpus-stats: restrict to one realized outcome label (e.g. granted). Empty = all."
+        type: string
+        default: ""
+      group_by:
+        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition. Empty = overall only."
+        type: string
+        default: ""
+      # recoverability input (ignored by corpus-stats).
+      dockets:
+        description: "recoverability: court/docket pairs to probe (comma-separated)."
+        type: string
+        default: "scotus/1000512,scotus/1000515,scotus/1002339,scotus/1003943"
+
+# Least privilege by default; each job widens only to what its mode needs.
+permissions: {}
+
+concurrency:
+  group: run-analytics
+  cancel-in-progress: true
+
+jobs:
+  corpus-stats:
+    if: ${{ inputs.mode == 'corpus-stats' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: runner
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to dvc pull the corpus
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The base-rates read the corpus (the real rows), so it must be on disk. Assume
+      # the read-only S3 role via OIDC and dvc pull it — the same wiring run-cleanup
+      # uses. No contents:write, no App token: this job cannot touch git or the corpus.
+      - name: Configure AWS credentials (DVC S3 remote, read-only)
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+      - name: Pull the corpus
+        run: uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+
+      - name: Aggregate corpus base-rates
+        env:
+          # Every filter is passed through the environment (never interpolated into the
+          # shell) so a maintainer-supplied value cannot inject commands; the CLI reads
+          # each as one argument and treats an empty value as "no filter" / "no grouping".
+          COURT: ${{ inputs.court }}
+          TOPIC: ${{ inputs.topic }}
+          DISPOSITION: ${{ inputs.disposition }}
+          GROUP_BY: ${{ inputs.group_by }}
+        run: |
+          set -euo pipefail
+          # Prints the machine AnalyticsReport JSON to stdout (the run log) and appends
+          # the Markdown summary to the step summary. Writes nothing else.
+          uv run fedcourts stats \
+            --court "$COURT" \
+            --topic "$TOPIC" \
+            --disposition "$DISPOSITION" \
+            --group-by "$GROUP_BY" \
+            --summary-out "$GITHUB_STEP_SUMMARY"
+
+  recoverability:
+    if: ${{ inputs.mode == 'recoverability' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: runner
+    # Least privilege: read the code to run the CLI, nothing more. No id-token (no AWS /
+    # DVC), no App token, no contents:write — the probe cannot touch the corpus or git.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Probe recoverability
+        env:
+          # The dockets input is passed through the environment (never interpolated
+          # into the shell) so a maintainer-supplied value cannot inject commands;
+          # the CLI reads it as a single `--dockets` argument.
+          DOCKETS: ${{ inputs.dockets }}
+          # Read-only REST access to CourtListener. Same token + rate-limit wiring as
+          # run-pull: the client throttles to the per-token tier (config.py
+          # courtlistener_rpm/rph/rpd); the `|| '...'` fallbacks default to the held
+          # Tier 2 (15/150/600) so an unset variable lands on the correct ceiling.
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '15' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '150' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '600' }}
+        run: |
+          set -euo pipefail
+          # The command prints the machine JSON to stdout (captured to the run log)
+          # and appends the human Markdown summary directly to the step summary. It
+          # writes nothing else — no corpus, data/, DVC, or git.
+          uv run fedcourts probe-recoverability \
+            --dockets "$DOCKETS" \
+            --summary-out "$GITHUB_STEP_SUMMARY"

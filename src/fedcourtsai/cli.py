@@ -16,7 +16,7 @@ from typing import Annotated
 
 import typer
 
-from . import cleanup, corpus, dvc, ids
+from . import analytics, cleanup, corpus, dvc, ids
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
@@ -75,6 +75,7 @@ from .schemas import (
     DataHealth,
     Disposition,
     Engine,
+    GroupBy,
     ModelUsage,
     OpsReport,
     PredictableEvent,
@@ -1012,6 +1013,94 @@ def query(
         if not full:
             payload.pop("opinion_text", None)
         typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+
+@app.command()
+def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
+    court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
+    topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
+    judge: Annotated[
+        list[str] | None,
+        typer.Option(help="Judge name; repeatable. Matches cases sharing any given judge."),
+    ] = None,
+    citation: Annotated[
+        list[str] | None,
+        typer.Option(help="Citation; repeatable. Matches cases citing any given authority."),
+    ] = None,
+    disposition: Annotated[
+        str, typer.Option(help="Restrict to one realized outcome label, e.g. granted.")
+    ] = "",
+    date_from: Annotated[
+        str, typer.Option(help="Keep cases filed on/after this ISO date, e.g. 2020-01-01.")
+    ] = "",
+    date_to: Annotated[str, typer.Option(help="Keep cases filed on/before this ISO date.")] = "",
+    resolved_only: Annotated[
+        bool, typer.Option(help="Drop unresolved cases (default keeps them for the open count).")
+    ] = False,
+    group_by: Annotated[
+        str,
+        typer.Option(
+            help="Break base-rates down by a dimension: court, topic, judge, "
+            "term_year, or disposition. Omit for the overall base rate only."
+        ),
+    ] = "",
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Append the Markdown summary here (e.g. $GITHUB_STEP_SUMMARY); "
+            "the machine JSON always goes to stdout.",
+        ),
+    ] = None,
+) -> None:
+    """Aggregate corpus disposition base-rates, overall and by a dimension (run after `dvc pull`).
+
+    The aggregate counterpart of `query`: instead of returning individual priors it
+    rolls the whole matched set into base-rates — how the realized dispositions split,
+    overall and (with `--group-by`) per court / topic / judge / SCOTUS Term / disposition.
+    Shares the `query` filter grammar (`--court` / `--topic` / `--disposition` match
+    exactly; `--judge` / `--citation` match on overlap), plus a `--date-from` / `--date-to`
+    filed-date window. Strictly read-only. Emits the machine `AnalyticsReport` JSON on
+    stdout and a Markdown summary on stderr; `--summary-out` also appends the Markdown.
+    Graceful when the corpus is absent (writes a skipped report and exits 0).
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    try:
+        disp = Disposition(disposition) if disposition else None
+    except ValueError as exc:
+        choices = ", ".join(d.value for d in Disposition)
+        typer.echo(f"Unknown disposition '{disposition}'; choose one of: {choices}", err=True)
+        raise typer.Exit(code=2) from exc
+    try:
+        dimension = GroupBy(group_by) if group_by else None
+    except ValueError as exc:
+        choices = ", ".join(g.value for g in GroupBy)
+        typer.echo(f"Unknown --group-by '{group_by}'; choose one of: {choices}", err=True)
+        raise typer.Exit(code=2) from exc
+    try:
+        parsed_from = date.fromisoformat(date_from) if date_from else None
+        parsed_to = date.fromisoformat(date_to) if date_to else None
+    except ValueError as exc:
+        typer.echo(f"Bad date (expected ISO YYYY-MM-DD): {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    query = analytics.AnalyticsQuery(
+        court=court or None,
+        topic=topic or None,
+        judges=judge or [],
+        citations=citation or [],
+        disposition=disp,
+        date_from=parsed_from,
+        date_to=parsed_to,
+        resolved_only=resolved_only,
+        group_by=dimension,
+    )
+    report = analytics.run_analytics(corpus_db_path=db_path, query=query)
+    summary = analytics.render_markdown(report)
+    typer.echo(report.model_dump_json(indent=2))
+    typer.echo(summary, err=True)
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(summary)
 
 
 @app.command()

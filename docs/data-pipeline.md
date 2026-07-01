@@ -167,6 +167,7 @@ Access mirrors each workflow's role in the pipeline:
 |-------------------------------------------|---------------|----------------------------------|
 | `run-seed`, `run-pull`                    | read-write    | corpus writers (`dvc push`)      |
 | `run-predict`, `run-evaluate`, `run-reconcile` | read-only | retrieval consumers (`dvc pull`) |
+| `run-analytics`, `run-cleanup`            | read-only     | corpus analysis / cleanup (`dvc pull`) |
 | `ci`                                      | none          | gate stays offline/fast          |
 
 The gate has no remote, so it cannot diff the corpus blob against S3; it runs the
