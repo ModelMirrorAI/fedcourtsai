@@ -10,14 +10,14 @@
     },
     {
       "checked": 2151624,
-      "detail": "2151624 rows vs baseline 2151615",
+      "detail": "2151624 rows vs baseline 2151624",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4303713,
+      "checked": 4303743,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 465,
+      "checked": 495,
       "detail": "as of 2026-07-01",
       "failures": 0,
       "name": "snapshot_not_future_dated",
@@ -70,7 +70,7 @@
       "problems": []
     },
     {
-      "checked": 4303713,
+      "checked": 4303743,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",

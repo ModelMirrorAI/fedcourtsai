@@ -2,10 +2,28 @@
   "corpus_rows": 2151624,
   "exclusions": [
     {
+      "cases": 28809,
+      "open_events": 28809,
+      "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
+      "recoverable": 0,
+      "sample_cases": [
+        "scotus/1022319",
+        "scotus/1052864",
+        "scotus/1061546",
+        "scotus/1067287",
+        "scotus/10765",
+        "scotus/1101854",
+        "scotus/1252886",
+        "scotus/1288082",
+        "scotus/1316176",
+        "scotus/1342797"
+      ]
+    },
+    {
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29885,
+      "recoverable": 29884,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -20,10 +38,28 @@
       ]
     },
     {
-      "cases": 382175,
-      "open_events": 382175,
+      "cases": 12120,
+      "open_events": 12120,
+      "reason": "published opinion but no machine-readable cert disposition (#363)",
+      "recoverable": 12120,
+      "sample_cases": [
+        "scotus/1000512",
+        "scotus/1000515",
+        "scotus/1000525",
+        "scotus/1003943",
+        "scotus/1004865",
+        "scotus/1005618",
+        "scotus/1013114",
+        "scotus/1013133",
+        "scotus/1013192",
+        "scotus/1013618"
+      ]
+    },
+    {
+      "cases": 385012,
+      "open_events": 385012,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44275,
+      "recoverable": 44488,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -43,114 +79,114 @@
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58692,
+      "open_events": 58750,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
-        "scotus/1119228",
-        "scotus/113808",
-        "scotus/13585331",
-        "scotus/1376879",
         "scotus/14557919",
         "scotus/14557920",
         "scotus/14557921",
-        "scotus/14560167",
-        "scotus/14560168",
-        "scotus/14564957"
+        "scotus/14564957",
+        "scotus/14564958",
+        "scotus/14572978",
+        "scotus/14572979",
+        "scotus/14579685",
+        "scotus/14579686",
+        "scotus/14579687"
       ]
     },
     {
-      "open_events": 56564,
+      "open_events": 17431,
       "reason": "docket Term not parseable (a format the predicate skips)",
       "sample_cases": [
-        "scotus/1003943",
         "scotus/1004607",
-        "scotus/1004865",
-        "scotus/1005618",
-        "scotus/1016450",
-        "scotus/1017888",
-        "scotus/101968",
-        "scotus/102043",
-        "scotus/1020660",
-        "scotus/1022319"
+        "scotus/1027970",
+        "scotus/1055010",
+        "scotus/106109",
+        "scotus/1061844",
+        "scotus/106432",
+        "scotus/107543",
+        "scotus/1090057",
+        "scotus/110771",
+        "scotus/1115067"
       ]
     },
     {
-      "open_events": 9508,
+      "open_events": 4817,
       "reason": "no docket number",
       "sample_cases": [
-        "scotus/1000512",
-        "scotus/1000515",
-        "scotus/1000525",
         "scotus/1002339",
         "scotus/1013004",
-        "scotus/1013114",
-        "scotus/1013133",
-        "scotus/1013192",
         "scotus/1013205",
-        "scotus/1013618"
+        "scotus/1018480",
+        "scotus/1034739",
+        "scotus/1036624",
+        "scotus/1036886",
+        "scotus/1038383",
+        "scotus/1042264",
+        "scotus/1044347"
       ]
     }
   ],
   "unparseable_docket_shapes": [
     {
-      "count": 19951,
-      "shape": "99A999"
-    },
-    {
-      "count": 5140,
+      "count": 4830,
       "shape": "Aa. A-9999"
     },
     {
-      "count": 5121,
-      "shape": "99A9999"
-    },
-    {
-      "count": 4204,
-      "shape": "Aa. 99\u20139999."
-    },
-    {
-      "count": 4060,
+      "count": 2603,
       "shape": "Aa. A-999"
     },
     {
-      "count": 2161,
-      "shape": "99A99"
-    },
-    {
-      "count": 1622,
+      "count": 1372,
       "shape": "Aa. 999, Aaaa."
     },
     {
-      "count": 1526,
+      "count": 1096,
       "shape": "Aa. 999; Aa. 999"
     },
     {
-      "count": 867,
-      "shape": "Aa. 99\u2013999."
-    },
-    {
-      "count": 622,
+      "count": 615,
       "shape": "Aa. A\u20139999."
     },
     {
-      "count": 508,
+      "count": 503,
       "shape": "Aa. 99A99."
     },
     {
-      "count": 467,
+      "count": 438,
       "shape": "Aa. 99A99"
     },
     {
-      "count": 437,
-      "shape": "Aaa. 999 aaa 999"
-    },
-    {
-      "count": 425,
+      "count": 375,
       "shape": "Aa. A-999 (99-9999)"
     },
     {
-      "count": 395,
+      "count": 307,
+      "shape": "Aa. 9999, Aaaa."
+    },
+    {
+      "count": 304,
+      "shape": "Aa. 99A999."
+    },
+    {
+      "count": 303,
       "shape": "Aa. 999; Aa. 999; Aa. 999"
+    },
+    {
+      "count": 271,
+      "shape": "Aa. A-99"
+    },
+    {
+      "count": 238,
+      "shape": "Aaa. 999 aaa 999"
+    },
+    {
+      "count": 228,
+      "shape": "Aa. 99, Aaaa."
+    },
+    {
+      "count": 179,
+      "shape": "Aa. 9999; Aa. 9999"
     }
   ]
 }
