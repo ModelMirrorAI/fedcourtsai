@@ -383,6 +383,44 @@ def test_is_stale_unresolvable_ignores_unparseable_and_non_scotus() -> None:
     assert corpus.is_stale_unresolvable(lower) is False
 
 
+def test_is_published_opinion_unresolvable_detects_opinion_only_disposition() -> None:
+    # Issue #363: the shape the recoverability probe found — a still-open SCOTUS docket
+    # (no disposition, no decision date) whose only outcome signal is a linked published
+    # opinion (a reporter citation). The disposition lives in the opinion text, not a
+    # structured field, so the cert model cannot score it. Each recoverable signal
+    # (citation, citation_count, opinion_text) is sufficient on its own.
+    by_citation = corpus.CorpusRow(
+        case_id="scotus/1000512", court="scotus", docket_number="", citations=["121 U.S. 183"]
+    )
+    by_count = corpus.CorpusRow(case_id="scotus/1002339", court="scotus", citation_count=3)
+    by_text = corpus.CorpusRow(case_id="scotus/1003943", court="scotus", opinion_text="Affirmed.")
+    assert corpus.is_published_opinion_unresolvable(by_citation) is True
+    assert corpus.is_published_opinion_unresolvable(by_count) is True
+    assert corpus.is_published_opinion_unresolvable(by_text) is True
+
+
+def test_is_published_opinion_unresolvable_keeps_live_pending_petition() -> None:
+    # Safe by construction: a pending cert petition has no published opinion yet (no
+    # citation, no opinion text), so it is never dropped — even from an old-looking Term.
+    pending = corpus.CorpusRow(case_id="scotus/9", court="scotus", docket_number="24-101")
+    assert corpus.is_published_opinion_unresolvable(pending) is False
+
+
+def test_is_published_opinion_unresolvable_keeps_resolved_or_dated_or_non_scotus() -> None:
+    # Only while still open (no disposition and no decision date), and SCOTUS-only. A
+    # resolved case carries ground truth to score; a dated one is the reconcile path.
+    resolved = corpus.CorpusRow(
+        case_id="scotus/10", court="scotus", disposition=Disposition.denied, citations=["1 U.S. 1"]
+    )
+    dated = corpus.CorpusRow(
+        case_id="scotus/11", court="scotus", date_decided=date(2002, 1, 7), citation_count=2
+    )
+    lower = corpus.CorpusRow(case_id="ca9/12", court="ca9", citations=["1 F.3d 1"])
+    assert corpus.is_published_opinion_unresolvable(resolved) is False
+    assert corpus.is_published_opinion_unresolvable(dated) is False
+    assert corpus.is_published_opinion_unresolvable(lower) is False
+
+
 def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     assert corpus.scotus_term_year("01-7700") == 2001
     assert corpus.scotus_term_year("93-7515") == 1993
