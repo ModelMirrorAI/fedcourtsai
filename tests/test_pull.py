@@ -98,6 +98,50 @@ def test_pull_stamps_last_pulled_in_corpus(tmp_path: Path) -> None:
     assert row.last_pulled == date.today()
 
 
+def test_refresh_extracts_a_post_onboarding_motion(tmp_path: Path) -> None:
+    # Issue #372: a refresh re-extracts events, so a stay motion filed after the
+    # case was onboarded becomes a tracked predictable event — not just the
+    # case-level baseline present at discovery.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    # Onboard with no entries: only the case-level baseline exists.
+    _pull(FakeClient(DOCKET, []), tmp_path)
+    assert open_events(db, "ca9", 64512345) == ["evt-appeal-disposition"]
+    # A later refresh sees a newly-filed stay motion and adds it.
+    result = _pull(
+        FakeClient(DOCKET, [{"id": 9, "description": "Motion to stay the mandate"}]), tmp_path
+    )
+    assert open_events(db, "ca9", 64512345) == [
+        "evt-appeal-disposition",
+        "evt-motion-stay-the-mandate",
+    ]
+    assert result.ambiguous == []
+
+
+def test_refresh_event_extraction_is_idempotent(tmp_path: Path) -> None:
+    # Re-extracting on every refresh must converge, not duplicate: a second
+    # identical refresh leaves the same events.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    entries = [{"id": 9, "description": "Motion to stay the mandate"}]
+    _pull(FakeClient(DOCKET, entries), tmp_path)
+    first = open_events(db, "ca9", 64512345)
+    _pull(FakeClient(DOCKET, entries), tmp_path)
+    assert open_events(db, "ca9", 64512345) == first
+
+
+def test_refresh_never_reopens_a_resolved_event(tmp_path: Path) -> None:
+    # The resolved latch holds through re-extraction: once the baseline event is
+    # resolved, a later refresh re-extracting it does not reopen it.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    decided = {**DOCKET, "date_terminated": "2026-09-01", "disposition": "Petition denied"}
+    _pull(FakeClient(decided, [{"id": 1, "description": "Order denying the petition"}]), tmp_path)
+    assert open_events(db, "ca9", 64512345) == []
+    assert resolved_events(db, "ca9", 64512345) == ["evt-appeal-disposition"]
+    # Refresh again against the same decided docket — the event stays resolved.
+    _pull(FakeClient(decided, [{"id": 1, "description": "Order denying the petition"}]), tmp_path)
+    assert open_events(db, "ca9", 64512345) == []
+    assert resolved_events(db, "ca9", 64512345) == ["evt-appeal-disposition"]
+
+
 class FakeMultiClient:
     """Returns a distinct docket per id (court taken from the canned facts)."""
 
