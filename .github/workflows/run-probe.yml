@@ -1,4 +1,4 @@
-name: run-recoverability-probe
+name: run-probe
 
 # Manual, READ-ONLY diagnostic (issue #369). Answers one open question that blocks
 # the evaluate/reconcile-flow work: for the sparse historical SCOTUS
@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: run-recoverability-probe
+  group: run-probe
   cancel-in-progress: true
 
 jobs:

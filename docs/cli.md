@@ -67,7 +67,7 @@ Measurements a maintainer runs to answer a build question, writing nothing.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a seed/pull backfill can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary). Needs a REST token, so it is dispatched by the `run-recoverability-probe` workflow. | `--dockets`, `--summary-out` |
+| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a seed/pull backfill can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary). Needs a REST token, so it is dispatched by the `run-probe` workflow. | `--dockets`, `--summary-out` |
 
 `--dockets` takes one or more `court/docket` pairs, repeated and/or comma-separated
 (e.g. `--dockets scotus/1000512,scotus/1000515`).

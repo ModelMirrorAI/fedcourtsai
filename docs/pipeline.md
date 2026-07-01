@@ -14,7 +14,7 @@ stage.
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
-| _(none)_        | `run-recoverability-probe` | manual dispatch only     | script (no agent)    |
+| _(none)_        | `run-probe`      | manual dispatch only                | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics — pipeline health (the Actions run history), backfill
@@ -34,7 +34,7 @@ renders it as a **data-health** section and escalates a failing verdict to one
 long-lived issue — so the dashboard surfaces both run-health and data-health while
 staying a read-only presenter that never touches the corpus.
 
-`run-recoverability-probe` is a manual, dispatch-only **diagnostic**, also outside
+`run-probe` is a manual, dispatch-only **diagnostic**, also outside
 the cascade. It runs `fedcourts probe-recoverability` to answer whether a sparse
 historical SCOTUS petition's disposition is actually recoverable from CourtListener
 (an ingestion gap a seed/pull backfill can close) or genuinely absent upstream — the
