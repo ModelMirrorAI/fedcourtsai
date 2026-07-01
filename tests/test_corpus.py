@@ -222,6 +222,9 @@ def test_originating_link_columns_roundtrip(tmp_path: Path) -> None:
         ("No. 21-35466", "21-35466"),
         ("no. 21-35466", "21-35466"),
         ("21-35466, 21-35467", "21-35466,21-35467"),  # consolidated: kept distinct
+        ("01" + chr(0x2013) + "7700", "01-7700"),  # issue #362: en-dash folded to a hyphen
+        ("No. 01" + chr(0x2013) + "7700.", "01-7700."),  # dominant historical form + label
+        ("01" + chr(0x2014) + "7700", "01-7700"),  # em-dash folded too
         ("", None),
         ("   ", None),
         (None, None),
@@ -351,6 +354,14 @@ def test_is_stale_unresolvable_detects_labeled_old_petition() -> None:
     assert corpus.is_stale_unresolvable(row) is True
 
 
+def test_is_stale_unresolvable_detects_en_dash_old_petition() -> None:
+    # Issue #362: the same old cert docket behind a typographic en-dash now folds to a
+    # hyphen and reads as OT1993 -> stale, instead of falling through unparsed.
+    docket = "No. 93" + chr(0x2013) + "7515."
+    row = corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number=docket)
+    assert corpus.is_stale_unresolvable(row) is True
+
+
 def test_is_stale_unresolvable_keeps_recent_open_petition() -> None:
     # A recent Term's petition may legitimately be open and pending — never drop it.
     row = corpus.CorpusRow(case_id="scotus/9", court="scotus", docket_number="24-101")
@@ -430,6 +441,9 @@ def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     # Issue #343: the `No.` label (the dominant historical format) is normalized away.
     assert corpus.scotus_term_year("No. 01-7700") == 2001
     assert corpus.scotus_term_year("No. 93-7515") == 1993
+    # Issue #362: a typographic en-dash is folded, so the Term parses like a hyphen.
+    assert corpus.scotus_term_year("01" + chr(0x2013) + "7700") == 2001
+    assert corpus.scotus_term_year("No. 93" + chr(0x2013) + "7515.") == 1993
 
 
 def test_is_date_inconsistent_flags_decided_before_filed() -> None:
