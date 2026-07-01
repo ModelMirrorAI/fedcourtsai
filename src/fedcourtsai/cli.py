@@ -81,7 +81,7 @@ from .schemas import (
     PredictableEvent,
     UsageRole,
 )
-from .serialize import write_json, write_raw_json, write_yaml
+from .serialize import write_json, write_raw_json, write_text, write_yaml
 from .store import (
     cases_due_for_pull,
     iter_evaluations,
@@ -402,6 +402,38 @@ def backtest(
     typer.echo(
         f"backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} resolved event(s) -> {destination}"
+    )
+
+
+@app.command()
+def statpack(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <metrics_root>/statpack.json)."),
+    ] = None,
+    markdown_out: Annotated[
+        Path | None,
+        typer.Option(help="Markdown output path (default: <metrics_root>/statpack.md)."),
+    ] = None,
+) -> None:
+    """Roll the corpus into a base-rate statpack at ``metrics/statpack.{json,md}``.
+
+    An independent published artifact — headline counts plus curated disposition
+    base-rate breakdowns (by court, and SCOTUS petitions by Term and topic).
+    Deterministic and offline: a pure function of the corpus, so reruns reproduce both
+    files byte for byte. Writes the empty zero-count pack when the corpus is absent (run
+    after `dvc pull`). Git-tracked as a DVC metric alongside `leaderboard` / `backtest`.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    pack = analytics.build_statpack(corpus_db_path=db_path)
+    json_dest = out if out is not None else settings.metrics_root / "statpack.json"
+    md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "statpack.md"
+    write_json(json_dest, pack)
+    write_text(md_dest, analytics.render_statpack_markdown(pack))
+    typer.echo(
+        f"statpack: {pack.corpus_rows} case(s), {len(pack.sections)} section(s) "
+        f"-> {json_dest}, {md_dest}"
     )
 
 

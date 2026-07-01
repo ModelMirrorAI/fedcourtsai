@@ -24,7 +24,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus
 from .corpus import CorpusRow
-from .schemas import AnalyticsReport, BaseRateBucket, Disposition, DispositionShare, GroupBy
+from .schemas import (
+    AnalyticsReport,
+    BaseRateBucket,
+    Disposition,
+    DispositionShare,
+    GroupBy,
+    StatPack,
+    StatPackSection,
+)
 
 if TYPE_CHECKING:
     import sqlite3
@@ -165,6 +173,90 @@ def run_analytics(*, corpus_db_path: Path, query: AnalyticsQuery) -> AnalyticsRe
         return AnalyticsReport(skipped=True, group_by=query.group_by)
     with corpus.connect(corpus_db_path) as conn:
         return compute_report(conn, query)
+
+
+# The curated breakdowns the statpack publishes: (title, court filter, dimension). The
+# prediction domain is SCOTUS cert, so the Term-year and topic cuts are scoped to it;
+# the court cut spans the whole corpus for composition context.
+_STATPACK_SECTIONS: tuple[tuple[str, str | None, GroupBy], ...] = (
+    ("Cases by court", None, GroupBy.court),
+    ("SCOTUS petitions by Term", "scotus", GroupBy.term_year),
+    ("SCOTUS petitions by nature-of-suit topic", "scotus", GroupBy.topic),
+)
+
+
+def build_statpack(*, corpus_db_path: Path) -> StatPack:
+    """Roll the whole corpus into a base-rate statpack, or the empty pack if it is absent.
+
+    Deterministic and offline — a pure function of the corpus — so reruns reproduce it
+    byte for byte. Mirrors ``fedcourts backtest`` / ``leaderboard``: an absent corpus
+    (run before ``dvc pull``) yields the empty zero-count pack rather than an error.
+    """
+    if not corpus_db_path.exists():
+        # Keep the section scaffolding (empty buckets) so the artifact's shape is stable
+        # whether the corpus is merely absent or present-but-empty.
+        return StatPack(
+            sections=[
+                StatPackSection(title=title, court=court, group_by=dimension)
+                for title, court, dimension in _STATPACK_SECTIONS
+            ]
+        )
+    with corpus.connect(corpus_db_path) as conn:
+        overall = compute_report(conn, AnalyticsQuery()).total
+        sections = [
+            StatPackSection(
+                title=title,
+                court=court,
+                group_by=dimension,
+                buckets=compute_report(
+                    conn, AnalyticsQuery(court=court, group_by=dimension)
+                ).buckets,
+            )
+            for title, court, dimension in _STATPACK_SECTIONS
+        ]
+        return StatPack(
+            corpus_rows=corpus.count(conn),
+            resolved=overall.resolved,
+            open=overall.open,
+            overall=overall,
+            sections=sections,
+        )
+
+
+def render_statpack_markdown(pack: StatPack) -> str:
+    """Render a :class:`StatPack` as a publishable Markdown document.
+
+    Leads with headline counts and the overall base rate, then one table per curated
+    breakdown. Deterministic; safe on the empty pack (renders a one-line note)."""
+    lines = ["# Corpus statpack", ""]
+    if pack.corpus_rows == 0:
+        lines.append("_Empty — no corpus present. Regenerated once a corpus is available._")
+        return "\n".join(lines) + "\n"
+
+    lines += [
+        f"**{pack.corpus_rows}** case(s): {pack.resolved} resolved, {pack.open} open.",
+        "",
+        f"**Overall base rate (resolved):** {_disposition_summary(pack.overall)}",
+    ]
+    for section in pack.sections:
+        scope = "all courts" if section.court is None else section.court
+        lines += [
+            "",
+            f"## {section.title}",
+            f"_Scope: {scope}._",
+            "",
+            f"| {section.group_by} | cases | resolved | open | base rate (resolved) |",
+            "| --- | --: | --: | --: | --- |",
+        ]
+        if not section.buckets:
+            lines.append("| _(none)_ | 0 | 0 | 0 | — |")
+        for bucket in section.buckets:
+            key = bucket.key or "—"
+            lines.append(
+                f"| {key} | {bucket.cases} | {bucket.resolved} | {bucket.open} "
+                f"| {_disposition_summary(bucket)} |"
+            )
+    return "\n".join(lines) + "\n"
 
 
 def _pct(share: float) -> str:

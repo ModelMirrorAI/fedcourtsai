@@ -47,6 +47,16 @@ def write_jsonl(path: Path, models: Iterable[BaseModel]) -> None:
     path.write_text("".join(line + "\n" for line in lines))
 
 
+def write_text(path: Path, text: str) -> None:
+    """Write rendered text (e.g. a Markdown report), newline-terminated, creating parents.
+
+    The plain-text counterpart of :func:`write_json` for a deterministically rendered
+    document, so a rerun over unchanged input reproduces the file byte for byte.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text if text.endswith("\n") else text + "\n")
+
+
 def read_model[T: BaseModel](path: Path, model: type[T]) -> T:
     text = path.read_text()
     data = yaml.safe_load(text) if path.suffix in {".yaml", ".yml"} else json.loads(text)
