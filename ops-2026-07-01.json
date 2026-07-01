@@ -110,10 +110,10 @@
     "snapshot": "2026-06-30"
   },
   "cost": {
-    "actions_cost_usd": 0.9883,
-    "actions_minutes": 164.7,
-    "actions_monthly_usd": 33.49,
-    "estimated_monthly_usd": 88.49,
+    "actions_cost_usd": 1.1238,
+    "actions_minutes": 187.3,
+    "actions_monthly_usd": 37.85,
+    "estimated_monthly_usd": 92.85,
     "fixed_monthly_usd": 55.0,
     "model_cost_usd": 10.450574,
     "window_days": 0.9
@@ -131,14 +131,14 @@
         },
         {
           "checked": 2151624,
-          "detail": "2151624 rows vs baseline 2151615",
+          "detail": "2151624 rows vs baseline 2151624",
           "failures": 0,
           "name": "row_count_monotonic",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 4303713,
+          "checked": 4303743,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -146,7 +146,7 @@
           "problems": []
         },
         {
-          "checked": 465,
+          "checked": 495,
           "detail": "as of 2026-07-01",
           "failures": 0,
           "name": "snapshot_not_future_dated",
@@ -191,7 +191,7 @@
           "problems": []
         },
         {
-          "checked": 4303713,
+          "checked": 4303743,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -276,7 +276,7 @@
     "total": 2,
     "warnings": 2
   },
-  "generated_at": "2026-07-01T14:18:50.111709+00:00",
+  "generated_at": "2026-07-01T14:27:31.255724+00:00",
   "health": [
     {
       "failures": 0,
@@ -284,31 +284,31 @@
       "last_run_at": "2026-07-01T13:00:38Z",
       "median_seconds": 58,
       "p95_seconds": 64,
-      "runs_considered": 43,
+      "runs_considered": 39,
       "success_rate": 1.0,
-      "successes": 43,
+      "successes": 39,
       "workflow": "CodeQL"
     },
     {
-      "failures": 34,
-      "last_conclusion": null,
-      "last_run_at": "2026-07-01T14:18:08Z",
-      "median_seconds": 19,
-      "p95_seconds": 46,
-      "runs_considered": 51,
-      "success_rate": 0.32,
-      "successes": 16,
+      "failures": 29,
+      "last_conclusion": "success",
+      "last_run_at": "2026-07-01T14:25:53Z",
+      "median_seconds": 22,
+      "p95_seconds": 56,
+      "runs_considered": 49,
+      "success_rate": 0.40816326530612246,
+      "successes": 20,
       "workflow": "ci"
     },
     {
-      "failures": 34,
-      "last_conclusion": null,
-      "last_run_at": "2026-07-01T14:18:08Z",
-      "median_seconds": 20,
+      "failures": 29,
+      "last_conclusion": "success",
+      "last_run_at": "2026-07-01T14:25:53Z",
+      "median_seconds": 21,
       "p95_seconds": 78,
-      "runs_considered": 51,
-      "success_rate": 0.32,
-      "successes": 16,
+      "runs_considered": 49,
+      "success_rate": 0.40816326530612246,
+      "successes": 20,
       "workflow": "codeql"
     },
     {
@@ -325,32 +325,32 @@
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-07-01T12:28:14Z",
+      "last_run_at": "2026-07-01T14:22:45Z",
       "median_seconds": 1,
       "p95_seconds": 8,
-      "runs_considered": 6,
+      "runs_considered": 7,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-cleanup"
     },
     {
       "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-07-01T12:28:14Z",
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-07-01T14:22:45Z",
       "median_seconds": 1,
       "p95_seconds": 829,
-      "runs_considered": 6,
-      "success_rate": 0.16666666666666666,
+      "runs_considered": 7,
+      "success_rate": 0.14285714285714285,
       "successes": 1,
       "workflow": "run-dev"
     },
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-07-01T12:28:14Z",
-      "median_seconds": 1,
+      "last_run_at": "2026-07-01T14:22:45Z",
+      "median_seconds": 2,
       "p95_seconds": 7,
-      "runs_considered": 6,
+      "runs_considered": 7,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-evaluate"
@@ -358,21 +358,21 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-07-01T14:18:31Z",
-      "median_seconds": 22,
-      "p95_seconds": 28,
-      "runs_considered": 3,
+      "last_run_at": "2026-07-01T14:27:16Z",
+      "median_seconds": 28,
+      "p95_seconds": 29,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 3,
       "workflow": "run-ops"
     },
     {
-      "failures": 0,
-      "last_conclusion": "skipped",
-      "last_run_at": "2026-07-01T12:28:14Z",
-      "median_seconds": 1,
-      "p95_seconds": 2,
-      "runs_considered": 6,
+      "failures": 1,
+      "last_conclusion": "failure",
+      "last_run_at": "2026-07-01T14:22:45Z",
+      "median_seconds": 2,
+      "p95_seconds": 48,
+      "runs_considered": 7,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-predict"
@@ -390,33 +390,33 @@
     },
     {
       "failures": 0,
-      "last_conclusion": null,
-      "last_run_at": "2026-07-01T14:02:27Z",
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-07-01T14:22:46Z",
       "median_seconds": 8,
       "p95_seconds": 1391,
-      "runs_considered": 10,
-      "success_rate": 0.3333333333333333,
-      "successes": 3,
+      "runs_considered": 11,
+      "success_rate": 0.36363636363636365,
+      "successes": 4,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-07-01T12:28:14Z",
+      "last_run_at": "2026-07-01T14:22:45Z",
       "median_seconds": 2,
       "p95_seconds": 181,
-      "runs_considered": 6,
-      "success_rate": 0.16666666666666666,
+      "runs_considered": 7,
+      "success_rate": 0.14285714285714285,
       "successes": 1,
       "workflow": "run-reconcile"
     },
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-07-01T12:28:14Z",
+      "last_run_at": "2026-07-01T14:22:46Z",
       "median_seconds": 1,
       "p95_seconds": 11,
-      "runs_considered": 6,
+      "runs_considered": 7,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-seed"
@@ -427,10 +427,28 @@
     "corpus_rows": 2151624,
     "exclusions": [
       {
+        "cases": 28809,
+        "open_events": 28809,
+        "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
+        "recoverable": 0,
+        "sample_cases": [
+          "scotus/1022319",
+          "scotus/1052864",
+          "scotus/1061546",
+          "scotus/1067287",
+          "scotus/10765",
+          "scotus/1101854",
+          "scotus/1252886",
+          "scotus/1288082",
+          "scotus/1316176",
+          "scotus/1342797"
+        ]
+      },
+      {
         "cases": 82337,
         "open_events": 82337,
         "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-        "recoverable": 29885,
+        "recoverable": 29884,
         "sample_cases": [
           "scotus/1000314",
           "scotus/1000316",
@@ -445,10 +463,28 @@
         ]
       },
       {
-        "cases": 382175,
-        "open_events": 382175,
+        "cases": 12120,
+        "open_events": 12120,
+        "reason": "published opinion but no machine-readable cert disposition (#363)",
+        "recoverable": 12120,
+        "sample_cases": [
+          "scotus/1000512",
+          "scotus/1000515",
+          "scotus/1000525",
+          "scotus/1003943",
+          "scotus/1004865",
+          "scotus/1005618",
+          "scotus/1013114",
+          "scotus/1013133",
+          "scotus/1013192",
+          "scotus/1013618"
+        ]
+      },
+      {
+        "cases": 385012,
+        "open_events": 385012,
         "reason": "stale unresolvable old SCOTUS petition (#333)",
-        "recoverable": 44275,
+        "recoverable": 44488,
         "sample_cases": [
           "scotus/1000",
           "scotus/100001",
@@ -468,114 +504,114 @@
     "skipped": false,
     "unclassified": [
       {
-        "open_events": 58692,
+        "open_events": 58750,
         "reason": "recent or current Term (legitimately pending)",
         "sample_cases": [
-          "scotus/1119228",
-          "scotus/113808",
-          "scotus/13585331",
-          "scotus/1376879",
           "scotus/14557919",
           "scotus/14557920",
           "scotus/14557921",
-          "scotus/14560167",
-          "scotus/14560168",
-          "scotus/14564957"
+          "scotus/14564957",
+          "scotus/14564958",
+          "scotus/14572978",
+          "scotus/14572979",
+          "scotus/14579685",
+          "scotus/14579686",
+          "scotus/14579687"
         ]
       },
       {
-        "open_events": 56564,
+        "open_events": 17431,
         "reason": "docket Term not parseable (a format the predicate skips)",
         "sample_cases": [
-          "scotus/1003943",
           "scotus/1004607",
-          "scotus/1004865",
-          "scotus/1005618",
-          "scotus/1016450",
-          "scotus/1017888",
-          "scotus/101968",
-          "scotus/102043",
-          "scotus/1020660",
-          "scotus/1022319"
+          "scotus/1027970",
+          "scotus/1055010",
+          "scotus/106109",
+          "scotus/1061844",
+          "scotus/106432",
+          "scotus/107543",
+          "scotus/1090057",
+          "scotus/110771",
+          "scotus/1115067"
         ]
       },
       {
-        "open_events": 9508,
+        "open_events": 4817,
         "reason": "no docket number",
         "sample_cases": [
-          "scotus/1000512",
-          "scotus/1000515",
-          "scotus/1000525",
           "scotus/1002339",
           "scotus/1013004",
-          "scotus/1013114",
-          "scotus/1013133",
-          "scotus/1013192",
           "scotus/1013205",
-          "scotus/1013618"
+          "scotus/1018480",
+          "scotus/1034739",
+          "scotus/1036624",
+          "scotus/1036886",
+          "scotus/1038383",
+          "scotus/1042264",
+          "scotus/1044347"
         ]
       }
     ],
     "unparseable_docket_shapes": [
       {
-        "count": 19951,
-        "shape": "99A999"
-      },
-      {
-        "count": 5140,
+        "count": 4830,
         "shape": "Aa. A-9999"
       },
       {
-        "count": 5121,
-        "shape": "99A9999"
-      },
-      {
-        "count": 4204,
-        "shape": "Aa. 99\u20139999."
-      },
-      {
-        "count": 4060,
+        "count": 2603,
         "shape": "Aa. A-999"
       },
       {
-        "count": 2161,
-        "shape": "99A99"
-      },
-      {
-        "count": 1622,
+        "count": 1372,
         "shape": "Aa. 999, Aaaa."
       },
       {
-        "count": 1526,
+        "count": 1096,
         "shape": "Aa. 999; Aa. 999"
       },
       {
-        "count": 867,
-        "shape": "Aa. 99\u2013999."
-      },
-      {
-        "count": 622,
+        "count": 615,
         "shape": "Aa. A\u20139999."
       },
       {
-        "count": 508,
+        "count": 503,
         "shape": "Aa. 99A99."
       },
       {
-        "count": 467,
+        "count": 438,
         "shape": "Aa. 99A99"
       },
       {
-        "count": 437,
-        "shape": "Aaa. 999 aaa 999"
-      },
-      {
-        "count": 425,
+        "count": 375,
         "shape": "Aa. A-999 (99-9999)"
       },
       {
-        "count": 395,
+        "count": 307,
+        "shape": "Aa. 9999, Aaaa."
+      },
+      {
+        "count": 304,
+        "shape": "Aa. 99A999."
+      },
+      {
+        "count": 303,
         "shape": "Aa. 999; Aa. 999; Aa. 999"
+      },
+      {
+        "count": 271,
+        "shape": "Aa. A-99"
+      },
+      {
+        "count": 238,
+        "shape": "Aaa. 999 aaa 999"
+      },
+      {
+        "count": 228,
+        "shape": "Aa. 99, Aaaa."
+      },
+      {
+        "count": 179,
+        "shape": "Aa. 9999; Aa. 9999"
       }
     ]
   },
