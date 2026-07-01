@@ -10,8 +10,10 @@ The first pull of a docket onboards it (no prior snapshot → ``changed``);
 later pulls refresh it. Both the normalized row and the dated full-docket
 snapshot (the point-in-time JSON a normalized row cannot fully capture) land in
 the corpus, never in per-case git files: the snapshot backs change detection and
-is what predictors/evaluators are provisioned from. Both ``seed`` and ``pull``
-drive this function.
+is what predictors/evaluators are provisioned from. Each refresh also re-extracts
+the docket's predictable events, so a filing that appears after onboarding (a
+stay / emergency motion) becomes trackable, not just the events present at
+discovery. Both ``seed`` and ``pull`` drive this function.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient
 from ..store import open_events
+from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .outcome import ReconcileRequest, resolve_case
 
@@ -42,6 +45,10 @@ class PullResult:
     # this refresh, and those that appear decided but need an agent to reconcile.
     resolved: list[str]
     reconcile: list[ReconcileRequest]
+    # Docket entries that read like a request but match more than one event kind,
+    # so extraction did not guess an event for them (mirrors discovery). Collected
+    # for triage; not queued.
+    ambiguous: list[AmbiguousEntry] = field(default_factory=list)
 
 
 def pull_case(
@@ -73,7 +80,20 @@ def pull_case(
 
     # Detect resolution of any open events: write outcome.json deterministically
     # when the disposition is machine-readable, else flag for agent reconcile.
+    # Runs *before* re-extraction: `default_event` marks a decided case's baseline
+    # resolved (from its disposition), so resolution must see the event still open
+    # to record its outcome before extraction latches it closed.
     resolution = resolve_case(corpus_db_path, data_root, row, court_id, docket_id)
+
+    # Re-extract predictable events from the refreshed docket, not just at
+    # discovery: a filing that appears *after* onboarding — most importantly a
+    # SCOTUS stay / emergency motion — becomes trackable this way (detection picks
+    # it up on the next refresh). Idempotent and resolved-latching (`upsert_events`
+    # never reopens a closed event); `extract_events` marks an entry-pinned event
+    # resolved when a later disposing order cites its number.
+    extraction = extract_events(fresh)
+    with corpus.connect(corpus_db_path) as conn:
+        corpus.upsert_events(conn, extraction.events)
 
     return PullResult(
         case_id=case_id,
@@ -81,6 +101,7 @@ def pull_case(
         snapshot=today.isoformat(),
         resolved=sorted(resolution.outcomes),
         reconcile=list(resolution.reconciles),
+        ambiguous=list(extraction.ambiguous),
     )
 
 
