@@ -552,6 +552,37 @@ def is_stale_unresolvable(row: CorpusRow) -> bool:
     return term_year is not None and term_year < _STALE_TERM_CUTOFF_YEAR
 
 
+def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
+    """Whether a still-open SCOTUS row's disposition lives only in an opinion (issue #363).
+
+    The recoverability probe (`run-probe`) found these historical
+    ``evt-petition-disposition`` cases carry a **linked published opinion** (a reporter
+    citation / non-zero ``citation_count`` / ``opinion_text``) but **no machine-readable
+    disposition** on either the docket or the cluster and no docket entries. The outcome
+    exists only in the opinion *text* — recoverable by parsing it, not by a structured
+    re-ingest — and for a cert event it is a **merits** label (affirmed / reversed), not
+    a cert grant/deny, so the modern discretionary-cert model cannot score it. Predict
+    scope therefore excludes it.
+
+    Complements the two siblings for the cases their docket-number tests cannot parse
+    (issue #362): :func:`is_stale_unresolvable` needs a parseable ``YY-NNNN`` Term year,
+    and :func:`is_historical_mandatory` needs a bare sequential number or a pre-1925
+    ``date_filed`` (null on these rows) — so an old, oddly-formatted docket with a
+    published opinion falls through both and lands here instead.
+
+    Safe against a live petition **by construction**: a pending cert petition has no
+    published opinion yet (no citation, no ``opinion_text``), so it can never match.
+    SCOTUS-only, and only while still open (no ``disposition`` and no ``date_decided``);
+    a case that later gains a real disposition is released by the two-directional scope
+    reconcile. The published-opinion signal mirrors ``validate._recoverable_signal``.
+    """
+    if row.court != "scotus":
+        return False
+    if row.disposition is not None or row.date_decided is not None:
+        return False
+    return bool(row.citations or row.citation_count or row.opinion_text)
+
+
 def is_date_inconsistent(row: CorpusRow) -> bool:
     """Whether a case's filing/decision dates are internally inconsistent (issue #171).
 
@@ -576,6 +607,10 @@ def is_date_inconsistent(row: CorpusRow) -> bool:
 OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter (#309)"),
     (is_stale_unresolvable, "stale unresolvable old SCOTUS petition (#333)"),
+    (
+        is_published_opinion_unresolvable,
+        "published opinion but no machine-readable cert disposition (#363)",
+    ),
     (is_date_inconsistent, "internally inconsistent dates — decided before filed (#171)"),
 ]
 

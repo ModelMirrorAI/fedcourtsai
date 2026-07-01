@@ -36,7 +36,15 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predict/evaluate set — its `evt-petition-disposition` carries a merits, not a
   discretionary-cert, meaning, so the modern event model does not fit it
   (`corpus.is_historical_mandatory`). Ingestion still covers it; only prediction
-  is gated.
+  is gated. Three sibling narrowings drop other cases the modern cert model cannot
+  score: a **stale, still-open petition** from a long-past October Term
+  (`corpus.is_stale_unresolvable`); one whose only outcome signal is a **published
+  opinion with no machine-readable disposition** — decided, but the outcome lives
+  only in the opinion text and is a merits, not a cert, label
+  (`corpus.is_published_opinion_unresolvable`); and a court-agnostic guard for a case
+  with **internally inconsistent dates** (`corpus.is_date_inconsistent`). Each gates
+  prediction only, never ingestion, and the two-directional scope reconcile releases
+  any case that later gains a real disposition.
 
   Because the corpus keys a case by `<court>/<docket>`, the *same real-world case's*
   SCOTUS docket and originating court-of-appeals docket are **separate rows**. Both
