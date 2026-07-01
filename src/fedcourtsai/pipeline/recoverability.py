@@ -1,0 +1,445 @@
+"""Read-only recoverability probe for sparse SCOTUS petition dispositions.
+
+A diagnostic, **not** a data-production path: it fetches a docket (and its linked
+opinion cluster) from the CourtListener REST API and decides whether the
+disposition the pipeline needs is *actually recoverable from CourtListener* — an
+ingestion gap a seed/pull backfill can close — or *genuinely absent* upstream, so
+the case belongs out of scope.
+
+The motivating gap (see ``pipeline/seed.py``): bulk seed ingests no docket entries
+and fills ``disposition`` only via the ``opinion_clusters`` LEFT JOIN, so a cert
+**denial** — whose order lives in a docket entry, with no opinion cluster — lands
+with ``disposition = NULL`` and a null decision date. This probe reads what a live
+fetch actually exposes for such dockets so the next build (targeted re-ingest vs.
+living with the gap) is measured rather than assumed.
+
+It writes nothing — no corpus, no ``data/``, no DVC, no git. The pure classifier
+(:func:`classify`) is separated from the fetch (:func:`probe_docket`) so the
+decision is unit-testable against a stubbed client with no network.
+"""
+
+from __future__ import annotations
+
+import re
+from enum import StrEnum
+from typing import Any, Protocol
+
+from pydantic import BaseModel, Field
+
+from ..schemas import Disposition
+from .ingest import normalize_disposition
+from .outcome import is_machine_readable
+
+JsonDict = dict[str, Any]
+
+
+class RecoverabilityClient(Protocol):
+    """The read-only slice of :class:`CourtListenerClient` the probe depends on.
+
+    A structural type so tests can supply a canned stub (see ``docs/testing.md``)
+    with no network — the probe only ever *reads*.
+    """
+
+    def get_docket(self, docket_id: int) -> JsonDict: ...
+
+    def iter_docket_entries(self, docket_id: int) -> list[JsonDict]: ...
+
+    def get_opinion_cluster(self, cluster_id: int) -> JsonDict: ...
+
+
+class Classification(StrEnum):
+    """The verdict for one docket's disposition."""
+
+    recoverable = "RECOVERABLE"
+    absent = "ABSENT"
+    ambiguous = "AMBIGUOUS"
+
+
+# Docket-entry text patterns that signal a concrete cert disposition. Each maps the
+# matched phrase to a :class:`Disposition` and a short human label; the first match
+# (scanned in order) wins, so the more specific GVR pattern precedes bare "granted".
+_ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
+    # Grant/vacate/remand: the petition is granted, so it lands on the granted side.
+    (re.compile(r"\bgvr\b", re.IGNORECASE), Disposition.granted, "GVR"),
+    (
+        re.compile(r"grant\w*.{0,60}?vacat\w*.{0,60}?remand\w*", re.IGNORECASE | re.DOTALL),
+        Disposition.granted,
+        "GVR",
+    ),
+    (
+        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?denied", re.IGNORECASE),
+        Disposition.denied,
+        "cert denied",
+    ),
+    (
+        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?dismiss\w*", re.IGNORECASE),
+        Disposition.dismissed,
+        "cert dismissed",
+    ),
+    (
+        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?grant\w*", re.IGNORECASE),
+        Disposition.granted,
+        "cert granted",
+    ),
+    (re.compile(r"\bcertiorari denied\b", re.IGNORECASE), Disposition.denied, "cert denied"),
+    (re.compile(r"\bcertiorari granted\b", re.IGNORECASE), Disposition.granted, "cert granted"),
+)
+
+# How much text around a matched signal to surface as evidence.
+_SNIPPET_PAD = 40
+
+
+class EntrySignal(BaseModel):
+    """A docket entry whose text signals a concrete cert disposition."""
+
+    entry_id: int | None = Field(default=None, description="CourtListener docket-entry id, if any")
+    disposition: Disposition = Field(description="Disposition the entry text signals")
+    label: str = Field(description="Human label for the matched signal, e.g. 'cert denied'")
+    snippet: str = Field(description="The matched text, with a little surrounding context")
+
+
+class ClusterInfo(BaseModel):
+    """The disposition-bearing facts of a docket's linked opinion cluster."""
+
+    cluster_id: int | None = Field(default=None, description="CourtListener cluster id")
+    raw_disposition: str | None = Field(default=None, description="Cluster `disposition` verbatim")
+    disposition: Disposition | None = Field(
+        default=None, description="Normalized cluster disposition (None if blank)"
+    )
+    precedential_status: str | None = Field(default=None)
+    date_filed: str | None = Field(default=None, description="Cluster decision date, if any")
+    citations: list[str] = Field(default_factory=list, description="Reporter citations, if any")
+
+
+class DocketProbe(BaseModel):
+    """The full recoverability report for one docket."""
+
+    court: str
+    docket: int
+    case_name: str | None = None
+    date_filed: str | None = None
+    date_terminated: str | None = None
+    raw_docket_disposition: str | None = Field(
+        default=None, description="Docket-level `disposition`/`nature_of_judgement` verbatim"
+    )
+    docket_disposition: Disposition | None = Field(
+        default=None, description="Normalized docket-level disposition (None if blank)"
+    )
+    docket_entry_count: int = 0
+    entry_signals: list[EntrySignal] = Field(default_factory=list)
+    cluster: ClusterInfo | None = None
+    classification: Classification | None = Field(
+        default=None, description="Verdict; None when the fetch errored"
+    )
+    source: str | None = Field(
+        default=None, description="What makes it recoverable: entry-order / cluster-disposition / …"
+    )
+    reason: str = Field(default="", description="One-line explanation of the verdict")
+    error: str | None = Field(default=None, description="Fetch error, if the docket could not load")
+
+    @property
+    def docket_id_str(self) -> str:
+        return f"{self.court}/{self.docket}"
+
+
+class ProbeReport(BaseModel):
+    """The machine-readable report over every probed docket."""
+
+    dockets: list[DocketProbe] = Field(default_factory=list)
+
+    def counts(self) -> dict[str, int]:
+        """Tally dockets by verdict; unclassified (fetch-failed) dockets under ``error``.
+
+        A docket that classified despite a non-fatal note (e.g. a missing cluster)
+        counts under its verdict — only a docket with no verdict is an ``error``.
+        """
+        tally: dict[str, int] = {c.value: 0 for c in Classification}
+        tally["error"] = 0
+        for d in self.dockets:
+            if d.classification is None:
+                tally["error"] += 1
+            else:
+                tally[d.classification.value] += 1
+        return tally
+
+
+def _clean_str(value: Any) -> str | None:
+    """A trimmed, non-empty string, else None (bulk/API blanks render as None)."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _cluster_id_from_url(url: str) -> int | None:
+    """Parse the trailing cluster id out of a CourtListener cluster URL."""
+    match = re.search(r"/clusters/(\d+)/?", url)
+    return int(match.group(1)) if match else None
+
+
+def _first_cluster_id(docket: JsonDict) -> int | None:
+    """The id of the docket's first linked opinion cluster, if any."""
+    clusters = docket.get("clusters") or []
+    for entry in clusters:
+        if isinstance(entry, int):
+            return entry
+        if isinstance(entry, str):
+            cid = _cluster_id_from_url(entry)
+            if cid is not None:
+                return cid
+    return None
+
+
+def _entry_text(entry: JsonDict) -> str:
+    """All human-readable text on a docket entry (entry + its recap documents)."""
+    parts: list[str] = []
+    for key in ("description", "short_description"):
+        text = _clean_str(entry.get(key))
+        if text:
+            parts.append(text)
+    for doc in entry.get("recap_documents") or []:
+        if isinstance(doc, dict):
+            for key in ("description", "short_description"):
+                text = _clean_str(doc.get(key))
+                if text:
+                    parts.append(text)
+    return "  ".join(parts)
+
+
+def _match_signal(text: str) -> tuple[Disposition, str, str] | None:
+    """First cert-disposition signal in ``text`` as (disposition, label, snippet)."""
+    for pattern, disposition, label in _ENTRY_SIGNALS:
+        match = pattern.search(text)
+        if match:
+            start = max(0, match.start() - _SNIPPET_PAD)
+            end = min(len(text), match.end() + _SNIPPET_PAD)
+            snippet = " ".join(text[start:end].split())
+            return disposition, label, snippet
+    return None
+
+
+def scan_entries(entries: list[JsonDict]) -> list[EntrySignal]:
+    """Find every docket entry whose text signals a concrete cert disposition."""
+    signals: list[EntrySignal] = []
+    for entry in entries:
+        matched = _match_signal(_entry_text(entry))
+        if matched is None:
+            continue
+        disposition, label, snippet = matched
+        raw_id = entry.get("id")
+        signals.append(
+            EntrySignal(
+                entry_id=int(raw_id) if isinstance(raw_id, int) else None,
+                disposition=disposition,
+                label=label,
+                snippet=snippet,
+            )
+        )
+    return signals
+
+
+def _docket_disposition(docket: JsonDict) -> tuple[str | None, Disposition | None]:
+    """The docket-level disposition, verbatim and normalized (mirrors ingest)."""
+    for key in ("disposition", "nature_of_judgement", "outcome"):
+        raw = _clean_str(docket.get(key))
+        if raw is not None:
+            return raw, normalize_disposition(raw)
+    return None, None
+
+
+def _citation_strings(cluster: JsonDict) -> list[str]:
+    """Render a cluster's citations to human strings, defensively across shapes."""
+    out: list[str] = []
+    for cite in cluster.get("citations") or []:
+        if isinstance(cite, str):
+            text = _clean_str(cite)
+            if text:
+                out.append(text)
+        elif isinstance(cite, dict):
+            volume = _clean_str(cite.get("volume"))
+            reporter = _clean_str(cite.get("reporter"))
+            page = _clean_str(cite.get("page"))
+            joined = " ".join(p for p in (volume, reporter, page) if p)
+            text = joined or _clean_str(cite.get("cite"))
+            if text:
+                out.append(text)
+    return out
+
+
+def build_cluster_info(cluster: JsonDict) -> ClusterInfo:
+    """Lift the disposition-bearing facts out of a fetched opinion cluster."""
+    raw = _clean_str(cluster.get("disposition"))
+    cluster_id = cluster.get("id")
+    return ClusterInfo(
+        cluster_id=int(cluster_id) if isinstance(cluster_id, int) else None,
+        raw_disposition=raw,
+        disposition=normalize_disposition(raw) if raw is not None else None,
+        precedential_status=_clean_str(cluster.get("precedential_status")),
+        date_filed=_clean_str(cluster.get("date_filed")),
+        citations=_citation_strings(cluster),
+    )
+
+
+def classify(probe: DocketProbe) -> DocketProbe:
+    """Set ``classification`` / ``source`` / ``reason`` from the gathered facts.
+
+    Pure. The taxonomy answers the build question — is the disposition recoverable
+    from CourtListener (an ingestion gap) or genuinely absent?
+
+    - **RECOVERABLE** — a concrete disposition is exposed (a cert-order entry or a
+      machine-readable cluster/docket disposition), or a decided-and-published
+      signal that a targeted re-ingest can follow (a cluster citation, a
+      termination date). The ``source`` names the strongest such signal.
+    - **AMBIGUOUS** — the docket looks decided but nothing here recovers the
+      disposition: a linked cluster with no disposition and no citation, or text
+      that normalized only to the ``other`` catch-all.
+    - **ABSENT** — a genuinely bare shell: no disposition anywhere, no cluster, no
+      signal entries, no termination date.
+    """
+    cluster = probe.cluster
+    entry_signal = next(
+        (s for s in probe.entry_signals if is_machine_readable(s.disposition)), None
+    )
+    cluster_readable = cluster is not None and is_machine_readable(cluster.disposition)
+    docket_readable = is_machine_readable(probe.docket_disposition)
+    has_citation = bool(cluster and cluster.citations)
+    has_termination = probe.date_terminated is not None
+
+    if entry_signal is not None:
+        probe.classification = Classification.recoverable
+        probe.source = "entry-order"
+        probe.reason = f"docket entry signals a {entry_signal.disposition} ({entry_signal.label})"
+    elif cluster_readable:
+        assert cluster is not None
+        probe.classification = Classification.recoverable
+        probe.source = "cluster-disposition"
+        probe.reason = f"linked opinion cluster exposes a {cluster.disposition} disposition"
+    elif docket_readable:
+        probe.classification = Classification.recoverable
+        probe.source = "docket-disposition"
+        probe.reason = f"docket-level disposition is machine-readable ({probe.docket_disposition})"
+    elif has_citation:
+        probe.classification = Classification.recoverable
+        probe.source = "citation"
+        probe.reason = (
+            "linked cluster carries a reporter citation — the published opinion's "
+            "disposition is recoverable by enrichment"
+        )
+    elif has_termination:
+        probe.classification = Classification.recoverable
+        probe.source = "date_terminated"
+        probe.reason = (
+            "docket carries a termination date — decided upstream; re-ingesting it "
+            "gives the decision date outcome detection needs"
+        )
+    elif cluster is not None or probe.docket_disposition is not None or probe.entry_signals:
+        probe.classification = Classification.ambiguous
+        probe.source = None
+        if cluster is not None:
+            probe.reason = "linked opinion cluster present but exposes no disposition or citation"
+        elif probe.docket_disposition is not None:
+            probe.reason = "disposition text present but classifies only as 'other'"
+        else:
+            probe.reason = "docket entries mention a disposition but none is machine-readable"
+    else:
+        probe.classification = Classification.absent
+        probe.source = None
+        probe.reason = (
+            "no disposition, opinion cluster, cert-order entry, or termination date — "
+            "genuinely bare upstream"
+        )
+    return probe
+
+
+def probe_docket(client: RecoverabilityClient, court: str, docket_id: int) -> DocketProbe:
+    """Fetch one docket (and its cluster) and classify its recoverability.
+
+    Read-only. Any fetch failure is captured on the returned probe's ``error``
+    rather than raised, so a batch run reports every docket it was asked about.
+    """
+    probe = DocketProbe(court=court, docket=docket_id)
+    try:
+        docket = client.get_docket(docket_id)
+    except Exception as exc:
+        probe.error = f"{type(exc).__name__}: {exc}"
+        return probe
+
+    probe.case_name = _clean_str(docket.get("case_name") or docket.get("case_name_full"))
+    probe.date_filed = _clean_str(docket.get("date_filed"))
+    probe.date_terminated = _clean_str(docket.get("date_terminated") or docket.get("date_decided"))
+    probe.raw_docket_disposition, probe.docket_disposition = _docket_disposition(docket)
+
+    try:
+        entries = client.iter_docket_entries(docket_id)
+    except Exception as exc:
+        entries = []
+        probe.error = f"docket-entries: {type(exc).__name__}: {exc}"
+    probe.docket_entry_count = len(entries)
+    probe.entry_signals = scan_entries(entries)
+
+    cluster_id = _first_cluster_id(docket)
+    if cluster_id is not None:
+        try:
+            probe.cluster = build_cluster_info(client.get_opinion_cluster(cluster_id))
+        except Exception as exc:
+            probe.cluster = ClusterInfo(cluster_id=cluster_id)
+            note = f"cluster {cluster_id}: {type(exc).__name__}: {exc}"
+            probe.error = f"{probe.error}; {note}" if probe.error else note
+
+    return classify(probe)
+
+
+def probe_dockets(client: RecoverabilityClient, pairs: list[tuple[str, int]]) -> ProbeReport:
+    """Probe each ``(court, docket_id)`` pair and collect the reports, in order."""
+    return ProbeReport(dockets=[probe_docket(client, court, docket) for court, docket in pairs])
+
+
+def parse_docket_pairs(values: list[str]) -> list[tuple[str, int]]:
+    """Parse ``court/docket`` tokens (comma-joined or repeated) into typed pairs.
+
+    Accepts both a repeated option and a comma-separated list, deduplicating while
+    preserving first-seen order. Raises :class:`ValueError` on a malformed token.
+    """
+    pairs: list[tuple[str, int]] = []
+    seen: set[tuple[str, int]] = set()
+    for value in values:
+        for raw_token in value.split(","):
+            token = raw_token.strip()
+            if not token:
+                continue
+            court, sep, docket = token.partition("/")
+            court = court.strip()
+            docket = docket.strip()
+            if not sep or not court or not docket:
+                raise ValueError(f"expected court/docket, got {token!r}")
+            try:
+                docket_id = int(docket)
+            except ValueError as exc:
+                raise ValueError(f"docket id must be an integer in {token!r}") from exc
+            pair = (court, docket_id)
+            if pair not in seen:
+                seen.add(pair)
+                pairs.append(pair)
+    if not pairs:
+        raise ValueError("no dockets given")
+    return pairs
+
+
+def render_summary(report: ProbeReport) -> str:
+    """Render the report as a short Markdown summary (for the Actions step summary)."""
+    counts = report.counts()
+    lines = ["## Recoverability probe", ""]
+    summary_bits = [f"**{counts[c.value]}** {c.value}" for c in Classification]
+    if counts["error"]:
+        summary_bits.append(f"**{counts['error']}** error")
+    lines.append(f"{len(report.dockets)} docket(s): " + " · ".join(summary_bits))
+    lines.extend(["", "| Docket | Verdict | Source | Reason |", "| --- | --- | --- | --- |"])
+    for d in report.dockets:
+        if d.classification is None:
+            verdict, source, reason = "ERROR", "—", d.error or "fetch failed"
+        else:
+            verdict = d.classification.value
+            source = d.source or "—"
+            reason = f"{d.reason} (note: {d.error})" if d.error else d.reason
+        lines.append(f"| `{d.docket_id_str}` | {verdict} | {source} | {reason} |")
+    return "\n".join(lines) + "\n"

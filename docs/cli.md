@@ -61,6 +61,17 @@ The offline checks the PR gate can run without the DVC remote.
 | `corpus-scope-audit` | Census the corpus's still-open SCOTUS events that the predict scope excludes (pre-1925 mandatory jurisdiction #309, stale unresolvable #333, inconsistent dates #171), with a recoverable-vs-bare split, plus a breakdown of the *unclassified* open events (why each stays in scope) and a docket-number **shape histogram** for the not-parseable bucket — the #343 refinement signal (the concrete formats a Term-parser broadening would target). The read-only input for the seed-side corpus reconcile. Emits a `CorpusScopeAudit`; skips gracefully when the corpus is absent. | `--out` |
 | `dvc-status` | Check the committed DVC metadata is internally consistent — the offline half of `dvc status`. | `PATH` (default `.`) |
 
+## Diagnostics — read-only probes
+
+Measurements a maintainer runs to answer a build question, writing nothing.
+
+| Command | Purpose | Key flags |
+|---------|---------|-----------|
+| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a seed/pull backfill can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary). Needs a REST token, so it is dispatched by the `run-recoverability-probe` workflow. | `--dockets`, `--summary-out` |
+
+`--dockets` takes one or more `court/docket` pairs, repeated and/or comma-separated
+(e.g. `--dockets scotus/1000512,scotus/1000515`).
+
 ## Metrics & reporting
 
 Deterministic roll-ups (committed) and point-in-time snapshots (surfaced, not

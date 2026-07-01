@@ -50,6 +50,11 @@ from .paths import CasePaths
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
+from .pipeline.recoverability import (
+    parse_docket_pairs,
+    probe_dockets,
+    render_summary,
+)
 from .pipeline.refresh import full_refresh as run_full_refresh
 from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.scope_reconcile import reconcile_predict_scope
@@ -717,6 +722,50 @@ def pull(
     should run).
     """
     _fetch_one_docket(court, docket)
+
+
+@app.command("probe-recoverability")
+def probe_recoverability(
+    dockets: Annotated[
+        list[str],
+        typer.Option(
+            "--dockets",
+            help="court/docket pair(s) to probe; repeatable and/or comma-separated, "
+            "e.g. --dockets scotus/1000512,scotus/1000515.",
+        ),
+    ],
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Append the Markdown summary here (e.g. $GITHUB_STEP_SUMMARY); "
+            "the machine JSON always goes to stdout.",
+        ),
+    ] = None,
+) -> None:
+    """Probe whether sparse dockets' dispositions are recoverable from CourtListener.
+
+    Strictly **read-only**: for each ``court/docket`` it fetches the docket, its
+    entries, and any linked opinion cluster via the REST API and classifies the
+    disposition as RECOVERABLE (an ingestion gap a seed/pull backfill can close),
+    ABSENT (genuinely bare upstream), or AMBIGUOUS. Writes nothing — no corpus,
+    ``data/``, DVC, or git. Emits the machine ``ProbeReport`` JSON on stdout and a
+    short human summary on stderr; ``--summary-out`` also appends the Markdown
+    summary to a file. Needs the CourtListener REST token in the environment (it is
+    dispatched by the diagnostic workflow, which holds it). See ``docs/cli.md``.
+    """
+    try:
+        pairs = parse_docket_pairs(dockets)
+    except ValueError as exc:
+        typer.echo(f"bad --dockets value: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    with _client() as client:
+        report = probe_dockets(client, pairs)
+    summary = render_summary(report)
+    typer.echo(report.model_dump_json(indent=2))
+    typer.echo(summary, err=True)
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(summary)
 
 
 @app.command("seed-backfill")
