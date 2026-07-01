@@ -164,10 +164,16 @@ def test_run_scope_audit_buckets_unclassified_by_reason(tmp_path: Path) -> None:
             [
                 # recent Term, unresolved -> "recent or current Term"
                 corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="24-101"),
-                # two original-jurisdiction dockets the parser can't read -> "Term not
-                # parseable"; same shape (99A999), so they aggregate in the histogram.
-                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="22O141"),
-                corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="21O073"),
+                # two original-jurisdiction *text* forms the Term parser can't read and
+                # the numeric #362 predicate doesn't catch -> "Term not parseable"; same
+                # shape, so they aggregate in the histogram. (The numeric `22O141` form is
+                # excluded outright now; the spelled-out ", Orig." tail still falls through.)
+                corpus.CorpusRow(
+                    case_id="scotus/2", court="scotus", docket_number="No. 155, Orig."
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/5", court="scotus", docket_number="No. 156, Orig."
+                ),
                 # open event but a disposition is recorded -> "carries a disposition signal"
                 corpus.CorpusRow(
                     case_id="scotus/3",
@@ -191,7 +197,7 @@ def test_run_scope_audit_buckets_unclassified_by_reason(tmp_path: Path) -> None:
     }
     # The two unparseable dockets share a shape, so the histogram counts it once at 2 —
     # the concrete format (#343) a parser broadening would target.
-    assert {s.shape: s.count for s in audit.unparseable_docket_shapes} == {"99A999": 2}
+    assert {s.shape: s.count for s in audit.unparseable_docket_shapes} == {"Aa. 999, Aaaa.": 2}
 
 
 def _write_event(data_root: Path, court: str, docket: int, event: str) -> Path:

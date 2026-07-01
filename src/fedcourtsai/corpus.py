@@ -588,6 +588,38 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
     return bool(row.citations or row.citation_count or row.opinion_text)
 
 
+# SCOTUS application ("22A123", older "A-9999") and original-jurisdiction ("22O141")
+# docket numbers — the term letter (A / O) marks a form that is not the modern
+# discretionary-cert petition. A trailing period on the historical spelling ("22A99.")
+# is tolerated; the letter is what a cert docket's ``YY-NNNN`` never carries.
+_SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+)\.?$")
+_SCOTUS_ORIGINAL_RE = re.compile(r"^\d{2}O\d+\.?$")
+
+
+def is_non_cert_scotus_form(row: CorpusRow) -> bool:
+    """Whether a SCOTUS docket is an application or original-jurisdiction matter (issue #362).
+
+    A stay / emergency **application** (``22A123``, older ``A-9999``) and an
+    **original-jurisdiction** case (``22O141`` — e.g. a State-v-State dispute) are not
+    the discretionary-cert form the ``evt-petition-disposition`` model targets: an
+    application's disposition is a stay grant/deny and an original case's is a merits
+    judgment, neither the cert grant/deny the model calibrates on. So predict scope
+    excludes them (as it does the pre-1925 mandatory-jurisdiction regime, #309),
+    keyed on the term letter that distinguishes the format from a cert docket's
+    ``YY-NNNN``. SCOTUS-only.
+
+    Conservative — it matches on format alone, so it never catches a modern cert
+    petition (which carries a hyphen, not a letter). If application *stays* are later
+    modeled as their own motion events (issue #372), refine this to spare those rather
+    than the whole case; today an application docket carries only the mis-fit cert
+    baseline, so excluding the case loses nothing.
+    """
+    if row.court != "scotus":
+        return False
+    dn = normalize_docket_number(row.docket_number) or ""
+    return bool(_SCOTUS_APPLICATION_RE.match(dn) or _SCOTUS_ORIGINAL_RE.match(dn))
+
+
 def is_date_inconsistent(row: CorpusRow) -> bool:
     """Whether a case's filing/decision dates are internally inconsistent (issue #171).
 
@@ -615,6 +647,10 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (
         is_published_opinion_unresolvable,
         "published opinion but no machine-readable cert disposition (#363)",
+    ),
+    (
+        is_non_cert_scotus_form,
+        "SCOTUS application / original-jurisdiction docket — not discretionary cert (#362)",
     ),
     (is_date_inconsistent, "internally inconsistent dates — decided before filed (#171)"),
 ]
