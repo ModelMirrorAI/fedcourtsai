@@ -106,7 +106,7 @@ jobs:
       # never wipe them. No static keys; the role ARN and region come from the
       # `runner` environment.
       - name: Configure AWS credentials (DVC S3 remote, read-write)
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
