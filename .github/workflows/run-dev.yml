@@ -85,7 +85,7 @@ jobs:
         # (leaving the rescue step to salvage its work) instead of the job-level
         # timeout, which would cancel the runner and discard everything.
         timeout-minutes: 50
-        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
+        uses: anthropics/claude-code-action@fad22eb3fa582b7357fc0ea48af6645851b884fd # v1.0.161
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}

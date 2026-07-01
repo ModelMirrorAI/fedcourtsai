@@ -81,7 +81,7 @@ jobs:
       # The sweep gates on the corpus (the real rows, not a proxy), so it must be on
       # disk. Assume the read-only S3 role via OIDC and dvc pull it.
       - name: Configure AWS credentials (DVC S3 remote, read-only)
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
