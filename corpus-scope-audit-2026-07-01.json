@@ -1,11 +1,11 @@
 {
-  "corpus_rows": 2151615,
+  "corpus_rows": 2151624,
   "exclusions": [
     {
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29891,
+      "recoverable": 29885,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -23,7 +23,7 @@
       "cases": 382175,
       "open_events": 382175,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44278,
+      "recoverable": 44275,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
