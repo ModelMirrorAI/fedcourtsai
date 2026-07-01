@@ -110,10 +110,10 @@
     "snapshot": "2026-06-30"
   },
   "cost": {
-    "actions_cost_usd": 0.9717,
-    "actions_minutes": 161.9,
-    "actions_monthly_usd": 34.27,
-    "estimated_monthly_usd": 89.27,
+    "actions_cost_usd": 0.9883,
+    "actions_minutes": 164.7,
+    "actions_monthly_usd": 33.49,
+    "estimated_monthly_usd": 88.49,
     "fixed_monthly_usd": 55.0,
     "model_cost_usd": 10.450574,
     "window_days": 0.9
@@ -276,7 +276,7 @@
     "total": 2,
     "warnings": 2
   },
-  "generated_at": "2026-07-01T13:27:33.362108+00:00",
+  "generated_at": "2026-07-01T14:18:50.111709+00:00",
   "health": [
     {
       "failures": 0,
@@ -284,31 +284,31 @@
       "last_run_at": "2026-07-01T13:00:38Z",
       "median_seconds": 58,
       "p95_seconds": 64,
-      "runs_considered": 47,
+      "runs_considered": 43,
       "success_rate": 1.0,
-      "successes": 47,
+      "successes": 43,
       "workflow": "CodeQL"
     },
     {
-      "failures": 38,
-      "last_conclusion": "success",
-      "last_run_at": "2026-07-01T13:21:17Z",
+      "failures": 34,
+      "last_conclusion": null,
+      "last_run_at": "2026-07-01T14:18:08Z",
       "median_seconds": 19,
       "p95_seconds": 46,
-      "runs_considered": 50,
-      "success_rate": 0.24,
-      "successes": 12,
+      "runs_considered": 51,
+      "success_rate": 0.32,
+      "successes": 16,
       "workflow": "ci"
     },
     {
-      "failures": 38,
-      "last_conclusion": "success",
-      "last_run_at": "2026-07-01T13:21:17Z",
-      "median_seconds": 19,
-      "p95_seconds": 73,
-      "runs_considered": 50,
-      "success_rate": 0.24,
-      "successes": 12,
+      "failures": 34,
+      "last_conclusion": null,
+      "last_run_at": "2026-07-01T14:18:08Z",
+      "median_seconds": 20,
+      "p95_seconds": 78,
+      "runs_considered": 51,
+      "success_rate": 0.32,
+      "successes": 16,
       "workflow": "codeql"
     },
     {
@@ -358,12 +358,12 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-07-01T13:27:18Z",
-      "median_seconds": 28,
+      "last_run_at": "2026-07-01T14:18:31Z",
+      "median_seconds": 22,
       "p95_seconds": 28,
-      "runs_considered": 2,
+      "runs_considered": 3,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "run-ops"
     },
     {
@@ -390,11 +390,11 @@
     },
     {
       "failures": 0,
-      "last_conclusion": "skipped",
-      "last_run_at": "2026-07-01T12:28:14Z",
+      "last_conclusion": null,
+      "last_run_at": "2026-07-01T14:02:27Z",
       "median_seconds": 8,
       "p95_seconds": 1391,
-      "runs_considered": 9,
+      "runs_considered": 10,
       "success_rate": 0.3333333333333333,
       "successes": 3,
       "workflow": "run-pull"
