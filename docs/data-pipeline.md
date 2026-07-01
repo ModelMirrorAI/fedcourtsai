@@ -238,6 +238,11 @@ ledger models in `fedcourtsai.schemas`.
   (outcome hidden at predict time), score against the known disposition. Run by
   `fedcourts backtest` (the `backtest` DVC stage), a deterministic offline replay
   that writes `metrics/backtest.json`; see [`fedcourtsai.backtest`](../src/fedcourtsai/backtest.py).
+- **Base-rate aggregation** — roll the corpus into disposition base-rates instead of
+  individual priors. On demand as `fedcourts stats` (overall or grouped by court /
+  topic / judge / SCOTUS Term); as the published **statpack** (`fedcourts statpack`,
+  the `statpack` DVC stage → `metrics/statpack.{json,md}`); and behind the read-only
+  `run-analytics` workflow. See [`fedcourtsai.analytics`](../src/fedcourtsai/analytics.py).
 - **Retrieval** — at prediction time a model pulls a handful of *relevant*
   priors instead of loading the bulk set into context. Structured retrieval is
   implemented today as `fedcourts query` (and the `corpus.retrieve_priors`

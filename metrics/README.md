@@ -15,9 +15,15 @@ and `dvc metrics diff` can track them over time:
   evaluators). The `leaderboard` DVC stage produces it by running
   `fedcourts leaderboard`, a deterministic, offline roll-up — empty (`{}` plus the
   zero counts) until the first evaluation lands.
+- `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
+  published artifact): headline case counts and the overall disposition base rate,
+  plus curated breakdowns — cases by court, and SCOTUS petitions by Term and by
+  nature-of-suit topic. The `statpack` DVC stage produces both the machine JSON and a
+  rendered Markdown document by running `fedcourts statpack`, a deterministic, offline
+  roll-up of the corpus — empty (zero counts, empty sections) until a corpus is present.
 
-Both files are deterministic, offline roll-ups that start empty (zero counts)
+These files are deterministic, offline roll-ups that start empty (zero counts)
 until their input lands — the evaluations ledger for the leaderboard, a corpus
-with outcome labels for the back-test. Both are small and worth reading in a
-diff, so they are git-tracked rather than pushed to the DVC remote like the
+with outcome labels for the back-test and statpack. All are small and worth reading
+in a diff, so they are git-tracked rather than pushed to the DVC remote like the
 corpus blob.

@@ -82,6 +82,7 @@ committed), plus the spend ledger.
 |---------|---------|-----------|
 | `leaderboard` | Rank predictors from the evaluations ledger into `metrics/leaderboard.json`. | `--out` |
 | `backtest` | Replay the reference predictors over resolved corpus events into `metrics/backtest.json`. | `--out`, `--court`, `--limit` |
+| `statpack` | Roll the corpus into a base-rate **statpack** — headline counts plus curated disposition base-rate breakdowns (by court, and SCOTUS petitions by Term and topic) — into `metrics/statpack.{json,md}`. Deterministic and offline; writes the empty pack when the corpus is absent. | `--out`, `--markdown-out` |
 | `ops-report` | Roll pipeline health, backfill progress, spend, open agent flags, agent tooling feedback, data health, and the out-of-scope-open-events census into the ops dashboard Markdown (and optional JSON). | `--runs`, `--json`, `--previous`, `--generated-at`, `--corpus-validation`, `--scope-audit`, `--data-health-out` |
 | `record-usage` | Record one run's measured token usage and estimated cost next to its prediction/evaluation output. | `--court`, `--docket`, `--event`, `--run-id`, `--engine`, `--role`, `--actor`, `--model`, `--*-tokens`, `--claude-execution-file`, `--codex-sessions-dir` |
 | `usage-summary` | Sum the recorded `usage.json` ledger into an actual \$/run, as JSON on stdout. | — |

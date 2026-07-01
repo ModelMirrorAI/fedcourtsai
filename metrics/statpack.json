@@ -1,0 +1,33 @@
+{
+  "corpus_rows": 0,
+  "open": 0,
+  "overall": {
+    "cases": 0,
+    "dispositions": [],
+    "key": "",
+    "open": 0,
+    "resolved": 0
+  },
+  "resolved": 0,
+  "schema_version": "1.0",
+  "sections": [
+    {
+      "buckets": [],
+      "court": null,
+      "group_by": "court",
+      "title": "Cases by court"
+    },
+    {
+      "buckets": [],
+      "court": "scotus",
+      "group_by": "term_year",
+      "title": "SCOTUS petitions by Term"
+    },
+    {
+      "buckets": [],
+      "court": "scotus",
+      "group_by": "topic",
+      "title": "SCOTUS petitions by nature-of-suit topic"
+    }
+  ]
+}

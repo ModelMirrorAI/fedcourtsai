@@ -669,6 +669,45 @@ class AnalyticsReport(_Strict):
     )
 
 
+class StatPackSection(_Strict):
+    """One named base-rate breakdown in the statpack: a dimension and its buckets.
+
+    ``court`` records the court filter the section was computed under (``None`` = all
+    courts), so the artifact is self-describing — e.g. a SCOTUS-only Term breakdown vs
+    an all-courts view. ``buckets`` is the per-group base-rate breakdown, most cases
+    first (the same shape ``fedcourts stats --group-by`` produces).
+    """
+
+    title: str = Field(description="Human title of the breakdown, e.g. 'Cases by court'")
+    court: str | None = Field(default=None, description="Court filter applied; None = all courts")
+    group_by: GroupBy = Field(description="The dimension the buckets break down by")
+    buckets: list[BaseRateBucket] = Field(default_factory=list)
+
+
+class StatPack(_Strict):
+    """``metrics/statpack.json`` — a corpus base-rate statpack (an independent artifact).
+
+    A deterministic, offline roll-up of the corpus into headline counts plus a curated
+    set of base-rate breakdowns (:class:`StatPackSection`) — the project's analogue of a
+    published court "statpack". A pure function of the corpus (no clock, no network), so
+    reruns over an unchanged corpus reproduce it byte for byte; git-tracked as a DVC
+    metric alongside ``leaderboard.json`` / ``backtest.json``. Starts empty (zero counts,
+    no sections) until a corpus is present — mirroring the other metrics artifacts, an
+    absent corpus yields the empty pack rather than an error.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    corpus_rows: int = Field(default=0, ge=0, description="Case rows in the corpus")
+    resolved: int = Field(default=0, ge=0, description="Cases carrying a realized disposition")
+    open: int = Field(default=0, ge=0, description="Cases still unresolved")
+    overall: BaseRateBucket = Field(
+        default_factory=BaseRateBucket, description="Base rate over the whole corpus"
+    )
+    sections: list[StatPackSection] = Field(
+        default_factory=list, description="Curated base-rate breakdowns"
+    )
+
+
 class ScopeReconcileResult(_Strict):
     """``reconcile-scope`` result: what the seed scope reconcile changed (issue #343).
 
@@ -914,6 +953,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
     "analytics_report": AnalyticsReport,
+    "statpack": StatPack,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
 }

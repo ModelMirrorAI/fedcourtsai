@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "BaseRateBucket": {
+      "additionalProperties": false,
+      "description": "Disposition base-rates over one slice of the corpus (the whole set, or a group).\n\nUsed both for the overall filtered set (``key`` empty) and for each value of the\n``group_by`` dimension. ``cases`` counts every matched case in the slice,\n``resolved`` those carrying a realized disposition, and ``open`` the remainder;\n``dispositions`` is the base-rate breakdown over the resolved subset, most common\nfirst (ties broken by disposition for a deterministic order).",
+      "properties": {
+        "cases": {
+          "default": 0,
+          "description": "Matched cases in this slice",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "dispositions": {
+          "description": "Base-rate breakdown over the resolved cases",
+          "items": {
+            "$ref": "#/$defs/DispositionShare"
+          },
+          "title": "Dispositions",
+          "type": "array"
+        },
+        "key": {
+          "default": "",
+          "description": "The group value (court id, topic, \u2026); empty overall",
+          "title": "Key",
+          "type": "string"
+        },
+        "open": {
+          "default": 0,
+          "description": "Matched cases still unresolved",
+          "minimum": 0,
+          "title": "Open",
+          "type": "integer"
+        },
+        "resolved": {
+          "default": 0,
+          "description": "Matched cases carrying a disposition",
+          "minimum": 0,
+          "title": "Resolved",
+          "type": "integer"
+        }
+      },
+      "title": "BaseRateBucket",
+      "type": "object"
+    },
+    "Disposition": {
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "DispositionShare": {
+      "additionalProperties": false,
+      "description": "One realized outcome's count and share of the resolved cases in a slice.\n\n``share`` is ``count / resolved`` \u2014 the base rate for that disposition among the\n*decided* cases in the bucket (open cases carry no label, so they are excluded\nfrom the denominator). A bucket with no resolved cases carries no shares.",
+      "properties": {
+        "count": {
+          "description": "Resolved cases carrying this disposition",
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "disposition": {
+          "$ref": "#/$defs/Disposition"
+        },
+        "share": {
+          "description": "count / resolved \u2014 the base rate among decided cases",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Share",
+          "type": "number"
+        }
+      },
+      "required": [
+        "disposition",
+        "count",
+        "share"
+      ],
+      "title": "DispositionShare",
+      "type": "object"
+    },
+    "GroupBy": {
+      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).",
+      "enum": [
+        "court",
+        "topic",
+        "judge",
+        "term_year",
+        "disposition"
+      ],
+      "title": "GroupBy",
+      "type": "string"
+    },
+    "StatPackSection": {
+      "additionalProperties": false,
+      "description": "One named base-rate breakdown in the statpack: a dimension and its buckets.\n\n``court`` records the court filter the section was computed under (``None`` = all\ncourts), so the artifact is self-describing \u2014 e.g. a SCOTUS-only Term breakdown vs\nan all-courts view. ``buckets`` is the per-group base-rate breakdown, most cases\nfirst (the same shape ``fedcourts stats --group-by`` produces).",
+      "properties": {
+        "buckets": {
+          "items": {
+            "$ref": "#/$defs/BaseRateBucket"
+          },
+          "title": "Buckets",
+          "type": "array"
+        },
+        "court": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Court filter applied; None = all courts",
+          "title": "Court"
+        },
+        "group_by": {
+          "$ref": "#/$defs/GroupBy",
+          "description": "The dimension the buckets break down by"
+        },
+        "title": {
+          "description": "Human title of the breakdown, e.g. 'Cases by court'",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "group_by"
+      ],
+      "title": "StatPackSection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/statpack.json`` \u2014 a corpus base-rate statpack (an independent artifact).\n\nA deterministic, offline roll-up of the corpus into headline counts plus a curated\nset of base-rate breakdowns (:class:`StatPackSection`) \u2014 the project's analogue of a\npublished court \"statpack\". A pure function of the corpus (no clock, no network), so\nreruns over an unchanged corpus reproduce it byte for byte; git-tracked as a DVC\nmetric alongside ``leaderboard.json`` / ``backtest.json``. Starts empty (zero counts,\nno sections) until a corpus is present \u2014 mirroring the other metrics artifacts, an\nabsent corpus yields the empty pack rather than an error.",
+  "properties": {
+    "corpus_rows": {
+      "default": 0,
+      "description": "Case rows in the corpus",
+      "minimum": 0,
+      "title": "Corpus Rows",
+      "type": "integer"
+    },
+    "open": {
+      "default": 0,
+      "description": "Cases still unresolved",
+      "minimum": 0,
+      "title": "Open",
+      "type": "integer"
+    },
+    "overall": {
+      "$ref": "#/$defs/BaseRateBucket",
+      "description": "Base rate over the whole corpus"
+    },
+    "resolved": {
+      "default": 0,
+      "description": "Cases carrying a realized disposition",
+      "minimum": 0,
+      "title": "Resolved",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sections": {
+      "description": "Curated base-rate breakdowns",
+      "items": {
+        "$ref": "#/$defs/StatPackSection"
+      },
+      "title": "Sections",
+      "type": "array"
+    }
+  },
+  "title": "StatPack",
+  "type": "object"
+}
