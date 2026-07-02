@@ -239,7 +239,8 @@ ledger models in `fedcourtsai.schemas`.
   `fedcourts backtest` (the `backtest` DVC stage), a deterministic offline replay
   that writes `metrics/backtest.json`; see [`fedcourtsai.backtest`](../src/fedcourtsai/backtest.py).
 - **Base-rate aggregation** — roll the corpus into disposition base-rates instead of
-  individual priors. On demand as `fedcourts stats` (overall or grouped by court /
+  individual priors. On demand as `fedcourts stats` (overall, filtered to one SCOTUS
+  Term with `--term`, or grouped by court / originating circuit /
   topic / judge / SCOTUS Term); as the published **statpack** (`fedcourts statpack`,
   the `statpack` DVC stage → `metrics/statpack.{json,md}`, kept fresh by
   `run-analytics`'s weekly metrics-refresh job — see [pipeline.md](pipeline.md));

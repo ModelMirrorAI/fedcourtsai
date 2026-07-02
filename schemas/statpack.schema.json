@@ -85,13 +85,14 @@
       "type": "object"
     },
     "GroupBy": {
-      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).",
+      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.",
       "enum": [
         "court",
         "topic",
         "judge",
         "term_year",
-        "disposition"
+        "disposition",
+        "originating_court"
       ],
       "title": "GroupBy",
       "type": "string"
@@ -136,6 +137,88 @@
       ],
       "title": "StatPackSection",
       "type": "object"
+    },
+    "StatPackTerm": {
+      "additionalProperties": false,
+      "description": "One SCOTUS October Term's slice of the statpack: base rates plus decision timing.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic DVC metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nCases whose docket number carries no parseable Term appear in no entry \u2014 the\nall-Terms picture lives in the pack's headline counts and curated sections.",
+      "properties": {
+        "base_rates": {
+          "$ref": "#/$defs/BaseRateBucket",
+          "description": "This Term's counts and base rates"
+        },
+        "term": {
+          "description": "The October-Term year, e.g. 2024",
+          "title": "Term",
+          "type": "integer"
+        },
+        "timing": {
+          "$ref": "#/$defs/TimingStats",
+          "description": "Petition filing \u2192 decision timing over this Term's resolved cases"
+        }
+      },
+      "required": [
+        "term",
+        "base_rates"
+      ],
+      "title": "StatPackTerm",
+      "type": "object"
+    },
+    "TimingStats": {
+      "additionalProperties": false,
+      "description": "Filing-to-decision duration stats over the resolved cases carrying both dates.\n\n``cases`` counts the resolved rows with a usable ``date_filed`` \u2192 ``date_decided``\npair (decided on/after filed); rows missing either date are excluded rather than\nguessed, so ``cases`` doubles as the coverage denominator. Percentiles use the\ndeterministic nearest-rank method, so the same corpus reproduces the same stats.",
+      "properties": {
+        "cases": {
+          "default": 0,
+          "description": "Resolved cases with a usable date pair",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "mean_days": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean days filed\u2192decided",
+          "title": "Mean Days"
+        },
+        "median_days": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest-rank median",
+          "title": "Median Days"
+        },
+        "p90_days": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest-rank 90th pctile",
+          "title": "P90 Days"
+        }
+      },
+      "title": "TimingStats",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -179,6 +262,18 @@
       },
       "title": "Sections",
       "type": "array"
+    },
+    "terms": {
+      "description": "Per-SCOTUS-Term detail (base rates + timing), most recent Term first",
+      "items": {
+        "$ref": "#/$defs/StatPackTerm"
+      },
+      "title": "Terms",
+      "type": "array"
+    },
+    "timing": {
+      "$ref": "#/$defs/TimingStats",
+      "description": "Filing \u2192 decision timing over every resolved case with both dates"
     }
   },
   "title": "StatPack",

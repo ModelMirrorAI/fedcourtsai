@@ -12,9 +12,9 @@ name: run-analytics
 #                      (an ingestion gap) or genuinely absent? (`probe-recoverability`,
 #                      REST-only.)
 #   - metrics-refresh: regenerate the committed metrics artifacts (leaderboard /
-#                      backtest / statpack) and land any change as a **reviewed**
-#                      PR — never a direct commit to main, never auto-merged.
-#                      Also the schedule's job (weekly).
+#                      statpack; backtest is manual-only for now) and land any
+#                      change as a **reviewed** PR — never a direct commit to
+#                      main, never auto-merged. Also the schedule's job (weekly).
 #
 # The two analysis modes are strictly read-only: neither writes the corpus, `data/`,
 # DVC, or git, opens a PR, or files an issue — every result goes to the Actions step
@@ -55,7 +55,11 @@ on:
         type: string
         default: ""
       group_by:
-        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition. Empty = overall only."
+        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court. Empty = overall only."
+        type: string
+        default: ""
+      term:
+        description: "corpus-stats: restrict to one SCOTUS October-Term year, e.g. 2024. Empty = all Terms."
         type: string
         default: ""
       # recoverability input (ignored by corpus-stats).
@@ -107,6 +111,9 @@ jobs:
           TOPIC: ${{ inputs.topic }}
           DISPOSITION: ${{ inputs.disposition }}
           GROUP_BY: ${{ inputs.group_by }}
+          # Not `TERM`: that name is the standard terminal-type variable, which
+          # every subprocess consults — an avoidable namespace collision.
+          TERM_YEAR: ${{ inputs.term }}
         run: |
           set -euo pipefail
           # Prints the machine AnalyticsReport JSON to stdout (the run log) and appends
@@ -116,6 +123,7 @@ jobs:
             --topic "$TOPIC" \
             --disposition "$DISPOSITION" \
             --group-by "$GROUP_BY" \
+            --term "$TERM_YEAR" \
             --summary-out "$GITHUB_STEP_SUMMARY"
 
   recoverability:
@@ -161,10 +169,11 @@ jobs:
             --summary-out "$GITHUB_STEP_SUMMARY"
 
   # Scheduled refresh of the committed metrics artifacts:
-  # metrics/leaderboard.json (input: the git data/ evaluations ledger),
-  # metrics/backtest.json and metrics/statpack.{json,md} (input: the corpus).
-  # All three are deterministic DVC stages, but nothing regenerated them as their
-  # inputs grew, so they drifted stale on main between manual `dvc repro` runs.
+  # metrics/leaderboard.json (input: the git data/ evaluations ledger) and
+  # metrics/statpack.{json,md} (input: the corpus). Both are deterministic DVC
+  # stages, but nothing regenerated them as their inputs grew, so they drifted
+  # stale on main between manual `dvc repro` runs. (metrics/backtest.json is the
+  # third metrics stage; it is refreshed manually only — see the regenerate step.)
   #
   # This job reruns the same tested `fedcourts` commands the stages run (calling
   # them directly avoids `dvc repro` leaving an untracked dvc.lock), and — only
@@ -217,10 +226,10 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
-      # backtest and statpack read the corpus, so it must be on disk; a missing
+      # The statpack reads the corpus, so it must be on disk; a missing
       # pointer only warns (the leaderboard needs no corpus), but a failed pull
       # of an existing pointer fails the job — regenerating against a missing
-      # corpus would regress those artifacts to the empty pack.
+      # corpus would regress the statpack to the empty pack.
       - uses: ./.github/actions/corpus-readonly
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
@@ -228,16 +237,21 @@ jobs:
           dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
           missing-pointer: warn
 
-      # The same commands the dvc.yaml stages run; each is deterministic, so an
-      # unchanged input reproduces the committed artifact byte for byte. The
-      # corpus-dependent pair runs only when the corpus is on disk — regenerating
-      # without it would replace real metrics with the empty pack.
+      # Two of the three dvc.yaml stage commands, run directly (avoiding an
+      # untracked dvc.lock); each is deterministic, so an unchanged input
+      # reproduces the committed artifact byte for byte. The
+      # statpack runs only when the corpus is on disk — regenerating without it
+      # would replace real metrics with the empty pack. The backtest stage is
+      # deliberately NOT refreshed here: its prior-vote baseline replays a
+      # corpus-retrieval query per resolved case, which cannot finish inside a
+      # CI job over the multi-million-row corpus — re-add it once the harness
+      # scales (until then `metrics/backtest.json` only changes via a manual,
+      # bounded `fedcourts backtest` run).
       - name: Regenerate the metrics artifacts
         run: |
           set -euo pipefail
           uv run fedcourts leaderboard
           if [ -f corpus/corpus.db ]; then
-            uv run fedcourts backtest
             uv run fedcourts statpack
           fi
 

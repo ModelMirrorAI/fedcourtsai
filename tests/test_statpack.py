@@ -45,10 +45,35 @@ def test_build_statpack_court_breakdown(fixture_corpus: FixtureCorpus) -> None:
     assert [(b.key, b.cases) for b in by_court.buckets] == [("ca9", 3), ("scotus", 2), ("ca1", 1)]
 
 
-def test_build_statpack_scotus_term_breakdown(fixture_corpus: FixtureCorpus) -> None:
-    by_term = _section(_pack(fixture_corpus), "SCOTUS petitions by Term")
-    assert by_term.court == "scotus"
-    assert {b.key for b in by_term.buckets} == {"2022", "2024"}
+def test_build_statpack_overall_timing(fixture_corpus: FixtureCorpus) -> None:
+    timing = _pack(fixture_corpus).timing
+    # The four resolved cases all carry date pairs: 168, 319, 525, and 546 days.
+    assert timing.cases == 4
+    assert timing.mean_days == pytest.approx(389.5)
+    assert timing.median_days == 319.0  # nearest-rank: ceil(0.5 x 4) = rank 2
+    assert timing.p90_days == 546.0  # nearest-rank: ceil(0.9 x 4) = rank 4
+
+
+def test_build_statpack_per_term_entries(fixture_corpus: FixtureCorpus) -> None:
+    terms = _pack(fixture_corpus).terms
+    # One entry per parseable SCOTUS Term, most recent first.
+    assert [t.term for t in terms] == [2024, 2022]
+    open_term, resolved_term = terms
+    assert (open_term.base_rates.cases, open_term.base_rates.open) == (1, 1)
+    assert open_term.timing.cases == 0  # nothing resolved yet
+    assert (resolved_term.base_rates.cases, resolved_term.base_rates.resolved) == (1, 1)
+    assert {d.disposition for d in resolved_term.base_rates.dispositions} == {"denied"}
+    # scotus/304 filed 2024-01-08, denied 2024-06-24: 168 days.
+    assert resolved_term.timing.cases == 1
+    assert resolved_term.timing.median_days == 168.0
+
+
+def test_build_statpack_originating_circuit_scorecard(fixture_corpus: FixtureCorpus) -> None:
+    scorecard = _section(_pack(fixture_corpus), "SCOTUS petitions by originating circuit")
+    assert scorecard.court == "scotus"
+    assert scorecard.group_by == "originating_court"
+    # Both fixture petitions came up from ca9; one resolved (denied), one open.
+    assert [(b.key, b.cases, b.resolved, b.open) for b in scorecard.buckets] == [("ca9", 2, 1, 1)]
 
 
 def test_build_statpack_absent_corpus_is_empty_with_scaffolding(tmp_path: Path) -> None:
@@ -70,7 +95,12 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "**6** case(s): 4 resolved, 2 open." in md
     assert "## Cases by court" in md
     assert "| ca9 |" in md
+    # Headline timing line and the per-Term detail table (recent first).
+    assert "median 319d, p90 546d (mean 389.5d over 4 dated case(s))" in md
     assert "## SCOTUS petitions by Term" in md
+    assert "| 2024 | 1 | 0 | 1 |" in md
+    assert "| 2022 | 1 | 1 | 0 | denied 100.0% | 168 | 168 |" in md
+    assert "## SCOTUS petitions by originating circuit" in md
 
 
 def test_render_statpack_markdown_empty() -> None:

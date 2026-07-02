@@ -50,10 +50,11 @@ the workflow places them for your run:
 **Corpus tooling you may use (read-only, on the already-pulled corpus).** These pull
 *context*, never new facts about this case: `fedcourts query` for a handful of similar
 resolved priors, and `fedcourts stats` for aggregate disposition **base-rates** —
-overall or grouped by court / topic / judge / SCOTUS Term (`--group-by`), sharing
-`query`'s filters. The SCOTUS cert grant rate is low (a few percent), so the base rate
-is a useful calibration anchor; weigh it against this case's specifics rather than
-adopting it wholesale. See `docs/cli.md`.
+overall, for one SCOTUS Term (`--term`), or grouped by court / topic / judge / SCOTUS
+Term / originating circuit (`--group-by`), sharing `query`'s filters. The SCOTUS cert
+grant rate is low (a few percent), so the base rate is a useful calibration anchor —
+recent Terms and the case's originating circuit are the most relevant cuts; weigh
+them against this case's specifics rather than adopting them wholesale. See `docs/cli.md`.
 
 ## Outputs (your two files, a brief `tooling.json`, plus `flags.json` if you have something to flag)
 
