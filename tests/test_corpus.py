@@ -472,6 +472,12 @@ def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     assert corpus.scotus_term_year("01-7700") == 2001
     assert corpus.scotus_term_year("93-7515") == 1993
     assert corpus.scotus_term_year("24-101") == 2024
+    # Mid-century year-prefixed dockets are 19xx, never impossible future Terms.
+    assert corpus.scotus_term_year("68-123") == 1968
+    assert corpus.scotus_term_year("42-15") == 1942
+    # The pivot's boundary: 29 is the last 20xx prefix, 30 the first 19xx.
+    assert corpus.scotus_term_year("29-100") == 2029
+    assert corpus.scotus_term_year("30-100") == 1930
     assert corpus.scotus_term_year("801") is None
     assert corpus.scotus_term_year("22A123") is None
     # Issue #343: the `No.` label (the dominant historical format) is normalized away.
