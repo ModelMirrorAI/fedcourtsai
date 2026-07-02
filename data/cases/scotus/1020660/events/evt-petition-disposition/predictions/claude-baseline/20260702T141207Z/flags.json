@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1020660",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot is metadata-only: no docket entries, no parties/attorneys, no filing or decision dates, and no originating-court info. The prediction rests entirely on structural signals (miscellaneous-docket number '33, Misc', prisoner-v-custodian caption) plus corpus base rates, not on the petition's contents. If richer docket text exists upstream, provisioning it would materially improve predictions for this class of old SCOTUS misc-docket cases.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T141207Z",
+  "schema_version": "1.0"
+}

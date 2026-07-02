@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/1020660",
+  "run_id": "20260702T141207Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts stats"
+  ],
+  "helpful": [
+    "fedcourts stats provided the base rate context needed to make a conservative call"
+  ],
+  "gaps": [
+    "A way to request a refreshed snapshot if the current one is completely empty of docket entries"
+  ],
+  "notes": "Used fedcourts stats to check the scotus base rate because the snapshot had no docket entries.",
+  "schema_version": "1.0"
+}
