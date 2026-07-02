@@ -7,9 +7,6 @@
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/aws-cli:1": {}
   },
-  // Prebuild boundary: onCreateCommand runs during prebuilds, WITHOUT user
-  // secrets. Anything that consumes Codespaces secrets (AWS/DVC setup) must
-  // stay in postCreateCommand.
   "onCreateCommand": "uv sync",
   "postCreateCommand": "npm install -g @anthropic-ai/claude-code && bash .devcontainer/setup-aws.sh",
   "secrets": {
