@@ -1,13 +1,14 @@
 {
-  "corpus_rows": 2151631,
+  "corpus_rows": 2151641,
   "exclusions": [
     {
-      "cases": 29256,
-      "open_events": 29256,
+      "cases": 29257,
+      "open_events": 29257,
       "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
       "recoverable": 0,
       "sample_cases": [
         "scotus/1022319",
+        "scotus/1024249",
         "scotus/1052864",
         "scotus/106109",
         "scotus/1061546",
@@ -15,15 +16,14 @@
         "scotus/10765",
         "scotus/1101854",
         "scotus/110771",
-        "scotus/1115979",
-        "scotus/1116763"
+        "scotus/1115979"
       ]
     },
     {
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29869,
+      "recoverable": 29863,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -38,10 +38,10 @@
       ]
     },
     {
-      "cases": 12046,
-      "open_events": 12046,
+      "cases": 12044,
+      "open_events": 12044,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12046,
+      "recoverable": 12044,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -49,17 +49,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/1024249",
-        "scotus/102484",
         "scotus/1026078",
-        "scotus/1029326"
+        "scotus/1029326",
+        "scotus/10323",
+        "scotus/1033955"
       ]
     },
     {
       "cases": 385123,
       "open_events": 385123,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44535,
+      "recoverable": 44527,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -95,7 +95,7 @@
       ]
     },
     {
-      "open_events": 16994,
+      "open_events": 16995,
       "reason": "docket Term not parseable (a format the predicate skips)",
       "sample_cases": [
         "scotus/1004607",
@@ -104,10 +104,10 @@
         "scotus/101968",
         "scotus/102043",
         "scotus/1020660",
+        "scotus/102484",
         "scotus/1027970",
         "scotus/1055010",
-        "scotus/1061844",
-        "scotus/106432"
+        "scotus/1061844"
       ]
     },
     {
