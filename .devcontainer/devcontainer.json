@@ -4,10 +4,31 @@
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
     "ghcr.io/va-h/devcontainers-features/uv:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/aws-cli:1": {}
   },
+  // Prebuild boundary: onCreateCommand runs during prebuilds, WITHOUT user
+  // secrets. Anything that consumes Codespaces secrets (AWS/DVC setup) must
+  // stay in postCreateCommand.
   "onCreateCommand": "uv sync",
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && bash .devcontainer/setup-aws.sh",
+  "secrets": {
+    "AWS_SSO_START_URL": {
+      "description": "IAM Identity Center start URL (optional; corpus access only)"
+    },
+    "AWS_SSO_ACCOUNT_ID": {
+      "description": "AWS account ID for the SSO profile"
+    },
+    "AWS_SSO_ROLE_NAME": {
+      "description": "Identity Center permission set name"
+    },
+    "AWS_RO_ROLE_ARN": {
+      "description": "Read-only corpus role"
+    },
+    "FEDCOURTS_DVC_REMOTE_URL": {
+      "description": "DVC S3 remote URL"
+    }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -35,6 +56,8 @@
   },
   "remoteEnv": {
     "PYTHONUNBUFFERED": "1",
-    "UV_LINK_MODE": "copy"
+    "UV_LINK_MODE": "copy",
+    "AWS_PROFILE": "fedcourts-ro",
+    "AWS_REGION": "us-east-1"
   }
 }
