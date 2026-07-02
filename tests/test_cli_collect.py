@@ -195,6 +195,7 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         "skipped": [],
         "flags": "",
         "feedback_comment": "",
+        "stalled": False,
     }
 
 

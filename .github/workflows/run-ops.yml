@@ -49,6 +49,21 @@ jobs:
             --json workflowName,status,conclusion,createdAt,startedAt,updatedAt \
             > runs.json
 
+      - name: Collect open trigger issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # A still-open run:* trigger issue is a stalled fan-out (its run's ready
+          # PR closes it on merge; an empty matrix closes it with a note). One gh
+          # call per trigger label, merged; the tested `summarize_trigger_issues`
+          # does the filtering/ordering.
+          for label in run:predict run:evaluate run:reconcile; do
+            gh issue list --repo "$REPO" --label "$label" --state open --limit 100 \
+              --json number,title,labels,createdAt
+          done | jq -s 'add | unique_by(.number)' > trigger-issues.json
+
       - name: Build the ops report
         run: |
           set -euo pipefail
@@ -73,8 +88,8 @@ jobs:
           fi
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.
-          uv run fedcourts ops-report --runs runs.json "${prev_args[@]}" \
-            --json new-ops.json --data-health-out data-health.md > ops.md
+          uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
+            "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append the snapshot to the ops-metrics branch

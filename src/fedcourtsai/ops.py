@@ -29,6 +29,7 @@ from .schemas import (
     FlagsDigest,
     FlagSeverity,
     ModelUsage,
+    OpenTriggerIssue,
     OpsReport,
     SeedProgress,
     SpendSummary,
@@ -338,6 +339,7 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
     previous: OpsReport | None = None,
     data_health: DataHealth | None = None,
     scope_audit: CorpusScopeAudit | None = None,
+    open_triggers: list[OpenTriggerIssue] | None = None,
 ) -> OpsReport:
     """Assemble the full operational snapshot. ``generated_at`` is passed in (no clock).
 
@@ -363,6 +365,7 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
         flags=summarize_flags(flags),
         tooling=summarize_tooling(tooling),
         scope_audit=scope_audit,
+        open_triggers=open_triggers,
     )
 
 
@@ -371,6 +374,81 @@ def _fmt_duration(seconds: int | None) -> str:
         return "—"
     minutes, secs = divmod(seconds, 60)
     return f"{minutes}m{secs:02d}s" if minutes else f"{secs}s"
+
+
+# The run:* labels whose trigger issues are transient by design: the run's ready
+# PR closes them on merge, and an empty matrix closes them with a note. (run:pull
+# and run:seed issues are long-lived logs/trackers, so they are not stall signals.)
+TRIGGER_LABELS: tuple[str, ...] = ("run:predict", "run:evaluate", "run:reconcile")
+
+
+def summarize_trigger_issues(raw: Iterable[Mapping[str, object]]) -> list[OpenTriggerIssue]:
+    """Normalize a ``gh issue list --json number,title,labels,createdAt`` feed.
+
+    Keeps only issues carrying one of :data:`TRIGGER_LABELS` (the transient
+    fan-out triggers), oldest first — the ones that have sat longest lead. The
+    feed shape is gh's: ``labels`` is a list of ``{"name": ...}`` objects.
+    """
+    issues: list[OpenTriggerIssue] = []
+    for entry in raw:
+        labels = entry.get("labels")
+        if not isinstance(labels, list):
+            continue
+        names = {str(label.get("name", "")) for label in labels if isinstance(label, Mapping)}
+        trigger = next((label for label in TRIGGER_LABELS if label in names), None)
+        if trigger is None:
+            continue
+        issues.append(
+            OpenTriggerIssue(
+                number=int(str(entry.get("number", 0))),
+                label=trigger,
+                title=str(entry.get("title", "")),
+                created_at=str(entry.get("createdAt", "")),
+            )
+        )
+    issues.sort(key=lambda issue: (issue.created_at, issue.number))
+    return issues
+
+
+def _age(created_at: str, generated_at: str) -> str:
+    """A compact ``3d`` / ``7h`` / ``25m`` age, or a dash when either time is unparseable."""
+    try:
+        created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        now = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+    except ValueError:
+        return "—"
+    seconds = max(0, int((now - created).total_seconds()))
+    if seconds >= 86_400:
+        return f"{seconds // 86_400}d"
+    if seconds >= 3_600:
+        return f"{seconds // 3_600}h"
+    return f"{seconds // 60}m"
+
+
+def render_open_triggers(issues: list[OpenTriggerIssue], generated_at: str) -> str:
+    """Render the open-trigger-issues section: the stalled fan-outs, oldest first.
+
+    An open trigger issue means a run that never landed — failed wholesale,
+    produced nothing, or was never picked up. Empty gets a one-line all-clear so
+    a healthy dashboard still shows the check ran.
+    """
+    if not issues:
+        return "## Open trigger issues\n\n_None — every fan-out landed or closed._\n"
+    lines = [
+        "## Open trigger issues",
+        "",
+        f"**{len(issues)}** open `run:*` trigger issue(s) — a stalled fan-out until "
+        "its run lands (re-fire by removing and re-applying the label).",
+        "",
+        "| issue | label | age | title |",
+        "|-------|-------|----:|-------|",
+    ]
+    for issue in issues:
+        lines.append(
+            f"| #{issue.number} | `{issue.label}` | {_age(issue.created_at, generated_at)} "
+            f"| {issue.title} |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 def render_data_health(health: DataHealth) -> str:
@@ -633,6 +711,9 @@ def render_markdown(report: OpsReport) -> str:
         "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
         "no billing-API access); check the provider billing dashboards for ground truth.",
     ]
+
+    if report.open_triggers is not None:
+        lines += ["", render_open_triggers(report.open_triggers, report.generated_at).rstrip("\n")]
 
     if report.flags is not None:
         lines += ["", render_flags_digest(report.flags).rstrip("\n")]

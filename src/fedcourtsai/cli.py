@@ -31,6 +31,7 @@ from .collect import (
     collect_plan,
     parse_name_status,
     reconcile_collect_plan,
+    render_stall_comment,
 )
 from .config import (
     PredictScope,
@@ -45,7 +46,12 @@ from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
-from .ops import build_ops_report, render_data_health, render_markdown
+from .ops import (
+    build_ops_report,
+    render_data_health,
+    render_markdown,
+    summarize_trigger_issues,
+)
 from .paths import CasePaths
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
@@ -629,6 +635,13 @@ def ops_report(
             "out-of-scope-open-events section. Ignored if missing or unreadable."
         ),
     ] = None,
+    trigger_issues: Annotated[
+        Path | None,
+        typer.Option(
+            help="JSON file of open issues (`gh issue list --json number,title,labels,createdAt`) "
+            "for the open-trigger-issues section; omit to skip it."
+        ),
+    ] = None,
 ) -> None:
     """Roll pipeline health, backfill, spend, and data health into an ops snapshot.
 
@@ -680,6 +693,14 @@ def ops_report(
             scope_verdict = CorpusScopeAudit.model_validate_json(scope_audit.read_text())
         except ValueError:
             scope_verdict = None
+    # Open run:* trigger issues (stalled fan-outs), best-effort like the other feeds:
+    # a missing/unreadable file just drops the section.
+    open_triggers = None
+    if trigger_issues is not None and trigger_issues.exists():
+        try:
+            open_triggers = summarize_trigger_issues(json.loads(trigger_issues.read_text()))
+        except (ValueError, TypeError):
+            open_triggers = None
     when = generated_at or datetime.now(UTC).isoformat()
     report = build_ops_report(
         generated_at=when,
@@ -692,6 +713,7 @@ def ops_report(
         previous=prior,
         data_health=data_health,
         scope_audit=scope_verdict,
+        open_triggers=open_triggers,
     )
     if json_out is not None:
         write_json(json_out, report)
@@ -1884,6 +1906,7 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         ],
         "flags": plan.flags_markdown,
         "feedback_comment": plan.feedback_comment,
+        "stalled": plan.stalled,
     }
 
 
@@ -1965,6 +1988,22 @@ def collect_plan_cmd(
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 
 
+@app.command("stall-comment")
+def stall_comment_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate | reconcile.")],
+    run_url: Annotated[str, typer.Option(help="The Actions run URL to link from the comment.")],
+) -> None:
+    """Print the trigger-issue comment for a run that produced no output at all.
+
+    A wholesale failure (every cell dying before its agent ran) opens no PR and
+    would leave the trigger issue silently orphaned open. The collect job renders
+    this comment — prose from tested code, per the house rule — and posts it to
+    the trigger issue with the ambient ``GITHUB_TOKEN`` so the stall is loud and
+    carries retry instructions.
+    """
+    typer.echo(render_stall_comment(role, run_url))
+
+
 @app.command("post-agent-feedback")
 def post_agent_feedback_cmd(
     body_file: Annotated[
@@ -1994,6 +2033,7 @@ def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "skipped": [{"court": c.court, "docket": c.docket} for c in plan.skipped],
         "flags": plan.flags_markdown,
         "feedback_comment": plan.feedback_comment,
+        "stalled": plan.stalled,
     }
 
 

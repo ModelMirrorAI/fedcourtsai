@@ -879,6 +879,22 @@ class ToolingDigest(_Strict):
     )
 
 
+class OpenTriggerIssue(_Strict):
+    """One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.
+
+    Trigger issues (predict / evaluate / reconcile fan-outs) are transient by
+    design: the run's ready PR closes them on merge, and an empty matrix closes
+    them with a note. One that stays open means its run stalled — failed
+    wholesale, produced nothing, or was never picked up — so the dashboard lists
+    them with their age instead of letting them sit invisible.
+    """
+
+    number: int = Field(ge=1, description="The issue number")
+    label: str = Field(description="The run:* trigger label, e.g. run:predict")
+    title: str = ""
+    created_at: str = Field(description="ISO-8601 creation time (age derives from this)")
+
+
 class OpsReport(_Strict):
     """``metrics/ops.json`` — an operational snapshot: health, backfill, spend, cost.
 
@@ -915,6 +931,11 @@ class OpsReport(_Strict):
     scope_audit: CorpusScopeAudit | None = Field(
         default=None,
         description="Census of open events the predict scope excludes (#343), when available",
+    )
+    open_triggers: list[OpenTriggerIssue] | None = Field(
+        default=None,
+        description="Still-open run:* trigger issues (stalled fan-outs), oldest first; "
+        "null on a report built before the field existed or without the issue feed",
     )
 
 

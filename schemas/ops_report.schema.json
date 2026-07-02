@@ -728,6 +728,40 @@
       "title": "LedgerValidation",
       "type": "object"
     },
+    "OpenTriggerIssue": {
+      "additionalProperties": false,
+      "description": "One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.\n\nTrigger issues (predict / evaluate / reconcile fan-outs) are transient by\ndesign: the run's ready PR closes them on merge, and an empty matrix closes\nthem with a note. One that stays open means its run stalled \u2014 failed\nwholesale, produced nothing, or was never picked up \u2014 so the dashboard lists\nthem with their age instead of letting them sit invisible.",
+      "properties": {
+        "created_at": {
+          "description": "ISO-8601 creation time (age derives from this)",
+          "title": "Created At",
+          "type": "string"
+        },
+        "label": {
+          "description": "The run:* trigger label, e.g. run:predict",
+          "title": "Label",
+          "type": "string"
+        },
+        "number": {
+          "description": "The issue number",
+          "minimum": 1,
+          "title": "Number",
+          "type": "integer"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number",
+        "label",
+        "created_at"
+      ],
+      "title": "OpenTriggerIssue",
+      "type": "object"
+    },
     "ScopeDocketShape": {
       "additionalProperties": false,
       "description": "A docket-number *shape* and how many unparseable open events carry it (#343).\n\nThe shape masks digits\u2192``9`` and letters\u2192``A``/``a`` (punctuation/space kept), so\n``01-7700`` \u2192 ``99-9999`` and ``22O141`` \u2192 ``99A999``. It tells us, concretely,\nwhich docket formats drive the \"Term not parseable\" bucket \u2014 i.e. exactly what the\nTerm parser would need to handle to bring those events into scope.",
@@ -1102,6 +1136,22 @@
       },
       "title": "Health",
       "type": "array"
+    },
+    "open_triggers": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/OpenTriggerIssue"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Still-open run:* trigger issues (stalled fan-outs), oldest first; null on a report built before the field existed or without the issue feed",
+      "title": "Open Triggers"
     },
     "schema_version": {
       "const": "1.0",
