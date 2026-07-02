@@ -5,11 +5,8 @@
 # `dvc metrics show` / `dvc metrics diff` track predictor standings, historical
 # back-test quality, and corpus base-rates across runs. All metric files are small and
 # worth reading in a diff, so they are git-tracked (not pushed to the remote like the
-# corpus blob). run-analytics's weekly metrics-refresh job keeps the leaderboard and
-# statpack fresh (rerunning these same stage commands, landing any change as a
-# reviewed PR). The backtest stage is refreshed manually only: its prior-vote
-# baseline replays a retrieval query per resolved case and cannot finish inside a CI
-# job over the full corpus.
+# corpus blob). run-analytics's weekly metrics-refresh job keeps them fresh: it
+# reruns these same stage commands and lands any change as a reviewed PR.
 stages:
   leaderboard:
     cmd: uv run fedcourts leaderboard

@@ -11,6 +11,7 @@ from fedcourtsai.backtest import (
     BacktestItem,
     BacktestPrediction,
     ConstantBacktester,
+    PriorIndex,
     PriorVoteBacktester,
     default_backtesters,
     run_backtest,
@@ -144,6 +145,91 @@ def test_prior_vote_excludes_the_case_under_test(tmp_path: Path) -> None:
     with corpus.connect(db) as conn:
         pred = PriorVoteBacktester(conn).predict(_features("ca9/1", judges=("smith",)))
     assert pred == BacktestPrediction(Disposition.denied, 0.0)
+
+
+def test_prior_vote_builds_its_index_once(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed(db, [_row("ca9/1", Disposition.granted, judges=["smith"])])
+    with corpus.connect(db) as conn:
+        bt = PriorVoteBacktester(conn)
+        bt.predict(_features("ca9/99", judges=("smith",)))
+        built = bt._index
+        bt.predict(_features("ca9/98", judges=("smith",)))
+    # The whole point of the index: one resolved-slice scan per replay, not per trial.
+    assert built is not None
+    assert bt._index is built
+
+
+# --- prior index parity with retrieve_priors -----------------------------------
+
+
+def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
+    """The index must reproduce `retrieve_priors` exactly — same rows, same order.
+
+    Covers every semantic branch: pure recency order (no features), required judge
+    overlap, required citation overlap, both filters combined (score sums), an
+    undated-but-resolved row (sorts after dated ones), unresolved rows excluded,
+    a foreign court, and a no-match query.
+    """
+    db = tmp_path / "corpus.db"
+    _seed(
+        db,
+        [
+            _row(
+                "ca9/1",
+                Disposition.granted,
+                judges=["alpha", "beta"],
+                citations=["1 U.S. 1"],
+                date_decided=date(2026, 3, 1),
+            ),
+            _row(
+                "ca9/2",
+                Disposition.denied,
+                judges=["beta"],
+                citations=["1 U.S. 1", "2 U.S. 2"],
+                date_decided=date(2026, 2, 1),
+            ),
+            _row("ca9/3", Disposition.dismissed, judges=["gamma"], date_decided=date(2026, 1, 5)),
+            # Resolved but undated: recency sorts it after every dated row.
+            _row("ca9/4", Disposition.denied, judges=["alpha"], date_decided=None),
+            # Unresolved: never a prior.
+            _row("ca9/5", None, judges=["alpha"]),
+            # Another court: never mixed into ca9 retrievals.
+            _row("ca1/6", Disposition.granted, court="ca1", judges=["alpha"]),
+        ],
+    )
+    queries: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
+        ("ca9", (), ()),
+        ("ca9", ("alpha",), ()),
+        ("ca9", ("alpha", "gamma"), ()),
+        ("ca9", (), ("1 U.S. 1",)),
+        ("ca9", (), ("2 U.S. 2",)),
+        ("ca9", ("beta",), ("1 U.S. 1",)),
+        ("ca9", ("nobody",), ()),
+        ("ca1", ("alpha",), ()),
+        ("nowhere", (), ()),
+    ]
+    with corpus.connect(db) as conn:
+        index = PriorIndex.build(conn)
+        for court, judges, citations in queries:
+            for limit in (1, 3, 10):
+                expected = corpus.retrieve_priors(
+                    conn,
+                    corpus.PriorQuery(
+                        court=court,
+                        judges=list(judges),
+                        citations=list(citations),
+                        resolved_only=True,
+                    ),
+                    limit=limit,
+                )
+                got = index.top(court, judges, citations, limit)
+                assert [c.case_id for c in got] == [r.case_id for r in expected], (
+                    court,
+                    judges,
+                    citations,
+                    limit,
+                )
 
 
 # --- scoring ------------------------------------------------------------------
