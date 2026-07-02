@@ -317,6 +317,9 @@ jobs:
           # comment` it makes; the workflow's app-token does the commit/PR.
           GITHUB_TOKEN: ${{ steps.agent-token.outputs.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Headless runs need the workspace trusted explicitly (the CLI exits 55
+          # otherwise); the runner workspace is a fresh clone of this repo.
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
           PROMPT: |
             Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
             for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables.
