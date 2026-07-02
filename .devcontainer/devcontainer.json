@@ -55,6 +55,6 @@
     "PYTHONUNBUFFERED": "1",
     "UV_LINK_MODE": "copy",
     "AWS_PROFILE": "fedcourts-ro",
-    "AWS_REGION": "us-east-1"
+    "AWS_REGION": "us-east-2"
   }
 }
