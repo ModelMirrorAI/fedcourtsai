@@ -10,5 +10,6 @@
   "probability": 0.1,
   "predicted_disposition": "denied",
   "confidence": 0.2,
-  "votes": []
+  "votes": [],
+  "model": "claude-opus-4-8"
 }
