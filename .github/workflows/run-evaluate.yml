@@ -268,10 +268,40 @@ jobs:
           sandbox: workspace-write
           safety-strategy: drop-sudo
 
+      # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
+      # version is exactly pinned (transitive dependencies resolve fresh at every
+      # install), so npm lifecycle scripts must never see credentials —
+      # --ignore-scripts skips them outright (verified: the CLI needs none) and
+      # this step's env carries nothing. The workspace settings file is written
+      # here too; its telemetry log feeds the usage-capture step.
+      - name: Install the Gemini CLI
+        if: matrix.engine == 'gemini'
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pin, scripts
+        # disabled, and a secret-free environment are the practical controls for
+        # a single global CLI; a lockfile is not expressible for `npm i -g`.
+        run: |
+          set -euo pipefail
+          npm install --silent --no-audit --ignore-scripts --global @google/gemini-cli@0.49.0
+          gemini --version
+          mkdir -p .gemini
+          # Emit token usage to a local telemetry log the capture step parses; never
+          # log prompt/response bodies (docket text is untrusted third-party data).
+          printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
+
+      # Gemini runs through its CLI directly, not the upstream run-gemini-cli
+      # action: that action internally `uses:` unpinned actions
+      # (google-github-actions/auth@v3, actions/upload-artifact@v6), which the
+      # org's require-SHA-pinning policy rejects at job setup — and because
+      # action resolution happens before `if:` gating, its mere presence failed
+      # every cell in the job, claude and codex included. The CLI invocation
+      # reproduces what the action ran: an exact-version npm install, env-var
+      # auth, the same workspace settings file (telemetry preserved for the
+      # usage-capture step), and the same headless `--yolo` prompt call.
       - name: Evaluate with Gemini
         id: evaluate_gemini
         if: matrix.engine == 'gemini'
-        uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489 # v0.1.22
+        # Same buffer as the Claude step: trip this step, not the job, on overrun.
+        timeout-minutes: 50
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -282,21 +312,8 @@ jobs:
           # The agent's least-privilege token (no contents:write) for any `gh issue
           # comment` it makes; the workflow's app-token does the commit/PR.
           GITHUB_TOKEN: ${{ steps.agent-token.outputs.token }}
-        with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_model: ${{ matrix.model }}
-          # Emit token usage to a local telemetry log the capture step parses; never
-          # log prompt/response bodies (docket text is untrusted third-party data).
-          settings: |
-            {
-              "telemetry": {
-                "enabled": true,
-                "target": "local",
-                "outfile": ".gemini/telemetry.log",
-                "logPrompts": false
-              }
-            }
-          prompt: |
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PROMPT: |
             Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
             prediction for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment
             variables against its outcome.json. Write ONLY the evaluation.json and
@@ -305,6 +322,9 @@ jobs:
             blocked, post a brief note on the triggering issue
             (#${{ github.event.issue.number }}) with `gh issue comment` and explain
             it in evaluation.md, then finish — do not wait for a reply.
+        run: |
+          set -euo pipefail
+          gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json
 
       # Record measured token usage + estimated cost next to the evaluation so a
       # maintainer can sum it into a real $/run (docs/budget.md). Best-effort: the
@@ -460,8 +480,14 @@ jobs:
           set -euo pipefail
           gh auth setup-git
           # Every cell was cancelled before it could upload — nothing to collect.
+          run_url="https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"
           if [ ! -d cell-artifacts ] || [ -z "$(ls -A cell-artifacts)" ]; then
-            echo "::warning::no cell artifacts to collect"; exit 0
+            # Wholesale failure: no cell delivered anything. Render the tested
+            # stall comment for the trigger issue so the run's silence is loud
+            # there; the next step posts it with the ambient token.
+            echo "::warning::no cell artifacts to collect"
+            uv run fedcourts stall-comment --role evaluate --run-url "$run_url" > stall-comment.md
+            exit 0
           fi
           # All cells share the plan's run id; read it off any status file.
           run_id=$(jq -r '.run_id' cell-artifacts/*/status.json | head -n1)
@@ -488,6 +514,11 @@ jobs:
           fi
           # Never silently drop a cell: warn for each that produced no output.
           jq -r '.skipped[] | "::warning::no evaluation for \(.actor) on \(.court)/\(.docket) \(.event_id)"' <<<"$plan"
+          if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
+            # Artifacts arrived but no cell produced output and no agent finished
+            # cleanly (the tested `stalled` signal) — same stall, same comment.
+            uv run fedcourts stall-comment --role evaluate --run-url "$run_url" > stall-comment.md
+          fi
           for kind in ready partial; do
             pr=$(jq -c ".${kind}" <<<"$plan")
             [ "$pr" = "null" ] && continue
@@ -531,6 +562,23 @@ jobs:
                 || echo "::warning::could not enable auto-merge on ${url}"
             fi
           done
+
+      - name: Flag a stalled run on the trigger issue
+        # A run that produced no output opens no PR, so nothing would close — or
+        # even mention — the trigger issue; it would sit silently orphaned open.
+        # Post the tested stall comment (rendered by the aggregate step) with the
+        # ambient GITHUB_TOKEN: commenting triggers nothing, so the contents-write
+        # App token stays out of it. Runs even if the aggregate step failed; the
+        # file is absent whenever the run produced output.
+        if: ${{ always() && github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          [ -s stall-comment.md ] || exit 0
+          gh issue comment "$ISSUE" --repo "$REPO" --body-file stall-comment.md
 
       - name: Latch run flags onto the agent-feedback issue
         # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev

@@ -21,6 +21,7 @@ from fedcourtsai.collect import (
     reconcile_collect_plan,
     render_feedback_comment,
     render_flags,
+    render_stall_comment,
 )
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.schemas import AgentFlag, AgentFlags, FlagCategory, FlagSeverity, UsageRole
@@ -425,6 +426,53 @@ def test_reconcile_case_that_settled_nothing_is_skipped_not_drafted() -> None:
 def test_reconcile_no_cells_opens_nothing() -> None:
     plan = reconcile_collect_plan(run_id="R", cells=[])
     assert plan.ready is None and plan.partial is None and plan.skipped == ()
+
+
+# --- stall detection ------------------------------------------------------------
+
+
+def test_stalled_when_every_cell_died_before_its_agent() -> None:
+    # All cells: nothing produced AND the agent step failed — an infrastructure
+    # stall (e.g. job-setup failures), not agents declining the work.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[
+            _cell("claude-baseline", produced=False, agent_ok=False),
+            _cell("codex-baseline", produced=False, agent_ok=False),
+        ],
+    )
+    assert plan.stalled is True
+    assert plan.ready is None and plan.partial is None
+
+
+def test_not_stalled_when_an_agent_finished_cleanly_without_output() -> None:
+    # An agent that ran to completion and produced nothing is a content outcome
+    # (reconcile "could not settle" being the canonical case), not a stall.
+    plan = reconcile_collect_plan(run_id="R", cells=[_rcell(1, settled=()), _rcell(2, settled=())])
+    assert plan.stalled is False
+
+
+def test_not_stalled_when_anything_was_produced() -> None:
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[
+            _cell("claude-baseline"),
+            _cell("codex-baseline", produced=False, agent_ok=False),
+        ],
+    )
+    assert plan.stalled is False
+    # An empty run (no cells at all) is the workflow's zero-artifact branch, not
+    # the plan's call — the plan reports it un-stalled.
+    assert collect_plan(FinalizeRole.predict, run_id="R", cells=[]).stalled is False
+
+
+def test_render_stall_comment_names_the_role_and_retry_path() -> None:
+    comment = render_stall_comment(FinalizeRole.predict, "https://github.com/o/r/actions/runs/1")
+    assert "produced no output" in comment
+    assert "https://github.com/o/r/actions/runs/1" in comment
+    assert "`run:predict`" in comment  # the re-fire instruction names the label
 
 
 def test_reconcile_rolls_up_flags_into_body_and_feedback() -> None:

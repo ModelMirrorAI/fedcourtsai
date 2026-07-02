@@ -325,8 +325,14 @@ jobs:
           set -euo pipefail
           gh auth setup-git
           # Every cell was cancelled before it could upload — nothing to collect.
+          run_url="https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"
           if [ ! -d cell-artifacts ] || [ -z "$(ls -A cell-artifacts)" ]; then
-            echo "::warning::no cell artifacts to collect"; exit 0
+            # Wholesale failure: no cell delivered anything. Render the tested
+            # stall comment for the trigger issue so the run's silence is loud
+            # there; the next step posts it with the ambient token.
+            echo "::warning::no cell artifacts to collect"
+            uv run fedcourts stall-comment --role reconcile --run-url "$run_url" > stall-comment.md
+            exit 0
           fi
           # All cells share the plan's run id; read it off any status file.
           run_id=$(jq -r '.run_id' cell-artifacts/*/status.json | head -n1)
@@ -352,6 +358,11 @@ jobs:
           fi
           # Never silently drop a case: warn for each that settled nothing.
           jq -r '.skipped[] | "::warning::reconcile settled nothing for \(.court)/\(.docket)"' <<<"$plan"
+          if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
+            # Artifacts arrived but no case was settled and no agent finished
+            # cleanly (the tested `stalled` signal) — same stall, same comment.
+            uv run fedcourts stall-comment --role reconcile --run-url "$run_url" > stall-comment.md
+          fi
           for kind in ready partial; do
             pr=$(jq -c ".${kind}" <<<"$plan")
             [ "$pr" = "null" ] && continue
@@ -395,6 +406,23 @@ jobs:
                 || echo "::warning::could not enable auto-merge on ${url}"
             fi
           done
+
+      - name: Flag a stalled run on the trigger issue
+        # A run that produced no output opens no PR, so nothing would close — or
+        # even mention — the trigger issue; it would sit silently orphaned open.
+        # Post the tested stall comment (rendered by the aggregate step) with the
+        # ambient GITHUB_TOKEN: commenting triggers nothing, so the contents-write
+        # App token stays out of it. Runs even if the aggregate step failed; the
+        # file is absent whenever the run produced output.
+        if: ${{ always() && github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          [ -s stall-comment.md ] || exit 0
+          gh issue comment "$ISSUE" --repo "$REPO" --body-file stall-comment.md
 
       - name: Latch run flags onto the agent-feedback issue
         # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev

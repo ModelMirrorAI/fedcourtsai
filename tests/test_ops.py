@@ -616,6 +616,84 @@ def test_render_markdown_includes_agent_flags_section() -> None:
     assert OpsReport.model_validate(report.model_dump()) == report
 
 
+# --- open trigger issues (stalled fan-outs) -------------------------------------
+
+
+def test_summarize_trigger_issues_filters_and_orders_oldest_first() -> None:
+    raw = [
+        {
+            "number": 387,
+            "title": "predict: 4 case(s)",
+            "labels": [{"name": "run:predict"}],
+            "createdAt": "2026-07-02T08:29:52Z",
+        },
+        # Not a trigger label: dropped (dashboards and trackers are long-lived).
+        {
+            "number": 117,
+            "title": "Ops dashboard",
+            "labels": [{"name": "ops-dashboard"}],
+            "createdAt": "2026-06-01T00:00:00Z",
+        },
+        # An older trigger must lead — the longest-stalled first.
+        {
+            "number": 377,
+            "title": "reconcile: 1 case(s)",
+            "labels": [{"name": "run:reconcile"}],
+            "createdAt": "2026-07-01T14:22:42Z",
+        },
+    ]
+    issues = ops.summarize_trigger_issues(raw)
+    assert [(i.number, i.label) for i in issues] == [
+        (377, "run:reconcile"),
+        (387, "run:predict"),
+    ]
+
+
+def test_render_open_triggers_lists_age_and_labels() -> None:
+    issues = ops.summarize_trigger_issues(
+        [
+            {
+                "number": 5,
+                "title": "predict: 2 case(s)",
+                "labels": [{"name": "run:predict"}],
+                "createdAt": "2026-07-01T12:00:00Z",
+            }
+        ]
+    )
+    md = ops.render_open_triggers(issues, "2026-07-02T12:00:00Z")
+    assert "## Open trigger issues" in md
+    assert "| #5 | `run:predict` | 1d |" in md
+    assert "re-applying the label" in md
+
+
+def test_render_open_triggers_empty_is_all_clear() -> None:
+    md = ops.render_open_triggers([], "2026-07-02T12:00:00Z")
+    assert "None — every fan-out landed or closed" in md
+
+
+def test_ops_report_carries_open_triggers_into_markdown() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-07-02T12:00:00+00:00",
+        runs=[],
+        progress=SeedProgress(),
+        courts=[],
+        usage=[],
+        open_triggers=ops.summarize_trigger_issues(
+            [
+                {
+                    "number": 9,
+                    "title": "evaluate: 1 case(s)",
+                    "labels": [{"name": "run:evaluate"}],
+                    "createdAt": "2026-07-02T09:00:00Z",
+                }
+            ]
+        ),
+    )
+    md = ops.render_markdown(report)
+    assert "## Open trigger issues" in md and "| #9 | `run:evaluate` | 3h |" in md
+    assert OpsReport.model_validate(report.model_dump()) == report
+
+
 # --- ops-report CLI: data-health wiring ---------------------------------------
 
 runner = CliRunner()

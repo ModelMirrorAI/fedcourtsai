@@ -256,6 +256,13 @@ class CollectPlan:
     ``feedback_comment`` wraps that same roll-up for the long-lived agent-feedback
     tracking issue (empty when no flags), so a note reaches a durable, centralized
     home even when a fully-failed run opens no PR.
+
+    ``stalled`` is the infrastructure-failure signal: no cell produced output
+    **and** no agent finished cleanly — the cells died before (or while) their
+    agents ran, as opposed to agents that ran and legitimately produced nothing
+    (a reconcile that could not settle any event). The collect job posts the
+    stall comment on the trigger issue only when this is true, so a genuine
+    "nothing to do" run stays quiet.
     """
 
     ready: PrPlan | None
@@ -263,6 +270,7 @@ class CollectPlan:
     skipped: tuple[CellStatus | ReconcileCellStatus, ...] = ()
     flags_markdown: str = ""
     feedback_comment: str = ""
+    stalled: bool = False
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -372,6 +380,28 @@ def render_feedback_comment(role: FinalizeRole, run_id: str, flags_markdown: str
     return f"{feedback_marker(role, run_id)}\n### {role.value} · run `{run_id}`\n\n{flags_markdown}"
 
 
+def render_stall_comment(role: FinalizeRole, run_url: str) -> str:
+    """The trigger-issue comment for a run that produced **no** output at all.
+
+    A wholesale failure — every cell dying before its agent ran, or every cell
+    finishing without an artifact — opens no PR, so the trigger issue would
+    otherwise sit silently orphaned open, invisible unless someone reads the
+    Actions history. This comment makes the stall loud on the issue itself and
+    says how to retry. Posted with the ambient ``GITHUB_TOKEN`` (a
+    non-triggering write) by the collect job's stall step.
+    """
+    return (
+        f"⚠️ The {role.value} run for this issue **produced no output** — no cell "
+        f"delivered an artifact, so nothing was committed and no PR opened. This "
+        f"usually means the cells failed before their agents ran (job-setup or "
+        f"infrastructure errors) rather than the agents declining the work.\n\n"
+        f"Run log: {run_url}\n\n"
+        f"The issue stays open. To retry once the cause is fixed, remove and "
+        f"re-apply the `run:{role.value}` label — the plan re-checks scope, and an "
+        f"empty matrix closes this issue with a note."
+    )
+
+
 def collect_plan(
     role: FinalizeRole,
     *,
@@ -449,6 +479,7 @@ def collect_plan(
         skipped=skipped,
         flags_markdown=flags_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md),
+        stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
     )
 
 
@@ -553,4 +584,5 @@ def reconcile_collect_plan(
         skipped=skipped,
         flags_markdown=flags_md,
         feedback_comment=render_feedback_comment(FinalizeRole.reconcile, run_id, flags_md),
+        stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
     )
