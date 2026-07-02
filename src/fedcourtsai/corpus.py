@@ -501,9 +501,12 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
     return bare_sequential or pre_discretionary
 
 
-# Modern SCOTUS docket numbers lead with a two-digit October-Term year ("01-7700"
-# -> OT2001, "93-7515" -> OT1993). Term-style numbering began OT1971, so a 70-99
-# prefix is 19xx and 00-69 is 20xx — a pivot good through OT2069.
+# SCOTUS docket numbers lead with a two-digit October-Term year ("01-7700" ->
+# OT2001, "93-7515" -> OT1993). The century pivot is 30: a 30-99 prefix is 19xx
+# and 00-29 is 20xx. The corpus demonstrably holds mid-century year-prefixed
+# dockets (e.g. "68-..." petitions from OT1968), while a Term decades in the
+# future cannot exist — so every prefix >= 30 must be 19xx. Good through OT2029;
+# revisit the pivot before the 2030 Term.
 _SCOTUS_TERM_RE = re.compile(r"^(\d{2})-\d+")
 
 # Provisional staleness cutoff (issue #343 refines it against the corpus). A SCOTUS
@@ -515,19 +518,19 @@ _STALE_TERM_CUTOFF_YEAR = 2015
 def scotus_term_year(docket_number: str) -> int | None:
     """Parse the October-Term year from a modern SCOTUS docket number, or ``None``.
 
-    ``"01-7700"`` -> ``2001``, ``"93-7515"`` -> ``1993``, and (after normalization)
-    ``"No. 01-7700"`` -> ``2001`` — the ``No.`` label dominates the historical SCOTUS
-    dockets the raw parser used to miss (issue #343). Returns ``None`` for anything
-    that is still not the modern ``YY-NNNN`` form — bare sequential numbers (``"801"``),
-    application/original dockets (``"22A123"``, ``"22O141"``), or blank — so callers
-    fall through rather than guess a year. Public so the scope audit can bucket the
-    open events the predicate does *not* catch.
+    ``"01-7700"`` -> ``2001``, ``"93-7515"`` -> ``1993``, ``"68-123"`` -> ``1968``,
+    and (after normalization) ``"No. 01-7700"`` -> ``2001`` — the ``No.`` label
+    dominates the historical SCOTUS dockets the raw parser used to miss. Returns
+    ``None`` for anything that is not the ``YY-NNNN`` form — bare sequential
+    numbers (``"801"``), application/original dockets (``"22A123"``, ``"22O141"``),
+    or blank — so callers fall through rather than guess a year. Public so the
+    scope audit can bucket the open events the predicate does *not* catch.
     """
     match = _SCOTUS_TERM_RE.match(normalize_docket_number(docket_number) or "")
     if match is None:
         return None
     two_digit = int(match.group(1))
-    return 1900 + two_digit if two_digit >= 70 else 2000 + two_digit
+    return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
 
 
 def is_stale_unresolvable(row: CorpusRow) -> bool:
