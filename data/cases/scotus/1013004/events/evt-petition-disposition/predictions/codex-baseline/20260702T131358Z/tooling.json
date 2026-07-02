@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1013004",
+  "gaps": [
+    "A petition-specific prior that separates modern cert petitions from historical published-opinion records would improve calibration for sparse SCOTUS snapshots.",
+    "A snapshot field summarizing why an event remains in predict scope would help distinguish genuinely pending petitions from unresolvable historical records."
+  ],
+  "helpful": [
+    "fedcourts paths resolved the event and snapshot-adjacent ledger paths.",
+    "fedcourts stats provided the SCOTUS petition-disposition base-rate anchor.",
+    "Existing schemas and outcome code clarified how `other` and binary granted are scored."
+  ],
+  "notes": "The case snapshot itself carried very little case-specific information, so the prediction relied primarily on local SCOTUS base rates and the snapshot-visible cluster reference.",
+  "role": "predictor",
+  "run_id": "20260702T131358Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query",
+    "local snapshot and event files"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

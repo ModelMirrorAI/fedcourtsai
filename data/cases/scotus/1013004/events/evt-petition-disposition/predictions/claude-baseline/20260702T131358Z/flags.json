@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/1013004",
+  "run_id": "20260702T131358Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot is a bare bulk-import stub: no docket entries, no dates, no docket number, no judges — only the caption and one linked opinion cluster. The prediction is therefore base-rate-only (corpus disposition shares via fedcourts stats). If the cluster's disposition were recoverable into the corpus (as the recoverability probe classifies), this cell would have real signal."
+    },
+    {
+      "category": "scope",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Caption and record shape suggest a pre-1925 mandatory-jurisdiction case (writ of error/appeal, opinion-derived docket), where a petition-disposition framing is anachronistic. Likely a candidate for the pre-1925 predict-scope exclusion; the scope reconcile may want to latch predict_excluded on this docket."
+    }
+  ]
+}
