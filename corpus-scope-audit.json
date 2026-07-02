@@ -1,9 +1,9 @@
 {
-  "corpus_rows": 2151630,
+  "corpus_rows": 2151631,
   "exclusions": [
     {
-      "cases": 29255,
-      "open_events": 29255,
+      "cases": 29256,
+      "open_events": 29256,
       "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
       "recoverable": 0,
       "sample_cases": [
@@ -23,7 +23,7 @@
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29873,
+      "recoverable": 29870,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -38,10 +38,10 @@
       ]
     },
     {
-      "cases": 12113,
-      "open_events": 12113,
+      "cases": 12110,
+      "open_events": 12110,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12113,
+      "recoverable": 12110,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -49,10 +49,10 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/1018831",
-        "scotus/101968",
-        "scotus/1019865",
-        "scotus/102043"
+        "scotus/102043",
+        "scotus/1020660",
+        "scotus/1024249",
+        "scotus/102484"
       ]
     },
     {
@@ -75,7 +75,7 @@
     }
   ],
   "schema_version": "1.0",
-  "scotus_open_events": 589282,
+  "scotus_open_events": 589283,
   "skipped": false,
   "unclassified": [
     {
@@ -95,23 +95,23 @@
       ]
     },
     {
-      "open_events": 16991,
+      "open_events": 16992,
       "reason": "docket Term not parseable (a format the predicate skips)",
       "sample_cases": [
         "scotus/1004607",
         "scotus/1016450",
         "scotus/1017888",
+        "scotus/101968",
         "scotus/1027970",
         "scotus/1055010",
         "scotus/1061844",
         "scotus/106432",
         "scotus/107543",
-        "scotus/1090057",
-        "scotus/1115067"
+        "scotus/1090057"
       ]
     },
     {
-      "open_events": 4822,
+      "open_events": 4824,
       "reason": "no docket number",
       "sample_cases": [
         "scotus/1002339",
@@ -123,7 +123,7 @@
         "scotus/1013618",
         "scotus/1016970",
         "scotus/1018480",
-        "scotus/1034739"
+        "scotus/1018831"
       ]
     }
   ],
