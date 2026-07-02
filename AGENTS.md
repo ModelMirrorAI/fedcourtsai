@@ -128,6 +128,14 @@ Two things hold no matter what you skip locally:
 - Writes go through `fedcourtsai.serialize` (sorted, newline-terminated) to keep
   diffs minimal.
 - Conventional-commit style PR titles, e.g. `predict(claude-baseline): ca9/123 — evt-...`.
+- **Be cautious about creating new workflow files.** Before adding one under
+  `.github/workflows/`, check whether the task fits as a job or mode on an
+  existing workflow (e.g. `run-analytics` for anything that reads the corpus and
+  answers a question or refreshes a derived artifact). GitHub scopes permissions
+  and tokens per *job*, so a new job is exactly as least-privilege as a new
+  file; a task earns its own workflow only when it needs a different trigger
+  class or risk class. See *Authoring or changing a workflow* in
+  [docs/pipeline.md](docs/pipeline.md).
 - **Docs and code describe the current design, not its history.** No issue
   numbers, no changelog, no "we used to / now we" — write what is true now and
   just enough to orient a new reader. This applies to *every committed surface*:
