@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/102484",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot is a near-empty stub: no docket entries, no filed/argued/terminated or cert-stage dates, no panel. The only substantive signals are the case caption, the consolidated merits docket numbers ('23 and 24'), and one linked opinion cluster.",
+      "severity": "info"
+    },
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "Backtest leakage: the caption identifies a canonical decided precedent (United States v. Munsingwear, Inc., 340 U.S. 36 (1950)) that is inside the model's training knowledge, including its cert grant. For famous historical cases this cell measures recall and calibration, not ex-ante forecasting skill; consider weighing such cells separately when scoring.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T201550Z",
+  "schema_version": "1.0"
+}
