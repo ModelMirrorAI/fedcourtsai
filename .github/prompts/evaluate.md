@@ -17,6 +17,7 @@ realized outcome. The event is identified by these environment variables:
 | `EVENT_ID`     | The resolved event, e.g. `evt-motion-stay`          |
 | `EVALUATOR_ID` | Your evaluator id; names your output directory      |
 | `RUN_ID`       | Shared run id for this fan-out (a UTC timestamp)    |
+| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5` |
 
 ## Inputs (read-only)
 
@@ -52,6 +53,8 @@ For each predictor you score, write to
     `predictor_id` = the predictor being scored, `evaluator_id` = `$EVALUATOR_ID`,
     `run_id` = `$RUN_ID`, `created_at` = current UTC timestamp.
   - `engine` — `claude-code`, `codex`, or `gemini` (the engine you are running as).
+  - `model` = `$MODEL_ID` — the model that produced this evaluation; copy the
+    env var verbatim, never guess.
   - `correct` (1/0) — did `predicted_disposition` match `actual_disposition`?
   - `brier_score` — `(probability - actual_granted)**2`, 0–1.
   - `vote_accuracy` — fraction of predicted judge votes that matched (or omit if no

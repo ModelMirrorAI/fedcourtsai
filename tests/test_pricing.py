@@ -24,6 +24,15 @@ def test_gemini_default_model_and_rate() -> None:
     assert (rate.input_per_mtok, rate.output_per_mtok) == (2.0, 12.0)
 
 
+def test_claude_default_model_and_rate() -> None:
+    # Predict/evaluate default to Fable 5; run-dev / run-reconcile stay pinned to
+    # claude-opus-4-8 in their workflows, so its rate must stay priceable too.
+    assert DEFAULT_MODELS["claude-code"] == "claude-fable-5"
+    rate = MODEL_RATES["claude-fable-5"]
+    assert (rate.input_per_mtok, rate.output_per_mtok) == (10.0, 50.0)
+    assert "claude-opus-4-8" in MODEL_RATES
+
+
 def test_plain_input_output_cost() -> None:
     # 1M input + 1M output on claude-opus-4-8 ($5 in / $25 out) = $30.
     counts = TokenCounts(input_tokens=1_000_000, output_tokens=1_000_000)

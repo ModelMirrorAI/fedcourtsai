@@ -96,6 +96,7 @@
         }
       ],
       "default": null,
+      "description": "Model that produced this prediction (e.g. claude-fable-5); null only for offline outputs that called no model",
       "title": "Model"
     },
     "predicted_disposition": {

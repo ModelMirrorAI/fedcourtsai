@@ -43,7 +43,8 @@ Three engines run the agentic stages, routed per registry entry
 
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
-| **Claude Code** (`claude-opus-4-8`) | `claude-baseline`, `claude-judge`, all `run:dev` | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x). API: **$5 in / $25 out** |
+| **Claude Code** (`claude-fable-5`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x). API: **$10 in / $50 out** |
+| **Claude Code** (`claude-opus-4-8`) | all `run:dev`, `run:reconcile` | Anthropic API (workflows) | **$5 in / $25 out** |
 | **Codex** (`gpt-5.5`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
 | **Gemini** (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | **$2 in / $12 out** (≤200K context) |
 
@@ -69,8 +70,12 @@ caching on the stable prefix is working as designed. **Caveats:** this is the
 unmeasured**, and **Gemini is newly added and has not yet run**, so its per-run
 cost is unmeasured too. The estimates below assume both are comparable (~$0.50)
 and should be re-checked against the first real evaluations and Gemini runs —
-Gemini's lower token rate ($2/$12 vs Claude $5/$25, Codex $5/$30) makes a flat
-$0.50 a conservative ceiling for its share.
+Gemini's lower token rate ($2/$12 vs Codex $5/$30) makes a flat $0.50 a
+conservative ceiling for its share. **Caveat (2026-07):** the measured
+claude-baseline figure (~$0.42) was earned on `claude-opus-4-8` ($5/$25);
+predict/evaluate now default to `claude-fable-5` ($10/$50), so expect the
+Claude share to roughly double (~$0.85/run) until re-measured — re-check
+`fedcourts usage-summary` after the first Fable runs.
 
 That ≈ $0.50/run is an **on-demand** figure; one discount produces it:
 

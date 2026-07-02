@@ -32,11 +32,13 @@ class ModelRate:
     output_per_mtok: float
 
 
-# Keyed by the model id the engine actually ran. The three production models are
-# claude-opus-4-8, gpt-5.5, and gemini-3.1-pro-preview; the cheaper Claude tiers
-# are listed because the budget doc names them as competitor-model levers. The
-# Gemini Pro rate is the standard <=200k-context tier (it steps up beyond that).
+# Keyed by the model id the engine actually ran. The production models are
+# claude-fable-5 (predict/evaluate), claude-opus-4-8 (run-dev / run-reconcile),
+# gpt-5.5, and gemini-3.1-pro-preview; the cheaper Claude tiers are listed
+# because the budget doc names them as competitor-model levers. The Gemini Pro
+# rate is the standard <=200k-context tier (it steps up beyond that).
 MODEL_RATES: Final[dict[str, ModelRate]] = {
+    "claude-fable-5": ModelRate(10.0, 50.0),
     "claude-opus-4-8": ModelRate(5.0, 25.0),
     "claude-sonnet-4-6": ModelRate(3.0, 15.0),
     "claude-haiku-4-5": ModelRate(1.0, 5.0),
@@ -45,10 +47,11 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 }
 
 # The model each engine runs when a predictor/evaluator pins no explicit override
-# (registry ``model: null``). Mirrors the ``--model`` defaults in the run-predict
-# and run-evaluate workflows.
+# (registry ``model: null``). These are the predict/evaluate defaults the matrix
+# resolves into each cell (and record-usage falls back on); run-dev and
+# run-reconcile stay on claude-opus-4-8, pinned in their workflows.
 DEFAULT_MODELS: Final[dict[str, str]] = {
-    "claude-code": "claude-opus-4-8",
+    "claude-code": "claude-fable-5",
     "codex": "gpt-5.5",
     "gemini": "gemini-3.1-pro-preview",
 }

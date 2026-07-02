@@ -55,6 +55,19 @@
       "title": "Event Id",
       "type": "string"
     },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Model that produced this evaluation (e.g. claude-fable-5); null only for offline outputs that called no model (and records written before the field existed)",
+      "title": "Model"
+    },
     "notes_doc": {
       "default": "evaluation.md",
       "title": "Notes Doc",

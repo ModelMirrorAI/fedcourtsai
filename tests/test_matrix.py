@@ -22,6 +22,14 @@ def test_predict_matrix_is_predictor_by_event_product() -> None:
     assert len(inc) == 6
     engines = {row["engine"] for row in inc}
     assert engines == {"claude-code", "codex", "gemini"}
+    # Registry `model: null` resolves to the engine's predict/evaluate default —
+    # never empty, so the workflow passes it straight to the engine step and the
+    # recorded model is what actually ran.
+    assert {row["engine"]: row["model"] for row in inc} == {
+        "claude-code": "claude-fable-5",
+        "codex": "gpt-5.5",
+        "gemini": "gemini-3.1-pro-preview",
+    }
     row = inc[0]
     assert row["court"] == "ca9"
     assert row["docket"] == 123
@@ -48,6 +56,7 @@ def test_evaluate_matrix_is_evaluator_by_event_product() -> None:
         "codex-judge",
         "gemini-judge",
     }
+    assert all(row["model"] for row in inc)  # resolved, never empty
 
 
 def test_predict_matrix_fans_out_across_many_cases() -> None:

@@ -52,6 +52,7 @@ from ..config import get_settings
 from ..ids import case_id as make_case_id
 from ..ids import parse_run_id
 from ..paths import CasePaths, EventPaths
+from ..pricing import DEFAULT_MODELS
 from ..schemas import Disposition, Engine, Evaluation, Outcome, Prediction, UsageRole
 from ..serialize import read_model, write_json
 from .evaluate import brier_score, is_correct, vote_accuracy
@@ -280,8 +281,10 @@ class StubRunner:
 # shells out for real.
 
 # Default models + turn cap, matching the run-predict / run-evaluate workflows.
-_CLAUDE_MODEL = "claude-opus-4-8"
-_CODEX_MODEL = "gpt-5.5"
+# The models come from the shared pricing table so this local mirror cannot
+# drift from what the workflows' matrix resolves.
+_CLAUDE_MODEL = DEFAULT_MODELS["claude-code"]
+_CODEX_MODEL = DEFAULT_MODELS["codex"]
 _MAX_TURNS = 120
 
 # A command executor: run argv with env, return the process exit code. Injected so
@@ -311,13 +314,15 @@ class EngineCommand:
     env: dict[str, str]
 
 
-def _cell_env(request: RunRequest) -> dict[str, str]:
+def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     """The cell env-var contract the workflow exports, role-tagged.
 
     Byte-identical to the env ``run-predict.yml`` / ``run-evaluate.yml`` set for a
-    cell: the case + event ids, the shared run id, and the acting id under
-    ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate). Auth and any other
-    secrets are inherited from the ambient environment, never assembled here.
+    cell: the case + event ids, the shared run id, the acting id under
+    ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate), and the model the
+    engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
+    field). Auth and any other secrets are inherited from the ambient
+    environment, never assembled here.
     """
     actor_var = "PREDICTOR_ID" if request.role == UsageRole.predictor else "EVALUATOR_ID"
     return {
@@ -326,6 +331,7 @@ def _cell_env(request: RunRequest) -> dict[str, str]:
         "EVENT_ID": request.event_id,
         actor_var: request.actor_id,
         "RUN_ID": request.run_id,
+        "MODEL_ID": model,
     }
 
 
@@ -438,7 +444,7 @@ class ClaudeCodeRunner(AgenticRunner):
             "--permission-mode",
             "bypassPermissions",
         ]
-        return EngineCommand(argv=argv, env=_cell_env(request))
+        return EngineCommand(argv=argv, env=_cell_env(request, self.model))
 
 
 @dataclass(frozen=True)
@@ -463,7 +469,7 @@ class CodexRunner(AgenticRunner):
             "workspace-write",
             request.prompt.read_text(),
         ]
-        return EngineCommand(argv=argv, env=_cell_env(request))
+        return EngineCommand(argv=argv, env=_cell_env(request, self.model))
 
 
 # --- replay backend ------------------------------------------------------------
