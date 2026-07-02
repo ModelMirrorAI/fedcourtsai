@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/102043",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "This is a pre-1925 mandatory-jurisdiction cross-appeal (docket 'Nos. 394 and 473', railway v. ICC, decided 1896 at 162 U.S. 184) — the class the predict scope is documented to exclude — yet it reached the predict matrix as an open, predictable event. The scope-exclusion latch may not have caught this docket; worth a corpus-scope reconcile pass.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot has no docket entries, no dates, and no parties beyond the caption; the only substantive signals are the caption, the paired docket numbers, and a linked opinion cluster. Also note outcome leakage: the case is a famous, long-decided one whose disposition is in any modern model's training data, so this cell cannot measure real forecasting skill.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T141207Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/102043",
+  "gaps": [
+    "The provisioned snapshot did not include opinion-cluster metadata beyond the cluster URL.",
+    "A disposition-recovery hint for old SCOTUS docket formats would improve confidence."
+  ],
+  "helpful": [
+    "Resolved path helper identified the target event and ledger location.",
+    "Base-rate stats gave a useful calibration anchor for sparse SCOTUS petitions."
+  ],
+  "notes": "Local corpus query rows were broad and noisy, while aggregate SCOTUS base rates were materially useful for calibration.",
+  "role": "predictor",
+  "run_id": "20260702T141207Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
