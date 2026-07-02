@@ -694,14 +694,18 @@ def iter_rows(
     *,
     court: str | None = None,
     disposition: Disposition | None = None,
+    resolved: bool | None = None,
     predict_eligible: bool | None = None,
 ) -> Iterator[CorpusRow]:
     """Yield rows in ``case_id`` order, optionally filtered by court / disposition.
 
     The filters cover the common retrieval and back-test selections; richer
     querying (by judge, topic, citation, or semantic similarity) is layered on
-    top of this same store. ``predict_eligible`` scopes to the prediction universe
-    (the scope reconcile only weighs cases that could actually be predicted).
+    top of this same store. ``resolved`` keeps only rows carrying (``True``) or
+    lacking (``False``) a realized disposition — pushed into SQL so a consumer of
+    the small resolved slice never pays a full-corpus scan. ``predict_eligible``
+    scopes to the prediction universe (the scope reconcile only weighs cases that
+    could actually be predicted).
     """
     clauses: list[str] = []
     params: list[object] = []
@@ -711,6 +715,8 @@ def iter_rows(
     if disposition is not None:
         clauses.append("disposition = ?")
         params.append(Disposition(disposition).value)
+    if resolved is not None:
+        clauses.append("disposition IS NOT NULL" if resolved else "disposition IS NULL")
     if predict_eligible is not None:
         clauses.append("predict_eligible = ?")
         params.append(int(predict_eligible))
@@ -769,7 +775,7 @@ class PriorQuery(BaseModel):
     )
 
 
-def _recency_key(row: CorpusRow) -> tuple[int, int]:
+def recency_key(row: CorpusRow) -> tuple[int, int]:
     """Sort key putting decided cases first, newest decision first.
 
     Undated rows sort after dated ones; among dated rows the negated ordinal
@@ -826,7 +832,7 @@ def retrieve_priors(
         if want_citations and not citation_overlap:
             continue
         score = len(judge_overlap) + len(citation_overlap)
-        scored.append((-score, _recency_key(row), row.case_id, row))
+        scored.append((-score, recency_key(row), row.case_id, row))
     scored.sort(key=lambda item: (item[0], item[1], item[2]))
     return [row for *_, row in scored[:limit]]
 

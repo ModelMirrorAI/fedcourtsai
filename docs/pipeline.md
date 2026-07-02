@@ -52,18 +52,16 @@ credential:
   decides whether such cases stay in scope. Read-only, like `corpus-stats`.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/leaderboard.json` (input: the `data/`
-  evaluations ledger) and `metrics/statpack.{json,md}` (input: the corpus) are
-  deterministic DVC stages that previously only changed when someone ran
-  `dvc repro` locally. It reruns those stages' tested `fedcourts` commands and —
-  only when an artifact actually changed (they are byte-stable, so a no-op
-  refresh diffs empty) — opens a **reviewed** PR rendered by the tested
-  `metrics-refresh-plan` command, mirroring `run-cleanup`: never a direct commit
-  to `main`, never auto-merged. This is the workflow's only write-capable job (it
-  alone mints the dev App token). The branch is fixed (`metrics/refresh`) and
-  force-pushed, so an unmerged refresh PR is updated in place by the next tick
-  rather than stacking. The third metrics stage, `metrics/backtest.json`, is
-  refreshed **manually only**: its prior-vote baseline replays a retrieval query
-  per resolved case and cannot finish inside a CI job over the full corpus.
+  evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`
+  (input: the corpus) are deterministic DVC stages that previously only changed
+  when someone ran `dvc repro` locally. It reruns those stages' tested
+  `fedcourts` commands and — only when an artifact actually changed (they are
+  byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
+  by the tested `metrics-refresh-plan` command, mirroring `run-cleanup`: never a
+  direct commit to `main`, never auto-merged. This is the workflow's only
+  write-capable job (it alone mints the dev App token). The branch is fixed
+  (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
+  place by the next tick rather than stacking.
 
 **seed** loads the historical backlog from CourtListener **bulk data** — chunked
 catch-up while backfilling, then a weekly snapshot-id check that reconciles when a

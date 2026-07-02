@@ -12,9 +12,9 @@ name: run-analytics
 #                      (an ingestion gap) or genuinely absent? (`probe-recoverability`,
 #                      REST-only.)
 #   - metrics-refresh: regenerate the committed metrics artifacts (leaderboard /
-#                      statpack; backtest is manual-only for now) and land any
-#                      change as a **reviewed** PR — never a direct commit to
-#                      main, never auto-merged. Also the schedule's job (weekly).
+#                      backtest / statpack) and land any change as a **reviewed**
+#                      PR — never a direct commit to main, never auto-merged.
+#                      Also the schedule's job (weekly).
 #
 # The two analysis modes are strictly read-only: neither writes the corpus, `data/`,
 # DVC, or git, opens a PR, or files an issue — every result goes to the Actions step
@@ -169,11 +169,10 @@ jobs:
             --summary-out "$GITHUB_STEP_SUMMARY"
 
   # Scheduled refresh of the committed metrics artifacts:
-  # metrics/leaderboard.json (input: the git data/ evaluations ledger) and
-  # metrics/statpack.{json,md} (input: the corpus). Both are deterministic DVC
-  # stages, but nothing regenerated them as their inputs grew, so they drifted
-  # stale on main between manual `dvc repro` runs. (metrics/backtest.json is the
-  # third metrics stage; it is refreshed manually only — see the regenerate step.)
+  # metrics/leaderboard.json (input: the git data/ evaluations ledger),
+  # metrics/backtest.json and metrics/statpack.{json,md} (input: the corpus).
+  # All three are deterministic DVC stages, but nothing regenerated them as their
+  # inputs grew, so they drifted stale on main between manual `dvc repro` runs.
   #
   # This job reruns the same tested `fedcourts` commands the stages run (calling
   # them directly avoids `dvc repro` leaving an untracked dvc.lock), and — only
@@ -226,10 +225,10 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
-      # The statpack reads the corpus, so it must be on disk; a missing
+      # backtest and statpack read the corpus, so it must be on disk; a missing
       # pointer only warns (the leaderboard needs no corpus), but a failed pull
       # of an existing pointer fails the job — regenerating against a missing
-      # corpus would regress the statpack to the empty pack.
+      # corpus would regress those artifacts to the empty pack.
       - uses: ./.github/actions/corpus-readonly
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
@@ -237,21 +236,19 @@ jobs:
           dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
           missing-pointer: warn
 
-      # Two of the three dvc.yaml stage commands, run directly (avoiding an
+      # The same commands the dvc.yaml stages run, called directly (avoiding an
       # untracked dvc.lock); each is deterministic, so an unchanged input
-      # reproduces the committed artifact byte for byte. The
-      # statpack runs only when the corpus is on disk — regenerating without it
-      # would replace real metrics with the empty pack. The backtest stage is
-      # deliberately NOT refreshed here: its prior-vote baseline replays a
-      # corpus-retrieval query per resolved case, which cannot finish inside a
-      # CI job over the multi-million-row corpus — re-add it once the harness
-      # scales (until then `metrics/backtest.json` only changes via a manual,
-      # bounded `fedcourts backtest` run).
+      # reproduces the committed artifact byte for byte. The corpus-dependent
+      # pair runs only when the corpus is on disk — regenerating without it
+      # would replace real metrics with the empty pack. (The backtest's
+      # prior-vote baseline retrieves against a prebuilt index, so a full
+      # replay costs a couple of resolved-slice scans, not a query per case.)
       - name: Regenerate the metrics artifacts
         run: |
           set -euo pipefail
           uv run fedcourts leaderboard
           if [ -f corpus/corpus.db ]; then
+            uv run fedcourts backtest
             uv run fedcourts statpack
           fi
 

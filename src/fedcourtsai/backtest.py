@@ -21,13 +21,13 @@ seam and are replayed out of band, exactly as ``run-predict`` runs them live.
 from __future__ import annotations
 
 import sqlite3
-from collections import Counter
-from dataclasses import dataclass
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
 
 from . import corpus
-from .corpus import CorpusRow, PriorQuery
+from .corpus import CorpusRow
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .schemas import Backtest, BacktestEntry, Disposition
 
@@ -108,11 +108,13 @@ def select_backtest_set(
     label, not ``None`` (unresolved) or ``other`` (decided but unclassified) —
     the same bar outcome detection uses before recording ground truth, so the
     back-test scores only against labels the pipeline trusts. ``court`` restricts
-    the set; ``limit`` caps it (the first N in stable order).
+    the set; ``limit`` caps it (the first N in stable order). The resolved filter
+    is pushed into SQL: the resolved slice is a small fraction of the corpus, so
+    selection never pays a full-corpus scan.
     """
     items: list[BacktestItem] = []
-    for row in corpus.iter_rows(conn, court=court):
-        if row.disposition is None:
+    for row in corpus.iter_rows(conn, court=court, resolved=True):
+        if row.disposition is None:  # unreachable under resolved=True; narrows the type
             continue
         disposition = Disposition(row.disposition)
         if not is_machine_readable(disposition):
@@ -134,6 +136,111 @@ class ConstantBacktester:
         return BacktestPrediction(self.disposition, float(granted_flag(self.disposition)))
 
 
+@dataclass(frozen=True)
+class _PriorCandidate:
+    """One resolved case in the prior index — the fields the vote needs, nothing else.
+
+    Deliberately not a :class:`CorpusRow`: the index holds every resolved case in
+    memory, so it keeps the vote inputs (id, label, feature sets) and drops the
+    heavyweight payload (opinion text, parties, snapshots).
+    """
+
+    case_id: str
+    disposition: Disposition
+    judges: frozenset[str]
+    citations: frozenset[str]
+
+
+class PriorIndex:
+    """Resolved-prior retrieval over prebuilt in-memory indexes — built once, not per trial.
+
+    :func:`corpus.retrieve_priors` scans and scores its court's resolved rows on
+    **every call**; replayed once per back-test trial that is O(trials x resolved
+    rows) and cannot finish over the full corpus. This index makes the same
+    retrieval O(1)-ish per trial: one pass over the resolved slice builds, per
+    court, the candidate list in the zero-score rank order (most recent decision
+    first, then ``case_id`` — :func:`corpus.recency_key`'s order) plus inverted
+    judge/citation postings, and :meth:`top` reproduces ``retrieve_priors``'
+    exact semantics (overlap filters required when given; rank by overlap score,
+    then the candidate order). Parity is pinned by tests.
+    """
+
+    def __init__(self) -> None:
+        self._candidates: dict[str, list[_PriorCandidate]] = {}
+        self._by_judge: dict[str, dict[str, list[int]]] = {}
+        self._by_citation: dict[str, dict[str, list[int]]] = {}
+
+    @classmethod
+    def build(cls, conn: sqlite3.Connection) -> PriorIndex:
+        """One pass over the resolved slice (SQL-filtered) into per-court indexes."""
+        rows_by_court: defaultdict[str, list[CorpusRow]] = defaultdict(list)
+        for row in corpus.iter_rows(conn, resolved=True):
+            if row.disposition is None:  # unreachable under resolved=True; narrows the type
+                continue
+            rows_by_court[row.court].append(row)
+        index = cls()
+        for court, rows in rows_by_court.items():
+            rows.sort(key=lambda r: (corpus.recency_key(r), r.case_id))
+            by_judge: defaultdict[str, list[int]] = defaultdict(list)
+            by_citation: defaultdict[str, list[int]] = defaultdict(list)
+            candidates: list[_PriorCandidate] = []
+            for position, row in enumerate(rows):
+                candidates.append(
+                    _PriorCandidate(
+                        case_id=row.case_id,
+                        disposition=Disposition(str(row.disposition)),
+                        judges=frozenset(row.judges),
+                        citations=frozenset(row.citations),
+                    )
+                )
+                for judge in row.judges:
+                    by_judge[judge].append(position)
+                for citation in row.citations:
+                    by_citation[citation].append(position)
+            index._candidates[court] = candidates
+            index._by_judge[court] = dict(by_judge)
+            index._by_citation[court] = dict(by_citation)
+        return index
+
+    def top(
+        self,
+        court: str,
+        judges: tuple[str, ...],
+        citations: tuple[str, ...],
+        limit: int,
+    ) -> list[_PriorCandidate]:
+        """Up to ``limit`` priors, most relevant first — ``retrieve_priors`` semantics.
+
+        Overlap filters are required when given (a candidate sharing no judge, or
+        no citation, is skipped); rank is overlap score descending, then the
+        candidate order (most recent decision, then ``case_id``).
+        """
+        candidates = self._candidates.get(court, [])
+        if not judges and not citations:
+            return candidates[:limit]
+        matched: set[int] | None = None
+        if judges:
+            postings = self._by_judge.get(court, {})
+            matched = set().union(*(postings.get(judge, []) for judge in judges))
+        if citations:
+            postings = self._by_citation.get(court, {})
+            cited = set().union(*(postings.get(citation, []) for citation in citations))
+            matched = cited if matched is None else matched & cited
+        assert matched is not None  # at least one filter was given
+        want_judges, want_citations = set(judges), set(citations)
+        ranked = sorted(
+            matched,
+            key=lambda position: (
+                -(
+                    len(want_judges & candidates[position].judges)
+                    + len(want_citations & candidates[position].citations)
+                ),
+                position,
+            ),
+        )
+        return [candidates[position] for position in ranked[:limit]]
+
+
 @dataclass
 class PriorVoteBacktester:
     """Predicts the majority disposition among similar resolved priors (leave-one-out).
@@ -142,24 +249,25 @@ class PriorVoteBacktester:
     sharing the case's court / judges / citations (excluding the case itself via
     leave-one-out), predicts their most common disposition, and reads P(granted)
     off the fraction of those priors that were granted. With no matching prior it
-    falls back to ``denied`` / 0.0, so it always returns a prediction.
+    falls back to ``denied`` / 0.0, so it always returns a prediction. Retrieval
+    runs against a :class:`PriorIndex` built lazily on the first trial, so a full
+    replay pays one resolved-slice scan rather than one per trial.
     """
 
     conn: sqlite3.Connection
     id: str = "prior-vote"
     limit: int = corpus.DEFAULT_PRIOR_LIMIT
+    _index: PriorIndex | None = field(default=None, repr=False)
 
     def predict(self, features: BacktestFeatures) -> BacktestPrediction:
-        query = PriorQuery(
-            court=features.court,
-            judges=list(features.judges),
-            citations=list(features.citations),
-            resolved_only=True,
-        )
+        if self._index is None:
+            self._index = PriorIndex.build(self.conn)
         # Pull one extra so dropping the case under test still leaves up to `limit`.
-        retrieved = corpus.retrieve_priors(self.conn, query, limit=self.limit + 1)
-        priors = [row for row in retrieved if row.case_id != features.case_id][: self.limit]
-        labels = [Disposition(row.disposition) for row in priors if row.disposition is not None]
+        retrieved = self._index.top(
+            features.court, features.judges, features.citations, self.limit + 1
+        )
+        priors = [prior for prior in retrieved if prior.case_id != features.case_id]
+        labels = [prior.disposition for prior in priors[: self.limit]]
         if not labels:
             return BacktestPrediction(Disposition.denied, 0.0)
         # Most common label, ties broken by the Disposition enum order for determinism.
