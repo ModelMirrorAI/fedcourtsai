@@ -14,8 +14,7 @@ stage.
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
-| _(none)_        | `run-analytics`  | manual dispatch only                | script (no agent)    |
-| _(none)_        | `run-metrics`    | weekly schedule, manual             | script (no agent)    |
+| _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics — pipeline health (the Actions run history), backfill
@@ -35,32 +34,33 @@ renders it as a **data-health** section and escalates a failing verdict to one
 long-lived issue — so the dashboard surfaces both run-health and data-health while
 staying a read-only presenter that never touches the corpus.
 
-`run-analytics` is a manual, dispatch-only **read-only analysis** surface, also
-outside the cascade, selected by a `mode` input. In `corpus-stats` mode it assumes
-the read-only S3 role, `dvc pull`s the corpus, and runs `fedcourts stats` to
-aggregate disposition base-rates (overall or grouped by court / topic / judge /
-SCOTUS Term / disposition). In `recoverability` mode it runs
-`fedcourts probe-recoverability` to answer whether a sparse historical SCOTUS
-petition's disposition is actually recoverable from CourtListener (an ingestion gap
-a seed/pull backfill can close) or genuinely absent upstream — the question that
-decides whether such cases stay in scope. The two modes have different credential
-needs (the S3 role vs the CourtListener REST token), so each runs as its own
-least-privilege job gated on `mode`, and neither is granted the other's credential.
-Both are strictly **read-only** and write their result only to the Actions step
-summary and the run log — never the corpus, `data/`, DVC, or git, and neither opens a
-PR or issue.
+`run-analytics` is the **corpus analysis & derived metrics** surface, also outside
+the cascade: every task that reads the corpus and answers a question or refreshes a
+derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
+each as its own least-privilege job that is never granted another mode's
+credential:
 
-`run-metrics` keeps the committed metrics artifacts from drifting stale:
-`metrics/leaderboard.json` (input: the `data/` evaluations ledger) and
-`metrics/backtest.json` / `metrics/statpack.{json,md}` (input: the corpus) are
-deterministic DVC stages that previously only changed when someone ran `dvc repro`
-locally. Weekly (or on dispatch) it `dvc pull`s the corpus read-only, reruns the
-same tested `fedcourts` commands the stages run, and — only when an artifact
-actually changed (they are byte-stable, so a no-op refresh diffs empty) — opens a
-**reviewed** PR rendered by the tested `metrics-refresh-plan` command, mirroring
-`run-cleanup`: never a direct commit to `main`, never auto-merged. The branch is
-fixed (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
-place by the next tick rather than stacking.
+- **`corpus-stats`** (dispatch) assumes the read-only S3 role, `dvc pull`s the
+  corpus, and runs `fedcourts stats` to aggregate disposition base-rates (overall
+  or grouped by court / topic / judge / SCOTUS Term / disposition). Read-only:
+  results go to the Actions step summary and run log, nothing else.
+- **`recoverability`** (dispatch) runs `fedcourts probe-recoverability` (REST
+  token only, no S3) to answer whether a sparse historical SCOTUS petition's
+  disposition is actually recoverable from CourtListener (an ingestion gap a
+  seed/pull backfill can close) or genuinely absent upstream — the question that
+  decides whether such cases stay in scope. Read-only, like `corpus-stats`.
+- **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
+  artifacts from drifting stale: `metrics/leaderboard.json` (input: the `data/`
+  evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`
+  (input: the corpus) are deterministic DVC stages that previously only changed
+  when someone ran `dvc repro` locally. It reruns the same tested `fedcourts`
+  commands the stages run and — only when an artifact actually changed (they are
+  byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
+  by the tested `metrics-refresh-plan` command, mirroring `run-cleanup`: never a
+  direct commit to `main`, never auto-merged. This is the workflow's only
+  write-capable job (it alone mints the dev App token). The branch is fixed
+  (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
+  place by the next tick rather than stacking.
 
 **seed** loads the historical backlog from CourtListener **bulk data** — chunked
 catch-up while backfilling, then a weekly snapshot-id check that reconciles when a
@@ -110,6 +110,17 @@ App installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`
 See `docs/security.md` for the one-time App setup.
 
 ## Authoring or changing a workflow
+
+**Prefer a job or mode on an existing surface over a new workflow file.** GitHub
+scopes permissions, secrets, and minted tokens per **job**, so a new job on an
+existing workflow is exactly as least-privilege as a new file — a new file adds
+surface area without adding isolation. A task earns its own workflow only when it
+needs a different *trigger class* (the `run:*` issue-label cascade vs
+schedule/dispatch) or a different *risk class* (the agentic fan-outs, the corpus
+writers, destructive cleanup). Everything else — a new analysis, a new derived
+artifact, a new maintenance sweep — should land as a mode/job on `run-analytics`
+(or the closest existing surface), reusing the shared composite actions
+(`setup-python-env`, `corpus-readonly`, `configure-git-identity`).
 
 When you add a new `run:*` workflow or edit one, the existing workflows are the
 canonical reference — each handles these cross-cutting traps inline, so copy the

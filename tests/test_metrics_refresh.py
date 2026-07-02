@@ -1,4 +1,4 @@
-"""The metrics-refresh review-PR plan (`run-metrics`)."""
+"""The metrics-refresh review-PR plan (run-analytics's metrics-refresh job)."""
 
 import json
 from pathlib import Path

@@ -4,10 +4,10 @@ The three metrics artifacts — ``metrics/leaderboard.json``, ``metrics/backtest
 and ``metrics/statpack.{json,md}`` — are deterministic DVC stages, but nothing
 regenerated them as their inputs (the ``data/`` evaluations ledger, the corpus) grew,
 so they drifted stale on ``main`` between manual ``dvc repro`` runs. The
-``run-metrics`` workflow closes that gap: it regenerates the artifacts with the same
-tested ``fedcourts`` commands the stages run, and — when anything changed — lands the
-result as a **reviewed** PR (never a direct commit to ``main``, never auto-merged),
-mirroring ``run-cleanup``.
+``run-analytics`` workflow's weekly ``metrics-refresh`` job closes that gap: it
+regenerates the artifacts with the same tested ``fedcourts`` commands the stages
+run, and — when anything changed — lands the result as a **reviewed** PR (never a
+direct commit to ``main``, never auto-merged), mirroring ``run-cleanup``.
 
 This module is the tested half of that workflow: given the changed paths (``git
 diff --name-only -- metrics/``, plumbed by the workflow), it renders the branch and
@@ -86,8 +86,8 @@ def render_refresh_pr(
     rows = "\n".join(f"| `metrics/{name}` | {_headline(metrics_root, name)} |" for name in ordered)
     body = (
         "Scheduled metrics refresh: the committed artifacts drifted from their "
-        "inputs (the `data/` evaluations ledger and the corpus), so `run-metrics` "
-        "regenerated them with the same tested `fedcourts` commands the DVC stages "
+        "inputs (the `data/` evaluations ledger and the corpus), so the scheduled "
+        "refresh regenerated them with the same tested `fedcourts` commands the DVC stages "
         "run. Deterministic — an unchanged input produces a byte-identical artifact, "
         "so only genuinely stale files appear here.\n\n"
         "| artifact | now holds |\n"
