@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1017888",
+  "gaps": [
+    "A snapshot enrichment that inlines the linked opinion cluster's metadata (date, disposition text, panel) for sparse historical dockets",
+    "A stats cut over structural cohorts (e.g. 'has opinion cluster, no cert dates') rather than only court/topic/judge/term"
+  ],
+  "helpful": [
+    "fedcourts stats --group-by disposition gave the decisive base-rate table for the historical SCOTUS population",
+    "fedcourts query sample rows showed how era merits cases are labeled ('other') and that similar dockets carry predict_excluded"
+  ],
+  "notes": "Topic-filtered query (--topic railroad) returned nothing for this case's subject; base rates carried the prediction.",
+  "role": "predictor",
+  "run_id": "20260702T131412Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts stats",
+    "fedcourts query",
+    "fedcourts paths",
+    "fedcourts corpus-info"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
