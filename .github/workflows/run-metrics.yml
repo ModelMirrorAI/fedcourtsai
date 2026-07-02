@@ -1,6 +1,6 @@
 name: run-metrics
 
-# Scheduled refresh of the committed metrics artifacts (issue #383):
+# Scheduled refresh of the committed metrics artifacts:
 # metrics/leaderboard.json (input: the git data/ evaluations ledger),
 # metrics/backtest.json and metrics/statpack.{json,md} (input: the corpus).
 # All three are deterministic DVC stages, but nothing regenerated them as their

@@ -1824,7 +1824,7 @@ def metrics_refresh_plan(
         str, typer.Option(help="Refresh run id for the PR prose; defaults to now (UTC).")
     ] = "",
 ) -> None:
-    """Render the review-PR plan for a metrics refresh (``run-metrics``, issue #383).
+    """Render the review-PR plan for a metrics refresh (``run-metrics``).
 
     The workflow regenerates the metrics artifacts (the same tested commands the DVC
     stages run), diffs ``metrics/``, and hands the changed paths here; this prints a

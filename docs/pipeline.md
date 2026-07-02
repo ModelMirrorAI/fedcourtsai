@@ -50,7 +50,7 @@ Both are strictly **read-only** and write their result only to the Actions step
 summary and the run log — never the corpus, `data/`, DVC, or git, and neither opens a
 PR or issue.
 
-`run-metrics` (#383) keeps the committed metrics artifacts from drifting stale:
+`run-metrics` keeps the committed metrics artifacts from drifting stale:
 `metrics/leaderboard.json` (input: the `data/` evaluations ledger) and
 `metrics/backtest.json` / `metrics/statpack.{json,md}` (input: the corpus) are
 deterministic DVC stages that previously only changed when someone ran `dvc repro`

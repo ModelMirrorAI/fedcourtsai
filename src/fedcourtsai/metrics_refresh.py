@@ -1,4 +1,4 @@
-"""Scheduled refresh of the committed metrics artifacts (issue #383).
+"""Scheduled refresh of the committed metrics artifacts.
 
 The three metrics artifacts — ``metrics/leaderboard.json``, ``metrics/backtest.json``,
 and ``metrics/statpack.{json,md}`` — are deterministic DVC stages, but nothing
@@ -85,7 +85,7 @@ def render_refresh_pr(
     title = f"metrics: refresh {', '.join(stems)}"
     rows = "\n".join(f"| `metrics/{name}` | {_headline(metrics_root, name)} |" for name in ordered)
     body = (
-        "Scheduled metrics refresh (#383): the committed artifacts drifted from their "
+        "Scheduled metrics refresh: the committed artifacts drifted from their "
         "inputs (the `data/` evaluations ledger and the corpus), so `run-metrics` "
         "regenerated them with the same tested `fedcourts` commands the DVC stages "
         "run. Deterministic — an unchanged input produces a byte-identical artifact, "
