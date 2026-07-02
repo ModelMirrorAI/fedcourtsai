@@ -10,5 +10,6 @@
   "probability": 0.6,
   "predicted_disposition": "granted",
   "confidence": 0.35,
-  "votes": []
+  "votes": [],
+  "model": "claude-opus-4-8"
 }

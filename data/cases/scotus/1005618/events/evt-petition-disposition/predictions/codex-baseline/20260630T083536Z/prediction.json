@@ -6,7 +6,7 @@
   "event_id": "evt-petition-disposition",
   "granted": 0,
   "input_snapshot": "data/cases/scotus/1005618/record/snapshots/2026-06-30.json",
-  "model": null,
+  "model": "gpt-5.5",
   "predicted_disposition": "other",
   "predictor_id": "codex-baseline",
   "probability": 0.08,
