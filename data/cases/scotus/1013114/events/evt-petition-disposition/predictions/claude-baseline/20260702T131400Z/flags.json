@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1013114",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot (record/snapshots/2026-07-01.json) is a bulk-import docket shell: no docket entries, no docket number, and every date field (filed, argued, terminated, cert granted/denied) is null. The only usable signals are the case caption and one linked opinion cluster, so this prediction is driven by the corpus reference-class base rate rather than case-specific facts. The 'petition disposition' framing also fits this docket awkwardly: it appears to be a pre-certiorari-era matter heard under mandatory writ-of-error/appeal jurisdiction, so the granted/denied outcome space may not map cleanly onto its realized merits disposition.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T131400Z",
+  "schema_version": "1.0"
+}

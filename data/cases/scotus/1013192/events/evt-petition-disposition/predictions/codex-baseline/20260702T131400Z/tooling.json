@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1013192",
+  "gaps": [
+    "Richer petition-stage docket snapshots for historical Supreme Court cases",
+    "Event-kind-specific corpus priors that separate modern cert petitions from legacy published matters",
+    "Label explanations for SCOTUS disposition values such as other versus dismissed"
+  ],
+  "helpful": [
+    "Resolved path helper",
+    "JSON schemas",
+    "Local provisioned snapshot",
+    "fedcourts stats for SCOTUS base rates",
+    "fedcourts query for resolved SCOTUS priors"
+  ],
+  "notes": "The available snapshot supported only a conservative non-grant prediction. I used local corpus stats and query output for calibration and did not fetch new case facts.",
+  "role": "predictor",
+  "run_id": "20260702T131400Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query",
+    "local event.yaml",
+    "local snapshot JSON"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

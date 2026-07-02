@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1013205",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "Walden v. The Heirs of Gratz is an early-1800s Marshall Court merits case (archaic caption, opinion cluster 85157 attached, no cert dates). It reached the Court under pre-1925 mandatory jurisdiction, so a petition grant/deny disposition is anachronistic; this looks like a case the pre-1925 exclusion predicate should drop from the predict matrix.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot carries no docket entries, no docket number, and no dates (filed/terminated/cert), which is likely why the scope predicates could not classify it as pre-1925. It may be a candidate for probe-recoverability: the linked opinion cluster probably carries the reporter citation and decision date needed to latch predict_excluded.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T131400Z",
+  "schema_version": "1.0"
+}

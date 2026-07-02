@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1013618",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "This is a Reconstruction-era mandatory-jurisdiction cause (The Alicia, 7 Wall. 571 (1869)), not a cert petition, so the petition-disposition frame does not really apply. It appears to have stayed in predict scope because the snapshot has no dates or docket number for the era-based exclusion predicates to latch onto.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot is nearly bare: no docket entries, dates, docket number, or parties; the only substantive signal is the case name and one linked opinion cluster. The disposition looks recoverable from that cluster (a probe-recoverability candidate), which would let this event be resolved or excluded instead of predicted from a one-line record.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T131400Z",
+  "schema_version": "1.0"
+}

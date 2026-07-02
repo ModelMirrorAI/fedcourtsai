@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1013205",
+  "gaps": [
+    "An era-aware base-rate cut (e.g. stats bucketed pre-1925 vs post-1925) — --term/--date-from cannot slice historical cases whose corpus rows have null dates and empty docket numbers.",
+    "A read-only way to see the already-ingested opinion-cluster metadata (citation, decision date, disposition text) for the case's own linked cluster; the snapshot's bare cluster URL is the single most informative fact and I could not use it."
+  ],
+  "helpful": [
+    "fedcourts stats --group-by disposition gave the decisive calibration anchor (78% of resolved SCOTUS cases in the corpus land on `other`).",
+    "fedcourts query showed the nearest priors are the same species of sparse historical docket, confirming the base rate applies."
+  ],
+  "notes": "Snapshot had no docket entries or dates, so the prediction is essentially base-rate-driven plus era reasoning from the caption and cluster link.",
+  "role": "predictor",
+  "run_id": "20260702T131400Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts stats",
+    "fedcourts query",
+    "fedcourts paths",
+    "fedcourts corpus-info"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
