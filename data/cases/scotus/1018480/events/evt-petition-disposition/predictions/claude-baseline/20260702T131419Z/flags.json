@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1018480",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot is nearly empty: no docket entries, no docket number, no filed/argued/terminated dates, no parties or judges. The only usable signals are the caption, the court, and one linked opinion cluster. The prediction is therefore a calibrated base-rate call rather than case-specific reasoning.",
+      "severity": "warning"
+    },
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "Queen v. Hepburn is an 1813 mandatory-jurisdiction SCOTUS case (writ-of-error era), which the predict scope's pre-1925 exclusion policy appears intended to drop, yet it was fanned out to this run. The corpus row may not have the exclusion latched.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Backtest-leakage caveat: this is a famous historical case whose outcome (judgment affirmed, 1813) is in the model's training data. The prediction was grounded in the snapshot and corpus base rates, which independently point to disposition 'other', but this cell should not be scored as a blind prediction.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T131419Z",
+  "schema_version": "1.0"
+}

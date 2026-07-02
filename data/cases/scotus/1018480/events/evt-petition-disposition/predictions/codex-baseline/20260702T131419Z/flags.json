@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1018480",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot for Queen v. Hepburn appears to be a sparse pre-modern SCOTUS merits record, with no docket entries, docket number, filing date, cert grant or denial date, or other facts that cleanly support a modern petition-disposition prediction. I produced a conservative non-grant forecast, but this event likely needs scope review.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T131419Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1019865",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot is a bare bulk-imported docket: no docket entries, no docket number, no filed/argued/terminated dates, and no cert dates, but it links one opinion cluster. The disposition looks recoverable upstream via the cluster (the cluster-disposition path probe-recoverability classifies); a probe/backfill could both enrich the snapshot and resolve this event. Prediction was necessarily base-rate-driven.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T131419Z",
+  "schema_version": "1.0"
+}
