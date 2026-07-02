@@ -23,7 +23,7 @@
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29870,
+      "recoverable": 29869,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -38,10 +38,10 @@
       ]
     },
     {
-      "cases": 12110,
-      "open_events": 12110,
+      "cases": 12046,
+      "open_events": 12046,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12110,
+      "recoverable": 12046,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -49,17 +49,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/102043",
-        "scotus/1020660",
         "scotus/1024249",
-        "scotus/102484"
+        "scotus/102484",
+        "scotus/1026078",
+        "scotus/1029326"
       ]
     },
     {
-      "cases": 385012,
-      "open_events": 385012,
+      "cases": 385123,
+      "open_events": 385123,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44479,
+      "recoverable": 44535,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -79,7 +79,7 @@
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58752,
+      "open_events": 58703,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/14557919",
@@ -95,19 +95,19 @@
       ]
     },
     {
-      "open_events": 16992,
+      "open_events": 16994,
       "reason": "docket Term not parseable (a format the predicate skips)",
       "sample_cases": [
         "scotus/1004607",
         "scotus/1016450",
         "scotus/1017888",
         "scotus/101968",
+        "scotus/102043",
+        "scotus/1020660",
         "scotus/1027970",
         "scotus/1055010",
         "scotus/1061844",
-        "scotus/106432",
-        "scotus/107543",
-        "scotus/1090057"
+        "scotus/106432"
       ]
     },
     {
@@ -177,7 +177,7 @@
       "shape": "Aa. A-99"
     },
     {
-      "count": 238,
+      "count": 239,
       "shape": "Aaa. 999 aaa 999"
     },
     {
