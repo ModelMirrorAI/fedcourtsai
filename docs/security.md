@@ -173,8 +173,9 @@ Two IAM roles, assumed via GitHub OIDC (no static keys); see
   corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by the corpus consumers
   — `run-predict` / `run-evaluate` / `run-reconcile`, plus the read-only analysis /
-  cleanup workflows `run-analytics` / `run-cleanup`) — `GetObject` / `ListBucket`
-  only, so a compromised consumer runner cannot write or poison the corpus.
+  cleanup / metrics workflows `run-analytics` / `run-cleanup` / `run-metrics`) —
+  `GetObject` / `ListBucket` only, so a compromised consumer runner cannot write or
+  poison the corpus.
 
 Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-

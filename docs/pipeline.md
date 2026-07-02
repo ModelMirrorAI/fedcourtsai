@@ -15,6 +15,7 @@ stage.
 | `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch only                | script (no agent)    |
+| _(none)_        | `run-metrics`    | weekly schedule, manual             | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics — pipeline health (the Actions run history), backfill
@@ -48,6 +49,18 @@ least-privilege job gated on `mode`, and neither is granted the other's credenti
 Both are strictly **read-only** and write their result only to the Actions step
 summary and the run log — never the corpus, `data/`, DVC, or git, and neither opens a
 PR or issue.
+
+`run-metrics` (#383) keeps the committed metrics artifacts from drifting stale:
+`metrics/leaderboard.json` (input: the `data/` evaluations ledger) and
+`metrics/backtest.json` / `metrics/statpack.{json,md}` (input: the corpus) are
+deterministic DVC stages that previously only changed when someone ran `dvc repro`
+locally. Weekly (or on dispatch) it `dvc pull`s the corpus read-only, reruns the
+same tested `fedcourts` commands the stages run, and — only when an artifact
+actually changed (they are byte-stable, so a no-op refresh diffs empty) — opens a
+**reviewed** PR rendered by the tested `metrics-refresh-plan` command, mirroring
+`run-cleanup`: never a direct commit to `main`, never auto-merged. The branch is
+fixed (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
+place by the next tick rather than stacking.
 
 **seed** loads the historical backlog from CourtListener **bulk data** — chunked
 catch-up while backfilling, then a weekly snapshot-id check that reconciles when a

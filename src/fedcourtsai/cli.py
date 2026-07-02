@@ -16,7 +16,7 @@ from typing import Annotated
 
 import typer
 
-from . import analytics, cleanup, corpus, dvc, ids
+from . import analytics, cleanup, corpus, dvc, ids, metrics_refresh
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
@@ -1809,6 +1809,37 @@ def cleanup_out_of_scope_predictions_cmd(
                 "removed": apply,
                 "pr": pr.model_dump() if pr is not None else None,
             },
+            separators=(",", ":"),
+        )
+    )
+
+
+@app.command("metrics-refresh-plan")
+def metrics_refresh_plan(
+    changed_file: Annotated[
+        Path,
+        typer.Option(help="File holding `git diff --name-only -- metrics/` output to summarize."),
+    ],
+    run_id: Annotated[
+        str, typer.Option(help="Refresh run id for the PR prose; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Render the review-PR plan for a metrics refresh (``run-metrics``, issue #383).
+
+    The workflow regenerates the metrics artifacts (the same tested commands the DVC
+    stages run), diffs ``metrics/``, and hands the changed paths here; this prints a
+    JSON plan ``{"changed":[...],"pr":<branch/title/commit/body|null>}`` with a
+    per-artifact headline read from the regenerated files. ``pr`` is null when
+    nothing changed (byte-stable artifacts -> empty diff -> no PR), so the workflow
+    can exit quietly. The prose is rendered here, not with ``jq`` and a heredoc in
+    the workflow, mirroring ``cleanup-out-of-scope-predictions``.
+    """
+    settings = get_settings()
+    changed = [line.strip() for line in changed_file.read_text().splitlines() if line.strip()]
+    pr = metrics_refresh.render_refresh_pr(changed, settings.metrics_root, run_id or ids.run_id())
+    typer.echo(
+        json.dumps(
+            {"changed": changed, "pr": pr.model_dump() if pr is not None else None},
             separators=(",", ":"),
         )
     )
