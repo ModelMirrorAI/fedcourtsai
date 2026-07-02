@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/102484",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot is sufficient for a conservative prediction but sparse for a petition-disposition event: it has no docket entries, filing or termination dates, or direct cert-grant/cert-denial fields, and the main case-specific signal is a linked SCOTUS opinion cluster.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T201550Z",
+  "schema_version": "1.0"
+}
