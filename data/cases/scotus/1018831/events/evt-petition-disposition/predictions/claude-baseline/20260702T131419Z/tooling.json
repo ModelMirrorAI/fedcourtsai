@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1018831",
+  "gaps": [
+    "A snapshot enrichment (or query flag) that inlines the linked opinion cluster's summary/disposition text for opinion-derived docket stubs — for this case the cluster link is the only signal and its content was off-limits",
+    "A query filter for era/date (e.g. pre-1925) or docket-number shape, to pull priors genuinely similar to a bare historical stub",
+    "stats --group-by disposition buckets the open majority as one '(open)' row; a --resolved-only default hint in the predict prompt would save a step"
+  ],
+  "helpful": [
+    "fedcourts stats disposition base rates for resolved SCOTUS cases (other 78%, granted 1.4%) anchored the calibration",
+    "fedcourts query surfaced resolved 19th-century priors showing merits cases reconcile to disposition 'other'",
+    "fedcourts paths resolved the output layout instantly"
+  ],
+  "notes": "Bare pre-1925 docket stub; prediction driven by the linked-cluster signal plus corpus base rates. Tooling was sufficient for a calibrated call but not for a confident one.",
+  "role": "predictor",
+  "run_id": "20260702T131419Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

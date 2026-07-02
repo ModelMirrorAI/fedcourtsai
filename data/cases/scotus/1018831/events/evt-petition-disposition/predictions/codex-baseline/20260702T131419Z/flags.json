@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1018831",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot is a bare Supreme Court docket: no docket number, docket entries, filing or termination dates, cert dates, lower-court origin, question presented, or party details beyond the title. The prediction is necessarily base-rate driven, and the petition-disposition event classification may warrant review.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260702T131419Z",
+  "schema_version": "1.0"
+}
