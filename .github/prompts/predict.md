@@ -17,6 +17,7 @@ variables (already set for you):
 | `EVENT_ID`     | The event to predict, e.g. `evt-motion-stay`        |
 | `PREDICTOR_ID` | Your predictor id; names your output directory      |
 | `RUN_ID`       | Shared run id for this fan-out (a UTC timestamp)    |
+| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5` |
 
 Run `uv run fedcourts paths --court "$COURT_ID" --docket "$DOCKET_ID" --event
 "$EVENT_ID"` to see resolved paths if you are unsure.
@@ -63,6 +64,8 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   - `case_id` = `$COURT_ID/$DOCKET_ID`, `event_id` = `$EVENT_ID`,
     `predictor_id` = `$PREDICTOR_ID`, `run_id` = `$RUN_ID`.
   - `engine` — `claude-code`, `codex`, or `gemini` (whichever you are).
+  - `model` = `$MODEL_ID` — the model that produced this prediction; copy the
+    env var verbatim, never guess.
   - `created_at` — current UTC timestamp.
   - `input_snapshot` — identifier/path of the snapshot you used.
   - `granted` (1/0), `probability` (P(granted), 0–1), `predicted_disposition`

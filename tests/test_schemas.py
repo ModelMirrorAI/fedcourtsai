@@ -113,6 +113,17 @@ def test_evaluation_tracks_provider_engine() -> None:
     assert _evaluation().engine == Engine.gemini
 
 
+def test_evaluation_records_model_when_given() -> None:
+    # `model` records which model produced the evaluation (all three providers);
+    # optional so records written before the field existed still validate.
+    assert _evaluation(model="gemini-3.1-pro-preview").model == "gemini-3.1-pro-preview"
+    assert _evaluation().model is None
+
+
+def test_prediction_records_model_when_given() -> None:
+    assert _prediction(model="claude-fable-5").model == "claude-fable-5"
+
+
 def test_evaluation_requires_engine() -> None:
     bad = {
         "case_id": "ca9/123",

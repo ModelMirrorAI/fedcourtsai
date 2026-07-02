@@ -215,6 +215,7 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
           EVALUATOR_ID: ${{ matrix.evaluator_id }}
           RUN_ID: ${{ matrix.run_id }}
+          MODEL_ID: ${{ matrix.model }}
         with:
           # run-pull files this evaluate issue as the trusted pipeline App
           # (`fedcourtsai-data[bot]`), already approved by the plan job's
@@ -249,8 +250,11 @@ jobs:
             blocked, post a brief note on the triggering issue
             (#${{ github.event.issue.number }}) with `gh issue comment` and explain
             it in evaluation.md, then finish — do not wait for a reply.
+          # The model comes from the plan job's matrix (registry override or the
+          # engine's predict/evaluate default in fedcourtsai.pricing) — repo
+          # config, not user input.
           claude_args: |
-            --model claude-opus-4-8
+            --model ${{ matrix.model }}
             --max-turns 120
             --permission-mode bypassPermissions
 
@@ -266,6 +270,7 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
           EVALUATOR_ID: ${{ matrix.evaluator_id }}
           RUN_ID: ${{ matrix.run_id }}
+          MODEL_ID: ${{ matrix.model }}
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
         with:
@@ -275,7 +280,7 @@ jobs:
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ matrix.prompt }}
-          model: gpt-5.5
+          model: ${{ matrix.model }}
           effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
@@ -290,12 +295,13 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
           EVALUATOR_ID: ${{ matrix.evaluator_id }}
           RUN_ID: ${{ matrix.run_id }}
+          MODEL_ID: ${{ matrix.model }}
           # The agent's least-privilege token (no contents:write) for any `gh issue
           # comment` it makes; the workflow's app-token does the commit/PR.
           GITHUB_TOKEN: ${{ steps.agent-token.outputs.token }}
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_model: gemini-3.1-pro-preview
+          gemini_model: ${{ matrix.model }}
           # Emit token usage to a local telemetry log the capture step parses; never
           # log prompt/response bodies (docket text is untrusted third-party data).
           settings: |

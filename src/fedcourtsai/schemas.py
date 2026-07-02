@@ -137,7 +137,11 @@ class Prediction(_Strict):
     event_id: str
     predictor_id: str
     engine: Engine
-    model: str | None = None
+    model: str | None = Field(
+        default=None,
+        description="Model that produced this prediction (e.g. claude-fable-5); "
+        "null only for offline outputs that called no model",
+    )
     run_id: str
     created_at: datetime
     input_snapshot: str = Field(description="Repo-relative path to the snapshot used as input")
@@ -171,6 +175,12 @@ class Evaluation(_Strict):
     predictor_id: str
     evaluator_id: str
     engine: Engine
+    model: str | None = Field(
+        default=None,
+        description="Model that produced this evaluation (e.g. claude-fable-5); "
+        "null only for offline outputs that called no model (and records "
+        "written before the field existed)",
+    )
     run_id: str
     created_at: datetime
     correct: int = Field(ge=0, le=1, description="1 if disposition matched outcome")
@@ -899,12 +909,19 @@ class SeedProgress(_Strict):
     )
 
 
+# A registry model override must be a bare model id: it is interpolated into the
+# whitespace-split `claude_args` of the engine step, so rejecting whitespace (and
+# anything else outside a model id's alphabet) here makes argument smuggling via a
+# config edit structurally impossible and catches a typo at plan time.
+_MODEL_ID_PATTERN = r"^[A-Za-z0-9._:-]+$"
+
+
 class PredictorConfig(_Strict):
     """An entry in ``config/predictors.yaml``."""
 
     id: str
     engine: Engine
-    model: str | None = None
+    model: str | None = Field(default=None, pattern=_MODEL_ID_PATTERN)
     prompt: str = Field(description="Repo-relative path to the prompt template")
     enabled: bool = True
     description: str | None = None
@@ -915,7 +932,7 @@ class EvaluatorConfig(_Strict):
 
     id: str
     engine: Engine
-    model: str | None = None
+    model: str | None = Field(default=None, pattern=_MODEL_ID_PATTERN)
     prompt: str
     enabled: bool = True
     description: str | None = None

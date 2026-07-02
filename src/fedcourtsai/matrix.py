@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
@@ -97,7 +98,10 @@ def predict_matrix(
                     {
                         "predictor_id": predictor.id,
                         "engine": predictor.engine,
-                        "model": predictor.model or "",
+                        # Resolved, never empty: the registry override wins, else the
+                        # engine's predict/evaluate default. The workflow passes this
+                        # to the engine step, so the recorded model is what ran.
+                        "model": predictor.model or DEFAULT_MODELS[predictor.engine],
                         "prompt": predictor.prompt,
                         "court": case.court,
                         "docket": case.docket,
@@ -121,7 +125,8 @@ def evaluate_matrix(
                     {
                         "evaluator_id": evaluator.id,
                         "engine": evaluator.engine,
-                        "model": evaluator.model or "",
+                        # Resolved, never empty — see predict_matrix.
+                        "model": evaluator.model or DEFAULT_MODELS[evaluator.engine],
                         "prompt": evaluator.prompt,
                         "court": case.court,
                         "docket": case.docket,
