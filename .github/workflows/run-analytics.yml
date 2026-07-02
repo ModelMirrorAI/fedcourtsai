@@ -1,7 +1,8 @@
 name: run-analytics
 
-# Manual, READ-ONLY corpus analysis. One dispatch surface for on-demand,
-# non-destructive questions about the corpus, selected by `mode`:
+# Corpus analysis & derived metrics. One surface for every task that reads the
+# corpus and answers a question or refreshes a derived artifact, selected by
+# `mode` (dispatch) or the weekly schedule:
 #
 #   - corpus-stats:    aggregate disposition base-rates over the packed corpus
 #                      (`fedcourts stats`) — the "what's the grant rate for X"
@@ -10,22 +11,34 @@ name: run-analytics
 #                      cases, is the disposition recoverable from CourtListener
 #                      (an ingestion gap) or genuinely absent? (`probe-recoverability`,
 #                      REST-only.)
+#   - metrics-refresh: regenerate the committed metrics artifacts (leaderboard /
+#                      backtest / statpack) and land any change as a **reviewed**
+#                      PR — never a direct commit to main, never auto-merged.
+#                      Also the schedule's job (weekly).
 #
-# Both modes are strictly read-only: neither writes the corpus, `data/`, DVC, or git,
-# opens a PR, or files an issue — every result goes to the Actions step summary and the
-# run log. The two modes have different privilege needs (corpus-stats assumes the
-# read-only S3 role to pull the corpus; recoverability holds the CourtListener REST
-# token), so each runs as its own least-privilege job gated on `mode` — neither is ever
-# granted the other's credential.
+# The two analysis modes are strictly read-only: neither writes the corpus, `data/`,
+# DVC, or git, opens a PR, or files an issue — every result goes to the Actions step
+# summary and the run log. GitHub scopes permissions and tokens per **job**, so each
+# mode runs as its own least-privilege job gated on `mode` and none is ever granted
+# another's credential: corpus-stats holds only the read-only S3 role, recoverability
+# only the CourtListener REST token, and metrics-refresh alone mints the dev App
+# token (contents + PR write) to open its review PR.
 on:
+  schedule:
+    # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-seed's
+    # Sunday-night window, between run-pull's 01:17 and 07:17 windows, so the
+    # refresh sees a settled corpus. Runs only the metrics-refresh job (a
+    # schedule event carries no inputs, so the mode-gated jobs stay skipped).
+    - cron: "41 5 * * 1"
   workflow_dispatch:
     inputs:
       mode:
-        description: Which read-only analysis to run.
+        description: Which analysis or refresh to run.
         type: choice
         options:
           - corpus-stats
           - recoverability
+          - metrics-refresh
         default: corpus-stats
       # corpus-stats inputs (ignored by the recoverability mode). All are optional; an
       # empty value means "no filter" / "no grouping".
@@ -54,9 +67,9 @@ on:
 # Least privilege by default; each job widens only to what its mode needs.
 permissions: {}
 
-concurrency:
-  group: run-analytics
-  cancel-in-progress: true
+# Concurrency is per-job (not workflow-level): the analysis modes cancel a
+# superseded run of themselves, while a metrics refresh must never be cancelled
+# mid-PR by an unrelated analysis dispatch.
 
 jobs:
   corpus-stats:
@@ -64,6 +77,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: runner
+    concurrency:
+      group: run-analytics-analysis
+      cancel-in-progress: true
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to dvc pull the corpus
@@ -74,20 +90,13 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # The base-rates read the corpus (the real rows), so it must be on disk. Assume
-      # the read-only S3 role via OIDC and dvc pull it — the same wiring run-cleanup
-      # uses. No contents:write, no App token: this job cannot touch git or the corpus.
-      - name: Configure AWS credentials (DVC S3 remote, read-only)
-        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
+      # The base-rates read the corpus (the real rows), so it must be on disk.
+      # No contents:write, no App token: this job cannot touch git or the corpus.
+      - uses: ./.github/actions/corpus-readonly
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-      - name: Configure the DVC remote
-        env:
-          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
-        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
-      - name: Pull the corpus
-        run: uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
 
       - name: Aggregate corpus base-rates
         env:
@@ -114,6 +123,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: runner
+    concurrency:
+      group: run-analytics-analysis
+      cancel-in-progress: true
     # Least privilege: read the code to run the CLI, nothing more. No id-token (no AWS /
     # DVC), no App token, no contents:write — the probe cannot touch the corpus or git.
     permissions:
@@ -147,3 +159,128 @@ jobs:
           uv run fedcourts probe-recoverability \
             --dockets "$DOCKETS" \
             --summary-out "$GITHUB_STEP_SUMMARY"
+
+  # Scheduled refresh of the committed metrics artifacts:
+  # metrics/leaderboard.json (input: the git data/ evaluations ledger),
+  # metrics/backtest.json and metrics/statpack.{json,md} (input: the corpus).
+  # All three are deterministic DVC stages, but nothing regenerated them as their
+  # inputs grew, so they drifted stale on main between manual `dvc repro` runs.
+  #
+  # This job reruns the same tested `fedcourts` commands the stages run (calling
+  # them directly avoids `dvc repro` leaving an untracked dvc.lock), and — only
+  # when something changed — opens a **reviewed** PR, mirroring run-cleanup:
+  # never a direct commit to main, never auto-merged. Byte-stable artifacts mean
+  # a no-op refresh diffs empty and opens nothing. The branch is fixed
+  # (`metrics/refresh`, rendered by the tested `metrics-refresh-plan` command):
+  # each refresh regenerates from current main, so an unmerged refresh PR is
+  # superseded — the job force-pushes the branch and the open PR updates in
+  # place instead of stacking one PR per schedule tick.
+  metrics-refresh:
+    # Runs on the weekly schedule, or on dispatch with mode=metrics-refresh —
+    # both trusted surfaces (dispatch is write-gated by GitHub), so no
+    # authorize-trigger gate is needed here.
+    if: ${{ github.event_name == 'schedule' || inputs.mode == 'metrics-refresh' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: runner
+    concurrency:
+      group: run-analytics-metrics-refresh
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to dvc pull the corpus
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The refresh PR is opened with the dev App token. The dev App is not a
+      # branch-protection bypass actor, so the PR still faces the required `gate`
+      # check, and it is never auto-merged — review is mandatory. This is the only
+      # job in this workflow that holds a write-capable token; the analysis modes
+      # above stay strictly read-only.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # backtest and statpack read the corpus, so it must be on disk; a missing
+      # pointer only warns (the leaderboard needs no corpus), but a failed pull
+      # of an existing pointer fails the job — regenerating against a missing
+      # corpus would regress those artifacts to the empty pack.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
+          missing-pointer: warn
+
+      # The same commands the dvc.yaml stages run; each is deterministic, so an
+      # unchanged input reproduces the committed artifact byte for byte. The
+      # corpus-dependent pair runs only when the corpus is on disk — regenerating
+      # without it would replace real metrics with the empty pack.
+      - name: Regenerate the metrics artifacts
+        run: |
+          set -euo pipefail
+          uv run fedcourts leaderboard
+          if [ -f corpus/corpus.db ]; then
+            uv run fedcourts backtest
+            uv run fedcourts statpack
+          fi
+
+      # The branch name and PR prose come from the tested `metrics-refresh-plan`
+      # (null pr = nothing changed); this step only runs git and gh, mirroring
+      # run-cleanup. The fixed branch is force-pushed so an unmerged refresh PR
+      # updates in place rather than stacking.
+      - name: Open or update the review PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          # Stage first, then diff the index: a plain `git diff` sees only tracked
+          # files, so a future brand-new artifact under metrics/ would be missed.
+          git add -A metrics/
+          git diff --cached --name-only -- metrics/ > changed.txt
+          plan=$(uv run fedcourts metrics-refresh-plan --changed-file changed.txt \
+            --run-id "$GITHUB_RUN_ID")
+          if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
+            echo "Metrics are up to date; nothing to refresh." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch=$(jq -r '.pr.branch' <<<"$plan")
+          git checkout -q -b "$branch"
+          jq -r '.pr.body' <<<"$plan" > pr-body.md
+          git commit -q -m "$(jq -r '.pr.commit_message' <<<"$plan")"
+          # Push with the app (write) token; blank any ambient extraheader so it
+          # authenticates. Force: the fixed branch supersedes any unmerged refresh.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${branch}"
+          # Reuse the open PR for this branch when one exists (the force-push above
+          # already updated its contents); otherwise open a fresh one.
+          existing=$(gh pr list --repo "$REPO" --head "$branch" --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$REPO" \
+              --title "$(jq -r '.pr.title' <<<"$plan")" --body-file pr-body.md
+            echo "Updated review PR #${existing} in place." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --base main --head "$branch" \
+              --title "$(jq -r '.pr.title' <<<"$plan")" --body-file pr-body.md)
+            echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,62 @@
+name: Read-only corpus access
+description: >-
+  Assume the read-only AWS role via OIDC, configure the DVC S3 remote out of band
+  (gitignored .dvc/config.local, never committed), and optionally pull the packed
+  corpus. The shared first half of every corpus *consumer* job — the plan/cell jobs
+  of the agent fan-outs, cleanup, analytics, and the metrics refresh. Corpus
+  *writers* (run-seed / run-pull) assume the read-write role and keep their own
+  wiring. The calling job must grant `id-token: write` and run in the `runner`
+  environment so the role and remote variables are available to pass in.
+
+inputs:
+  role-to-assume:
+    description: The read-only AWS role ARN (pass vars.AWS_ROLE_TO_ASSUME_READONLY).
+    required: true
+  aws-region:
+    description: AWS region for the role/remote (pass vars.AWS_REGION).
+    required: true
+  dvc-remote-url:
+    description: The DVC remote's bucket URL (pass vars.DVC_REMOTE_URL).
+    required: true
+  pull:
+    description: >-
+      Pull corpus/corpus.db.dvc after configuring ("true"/"false"). Cell jobs pass
+      "false" and pull inside their own best-effort provision step.
+    required: false
+    default: "true"
+  missing-pointer:
+    description: >-
+      What to do when the corpus pointer is absent from the checkout: "fail" the
+      job, or "warn" and skip the pull (for jobs that degrade gracefully without
+      the corpus).
+    required: false
+    default: "fail"
+
+runs:
+  using: composite
+  steps:
+    - name: Configure AWS credentials (DVC S3 remote, read-only)
+      uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
+      with:
+        role-to-assume: ${{ inputs.role-to-assume }}
+        aws-region: ${{ inputs.aws-region }}
+    - name: Configure the DVC remote
+      shell: bash
+      env:
+        DVC_REMOTE_URL: ${{ inputs.dvc-remote-url }}
+      run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+    - name: Pull the corpus
+      if: ${{ inputs.pull == 'true' }}
+      shell: bash
+      env:
+        MISSING_POINTER: ${{ inputs.missing-pointer }}
+      run: |
+        set -euo pipefail
+        if [ -f corpus/corpus.db.dvc ]; then
+          uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+        elif [ "$MISSING_POINTER" = "warn" ]; then
+          echo "::warning::no corpus pointer yet; skipping the corpus pull"
+        else
+          echo "::error::no corpus pointer (corpus/corpus.db.dvc) in the checkout"
+          exit 1
+        fi

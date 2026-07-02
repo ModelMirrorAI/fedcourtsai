@@ -128,12 +128,24 @@ Two things hold no matter what you skip locally:
 - Writes go through `fedcourtsai.serialize` (sorted, newline-terminated) to keep
   diffs minimal.
 - Conventional-commit style PR titles, e.g. `predict(claude-baseline): ca9/123 — evt-...`.
-- **Docs describe the current design, not its history.** No issue numbers, no
-  changelog, no "we used to / now we" — write what is true now and just enough to
-  orient a new reader.
+- **Be cautious about creating new workflow files.** Before adding one under
+  `.github/workflows/`, check whether the task fits as a job or mode on an
+  existing workflow (e.g. `run-analytics` for anything that reads the corpus and
+  answers a question or refreshes a derived artifact). GitHub scopes permissions
+  and tokens per *job*, so a new job is exactly as least-privilege as a new
+  file; a task earns its own workflow only when it needs a different trigger
+  class or risk class. See *Authoring or changing a workflow* in
+  [docs/pipeline.md](docs/pipeline.md).
+- **Docs and code describe the current design, not its history.** No issue
+  numbers, no changelog, no "we used to / now we" — write what is true now and
+  just enough to orient a new reader. This applies to *every committed surface*:
+  `docs/`, docstrings, code comments, workflow comments, config comments, and
+  prose that code renders (PR bodies, dashboards). Issue numbers rot — state the
+  reason in place instead of pointing at a tracker; `git blame` finds the PR (and
+  through it the issue) when someone needs the history.
 - **Close issues from the PR.** When a PR completes everything an issue asks for,
-  put `Closes #<n>` in the PR description so the merge closes it. The PR
-  description is the one place an issue number belongs.
+  put `Closes #<n>` in the PR description so the merge closes it. PR descriptions
+  and commit messages are the only places an issue number belongs.
 - **Keep environment variables out of PR and issue text.** Don't reproduce a
   var's name or value in prose, even when it isn't secret (e.g. the var holding
   the DVC remote's S3 URL); refer to it by its role. Secrets never appear anywhere.

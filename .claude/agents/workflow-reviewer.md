@@ -58,6 +58,17 @@ read the diff, run the linters, and report findings with a clear verdict. You do
 
 ## Repo-style checklist
 
+- **A new workflow file must justify its existence.** When the diff *adds* a file
+  under `.github/workflows/`, ask first whether the task fits as a job or mode on
+  an existing surface (`run-analytics` for anything that reads the corpus and
+  answers a question or refreshes a derived artifact; the closest `run-*` workflow
+  otherwise). GitHub scopes permissions and tokens per *job*, so a new job is
+  exactly as least-privilege as a new file — a new file earns its place only for a
+  different **trigger class** (the `run:*` issue-label cascade vs
+  schedule/dispatch) or **risk class** (agentic fan-out, corpus writer,
+  destructive cleanup). Flag an unjustified new file as *recommended*: name the
+  existing workflow it should join. Cite *Authoring or changing a workflow* in
+  `docs/pipeline.md`.
 - **Logic in tested Python, bash only plumbs.** This is the house rule. Decision and
   presentation logic belongs in a `fedcourts` command with unit tests; the workflow's
   `run:` should be limited to git/gh/dvc plumbing that calls those commands and reads

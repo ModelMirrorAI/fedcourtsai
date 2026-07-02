@@ -167,7 +167,7 @@ Access mirrors each workflow's role in the pipeline:
 |-------------------------------------------|---------------|----------------------------------|
 | `run-seed`, `run-pull`                    | read-write    | corpus writers (`dvc push`)      |
 | `run-predict`, `run-evaluate`, `run-reconcile` | read-only | retrieval consumers (`dvc pull`) |
-| `run-analytics`, `run-cleanup`            | read-only     | corpus analysis / cleanup (`dvc pull`) |
+| `run-analytics`, `run-cleanup`            | read-only     | corpus analysis / metrics refresh / cleanup (`dvc pull`) |
 | `ci`                                      | none          | gate stays offline/fast          |
 
 The gate has no remote, so it cannot diff the corpus blob against S3; it runs the
@@ -241,8 +241,10 @@ ledger models in `fedcourtsai.schemas`.
 - **Base-rate aggregation** — roll the corpus into disposition base-rates instead of
   individual priors. On demand as `fedcourts stats` (overall or grouped by court /
   topic / judge / SCOTUS Term); as the published **statpack** (`fedcourts statpack`,
-  the `statpack` DVC stage → `metrics/statpack.{json,md}`); and behind the read-only
-  `run-analytics` workflow. See [`fedcourtsai.analytics`](../src/fedcourtsai/analytics.py).
+  the `statpack` DVC stage → `metrics/statpack.{json,md}`, kept fresh by
+  `run-analytics`'s weekly metrics-refresh job — see [pipeline.md](pipeline.md));
+  and behind `run-analytics`'s dispatch modes. See
+  [`fedcourtsai.analytics`](../src/fedcourtsai/analytics.py).
 - **Retrieval** — at prediction time a model pulls a handful of *relevant*
   priors instead of loading the bulk set into context. Structured retrieval is
   implemented today as `fedcourts query` (and the `corpus.retrieve_priors`

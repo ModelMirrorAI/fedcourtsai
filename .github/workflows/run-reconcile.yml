@@ -123,23 +123,16 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # Assume the dedicated read-only IAM role via GitHub OIDC so the agent can
-      # `dvc pull` the corpus from the S3 remote for legal-context retrieval. No
-      # static keys; a compromised reconcile runner cannot write or delete corpus
-      # objects. The role ARN and region come from the `runner` environment.
-      - name: Configure AWS credentials (DVC S3 remote, read-only)
-        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
+      # Read-only corpus access (OIDC role + out-of-band DVC remote; no static
+      # keys — a compromised reconcile runner cannot write or delete corpus
+      # objects). The pull itself happens in the best-effort provision step
+      # below, so the composite only configures here.
+      - uses: ./.github/actions/corpus-readonly
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-
-      # Define the remote's bucket URL out of band into the gitignored
-      # .dvc/config.local (never committed; see SECURITY.md). Boto3 picks up the
-      # OIDC-assumed read-only credentials from the environment.
-      - name: Configure the DVC remote
-        env:
-          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
-        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
+          pull: "false"
 
       # Point-in-time snapshots are raw facts in the DVC-backed corpus, not git:
       # pull the corpus and materialize this case's latest snapshot to the

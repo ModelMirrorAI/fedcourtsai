@@ -171,10 +171,12 @@ Two IAM roles, assumed via GitHub OIDC (no static keys); see
   remote (`run-seed`'s `dvc gc --workspace` prunes only its local runner cache,
   never `--cloud`), so the writers never need delete; this means no run can wipe
   corpus data.
-- **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by the corpus consumers
-  — `run-predict` / `run-evaluate` / `run-reconcile`, plus the read-only analysis /
-  cleanup workflows `run-analytics` / `run-cleanup`) — `GetObject` / `ListBucket`
-  only, so a compromised consumer runner cannot write or poison the corpus.
+- **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
+  *consumer* job via the shared `corpus-readonly` composite action —
+  `run-predict` / `run-evaluate` / `run-reconcile`, plus `run-analytics`
+  (analysis and metrics-refresh jobs) and `run-cleanup`) — `GetObject` /
+  `ListBucket` only, so a compromised consumer runner cannot write or poison
+  the corpus.
 
 Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-
