@@ -1066,6 +1066,14 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         str, typer.Option(help="Keep cases filed on/after this ISO date, e.g. 2020-01-01.")
     ] = "",
     date_to: Annotated[str, typer.Option(help="Keep cases filed on/before this ISO date.")] = "",
+    term: Annotated[
+        str,
+        typer.Option(
+            help="Restrict to one SCOTUS October-Term year (parsed from the docket "
+            "number), e.g. 2024. A Term is a SCOTUS concept, so this keeps SCOTUS "
+            "cases only; other courts' dockets never match."
+        ),
+    ] = "",
     resolved_only: Annotated[
         bool, typer.Option(help="Drop unresolved cases (default keeps them for the open count).")
     ] = False,
@@ -1073,7 +1081,8 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         str,
         typer.Option(
             help="Break base-rates down by a dimension: court, topic, judge, "
-            "term_year, or disposition. Omit for the overall base rate only."
+            "term_year, disposition, or originating_court. Omit for the overall "
+            "base rate only."
         ),
     ] = "",
     summary_out: Annotated[
@@ -1115,6 +1124,11 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     except ValueError as exc:
         typer.echo(f"Bad date (expected ISO YYYY-MM-DD): {exc}", err=True)
         raise typer.Exit(code=2) from exc
+    try:
+        parsed_term = int(term) if term else None
+    except ValueError as exc:
+        typer.echo(f"Bad --term '{term}' (expected a year, e.g. 2024).", err=True)
+        raise typer.Exit(code=2) from exc
     query = analytics.AnalyticsQuery(
         court=court or None,
         topic=topic or None,
@@ -1123,6 +1137,7 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         disposition=disp,
         date_from=parsed_from,
         date_to=parsed_to,
+        term=parsed_term,
         resolved_only=resolved_only,
         group_by=dimension,
     )

@@ -54,6 +54,9 @@ class GroupBy(StrEnum):
     judge's bucket — so grouped case counts can exceed the ungrouped total; every
     other dimension is single-valued. ``term_year`` reads the October-Term year
     from a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).
+    ``originating_court`` groups by the lower court a docket came from (the
+    circuit-scorecard cut for SCOTUS petitions); rows without the linkage share
+    one ``(none)`` bucket, so coverage is visible rather than silently dropped.
     """
 
     court = "court"
@@ -61,6 +64,7 @@ class GroupBy(StrEnum):
     judge = "judge"
     term_year = "term_year"
     disposition = "disposition"
+    originating_court = "originating_court"
 
 
 class UsageRole(StrEnum):
@@ -694,6 +698,40 @@ class StatPackSection(_Strict):
     buckets: list[BaseRateBucket] = Field(default_factory=list)
 
 
+class TimingStats(_Strict):
+    """Filing-to-decision duration stats over the resolved cases carrying both dates.
+
+    ``cases`` counts the resolved rows with a usable ``date_filed`` → ``date_decided``
+    pair (decided on/after filed); rows missing either date are excluded rather than
+    guessed, so ``cases`` doubles as the coverage denominator. Percentiles use the
+    deterministic nearest-rank method, so the same corpus reproduces the same stats.
+    """
+
+    cases: int = Field(default=0, ge=0, description="Resolved cases with a usable date pair")
+    mean_days: float | None = Field(default=None, ge=0.0, description="Mean days filed→decided")
+    median_days: float | None = Field(default=None, ge=0.0, description="Nearest-rank median")
+    p90_days: float | None = Field(default=None, ge=0.0, description="Nearest-rank 90th pctile")
+
+
+class StatPackTerm(_Strict):
+    """One SCOTUS October Term's slice of the statpack: base rates plus decision timing.
+
+    The per-Term detail published stat packs devote one document per Term to; here
+    every Term is an entry in a single artifact (recent first), so the statpack stays
+    one deterministic DVC metric with reviewable diffs and a single-Term view is a
+    filter (``fedcourts stats --court scotus --term N``) rather than a separate file.
+    Cases whose docket number carries no parseable Term appear in no entry — the
+    all-Terms picture lives in the pack's headline counts and curated sections.
+    """
+
+    term: int = Field(description="The October-Term year, e.g. 2024")
+    base_rates: BaseRateBucket = Field(description="This Term's counts and base rates")
+    timing: TimingStats = Field(
+        default_factory=TimingStats,
+        description="Petition filing → decision timing over this Term's resolved cases",
+    )
+
+
 class StatPack(_Strict):
     """``metrics/statpack.json`` — a corpus base-rate statpack (an independent artifact).
 
@@ -713,8 +751,16 @@ class StatPack(_Strict):
     overall: BaseRateBucket = Field(
         default_factory=BaseRateBucket, description="Base rate over the whole corpus"
     )
+    timing: TimingStats = Field(
+        default_factory=TimingStats,
+        description="Filing → decision timing over every resolved case with both dates",
+    )
     sections: list[StatPackSection] = Field(
         default_factory=list, description="Curated base-rate breakdowns"
+    )
+    terms: list[StatPackTerm] = Field(
+        default_factory=list,
+        description="Per-SCOTUS-Term detail (base rates + timing), most recent Term first",
     )
 
 

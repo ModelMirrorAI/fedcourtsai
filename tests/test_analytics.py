@@ -100,6 +100,29 @@ def test_filter_date_window(fixture_corpus: FixtureCorpus) -> None:
     assert _shares(report.total) == {"denied": 1.0}
 
 
+def test_group_by_originating_court_keeps_unlinked_visible(fixture_corpus: FixtureCorpus) -> None:
+    report = _report(fixture_corpus, group_by=GroupBy.originating_court)
+    # Only the two SCOTUS petitions carry the lower-court linkage (both from ca9);
+    # the four unlinked cases share the (none) bucket so coverage stays visible.
+    assert [(b.key, b.cases) for b in report.buckets] == [("(none)", 4), ("ca9", 2)]
+    ca9 = _bucket(report, "ca9")
+    assert (ca9.resolved, ca9.open) == (1, 1)
+    assert _shares(ca9) == {"denied": 1.0}
+
+
+def test_filter_term_is_scotus_only(fixture_corpus: FixtureCorpus) -> None:
+    report = _report(fixture_corpus, term=2022)
+    # Only scotus/304 ("22-845") is Term 2022. The ca9 dockets ("22-15001",
+    # "22-15044") coincidentally parse to 2022 but a Term is a SCOTUS concept.
+    assert (report.total.cases, report.total.resolved) == (1, 1)
+    assert _shares(report.total) == {"denied": 1.0}
+
+
+def test_filter_term_open_petition(fixture_corpus: FixtureCorpus) -> None:
+    report = _report(fixture_corpus, term=2024)
+    assert (report.total.cases, report.total.resolved, report.total.open) == (1, 0, 1)
+
+
 def test_resolved_only_drops_open(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, resolved_only=True)
     assert (report.total.cases, report.total.resolved, report.total.open) == (4, 4, 0)
@@ -174,6 +197,21 @@ def test_cli_summary_out_appends(fixture_corpus: FixtureCorpus, tmp_path: Path) 
     text = summary.read_text()
     assert "## Corpus analytics" in text
     assert "### By court" in text
+
+
+def test_cli_stats_term_filter(fixture_corpus: FixtureCorpus) -> None:
+    result = runner.invoke(app, ["stats", "--term", "2022"])
+    assert result.exit_code == 0, result.output
+    report = _stdout_report(result.stdout)
+    total = report["total"]
+    assert isinstance(total, dict)
+    assert (total["cases"], total["resolved"]) == (1, 1)
+
+
+def test_cli_bad_term_errors(fixture_corpus: FixtureCorpus) -> None:
+    result = runner.invoke(app, ["stats", "--term", "OT24"])
+    assert result.exit_code == 2
+    assert "Bad --term" in result.stderr
 
 
 def test_cli_bad_group_by_errors(fixture_corpus: FixtureCorpus) -> None:

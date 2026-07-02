@@ -55,7 +55,11 @@ on:
         type: string
         default: ""
       group_by:
-        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition. Empty = overall only."
+        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court. Empty = overall only."
+        type: string
+        default: ""
+      term:
+        description: "corpus-stats: restrict to one SCOTUS October-Term year, e.g. 2024. Empty = all Terms."
         type: string
         default: ""
       # recoverability input (ignored by corpus-stats).
@@ -107,6 +111,9 @@ jobs:
           TOPIC: ${{ inputs.topic }}
           DISPOSITION: ${{ inputs.disposition }}
           GROUP_BY: ${{ inputs.group_by }}
+          # Not `TERM`: that name is the standard terminal-type variable, which
+          # every subprocess consults — an avoidable namespace collision.
+          TERM_YEAR: ${{ inputs.term }}
         run: |
           set -euo pipefail
           # Prints the machine AnalyticsReport JSON to stdout (the run log) and appends
@@ -116,6 +123,7 @@ jobs:
             --topic "$TOPIC" \
             --disposition "$DISPOSITION" \
             --group-by "$GROUP_BY" \
+            --term "$TERM_YEAR" \
             --summary-out "$GITHUB_STEP_SUMMARY"
 
   recoverability:
@@ -230,14 +238,18 @@ jobs:
 
       # The same commands the dvc.yaml stages run; each is deterministic, so an
       # unchanged input reproduces the committed artifact byte for byte. The
-      # corpus-dependent pair runs only when the corpus is on disk — regenerating
-      # without it would replace real metrics with the empty pack.
+      # statpack runs only when the corpus is on disk — regenerating without it
+      # would replace real metrics with the empty pack. The backtest stage is
+      # deliberately NOT refreshed here: its prior-vote baseline replays a
+      # corpus-retrieval query per resolved case, which cannot finish inside a
+      # CI job over the multi-million-row corpus — re-add it once the harness
+      # scales (until then `metrics/backtest.json` only changes via a manual,
+      # bounded `fedcourts backtest` run).
       - name: Regenerate the metrics artifacts
         run: |
           set -euo pipefail
           uv run fedcourts leaderboard
           if [ -f corpus/corpus.db ]; then
-            uv run fedcourts backtest
             uv run fedcourts statpack
           fi
 

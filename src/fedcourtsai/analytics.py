@@ -15,6 +15,7 @@ corpus, or a predictor pulling base-rate context after a ``dvc pull``) and the
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
@@ -32,6 +33,8 @@ from .schemas import (
     GroupBy,
     StatPack,
     StatPackSection,
+    StatPackTerm,
+    TimingStats,
 )
 
 if TYPE_CHECKING:
@@ -65,6 +68,12 @@ class AnalyticsQuery(BaseModel):
     disposition: Disposition | None = None
     date_from: date | None = Field(default=None, description="Keep rows filed on/after this date.")
     date_to: date | None = Field(default=None, description="Keep rows filed on/before this date.")
+    term: int | None = Field(
+        default=None,
+        description="Keep SCOTUS rows whose docket number parses to this October-Term "
+        "year. A Term is a SCOTUS concept, so non-SCOTUS rows (whose docket numbers "
+        "can coincidentally parse, e.g. ca9 `22-15001`) never match a term filter.",
+    )
     resolved_only: bool = Field(
         default=False, description="Drop unresolved cases (default keeps them for the open count)."
     )
@@ -76,20 +85,21 @@ def _row_matches(row: CorpusRow, query: AnalyticsQuery) -> bool:
 
     ``court`` and ``disposition`` are pushed into SQL by :func:`corpus.iter_rows`; the
     overlap filters (``judges`` / ``citations``), the exact ``topic``, the ``date_filed``
-    range, and ``resolved_only`` are applied here over the narrowed candidate set.
+    range, the SCOTUS ``term``, and ``resolved_only`` are applied here over the
+    narrowed candidate set. A row matches when no filter it is subject to misses.
     """
-    if query.topic is not None and row.topic != query.topic:
-        return False
-    if query.judges and not (set(query.judges) & set(row.judges)):
-        return False
-    if query.citations and not (set(query.citations) & set(row.citations)):
-        return False
     filed = row.date_filed
-    if query.date_from is not None and (filed is None or filed < query.date_from):
-        return False
-    if query.date_to is not None and (filed is None or filed > query.date_to):
-        return False
-    return not (query.resolved_only and row.disposition is None)
+    mismatches = (
+        query.topic is not None and row.topic != query.topic,
+        bool(query.judges) and not (set(query.judges) & set(row.judges)),
+        bool(query.citations) and not (set(query.citations) & set(row.citations)),
+        query.date_from is not None and (filed is None or filed < query.date_from),
+        query.date_to is not None and (filed is None or filed > query.date_to),
+        query.term is not None
+        and (row.court != "scotus" or corpus.scotus_term_year(row.docket_number) != query.term),
+        query.resolved_only and row.disposition is None,
+    )
+    return not any(mismatches)
 
 
 def _bucket_keys(row: CorpusRow, group_by: GroupBy) -> list[str]:
@@ -107,14 +117,16 @@ def _bucket_keys(row: CorpusRow, group_by: GroupBy) -> list[str]:
     if group_by == GroupBy.term_year:
         year = corpus.scotus_term_year(row.docket_number)
         return [str(year) if year is not None else _NONE_KEY]
+    if group_by == GroupBy.originating_court:
+        # The (none) bucket keeps unlinked rows visible: only the REST path
+        # populates the linkage, so coverage matters as much as the split.
+        return [row.originating_court or _NONE_KEY]
     # GroupBy.disposition — open cases share one bucket rather than scattering.
     return [row.disposition or _OPEN_KEY]
 
 
-def _build_bucket(key: str, rows: list[CorpusRow]) -> BaseRateBucket:
-    """Roll a slice of rows into its case/resolved/open counts and disposition base-rates."""
-    # CorpusRow uses `use_enum_values`, so `row.disposition` is the string label or None.
-    labels = Counter(row.disposition for row in rows if row.disposition is not None)
+def _bucket_from_counts(key: str, cases: int, labels: Counter[str]) -> BaseRateBucket:
+    """Roll accumulated per-label counts into a bucket's counts and base-rates."""
     resolved = sum(labels.values())
     dispositions = [
         DispositionShare(disposition=Disposition(label), count=n, share=n / resolved)
@@ -124,10 +136,53 @@ def _build_bucket(key: str, rows: list[CorpusRow]) -> BaseRateBucket:
     dispositions.sort(key=lambda d: (-d.count, d.disposition))
     return BaseRateBucket(
         key=key,
-        cases=len(rows),
+        cases=cases,
         resolved=resolved,
-        open=len(rows) - resolved,
+        open=cases - resolved,
         dispositions=dispositions,
+    )
+
+
+def _build_bucket(key: str, rows: list[CorpusRow]) -> BaseRateBucket:
+    """Roll a slice of rows into its case/resolved/open counts and disposition base-rates."""
+    # CorpusRow uses `use_enum_values`, so `row.disposition` is already the string
+    # label (or None) at runtime; `str()` only narrows the static type to match.
+    labels = Counter(str(row.disposition) for row in rows if row.disposition is not None)
+    return _bucket_from_counts(key, len(rows), labels)
+
+
+def _nearest_rank(sorted_days: list[int], quantile: float) -> float:
+    """The nearest-rank percentile of a non-empty ascending list — deterministic.
+
+    ``rank = ceil(quantile x n)``, with a ``round()`` guard against float artifacts
+    (0.9 x 10 evaluates to 9.000000000000002; its ceiling must be rank 9, not 10).
+    """
+    rank = max(1, math.ceil(round(quantile * len(sorted_days), 9)))
+    return float(sorted_days[min(rank, len(sorted_days)) - 1])
+
+
+def _decision_days(row: CorpusRow) -> int | None:
+    """Days filed→decided for a resolved row with a usable date pair, else ``None``.
+
+    Rows missing either date — or with a decision before the filing (a data glitch)
+    — are excluded rather than guessed.
+    """
+    if row.disposition is None or row.date_filed is None or row.date_decided is None:
+        return None
+    days = (row.date_decided - row.date_filed).days
+    return days if days >= 0 else None
+
+
+def _timing_from_days(day_values: list[int]) -> TimingStats:
+    """Roll accumulated filing→decision day counts into :class:`TimingStats`."""
+    days = sorted(day_values)
+    if not days:
+        return TimingStats()
+    return TimingStats(
+        cases=len(days),
+        mean_days=round(sum(days) / len(days), 1),
+        median_days=_nearest_rank(days, 0.5),
+        p90_days=_nearest_rank(days, 0.9),
     )
 
 
@@ -176,13 +231,46 @@ def run_analytics(*, corpus_db_path: Path, query: AnalyticsQuery) -> AnalyticsRe
 
 
 # The curated breakdowns the statpack publishes: (title, court filter, dimension). The
-# prediction domain is SCOTUS cert, so the Term-year and topic cuts are scoped to it;
-# the court cut spans the whole corpus for composition context.
+# prediction domain is SCOTUS cert, so the topic and originating-circuit cuts are
+# scoped to it; the court cut spans the whole corpus for composition context. The
+# per-Term detail is not a section — it is the richer `terms` array (base rates +
+# timing per SCOTUS October Term), built in `build_statpack`.
 _STATPACK_SECTIONS: tuple[tuple[str, str | None, GroupBy], ...] = (
     ("Cases by court", None, GroupBy.court),
-    ("SCOTUS petitions by Term", "scotus", GroupBy.term_year),
     ("SCOTUS petitions by nature-of-suit topic", "scotus", GroupBy.topic),
+    ("SCOTUS petitions by originating circuit", "scotus", GroupBy.originating_court),
 )
+
+
+class _Slice:
+    """Streaming accumulator for one statpack slice (the whole set, a bucket, a Term).
+
+    The corpus is millions of rows, so the statpack is built in **one streamed
+    pass**: each row updates the counters of every slice it belongs to, and the
+    buckets/timing are rolled up from the counters afterwards — no row list is
+    materialized and no per-section re-scan runs.
+    """
+
+    __slots__ = ("cases", "days", "labels")
+
+    def __init__(self) -> None:
+        self.cases = 0
+        self.labels: Counter[str] = Counter()
+        self.days: list[int] = []
+
+    def add(self, row: CorpusRow) -> None:
+        self.cases += 1
+        if row.disposition is not None:
+            self.labels[row.disposition] += 1
+        days = _decision_days(row)
+        if days is not None:
+            self.days.append(days)
+
+    def bucket(self, key: str) -> BaseRateBucket:
+        return _bucket_from_counts(key, self.cases, self.labels)
+
+    def timing(self) -> TimingStats:
+        return _timing_from_days(self.days)
 
 
 def build_statpack(*, corpus_db_path: Path) -> StatPack:
@@ -201,33 +289,60 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
                 for title, court, dimension in _STATPACK_SECTIONS
             ]
         )
+    overall = _Slice()
+    section_slices: list[defaultdict[str, _Slice]] = [
+        defaultdict(_Slice) for _ in _STATPACK_SECTIONS
+    ]
+    term_slices: defaultdict[int, _Slice] = defaultdict(_Slice)
     with corpus.connect(corpus_db_path) as conn:
-        overall = compute_report(conn, AnalyticsQuery()).total
-        sections = [
-            StatPackSection(
-                title=title,
-                court=court,
-                group_by=dimension,
-                buckets=compute_report(
-                    conn, AnalyticsQuery(court=court, group_by=dimension)
-                ).buckets,
-            )
-            for title, court, dimension in _STATPACK_SECTIONS
-        ]
-        return StatPack(
-            corpus_rows=corpus.count(conn),
-            resolved=overall.resolved,
-            open=overall.open,
-            overall=overall,
-            sections=sections,
+        for row in corpus.iter_rows(conn):
+            overall.add(row)
+            for (_, court_filter, dimension), slices in zip(
+                _STATPACK_SECTIONS, section_slices, strict=True
+            ):
+                if court_filter is None or row.court == court_filter:
+                    for key in _bucket_keys(row, dimension):
+                        slices[key].add(row)
+            if row.court == "scotus":
+                year = corpus.scotus_term_year(row.docket_number)
+                if year is not None:
+                    term_slices[year].add(row)
+
+    sections = []
+    for (title, court_filter, dimension), slices in zip(
+        _STATPACK_SECTIONS, section_slices, strict=True
+    ):
+        buckets = [entry.bucket(key) for key, entry in slices.items()]
+        buckets.sort(key=lambda b: (-b.cases, b.key))
+        sections.append(
+            StatPackSection(title=title, court=court_filter, group_by=dimension, buckets=buckets)
         )
+    total = overall.bucket("")
+    return StatPack(
+        corpus_rows=overall.cases,
+        resolved=total.resolved,
+        open=total.open,
+        overall=total,
+        timing=overall.timing(),
+        sections=sections,
+        terms=[
+            StatPackTerm(term=year, base_rates=entry.bucket(str(year)), timing=entry.timing())
+            for year, entry in sorted(term_slices.items(), reverse=True)
+        ],
+    )
+
+
+# How many recent Terms the Markdown detail table shows; the JSON carries them all.
+_MARKDOWN_TERMS = 10
 
 
 def render_statpack_markdown(pack: StatPack) -> str:
     """Render a :class:`StatPack` as a publishable Markdown document.
 
-    Leads with headline counts and the overall base rate, then one table per curated
-    breakdown. Deterministic; safe on the empty pack (renders a one-line note)."""
+    Leads with headline counts, the overall base rate, and decision timing; then one
+    table per curated breakdown and a per-Term detail table for the most recent
+    Terms (the JSON carries every Term). Deterministic; safe on the empty pack
+    (renders a one-line note)."""
     lines = ["# Corpus statpack", ""]
     if pack.corpus_rows == 0:
         lines.append("_Empty — no corpus present. Regenerated once a corpus is available._")
@@ -237,6 +352,8 @@ def render_statpack_markdown(pack: StatPack) -> str:
         f"**{pack.corpus_rows}** case(s): {pack.resolved} resolved, {pack.open} open.",
         "",
         f"**Overall base rate (resolved):** {_disposition_summary(pack.overall)}",
+        "",
+        f"**Filing → decision timing:** {_timing_summary(pack.timing)}",
     ]
     for section in pack.sections:
         scope = "all courts" if section.court is None else section.court
@@ -256,7 +373,39 @@ def render_statpack_markdown(pack: StatPack) -> str:
                 f"| {key} | {bucket.cases} | {bucket.resolved} | {bucket.open} "
                 f"| {_disposition_summary(bucket)} |"
             )
+    if pack.terms:
+        shown = pack.terms[:_MARKDOWN_TERMS]
+        lines += [
+            "",
+            "## SCOTUS petitions by Term",
+            f"_Most recent {len(shown)} of {len(pack.terms)} Term(s); "
+            "the JSON artifact carries every Term._",
+            "",
+            "| Term | cases | resolved | open | base rate (resolved) | median days | p90 days |",
+            "| --- | --: | --: | --: | --- | --: | --: |",
+        ]
+        for entry in shown:
+            rates = entry.base_rates
+            lines.append(
+                f"| {entry.term} | {rates.cases} | {rates.resolved} | {rates.open} "
+                f"| {_disposition_summary(rates)} "
+                f"| {_days(entry.timing.median_days)} | {_days(entry.timing.p90_days)} |"
+            )
     return "\n".join(lines) + "\n"
+
+
+def _days(value: float | None) -> str:
+    return "—" if value is None else f"{value:.0f}"
+
+
+def _timing_summary(timing: TimingStats) -> str:
+    """A compact ``median 245d, p90 410d (mean 260.1d over N cases)`` line, or a dash."""
+    if timing.cases == 0:
+        return "—"
+    return (
+        f"median {_days(timing.median_days)}d, p90 {_days(timing.p90_days)}d "
+        f"(mean {timing.mean_days}d over {timing.cases} dated case(s))"
+    )
 
 
 def _pct(share: float) -> str:

@@ -41,9 +41,10 @@ each as its own least-privilege job that is never granted another mode's
 credential:
 
 - **`corpus-stats`** (dispatch) assumes the read-only S3 role, `dvc pull`s the
-  corpus, and runs `fedcourts stats` to aggregate disposition base-rates (overall
-  or grouped by court / topic / judge / SCOTUS Term / disposition). Read-only:
-  results go to the Actions step summary and run log, nothing else.
+  corpus, and runs `fedcourts stats` to aggregate disposition base-rates (overall,
+  filtered to one SCOTUS Term via the `term` input, or grouped by court / topic /
+  judge / SCOTUS Term / disposition / originating circuit). Read-only: results go
+  to the Actions step summary and run log, nothing else.
 - **`recoverability`** (dispatch) runs `fedcourts probe-recoverability` (REST
   token only, no S3) to answer whether a sparse historical SCOTUS petition's
   disposition is actually recoverable from CourtListener (an ingestion gap a
