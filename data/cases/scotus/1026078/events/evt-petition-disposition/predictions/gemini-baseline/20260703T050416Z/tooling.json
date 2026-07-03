@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/1026078",
+  "run_id": "20260703T050416Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts stats"
+  ],
+  "helpful": [
+    "fedcourts stats for base rates"
+  ],
+  "gaps": [
+    "snapshot lacked docket entries"
+  ],
+  "notes": "Had to rely entirely on base rates because the docket entries array in the snapshot was empty.",
+  "schema_version": "1.0"
+}
