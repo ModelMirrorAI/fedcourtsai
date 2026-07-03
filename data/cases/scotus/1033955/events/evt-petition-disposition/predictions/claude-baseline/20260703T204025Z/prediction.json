@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/1033955",
+  "confidence": 0.7,
+  "created_at": "2026-07-03T20:42:59Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/1033955/record/snapshots/2026-07-03.json",
+  "model": "claude-fable-5",
+  "predicted_disposition": "other",
+  "predictor_id": "claude-baseline",
+  "probability": 0.03,
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260703T204025Z",
+  "schema_version": "1.0"
+}
