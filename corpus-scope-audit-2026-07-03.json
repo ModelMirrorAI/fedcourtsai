@@ -23,7 +23,7 @@
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29849,
+      "recoverable": 29847,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -38,10 +38,10 @@
       ]
     },
     {
-      "cases": 12042,
-      "open_events": 12042,
+      "cases": 12040,
+      "open_events": 12040,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12042,
+      "recoverable": 12040,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -49,17 +49,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/10323",
-        "scotus/1033955",
         "scotus/1034900",
-        "scotus/1035819"
+        "scotus/1035819",
+        "scotus/103650",
+        "scotus/103746"
       ]
     },
     {
       "cases": 385123,
       "open_events": 385123,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44516,
+      "recoverable": 44513,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -95,7 +95,7 @@
       ]
     },
     {
-      "open_events": 16995,
+      "open_events": 16996,
       "reason": "docket Term not parseable (a format the predicate skips)",
       "sample_cases": [
         "scotus/1004607",
@@ -106,12 +106,12 @@
         "scotus/1020660",
         "scotus/102484",
         "scotus/1027970",
-        "scotus/1055010",
-        "scotus/1061844"
+        "scotus/10323",
+        "scotus/1055010"
       ]
     },
     {
-      "open_events": 4826,
+      "open_events": 4827,
       "reason": "no docket number",
       "sample_cases": [
         "scotus/1002339",
