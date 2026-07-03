@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1029326",
+  "gaps": [
+    "Event-specific base rates by event kind and decision target",
+    "Snapshot summary with normalized petition metadata"
+  ],
+  "helpful": [
+    "fedcourts paths",
+    "fedcourts stats"
+  ],
+  "notes": "The available snapshot was very sparse, so base-rate calibration mattered more than case-specific comparison. Query results were broad and noisy for SCOTUS petition disposition.",
+  "role": "predictor",
+  "run_id": "20260703T101755Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
