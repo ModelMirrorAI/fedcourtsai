@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1026078",
+  "gaps": [
+    "fedcourts query found no comparable resolved priors for this case (judge/topic filters came back empty for SCOTUS); semantic or era-based retrieval would help",
+    "stats --group-by term_year shows almost no resolved cases with usable Term years for historical dockets, so Term-level base rates were unusable",
+    "snapshot is a bare docket stub (no entries, dates, or parties beyond the caption); an attached opinion-cluster text or docket-entry list would ground the prediction in facts instead of caption identification"
+  ],
+  "helpful": [
+    "fedcourts stats --court scotus for the overall disposition split",
+    "event.yaml title carrying the full caption, which enabled case identification"
+  ],
+  "notes": "Prediction rests mainly on identifying the caption with a reported in-chambers decision from background legal knowledge; the corpus tooling contributed only a weak base-rate sanity check. Deliberately avoided querying the corpus for this case's own row to prevent ground-truth leakage.",
+  "role": "predictor",
+  "run_id": "20260703T050416Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts stats",
+    "fedcourts query",
+    "fedcourts paths"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
