@@ -23,7 +23,7 @@
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29856,
+      "recoverable": 29849,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -59,7 +59,7 @@
       "cases": 385123,
       "open_events": 385123,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44518,
+      "recoverable": 44516,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
