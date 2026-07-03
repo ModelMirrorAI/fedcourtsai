@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/10323",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot is nearly empty: no docket entries, no filing/termination dates, no lower-court or party detail. The only predictive signals are the case caption and the pre-1971 miscellaneous docket number ('979, Misc'). The prediction is therefore essentially a calibrated base-rate call; if richer snapshots are available for these historical bulk-import dockets (even just a filing Term), they would materially improve prediction quality.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260703T204025Z",
+  "schema_version": "1.0"
+}

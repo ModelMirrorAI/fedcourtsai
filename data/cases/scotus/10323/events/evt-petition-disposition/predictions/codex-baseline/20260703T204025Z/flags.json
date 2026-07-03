@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/10323",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot for this SCOTUS petition-disposition event is very sparse: it has no docket entries, filing or disposition dates, cert-grant or cert-denial dates, lower-court metadata, petition-stage text, or visible opinion-cluster contents. I completed the prediction from the available snapshot and local corpus priors, but confidence is materially limited.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260703T204025Z",
+  "schema_version": "1.0"
+}
