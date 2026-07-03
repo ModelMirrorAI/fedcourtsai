@@ -1,5 +1,5 @@
 {
-  "corpus_rows": 2151641,
+  "corpus_rows": 2151642,
   "exclusions": [
     {
       "cases": 29257,
@@ -23,7 +23,7 @@
       "cases": 82337,
       "open_events": 82337,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29861,
+      "recoverable": 29856,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -38,10 +38,10 @@
       ]
     },
     {
-      "cases": 12043,
-      "open_events": 12043,
+      "cases": 12042,
+      "open_events": 12042,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12043,
+      "recoverable": 12042,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -49,17 +49,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/1029326",
         "scotus/10323",
         "scotus/1033955",
-        "scotus/1034900"
+        "scotus/1034900",
+        "scotus/1035819"
       ]
     },
     {
       "cases": 385123,
       "open_events": 385123,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44522,
+      "recoverable": 44518,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -75,11 +75,11 @@
     }
   ],
   "schema_version": "1.0",
-  "scotus_open_events": 589283,
+  "scotus_open_events": 589284,
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58703,
+      "open_events": 58704,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/14557919",
@@ -111,7 +111,7 @@
       ]
     },
     {
-      "open_events": 4825,
+      "open_events": 4826,
       "reason": "no docket number",
       "sample_cases": [
         "scotus/1002339",
