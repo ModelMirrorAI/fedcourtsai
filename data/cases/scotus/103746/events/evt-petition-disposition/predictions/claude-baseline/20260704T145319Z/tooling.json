@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/103746",
+  "gaps": [
+    "a corpus lookup that resolves a docket's linked cluster ids to citation/disposition data (the row was bare while the snapshot pointed at an opinion cluster)",
+    "an era/regime hint on the event (mandatory-jurisdiction vs discretionary-cert) so the predictor knows which disposition labels are reachable"
+  ],
+  "helpful": [
+    "fedcourts stats base rates as the calibration anchor for a bare snapshot",
+    "corpus.py's scope predicates documenting how pre-1925 cases are supposed to be excluded"
+  ],
+  "notes": "fedcourts query returned priors but relevance ranking had little to key on for this case (no topic, no dates, no docket number); direct sqlite inspection of the corpus row was needed to see why the scope gate missed it.",
+  "role": "predictor",
+  "run_id": "20260704T145319Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts stats",
+    "fedcourts query",
+    "fedcourts paths",
+    "corpus sqlite inspection (read-only)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

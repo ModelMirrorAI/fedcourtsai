@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/103746",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The event asks for a petition disposition, but the provisioned snapshot has no docket entries, docket number, filed or termination dates, cert grant or denial dates, parties, originating court, or petition-specific metadata. The prediction is therefore calibrated mainly from corpus base rates and the sparse fact that an opinion cluster is linked.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260704T145319Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/103746",
+  "gaps": [
+    "A normalized historical proceeding type or cluster disposition excerpt would make sparse nineteenth-century SCOTUS records easier to classify without guessing from metadata shape."
+  ],
+  "helpful": [
+    "The provisioned snapshot made the permitted factual record clear.",
+    "fedcourts stats provided a useful SCOTUS base-rate anchor for calibration."
+  ],
+  "notes": "Used local corpus tooling only for priors and aggregate calibration, not for new facts about this case.",
+  "role": "predictor",
+  "run_id": "20260704T145319Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts corpus-info",
+    "fedcourts query",
+    "fedcourts stats"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

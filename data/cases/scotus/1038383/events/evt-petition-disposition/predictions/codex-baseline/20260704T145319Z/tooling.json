@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1038383",
+  "gaps": [
+    "The snapshot lacks petition metadata such as docket number, docket entries, filing and termination dates, cert dates, lower-court source, issue statement, petition documents, and party roles.",
+    "A SCOTUS petition base-rate view separated from historical opinion-cluster records would make calibration more reliable."
+  ],
+  "helpful": [
+    "fedcourts paths resolved the event location",
+    "fedcourts stats gave SCOTUS disposition base rates",
+    "fedcourts query gave qualitative examples of sparse SCOTUS disposition labels"
+  ],
+  "notes": "The corpus tools were useful for base-rate calibration. The prediction remains low-confidence because the provisioned snapshot contains only sparse docket metadata and one cluster reference.",
+  "role": "predictor",
+  "run_id": "20260704T145319Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
