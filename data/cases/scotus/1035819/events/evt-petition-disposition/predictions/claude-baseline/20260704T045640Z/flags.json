@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1035819",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "This looks like a #363-class case (historical SCOTUS docket, published opinion linked, outcome only in opinion text) that escaped the is_published_opinion_unresolvable exclusion: the docket snapshot carries a cluster link, but the corpus row's citations/citation_count/opinion_text are all empty, so the predicate cannot see the opinion. The empty docket number also defeats the #309 and #333 predicates. A cluster-detail backfill (or extending the #363 signal to the docket's cluster link) would take this class out of predict scope at the source.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot is metadata-only: empty docket number, no docket entries, no parties/attorneys, every activity date null. The prediction rests on the linked-opinion-cluster signal plus corpus base rates (resolved SCOTUS events are 78% 'other'), not on any petition-stage facts.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260704T045640Z",
+  "schema_version": "1.0"
+}

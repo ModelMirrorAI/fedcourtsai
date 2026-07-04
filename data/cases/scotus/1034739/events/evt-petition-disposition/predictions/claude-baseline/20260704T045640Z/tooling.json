@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1034739",
+  "gaps": [
+    "Era/Term metadata on the snapshot (even an approximate reporter volume or decade inferred at ingest from the linked cluster) would let a predictor and the scope filter classify pre-1925 mandatory-jurisdiction records whose docket number is empty",
+    "A caption-cleanup pass at ingest (the OCR-mangled 'a in Bankruptcy') would make caption-based identification more reliable"
+  ],
+  "helpful": [
+    "fedcourts stats resolved-disposition base rates (the anchor for this bare record)",
+    "fedcourts query priors showing how resolved historical SCOTUS records are coded",
+    "Prior committed predictions for similar bare dockets (convention to follow)"
+  ],
+  "notes": "Snapshot had no case-specific facts beyond caption + one opinion-cluster link, so the call is base-rate-driven; see flags.json for the scope question.",
+  "role": "predictor",
+  "run_id": "20260704T045640Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts stats",
+    "fedcourts query",
+    "fedcourts paths"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/1034739",
+  "run_id": "20260704T045640Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "schema_version": "1.0",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The case snapshot contains no docket entries, date_filed is null, and there are no details about the petition beyond the case name 'Charles W. Castleman, a in Bankruptcy'. The prediction relies entirely on the SCOTUS baseline denial rate.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

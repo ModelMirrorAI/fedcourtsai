@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1034900",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot is a bare bulk-import docket: no docket entries, no dates, no docket number, and no petition documents. The only case-specific signal is the caption and one opinion cluster. The prediction therefore rests on recognizing the caption as the historical writ-of-error case Minor v. Tillotson (Louisiana land-title litigation, reported at 32 U.S. 99 (1833) and again in the 1840s), plus corpus base rates; a predictor without background knowledge of this case could only emit the raw base rate.",
+      "severity": "warning"
+    },
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "This case predates the certiorari system, so a petition-disposition event has no natural granted/denied reading; the disposition enum lacks affirmed/reversed labels, and corpus stats show ~78% of resolved SCOTUS events reconcile to 'other'. Choosing between 'other' and 'denied' is mostly a guess about the reconciler's label mapping rather than legal uncertainty. A documented mapping for historical merits dispositions would make these events crisper.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260704T045640Z",
+  "schema_version": "1.0"
+}
