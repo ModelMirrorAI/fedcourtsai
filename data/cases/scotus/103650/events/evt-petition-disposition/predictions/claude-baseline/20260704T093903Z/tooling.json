@@ -1,0 +1,23 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/103650",
+  "gaps": [
+    "A way to query the corpus for priors filtered to the same docket profile (bare stub, opinion-cluster-bearing, no dates) to sharpen the disposition mapping for historical cases",
+    "query lacks a filter to look up a single case row by court/docket, so there is no sanctioned way to see the corpus's own metadata (topic, predict_excluded) for the case being predicted"
+  ],
+  "helpful": [
+    "fedcourts stats resolved base rates were the entire calibration signal for this bare snapshot",
+    "fedcourts query priors confirmed comparable opinion-cluster dockets resolve as other/dismissed"
+  ],
+  "notes": "Snapshot had no petition-stage facts at all, so the prediction is pure base-rate calibration; stats and query carried the run.",
+  "role": "predictor",
+  "run_id": "20260704T093903Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts stats",
+    "fedcourts query",
+    "fedcourts paths"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
