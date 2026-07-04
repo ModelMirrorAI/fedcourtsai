@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1036624",
+  "gaps": [
+    "Snapshot lacks docket entries, docket number, cert-stage dates, lower-court metadata, question presented, and petition text.",
+    "Semantic search over petition text or cluster summaries would help when structured filters are unavailable."
+  ],
+  "helpful": [
+    "Schema files made the artifact contract clear.",
+    "fedcourts paths confirmed the event location.",
+    "fedcourts stats provided SCOTUS base-rate calibration.",
+    "fedcourts query exposed the limits of structured priors for sparse snapshots."
+  ],
+  "notes": "The base-rate tool was useful, but this case had too little structured metadata for targeted priors beyond court-level SCOTUS context.",
+  "role": "predictor",
+  "run_id": "20260704T093903Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

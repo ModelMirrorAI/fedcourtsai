@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1036624",
+  "gaps": [
+    "A way to pull the target case's own opinion-cluster text (or U.S. Reports citation) from the corpus — the snapshot's caption matches at least two distinct SCOTUS merits cases and nothing on-runner disambiguates them",
+    "A documented disposition-label mapping for historical merits cases (affirmed/reversed -> other?) so the label choice is a rule, not an inference from base rates"
+  ],
+  "helpful": [
+    "fedcourts stats --court scotus --resolved-only: the disposition split (78% 'other', 1.4% 'granted') directly set both the label and the probability",
+    "fedcourts query --disposition granted: showed the rare 'granted' labels attach to writ-granting opinions, not ordinary certiorari merits cases",
+    "fedcourts paths: confirmed resolved output locations"
+  ],
+  "notes": "Base-rate stats again did the decisive work for a bare opinion-import stub; the ledger's prior claude-baseline runs on same-shaped dockets were also useful as calibration precedent.",
+  "role": "predictor",
+  "run_id": "20260704T093903Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1036624",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot is a bare bulk-import docket: no docket entries, no dates, no docket number, and no petition documents. The only case-specific signals are the caption 'Bryan v. United States' and one opinion cluster — and the caption matches at least two distinct SCOTUS merits cases (338 U.S. 552 (1950) and 524 U.S. 184 (1998)), which the snapshot cannot disambiguate. The prediction rests on the observation that both candidates resolve identically (certiorari granted, judgment affirmed against the petitioner) plus corpus base rates.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260704T093903Z",
+  "schema_version": "1.0"
+}
