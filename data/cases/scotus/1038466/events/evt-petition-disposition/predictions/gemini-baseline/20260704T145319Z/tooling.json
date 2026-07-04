@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/1038466",
+  "run_id": "20260704T145319Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [],
+  "helpful": [],
+  "gaps": [
+    "No substantive case facts were present in the snapshot."
+  ],
+  "notes": "Relied on structural base-rate knowledge due to empty docket snapshot."
+}

@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1038383",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot is a near-empty docket shell: no docket entries, no docket number, no filed/argued/terminated or cert-stage dates, no panel, no originating court. The only substantive signals are the caption (United States v. Hodge) and one linked opinion cluster.",
+      "severity": "warning"
+    },
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition framing is anachronistic for this docket: the caption and very low opinion-cluster id indicate an antebellum-era case that reached the Court on writ of error (mandatory review), so there was no certiorari petition to grant or deny. The prediction therefore turns mostly on how the reconciler labels historical merits cases (the corpus's resolved SCOTUS labels are ~78% 'other'). Consider whether petition events should be opened for pre-certiorari-era dockets.",
+      "severity": "warning"
+    },
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "Backtest leakage: the caption matches decided historical cases within the model's training knowledge (United States v. Hodge, 44 U.S. 534 (1845) and 47 U.S. 279 (1848)), though the snapshot lacks the detail to pin down which. For historical cells this measures recall plus calibration, not ex-ante forecasting skill.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260704T145319Z",
+  "schema_version": "1.0"
+}
