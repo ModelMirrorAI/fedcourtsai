@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1034900",
+  "gaps": [
+    "A way to pull the target case's own opinion-cluster text or a case summary from the corpus — the docket links one cluster but its contents are unreachable on-runner, so I could not tell which of the case's multiple historical appearances this docket represents",
+    "fedcourts query rows mostly lack case_name/date_filed/topic, which makes it hard to judge whether a prior is actually similar",
+    "A documented disposition-label mapping for historical merits cases (affirmed/reversed -> other?) to remove label-choice guesswork"
+  ],
+  "helpful": [
+    "fedcourts stats --court scotus: the disposition split (78% 'other') directly determined the predicted_disposition label",
+    "fedcourts paths: confirmed resolved output locations",
+    "fedcourts stats --group-by term_year: showed resolved outcomes are almost all undated historical events, confirming the base rate is drawn from cases like this one"
+  ],
+  "notes": "Base-rate stats were again the decisive tool for this bare historical docket; query returned rows with too little metadata to assess similarity, so it contributed nothing case-specific.",
+  "role": "predictor",
+  "run_id": "20260704T045640Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

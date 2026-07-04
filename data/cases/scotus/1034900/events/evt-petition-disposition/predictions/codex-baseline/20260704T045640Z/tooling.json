@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1034900",
+  "gaps": [
+    "A prompt-provided scope or recoverability summary would reduce uncertainty for sparse historical SCOTUS dockets."
+  ],
+  "helpful": [
+    "Path resolver for the event artifact",
+    "SCOTUS aggregate disposition base rates",
+    "Repository scope notes for sparse historical SCOTUS dockets"
+  ],
+  "notes": "No live docket fetch was used; prediction relied on the provided snapshot and local corpus context only.",
+  "role": "predictor",
+  "run_id": "20260704T045640Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts stats",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
