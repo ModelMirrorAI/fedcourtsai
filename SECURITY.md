@@ -48,9 +48,10 @@
   ```
 
   Boto3 (DVC's S3 backend) then picks up the OIDC-assumed credentials and region
-  from the environment. DVC itself is an operational tool, installed where it is
-  used (`pip install 'dvc[s3]'` / `uvx --from 'dvc[s3]' dvc ...`), not a package
-  dependency. See [docs/data-pipeline.md](docs/data-pipeline.md).
+  from the environment. DVC is not a runtime dependency: CI installs it where it
+  is used (`uvx --from 'dvc[s3]' dvc ...`), and local work gets it from the
+  optional `data` dependency group (`uv sync`, then `uv run dvc ...`). See
+  [docs/data-pipeline.md](docs/data-pipeline.md).
 - **Label triggers are maintainer-gated, two ways.** Applying a `run:*` label is
   the trust boundary for the pipeline, and two layers enforce it on a public repo —
   where an issue *form* would otherwise apply its declared labels on creation for

@@ -28,6 +28,18 @@ dev = [
     "types-pyyaml>=6.0",
     "types-python-dateutil>=2.9",
 ]
+# Operational tooling for the data-production tasks (seed/pull/predict/…): the
+# DVC client and its S3 backend for pulling/pushing the corpus. Kept out of the
+# runtime `dependencies` so predict/evaluate installs stay lean — it is heavy
+# (S3/boto, git bindings) and only the data tasks touch the remote.
+data = [
+    "dvc[s3]>=3.0",
+]
+
+[tool.uv]
+# Install `dev` and `data` on a bare `uv sync`, so `uv run dvc …` works locally
+# without a `--group` flag. Runtime-only installs opt out via `--no-default-groups`.
+default-groups = ["dev", "data"]
 
 [build-system]
 requires = ["hatchling"]
