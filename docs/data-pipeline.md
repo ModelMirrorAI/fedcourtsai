@@ -290,7 +290,9 @@ writes `~/.aws/config` profiles whose short-lived SSO session
 shell's default profile) — rerun `aws sso login --profile fedcourts-sso` when
 the session expires. **Contributors** use a dedicated read-only IAM user's
 key pair (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), which boto3 reads
-straight from the environment — nothing to configure. In either flow, when
+straight from the environment — nothing to configure. The IAM user is
+provisioned on demand (see [SECURITY.md](../SECURITY.md)); ask via an issue
+if you need corpus access. In either flow, when
 the remote's URL secret (`DVC_REMOTE_URL`) is present the hook writes the
 gitignored `.dvc/config.local` exactly as the workflows do, and the
 application reads the URL for the ranged backend from the same bare variable

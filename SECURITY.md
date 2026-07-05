@@ -62,9 +62,11 @@
   secrets** (never repo-level, never committed, so forks and other contributors'
   codespaces see nothing). The **maintainer** authenticates through IAM Identity
   Center: short-lived SSO tokens assume the read-only corpus role, so no static
-  key exists on that path. **Contributors** get a dedicated **read-only IAM
-  user** — the one long-lived credential in the system — whose policy grants
-  only `GetObject` / `GetObjectVersion` / `ListBucket` on the corpus bucket. The
+  key exists on that path. **Contributors** use a dedicated **read-only IAM
+  user** — provisioned on demand, only when a contributor without Identity
+  Center access actually needs corpus reads, so until then no long-lived
+  credential exists anywhere in the system. Its policy grants only
+  `GetObject` / `GetObjectVersion` / `ListBucket` on the corpus bucket. The
   devcontainer's post-create hook configures whichever flow's secrets are
   present (the SSO profiles in `~/.aws/config` and/or the gitignored
   `.dvc/config.local`) and prints a note and continues when none are. The
