@@ -120,9 +120,11 @@ validated like every other artifact rather than silently skipped.
 
 ## 3. The DVC-in-CI flow
 
-DVC is an operational tool, run via `uvx --from 'dvc[s3]' dvc …` (not a package
-dependency). The remote URL is injected from the runner env into the gitignored
-`.dvc/config.local` before any transfer (see [SECURITY.md](../SECURITY.md)).
+DVC is an operational tool, not a runtime dependency. In CI it is run via `uvx
+--from 'dvc[s3]' dvc …`; locally it comes from the optional `data` dependency
+group (`uv run dvc …`). The remote URL is injected from the runner env into the
+gitignored `.dvc/config.local` before any transfer (see
+[SECURITY.md](../SECURITY.md)).
 
 Per-run order:
 1. `dvc remote add --local -d storage "<bucket url from runner env>"` — define the
