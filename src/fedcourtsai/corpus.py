@@ -25,14 +25,16 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .config import get_settings
+from .corpus_ranged import RangedBackendError, connect_ranged
 from .schemas import Disposition, EventKind
 
 CORPUS_DB_FILENAME = "corpus.db"
@@ -419,6 +421,61 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+CorpusBackend = Literal["local", "ranged"]
+
+
+def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
+    """The effective read backend: an explicit override, else the setting."""
+    if override is not None:
+        return override
+    return get_settings().corpus_backend
+
+
+class ReadConnection(Protocol):
+    """The read seam the retrieval/provisioning helpers require of a connection.
+
+    ``sqlite3.Connection`` satisfies it structurally (the local backend), as
+    does :class:`fedcourtsai.corpus_ranged.RangedConnection` (the ranged
+    backend) — rows only need name indexing, which both provide.
+    """
+
+    def execute(self, sql: str, parameters: Sequence[object] = (), /) -> Any: ...
+
+
+class RecordRow(Protocol):
+    """One name-indexable result row — ``sqlite3.Row`` or the ranged ``Row``."""
+
+    def __getitem__(self, key: str) -> Any: ...
+
+
+@contextmanager
+def connect_readonly(
+    db_path: Path, *, backend: CorpusBackend | None = None
+) -> Iterator[ReadConnection]:
+    """Open the corpus for reading via the selected backend.
+
+    ``local`` (the default) opens the ``dvc pull``-ed file exactly like
+    :func:`connect`; ``ranged`` queries the immutable blob in place on the DVC
+    remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the committed
+    pointer next to ``db_path`` against the out-of-band remote URL. ``backend``
+    overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting. Writers never use this
+    seam — they need the concrete local connection and always own the file.
+    """
+    if resolve_backend(backend) == "ranged":
+        remote_url = get_settings().dvc_remote_url
+        if remote_url is None:
+            raise RangedBackendError(
+                "the ranged corpus backend needs the DVC remote URL from the "
+                "environment (the same out-of-band value the workflows use)"
+            )
+        pointer = db_path.with_name(db_path.name + ".dvc")
+        with connect_ranged(pointer, remote_url) as ranged:
+            yield ranged
+    else:
+        with connect(db_path) as conn:
+            yield conn
+
+
 def _to_record(row: CorpusRow) -> dict[str, object]:
     return {
         "case_id": row.case_id,
@@ -445,7 +502,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
     }
 
 
-def _from_record(record: sqlite3.Row) -> CorpusRow:
+def _from_record(record: RecordRow) -> CorpusRow:
     return CorpusRow(
         case_id=record["case_id"],
         court=record["court"],
@@ -766,14 +823,14 @@ def out_of_scope_reason(row: CorpusRow) -> str | None:
     return None
 
 
-def get_row(conn: sqlite3.Connection, case_id: str) -> CorpusRow | None:
+def get_row(conn: ReadConnection, case_id: str) -> CorpusRow | None:
     """Fetch a single case row, or ``None`` if it is not in the corpus."""
     cur = conn.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,))
     record = cur.fetchone()
     return _from_record(record) if record is not None else None
 
 
-def count(conn: sqlite3.Connection) -> int:
+def count(conn: ReadConnection) -> int:
     """Number of rows currently in the corpus."""
     cur = conn.execute("SELECT COUNT(*) AS n FROM cases")
     return int(cur.fetchone()["n"])
@@ -878,7 +935,7 @@ def recency_key(row: CorpusRow) -> tuple[int, int]:
 
 
 def retrieve_priors(
-    conn: sqlite3.Connection,
+    conn: ReadConnection,
     query: PriorQuery,
     *,
     limit: int = DEFAULT_PRIOR_LIMIT,
@@ -1040,7 +1097,7 @@ def _event_to_record(event: CorpusEvent) -> dict[str, object]:
     }
 
 
-def _event_from_record(record: sqlite3.Row) -> CorpusEvent:
+def _event_from_record(record: RecordRow) -> CorpusEvent:
     return CorpusEvent(
         case_id=record["case_id"],
         event_id=record["event_id"],
@@ -1094,15 +1151,13 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
     return len(events)
 
 
-def events_for_case(conn: sqlite3.Connection, case_id: str) -> list[CorpusEvent]:
+def events_for_case(conn: ReadConnection, case_id: str) -> list[CorpusEvent]:
     """Predictable events defined for one case, in ``event_id`` order."""
     cur = conn.execute("SELECT * FROM events WHERE case_id = ? ORDER BY event_id", (case_id,))
     return [_event_from_record(record) for record in cur]
 
 
-def iter_open_events(
-    conn: sqlite3.Connection, *, court: str | None = None
-) -> Iterator[CorpusEvent]:
+def iter_open_events(conn: ReadConnection, *, court: str | None = None) -> Iterator[CorpusEvent]:
     """Yield unresolved (``resolved = 0``) events in ``(case_id, event_id)`` order.
 
     Optionally filtered to one ``court``. The corpus-wide complement of
@@ -1138,7 +1193,7 @@ def set_event_resolved(
         )
 
 
-def event_count(conn: sqlite3.Connection) -> int:
+def event_count(conn: ReadConnection) -> int:
     """Total number of predictable-event rows in the corpus."""
     cur = conn.execute("SELECT COUNT(*) AS n FROM events")
     return int(cur.fetchone()["n"])
@@ -1196,7 +1251,7 @@ def upsert_snapshot(
         )
 
 
-def latest_snapshot(conn: sqlite3.Connection, case_id: str) -> tuple[date, dict[str, Any]] | None:
+def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str, Any]] | None:
     """The most recent dated snapshot for a case — ``(date, payload)`` — or ``None``.
 
     Ordered by ``snapshot_date`` so the newest pull wins; ``None`` means the case
@@ -1214,7 +1269,7 @@ def latest_snapshot(conn: sqlite3.Connection, case_id: str) -> tuple[date, dict[
     return date.fromisoformat(record["snapshot_date"]), payload
 
 
-def snapshot_count(conn: sqlite3.Connection) -> int:
+def snapshot_count(conn: ReadConnection) -> int:
     """Total number of dated snapshot rows in the corpus."""
     cur = conn.execute("SELECT COUNT(*) AS n FROM snapshots")
     return int(cur.fetchone()["n"])

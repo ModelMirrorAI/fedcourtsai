@@ -229,6 +229,38 @@ so the invariant is enforced rather than remembered. The read paths behind
 retrieval and provisioning are index-served (pinned by `EXPLAIN QUERY PLAN`
 tests), which keeps a ranged point lookup at KB scale rather than a table scan.
 
+### The ranged read backend
+
+`fedcourtsai.corpus_ranged` implements those ranged reads in-repo: a read-only
+SQLite VFS (apsw) that serves page reads from block-aligned S3 ranged `GET`s.
+The immutability argument is what makes this sound with **no consistency
+machinery**: the blob is content-addressed, so the committed pointer names one
+exact byte sequence — a corpus update publishes a *new* object, and a reader
+can never observe a torn write. Mechanics:
+
+- **Blocks and cache.** `xRead` is served from fixed 256 KB block fetches
+  through a per-connection in-process LRU (64 blocks), so a B-tree descent
+  costs a handful of `GET`s and repeated lookups cost none. The file size comes
+  from the DVC pointer — the object is never `HEAD`ed.
+- **Selection.** Read-only consumers go through `corpus.connect_readonly`,
+  which picks the backend from the corpus-backend setting (or an explicit
+  override): `local` opens the `dvc pull`-ed file, `ranged` resolves the
+  committed pointer against the out-of-band remote URL. The read-side CLI
+  commands (`query`, `open-events`, `provision-snapshot`, `corpus-info`) take
+  `--corpus-backend`. Writers never use this seam.
+- **Stats.** Each ranged connection counts its `GET`s and bytes fetched;
+  the CLI reports them to stderr — the per-query egress evidence retrieval
+  logging and the integration check consume.
+- **Seams.** The transport is one callable `(key, byte range) -> bytes`
+  (boto3-against-S3 today; an S3-compatible endpoint elsewhere is a contained
+  swap, and offline tests substitute an in-memory stand-in). The pointer→key
+  resolver is the only code that knows DVC's remote cache layout and fails
+  loudly if that coupling breaks.
+
+Credit: michalc/sqlite-s3-query and litements/s3sqlite (both MIT) are the
+reference implementations; this is implemented in-repo so it is typed, tested,
+and reviewed under the same gate as everything else.
+
 ### Corpus schema
 
 Each corpus row is a normalized, **labeled** record so it serves both consumers:

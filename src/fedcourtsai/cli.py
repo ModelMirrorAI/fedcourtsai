@@ -16,7 +16,7 @@ from typing import Annotated
 
 import typer
 
-from . import analytics, cleanup, corpus, dvc, ids, metrics_refresh
+from . import analytics, cleanup, corpus, corpus_ranged, dvc, ids, metrics_refresh
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
@@ -748,6 +748,42 @@ def export_schemas(
     typer.echo(f"Exported {len(EXPORTABLE_MODELS)} schema(s) to {out}")
 
 
+CorpusBackendOption = Annotated[
+    str,
+    typer.Option(
+        "--corpus-backend",
+        help="Corpus read backend: local (the dvc-pulled file) or ranged (query "
+        "the blob in place on the DVC remote). Default: the corpus-backend "
+        "setting from the environment.",
+    ),
+]
+
+
+def _corpus_backend(value: str) -> corpus.CorpusBackend | None:
+    """Parse a --corpus-backend value; empty means \"use the setting\"."""
+    if not value:
+        return None
+    if value not in ("local", "ranged"):
+        typer.echo(f"Unknown --corpus-backend '{value}'; choose local or ranged.", err=True)
+        raise typer.Exit(code=2)
+    return "local" if value == "local" else "ranged"
+
+
+def _echo_read_stats(conn: corpus.ReadConnection) -> None:
+    """Report a ranged connection's transfer counters to stderr.
+
+    The per-query egress evidence: retrieval logging and the integration check
+    read these numbers, and a human sees at a glance that a lookup moved KBs,
+    not the blob. A no-op for the local backend (nothing was transferred).
+    """
+    if isinstance(conn, corpus_ranged.RangedConnection):
+        stats = conn.stats
+        typer.echo(
+            f"ranged corpus reads: {stats.gets} GET(s), {stats.bytes_fetched} byte(s)",
+            err=True,
+        )
+
+
 def _ensure_corpus_layout(db_path: Path) -> None:
     """Rebuild the corpus file to the ranged-read layout if it has drifted.
 
@@ -1023,22 +1059,24 @@ def make_fixture_corpus(
 
 
 @app.command("corpus-info")
-def corpus_info() -> None:
-    """Show the packed corpus location and row count (run after `dvc pull`)."""
+def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
+    """Show the corpus location and row count (after `dvc pull`, or ranged)."""
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend == "local" and not db_path.exists():
         typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.")
         return
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
         typer.echo(
-            f"corpus {db_path}: {corpus.count(conn)} row(s), "
+            f"corpus {db_path} [{backend}]: {corpus.count(conn)} row(s), "
             f"{corpus.snapshot_count(conn)} snapshot(s)"
         )
+        _echo_read_stats(conn)
 
 
 @app.command()
-def query(
+def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
     topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
     judge: Annotated[
@@ -1061,19 +1099,23 @@ def query(
     full: Annotated[
         bool, typer.Option(help="Include each prior's full opinion_text (omitted by default).")
     ] = False,
+    corpus_backend: CorpusBackendOption = "",
 ) -> None:
-    """Retrieve relevant priors from the corpus, most relevant first (run after `dvc pull`).
+    """Retrieve relevant priors from the corpus, most relevant first.
 
     Precedent retrieval for predictors: pull a handful of similar resolved cases
     by structured filter instead of loading the bulk set. ``--court`` / ``--topic``
     / ``--disposition`` match exactly; ``--judge`` and ``--citation`` (repeatable)
     match on overlap and rank the results by how much they share. Prints one
     compact JSON row per line, ranked, with ``opinion_text`` omitted unless
-    ``--full``. Semantic search lands later on the same query seam.
+    ``--full``. Reads the ``dvc pull``-ed file, or the blob in place on the
+    remote with ``--corpus-backend ranged``. Semantic search lands later on the
+    same query seam.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend == "local" and not db_path.exists():
         typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
         raise typer.Exit(code=1)
     try:
@@ -1090,8 +1132,9 @@ def query(
         disposition=disp,
         resolved_only=not include_open,
     )
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
         priors = corpus.retrieve_priors(conn, q, limit=limit)
+        _echo_read_stats(conn)
     for row in priors:
         payload = row.model_dump(mode="json")
         if not full:
@@ -1249,20 +1292,24 @@ def provision_snapshot(
         Path | None,
         typer.Option(help="Where to write the snapshot; defaults to the case's record path."),
     ] = None,
+    corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's latest corpus snapshot to disk for an agent run.
 
     Point-in-time snapshots are raw facts that live in the packed corpus, not
-    git. The predict/evaluate/reconcile workflows call this after a ``dvc pull``
-    to read the most recent dated snapshot for the case out of the corpus and
-    write it where the agent reads it (a gitignored ``record/`` path, never
+    git. The predict/evaluate/reconcile workflows call this to read the most
+    recent dated snapshot for the case out of the corpus — the ``dvc pull``-ed
+    file, or the blob in place on the remote with ``--corpus-backend ranged`` —
+    and write it where the agent reads it (a gitignored ``record/`` path, never
     committed). Exits non-zero if the corpus holds no snapshot for the case.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
-    with corpus.connect(db_path) as conn:
+    backend = _corpus_backend(corpus_backend)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
         found = corpus.latest_snapshot(conn, case)
+        _echo_read_stats(conn)
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (dvc pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
@@ -1399,11 +1446,12 @@ def materialize_event(
 def open_events_cmd(
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
+    corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Print unresolved (predictable) event ids for a case, one per line."""
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
-    for eid in open_events(db, court, docket):
+    for eid in open_events(db, court, docket, backend=_corpus_backend(corpus_backend)):
         typer.echo(eid)
 
 

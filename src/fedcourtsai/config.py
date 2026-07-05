@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
+from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +39,18 @@ class Settings(BaseSettings):
     courtlistener_rpm: int = 5
     courtlistener_rph: int = 50
     courtlistener_rpd: int = 125
+    # How read-only consumers open the corpus: "local" reads the dvc-pulled file,
+    # "ranged" queries the immutable blob in place on the DVC remote via HTTP
+    # range requests (see fedcourtsai.corpus_ranged). Writers always open local.
+    corpus_backend: Literal["local", "ranged"] = "local"
+    # The DVC remote's bucket URL, supplied out of band exactly like the
+    # workflows' `dvc remote add` step (never committed; see SECURITY.md). The
+    # ranged backend resolves the corpus pointer against it. The bare workflow
+    # variable name is accepted as an alias so the same runner env serves both.
+    dvc_remote_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("FEDCOURTS_DVC_REMOTE_URL", "DVC_REMOTE_URL"),
+    )
 
 
 def get_settings() -> Settings:
