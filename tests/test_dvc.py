@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import sqlite3
 import subprocess
 from pathlib import Path
 
 from typer.testing import CliRunner
 
-from fedcourtsai import dvc
+from fedcourtsai import corpus, dvc
 from fedcourtsai.cli import app
 
 runner = CliRunner()
@@ -167,3 +168,29 @@ def test_cli_dvc_status_fails_when_blob_tracked(tmp_path: Path) -> None:
     result = runner.invoke(app, ["dvc-status", str(repo)])
     assert result.exit_code == 1
     assert "also committed to git" in result.stderr
+
+
+def test_cli_dvc_status_flags_wrong_layout_corpus(tmp_path: Path) -> None:
+    repo = _git_repo(tmp_path)
+    # A locally present blob whose physical layout breaks the ranged-read
+    # contract (default 4 KB pages) must fail the offline gate.
+    conn = sqlite3.connect(repo / "corpus" / "corpus.db")
+    try:
+        conn.execute("PRAGMA page_size = 4096")
+        conn.execute("CREATE TABLE t (x TEXT)")
+        conn.commit()
+    finally:
+        conn.close()
+    result = runner.invoke(app, ["dvc-status", str(repo)])
+    assert result.exit_code == 1
+    assert "page size 4096" in result.stderr
+
+
+def test_cli_dvc_status_ok_with_ranged_layout_corpus(tmp_path: Path) -> None:
+    repo = _git_repo(tmp_path)
+    # A blob written through the corpus writer path satisfies the contract.
+    with corpus.connect(repo / "corpus" / "corpus.db"):
+        pass
+    result = runner.invoke(app, ["dvc-status", str(repo)])
+    assert result.exit_code == 0, result.stdout
+    assert "DVC metadata consistent" in result.stdout
