@@ -156,7 +156,7 @@
         },
         "used_base_rates": {
           "default": false,
-          "description": "Whether the cell used `fedcourts stats` for corpus base-rate context. Optional (defaults False) so reports written before the tool existed still validate.",
+          "description": "Whether the cell used corpus base-rate context \u2014 the committed statpack roll-up, or `fedcourts stats` where a local corpus is present. Optional (defaults False) so reports written before the tool existed still validate.",
           "title": "Used Base Rates",
           "type": "boolean"
         },

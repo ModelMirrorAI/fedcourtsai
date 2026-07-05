@@ -166,9 +166,14 @@ Access mirrors each workflow's role in the pipeline:
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
 | `run-seed`, `run-pull`                    | read-write    | corpus writers (`dvc push`)      |
-| `run-predict`, `run-evaluate`, `run-reconcile` | read-only | retrieval consumers (`dvc pull`) |
-| `run-analytics`, `run-cleanup`            | read-only     | corpus analysis / metrics refresh / cleanup (`dvc pull`) |
+| `run-predict`, `run-evaluate`, `run-reconcile` — plan jobs | read-only | scope gating over the whole corpus (full `dvc pull`) |
+| `run-predict`, `run-evaluate`, `run-reconcile` — cell jobs | read-only | point lookups + retrieval, blob queried in place (ranged reads, no pull) |
+| `run-analytics`, `run-cleanup`            | read-only     | scan-heavy analysis / metrics refresh / cleanup (full `dvc pull`) |
 | `ci`                                      | none          | gate stays offline/fast          |
+
+The split is deliberate: a cell touches KBs of one case's data, so it reads the
+immutable blob in place via the ranged backend and moves no full blob; the plan
+jobs, `run-analytics`, and `run-cleanup` scan the corpus and keep the full pull.
 
 The gate has no remote, so it cannot diff the corpus blob against S3; it runs the
 offline half instead. `fedcourts dvc-status` checks that the committed DVC

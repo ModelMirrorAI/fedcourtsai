@@ -65,6 +65,8 @@ jobs:
       # disk before predict-matrix runs — without it the gate sees an empty
       # database, drops every case, and the predict job is silently skipped. A
       # missing pointer only warns (a pre-corpus repo has nothing to gate on).
+      # Plan is a scan-shaped consumer, so it keeps the full pull; the cell jobs
+      # below read the blob in place via the ranged backend instead.
       - uses: ./.github/actions/corpus-readonly
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
@@ -145,33 +147,27 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # Read-only corpus access (OIDC role + out-of-band DVC remote; no static
-      # keys — a compromised predict runner cannot write or delete corpus
-      # objects). The pull itself happens in the best-effort provision step
-      # below, so the composite only configures here.
-      - uses: ./.github/actions/corpus-readonly
+      # Read-only corpus access (OIDC role; no static keys — a compromised
+      # predict runner cannot write or delete corpus objects). No pull: the cell
+      # queries the immutable corpus blob in place over ranged reads, so the
+      # only corpus bytes this job moves are the KBs its lookups touch.
+      - uses: ./.github/actions/corpus-ranged
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
-          pull: "false"
 
       # Point-in-time snapshots are raw facts in the DVC-backed corpus, not git:
-      # pull the corpus and materialize this case's latest snapshot to the
-      # gitignored record/ path the predictor reads (never committed). Best-effort
-      # — a missing snapshot must not abort the run; the agent notes it per prompt.
+      # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
+      # to the gitignored record/ path the predictor reads (never committed).
+      # Best-effort — a missing snapshot must not abort the run; the agent notes
+      # it per prompt.
       - name: Provision the case snapshot from the corpus
         continue-on-error: true
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
-        run: |
-          if [ -f corpus/corpus.db.dvc ]; then
-            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
-          else
-            echo "::warning::no corpus pointer yet; cannot provision a snapshot"
-          fi
-          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
+        run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
 
       # A predictable event is a corpus fact, not a committed file. Project it into
       # the event's ledger directory so the prediction PR carries its event.yaml and

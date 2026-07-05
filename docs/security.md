@@ -172,15 +172,31 @@ Two IAM roles, assumed via GitHub OIDC (no static keys); see
   never `--cloud`), so the writers never need delete; this means no run can wipe
   corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
-  *consumer* job via the shared `corpus-readonly` composite action —
-  `run-predict` / `run-evaluate` / `run-reconcile`, plus `run-analytics`
-  (analysis and metrics-refresh jobs) and `run-cleanup`) — `GetObject` /
-  `ListBucket` only, so a compromised consumer runner cannot write or poison
-  the corpus.
+  *consumer* job — `GetObject` / `ListBucket` only, so a compromised consumer
+  runner cannot write or poison the corpus). Consumers reach it through two
+  composites: `corpus-ranged` for the predict/evaluate/reconcile **cell** jobs
+  (role + backend env only; the cell queries the blob in place, no pull) and
+  `corpus-readonly` for the scan-heavy full-pull consumers (the plan jobs,
+  `run-analytics`, `run-cleanup`, the metrics refresh).
 
 Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-
 environment jobs can assume them.
+
+**Cells hold read-only credentials while processing adversarial docket text.**
+A predict/evaluate/reconcile cell runs an agent over third-party snapshot text
+with the read-only role's credentials in its environment — prompt injection in
+a docket must be assumed. The blast radius is bounded and acceptable: the role
+can only read public court data back out of the bucket and spend egress; it
+cannot write or delete (append-only remote, explicit deny, versioning on), and
+the cell's GitHub token cannot push code (the collect job owns git with its own
+token). A billing alarm bounds the egress-spend abuse case. **Narrowing target
+for the read-only role:** the cell path needs only `s3:GetObject` /
+`s3:GetObjectVersion` on the DVC cache prefix (`<remote-prefix>/files/*`) — no
+`ListBucket` (the ranged backend resolves keys from the committed pointer and
+never lists). Splitting that narrower policy out (cells on the narrowed role,
+full-pull consumers on the current one) is a maintainer-side IAM change,
+recorded here as the target.
 
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and
