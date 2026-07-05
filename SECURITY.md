@@ -31,9 +31,12 @@
   private S3 bucket behind the DVC remote assume a least-privilege IAM role via
   GitHub OIDC (`aws-actions/configure-aws-credentials`, SHA-pinned;
   `permissions: id-token: write`), reading the role ARN/region from the `runner`
-  environment. No long-lived AWS keys exist. **Two roles, split by access:** corpus
-  writers (`run-seed`, `run-pull` → `AWS_ROLE_TO_ASSUME`) get a **read-write**
-  role; retrieval consumers (`run-predict`, `run-evaluate`, `run-reconcile` →
+  environment. No long-lived AWS key reaches a workflow (the one static
+  credential in the system is the contributor path's read-only key below).
+  **Two roles,
+  split by access:** corpus writers (`run-seed`, `run-pull` →
+  `AWS_ROLE_TO_ASSUME`) get a **read-write** role; retrieval consumers
+  (`run-predict`, `run-evaluate`, `run-reconcile` →
   `AWS_ROLE_TO_ASSUME_READONLY`) get a **read-only** role, so a compromised
   consumer runner cannot tamper with the corpus. The write role is **append-only**
   (get/put/list, **no delete**) and the bucket keeps **versioning** on, so no run
@@ -51,6 +54,24 @@
   from the environment. DVC is not a runtime dependency: CI installs it where it
   is used (`uvx --from 'dvc[s3]' dvc ...`), and local work gets it from the
   optional `data` dependency group (`uv sync`, then `uv run dvc ...`). See
+  [docs/data-pipeline.md](docs/data-pipeline.md).
+- **One scoped exception: developer corpus access from Codespaces.** Interactive
+  data discovery runs in codespaces, which sit outside the workflows' OIDC trust
+  (the roles' trust policy admits only this repo's `runner` environment), so two
+  developer flows serve it — both read-only, both fed by **user-scoped Codespaces
+  secrets** (never repo-level, never committed, so forks and other contributors'
+  codespaces see nothing). The **maintainer** authenticates through IAM Identity
+  Center: short-lived SSO tokens assume the read-only corpus role, so no static
+  key exists on that path. **Contributors** get a dedicated **read-only IAM
+  user** — the one long-lived credential in the system — whose policy grants
+  only `GetObject` / `GetObjectVersion` / `ListBucket` on the corpus bucket. The
+  devcontainer's post-create hook configures whichever flow's secrets are
+  present (the SSO profiles in `~/.aws/config` and/or the gitignored
+  `.dvc/config.local`) and prints a note and continues when none are. The
+  exposure a leaked contributor key could buy is deliberately small: the corpus
+  is public court data, neither principal can write or delete anything (and the
+  bucket is versioned and append-only regardless), and a billing alarm bounds
+  egress abuse. See the *Developer access (Codespaces)* section of
   [docs/data-pipeline.md](docs/data-pipeline.md).
 - **Label triggers are maintainer-gated, two ways.** Applying a `run:*` label is
   the trust boundary for the pipeline, and two layers enforce it on a public repo —

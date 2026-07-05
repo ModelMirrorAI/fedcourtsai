@@ -8,22 +8,28 @@
     "ghcr.io/devcontainers/features/aws-cli:1": {}
   },
   "onCreateCommand": "uv sync",
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && bash .devcontainer/setup-aws.sh",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && bash .devcontainer/setup-corpus-access.sh",
   "secrets": {
     "AWS_SSO_START_URL": {
-      "description": "IAM Identity Center start URL (optional; corpus access only)"
+      "description": "IAM Identity Center start URL (maintainer path; optional, corpus access only)"
     },
     "AWS_SSO_ACCOUNT_ID": {
-      "description": "AWS account ID for the SSO profile"
+      "description": "AWS account ID for the SSO profile (maintainer path)"
     },
     "AWS_SSO_ROLE_NAME": {
-      "description": "Identity Center permission set name"
+      "description": "Identity Center permission set name (maintainer path)"
     },
     "AWS_RO_ROLE_ARN": {
-      "description": "Read-only corpus role"
+      "description": "Read-only corpus role ARN assumed via the SSO profile (maintainer path)"
     },
-    "FEDCOURTS_DVC_REMOTE_URL": {
-      "description": "DVC S3 remote URL"
+    "AWS_ACCESS_KEY_ID": {
+      "description": "Read-only corpus IAM user's access key ID (contributor path; optional, corpus access only)"
+    },
+    "AWS_SECRET_ACCESS_KEY": {
+      "description": "Read-only corpus IAM user's secret access key (contributor path)"
+    },
+    "DVC_REMOTE_URL": {
+      "description": "DVC remote S3 URL, written to the gitignored .dvc/config.local on create (both paths)"
     }
   },
   "customizations": {
@@ -54,7 +60,6 @@
   "remoteEnv": {
     "PYTHONUNBUFFERED": "1",
     "UV_LINK_MODE": "copy",
-    "AWS_PROFILE": "fedcourts-ro",
     "AWS_REGION": "us-east-2"
   }
 }
