@@ -57,6 +57,10 @@ non-interactive** container. Two consequences shape everything you do:
   one focused PR against `main`. (For `run:predict`/`run:evaluate`/`run:reconcile`
   the *workflow* commits and opens the PR — you only write files. The prompt for
   your task says which mode you are in.)
+- **The maintainer merges.** Open the PR, get its required checks green, and
+  report it ready — do not merge it yourself or enable auto-merge on it. The one
+  exception is built into the pipeline: the data-run `collect` jobs open their
+  per-run PR with auto-merge, still gated on the same required checks.
 - **Stay in your lane.** A predictor writes only under its own
   `predictions/<predictor_id>/<run_id>/` path. An evaluator writes only under its
   own `evaluations/<evaluator_id>/...` path. Never edit another agent's output,
