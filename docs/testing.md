@@ -146,6 +146,23 @@ deterministic jobs (the `plan` job, matrix generation, the auth gate),
 orchestration, though its OIDC and secret handling mean it does not cover the agent
 or S3 steps.
 
+## Fixture scale is not corpus scale
+
+The fixture corpus is deliberately tiny, and that blinds it to two classes of bug.
+**Scale blowups:** code that iterates every row — or issues a per-item query that
+itself scans a whole court's slice — passes fixture-sized tests instantly and then
+times out on its first run against the real corpus of millions of cases. When
+writing anything that walks the corpus, budget its complexity against the full row
+count, not the fixture's; prefer building an index or a single filtered query over
+per-item scans. **Data-shape assumptions:** the fixture's values are clean by
+construction, but a century of real docket data is not — historical numbering
+formats, sparse or missing dates, and unlinked records dominate the long tail, so a
+parser or scope predicate that looks total on the fixture can quietly mis-classify
+at scale. The check is the same for both: before relying on new corpus-walking code
+or a new predicate, exercise it against the real corpus through a read-only
+analytics run and read the numbers it reports. The fixture proves the logic;
+only the corpus proves it at scale.
+
 ## The boundary that remains
 
 Even with the harness, two things stay outside the fast loop by design, and that is
