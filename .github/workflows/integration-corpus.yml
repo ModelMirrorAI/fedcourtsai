@@ -1,0 +1,127 @@
+name: integration-corpus
+
+# Live integration check of the ranged corpus backend: query the immutable,
+# content-addressed corpus blob in place on the DVC remote — read-only SQLite
+# over HTTP range requests, see "The ranged read backend" in
+# docs/data-pipeline.md — with the same read-only role every corpus consumer
+# job assumes. A fixed query set covers the read shapes the pipeline
+# provisions with (a point lookup, a priors retrieval, a snapshot
+# provisioning) against a known real case, asserts non-empty results, reports
+# each read's transfer counters, and fails on a blown wall-clock budget, so
+# a pathology (a table scan, a cache regression) fails the run instead of
+# hiding in the logs.
+#
+# Manual dispatch only, and strictly read-only: no corpus write, no git write,
+# no PR, no issue — every result goes to the Actions step summary and the run
+# log. Its own workflow rather than a run-analytics mode because it is a
+# preflight of the corpus-access *infrastructure* itself, not an analysis that
+# answers a question about the data: it is dispatched around changes to the
+# read seams and the corpus-consuming workflows — run-analytics included, so
+# the preflight should not live on a surface it exists to check — and a
+# distinct workflow gives release preflights their own run history.
+on:
+  workflow_dispatch:
+    inputs:
+      # The known-good case the fixed query set targets: it must exist in the
+      # corpus with at least one open (predictable) event and a stored
+      # snapshot. Swap the defaults if this case ever resolves out of shape.
+      court:
+        description: Court id of a known case with an open event and a snapshot.
+        type: string
+        default: ca1
+      docket:
+        description: Docket id of the known case.
+        type: string
+        default: "1000000"
+      cascade:
+        description: >-
+          Also run one offline stub local-cascade cell with every corpus read
+          on the ranged backend (provisioning covered end to end).
+        type: boolean
+        default: false
+
+# Least privilege by default; the job widens only to what the check needs.
+permissions: {}
+
+# A superseded check has no value (the reads are idempotent and side-effect
+# free), so a newer dispatch cancels an in-flight one.
+concurrency:
+  group: integration-corpus
+  cancel-in-progress: true
+
+jobs:
+  ranged-reads:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: runner
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role for the ranged corpus reads
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # Ranged reads need only AWS credentials and the remote URL from the
+      # environment — never a `dvc pull`, never the blob on disk — so this
+      # assumes the read-only role directly instead of via the corpus-readonly
+      # composite, whose DVC remote wiring and pull serve jobs that read the
+      # local file.
+      - name: Configure AWS credentials (read-only)
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # All the logic — the three reads, the non-empty assertions, the
+      # per-read GET/byte counters, the wall-clock budget, the Markdown
+      # summary — lives in the tested `corpus-integration-check` command
+      # (fedcourtsai.integration_check); this step is one CLI call. The
+      # command exits non-zero on any empty read or a blown budget, so a
+      # pathology (a table scan, a cache regression) fails the job. The
+      # 300s default budget is generous: the set is a handful of point
+      # lookups (a real snapshot provisioning measures single-digit GETs
+      # and ~1 MB of egress).
+      - name: Run the fixed ranged read set
+        env:
+          # Inputs pass through the environment (never interpolated into the
+          # shell) so a maintainer-supplied value cannot inject commands.
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          # The ranged backend resolves the committed corpus pointer against
+          # the remote URL, supplied out of band exactly like the remote
+          # wiring in the corpus-readonly composite.
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-integration-check \
+            --court "$COURT" --docket "$DOCKET" \
+            --corpus-backend ranged \
+            --summary-out "$GITHUB_STEP_SUMMARY"
+
+      # Optional end-to-end provisioning check: one offline stub cascade cell
+      # (provision -> predict -> validate; the case's event is open, so there
+      # is nothing to evaluate) with every corpus read on the ranged backend.
+      # The stub engine is deterministic and token-free, and the cell writes
+      # derived artifacts only into the runner's throwaway checkout — this job
+      # holds no write credential, so nothing can land anywhere.
+      - name: Run one stub cascade cell over the ranged backend
+        if: ${{ inputs.cascade }}
+        env:
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "## Stub cascade over the ranged backend"
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
+            --engine stub | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

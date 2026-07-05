@@ -19,6 +19,7 @@ from moto import mock_aws
 
 from fedcourtsai import corpus, corpus_ranged, store
 from fedcourtsai.fixture import FIXTURE_CASES, build_fixture_corpus
+from fedcourtsai.pipeline.cascade import run_cascade
 from fedcourtsai.schemas import Disposition
 
 REMOTE_URL = "s3://test-bucket/store"
@@ -240,6 +241,44 @@ def test_connect_readonly_ranged_end_to_end(
     # ca9/103 is the fixture's open-event appeals case.
     events = store.open_events(db, "ca9", 103)
     assert events == ["evt-appeal-disposition"]
+
+
+@mock_aws
+def test_stub_cascade_reads_via_ranged_backend(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The local cascade's corpus reads ride the ranged seam — no local blob needed.
+
+    The end-to-end provisioning shape the integration-corpus workflow's optional
+    cascade cell exercises against the real remote: with the backend set to
+    ``ranged`` in the environment, ``run_cascade`` provisions the snapshot,
+    predicts with the offline stub engine, and validates the ledger without a
+    ``dvc pull``-ed corpus file on disk.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    build_fixture_corpus(db)
+    pointer, _ = _write_pointer(db)
+    _stage_moto_bucket(pointer, db.read_bytes())
+    db.unlink()  # ranged access must not need (or recreate) the local blob
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
+    monkeypatch.setenv("FEDCOURTS_DVC_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    # ca9/103 is the fixture's open-event appeals case: predict only, nothing
+    # to evaluate — the same shape as a real open case.
+    report = run_cascade(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        config_root=Path("config"),
+        court="ca9",
+        docket=103,
+        run_id="20260628T120000Z",
+    )
+
+    assert report.valid, report.problems
+    assert report.snapshot is not None and report.snapshot.is_file()
+    assert report.predictions and not report.evaluations
+    assert not db.exists(), "the ranged cascade must not create a local corpus file"
 
 
 def test_connect_readonly_ranged_without_remote_url_fails_loudly(

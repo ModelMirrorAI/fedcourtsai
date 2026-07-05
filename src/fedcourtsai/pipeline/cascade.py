@@ -2,7 +2,8 @@
 
 The repeatable, local form of the Phase-0 "one full cascade proven" milestone:
 one command drives a single case through the whole derived-artifact pipeline over
-the *fixture* corpus (or a real provisioned one) without GitHub Actions. It is the
+the *fixture* corpus (or a real one — ``dvc pull``-ed locally, or queried in place
+on the DVC remote via the ranged corpus backend) without GitHub Actions. It is the
 iteration loop that otherwise only exists inside ``run-predict`` / ``run-evaluate``.
 
 It reuses the production seams rather than reimplementing them: the engine-runner
@@ -130,10 +131,14 @@ def run_cascade(
 ) -> CascadeReport:
     """Run the full predict → evaluate → validate cascade for one case.
 
-    Reads the case and its events from the packed corpus, provisions the snapshot
-    and materializes the git event/outcome definitions the agents read, fans the
-    selected engine out over the enabled predictors then evaluators, and validates
-    the resulting ledger. Returns a :class:`CascadeReport`. Raises
+    Reads the case and its events from the packed corpus via the read-backend
+    seam (:func:`fedcourtsai.corpus.connect_readonly`) — the local file by
+    default, or the immutable blob in place on the DVC remote when the
+    corpus-backend setting says ``ranged``, so a ranged-configured environment
+    runs the cascade with no local pull. Provisions the snapshot and
+    materializes the git event/outcome definitions the agents read, fans the
+    selected engine out over the enabled predictors then evaluators, and
+    validates the resulting ledger. Returns a :class:`CascadeReport`. Raises
     :class:`CascadeError` for a missing corpus/case/event and
     :class:`fedcourtsai.pipeline.runner.EngineUnavailable` /
     ``EngineFailed`` for a real-engine problem.
@@ -142,12 +147,13 @@ def run_cascade(
     case_id = ids.case_id(court, docket)
     case_paths = CasePaths(data_root, court, docket)
 
-    if not corpus_db_path.exists():
+    backend = corpus.resolve_backend()
+    if backend == "local" and not corpus_db_path.exists():
         raise CascadeError(
             f"no corpus at {corpus_db_path}; run `fedcourts make-fixture-corpus` first"
         )
 
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_readonly(corpus_db_path, backend=backend) as conn:
         row = corpus.get_row(conn, case_id)
         if row is None:
             raise CascadeError(f"case {case_id} is not in the corpus at {corpus_db_path}")

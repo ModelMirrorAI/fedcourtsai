@@ -51,6 +51,7 @@ see *The ranged read backend* in [data-pipeline.md](data-pipeline.md)).
 | `stats` | Aggregate disposition **base-rates** over the corpus — the aggregate counterpart of `query`. Rolls the matched set into overall base-rates and, with `--group-by`, a per-group breakdown (court / topic / judge / SCOTUS `term_year` / disposition / `originating_court`, the circuit-scorecard cut). Shares the `query` filter grammar plus a `--date-from`/`--date-to` filed-date window and a `--term` SCOTUS October-Term filter (SCOTUS cases only — other courts' docket numbers never match). Emits an `AnalyticsReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file. Skips gracefully (exit 0) when the corpus is absent. | `--court`, `--topic`, `--judge`, `--citation`, `--disposition`, `--date-from`, `--date-to`, `--term`, `--resolved-only`, `--group-by`, `--summary-out` |
 | `open-events` | Print a case's unresolved (predictable) event ids, one per line. | `--court`, `--docket`, `--corpus-backend` |
 | `provision-snapshot` | Materialize a case's latest corpus snapshot to disk for an agent run. | `--court`, `--docket`, `--out`, `--corpus-backend` |
+| `corpus-integration-check` | Run the fixed read set the `integration-corpus` workflow dispatches — a point lookup (open events), a priors retrieval, a snapshot provisioning — each on its own connection so a ranged run reports per-read GET/byte counters. Emits the machine report JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary. Exits non-zero on any empty read or a blown wall-clock budget. | `--court`, `--docket`, `--limit`, `--budget-seconds`, `--snapshot-out`, `--summary-out`, `--corpus-backend` |
 | `materialize-event` | Project a predictable event's `event.yaml` from the corpus into the git ledger. | `--court`, `--docket`, `--event`, `--out` |
 | `paths` | Print the resolved corpus/case/event paths for a case. | `--court`, `--docket`, `--event` |
 
@@ -138,8 +139,9 @@ CI run.
 | `local-cascade` | Provision a case's snapshot, predict it with every enabled predictor, evaluate the resulting predictions with every enabled evaluator, and validate the produced ledger. | `--court`, `--docket`, `--event`, `--engine`, `--run-id` |
 
 It reads the case from the packed corpus — point it at the synthetic fixture
-(`make-fixture-corpus`) for a fully offline run, or a real `dvc pull`-provisioned
-one. With no `--event` it runs every event the case defines; a resolved event also
+(`make-fixture-corpus`) for a fully offline run, a real `dvc pull`-provisioned
+one, or (via the corpus-backend setting) the blob in place on the DVC remote.
+With no `--event` it runs every event the case defines; a resolved event also
 gets its ground-truth `outcome.json` materialized so the evaluate stage has
 something to score. The derived artifacts land under `data/` exactly as a real run
 would — **review and discard them**, don't commit a local cascade's output.
