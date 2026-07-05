@@ -266,6 +266,46 @@ Credit: michalc/sqlite-s3-query and litements/s3sqlite (both MIT) are the
 reference implementations; this is implemented in-repo so it is typed, tested,
 and reviewed under the same gate as everything else.
 
+### Developer access (Codespaces)
+
+Interactive data discovery — corpus anomalies, field distributions, one-off
+lookups — belongs in a codespace, not a workflow. The remote serves it in two
+modes, both strictly **read-only** (see [SECURITY.md](../SECURITY.md)):
+
+- **Ranged queries** for quick lookups: `uv run fedcourts query
+  --corpus-backend ranged ...` (likewise `open-events`, `provision-snapshot`,
+  `corpus-info`) reads the blob in place on the remote — per-query egress in
+  KBs, no transfer, nothing to keep fresh.
+- **A deliberate full pull** for scan-heavy exploration:
+  `uv run dvc pull corpus/corpus.db.dvc` materializes `corpus/corpus.db`
+  locally, where full table scans and ad-hoc analysis run at local-SQLite
+  speed.
+
+Default to ranged, and pull only when a session is genuinely scan-heavy:
+Codespaces runs on Azure, so every full pull is cross-cloud S3 internet
+egress. That is why the pull is a documented one-liner and never part of
+container creation.
+
+Credentials arrive as **user-scoped** Codespaces secrets — never repo-level,
+never committed — through one of two flows with the same read-only blast
+radius. The **maintainer** authenticates via IAM Identity Center: the
+devcontainer's post-create hook (`.devcontainer/setup-corpus-access.sh`)
+writes `~/.aws/config` profiles whose short-lived SSO session
+(`fedcourts-sso`) assumes the read-only corpus role (`fedcourts-ro`, made the
+shell's default profile) — rerun `aws sso login --profile fedcourts-sso` when
+the session expires. **Contributors** use a dedicated read-only IAM user's
+key pair (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), which boto3 reads
+straight from the environment — nothing to configure. The IAM user is
+provisioned on demand (see [SECURITY.md](../SECURITY.md)); ask via an issue
+if you need corpus access. In either flow, when
+the remote's URL secret (`DVC_REMOTE_URL`) is present the hook writes the
+gitignored `.dvc/config.local` exactly as the workflows do, and the
+application reads the URL for the ranged backend from the same bare variable
+(`fedcourtsai.config` accepts it as an alias of the `FEDCOURTS_`-prefixed
+name) — ranged queries work with no further setup and no pull. Absent
+secrets, the hook prints a note and succeeds — the offline fixture loop and
+the full gate need no remote.
+
 ### Corpus schema
 
 Each corpus row is a normalized, **labeled** record so it serves both consumers:
