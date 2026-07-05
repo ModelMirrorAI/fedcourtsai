@@ -123,7 +123,7 @@ schedule/dispatch) or a different *risk class* (the agentic fan-outs, the corpus
 writers, destructive cleanup). Everything else — a new analysis, a new derived
 artifact, a new maintenance sweep — should land as a mode/job on `run-analytics`
 (or the closest existing surface), reusing the shared composite actions
-(`setup-python-env`, `corpus-readonly`, `configure-git-identity`).
+(`setup-python-env`, `corpus-readonly`, `corpus-ranged`, `configure-git-identity`).
 
 When you add a new `run:*` workflow or edit one, the existing workflows are the
 canonical reference — each handles these cross-cutting traps inline, so copy the
@@ -266,7 +266,8 @@ unaffected: the draft path only triggers when the agent stopped early.
 ## Snapshot sequencing
 
 `run-pull` pushes factual snapshots **to the corpus** (`dvc push`) before it
-queues `run:predict`, so `run-predict` — a read-only corpus consumer (`dvc pull`)
-— sees the snapshot it must predict from. Raw facts never go through PRs (they are
+queues `run:predict`, so `run-predict` — a read-only corpus consumer (its plan
+job pulls, its cells read the blob in place) — sees the snapshot it must predict
+from. Raw facts never go through PRs (they are
 CourtListener data, not agent output); agent outputs (predictions, evaluations)
 always do.

@@ -292,7 +292,8 @@ class AgentToolingFeedback(_Strict):
     )
     used_base_rates: bool = Field(
         default=False,
-        description="Whether the cell used `fedcourts stats` for corpus base-rate context. "
+        description="Whether the cell used corpus base-rate context — the committed "
+        "statpack roll-up, or `fedcourts stats` where a local corpus is present. "
         "Optional (defaults False) so reports written before the tool existed still validate.",
     )
     tools_used: list[str] = Field(
