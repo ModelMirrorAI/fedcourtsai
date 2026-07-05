@@ -65,24 +65,32 @@ def cases_due_for_pull(
     return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]
 
 
-def open_events(corpus_db_path: Path, court_id: str, docket_id: int) -> list[str]:
+def open_events(
+    corpus_db_path: Path,
+    court_id: str,
+    docket_id: int,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+) -> list[str]:
     """Event ids the corpus still tracks as unresolved (``resolved = 0``).
 
     The event-state seam reads from the packed corpus, where ``seed`` and ``pull``
     record predictable events as raw facts: a case enters the corpus with its
     event(s) open, and outcome detection flips each event's ``resolved`` flag when
     it records that event's ``outcome.json``. These are the events ``run-predict``
-    should target. Empty (not created) if the corpus does not exist yet.
+    should target. Empty (not created) if the local corpus does not exist yet;
+    ``backend`` selects the read backend (see :func:`corpus.connect_readonly`).
 
     A case the seed reconcile has latched **out of scope** (``predict_excluded``,
     issue #343) yields no predictable events here — so a stale/unresolvable or
     inconsistent case is dropped at the source, not just at the read-time matrix
     gate. The reconcile clears the latch if the case ever returns to scope.
     """
-    if not corpus_db_path.exists():
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
         return []
     case_id = ids.case_id(court_id, docket_id)
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         row = corpus.get_row(conn, case_id)
         if row is not None and row.predict_excluded:
             return []

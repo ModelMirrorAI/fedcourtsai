@@ -39,15 +39,18 @@ network) for offline local runs and tests, never a substitute for the real corpu
 
 ## Corpus inspection — read the corpus
 
-Read-only views, run after a `dvc pull` provisions the corpus.
+Read-only views. They read the `dvc pull`-ed file by default; where
+`--corpus-backend` is listed, `ranged` queries the immutable blob in place on
+the DVC remote instead (per-query egress in KBs, read stats echoed to stderr;
+see *The ranged read backend* in [data-pipeline.md](data-pipeline.md)).
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `corpus-info` | Show the packed corpus location, row count, and snapshot count. | — |
-| `query` | Retrieve relevant priors for a predictor, most relevant first, one JSON row per line. | `--court`, `--topic`, `--judge`, `--citation`, `--disposition`, `--include-open`, `--limit`, `--full` |
+| `corpus-info` | Show the packed corpus location, row count, and snapshot count. | `--corpus-backend` |
+| `query` | Retrieve relevant priors for a predictor, most relevant first, one JSON row per line. | `--court`, `--topic`, `--judge`, `--citation`, `--disposition`, `--include-open`, `--limit`, `--full`, `--corpus-backend` |
 | `stats` | Aggregate disposition **base-rates** over the corpus — the aggregate counterpart of `query`. Rolls the matched set into overall base-rates and, with `--group-by`, a per-group breakdown (court / topic / judge / SCOTUS `term_year` / disposition / `originating_court`, the circuit-scorecard cut). Shares the `query` filter grammar plus a `--date-from`/`--date-to` filed-date window and a `--term` SCOTUS October-Term filter (SCOTUS cases only — other courts' docket numbers never match). Emits an `AnalyticsReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file. Skips gracefully (exit 0) when the corpus is absent. | `--court`, `--topic`, `--judge`, `--citation`, `--disposition`, `--date-from`, `--date-to`, `--term`, `--resolved-only`, `--group-by`, `--summary-out` |
-| `open-events` | Print a case's unresolved (predictable) event ids, one per line. | `--court`, `--docket` |
-| `provision-snapshot` | Materialize a case's latest corpus snapshot to disk for an agent run. | `--court`, `--docket`, `--out` |
+| `open-events` | Print a case's unresolved (predictable) event ids, one per line. | `--court`, `--docket`, `--corpus-backend` |
+| `provision-snapshot` | Materialize a case's latest corpus snapshot to disk for an agent run. | `--court`, `--docket`, `--out`, `--corpus-backend` |
 | `materialize-event` | Project a predictable event's `event.yaml` from the corpus into the git ledger. | `--court`, `--docket`, `--event`, `--out` |
 | `paths` | Print the resolved corpus/case/event paths for a case. | `--court`, `--docket`, `--event` |
 
