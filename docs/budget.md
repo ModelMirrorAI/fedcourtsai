@@ -253,24 +253,57 @@ here since the corpus lives in DVC/S3, not Actions artifacts.
 
 The raw-fact corpus (`corpus/corpus.db`) and metrics live in a **private S3
 bucket** behind DVC. [S3 Standard, us-east-1](https://aws.amazon.com/s3/pricing/):
-**$0.023/GB-mo** storage, **$0.005/1K** PUTs, **$0.0004/1K** GETs, egress free for
-the first 100 GB/mo then $0.09/GB (ingress always free).
+**$0.023/GB-mo** storage, **$0.005/1K** PUTs, **$0.0004/1K** GETs; egress to the
+internet is free for the first **100 GB/mo account-wide**, then **$0.09/GB**
+(ingress always free).
+
+GitHub-hosted runners execute on **Azure**, so every byte a workflow reads out of
+the bucket — a `dvc pull`, a ranged `GET` — is S3 **internet egress** against
+that allowance. There is no same-region discount between Actions and S3.
+
+> **Superseded assumption.** This section previously priced workflow egress as
+> free on the claim that runners run in the bucket's region. That was wrong —
+> GitHub-hosted runners are Azure-hosted — and the error was masked while the
+> corpus blob was sub-GB, keeping all transfer inside the free tier. The figures
+> below are re-derived under the corrected model and the **ranged-read design**
+> (cells query the blob in place; see [data-pipeline.md](data-pipeline.md)).
 
 The corpus is a handful of large blobs, not millions of files (by design). Even a
 corpus carrying opinion text for the full backlog is plausibly tens of GB;
 DVC keeps historical versions, so budget for a small multiple:
 
 - **Storage:** ~10–100 GB → **≈ $0.25–2.50/mo.**
-- **Requests + egress:** DVC pull/push move whole blobs; daily writers and
-  read-only predict/evaluate consumers keep transfer modest. Workflows run in the
-  same region as the bucket, so egress to runners is free. **≈ $1–5/mo.**
+- **Ingress (`dvc push`):** free, at any scale.
+- **Cell reads (ranged):** a predict/evaluate/reconcile cell no longer pulls the
+  blob; it makes indexed point queries over HTTP range requests. Measured
+  against the real corpus: a snapshot provisioning ≈ 5 GETs / ~1.3 MB; a
+  filtered priors retrieval is MB-scale (tens of MB for a broad filter). Budget
+  **≈ 10–50 MB and a few hundred GETs per cell**. The September burst — a
+  long-conference batch on the order of 1–2K cells — is then
+  2,000 × 50 MB ≈ **≤ 100 GB** of burst egress (≈ $0–9 at the margin, most of
+  it inside the free tier) plus ~400K GETs ≈ $0.16. Under the superseded
+  per-cell full-pull design the same burst would have moved 2,000 × the blob —
+  ~4 TB ≈ **$350+** at even a 2 GB blob; the ranged redesign is what keeps this
+  term flat as the blob grows.
+- **Recurring full pulls (the remaining bulk egress):** the scan-shaped
+  consumers still move whole blobs — the daily writer (`run-pull`), the plan
+  jobs, analytics/cleanup, and an occasional deliberate Codespaces exploration
+  or integration check. Order **~50–100 full pulls/mo × blob size**: at today's
+  ~0.8 GB blob that is ~40–80 GB/mo, inside or near the free tier ⇒
+  ≈ **$0–5/mo**. This term scales linearly with the blob: at a 10 GB blob the
+  same cadence moves ~0.5–1 TB/mo ≈ **$35–80/mo**, making it — not the cells —
+  the S3 line's dominant term. If backlog growth takes the blob there, the
+  lever is moving the full-pull consumers to ranged/incremental reads or
+  thinning the pull cadence.
 
-> **Line item: < $10/mo** under current design. The one thing that would change
-> this materially is storing **embeddings** for semantic retrieval over the full
-> backlog (a future upgrade) — that adds storage plus a one-time embedding compute
-> pass, though CourtListener's bulk set ships ~2 TB of precomputed case-law
-> embeddings (free to use, ~$200 one-time S3 egress if downloaded), so prefer
-> reusing those over regenerating; size it when that lands.
+> **Line item: ≈ $5/mo at today's blob; ≈ $50/mo at a tens-of-GB blob** (driven
+> by the recurring full pulls, per the derivation above). The other thing that
+> would change it materially is storing **embeddings** for semantic retrieval
+> over the full backlog (a future upgrade) — that adds storage plus a one-time
+> embedding compute pass, though CourtListener's bulk set ships ~2 TB of
+> precomputed case-law embeddings (free to use, ~$200 one-time S3 egress if
+> downloaded), so prefer reusing those over regenerating; size it when that
+> lands.
 
 ## Monthly and yearly summary
 
@@ -302,7 +335,7 @@ batch is API-metered (all three engines).
 | CourtListener Tier 4 | $100 | $1,200 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$50 | ~$600 |
-| S3 / DVC | ~$10 | ~$120 |
+| S3 / DVC (recurring full pulls at a tens-of-GB blob; see §4) | ~$50 | ~$600 |
 | **Total** | **≈ $22.2K/mo** | **≈ $263K/yr** |
 
 The gap between A and B is almost entirely the prediction *slice* and the
