@@ -286,18 +286,19 @@ DVC keeps historical versions, so budget for a small multiple:
   ~4 TB ≈ **$350+** at even a 2 GB blob; the ranged redesign is what keeps this
   term flat as the blob grows.
 - **Recurring full pulls (the remaining bulk egress):** the scan-shaped
-  consumers still move whole blobs — the daily writer (`run-pull`), the plan
-  jobs, analytics/cleanup, and an occasional deliberate Codespaces exploration
-  or integration check. Order **~50–100 full pulls/mo × blob size**: at today's
-  ~0.8 GB blob that is ~40–80 GB/mo, inside or near the free tier ⇒
-  ≈ **$0–5/mo**. This term scales linearly with the blob: at a 10 GB blob the
-  same cadence moves ~0.5–1 TB/mo ≈ **$35–80/mo**, making it — not the cells —
+  consumers still move whole blobs — the writer (`run-pull`, **four windows a
+  day** ⇒ ~120 pulls/mo on its own), the plan jobs each triggered run, then
+  analytics/cleanup and an occasional deliberate Codespaces exploration or
+  integration check. Order **~120–200 full pulls/mo × blob size**: at today's
+  ~0.8 GB blob that is ~100–170 GB/mo, **at or above the free tier** ⇒
+  ≈ **$0–10/mo**. This term scales linearly with the blob: at a 10 GB blob the
+  same cadence moves ~1–2 TB/mo ≈ **$80–170/mo**, making it — not the cells —
   the S3 line's dominant term. If backlog growth takes the blob there, the
-  lever is moving the full-pull consumers to ranged/incremental reads or
-  thinning the pull cadence.
+  lever is moving the full-pull consumers to ranged/incremental reads, caching
+  the blob on the Actions side, or thinning the pull cadence.
 
-> **Line item: ≈ $5/mo at today's blob; ≈ $50/mo at a tens-of-GB blob** (driven
-> by the recurring full pulls, per the derivation above). The other thing that
+> **Line item: ≈ $10/mo at today's blob; ≈ $100/mo at a tens-of-GB blob**
+> (driven by the recurring full pulls, per the derivation above). The other thing that
 > would change it materially is storing **embeddings** for semantic retrieval
 > over the full backlog (a future upgrade) — that adds storage plus a one-time
 > embedding compute pass, though CourtListener's bulk set ships ~2 TB of
@@ -335,8 +336,8 @@ batch is API-metered (all three engines).
 | CourtListener Tier 4 | $100 | $1,200 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$50 | ~$600 |
-| S3 / DVC (recurring full pulls at a tens-of-GB blob; see §4) | ~$50 | ~$600 |
-| **Total** | **≈ $22.2K/mo** | **≈ $263K/yr** |
+| S3 / DVC (recurring full pulls at a tens-of-GB blob; see §4) | ~$100 | ~$1,200 |
+| **Total** | **≈ $22.2K/mo** | **≈ $264K/yr** |
 
 The gap between A and B is almost entirely the prediction *slice* and the
 three-engine fan-out. The budget is governed by choosing where on that line to
