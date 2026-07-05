@@ -329,19 +329,31 @@ def dvc_status(
     every DVC-tracked data output (the ``corpus/corpus.db.dvc`` pointer, any
     cached stage output) is well-formed, gitignored, and absent from git — so the
     corpus blob can never slip into the repo — and that every ``cache: false``
-    pipeline output (the ``metrics/`` roll-ups) is committed. Exits non-zero and
-    lists every problem if the bookkeeping has drifted. The online ``dvc status``
-    / push side belongs to the data workflows that hold the remote credentials.
+    pipeline output (the ``metrics/`` roll-ups) is committed. When the corpus
+    blob is present locally it also checks the file's physical layout against
+    the ranged-read contract (64 KB pages, non-WAL at rest) so a drifted file
+    fails loudly before it is pushed. Exits non-zero and lists every problem if
+    the bookkeeping has drifted. The online ``dvc status`` / push side belongs
+    to the data workflows that hold the remote credentials.
     """
     is_tracked, is_ignored = dvc.git_checkers(path)
     errors = dvc.check_state(path, is_tracked=is_tracked, is_ignored=is_ignored)
+    outs, _ = dvc.collect_outs(path)
+    tracked = dvc.tracked_paths(outs)
+    # The ranged-read layout contract rides on the same offline gate: check the
+    # corpus blob's header whenever the file is present (absent is fine — the
+    # gate runs before any `dvc pull`).
+    errors += [
+        problem
+        for out_path in tracked
+        if out_path.name == corpus.CORPUS_DB_FILENAME
+        for problem in corpus.check_ranged_layout(path / out_path)
+    ]
     if errors:
         for err in errors:
             typer.echo(f"DVC {err}", err=True)
         typer.echo(f"\n{len(errors)} DVC metadata problem(s)", err=True)
         raise typer.Exit(code=1)
-    outs, _ = dvc.collect_outs(path)
-    tracked = dvc.tracked_paths(outs)
     summary = ", ".join(str(p) for p in tracked) if tracked else "none"
     typer.echo(f"OK: DVC metadata consistent ({len(tracked)} remote-tracked output(s): {summary})")
 
@@ -736,12 +748,27 @@ def export_schemas(
     typer.echo(f"Exported {len(EXPORTABLE_MODELS)} schema(s) to {out}")
 
 
+def _ensure_corpus_layout(db_path: Path) -> None:
+    """Rebuild the corpus file to the ranged-read layout if it has drifted.
+
+    Every corpus-writer command calls this before returning, so the file a
+    workflow ``dvc add``s always satisfies the layout contract ``dvc-status``
+    enforces (64 KB pages, non-WAL at rest) — the migration happens under the
+    ``corpus-write`` lock the writer's job already holds.
+    """
+    if corpus.ensure_ranged_layout(db_path):
+        typer.echo(
+            f"corpus layout: rebuilt {db_path} to {corpus.RANGED_PAGE_SIZE}-byte pages, non-WAL"
+        )
+
+
 def _fetch_one_docket(court: str, docket: int) -> None:
     """Fetch one docket via REST and ingest it into the corpus (onboard/refresh)."""
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
     with _client() as client:
         result = pull_case(client, db, settings.data_root, court, docket)
+    _ensure_corpus_layout(db)
     typer.echo(
         f"{result.case_id} changed={result.changed} snapshot={result.snapshot} "
         f"resolved={len(result.resolved)} reconcile={len(result.reconcile)}"
@@ -906,6 +933,7 @@ def seed_backfill(
     finally:
         source.cleanup()
 
+    _ensure_corpus_layout(corpus.corpus_db_path(settings.corpus_root))
     if report is not None:
         write_raw_json(report, rep.model_dump(mode="json"))
     typer.echo(
@@ -950,6 +978,8 @@ def full_refresh_cmd(
         corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
         dry_run=dry_run,
     )
+    if not dry_run:
+        _ensure_corpus_layout(corpus.corpus_db_path(settings.corpus_root))
     if report is not None:
         write_raw_json(report, rep.model_dump(mode="json"))
     verb = "would reset" if dry_run else "reset"
@@ -1448,6 +1478,7 @@ def pull_all(
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
         )
         queues = pull_cases(client, db, settings.data_root, due, scope=scope)
+    _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")

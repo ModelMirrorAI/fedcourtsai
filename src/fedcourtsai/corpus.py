@@ -37,10 +37,89 @@ from .schemas import Disposition, EventKind
 
 CORPUS_DB_FILENAME = "corpus.db"
 
+# The corpus file's physical layout is a contract with ranged remote reads
+# (read-only SQLite over HTTP range requests against the immutable blob on the
+# DVC remote): 64 KB pages keep a B-tree descent to a handful of round trips
+# (SQLite's maximum page size), and the file must not be in WAL mode at rest —
+# a WAL reader needs the `-wal` sidecar, which never ships with the blob.
+# `connect` creates databases with this layout, `ensure_ranged_layout` migrates
+# a pre-existing file, and `check_ranged_layout` is the offline drift check
+# `fedcourts dvc-status` enforces.
+RANGED_PAGE_SIZE = 65536
+
+# SQLite database header: the page size is the big-endian 16-bit word at offset
+# 16, where the value 1 encodes 65536; the bytes at offsets 18/19 are the
+# file-format write/read versions, 2 meaning WAL.
+_HEADER_LEN = 20
+_WAL_FORMAT_VERSION = 2
+
 
 def corpus_db_path(corpus_root: Path) -> Path:
     """Location of the packed corpus database within ``corpus_root``."""
     return corpus_root / CORPUS_DB_FILENAME
+
+
+def _file_layout(db_path: Path) -> tuple[int, bool] | None:
+    """``(page_size, is_wal)`` from the SQLite file header, ``None`` if absent/empty."""
+    if not db_path.is_file():
+        return None
+    with db_path.open("rb") as fh:
+        header = fh.read(_HEADER_LEN)
+    if len(header) < _HEADER_LEN:
+        return None
+    raw = int.from_bytes(header[16:18], "big")
+    page_size = 65536 if raw == 1 else raw
+    is_wal = _WAL_FORMAT_VERSION in (header[18], header[19])
+    return page_size, is_wal
+
+
+def check_ranged_layout(db_path: Path) -> list[str]:
+    """Layout problems that would break ranged remote reads; empty when fine.
+
+    Reads only the file header, so it is offline-safe and graceful before a
+    ``dvc pull`` — an absent or empty file is not a problem, there is simply
+    nothing to check yet.
+    """
+    layout = _file_layout(db_path)
+    if layout is None:
+        return []
+    page_size, is_wal = layout
+    problems: list[str] = []
+    if page_size != RANGED_PAGE_SIZE:
+        problems.append(
+            f"{db_path}: page size {page_size} (ranged reads require {RANGED_PAGE_SIZE}; "
+            "a corpus writer run migrates it)"
+        )
+    if is_wal:
+        problems.append(
+            f"{db_path}: WAL journal mode (the corpus must be non-WAL at rest; "
+            "a corpus writer run migrates it)"
+        )
+    return problems
+
+
+def ensure_ranged_layout(db_path: Path) -> bool:
+    """Rebuild ``db_path`` to the ranged-read layout if it drifted; True if rebuilt.
+
+    The migration for a file created under different settings: reset WAL to a
+    rollback journal, set the 64 KB page size, and ``VACUUM`` so every page is
+    rewritten at the new size. The corpus writers call this before their
+    ``dvc add``, so a migration runs inside the job that already holds the
+    ``corpus-write`` lock and the rebuilt file is what gets pushed. When the
+    layout is already right this is a header read and a no-op.
+    """
+    if not check_ranged_layout(db_path):
+        return False
+    conn = sqlite3.connect(db_path)
+    try:
+        # Page-size changes need a VACUUM and cannot happen in WAL mode, so the
+        # order matters: leave WAL first, set the size, then rebuild.
+        conn.execute("PRAGMA journal_mode = DELETE")
+        conn.execute(f"PRAGMA page_size = {RANGED_PAGE_SIZE}")
+        conn.execute("VACUUM")
+    finally:
+        conn.close()
+    return True
 
 
 class PanelMember(BaseModel):
@@ -203,6 +282,9 @@ CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
 -- The governor rotates oldest-last_pulled-first over the unresolved set.
 CREATE INDEX IF NOT EXISTS idx_cases_last_pulled ON cases(last_pulled);
+-- retrieve_priors pushes its exact-match filters into SQL; each must be
+-- index-served so a ranged remote read never scans the full cases table.
+CREATE INDEX IF NOT EXISTS idx_cases_topic ON cases(topic);
 
 -- Predictable event definitions: raw facts, one or more per case.
 CREATE TABLE IF NOT EXISTS events (
@@ -219,6 +301,11 @@ CREATE TABLE IF NOT EXISTS events (
     PRIMARY KEY (case_id, event_id)
 );
 CREATE INDEX IF NOT EXISTS idx_events_case ON events(case_id);
+-- The open-events census reads only unresolved rows; the partial index holds
+-- exactly that (shrinking) subset in (case_id, event_id) order, so the census
+-- is an ordered walk of a small index rather than a scan of every event —
+-- which over ranged remote reads is the difference between KBs and the table.
+CREATE INDEX IF NOT EXISTS idx_events_open ON events(case_id, event_id) WHERE resolved = 0;
 
 -- Per-court forward-discovery watermark (the date_filed cursor for `pull`).
 CREATE TABLE IF NOT EXISTS discovery_watermarks (
@@ -322,6 +409,9 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
     # the caller normalizes the incoming value, so both sides compare canonically.
     conn.create_function("norm_dn", 1, normalize_docket_number, deterministic=True)
     try:
+        # Before any page exists: a fresh database is born with the ranged-read
+        # page size (inert on an existing file, whose size is already fixed).
+        conn.execute(f"PRAGMA page_size = {RANGED_PAGE_SIZE}")
         conn.executescript(_SCHEMA)
         _migrate_cases(conn)
         yield conn

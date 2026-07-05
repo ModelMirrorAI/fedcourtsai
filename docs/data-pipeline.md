@@ -213,6 +213,22 @@ prevent that:
   new tip and the push retried — the lock means the pointer itself never conflicts,
   so this is a clean fast-forward, not a corpus merge.
 
+### The corpus file's physical layout
+
+The blob's physical layout is a contract with **ranged remote reads** — read-only
+SQLite querying the immutable, content-addressed blob in place on the remote via
+HTTP range requests, instead of transferring it whole. Two properties govern that
+access pattern, and the corpus writers guarantee both: **64 KB pages** (SQLite's
+maximum page size, so a B-tree descent costs a handful of round trips instead of
+dozens) and a **non-WAL journal mode at rest** (a WAL reader needs the `-wal`
+sidecar, which never ships with the blob). `corpus.connect` creates every database
+with this layout; each writer command rebuilds a drifted file (`VACUUM` at the
+target page size) before its workflow's `dvc add`, under the `corpus-write` lock
+the job already holds; and `fedcourts dvc-status` fails on a drifted local file,
+so the invariant is enforced rather than remembered. The read paths behind
+retrieval and provisioning are index-served (pinned by `EXPLAIN QUERY PLAN`
+tests), which keeps a ranged point lookup at KB scale rather than a table scan.
+
 ### Corpus schema
 
 Each corpus row is a normalized, **labeled** record so it serves both consumers:
