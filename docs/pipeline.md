@@ -15,6 +15,7 @@ stage.
 | `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
 | _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
+| _(none)_        | `integration-corpus` | manual dispatch                 | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics — pipeline health (the Actions run history), backfill
@@ -64,6 +65,13 @@ credential:
   write-capable job (it alone mints the dev App token). The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking.
+
+`integration-corpus` is the read-path preflight, also outside the cascade: a
+manual-dispatch, strictly read-only check of the **ranged corpus backend**
+against the real DVC remote — the tested `fedcourts corpus-integration-check`
+read set plus an optional stub `local-cascade` cell — dispatched around changes
+to corpus access or the corpus-consuming workflows and before releases. See
+*Infra-bound integration* in [testing.md](testing.md).
 
 **seed** loads the historical backlog from CourtListener **bulk data** — chunked
 catch-up while backfilling, then a weekly snapshot-id check that reconciles when a

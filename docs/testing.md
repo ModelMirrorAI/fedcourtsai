@@ -64,6 +64,20 @@ corpus from S3 over OIDC, the GitHub App token, issue comments — is deliberate
 *not* part of the fast loop. It is exercised by dedicated paths and occasional
 manual workflow dispatch, never on every iteration.
 
+The ranged corpus backend has such a dedicated path:
+[`integration-corpus.yml`](../.github/workflows/integration-corpus.yml) (manual
+dispatch, read-only role) runs the tested `fedcourts corpus-integration-check`
+read set — a point lookup, a priors retrieval, a snapshot provisioning — against
+the real remote blob for a known case; the command asserts every read comes back
+non-empty, reports per-read GET/byte counters to the run summary, and exits
+non-zero when the set blows a generous wall-clock budget. A boolean input adds
+one offline stub `local-cascade` cell over the same backend, covering
+provisioning end to end. Dispatch it around the changes it guards: **before and
+after any change to corpus access** (the read seams, `corpus_ranged`, the blob's
+physical layout) **or to a corpus-consuming workflow**, and as a preflight
+**before a release dry run** and **before a prediction freeze** — the moments
+when a silent read regression would be most expensive.
+
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
 > composes them (run in the gate as the `test_cascade_smoke.py` smoke), and the

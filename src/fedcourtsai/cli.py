@@ -16,7 +16,16 @@ from typing import Annotated
 
 import typer
 
-from . import analytics, cleanup, corpus, corpus_ranged, dvc, ids, metrics_refresh
+from . import (
+    analytics,
+    cleanup,
+    corpus,
+    corpus_ranged,
+    dvc,
+    ids,
+    integration_check,
+    metrics_refresh,
+)
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
@@ -1319,6 +1328,64 @@ def provision_snapshot(
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} -> {dest}")
 
 
+@app.command("corpus-integration-check")
+def corpus_integration_check(
+    court: Annotated[str, typer.Option(help="Court id of the known case the read set targets.")],
+    docket: Annotated[int, typer.Option(help="Docket id of the known case.")],
+    limit: Annotated[int, typer.Option(help="Priors to retrieve in the query step.")] = 5,
+    budget_seconds: Annotated[
+        float, typer.Option(help="Wall-clock budget for the whole read set.")
+    ] = 300.0,
+    snapshot_out: Annotated[
+        Path | None,
+        typer.Option(help="Also materialize the provisioned snapshot here."),
+    ] = None,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Append the Markdown summary here (e.g. $GITHUB_STEP_SUMMARY); "
+            "the machine JSON always goes to stdout.",
+        ),
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Run the fixed corpus read set; fail on an empty result or a blown budget.
+
+    The integration-corpus workflow's engine: a point lookup (the case's open
+    events), a priors retrieval (a narrow indexed filter over the case's
+    court), and a snapshot provisioning, each on its own read connection so a
+    ranged run reports per-read GET/byte transfer counters (see
+    ``fedcourtsai.integration_check``). Emits the machine report JSON on stdout
+    and the Markdown summary on stderr; ``--summary-out`` also appends the
+    Markdown. Exits non-zero when any read comes back empty or the set blows
+    the wall-clock budget — the signature of a scan or a cache regression, not
+    a slow network day.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend == "local" and not db_path.exists():
+        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
+        raise typer.Exit(code=1)
+    report = integration_check.run_integration_check(
+        corpus_db_path=db_path,
+        court=court,
+        docket=docket,
+        limit=limit,
+        budget_seconds=budget_seconds,
+        backend=backend,
+        snapshot_out=snapshot_out,
+    )
+    summary = integration_check.render_markdown(report)
+    typer.echo(report.model_dump_json(indent=2))
+    typer.echo(summary, err=True)
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(summary)
+    if not report.ok:
+        raise typer.Exit(code=1)
+
+
 @app.command("local-cascade")
 def local_cascade(
     court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
@@ -1344,7 +1411,9 @@ def local_cascade(
     the fixture corpus (or a real provisioned one) it provisions the snapshot,
     materializes the git event/outcome definitions, fans the chosen engine out
     over the enabled predictors then evaluators, and validates the produced
-    ledger — the iteration loop that otherwise only runs inside Actions.
+    ledger — the iteration loop that otherwise only runs inside Actions. Corpus
+    reads honor the corpus-backend setting, so a ``ranged``-configured
+    environment runs the cascade against the remote blob with no local pull.
 
     ``--engine stub`` (the default) is deterministic, offline, and token-free.
     ``--engine replay`` is also offline but emits a captured real prediction from
