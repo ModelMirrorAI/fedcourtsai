@@ -301,12 +301,12 @@ def reconcile_scope_cmd(
     """Reconcile the corpus's out-of-scope latch with the predicate set (issue #343).
 
     The write counterpart of `corpus-scope-audit`: over the predict-eligible cases, it
-    latches `predict_excluded` on those an exclusion predicate now matches (pre-1925
-    mandatory jurisdiction #309, stale unresolvable #333, inconsistent dates #171) and
-    clears it on those back in scope — so `open-events` (and thus the predict/queueing
-    paths) drop excluded cases at the source. Dry-run by default; `--apply` writes (the
-    seed run then `dvc push`es the corpus). Prints a `ScopeReconcileResult`. Fails loud
-    if the corpus is absent.
+    latches `predict_excluded` on those the shared exclusion reasoning now matches
+    (`corpus.out_of_scope_reason_full` — the row rules plus the snapshot-aware bare
+    opinion-import rule) and clears it on those back in scope — so `open-events` (and
+    thus the predict/queueing paths) drop excluded cases at the source. Dry-run by
+    default; `--apply` writes (the seed run then `dvc push`es the corpus). Prints a
+    `ScopeReconcileResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -1674,15 +1674,13 @@ def _scope_filtered(
     manual run produced an empty matrix. ``scope == all`` passes every case
     through unchanged.
 
-    A SCOTUS-eligible case is still dropped if it is a **pre-1925
-    mandatory-jurisdiction matter** (:func:`corpus.is_historical_mandatory`, issue
-    #309): the ``evt-petition-disposition`` model targets modern discretionary
-    cert, and these historical appeals carry an incompatible disposition meaning.
-    It is likewise dropped if it is an **old SCOTUS petition the corpus cannot
-    resolve** (:func:`corpus.is_stale_unresolvable`, issue #333) — a decades-old
-    docket left perpetually open by a bare-stub snapshot, with no recoverable
-    disposition to predict against. The latch stays a pure "SCOTUS-touched" signal;
-    these era/staleness filters layer on top here so ingestion coverage is unaffected.
+    A SCOTUS-eligible case is still dropped when the shared exclusion reasoning
+    matches it: the reconcile's ``predict_excluded`` latch, or any reason from
+    ``corpus.out_of_scope_reason_full`` (the row rules — era, staleness, docket
+    form, date consistency — plus the snapshot-aware bare opinion-import rule),
+    with the reason echoed per case. The eligibility latch stays a pure
+    "SCOTUS-touched" signal; these filters layer on top here so ingestion
+    coverage is unaffected.
 
     Gating reads the corpus, so the corpus database must be on disk. If it is
     absent the gate cannot distinguish "case not eligible" from "corpus never
@@ -1711,18 +1709,14 @@ def _scope_filtered(
                     f"(predict.scope=scotus_touched, not SCOTUS-eligible).",
                     err=True,
                 )
-            elif corpus.is_historical_mandatory(row):
+            elif row.predict_excluded:
                 typer.echo(
-                    f"Skipping {case.court}/{case.docket}: pre-1925 mandatory-jurisdiction "
-                    f"matter (issue #309); the discretionary-cert event model does not apply.",
+                    f"Skipping {case.court}/{case.docket}: latched out of predict scope "
+                    f"by the corpus reconcile.",
                     err=True,
                 )
-            elif corpus.is_stale_unresolvable(row):
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: old SCOTUS petition the corpus "
-                    f"cannot resolve (issue #333); no recoverable disposition to predict against.",
-                    err=True,
-                )
+            elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
+                typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
             else:
                 kept.append(case)
     return kept

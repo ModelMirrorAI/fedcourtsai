@@ -8,11 +8,12 @@ exclusion predicate now matches, so ``store.open_events`` yields nothing for the
 (they leave the predictable set at the source, not just the backstop), and clears
 the latch on cases that have returned to scope.
 
-It is **deterministic** (a pure function of the corpus + the shared
-``corpus.OUT_OF_SCOPE_RULES``) and **two-directional** — the latch is not monotonic,
-unlike ``predict_eligible`` — so re-running it converges. Scoped to the
-predict-eligible universe: a case that could never be predicted needs no latch.
-``run-seed`` owns running it where the corpus is pulled, with ``dvc push``.
+It is **deterministic** (a pure function of the corpus + the shared reason
+evaluator ``corpus.out_of_scope_reason_full``, which spans the row-only rules and
+the snapshot-aware bare opinion-import rule) and **two-directional** — the latch
+is not monotonic, unlike ``predict_eligible`` — so re-running it converges. Scoped
+to the predict-eligible universe: a case that could never be predicted needs no
+latch. ``run-seed`` owns running it where the corpus is pulled, with ``dvc push``.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ def reconcile_predict_scope(conn: sqlite3.Connection, *, apply: bool) -> ScopeRe
     to_release: list[str] = []
     for row in corpus.iter_rows(conn, predict_eligible=True):
         eligible += 1
-        should_exclude = corpus.out_of_scope_reason(row) is not None
+        should_exclude = corpus.out_of_scope_reason_full(conn, row) is not None
         if should_exclude and not row.predict_excluded:
             to_exclude.append(row.case_id)
         elif not should_exclude and row.predict_excluded:

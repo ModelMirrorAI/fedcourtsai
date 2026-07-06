@@ -718,7 +718,7 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
             row = seen_rows.setdefault(event.case_id, corpus.get_row(conn, event.case_id))
             if row is None:
                 continue
-            reason = corpus.out_of_scope_reason(row)
+            reason = corpus.out_of_scope_reason_full(conn, row)
             if reason is None:
                 bucket_reason = _unclassified_reason(row)
                 bucket = by_bucket.setdefault(bucket_reason, _Bucket())
@@ -731,7 +731,10 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
             agg = by_reason.setdefault(reason, _ReasonAgg())
             agg.cases.add(event.case_id)
             agg.open_events += 1
-            if _recoverable_signal(row):
+            # The bare opinion-import class is recoverable by construction: its
+            # exclusion signal *is* a linked published opinion cluster, the same
+            # ingestion-gap hint the row-level signal looks for.
+            if _recoverable_signal(row) or reason == corpus.BARE_OPINION_IMPORT_REASON:
                 agg.recoverable += 1
             if event.case_id not in agg.sample and len(agg.sample) < _MAX_SAMPLE:
                 agg.sample.append(event.case_id)

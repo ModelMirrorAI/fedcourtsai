@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 from fedcourtsai import cleanup, corpus
@@ -59,6 +60,34 @@ def test_find_flags_out_of_scope_cases_only(tmp_path: Path) -> None:
     assert by_case["scotus/1004191"].paths == [
         "data/cases/scotus/1004191/events/evt-petition-disposition/predictions"
     ]
+
+
+def test_find_flags_bare_opinion_import_case(tmp_path: Path) -> None:
+    # Issue #438: a bare bulk-import row (no docket number, no dates, no citation
+    # fields) whose snapshot links an opinion cluster is prunable; the same bare
+    # row without the cluster link stays untouched.
+    data_root = tmp_path / "data"
+    corpus_db = _seed_corpus(
+        tmp_path / "corpus",
+        [
+            corpus.CorpusRow(case_id="scotus/1038466", court="scotus"),
+            corpus.CorpusRow(case_id="scotus/7", court="scotus"),
+        ],
+    )
+    with corpus.connect(corpus_db) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1038466",
+            date(2026, 7, 2),
+            {"id": 1038466, "clusters": ["https://example/clusters/88494/"]},
+        )
+    _write_prediction(data_root, "scotus/1038466")
+    _write_prediction(data_root, "scotus/7")
+
+    prunable = cleanup.find_out_of_scope_predictions(data_root, corpus_db)
+
+    assert [case.case_id for case in prunable] == ["scotus/1038466"]
+    assert prunable[0].reason == corpus.BARE_OPINION_IMPORT_REASON
 
 
 def test_remove_deletes_only_the_named_predictions(tmp_path: Path) -> None:

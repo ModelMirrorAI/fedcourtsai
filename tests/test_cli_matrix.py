@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -163,7 +164,62 @@ def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path)
     assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
     # The drop is explained on stderr, distinct from the out-of-scope and #309 notes.
     assert "24002" in result.stderr
-    assert "cannot resolve" in result.stderr
+    assert "stale unresolvable" in result.stderr
+
+
+def test_predict_matrix_drops_bare_opinion_import_case(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Both cases are SCOTUS-eligible, but 24002 is a bare bulk-import row (every
+    # predicate-keyed field empty) whose snapshot links an opinion cluster — the
+    # snapshot-aware exclusion (issue #438) — so the backstop drops it too.
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/24002", court="scotus", predict_eligible=True)],
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/24002",
+            date(2026, 7, 2),
+            {"id": 24002, "clusters": ["https://example/clusters/88494/"]},
+        )
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
+    assert "24002" in result.stderr
+    assert "bare bulk-import" in result.stderr
+
+
+def test_predict_matrix_drops_latched_case(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # A case the corpus reconcile latched out is dropped on the latch alone, even
+    # when no live rule re-derives the exclusion at plan time.
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/24002",
+                    court="scotus",
+                    docket_number="24-102",
+                    predict_eligible=True,
+                )
+            ],
+        )
+        corpus.set_predict_excluded(conn, "scotus/24002", True)
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
+    assert "24002" in result.stderr
+    assert "latched out of predict scope" in result.stderr
 
 
 def test_predict_matrix_scope_all_keeps_every_case(tmp_path: Path) -> None:
