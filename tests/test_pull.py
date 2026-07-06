@@ -229,11 +229,21 @@ def test_in_predict_scope_excludes_eligible_but_out_of_scope_cases(tmp_path: Pat
                 ),
                 # SCOTUS-touched but not eligible -> out (the existing latch)
                 corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24-9"),
+                # eligible but a bare bulk-import row whose snapshot links an
+                # opinion cluster (#438) -> out via the snapshot-aware rule
+                corpus.CorpusRow(case_id="scotus/4", court="scotus", predict_eligible=True),
             ],
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/4",
+            date(2026, 7, 2),
+            {"id": 4, "clusters": ["https://example/clusters/88494/"]},
         )
     assert _in_predict_scope(db, "scotus/1") is True
     assert _in_predict_scope(db, "scotus/2") is False
     assert _in_predict_scope(db, "scotus/3") is False
+    assert _in_predict_scope(db, "scotus/4") is False
 
 
 class FakeDiscoverPullClient:
