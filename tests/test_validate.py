@@ -180,15 +180,15 @@ def test_run_scope_audit_buckets_unclassified_by_reason(tmp_path: Path) -> None:
             [
                 # recent Term, unresolved -> "recent or current Term"
                 corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="24-101"),
-                # two consolidated bare-number forms the Term parser can't read and no
-                # exclusion predicate catches -> "Term not parseable"; same shape, so they
-                # aggregate in the histogram. (Numeric `22O141` and the ", Orig." text form
-                # are excluded now; ambiguous multi-number forms still fall through.)
+                # two consolidated forms whose members *disagree* (bare + Term-form),
+                # so the consolidated rule refuses to classify them -> they stay
+                # visible as "Term not parseable"; same shape, so they aggregate in
+                # the histogram. (Agreeing consolidated forms are excluded now.)
                 corpus.CorpusRow(
-                    case_id="scotus/2", court="scotus", docket_number="No. 155; No. 156"
+                    case_id="scotus/2", court="scotus", docket_number="No. 155; No. 93-7515"
                 ),
                 corpus.CorpusRow(
-                    case_id="scotus/5", court="scotus", docket_number="No. 157; No. 158"
+                    case_id="scotus/5", court="scotus", docket_number="No. 157; No. 94-7100"
                 ),
                 # open event but a disposition is recorded -> "carries a disposition signal"
                 corpus.CorpusRow(
@@ -213,7 +213,9 @@ def test_run_scope_audit_buckets_unclassified_by_reason(tmp_path: Path) -> None:
     }
     # The two unparseable dockets share a shape, so the histogram counts it once at 2 —
     # the concrete format (#343) a parser broadening would target.
-    assert {s.shape: s.count for s in audit.unparseable_docket_shapes} == {"Aa. 999; Aa. 999": 2}
+    assert {s.shape: s.count for s in audit.unparseable_docket_shapes} == {
+        "Aa. 999; Aa. 99-9999": 2
+    }
 
 
 def _write_event(data_root: Path, court: str, docket: int, event: str) -> Path:

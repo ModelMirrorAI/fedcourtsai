@@ -382,7 +382,7 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE cases ADD COLUMN {column} {_CASES_COLUMN_DDL[column]}")
 
 
-_DN_LABEL = re.compile(r"^NO\.?\s+")  # a leading "No." / "No " docket-number label
+_DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # Typographic dashes (en U+2013 / em U+2014) that stand in for a plain hyphen in a
 # docket number, folded so a dash-variant reads as the modern Term-year form (#362).
@@ -836,6 +836,56 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     )
 
 
+# Separators a consolidated multi-docket string joins its members with:
+# "No. 155; No. 156", "Nos. 522, 523, 524", "Nos. 155 and 156", "155 & 156".
+_CONSOLIDATED_SEPARATORS = re.compile(r";|,|&|\band\b", re.IGNORECASE)
+
+
+def consolidated_docket_members(raw: str) -> list[str] | None:
+    """The member docket numbers of a consolidated multi-docket string, or ``None``.
+
+    Splits the **raw** string on the separators and normalizes each member
+    individually (so a per-member ``No.`` / ``Nos.`` label is stripped), keeping
+    the non-empty results. ``None`` when the string is not consolidated — no
+    separator, or fewer than two members survive — so the single-docket
+    predicates own it. Deliberately a *scope* reader, not a join key:
+    :func:`normalize_docket_number` keeps refusing multi-number strings for the
+    lower-court join (a miss, never a wrong link), while the scope predicates may
+    classify the members it refuses to match.
+    """
+    if not raw or not _CONSOLIDATED_SEPARATORS.search(raw):
+        return None
+    members = [normalize_docket_number(part) for part in _CONSOLIDATED_SEPARATORS.split(raw)]
+    found = [member for member in members if member]
+    return found if len(found) >= 2 else None
+
+
+def is_consolidated_out_of_scope(row: CorpusRow) -> bool:
+    """Whether a consolidated SCOTUS docket's members all classify out of scope (issue #449).
+
+    A consolidated row carries several docket numbers in one string, so no
+    single-number predicate can read it. This rule splits the members
+    (:func:`consolidated_docket_members`) and runs **each member through the
+    existing single-docket predicates** on a copy of the row: the row leaves
+    predict scope only when *every* member agrees — all bare-sequential numbers
+    (the pre-1925 mandatory-jurisdiction regime, #309) or all stale Term years
+    on a still-open row (#333). Any disagreement, or any member the predicates
+    cannot read, keeps the row in scope and visible in the audit's unclassified
+    bucket — conservative like every sibling: it can under-catch, never drop a
+    live consolidated petition (whose members parse to recent Terms and match
+    neither branch). SCOTUS-only.
+    """
+    if row.court != "scotus":
+        return False
+    members = consolidated_docket_members(row.docket_number)
+    if members is None:
+        return False
+    member_rows = [row.model_copy(update={"docket_number": member}) for member in members]
+    return all(is_historical_mandatory(member) for member in member_rows) or all(
+        is_stale_unresolvable(member) for member in member_rows
+    )
+
+
 def is_date_inconsistent(row: CorpusRow) -> bool:
     """Whether a case's filing/decision dates are internally inconsistent (issue #171).
 
@@ -930,6 +980,10 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (
         is_non_cert_scotus_form,
         "SCOTUS application / original-jurisdiction docket — not discretionary cert (#362)",
+    ),
+    (
+        is_consolidated_out_of_scope,
+        "consolidated docket whose members all classify out of scope (#449)",
     ),
     (is_date_inconsistent, "internally inconsistent dates — decided before filed (#171)"),
 ]
