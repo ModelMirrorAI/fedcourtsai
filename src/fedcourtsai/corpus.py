@@ -783,36 +783,46 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
     return bool(row.citations or row.citation_count or row.opinion_text)
 
 
-# SCOTUS application ("22A123", older "A-9999") and original-jurisdiction ("22O141")
-# docket numbers — the term letter (A / O) marks a form that is not the modern
-# discretionary-cert petition. A trailing period on the historical spelling ("22A99.")
-# is tolerated; the letter is what a cert docket's ``YY-NNNN`` never carries.
+# SCOTUS application ("22A123", older "A-9999"), original-jurisdiction ("22O141"),
+# and miscellaneous/motions ("22M75", "03M77") docket numbers — the term letter
+# (A / O / M) marks a form that is not the modern discretionary-cert petition. A
+# trailing period on the historical spelling ("22A99.") is tolerated; the letter
+# is what a cert docket's ``YY-NNNN`` never carries.
 _SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+)\.?$")
 _SCOTUS_ORIGINAL_RE = re.compile(r"^\d{2}O\d+\.?$")
-# The spelled-out original-jurisdiction marker ("No. 155, Orig." / "155, Original."),
-# the text-form counterpart of the numeric `22O141` — a tell that a cert docket's
-# `YY-NNNN` never carries.
+_SCOTUS_MISCELLANEOUS_RE = re.compile(r"^\d{2}M\d+\.?$")
+# The spelled-out original-jurisdiction ("No. 155, Orig." / "155, Original.") and
+# miscellaneous ("No. 33, Misc." — the pre-1971 separate docket, merged into the
+# unified numbering at OT1970) markers — the text-form counterparts of the numeric
+# letter forms, tells a cert docket's `YY-NNNN` never carries.
 _SCOTUS_ORIGINAL_TEXT_RE = re.compile(r"ORIG")
+_SCOTUS_MISC_TEXT_RE = re.compile(r"MISC")
 
 
 def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is an application or original-jurisdiction matter (issue #362).
 
-    A stay / emergency **application** (``22A123``, older ``A-9999``) and an
+    A stay / emergency **application** (``22A123``, older ``A-9999``), an
     **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
-    ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute) are not the
+    ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), and a
+    **miscellaneous** docket (``22M75`` / ``03M77`` — the modern motions docket,
+    e.g. leave to file out of time — or the pre-1971 ``No. 33, Misc.`` separate
+    docket, merged into the unified numbering at OT1970) are not the
     discretionary-cert form the ``evt-petition-disposition`` model targets: an
-    application's disposition is a stay grant/deny and an original case's is a merits
-    judgment, neither the cert grant/deny the model calibrates on. So predict scope
-    excludes them (as it does the pre-1925 mandatory-jurisdiction regime, #309), keyed
-    on the term letter or ``Orig`` marker that a cert docket's ``YY-NNNN`` never
-    carries. SCOTUS-only.
+    application's disposition is a stay grant/deny, an original case's a merits
+    judgment, and a motions docket's a procedural leave — none the cert
+    grant/deny the model calibrates on — while the pre-1971 miscellaneous docket
+    is decades-stale by construction. So predict scope excludes them (as it does
+    the pre-1925 mandatory-jurisdiction regime, #309), keyed on the term letter
+    (``A`` / ``O`` / ``M``) or the ``Orig`` / ``Misc`` marker that a cert
+    docket's ``YY-NNNN`` never carries. SCOTUS-only.
 
     Conservative — it matches on format alone, so it never catches a modern cert
-    petition (which carries a hyphen, no letter and no ``Orig`` marker). If application
-    *stays* are later modeled as their own motion events (issue #372), refine this to
-    spare those rather than the whole case; today an application docket carries only the
-    mis-fit cert baseline, so excluding the case loses nothing.
+    petition (which carries a hyphen, no letter and no ``Orig``/``Misc`` marker).
+    If application *stays* are later modeled as their own motion events (issue
+    #372), refine this to spare those rather than the whole case; today an
+    application docket carries only the mis-fit cert baseline, so excluding the
+    case loses nothing.
     """
     if row.court != "scotus":
         return False
@@ -820,7 +830,9 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     return bool(
         _SCOTUS_APPLICATION_RE.match(dn)
         or _SCOTUS_ORIGINAL_RE.match(dn)
+        or _SCOTUS_MISCELLANEOUS_RE.match(dn)
         or _SCOTUS_ORIGINAL_TEXT_RE.search(dn)
+        or _SCOTUS_MISC_TEXT_RE.search(dn)
     )
 
 

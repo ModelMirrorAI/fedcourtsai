@@ -448,6 +448,12 @@ def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction(
         "No. 155, Orig.",
         "155, Original.",
         "Orig. 155",
+        # Miscellaneous forms: the modern motions docket ("22M75", "No. 03M77.")
+        # and the pre-1971 separate docket's text label ("No. 33, Misc.").
+        "22M75",
+        "No. 03M77.",
+        "No. 33, Misc.",
+        "33, Misc",
     )
     for number in non_cert:
         row = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number=number)
