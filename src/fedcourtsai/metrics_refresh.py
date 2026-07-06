@@ -51,11 +51,16 @@ def _headline(metrics_root: Path, filename: str) -> str:
         board = read_model(metrics_root / filename, Leaderboard)
         return (
             f"{board.predictors_ranked} predictor(s) ranked from "
-            f"{board.evaluations_total} evaluation(s)"
+            f"{board.evaluations_total} evaluation(s) "
+            f"({board.forward_evaluations} forward / "
+            f"{board.retrospective_evaluations} retrospective)"
         )
     if filename == "backtest.json":
         bt = read_model(metrics_root / filename, Backtest)
-        return f"{bt.predictors_evaluated} predictor(s) over {bt.events_scored} resolved event(s)"
+        return (
+            f"{bt.predictors_evaluated} predictor(s) over {bt.events_scored} "
+            f"resolved event(s) (retrospective by construction)"
+        )
     if filename == "statpack.json":
         pack = read_model(metrics_root / filename, StatPack)
         return f"{pack.corpus_rows} corpus case(s): {pack.resolved} resolved / {pack.open} open"

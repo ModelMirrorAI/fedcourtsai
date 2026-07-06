@@ -14,6 +14,7 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     Leaderboard,
     LeaderboardEntry,
+    LeaderboardStratum,
     StatPack,
 )
 from fedcourtsai.serialize import write_json, write_text
@@ -29,22 +30,22 @@ def _metrics_dir(tmp_path: Path) -> Path:
         Leaderboard(
             predictors_ranked=2,
             evaluations_total=12,
+            forward_evaluations=4,
+            retrospective_evaluations=8,
             entries=[
                 LeaderboardEntry(
                     predictor_id="claude-baseline",
                     rank=1,
-                    events_scored=6,
-                    evaluations=6,
                     evaluators=2,
-                    accuracy=0.8,
+                    forward=LeaderboardStratum(events_scored=2, evaluations=2, accuracy=0.8),
+                    retrospective=LeaderboardStratum(events_scored=4, evaluations=4, accuracy=0.9),
                 ),
                 LeaderboardEntry(
                     predictor_id="codex-baseline",
                     rank=2,
-                    events_scored=6,
-                    evaluations=6,
                     evaluators=2,
-                    accuracy=0.7,
+                    forward=LeaderboardStratum(events_scored=2, evaluations=2, accuracy=0.7),
+                    retrospective=LeaderboardStratum(events_scored=4, evaluations=4, accuracy=0.8),
                 ),
             ],
         ),
@@ -99,8 +100,8 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert pr.title == "metrics: refresh leaderboard, backtest, statpack"
     assert pr.commit_message == pr.title
     # Headlines come from the regenerated artifacts themselves.
-    assert "2 predictor(s) ranked from 12 evaluation(s)" in pr.body
-    assert "2 predictor(s) over 1500 resolved event(s)" in pr.body
+    assert "2 predictor(s) ranked from 12 evaluation(s) (4 forward / 8 retrospective)" in pr.body
+    assert "2 predictor(s) over 1500 resolved event(s) (retrospective by construction)" in pr.body
     assert "80998 corpus case(s): 60000 resolved / 20998 open" in pr.body
     assert "RID" in pr.body
 
