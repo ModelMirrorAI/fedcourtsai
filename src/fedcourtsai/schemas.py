@@ -437,6 +437,83 @@ class Backtest(_Strict):
     entries: list[BacktestEntry] = Field(default_factory=list)
 
 
+class CalibrationBin(_Strict):
+    """One probability bin of a calibration view: predicted vs observed grant rate."""
+
+    lower: float = Field(ge=0.0, le=1.0, description="Bin lower bound on P(granted), inclusive")
+    upper: float = Field(
+        ge=0.0, le=1.0, description="Bin upper bound on P(granted); inclusive for the top bin"
+    )
+    predictions: int = Field(ge=0, description="Predictions whose P(granted) fell in this bin")
+    mean_probability: float = Field(
+        ge=0.0, le=1.0, description="Mean predicted P(granted) within the bin"
+    )
+    observed_granted_rate: float = Field(
+        ge=0.0, le=1.0, description="Realized grant rate among the bin's cases"
+    )
+
+
+class CertBacktestEntry(_Strict):
+    """One predictor's standings over the cert back-test set."""
+
+    predictor_id: str
+    rank: int = Field(ge=1, description="1-based standing; 1 is best")
+    events_scored: int = Field(ge=0, description="Decided cert petitions replayed")
+    accuracy: float = Field(
+        ge=0.0, le=1.0, description="Fraction whose predicted disposition matched the known label"
+    )
+    granted_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Fraction whose binary granted/denied projection matched the outcome",
+    )
+    mean_brier_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+    )
+    lift_over_always_denied: float = Field(
+        ge=-1.0,
+        le=1.0,
+        description="Disposition accuracy minus the always-deny floor's — the honest "
+        "signal under cert's structural denial skew, where raw accuracy is cheap",
+    )
+    calibration: list[CalibrationBin] = Field(
+        default_factory=list,
+        description="P(granted) decile bins: predicted probability vs observed grant rate",
+    )
+
+
+class CertBacktest(_Strict):
+    """``metrics/cert-backtest.json`` — predictors replayed over decided cert petitions.
+
+    The standing instrument for vetting cert predictors and prompt changes:
+    replay over a curated set of resolved modern discretionary-cert petitions
+    (outcome hidden — the replay provisions a redacted snapshot), scored against
+    the realized grant/deny. Produced out of band by ``fedcourts cert-backtest``
+    (it spends tokens when agentic engines are replayed), never by a schedule.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Every replayed petition resolved before any modern model's "
+        "training cutoff, so this measures recall, calibration, and label-mapping "
+        "fit over known history, never ex-ante forecasting skill (the same "
+        "pre-registration rule the leaderboard stratifies on).",
+    )
+    events_scored: int = Field(ge=0, description="Size of the cert back-test set")
+    predictors_evaluated: int = Field(ge=0, description="Number of predictors on the board")
+    always_denied_accuracy: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="The always-deny floor's disposition accuracy over this set "
+        "(the denial base rate every lift figure is measured against)",
+    )
+    entries: list[CertBacktestEntry] = Field(default_factory=list)
+
+
 class WorkflowHealth(_Strict):
     """Recent-run health for one workflow, rolled up from the Actions run history."""
 
@@ -1083,6 +1160,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "seed_progress": SeedProgress,
     "leaderboard": Leaderboard,
     "backtest": Backtest,
+    "cert_backtest": CertBacktest,
     "usage": ModelUsage,
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,

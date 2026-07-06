@@ -85,7 +85,8 @@ class Backtester(Protocol):
     def predict(self, features: BacktestFeatures) -> BacktestPrediction: ...
 
 
-def _features(row: CorpusRow) -> BacktestFeatures:
+def backtest_features(row: CorpusRow) -> BacktestFeatures:
+    """Project a corpus row onto the outcome-free feature view (shared with cert)."""
     return BacktestFeatures(
         case_id=row.case_id,
         court=row.court,
@@ -119,7 +120,7 @@ def select_backtest_set(
         disposition = Disposition(row.disposition)
         if not is_machine_readable(disposition):
             continue
-        items.append(BacktestItem(_features(row), disposition))
+        items.append(BacktestItem(backtest_features(row), disposition))
         if limit is not None and len(items) >= limit:
             break
     return items

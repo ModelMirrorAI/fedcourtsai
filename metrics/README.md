@@ -33,6 +33,13 @@ outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
 `fedcourtsai.leaderboard` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
+- `cert-backtest.json` — the cert-specific back-test (not a DVC stage): predictors
+  replayed over the most recently decided modern discretionary-cert petitions,
+  outcome hidden behind a redacted snapshot, scored on accuracy, Brier, **lift
+  over the always-deny floor** (the honest signal under cert's denial skew), and
+  a P(granted) calibration view. Produced out of band by `fedcourts
+  cert-backtest` — a real-engine replay spends tokens, so it never runs on a
+  schedule — and labeled retrospective like `backtest.json`.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): headline case counts and the overall disposition base rate,
   plus curated breakdowns — cases by court; SCOTUS petitions by Term, by
