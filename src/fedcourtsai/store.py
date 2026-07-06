@@ -14,7 +14,8 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from . import corpus, ids
-from .schemas import AgentFlags, AgentToolingFeedback, Evaluation, ModelUsage
+from .leaderboard import Stratum, classify_stratum
+from .schemas import AgentFlags, AgentToolingFeedback, Evaluation, ModelUsage, Outcome, Prediction
 from .serialize import read_model
 
 
@@ -126,6 +127,39 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
         return []
     pattern = "*/*/events/*/evaluations/*/*/*/evaluation.json"
     return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
+
+
+def iter_stratified_evaluations(data_root: Path) -> list[tuple[Evaluation, Stratum]]:
+    """Every evaluation joined to its pre-registration stratum, in stable path order.
+
+    For each ``evaluation.json``, reads the scored predictor's prediction(s) for
+    the same event and the event's ``outcome.json`` — all committed artifacts, so
+    the split is deterministic and offline — and classifies the cell forward vs
+    retrospective (:func:`fedcourtsai.leaderboard.classify_stratum`). An
+    evaluation names the predictor but not a prediction run, so when the
+    predictor ran the event more than once the **latest** prediction's
+    ``created_at`` decides: the cell is forward only if even the newest
+    prediction predates the resolution — the conservative reading, so a possibly
+    post-resolution prediction is never presented as a forward forecast. An
+    evaluation can only exist for a resolved event with a real prediction (the
+    referential checks enforce both), so a missing sibling artifact raises
+    rather than guessing a stratum.
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    cells: list[tuple[Evaluation, Stratum]] = []
+    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
+        evaluation = read_model(path, Evaluation)
+        # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
+        event_dir = path.parents[4]
+        prediction_files = sorted(
+            event_dir.glob(f"predictions/{evaluation.predictor_id}/*/prediction.json")
+        )
+        latest_created_at = max(read_model(p, Prediction).created_at for p in prediction_files)
+        outcome = read_model(event_dir / "outcome.json", Outcome)
+        cells.append((evaluation, classify_stratum(latest_created_at, outcome.resolved_at)))
+    return cells
 
 
 def iter_usage(data_root: Path) -> list[ModelUsage]:

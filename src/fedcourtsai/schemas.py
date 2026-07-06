@@ -314,14 +314,19 @@ class AgentToolingFeedback(_Strict):
     )
 
 
-class LeaderboardEntry(_Strict):
-    """One predictor's standings, aggregated across the evaluations ledger."""
+class LeaderboardStratum(_Strict):
+    """Aggregates over one pre-registration stratum of a predictor's evaluations.
 
-    predictor_id: str
-    rank: int = Field(ge=1, description="1-based standing; 1 is best")
+    A cell is *forward* when the event was still unresolved at the prediction's
+    commit time and *retrospective* when it had already resolved — in which case
+    the outcome is public knowledge inside every modern model's training data, so
+    the cell measures recall plus calibration, never ex-ante forecasting skill.
+    The strata are therefore aggregated separately and never blended into one
+    headline number.
+    """
+
     events_scored: int = Field(ge=0, description="Distinct (case, event) pairs scored")
-    evaluations: int = Field(ge=0, description="Total evaluations counted for this predictor")
-    evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
+    evaluations: int = Field(ge=0, description="Evaluations counted in this stratum")
     accuracy: float = Field(ge=0.0, le=1.0, description="Mean correctness across evaluations")
     mean_brier_score: float | None = Field(
         default=None,
@@ -337,18 +342,45 @@ class LeaderboardEntry(_Strict):
     )
 
 
+class LeaderboardEntry(_Strict):
+    """One predictor's standings, aggregated per pre-registration stratum."""
+
+    predictor_id: str
+    rank: int = Field(ge=1, description="1-based standing; 1 is best")
+    evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
+    forward: LeaderboardStratum | None = Field(
+        default=None,
+        description="True forward forecasts — the event was unresolved when the "
+        "prediction was committed. The only stratum that measures forecasting "
+        "skill; null until this predictor has a scored forward cell.",
+    )
+    retrospective: LeaderboardStratum | None = Field(
+        default=None,
+        description="Events already resolved when the prediction was committed: "
+        "measures calibration and label-mapping fit, not forecasting skill; "
+        "null when this predictor has no scored retrospective cell.",
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
     A deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:
-    one entry per predictor, ranked best-first. Computed by ``fedcourts
-    leaderboard``; carries no timestamp so the same ledger always serializes
-    identically.
+    one entry per predictor, ranked best-first on the **forward** stratum (see
+    :class:`LeaderboardStratum` — forward and retrospective cells are never
+    blended into one number). Computed by ``fedcourts leaderboard``; carries no
+    timestamp so the same ledger always serializes identically.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     predictors_ranked: int = Field(ge=0, description="Number of predictors on the board")
     evaluations_total: int = Field(ge=0, description="Total evaluations aggregated")
+    forward_evaluations: int = Field(
+        default=0, ge=0, description="Evaluations of true forward forecasts"
+    )
+    retrospective_evaluations: int = Field(
+        default=0, ge=0, description="Evaluations of retrospective (leakage-suspect) cells"
+    )
     entries: list[LeaderboardEntry] = Field(default_factory=list)
 
 
@@ -388,6 +420,14 @@ class Backtest(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Every replayed event resolved before any modern model's "
+        "training cutoff, so the back-test is retrospective by construction: it "
+        "measures recall, calibration, and label-mapping fit over known history, "
+        "never ex-ante forecasting skill. Forward skill can only come from the "
+        "live ledger's forward stratum (see Leaderboard).",
+    )
     predictors_evaluated: int = Field(ge=0, description="Number of predictors on the board")
     events_scored: int = Field(ge=0, description="Size of the resolved-event back-test set")
     entries: list[BacktestEntry] = Field(default_factory=list)

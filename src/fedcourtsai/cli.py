@@ -100,8 +100,8 @@ from .schemas import (
 from .serialize import write_json, write_raw_json, write_text, write_yaml
 from .store import (
     cases_due_for_pull,
-    iter_evaluations,
     iter_flags,
+    iter_stratified_evaluations,
     iter_tooling,
     iter_usage,
     open_events,
@@ -382,17 +382,21 @@ def leaderboard(
 
     Deterministic and offline: aggregates every committed ``evaluation.json``
     under ``data/`` into one best-first standing per predictor — accuracy, mean
-    Brier score, mean vote accuracy, a reasoning-quality summary, and counts —
-    and writes it through the shared serializer for minimal diffs. Reruns over an
+    Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
+    each reported **per pre-registration stratum** (forward forecasts vs
+    retrospective cells, never blended; see the ``Leaderboard`` schema) — and
+    writes it through the shared serializer for minimal diffs. Reruns over an
     unchanged ledger reproduce the file byte for byte.
     """
     settings = get_settings()
-    board = build_leaderboard(iter_evaluations(settings.data_root))
+    board = build_leaderboard(iter_stratified_evaluations(settings.data_root))
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
     typer.echo(
         f"leaderboard: {board.predictors_ranked} predictor(s) from "
-        f"{board.evaluations_total} evaluation(s) -> {destination}"
+        f"{board.evaluations_total} evaluation(s) "
+        f"({board.forward_evaluations} forward / "
+        f"{board.retrospective_evaluations} retrospective) -> {destination}"
     )
 
 

@@ -88,6 +88,13 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "stratum": {
+      "const": "retrospective",
+      "default": "retrospective",
+      "description": "Every replayed event resolved before any modern model's training cutoff, so the back-test is retrospective by construction: it measures recall, calibration, and label-mapping fit over known history, never ex-ante forecasting skill. Forward skill can only come from the live ledger's forward stratum (see Leaderboard).",
+      "title": "Stratum",
+      "type": "string"
     }
   },
   "required": [
