@@ -1,6 +1,6 @@
 # Corpus statpack
 
-**2151631** case(s): 30967 resolved, 2120664 open.
+**2151642** case(s): 30967 resolved, 2120675 open.
 
 **Overall base rate (resolved):** other 77.5%, dismissed 20.2%, denied 1.4%, granted 0.8%, granted-in-part 0.0%, withdrawn 0.0%
 
@@ -11,27 +11,27 @@ _Scope: all courts._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 589579 | 296 | 589283 | other 78.4%, dismissed 15.9%, denied 4.4%, granted 1.4% |
+| scotus | 589580 | 296 | 589284 | other 78.4%, dismissed 15.9%, denied 4.4%, granted 1.4% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203462 | 1502 | 201960 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187217 | 15593 | 171624 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
-| ca6 | 142305 | 1320 | 140985 | other 93.9%, dismissed 3.4%, denied 1.4%, granted 1.3% |
-| ca2 | 120920 | 2510 | 118410 | other 92.1%, dismissed 4.3%, denied 2.5%, granted 1.0%, granted-in-part 0.0%, withdrawn 0.0% |
+| ca6 | 142306 | 1320 | 140986 | other 93.9%, dismissed 3.4%, denied 1.4%, granted 1.3% |
+| ca2 | 120921 | 2510 | 118411 | other 92.1%, dismissed 4.3%, denied 2.5%, granted 1.0%, granted-in-part 0.0%, withdrawn 0.0% |
 | ca3 | 112964 | 1279 | 111685 | other 93.2%, dismissed 4.5%, denied 1.2%, granted 1.1% |
 | ca8 | 103363 | 2378 | 100985 | other 89.9%, dismissed 4.4%, denied 2.9%, granted 2.7%, withdrawn 0.0% |
 | ca11 | 95619 | 45 | 95574 | other 95.6%, denied 2.2%, granted 2.2% |
 | ca7 | 92080 | 895 | 91185 | other 91.4%, dismissed 5.0%, denied 2.1%, granted 1.5% |
-| ca10 | 81529 | 34 | 81495 | other 88.2%, denied 11.8% |
+| ca10 | 81534 | 34 | 81500 | other 88.2%, denied 11.8% |
 | cafc | 72586 | 11 | 72575 | other 100.0% |
 | cadc | 57037 | 3042 | 53995 | other 94.3%, dismissed 2.2%, denied 2.0%, granted 1.5% |
-| ca1 | 45333 | 599 | 44734 | other 86.3%, dismissed 8.0%, denied 5.0%, granted 0.7% |
+| ca1 | 45336 | 599 | 44737 | other 86.3%, dismissed 8.0%, denied 5.0%, granted 0.7% |
 
 ## SCOTUS petitions by nature-of-suit topic
 _Scope: scotus._
 
 | topic | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 589579 | 296 | 589283 | other 78.4%, dismissed 15.9%, denied 4.4%, granted 1.4% |
+| (none) | 589580 | 296 | 589284 | other 78.4%, dismissed 15.9%, denied 4.4%, granted 1.4% |
 
 ## SCOTUS petitions by originating circuit
 _Scope: scotus._
@@ -66,7 +66,7 @@ _Scope: scotus._
 | ohio | 550 | 0 | 550 | — |
 | fladistctapp4 | 527 | 0 | 527 | — |
 | nev | 520 | 0 | 520 | — |
-| washctapp | 518 | 0 | 518 | — |
+| washctapp | 519 | 0 | 519 | — |
 | miss | 514 | 0 | 514 | — |
 | njsuperctappdiv | 493 | 0 | 493 | — |
 | ny | 486 | 0 | 486 | — |
@@ -232,13 +232,13 @@ _Most recent 10 of 70 Term(s); the JSON artifact carries every Term._
 
 | Term | cases | resolved | open | base rate (resolved) | median days | p90 days |
 | --- | --: | --: | --: | --- | --: | --: |
-| 2069 | 60 | 0 | 60 | — | — | — |
-| 2068 | 36 | 0 | 36 | — | — | — |
-| 2067 | 1 | 0 | 1 | — | — | — |
-| 2065 | 2 | 0 | 2 | — | — | — |
-| 2064 | 1 | 0 | 1 | — | — | — |
-| 2050 | 1 | 0 | 1 | — | — | — |
-| 2047 | 1 | 0 | 1 | — | — | — |
-| 2045 | 1 | 0 | 1 | — | — | — |
-| 2044 | 1 | 0 | 1 | — | — | — |
-| 2042 | 1 | 0 | 1 | — | — | — |
+| 2025 | 4123 | 0 | 4123 | — | — | — |
+| 2024 | 3856 | 0 | 3856 | — | — | — |
+| 2023 | 4221 | 0 | 4221 | — | — | — |
+| 2022 | 4157 | 0 | 4157 | — | — | — |
+| 2021 | 4928 | 0 | 4928 | — | — | — |
+| 2020 | 5391 | 0 | 5391 | — | — | — |
+| 2019 | 5887 | 0 | 5887 | — | — | — |
+| 2018 | 7400 | 0 | 7400 | — | — | — |
+| 2017 | 6703 | 0 | 6703 | — | — | — |
+| 2016 | 7230 | 0 | 7230 | — | — | — |

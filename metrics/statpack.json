@@ -1,8 +1,8 @@
 {
-  "corpus_rows": 2151631,
-  "open": 2120664,
+  "corpus_rows": 2151642,
+  "open": 2120675,
   "overall": {
-    "cases": 2151631,
+    "cases": 2151642,
     "dispositions": [
       {
         "count": 24005,
@@ -36,7 +36,7 @@
       }
     ],
     "key": "",
-    "open": 2120664,
+    "open": 2120675,
     "resolved": 30967
   },
   "resolved": 30967,
@@ -45,7 +45,7 @@
     {
       "buckets": [
         {
-          "cases": 589579,
+          "cases": 589580,
           "dispositions": [
             {
               "count": 232,
@@ -69,7 +69,7 @@
             }
           ],
           "key": "scotus",
-          "open": 589283,
+          "open": 589284,
           "resolved": 296
         },
         {
@@ -167,7 +167,7 @@
           "resolved": 15593
         },
         {
-          "cases": 142305,
+          "cases": 142306,
           "dispositions": [
             {
               "count": 1239,
@@ -191,11 +191,11 @@
             }
           ],
           "key": "ca6",
-          "open": 140985,
+          "open": 140986,
           "resolved": 1320
         },
         {
-          "cases": 120920,
+          "cases": 120921,
           "dispositions": [
             {
               "count": 2311,
@@ -229,7 +229,7 @@
             }
           ],
           "key": "ca2",
-          "open": 118410,
+          "open": 118411,
           "resolved": 2510
         },
         {
@@ -345,7 +345,7 @@
           "resolved": 895
         },
         {
-          "cases": 81529,
+          "cases": 81534,
           "dispositions": [
             {
               "count": 30,
@@ -359,7 +359,7 @@
             }
           ],
           "key": "ca10",
-          "open": 81495,
+          "open": 81500,
           "resolved": 34
         },
         {
@@ -404,7 +404,7 @@
           "resolved": 3042
         },
         {
-          "cases": 45333,
+          "cases": 45336,
           "dispositions": [
             {
               "count": 517,
@@ -428,7 +428,7 @@
             }
           ],
           "key": "ca1",
-          "open": 44734,
+          "open": 44737,
           "resolved": 599
         }
       ],
@@ -439,7 +439,7 @@
     {
       "buckets": [
         {
-          "cases": 589579,
+          "cases": 589580,
           "dispositions": [
             {
               "count": 232,
@@ -463,7 +463,7 @@
             }
           ],
           "key": "(none)",
-          "open": 589283,
+          "open": 589284,
           "resolved": 296
         }
       ],
@@ -739,10 +739,10 @@
           "resolved": 0
         },
         {
-          "cases": 518,
+          "cases": 519,
           "dispositions": [],
           "key": "washctapp",
-          "open": 518,
+          "open": 519,
           "resolved": 0
         },
         {
@@ -1867,234 +1867,10 @@
   "terms": [
     {
       "base_rates": {
-        "cases": 60,
-        "dispositions": [],
-        "key": "2069",
-        "open": 60,
-        "resolved": 0
-      },
-      "term": 2069,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 36,
-        "dispositions": [],
-        "key": "2068",
-        "open": 36,
-        "resolved": 0
-      },
-      "term": 2068,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2067",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2067,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 2,
-        "dispositions": [],
-        "key": "2065",
-        "open": 2,
-        "resolved": 0
-      },
-      "term": 2065,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2064",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2064,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2050",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2050,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2047",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2047,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2045",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2045,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2044",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2044,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2042",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2042,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2041",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2041,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 2,
-        "dispositions": [],
-        "key": "2034",
-        "open": 2,
-        "resolved": 0
-      },
-      "term": 2034,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 1,
-        "dispositions": [],
-        "key": "2032",
-        "open": 1,
-        "resolved": 0
-      },
-      "term": 2032,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 2,
-        "dispositions": [],
-        "key": "2031",
-        "open": 2,
-        "resolved": 0
-      },
-      "term": 2031,
-      "timing": {
-        "cases": 0,
-        "mean_days": null,
-        "median_days": null,
-        "p90_days": null
-      }
-    },
-    {
-      "base_rates": {
-        "cases": 4122,
+        "cases": 4123,
         "dispositions": [],
         "key": "2025",
-        "open": 4122,
+        "open": 4123,
         "resolved": 0
       },
       "term": 2025,
@@ -3049,6 +2825,230 @@
         "resolved": 0
       },
       "term": 1970,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 60,
+        "dispositions": [],
+        "key": "1969",
+        "open": 60,
+        "resolved": 0
+      },
+      "term": 1969,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 36,
+        "dispositions": [],
+        "key": "1968",
+        "open": 36,
+        "resolved": 0
+      },
+      "term": 1968,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1967",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1967,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 2,
+        "dispositions": [],
+        "key": "1965",
+        "open": 2,
+        "resolved": 0
+      },
+      "term": 1965,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1964",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1964,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1950",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1950,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1947",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1947,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1945",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1945,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1944",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1944,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1942",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1942,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1941",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1941,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 2,
+        "dispositions": [],
+        "key": "1934",
+        "open": 2,
+        "resolved": 0
+      },
+      "term": 1934,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1932",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1932,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 2,
+        "dispositions": [],
+        "key": "1931",
+        "open": 2,
+        "resolved": 0
+      },
+      "term": 1931,
       "timing": {
         "cases": 0,
         "mean_days": null,
