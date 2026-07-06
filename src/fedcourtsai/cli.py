@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -99,8 +100,8 @@ from .schemas import (
 from .serialize import write_json, write_raw_json, write_text, write_yaml
 from .store import (
     cases_due_for_pull,
-    iter_evaluations,
     iter_flags,
+    iter_stratified_evaluations,
     iter_tooling,
     iter_usage,
     open_events,
@@ -146,7 +147,10 @@ def _client() -> CourtListenerClient:
         api_token=s.courtlistener_api_token,
         timeout=s.request_timeout,
         rate_limiter=default_rate_limiter(
-            s.courtlistener_rpm, s.courtlistener_rph, s.courtlistener_rpd
+            s.courtlistener_rpm,
+            s.courtlistener_rph,
+            s.courtlistener_rpd,
+            max_wait=s.courtlistener_max_wait,
         ),
     )
 
@@ -301,12 +305,12 @@ def reconcile_scope_cmd(
     """Reconcile the corpus's out-of-scope latch with the predicate set (issue #343).
 
     The write counterpart of `corpus-scope-audit`: over the predict-eligible cases, it
-    latches `predict_excluded` on those an exclusion predicate now matches (pre-1925
-    mandatory jurisdiction #309, stale unresolvable #333, inconsistent dates #171) and
-    clears it on those back in scope — so `open-events` (and thus the predict/queueing
-    paths) drop excluded cases at the source. Dry-run by default; `--apply` writes (the
-    seed run then `dvc push`es the corpus). Prints a `ScopeReconcileResult`. Fails loud
-    if the corpus is absent.
+    latches `predict_excluded` on those the shared exclusion reasoning now matches
+    (`corpus.out_of_scope_reason_full` — the row rules plus the snapshot-aware bare
+    opinion-import rule) and clears it on those back in scope — so `open-events` (and
+    thus the predict/queueing paths) drop excluded cases at the source. Dry-run by
+    default; `--apply` writes (the seed run then `dvc push`es the corpus). Prints a
+    `ScopeReconcileResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -378,17 +382,21 @@ def leaderboard(
 
     Deterministic and offline: aggregates every committed ``evaluation.json``
     under ``data/`` into one best-first standing per predictor — accuracy, mean
-    Brier score, mean vote accuracy, a reasoning-quality summary, and counts —
-    and writes it through the shared serializer for minimal diffs. Reruns over an
+    Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
+    each reported **per pre-registration stratum** (forward forecasts vs
+    retrospective cells, never blended; see the ``Leaderboard`` schema) — and
+    writes it through the shared serializer for minimal diffs. Reruns over an
     unchanged ledger reproduce the file byte for byte.
     """
     settings = get_settings()
-    board = build_leaderboard(iter_evaluations(settings.data_root))
+    board = build_leaderboard(iter_stratified_evaluations(settings.data_root))
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
     typer.echo(
         f"leaderboard: {board.predictors_ranked} predictor(s) from "
-        f"{board.evaluations_total} evaluation(s) -> {destination}"
+        f"{board.evaluations_total} evaluation(s) "
+        f"({board.forward_evaluations} forward / "
+        f"{board.retrospective_evaluations} retrospective) -> {destination}"
     )
 
 
@@ -1567,6 +1575,19 @@ def _format_discovery_failures(failed: list[dict[str, object]]) -> str:
     return f" ({len(failed)} court(s) failed: {courts})"
 
 
+def _format_refresh_failures(failed: list[dict[str, object]]) -> str:
+    """Render refresh casualties as a parenthetical with each case's reason.
+
+    The per-case counterpart to :func:`_format_discovery_failures`: surfaces
+    which dockets failed and why in the ``pull-all`` summary line, so a run of
+    upstream timeouts is diagnosable from the run log alone.
+    """
+    if not failed:
+        return ""
+    cases = ", ".join(f"{f['court']}/{f['docket']} [{f['reason']}]" for f in failed)
+    return f" ({len(failed)} failed: {cases})"
+
+
 @app.command("pull-all")
 def pull_all(
     out: Annotated[Path, typer.Option(help="Write the predict queue JSON here.")] = Path(
@@ -1599,11 +1620,18 @@ def pull_all(
     ``predict`` (changed cases with open events), ``evaluate`` (cases that gained
     an ``outcome.json`` this run), and ``reconcile`` (cases that appear decided but
     whose outcome an agent must confirm by hand).
+
+    The whole run is bounded by ``pull.max_run_minutes`` of wall clock: when the
+    deadline (or the API budget, or the consecutive-transient-failure breaker)
+    trips, the run stops where it is, defers the unreached cases to the next
+    window's rotation, and still writes its queues — so a degraded upstream can
+    never hang the job into its CI timeout and lose the window's work.
     """
     settings = get_settings()
     pull_cfg = load_pull_config(settings.config_root)
     scope = load_predict_config(settings.config_root).scope
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
+    deadline = time.monotonic() + pull_cfg.max_run_minutes * 60
     db = corpus.corpus_db_path(settings.corpus_root)
     with _client() as client:
         if pull_cfg.discover_new_filings:
@@ -1613,9 +1641,13 @@ def pull_all(
                 load_courts(settings.config_root),
                 max_new=pull_cfg.max_new_cases_per_run,
                 default_since=date.today(),
+                deadline=deadline,
             )
             disc_failed = _format_discovery_failures(disc.failed)
-            typer.echo(f"Discovered {disc.total} new case(s) before refresh{disc_failed}")
+            disc_stopped = f"; stopped early: {disc.stopped}" if disc.stopped else ""
+            typer.echo(
+                f"Discovered {disc.total} new case(s) before refresh{disc_failed}{disc_stopped}"
+            )
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(
             db,
@@ -1623,17 +1655,30 @@ def pull_all(
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
         )
-        queues = pull_cases(client, db, settings.data_root, due, scope=scope)
+        queues = pull_cases(
+            client,
+            db,
+            settings.data_root,
+            due,
+            scope=scope,
+            deadline=deadline,
+            max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
+        )
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
-    failed = f" ({len(queues.failed)} failed)" if queues.failed else ""
+    refreshed = len(due) - len(queues.failed) - len(queues.deferred)
     typer.echo(
-        f"Refreshed {len(due) - len(queues.failed)}/{cap} case(s){failed}; "
+        f"Refreshed {refreshed}/{cap} case(s){_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
         f"{len(queues.reconcile)} reconcile."
     )
+    if queues.stopped:
+        typer.echo(
+            f"Stopped early ({queues.stopped}); deferred {len(queues.deferred)} "
+            f"case(s) to the next rotation."
+        )
 
 
 @app.command()
@@ -1703,15 +1748,13 @@ def _scope_filtered(
     manual run produced an empty matrix. ``scope == all`` passes every case
     through unchanged.
 
-    A SCOTUS-eligible case is still dropped if it is a **pre-1925
-    mandatory-jurisdiction matter** (:func:`corpus.is_historical_mandatory`, issue
-    #309): the ``evt-petition-disposition`` model targets modern discretionary
-    cert, and these historical appeals carry an incompatible disposition meaning.
-    It is likewise dropped if it is an **old SCOTUS petition the corpus cannot
-    resolve** (:func:`corpus.is_stale_unresolvable`, issue #333) — a decades-old
-    docket left perpetually open by a bare-stub snapshot, with no recoverable
-    disposition to predict against. The latch stays a pure "SCOTUS-touched" signal;
-    these era/staleness filters layer on top here so ingestion coverage is unaffected.
+    A SCOTUS-eligible case is still dropped when the shared exclusion reasoning
+    matches it: the reconcile's ``predict_excluded`` latch, or any reason from
+    ``corpus.out_of_scope_reason_full`` (the row rules — era, staleness, docket
+    form, date consistency — plus the snapshot-aware bare opinion-import rule),
+    with the reason echoed per case. The eligibility latch stays a pure
+    "SCOTUS-touched" signal; these filters layer on top here so ingestion
+    coverage is unaffected.
 
     Gating reads the corpus, so the corpus database must be on disk. If it is
     absent the gate cannot distinguish "case not eligible" from "corpus never
@@ -1740,18 +1783,14 @@ def _scope_filtered(
                     f"(predict.scope=scotus_touched, not SCOTUS-eligible).",
                     err=True,
                 )
-            elif corpus.is_historical_mandatory(row):
+            elif row.predict_excluded:
                 typer.echo(
-                    f"Skipping {case.court}/{case.docket}: pre-1925 mandatory-jurisdiction "
-                    f"matter (issue #309); the discretionary-cert event model does not apply.",
+                    f"Skipping {case.court}/{case.docket}: latched out of predict scope "
+                    f"by the corpus reconcile.",
                     err=True,
                 )
-            elif corpus.is_stale_unresolvable(row):
-                typer.echo(
-                    f"Skipping {case.court}/{case.docket}: old SCOTUS petition the corpus "
-                    f"cannot resolve (issue #333); no recoverable disposition to predict against.",
-                    err=True,
-                )
+            elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
+                typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
             else:
                 kept.append(case)
     return kept

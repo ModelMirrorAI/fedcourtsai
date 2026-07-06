@@ -28,7 +28,7 @@ from fedcourtsai.pipeline.runner import (
 )
 from fedcourtsai.schemas import Disposition, Evaluation, Prediction, UsageRole
 from fedcourtsai.serialize import read_model
-from fedcourtsai.store import iter_evaluations
+from fedcourtsai.store import iter_stratified_evaluations
 from tests.conftest import FixtureCorpus
 
 CASSETTE = Path(__file__).resolve().parent / "cassettes" / "realistic-grant"
@@ -155,9 +155,13 @@ def test_leaderboard_rolls_up_recorded_evaluations(
         engine="replay",
         run_id=ids.run_id(),
     )
-    board = build_leaderboard(iter_evaluations(fixture_corpus.data_root))
+    board = build_leaderboard(iter_stratified_evaluations(fixture_corpus.data_root))
     assert board.predictors_ranked >= 1
     for entry in board.entries:
-        assert entry.accuracy == pytest.approx(1.0)
-        assert entry.mean_brier_score == _REALISTIC_BRIER
-        assert entry.mean_brier_score != _STUB_BRIER
+        # Whichever stratum the fixture's dates land the cell in, the metrics
+        # come from the realistic replay, not the stub.
+        stratum = entry.forward or entry.retrospective
+        assert stratum is not None
+        assert stratum.accuracy == pytest.approx(1.0)
+        assert stratum.mean_brier_score == _REALISTIC_BRIER
+        assert stratum.mean_brier_score != _STUB_BRIER

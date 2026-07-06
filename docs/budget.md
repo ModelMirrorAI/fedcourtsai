@@ -213,7 +213,10 @@ only once the gate widens toward keeping all fourteen courts current at the live
 frontier. The membership raises the *ceiling*; the client still throttles to
 whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to in the runner
 env (wired in `run-pull.yml` from repo variables, defaulting to the held tier), so
-realizing a higher rate means setting those variables — no code change.
+realizing a higher rate means setting those variables — no code change. The
+throttle paces, it never stalls: a wait past the client's max-wait setting (an
+exhausted hour/day window) raises instead of sleeping, and the run wraps up early
+— see the degradation guards in [data-pipeline.md](data-pipeline.md).
 
 > **Line item: $250–1,200/yr** (pilot Tier 2 annual ≈ $250/yr; Tier 3–4 as scope widens).
 

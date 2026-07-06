@@ -841,10 +841,73 @@ def is_date_inconsistent(row: CorpusRow) -> bool:
     )
 
 
-# Each (predicate, reason) the predict-scope gate excludes a case on — the single
-# source of truth shared by the matrix backstop (``cli._scope_filtered``), the
-# run-cleanup sweep (``cleanup``), and the scope audit (``validate.run_scope_audit``),
-# so an exclusion that lands here is enforced at every point.
+def is_bare_import_profile(row: CorpusRow) -> bool:
+    """Whether a SCOTUS row carries none of the fields the sibling predicates key on.
+
+    The bulk import leaves a class of historical opinion-import dockets with an
+    **empty docket number, null dates, no disposition, and no citation/opinion
+    fields** — exactly the row fields every other exclusion predicate tests — so
+    they fall through all of them. This profile is one half of
+    :func:`is_bare_opinion_import` (issue #438); alone it is *not* an exclusion
+    signal, because a row this empty could also be a malformed but genuinely live
+    case. The other half — the latest snapshot linking a published opinion
+    cluster — is what marks it as a decided historical matter.
+    """
+    if row.court != "scotus":
+        return False
+    if normalize_docket_number(row.docket_number):
+        return False
+    if row.date_filed is not None or row.date_decided is not None or row.disposition is not None:
+        return False
+    return not (row.citations or row.citation_count or row.opinion_text)
+
+
+def snapshot_links_opinion_cluster(payload: Mapping[str, Any]) -> bool:
+    """Whether a docket snapshot links at least one opinion cluster.
+
+    CourtListener dockets carry a ``clusters`` list of opinion-cluster URLs; a
+    non-empty list means a published opinion exists for the docket — the decided
+    signal a bare bulk-import row itself does not carry.
+    """
+    return bool(payload.get("clusters"))
+
+
+def is_bare_opinion_import(row: CorpusRow, snapshot: Mapping[str, Any] | None) -> bool:
+    """Whether a row is a bare bulk-import docket whose snapshot links an opinion (issue #438).
+
+    The profile of a historical opinion-import docket: every row field the sibling
+    exclusion predicates key on is empty (:func:`is_bare_import_profile`), while
+    the latest snapshot **links an opinion cluster** — the decision is published,
+    so the matter resolved long ago, but the petition-stage facts a cert
+    prediction needs were never imported. Predicting such a case only ever emits
+    the raw base rate, so predict scope excludes it.
+
+    Safe against a live petition by construction, like the sibling
+    :func:`is_published_opinion_unresolvable`: a pending case has no published
+    opinion cluster to link. Two-directional like every latched exclusion — a
+    later re-ingest that fills in real petition-stage facts (a docket number, a
+    filing date) breaks the bare profile and the scope reconcile releases the
+    latch. Needs the snapshot, so it cannot join the row-only
+    ``OUT_OF_SCOPE_RULES``; :func:`out_of_scope_reason_full` applies it wherever
+    the corpus is at hand, and row-only seams see it through ``predict_excluded``.
+    """
+    return (
+        is_bare_import_profile(row)
+        and snapshot is not None
+        and (snapshot_links_opinion_cluster(snapshot))
+    )
+
+
+BARE_OPINION_IMPORT_REASON = (
+    "bare bulk-import row whose snapshot links a published opinion cluster (#438)"
+)
+
+
+# Each (predicate, reason) the predict-scope gate excludes a case on from the row
+# alone — shared by every enforcement seam via :func:`out_of_scope_reason` /
+# :func:`out_of_scope_reason_full`, so an exclusion that lands here is enforced at
+# every point. Snapshot-aware exclusions (the bare opinion-import rule) cannot live
+# in this row-only list; they are applied by :func:`out_of_scope_reason_full`.
 OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter (#309)"),
     (is_stale_unresolvable, "stale unresolvable old SCOTUS petition (#333)"),
@@ -861,10 +924,36 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
 
 
 def out_of_scope_reason(row: CorpusRow) -> str | None:
-    """The first exclusion reason matching ``row``, or ``None`` if it is in predict scope."""
+    """The first exclusion reason matching ``row``, or ``None`` if it is in predict scope.
+
+    Row-only: applies just the predicates a :class:`CorpusRow` can answer.
+    Callers holding a corpus connection should prefer
+    :func:`out_of_scope_reason_full`, which adds the snapshot-aware rules; a seam
+    without the corpus sees those through the ``predict_excluded`` latch instead.
+    """
     for predicate, reason in OUT_OF_SCOPE_RULES:
         if predicate(row):
             return reason
+    return None
+
+
+def out_of_scope_reason_full(conn: ReadConnection, row: CorpusRow) -> str | None:
+    """Every exclusion reason a corpus connection can evaluate, or ``None`` if in scope.
+
+    The row rules (:func:`out_of_scope_reason`) plus the snapshot-aware bare
+    opinion-import rule (:func:`is_bare_opinion_import`), which needs the case's
+    latest snapshot. The one reason evaluator for every seam that holds the
+    corpus — the scope reconcile, the scope audit, the cleanup sweep, the pull
+    queue gate, and the matrix backstop. The snapshot is fetched only for rows
+    matching the bare profile, so the common case costs nothing extra.
+    """
+    reason = out_of_scope_reason(row)
+    if reason is not None:
+        return reason
+    if is_bare_import_profile(row):
+        snap = latest_snapshot(conn, row.case_id)
+        if snap is not None and snapshot_links_opinion_cluster(snap[1]):
+            return BARE_OPINION_IMPORT_REASON
     return None
 
 

@@ -79,8 +79,10 @@ catch-up while backfilling, then a weekly snapshot-id check that reconciles when
 new quarterly bulk snapshot drops; **pull** keeps the active set current from
 the rate-limited **REST API** and owns the 125/day budget. After backfilling, seed
 also runs the **predict-scope reconcile** (`fedcourts reconcile-scope`): it latches
-out-of-scope cases (#309 / #333 / #171) in the corpus so they leave the predictable
-set at the source, then `dvc push`es the pointer like any other corpus write. The
+out-of-scope cases (the shared exclusion rules — era, staleness, docket form, date
+consistency, and the snapshot-aware bare opinion-import profile) in the corpus so
+they leave the predictable set at the source, then `dvc push`es the pointer like
+any other corpus write. The
 full design — sources, budget boundary, the corpus/ledger storage split, and the
 historical corpus — is in [data-pipeline.md](data-pipeline.md).
 

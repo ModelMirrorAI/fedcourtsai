@@ -2,7 +2,60 @@
   "$defs": {
     "LeaderboardEntry": {
       "additionalProperties": false,
-      "description": "One predictor's standings, aggregated across the evaluations ledger.",
+      "description": "One predictor's standings, aggregated per pre-registration stratum.",
+      "properties": {
+        "evaluators": {
+          "description": "Distinct evaluators that scored this predictor",
+          "minimum": 0,
+          "title": "Evaluators",
+          "type": "integer"
+        },
+        "forward": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True forward forecasts \u2014 the event was unresolved when the prediction was committed. The only stratum that measures forecasting skill; null until this predictor has a scored forward cell."
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "rank": {
+          "description": "1-based standing; 1 is best",
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "retrospective": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Events already resolved when the prediction was committed: measures calibration and label-mapping fit, not forecasting skill; null when this predictor has no scored retrospective cell."
+        }
+      },
+      "required": [
+        "predictor_id",
+        "rank",
+        "evaluators"
+      ],
+      "title": "LeaderboardEntry",
+      "type": "object"
+    },
+    "LeaderboardStratum": {
+      "additionalProperties": false,
+      "description": "Aggregates over one pre-registration stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\ncommit time and *retrospective* when it had already resolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.",
       "properties": {
         "accuracy": {
           "description": "Mean correctness across evaluations",
@@ -12,15 +65,9 @@
           "type": "number"
         },
         "evaluations": {
-          "description": "Total evaluations counted for this predictor",
+          "description": "Evaluations counted in this stratum",
           "minimum": 0,
           "title": "Evaluations",
-          "type": "integer"
-        },
-        "evaluators": {
-          "description": "Distinct evaluators that scored this predictor",
-          "minimum": 0,
-          "title": "Evaluators",
           "type": "integer"
         },
         "events_scored": {
@@ -73,32 +120,19 @@
           "default": null,
           "description": "Mean panel-vote accuracy where reported",
           "title": "Mean Vote Accuracy"
-        },
-        "predictor_id": {
-          "title": "Predictor Id",
-          "type": "string"
-        },
-        "rank": {
-          "description": "1-based standing; 1 is best",
-          "minimum": 1,
-          "title": "Rank",
-          "type": "integer"
         }
       },
       "required": [
-        "predictor_id",
-        "rank",
         "events_scored",
         "evaluations",
-        "evaluators",
         "accuracy"
       ],
-      "title": "LeaderboardEntry",
+      "title": "LeaderboardStratum",
       "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first. Computed by ``fedcourts\nleaderboard``; carries no timestamp so the same ledger always serializes\nidentically.",
+  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 forward and retrospective cells are never\nblended into one number). Computed by ``fedcourts leaderboard``; carries no\ntimestamp so the same ledger always serializes identically.",
   "properties": {
     "entries": {
       "items": {
@@ -113,10 +147,24 @@
       "title": "Evaluations Total",
       "type": "integer"
     },
+    "forward_evaluations": {
+      "default": 0,
+      "description": "Evaluations of true forward forecasts",
+      "minimum": 0,
+      "title": "Forward Evaluations",
+      "type": "integer"
+    },
     "predictors_ranked": {
       "description": "Number of predictors on the board",
       "minimum": 0,
       "title": "Predictors Ranked",
+      "type": "integer"
+    },
+    "retrospective_evaluations": {
+      "default": 0,
+      "description": "Evaluations of retrospective (leakage-suspect) cells",
+      "minimum": 0,
+      "title": "Retrospective Evaluations",
       "type": "integer"
     },
     "schema_version": {

@@ -107,7 +107,7 @@ def find_out_of_scope_predictions(data_root: Path, corpus_db: Path) -> list[Prun
             row = corpus.get_row(conn, case_id)
             if row is None:
                 continue
-            reason = corpus.out_of_scope_reason(row)
+            reason = corpus.out_of_scope_reason_full(conn, row)
             if reason is not None:
                 prunable.append(
                     PrunableCase(case_id=case_id, reason=reason, paths=sorted(by_case[case_id]))

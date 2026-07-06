@@ -553,6 +553,59 @@ def test_retrieve_priors_era_filter(tmp_path: Path) -> None:
             conn, corpus.PriorQuery(court="scotus", era="1990s"), limit=10
         )
     assert [r.case_id for r in priors] == ["scotus/1"]
+def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:
+    """A bulk-import shell: SCOTUS with every predicate-keyed row field empty."""
+    return corpus.CorpusRow.model_validate({"case_id": case_id, "court": "scotus", **kw})
+
+
+def test_is_bare_import_profile_matches_only_empty_scotus_rows() -> None:
+    # Issue #438: the profile is every field the sibling predicates key on, empty.
+    assert corpus.is_bare_import_profile(_bare_row()) is True
+    # A whitespace-only docket number normalizes to empty and still counts.
+    assert corpus.is_bare_import_profile(_bare_row(docket_number="  ")) is True
+    # Any real field breaks the profile: it is no longer a bare shell.
+    assert corpus.is_bare_import_profile(_bare_row(docket_number="24-101")) is False
+    assert corpus.is_bare_import_profile(_bare_row(date_filed=date(1946, 1, 2))) is False
+    assert corpus.is_bare_import_profile(_bare_row(citation_count=3)) is False
+    assert corpus.is_bare_import_profile(_bare_row(opinion_text="held...")) is False
+    assert corpus.is_bare_import_profile(_bare_row(disposition=Disposition.denied)) is False
+    # Non-SCOTUS rows never match; the class is a SCOTUS bulk-import artifact.
+    assert corpus.is_bare_import_profile(_bare_row(court="ca9")) is False
+
+
+def test_is_bare_opinion_import_needs_the_cluster_link() -> None:
+    # The bare profile alone is not an exclusion signal — the linked opinion
+    # cluster is what marks the docket as a decided historical matter.
+    row = _bare_row()
+    linked = {"id": 1038466, "clusters": ["https://example/clusters/88494/"]}
+    unlinked = {"id": 1038466, "clusters": []}
+    assert corpus.is_bare_opinion_import(row, linked) is True
+    assert corpus.is_bare_opinion_import(row, unlinked) is False
+    assert corpus.is_bare_opinion_import(row, None) is False
+    assert corpus.is_bare_opinion_import(_bare_row(docket_number="24-101"), linked) is False
+
+
+def test_out_of_scope_reason_full_adds_the_snapshot_aware_rule(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_bare_row(), _bare_row(case_id="scotus/2")])
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1038466",
+            date(2026, 7, 2),
+            {"id": 1038466, "clusters": ["https://example/clusters/88494/"]},
+        )
+        # scotus/2 has no snapshot at all — the bare profile alone must not exclude.
+        linked = corpus.get_row(conn, "scotus/1038466")
+        bare_only = corpus.get_row(conn, "scotus/2")
+        assert linked is not None and bare_only is not None
+        assert corpus.out_of_scope_reason_full(conn, linked) == (corpus.BARE_OPINION_IMPORT_REASON)
+        assert corpus.out_of_scope_reason_full(conn, bare_only) is None
+        # Row rules still come first and short-circuit the snapshot fetch.
+        historical = corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="801")
+        assert corpus.out_of_scope_reason_full(conn, historical) == (
+            "pre-1925 mandatory-jurisdiction matter (#309)"
+        )
 
 
 def test_upsert_without_stamp_preserves_prior_last_pulled(tmp_path: Path) -> None:

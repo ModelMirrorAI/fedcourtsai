@@ -112,7 +112,16 @@ def _seed_scope_corpus(db: Path) -> None:
                 corpus.CorpusRow(case_id="scotus/1005000", court="scotus", docket_number="00-100"),
                 # A lower court open event — excluded (predicates are SCOTUS-only).
                 corpus.CorpusRow(case_id="ca9/9", court="ca9", docket_number="9"),
+                # Bare opinion-import (#438): every row field empty, but the
+                # snapshot below links an opinion cluster.
+                corpus.CorpusRow(case_id="scotus/1038466", court="scotus"),
             ],
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1038466",
+            date(2026, 7, 2),
+            {"id": 1038466, "clusters": ["https://example/clusters/88494/"]},
         )
         corpus.upsert_events(
             conn,
@@ -123,6 +132,7 @@ def _seed_scope_corpus(db: Path) -> None:
                 _open_petition("scotus/2400001"),
                 _open_petition("scotus/1005000", resolved=True),
                 _open_petition("ca9/9", court="ca9"),
+                _open_petition("scotus/1038466"),
             ],
         )
 
@@ -138,18 +148,24 @@ def test_run_scope_audit_tallies_open_exclusions_with_recoverable_split(tmp_path
     audit = run_scope_audit(corpus_db_path=db)
 
     assert audit.skipped is False
-    # Denominator: the four open SCOTUS events (the resolved one and the ca9 one excluded).
-    assert audit.scotus_open_events == 4
+    # Denominator: the five open SCOTUS events (the resolved one and the ca9 one excluded).
+    assert audit.scotus_open_events == 5
     by_reason = {e.reason: e for e in audit.exclusions}
     assert set(by_reason) == {
         "pre-1925 mandatory-jurisdiction matter (#309)",
         "stale unresolvable old SCOTUS petition (#333)",
+        corpus.BARE_OPINION_IMPORT_REASON,
     }
     stale = by_reason["stale unresolvable old SCOTUS petition (#333)"]
     assert (stale.cases, stale.open_events, stale.recoverable) == (2, 2, 1)
     assert stale.sample_cases == ["scotus/1004191", "scotus/1004289"]
     hist = by_reason["pre-1925 mandatory-jurisdiction matter (#309)"]
     assert (hist.cases, hist.open_events, hist.recoverable) == (1, 1, 0)
+    # The bare opinion-import class is recoverable by construction (the linked
+    # cluster is the ingestion-gap hint).
+    bare = by_reason[corpus.BARE_OPINION_IMPORT_REASON]
+    assert (bare.cases, bare.open_events, bare.recoverable) == (1, 1, 1)
+    assert bare.sample_cases == ["scotus/1038466"]
     # The one in-scope open event (recent Term 24-101) lands in the unclassified breakdown.
     assert {u.reason: u.open_events for u in audit.unclassified} == {
         "recent or current Term (legitimately pending)": 1
@@ -747,12 +763,13 @@ def test_cli_scope_audit_writes_audit_and_summary(tmp_path: Path) -> None:
         env=_cli_env(tmp_path, corpus_root),
     )
     assert result.exit_code == 0, result.output
-    assert "corpus-scope-audit: 3 out-of-scope open event(s)" in result.output
+    assert "corpus-scope-audit: 4 out-of-scope open event(s)" in result.output
     audit = read_model(out, CorpusScopeAudit)
-    assert audit.scotus_open_events == 4
+    assert audit.scotus_open_events == 5
     assert {e.reason for e in audit.exclusions} == {
         "pre-1925 mandatory-jurisdiction matter (#309)",
         "stale unresolvable old SCOTUS petition (#333)",
+        corpus.BARE_OPINION_IMPORT_REASON,
     }
 
 
