@@ -28,14 +28,15 @@ from .ratelimit import RateLimiter, default_rate_limiter
 JsonDict = dict[str, Any]
 
 
-def _is_transient(exc: BaseException) -> bool:
+def is_transient(exc: BaseException) -> bool:
     """Whether a failed request is worth retrying.
 
     Network/timeout faults (:class:`httpx.RequestError`) and server-side errors
     (HTTP 5xx) or throttling (429) are transient — a retry may succeed. A
     deterministic client error such as a 404 (missing docket) is not: retrying it
     only burns the API budget without changing the outcome, so it propagates to
-    the caller on the first attempt.
+    the caller on the first attempt. Callers use the same split to tell a
+    degraded upstream (worth backing off from) from a per-docket condition.
     """
     if isinstance(exc, httpx.HTTPStatusError):
         status = exc.response.status_code
@@ -75,7 +76,7 @@ class CourtListenerClient:
     @retry(
         stop=stop_after_attempt(4),
         wait=wait_exponential(min=1, max=20),
-        retry=retry_if_exception(_is_transient),
+        retry=retry_if_exception(is_transient),
         reraise=True,
     )
     def _get(self, path: str, params: JsonDict | None = None) -> JsonDict:
