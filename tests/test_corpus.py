@@ -553,6 +553,8 @@ def test_retrieve_priors_era_filter(tmp_path: Path) -> None:
             conn, corpus.PriorQuery(court="scotus", era="1990s"), limit=10
         )
     assert [r.case_id for r in priors] == ["scotus/1"]
+
+
 def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:
     """A bulk-import shell: SCOTUS with every predicate-keyed row field empty."""
     return corpus.CorpusRow.model_validate({"case_id": case_id, "court": "scotus", **kw})
