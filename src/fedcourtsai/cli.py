@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+import tempfile
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
@@ -30,6 +31,7 @@ from . import (
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
+from .cert_backtest import replay_predictors, run_cert_backtest, select_cert_backtest_set
 from .collect import (
     CellStatus,
     CollectPlan,
@@ -437,6 +439,76 @@ def backtest(
     typer.echo(
         f"backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} resolved event(s) -> {destination}"
+    )
+
+
+@app.command("cert-backtest")
+def cert_backtest_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/cert-backtest.json)."),
+    ] = None,
+    limit: Annotated[
+        int,
+        typer.Option(
+            help="Cap the cert set to the N most recently decided petitions. Keep it "
+            "small with a real --engine: every petition costs one cell per predictor."
+        ),
+    ] = 25,
+    engine: Annotated[
+        str,
+        typer.Option(
+            help="Also replay the configured agentic predictors through this engine "
+            "(claude-code, codex, gemini; stub/replay for offline runs). Omit to "
+            "score only the offline reference baselines."
+        ),
+    ] = "",
+    work_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Scratch root for the replay's provisioned snapshots and prediction "
+            "cells (default: a temporary directory). Never data/."
+        ),
+    ] = None,
+) -> None:
+    """Back-test cert predictors over decided petitions into ``metrics/cert-backtest.json``.
+
+    Selects the most recently decided modern discretionary-cert petitions with a
+    machine-readable grant/deny label, hides their outcomes, replays predictors,
+    and scores them with the honest cert signals: **lift over the always-deny
+    floor** and a P(granted) calibration view, alongside accuracy and Brier. The
+    offline reference baselines always run; ``--engine`` additionally replays
+    every enabled predictor through the engine runner over redacted snapshots in
+    a scratch tree (this spends tokens on a real engine). Out of band by design:
+    it never writes the ``data/`` ledger, and the report is labeled
+    retrospective (the outcomes predate every modern model's training cutoff).
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    destination = out if out is not None else settings.metrics_root / "cert-backtest.json"
+    if not db_path.exists():
+        write_json(destination, run_cert_backtest([], []))
+        typer.echo(f"No corpus at {db_path} — wrote empty cert back-test report -> {destination}")
+        return
+    with corpus.connect(db_path) as conn:
+        items = select_cert_backtest_set(conn, limit=limit)
+        backtesters = default_backtesters(conn)
+        if engine:
+            work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
+            backtesters += replay_predictors(
+                items,
+                corpus_db_path=db_path,
+                config_root=settings.config_root,
+                work_root=work_root,
+                engine=engine,
+                run_id=ids.run_id(),
+            )
+        report = run_cert_backtest(backtesters, items)
+    write_json(destination, report)
+    typer.echo(
+        f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
+        f"{report.events_scored} decided petition(s); always-deny floor "
+        f"{report.always_denied_accuracy:.3f} -> {destination}"
     )
 
 

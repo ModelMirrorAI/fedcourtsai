@@ -1,0 +1,172 @@
+{
+  "$defs": {
+    "CalibrationBin": {
+      "additionalProperties": false,
+      "description": "One probability bin of a calibration view: predicted vs observed grant rate.",
+      "properties": {
+        "lower": {
+          "description": "Bin lower bound on P(granted), inclusive",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Lower",
+          "type": "number"
+        },
+        "mean_probability": {
+          "description": "Mean predicted P(granted) within the bin",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Mean Probability",
+          "type": "number"
+        },
+        "observed_granted_rate": {
+          "description": "Realized grant rate among the bin's cases",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Observed Granted Rate",
+          "type": "number"
+        },
+        "predictions": {
+          "description": "Predictions whose P(granted) fell in this bin",
+          "minimum": 0,
+          "title": "Predictions",
+          "type": "integer"
+        },
+        "upper": {
+          "description": "Bin upper bound on P(granted); inclusive for the top bin",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Upper",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "upper",
+        "predictions",
+        "mean_probability",
+        "observed_granted_rate"
+      ],
+      "title": "CalibrationBin",
+      "type": "object"
+    },
+    "CertBacktestEntry": {
+      "additionalProperties": false,
+      "description": "One predictor's standings over the cert back-test set.",
+      "properties": {
+        "accuracy": {
+          "description": "Fraction whose predicted disposition matched the known label",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "calibration": {
+          "description": "P(granted) decile bins: predicted probability vs observed grant rate",
+          "items": {
+            "$ref": "#/$defs/CalibrationBin"
+          },
+          "title": "Calibration",
+          "type": "array"
+        },
+        "events_scored": {
+          "description": "Decided cert petitions replayed",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "granted_accuracy": {
+          "description": "Fraction whose binary granted/denied projection matched the outcome",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Granted Accuracy",
+          "type": "number"
+        },
+        "lift_over_always_denied": {
+          "description": "Disposition accuracy minus the always-deny floor's \u2014 the honest signal under cert's structural denial skew, where raw accuracy is cheap",
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Lift Over Always Denied",
+          "type": "number"
+        },
+        "mean_brier_score": {
+          "description": "Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Mean Brier Score",
+          "type": "number"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "rank": {
+          "description": "1-based standing; 1 is best",
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "rank",
+        "events_scored",
+        "accuracy",
+        "granted_accuracy",
+        "mean_brier_score",
+        "lift_over_always_denied"
+      ],
+      "title": "CertBacktestEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/cert-backtest.json`` \u2014 predictors replayed over decided cert petitions.\n\nThe standing instrument for vetting cert predictors and prompt changes:\nreplay over a curated set of resolved modern discretionary-cert petitions\n(outcome hidden \u2014 the replay provisions a redacted snapshot), scored against\nthe realized grant/deny. Produced out of band by ``fedcourts cert-backtest``\n(it spends tokens when agentic engines are replayed), never by a schedule.",
+  "properties": {
+    "always_denied_accuracy": {
+      "default": 0.0,
+      "description": "The always-deny floor's disposition accuracy over this set (the denial base rate every lift figure is measured against)",
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Always Denied Accuracy",
+      "type": "number"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/CertBacktestEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "events_scored": {
+      "description": "Size of the cert back-test set",
+      "minimum": 0,
+      "title": "Events Scored",
+      "type": "integer"
+    },
+    "predictors_evaluated": {
+      "description": "Number of predictors on the board",
+      "minimum": 0,
+      "title": "Predictors Evaluated",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stratum": {
+      "const": "retrospective",
+      "default": "retrospective",
+      "description": "Every replayed petition resolved before any modern model's training cutoff, so this measures recall, calibration, and label-mapping fit over known history, never ex-ante forecasting skill (the same pre-registration rule the leaderboard stratifies on).",
+      "title": "Stratum",
+      "type": "string"
+    }
+  },
+  "required": [
+    "events_scored",
+    "predictors_evaluated"
+  ],
+  "title": "CertBacktest",
+  "type": "object"
+}
