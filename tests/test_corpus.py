@@ -515,6 +515,51 @@ def test_is_date_inconsistent_flags_decided_before_filed() -> None:
     )
 
 
+def test_consolidated_docket_members_splits_and_normalizes() -> None:
+    # Per-member labels ("No." / the plural "Nos.") are stripped after the split.
+    assert corpus.consolidated_docket_members("No. 155; No. 156") == ["155", "156"]
+    assert corpus.consolidated_docket_members("Nos. 522, 523, 524") == ["522", "523", "524"]
+    assert corpus.consolidated_docket_members("Nos. 155 and 156") == ["155", "156"]
+    assert corpus.consolidated_docket_members("93-7515 & 94-100") == ["93-7515", "94-100"]
+    # Not consolidated: no separator, or fewer than two members survive.
+    assert corpus.consolidated_docket_members("22-451") is None
+    assert corpus.consolidated_docket_members("No. 155, ") is None
+    assert corpus.consolidated_docket_members("") is None
+
+
+def _consolidated(number: str, **kw: object) -> corpus.CorpusRow:
+    return corpus.CorpusRow.model_validate(
+        {"case_id": "scotus/9", "court": "scotus", "docket_number": number, **kw}
+    )
+
+
+def test_consolidated_out_of_scope_needs_every_member_to_agree() -> None:
+    # All bare-sequential members -> the pre-1925 mandatory regime.
+    assert corpus.is_consolidated_out_of_scope(_consolidated("No. 155; No. 156")) is True
+    assert corpus.is_consolidated_out_of_scope(_consolidated("Nos. 522, 523, 524")) is True
+    # All stale Term years on a still-open row.
+    assert corpus.is_consolidated_out_of_scope(_consolidated("93-7515; 94-100")) is True
+    # Disagreement (bare + Term-form) stays in scope, visible in the audit.
+    assert corpus.is_consolidated_out_of_scope(_consolidated("801; 93-7515")) is False
+    # Recent consolidated Terms are live petitions: neither branch matches.
+    assert corpus.is_consolidated_out_of_scope(_consolidated("24-101; 24-102")) is False
+    # A resolved row cannot be stale-unresolvable, whatever its members' Terms.
+    resolved = _consolidated(
+        "93-7515; 94-100", disposition=Disposition.denied, date_decided=date(1994, 6, 1)
+    )
+    assert corpus.is_consolidated_out_of_scope(resolved) is False
+    # Single-docket rows and other courts are never this rule's business.
+    assert corpus.is_consolidated_out_of_scope(_consolidated("801")) is False
+    ca9 = corpus.CorpusRow(case_id="ca9/9", court="ca9", docket_number="155; 156")
+    assert corpus.is_consolidated_out_of_scope(ca9) is False
+
+
+def test_consolidated_out_of_scope_carries_its_own_reason() -> None:
+    assert corpus.out_of_scope_reason(_consolidated("No. 155; No. 156")) == (
+        "consolidated docket whose members all classify out of scope (#449)"
+    )
+
+
 def test_case_era_prefers_term_year_then_dates() -> None:
     # SCOTUS: the parsed October-Term year wins over any date.
     scotus = corpus.CorpusRow(
