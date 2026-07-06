@@ -54,12 +54,19 @@ disk: `fedcourts query` (a handful of similar resolved priors, ranked) and
 invocation reports its transfer as a `ranged corpus reads: N GET(s), M byte(s)`
 line on stderr — record those lines in `retrieval.md` (below). For aggregate
 disposition **base-rates**, read the committed `metrics/statpack.md` — the
-corpus-wide roll-up (overall, by court, by SCOTUS Term, by originating circuit);
+corpus-wide roll-up (overall, by court, by SCOTUS Term, by originating circuit,
+by era, and the **modern discretionary-cert cut**);
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
-The SCOTUS cert grant rate is low (a few percent), so the base rate is a useful
-calibration anchor — recent Terms and the case's originating circuit are the most
-relevant cuts; weigh them against this case's specifics rather than adopting them
-wholesale. See `docs/cli.md`.
+For a modern cert petition, anchor on the **"Modern discretionary-cert petitions
+by disposition"** section — it is restricted to Term-prefixed cert dockets, so
+its grant/deny split is not diluted by historical merits-era labels (the overall
+base rate blends both and reads mostly `other`). The cert grant rate is low (a
+few percent). For a historical case, the era breakdown base-rates it against its
+own period. Recent Terms and the case's originating circuit remain the most
+relevant modern cuts; weigh them against this case's specifics rather than
+adopting them wholesale. Each `query` prior carries its caption, dates, and
+derived `era`, and `--era` restricts retrieval to the case's own period. See
+`docs/cli.md`.
 
 ## Outputs (your two files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)
 

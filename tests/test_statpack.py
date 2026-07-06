@@ -35,7 +35,7 @@ def test_build_statpack_headline_and_sections(fixture_corpus: FixtureCorpus) -> 
     shares = {d.disposition: d.share for d in pack.overall.dispositions}
     assert shares == {"denied": 0.5, "dismissed": 0.25, "granted": 0.25}
     # One section per curated breakdown, in order.
-    assert [s.title for s in pack.sections] == [t for t, _, _ in _STATPACK_SECTIONS]
+    assert [s.title for s in pack.sections] == [t for t, _, _, _ in _STATPACK_SECTIONS]
 
 
 def test_build_statpack_court_breakdown(fixture_corpus: FixtureCorpus) -> None:
@@ -81,7 +81,7 @@ def test_build_statpack_absent_corpus_is_empty_with_scaffolding(tmp_path: Path) 
     assert (pack.corpus_rows, pack.resolved, pack.open) == (0, 0, 0)
     assert pack.overall.cases == 0
     # The section scaffolding is kept (empty buckets) so the artifact shape is stable.
-    assert [s.title for s in pack.sections] == [t for t, _, _ in _STATPACK_SECTIONS]
+    assert [s.title for s in pack.sections] == [t for t, _, _, _ in _STATPACK_SECTIONS]
     assert all(s.buckets == [] for s in pack.sections)
 
 
@@ -130,3 +130,14 @@ def test_cli_statpack_absent_corpus_writes_empty(
     pack = StatPack.model_validate_json((tmp_path / "metrics/statpack.json").read_text())
     assert pack.corpus_rows == 0
     assert "Empty — no corpus present" in (tmp_path / "metrics/statpack.md").read_text()
+
+
+def test_build_statpack_era_and_cert_stage_sections(fixture_corpus: FixtureCorpus) -> None:
+    pack = _pack(fixture_corpus)
+    era = _section(pack, "SCOTUS cases by era")
+    # Both fixture SCOTUS petitions carry 2020s Term-prefixed docket numbers.
+    assert [(b.key, b.cases) for b in era.buckets] == [("2020s", 2)]
+    cert = _section(pack, "Modern discretionary-cert petitions by disposition")
+    assert cert.cert_stage is True and cert.court == "scotus"
+    # One resolved (denied) and one open modern cert petition.
+    assert {(b.key, b.cases) for b in cert.buckets} == {("denied", 1), ("(open)", 1)}

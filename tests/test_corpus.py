@@ -14,6 +14,7 @@ def _row(case_id: str = "ca9/123", **kw: object) -> corpus.CorpusRow:
         "case_id": case_id,
         "court": "ca9",
         "docket_number": "23-1234",
+        "case_name": "Doe v. Roe",
         "date_filed": date(2025, 1, 2),
         "date_decided": date(2026, 1, 2),
         "disposition": Disposition.granted,
@@ -506,6 +507,52 @@ def test_is_date_inconsistent_flags_decided_before_filed() -> None:
     assert corpus.out_of_scope_reason(bad) == (
         "internally inconsistent dates — decided before filed (#171)"
     )
+
+
+def test_case_era_prefers_term_year_then_dates() -> None:
+    # SCOTUS: the parsed October-Term year wins over any date.
+    scotus = corpus.CorpusRow(
+        case_id="scotus/1", court="scotus", docket_number="93-7515", date_filed=date(2001, 1, 1)
+    )
+    assert corpus.case_era(scotus) == "1990s"
+    # Non-SCOTUS (and unparseable SCOTUS): date_filed, then date_decided.
+    filed = corpus.CorpusRow(case_id="ca9/1", court="ca9", date_filed=date(2022, 4, 11))
+    decided = corpus.CorpusRow(case_id="scotus/2", court="scotus", date_decided=date(1873, 3, 1))
+    bare = corpus.CorpusRow(case_id="scotus/3", court="scotus")
+    assert corpus.case_era(filed) == "2020s"
+    assert corpus.case_era(decided) == "1870s"
+    assert corpus.case_era(bare) is None
+
+
+def test_is_modern_cert_matches_term_prefixed_scotus_only() -> None:
+    modern = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="22-451")
+    labeled = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="No. 01-7700")
+    application = corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="22A123")
+    bare = corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="801")
+    coa = corpus.CorpusRow(case_id="ca9/5", court="ca9", docket_number="22-15001")
+    assert corpus.is_modern_cert(modern) is True
+    assert corpus.is_modern_cert(labeled) is True
+    assert corpus.is_modern_cert(application) is False
+    assert corpus.is_modern_cert(bare) is False
+    assert corpus.is_modern_cert(coa) is False
+
+
+def test_retrieve_priors_era_filter(tmp_path: Path) -> None:
+    # Era is derived (Term year / dates), so the filter applies in Python over
+    # the SQL-narrowed candidates — historical cases retrieve their own period.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(case_id="scotus/1", court="scotus", docket_number="93-7515"),
+                _row(case_id="scotus/2", court="scotus", docket_number="22-451"),
+            ],
+        )
+        priors = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", era="1990s"), limit=10
+        )
+    assert [r.case_id for r in priors] == ["scotus/1"]
 
 
 def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:

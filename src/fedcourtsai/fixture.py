@@ -80,6 +80,7 @@ class FixtureCase:
             case_id=self.case_id,
             court=self.court,
             docket_number=self.docket_number,
+            case_name=self.case_name,
             date_filed=self.date_filed,
             date_decided=self.date_decided,
             disposition=self.disposition,
