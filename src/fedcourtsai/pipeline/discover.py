@@ -19,6 +19,8 @@ predictions, evaluations) are never written here — they belong to the git ledg
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -27,7 +29,7 @@ from typing import Protocol
 import httpx
 
 from .. import corpus
-from ..courtlistener import CourtListenerClient
+from ..courtlistener import CourtListenerClient, RateBudgetExceeded
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, to_corpus_row
 
@@ -62,6 +64,10 @@ class DiscoverResult:
     # ``reason`` for a maintainer to triage. The failed court's watermark is left
     # untouched, so the next run retries its range gap-free.
     failed: list[dict[str, object]] = field(default_factory=list)
+    # Why the court walk stopped early (run deadline, or API budget exhausted),
+    # or None when every court was visited. Unvisited courts keep their
+    # watermarks, so the next run picks up their ranges gap-free.
+    stopped: str | None = None
 
     @property
     def total(self) -> int:
@@ -75,6 +81,8 @@ def discover_cases(
     *,
     max_new: int,
     default_since: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
 ) -> DiscoverResult:
     """Discover and onboard newly-filed dockets across ``courts``, within budget.
 
@@ -86,6 +94,12 @@ def discover_cases(
     seed handed off, or ``--since`` for a never-seeded court (``today`` is only the
     last resort). A court that finds nothing still records the date it searched
     from, so it resumes there rather than resetting to ``default_since`` next run.
+
+    A wall-clock ``deadline`` (monotonic, checked between courts) and a
+    :class:`RateBudgetExceeded` from the client each stop the walk early, noted
+    on ``stopped`` — a degraded upstream (each failing court burns a full retry
+    cycle) must degrade the run, not hang it into the CI job timeout. Unvisited
+    courts keep their watermarks, so the next run resumes gap-free.
     """
     result = DiscoverResult()
     if max_new <= 0:
@@ -96,10 +110,18 @@ def discover_cases(
             remaining = max_new - result.total
             if remaining <= 0:
                 break
+            if deadline is not None and time_fn() >= deadline:
+                result.stopped = "run deadline reached"
+                break
 
             since = corpus.get_discovery_watermark(conn, court) or default_since
             try:
                 dockets = client.iter_dockets(court, since, max_results=remaining)
+            except RateBudgetExceeded as exc:
+                # The next request cannot fit the API budget this window; every
+                # later court would hit the same wall, so stop the walk here.
+                result.stopped = f"API budget exhausted ({exc})"
+                break
             except httpx.HTTPError as exc:
                 # One court's REST failure must not abort discovery (which itself
                 # runs before the per-case refresh): the courts already onboarded

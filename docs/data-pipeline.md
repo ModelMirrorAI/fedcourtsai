@@ -70,6 +70,20 @@ CourtListener's authenticated REST throttle is **5 requests/minute, 50/hour,
 or a commercial agreement. At roughly **3 requests per docket** (1 docket + ~2
 pages of entries) the token can touch **~30 dockets/day**.
 
+Because pull runs headless inside a CI job, budget pressure and a degraded
+upstream must **degrade a run, never hang it** — a silent stall gets the job
+killed at its timeout, discarding even the completed refreshes. Three guards
+enforce that, all tuned in `config/tracking.yaml`: the throttle raises rather
+than sleep out an hour/day-scale wait (minute pacing still sleeps; the bound is
+the client's max-wait setting), a wall-clock deadline (`pull.max_run_minutes`)
+stops the rotation between cases, and a circuit breaker
+(`pull.max_consecutive_transient_failures`) stops it when consecutive
+timeouts/5xx/429s show the upstream is down — each doomed case otherwise burns
+a full retry cycle of budget and minutes. However a run stops early, it defers
+the unreached cases (their `last_pulled` untouched, so they stay at the front
+of the next window's stalest-first rotation), records why, and still writes its
+queues and corpus updates.
+
 That cap makes one thing non-negotiable: **the REST API cannot load history.**
 The backlog is millions of dockets across 13 circuits; at ~30/day that is
 decades. So the two phases use two different sources:

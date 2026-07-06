@@ -43,6 +43,19 @@ pull:
   # Hard cap on new dockets onboarded per discovery run (its own slice of the
   # budget, separate from max_cases_per_run above).
   max_new_cases_per_run: 10
+  # Wall-clock budget for one pull-all run, minutes — checked between cases (and
+  # between courts during discovery), sized well under the workflow's job
+  # timeout. On expiry the run stops, defers the rest of the rotation to the
+  # next window, and still writes its queues and corpus updates — a degraded
+  # upstream degrades the run instead of hanging it into the CI timeout and
+  # losing the whole window's work.
+  max_run_minutes: 25
+  # Stop the refresh rotation after this many consecutive transient REST
+  # failures (timeouts / 5xx / 429): the upstream is degraded and each doomed
+  # case burns a full retry cycle of budget and minutes. Deterministic per-case
+  # errors (e.g. a 404) never trip it; deferred cases keep their stalest-first
+  # position, so the next window retries them.
+  max_consecutive_transient_failures: 5
   # Only trigger run-predict when a pull detects new docket activity.
   predict_on_change_only: true
 

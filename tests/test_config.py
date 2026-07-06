@@ -54,6 +54,24 @@ def test_discovery_defaults(tmp_path: Path) -> None:
     assert cfg.max_new_cases_per_run == 10
 
 
+def test_load_pull_config_reads_degradation_keys(tmp_path: Path) -> None:
+    _write_tracking(
+        tmp_path,
+        "pull:\n  max_run_minutes: 10\n  max_consecutive_transient_failures: 3\n",
+    )
+    cfg = load_pull_config(tmp_path)
+    assert cfg.max_run_minutes == 10.0
+    assert cfg.max_consecutive_transient_failures == 3
+
+
+def test_degradation_defaults_stay_under_the_job_timeout(tmp_path: Path) -> None:
+    # The deadline default must leave the workflow job (45 min) ample headroom to
+    # push the corpus and file handoffs after the rotation stops.
+    cfg = load_pull_config(tmp_path / "absent")
+    assert cfg.max_run_minutes == 25.0
+    assert cfg.max_consecutive_transient_failures == 5
+
+
 def test_load_courts_reads_scope(tmp_path: Path) -> None:
     _write_tracking(tmp_path, "courts:\n  - scotus\n  - ca9\n  - ca1\n")
     assert load_courts(tmp_path) == ["scotus", "ca9", "ca1"]

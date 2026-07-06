@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     courtlistener_rpm: int = 5
     courtlistener_rph: int = 50
     courtlistener_rpd: int = 125
+    # Longest single throttle wait the client may sleep. Minute-window pacing is
+    # seconds; a longer wait means an hour/day window is exhausted, and sleeping
+    # it out inside a CI job reads as a hang and gets the run killed at the job
+    # timeout — so the client raises instead and the caller wraps up the run.
+    courtlistener_max_wait: float = 300.0
     # How read-only consumers open the corpus: "local" reads the dvc-pulled file,
     # "ranged" queries the immutable blob in place on the DVC remote via HTTP
     # range requests (see fedcourtsai.corpus_ranged). Writers always open local.
@@ -87,6 +92,18 @@ class PullConfig(BaseModel):
     # Hard cap on new dockets onboarded per run (its own slice of the budget,
     # separate from the refresh cap above).
     max_new_cases_per_run: int = Field(default=10, ge=0)
+    # Wall-clock budget for one `pull-all` run, in minutes, checked between
+    # cases (and between courts during discovery). Sized below the workflow's
+    # job timeout so a run against a degraded upstream stops, defers the rest of
+    # the rotation to the next window, and still lands its queues and corpus
+    # writes — instead of being killed mid-run and losing everything.
+    max_run_minutes: float = Field(default=25.0, gt=0)
+    # Stop the refresh rotation after this many consecutive transient REST
+    # failures (timeouts / 5xx / 429): the upstream is degraded, and each doomed
+    # case burns a full retry cycle of budget and wall clock. Deterministic
+    # per-case errors (e.g. a 404) never trip it. Deferred cases keep their
+    # stalest-first position, so the next window retries them.
+    max_consecutive_transient_failures: int = Field(default=5, ge=1)
 
 
 def load_pull_config(config_root: Path) -> PullConfig:

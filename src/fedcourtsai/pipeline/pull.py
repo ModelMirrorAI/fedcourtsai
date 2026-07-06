@@ -18,7 +18,8 @@ discovery. Both ``seed`` and ``pull`` drive this function.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -27,7 +28,7 @@ import httpx
 
 from .. import corpus, ids
 from ..config import PredictScope
-from ..courtlistener import CourtListenerClient
+from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
 from ..store import open_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
@@ -123,6 +124,12 @@ class PullQueues:
     # gracefully instead of aborting the rotation; carries ``court`` / ``docket``
     # / ``reason`` for a maintainer to triage.
     failed: list[dict[str, object]] = field(default_factory=list)
+    # Why the rotation stopped before exhausting ``due`` (deadline, breaker, or
+    # API budget), or None when it ran to completion. The cases it never reached
+    # land in ``deferred``: their ``last_pulled`` is untouched, so they stay at
+    # the stalest-first front of the next window's rotation.
+    stopped: str | None = None
+    deferred: list[dict[str, object]] = field(default_factory=list)
 
 
 def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
@@ -148,6 +155,9 @@ def pull_cases(
     due: Iterable[tuple[str, int]],
     *,
     scope: PredictScope = PredictScope.all,
+    deadline: float | None = None,
+    max_consecutive_transient_failures: int | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
 ) -> PullQueues:
     """Refresh each due case and sort it into the predict / evaluate / reconcile queues.
 
@@ -165,12 +175,36 @@ def pull_cases(
     issue. ``reconcile`` stays ungated — it records ground truth for the corpus /
     back-testing, a different purpose from prediction spend. ``scope == all``
     (the default) enqueues exactly as before.
+
+    Three guards stop the rotation early — recording why on ``stopped`` and the
+    unreached cases on ``deferred`` — so a degraded upstream degrades the run
+    instead of hanging it into the CI job timeout (which would discard even the
+    completed refreshes): a wall-clock ``deadline`` (monotonic, checked between
+    cases), a circuit breaker after ``max_consecutive_transient_failures``
+    timeouts/5xx/429s in a row (each doomed case burns a full retry cycle of
+    budget and minutes; deterministic errors like a 404 never trip it), and
+    :class:`RateBudgetExceeded` from the client when the API budget is spent.
     """
     queues = PullQueues()
     gated = scope == PredictScope.scotus_touched
-    for court, docket in due:
+    due_list = list(due)
+    consecutive_transient = 0
+
+    def _stop(reason: str, remaining: list[tuple[str, int]]) -> None:
+        queues.stopped = reason
+        queues.deferred = [{"court": c, "docket": d} for c, d in remaining]
+
+    for index, (court, docket) in enumerate(due_list):
+        if deadline is not None and time_fn() >= deadline:
+            _stop("run deadline reached", due_list[index:])
+            break
         try:
             result = pull_case(client, corpus_db_path, data_root, court, docket)
+        except RateBudgetExceeded as exc:
+            # The next request cannot fit the API budget this window; every
+            # later case would hit the same wall, so defer them all now.
+            _stop(f"API budget exhausted ({exc})", due_list[index:])
+            break
         except httpx.HTTPError as exc:
             # One docket's REST failure must not abort the rotation: the cases
             # already refreshed this run keep their corpus writes and queue
@@ -179,7 +213,21 @@ def pull_cases(
             queues.failed.append(
                 {"court": court, "docket": docket, "reason": f"{type(exc).__name__}: {exc}"}
             )
+            if is_transient(exc):
+                consecutive_transient += 1
+                if (
+                    max_consecutive_transient_failures is not None
+                    and consecutive_transient >= max_consecutive_transient_failures
+                ):
+                    _stop(
+                        f"{consecutive_transient} consecutive transient REST failures",
+                        due_list[index + 1 :],
+                    )
+                    break
+            else:
+                consecutive_transient = 0
             continue
+        consecutive_transient = 0
         in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
         events = open_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:

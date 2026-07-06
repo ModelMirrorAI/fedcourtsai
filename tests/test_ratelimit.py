@@ -1,7 +1,10 @@
+import pytest
+
 from fedcourtsai.courtlistener.ratelimit import (
     DEFAULT_PER_DAY,
     DEFAULT_PER_HOUR,
     DEFAULT_PER_MINUTE,
+    RateBudgetExceeded,
     RateLimiter,
     default_rate_limiter,
 )
@@ -80,6 +83,39 @@ def test_capped_run_fits_within_the_hourly_budget() -> None:
         limiter.acquire()
     assert clock.now < 3600.0  # completes within the hour window
     assert sum(clock.sleeps) < 3600.0
+
+
+def test_wait_over_max_wait_raises_instead_of_sleeping() -> None:
+    # A wait beyond max_wait means an hour/day window is exhausted; inside a CI
+    # job sleeping it out reads as a hang, so acquire must raise loudly instead.
+    clock = FakeClock()
+    limiter = RateLimiter([(2, 3600.0)], max_wait=300.0, time_fn=clock.time, sleep_fn=clock.sleep)
+    limiter.acquire()
+    limiter.acquire()  # hour window now full
+    with pytest.raises(RateBudgetExceeded, match="3600s, over the 300s bound"):
+        limiter.acquire()
+    assert clock.sleeps == []  # raised, never slept
+
+
+def test_short_pacing_waits_still_sleep_under_max_wait() -> None:
+    # Minute-window pacing (seconds-long waits) stays a sleep, not an error.
+    clock = FakeClock()
+    limiter = RateLimiter([(1, 60.0)], max_wait=300.0, time_fn=clock.time, sleep_fn=clock.sleep)
+    limiter.acquire()
+    limiter.acquire()  # waits the full 60s minute window — under the bound
+    assert clock.sleeps == [60.0]
+
+
+def test_rejected_acquire_is_not_counted_so_a_later_call_recovers() -> None:
+    # The raise must not consume a slot: once the window ages out, acquire works.
+    clock = FakeClock()
+    limiter = RateLimiter([(1, 3600.0)], max_wait=300.0, time_fn=clock.time, sleep_fn=clock.sleep)
+    limiter.acquire()
+    with pytest.raises(RateBudgetExceeded):
+        limiter.acquire()
+    clock.now = 3601.0  # the window has aged out
+    limiter.acquire()  # no raise, no sleep
+    assert clock.sleeps == []
 
 
 def test_default_limiter_uses_published_limits() -> None:

@@ -5,9 +5,9 @@ from typing import Any, cast
 import httpx
 
 from fedcourtsai import corpus
-from fedcourtsai.cli import _format_discovery_failures
+from fedcourtsai.cli import _format_discovery_failures, _format_refresh_failures
 from fedcourtsai.config import PredictScope
-from fedcourtsai.courtlistener import CourtListenerClient
+from fedcourtsai.courtlistener import CourtListenerClient, RateBudgetExceeded
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import _in_predict_scope, pull_case, pull_cases
@@ -319,6 +319,129 @@ def test_pull_cases_isolates_a_failed_docket_from_the_rest(tmp_path: Path) -> No
     # The failure is surfaced, not swallowed, and carries triage context.
     assert [(f["court"], f["docket"]) for f in queues.failed] == [("ca9", 902)]
     assert "404" in str(queues.failed[0]["reason"])
+
+
+class TimeoutClient:
+    """Every fetch raises a transient transport error (a degraded upstream)."""
+
+    def get_docket(self, docket_id: int) -> dict[str, Any]:
+        raise httpx.ReadTimeout("The read operation timed out")
+
+    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:  # pragma: no cover
+        return []
+
+
+class BudgetClient:
+    """Every fetch raises RateBudgetExceeded (the API budget is spent)."""
+
+    def get_docket(self, docket_id: int) -> dict[str, Any]:
+        raise RateBudgetExceeded("next request must wait 3000s, over the 300s bound")
+
+    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:  # pragma: no cover
+        return []
+
+
+def test_pull_cases_stops_at_the_deadline_and_defers_the_rest(tmp_path: Path) -> None:
+    # A degraded upstream must degrade the run, not hang it into the CI job
+    # timeout: past the deadline the rotation stops between cases, defers the
+    # unreached slice, and keeps everything already refreshed.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    client = _scotus_ca9_client()
+    clock = iter([0.0, 100.0])  # first case starts pre-deadline, second is past it
+
+    queues = pull_cases(
+        cast(CourtListenerClient, client),
+        db,
+        tmp_path / "data",
+        [("scotus", 900), ("ca9", 901)],
+        deadline=50.0,
+        time_fn=lambda: next(clock),
+    )
+
+    # The first case refreshed fully; the second was deferred, not failed.
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, "scotus/900") is not None
+        assert corpus.get_row(conn, "ca9/901") is None
+    assert queues.stopped == "run deadline reached"
+    assert queues.deferred == [{"court": "ca9", "docket": 901}]
+    assert queues.failed == []
+
+
+def test_consecutive_transient_failures_trip_the_breaker(tmp_path: Path) -> None:
+    # When the upstream is down, every case burns a full retry cycle of budget
+    # and wall clock; after the threshold the rotation stops and defers the rest.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    due = [("scotus", n) for n in range(900, 905)]
+
+    queues = pull_cases(
+        cast(CourtListenerClient, TimeoutClient()),
+        db,
+        tmp_path / "data",
+        due,
+        max_consecutive_transient_failures=2,
+    )
+
+    assert [f["docket"] for f in queues.failed] == [900, 901]
+    assert queues.stopped == "2 consecutive transient REST failures"
+    assert [d["docket"] for d in queues.deferred] == [902, 903, 904]
+
+
+def test_deterministic_failures_never_trip_the_breaker(tmp_path: Path) -> None:
+    # 404s are per-docket conditions, not upstream degradation: a run of them
+    # must not stop the rotation.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+
+    class All404Client:
+        def get_docket(self, docket_id: int) -> dict[str, Any]:
+            raise httpx.HTTPStatusError(
+                "404 Not Found",
+                request=httpx.Request("GET", f"https://example/dockets/{docket_id}/"),
+                response=httpx.Response(404),
+            )
+
+        def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:  # pragma: no cover
+            return []
+
+    queues = pull_cases(
+        cast(CourtListenerClient, All404Client()),
+        db,
+        tmp_path / "data",
+        [("scotus", n) for n in range(900, 904)],
+        max_consecutive_transient_failures=2,
+    )
+
+    assert len(queues.failed) == 4  # every case tried; none deferred
+    assert queues.stopped is None
+    assert queues.deferred == []
+
+
+def test_exhausted_api_budget_stops_the_rotation(tmp_path: Path) -> None:
+    # RateBudgetExceeded means every later case would hit the same wall this
+    # window: stop at once and defer them all.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+
+    queues = pull_cases(
+        cast(CourtListenerClient, BudgetClient()),
+        db,
+        tmp_path / "data",
+        [("scotus", 900), ("ca9", 901)],
+    )
+
+    assert queues.stopped is not None
+    assert queues.stopped.startswith("API budget exhausted")
+    assert [d["docket"] for d in queues.deferred] == [900, 901]
+    assert queues.failed == []
+
+
+def test_format_refresh_failures_surfaces_each_cases_reason() -> None:
+    """``pull-all`` echoes every failed docket alongside its recorded reason."""
+    assert _format_refresh_failures([]) == ""
+    failed: list[dict[str, object]] = [
+        {"court": "scotus", "docket": 900, "reason": "ReadTimeout: read timed out"},
+    ]
+    summary = _format_refresh_failures(failed)
+    assert summary.startswith(" (1 failed: ")
+    assert "scotus/900 [ReadTimeout: read timed out]" in summary
 
 
 def test_discover_pull_predict_then_evaluate_from_corpus_events(tmp_path: Path) -> None:

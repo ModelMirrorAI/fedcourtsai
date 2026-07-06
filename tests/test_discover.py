@@ -5,7 +5,7 @@ from typing import Any, cast
 import httpx
 
 from fedcourtsai import corpus
-from fedcourtsai.courtlistener import CourtListenerClient
+from fedcourtsai.courtlistener import CourtListenerClient, RateBudgetExceeded
 from fedcourtsai.pipeline.discover import discover_cases
 
 
@@ -175,3 +175,54 @@ def test_empty_run_does_not_reset_watermark_to_default(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 9)
+
+
+def test_discovery_stops_at_the_deadline_between_courts(tmp_path: Path) -> None:
+    # Past the deadline the court walk stops; unvisited courts keep their
+    # watermarks so the next run resumes gap-free.
+    client = FakeSearch(
+        {
+            "ca9": [_docket(1, "ca9", "2026-06-03")],
+            "ca1": [_docket(2, "ca1", "2026-06-04")],
+        }
+    )
+    clock = iter([0.0, 100.0])  # ca9 starts pre-deadline; ca1 is past it
+    result = discover_cases(
+        cast(CourtListenerClient, client),
+        corpus.corpus_db_path(tmp_path / "corpus"),
+        ["ca9", "ca1"],
+        max_new=10,
+        default_since=date(2026, 6, 1),
+        deadline=50.0,
+        time_fn=lambda: next(clock),
+    )
+
+    assert result.case_ids == ["ca9/1"]
+    assert result.stopped == "run deadline reached"
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        assert corpus.get_discovery_watermark(conn, "ca9") == date(2026, 6, 3)
+        assert corpus.get_discovery_watermark(conn, "ca1") is None
+
+
+def test_discovery_stops_when_the_api_budget_is_exhausted(tmp_path: Path) -> None:
+    # RateBudgetExceeded means every later court would hit the same wall this
+    # window: stop the walk at once, leaving watermarks for a gap-free retry.
+    class BudgetSearch:
+        def iter_dockets(
+            self, court: str, date_filed_gte: date, *, max_results: int
+        ) -> list[dict[str, Any]]:
+            raise RateBudgetExceeded("next request must wait 3000s, over the 300s bound")
+
+    result = discover_cases(
+        cast(CourtListenerClient, BudgetSearch()),
+        corpus.corpus_db_path(tmp_path / "corpus"),
+        ["ca9", "ca1"],
+        max_new=10,
+        default_since=date(2026, 6, 1),
+    )
+
+    assert result.total == 0
+    assert result.stopped is not None
+    assert result.stopped.startswith("API budget exhausted")
+    assert result.failed == []

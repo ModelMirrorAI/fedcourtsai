@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from importlib.metadata import version
@@ -146,7 +147,10 @@ def _client() -> CourtListenerClient:
         api_token=s.courtlistener_api_token,
         timeout=s.request_timeout,
         rate_limiter=default_rate_limiter(
-            s.courtlistener_rpm, s.courtlistener_rph, s.courtlistener_rpd
+            s.courtlistener_rpm,
+            s.courtlistener_rph,
+            s.courtlistener_rpd,
+            max_wait=s.courtlistener_max_wait,
         ),
     )
 
@@ -1538,6 +1542,19 @@ def _format_discovery_failures(failed: list[dict[str, object]]) -> str:
     return f" ({len(failed)} court(s) failed: {courts})"
 
 
+def _format_refresh_failures(failed: list[dict[str, object]]) -> str:
+    """Render refresh casualties as a parenthetical with each case's reason.
+
+    The per-case counterpart to :func:`_format_discovery_failures`: surfaces
+    which dockets failed and why in the ``pull-all`` summary line, so a run of
+    upstream timeouts is diagnosable from the run log alone.
+    """
+    if not failed:
+        return ""
+    cases = ", ".join(f"{f['court']}/{f['docket']} [{f['reason']}]" for f in failed)
+    return f" ({len(failed)} failed: {cases})"
+
+
 @app.command("pull-all")
 def pull_all(
     out: Annotated[Path, typer.Option(help="Write the predict queue JSON here.")] = Path(
@@ -1570,11 +1587,18 @@ def pull_all(
     ``predict`` (changed cases with open events), ``evaluate`` (cases that gained
     an ``outcome.json`` this run), and ``reconcile`` (cases that appear decided but
     whose outcome an agent must confirm by hand).
+
+    The whole run is bounded by ``pull.max_run_minutes`` of wall clock: when the
+    deadline (or the API budget, or the consecutive-transient-failure breaker)
+    trips, the run stops where it is, defers the unreached cases to the next
+    window's rotation, and still writes its queues — so a degraded upstream can
+    never hang the job into its CI timeout and lose the window's work.
     """
     settings = get_settings()
     pull_cfg = load_pull_config(settings.config_root)
     scope = load_predict_config(settings.config_root).scope
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
+    deadline = time.monotonic() + pull_cfg.max_run_minutes * 60
     db = corpus.corpus_db_path(settings.corpus_root)
     with _client() as client:
         if pull_cfg.discover_new_filings:
@@ -1584,9 +1608,13 @@ def pull_all(
                 load_courts(settings.config_root),
                 max_new=pull_cfg.max_new_cases_per_run,
                 default_since=date.today(),
+                deadline=deadline,
             )
             disc_failed = _format_discovery_failures(disc.failed)
-            typer.echo(f"Discovered {disc.total} new case(s) before refresh{disc_failed}")
+            disc_stopped = f"; stopped early: {disc.stopped}" if disc.stopped else ""
+            typer.echo(
+                f"Discovered {disc.total} new case(s) before refresh{disc_failed}{disc_stopped}"
+            )
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(
             db,
@@ -1594,17 +1622,30 @@ def pull_all(
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
         )
-        queues = pull_cases(client, db, settings.data_root, due, scope=scope)
+        queues = pull_cases(
+            client,
+            db,
+            settings.data_root,
+            due,
+            scope=scope,
+            deadline=deadline,
+            max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
+        )
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
-    failed = f" ({len(queues.failed)} failed)" if queues.failed else ""
+    refreshed = len(due) - len(queues.failed) - len(queues.deferred)
     typer.echo(
-        f"Refreshed {len(due) - len(queues.failed)}/{cap} case(s){failed}; "
+        f"Refreshed {refreshed}/{cap} case(s){_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
         f"{len(queues.reconcile)} reconcile."
     )
+    if queues.stopped:
+        typer.echo(
+            f"Stopped early ({queues.stopped}); deferred {len(queues.deferred)} "
+            f"case(s) to the next rotation."
+        )
 
 
 @app.command()
