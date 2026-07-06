@@ -311,7 +311,7 @@ the full gate need no remote.
 Each corpus row is a normalized, **labeled** record so it serves both consumers:
 
 ```
-case_id, court, docket_number, date_filed, date_decided,
+case_id, court, docket_number, case_name (caption), date_filed, date_decided,
 disposition (outcome label), judges[], topic (nature/subject),
 citations[], opinion_text, summary
 # embedding[] — later upgrade for semantic retrieval

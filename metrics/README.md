@@ -17,8 +17,10 @@ and `dvc metrics diff` can track them over time:
   zero counts) until the first evaluation lands.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): headline case counts and the overall disposition base rate,
-  plus curated breakdowns — cases by court, and SCOTUS petitions by Term and by
-  nature-of-suit topic. The `statpack` DVC stage produces both the machine JSON and a
+  plus curated breakdowns — cases by court; SCOTUS petitions by Term, by
+  nature-of-suit topic, by originating circuit, and by decade era; and the
+  **modern discretionary-cert cut** (Term-prefixed cert dockets only — the
+  calibration anchor for cert predictions, undiluted by merits-era labels). The `statpack` DVC stage produces both the machine JSON and a
   rendered Markdown document by running `fedcourts statpack`, a deterministic, offline
   roll-up of the corpus — empty (zero counts, empty sections) until a corpus is present.
 

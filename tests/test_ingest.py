@@ -242,6 +242,7 @@ def test_to_corpus_row_projects_onto_store_schema() -> None:
     store_row = to_corpus_row(from_api_docket(API_DOCKET))
     assert isinstance(store_row, corpus.CorpusRow)
     assert store_row.case_id == "ca9/64512345"
+    assert store_row.case_name == "Doe v. Roe"  # the caption reaches the store
     assert store_row.topic == "Civil Rights"  # nature_of_suit -> topic
     assert store_row.judges == ["Alan Lee", "Jane Smith"]
     assert store_row.disposition == Disposition.granted_in_part

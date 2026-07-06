@@ -152,6 +152,12 @@ class CorpusRow(BaseModel):
     case_id: str = Field(description="Canonical `<court_id>/<docket_id>` id; primary key.")
     court: str
     docket_number: str = ""
+    case_name: str = Field(
+        default="",
+        description="Case caption (e.g. `Doe v. Roe`), from the docket's case-name "
+        "fields on both ingestion paths. The retrieval-judgment signal: a `query` "
+        "prior without a caption cannot be assessed for comparability.",
+    )
     date_filed: date | None = None
     date_decided: date | None = None
     disposition: Disposition | None = Field(
@@ -261,6 +267,7 @@ CREATE TABLE IF NOT EXISTS cases (
     case_id             TEXT PRIMARY KEY,
     court               TEXT NOT NULL,
     docket_number       TEXT NOT NULL DEFAULT '',
+    case_name           TEXT NOT NULL DEFAULT '',
     date_filed          TEXT,
     date_decided        TEXT,
     disposition         TEXT,
@@ -337,6 +344,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "case_id": "TEXT PRIMARY KEY",
     "court": "TEXT NOT NULL",
     "docket_number": "TEXT NOT NULL DEFAULT ''",
+    "case_name": "TEXT NOT NULL DEFAULT ''",
     "date_filed": "TEXT",
     "date_decided": "TEXT",
     "disposition": "TEXT",
@@ -481,6 +489,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "case_id": row.case_id,
         "court": row.court,
         "docket_number": row.docket_number,
+        "case_name": row.case_name,
         "date_filed": row.date_filed.isoformat() if row.date_filed else None,
         "date_decided": row.date_decided.isoformat() if row.date_decided else None,
         "disposition": row.disposition,
@@ -507,6 +516,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         case_id=record["case_id"],
         court=record["court"],
         docket_number=record["docket_number"],
+        case_name=record["case_name"],
         date_filed=date.fromisoformat(record["date_filed"]) if record["date_filed"] else None,
         date_decided=(
             date.fromisoformat(record["date_decided"]) if record["date_decided"] else None
@@ -678,6 +688,41 @@ def scotus_term_year(docket_number: str) -> int | None:
         return None
     two_digit = int(match.group(1))
     return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
+
+
+def is_modern_cert(row: CorpusRow) -> bool:
+    """Whether a SCOTUS docket is a modern discretionary-cert petition, by form.
+
+    The Term-prefixed ``YY-NNNN`` docket number is the post-1925 discretionary-cert
+    form — the population the ``evt-petition-disposition`` model actually predicts.
+    Bare sequential (pre-1925), application (``22A123``), original (``22O141``),
+    and unparseable numbers all fall outside it, as does every non-SCOTUS row.
+    The cert-stage base-rate cut keys on this, so the calibration anchor the
+    prompts point at reflects modern grant/deny petitions rather than blending in
+    historical merits-era labels.
+    """
+    return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
+
+
+def case_era(row: CorpusRow) -> str | None:
+    """The decade bucket a case belongs to (``"1890s"``, ``"2020s"``), or ``None``.
+
+    Derived from whatever signal the row has, best first: a SCOTUS row's parsed
+    October-Term year, then ``date_filed``, then ``date_decided``. ``None`` when
+    the row carries none of them (the bare bulk-import shells), so consumers show
+    a visible no-era bucket rather than guessing. Historical cases can thereby be
+    base-rated against their own period even where ``--term`` cannot parse.
+    """
+    year: int | None = None
+    if row.court == "scotus":
+        year = scotus_term_year(row.docket_number)
+    if year is None and row.date_filed is not None:
+        year = row.date_filed.year
+    if year is None and row.date_decided is not None:
+        year = row.date_decided.year
+    if year is None:
+        return None
+    return f"{year - year % 10}s"
 
 
 def is_stale_unresolvable(row: CorpusRow) -> bool:
@@ -917,6 +962,11 @@ class PriorQuery(BaseModel):
     disposition: Disposition | None = Field(
         default=None, description="Restrict to one realized outcome label."
     )
+    era: str | None = Field(
+        default=None,
+        description="Restrict to one decade era, e.g. `1890s` (see `case_era`) — "
+        "so historical cases retrieve priors from their own period.",
+    )
     resolved_only: bool = Field(
         default=True, description="Keep only labeled (decided) cases — precedent."
     )
@@ -971,6 +1021,10 @@ def retrieve_priors(
     scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
     for record in conn.execute(f"SELECT * FROM cases{where}", params):
         row = _from_record(record)
+        # Era is derived (Term year or filing/decision dates), not a stored
+        # column, so it filters here rather than in SQL.
+        if query.era is not None and case_era(row) != query.era:
+            continue
         judge_overlap = want_judges & set(row.judges)
         citation_overlap = want_citations & set(row.citations)
         # Overlap filters are required when given: skip a row that shares none.

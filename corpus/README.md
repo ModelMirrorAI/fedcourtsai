@@ -36,6 +36,7 @@ source.
 | `case_id`             | text (PK)       | `<court_id>/<docket_id>`                      |
 | `court`               | text            | CourtListener court id                        |
 | `docket_number`       | text            |                                              |
+| `case_name`           | text            | case caption, e.g. `Doe v. Roe` (both ingestion paths) |
 | `date_filed`          | date            |                                              |
 | `date_decided`        | date            |                                              |
 | `disposition`         | text            | realized outcome label; null while unresolved |

@@ -32,6 +32,23 @@ def test_query_full_includes_opinion_text(fixture_corpus: FixtureCorpus) -> None
     assert "dismissed for lack of jurisdiction" in str(rows[0]["opinion_text"])
 
 
+def test_query_rows_carry_caption_and_derived_era(fixture_corpus: FixtureCorpus) -> None:
+    result = runner.invoke(app, ["query", "--court", "ca9", "--judge", "smith"])
+    assert result.exit_code == 0, result.output
+    row = _rows(result.stdout)[0]
+    # The retrieval-judgment fields: caption stored on the row, era derived.
+    assert row["case_name"] == "Cohen v. Pacific Mutual"
+    assert row["era"] == "2020s"
+    assert row["date_filed"] == "2022-06-02"
+
+
+def test_query_era_filter(fixture_corpus: FixtureCorpus) -> None:
+    kept = runner.invoke(app, ["query", "--court", "ca9", "--era", "2020s"])
+    none = runner.invoke(app, ["query", "--court", "ca9", "--era", "1890s"])
+    assert kept.exit_code == 0 and none.exit_code == 0
+    assert _rows(kept.stdout) and not _rows(none.stdout)
+
+
 def test_query_include_open(fixture_corpus: FixtureCorpus) -> None:
     result = runner.invoke(app, ["query", "--court", "ca9", "--judge", "berzon", "--include-open"])
     assert result.exit_code == 0, result.output

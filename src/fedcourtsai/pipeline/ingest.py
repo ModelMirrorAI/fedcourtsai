@@ -398,6 +398,7 @@ def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.
         case_id=row.case_id,
         court=row.court,
         docket_number=row.docket_number,
+        case_name=row.case_name,
         date_filed=row.date_filed,
         date_decided=row.date_decided,
         disposition=row.disposition,

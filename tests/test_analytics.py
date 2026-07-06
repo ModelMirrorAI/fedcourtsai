@@ -123,6 +123,26 @@ def test_filter_term_open_petition(fixture_corpus: FixtureCorpus) -> None:
     assert (report.total.cases, report.total.resolved, report.total.open) == (1, 0, 1)
 
 
+def test_group_by_era_buckets_by_decade(fixture_corpus: FixtureCorpus) -> None:
+    report = _report(fixture_corpus, group_by=GroupBy.era)
+    # Every fixture case is a 2020s matter (Term year or filing date).
+    assert [(b.key, b.cases) for b in report.buckets] == [("2020s", 6)]
+
+
+def test_filter_era(fixture_corpus: FixtureCorpus) -> None:
+    assert _report(fixture_corpus, era="2020s").total.cases == 6
+    assert _report(fixture_corpus, era="1890s").total.cases == 0
+
+
+def test_filter_cert_stage_keeps_modern_cert_dockets_only(fixture_corpus: FixtureCorpus) -> None:
+    # Only the two Term-prefixed SCOTUS petitions survive the cert-stage cut; the
+    # court-of-appeals dockets (whose numbers coincidentally parse) never match.
+    report = _report(fixture_corpus, cert_stage=True)
+    total = report.total
+    assert (total.cases, total.resolved, total.open) == (2, 1, 1)
+    assert _shares(total) == {"denied": 1.0}
+
+
 def test_resolved_only_drops_open(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, resolved_only=True)
     assert (report.total.cases, report.total.resolved, report.total.open) == (4, 4, 0)

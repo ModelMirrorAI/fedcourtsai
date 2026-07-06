@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -74,6 +75,19 @@ class AnalyticsQuery(BaseModel):
         "year. A Term is a SCOTUS concept, so non-SCOTUS rows (whose docket numbers "
         "can coincidentally parse, e.g. ca9 `22-15001`) never match a term filter.",
     )
+    era: str | None = Field(
+        default=None,
+        description="Keep rows in one decade era, e.g. `1890s` "
+        "(:func:`fedcourtsai.corpus.case_era`) — usable on exactly the historical "
+        "rows whose docket numbers `term` cannot parse.",
+    )
+    cert_stage: bool = Field(
+        default=False,
+        description="Keep only modern Term-prefixed discretionary-cert SCOTUS "
+        "dockets (:func:`fedcourtsai.corpus.is_modern_cert`), so the base rate "
+        "reflects the population the cert model predicts rather than blending in "
+        "historical merits-era labels.",
+    )
     resolved_only: bool = Field(
         default=False, description="Drop unresolved cases (default keeps them for the open count)."
     )
@@ -97,9 +111,31 @@ def _row_matches(row: CorpusRow, query: AnalyticsQuery) -> bool:
         query.date_to is not None and (filed is None or filed > query.date_to),
         query.term is not None
         and (row.court != "scotus" or corpus.scotus_term_year(row.docket_number) != query.term),
+        query.era is not None and corpus.case_era(row) != query.era,
+        query.cert_stage and not corpus.is_modern_cert(row),
         query.resolved_only and row.disposition is None,
     )
     return not any(mismatches)
+
+
+def _term_year_key(row: CorpusRow) -> str | None:
+    year = corpus.scotus_term_year(row.docket_number)
+    return str(year) if year is not None else None
+
+
+# Single-valued dimension -> its (possibly absent) key on a row. Judge is the one
+# multi-valued dimension, handled apart in `_bucket_keys`. Rows without a value
+# share the `(none)` bucket — for `originating_court` that visibility matters
+# doubly, since only the REST path populates the linkage; open cases under
+# `disposition` share `(open)` rather than scattering.
+_KEY_FNS: dict[GroupBy, Callable[[CorpusRow], str | None]] = {
+    GroupBy.court: lambda row: row.court,
+    GroupBy.topic: lambda row: row.topic,
+    GroupBy.term_year: _term_year_key,
+    GroupBy.era: corpus.case_era,
+    GroupBy.originating_court: lambda row: row.originating_court,
+    GroupBy.disposition: lambda row: row.disposition,
+}
 
 
 def _bucket_keys(row: CorpusRow, group_by: GroupBy) -> list[str]:
@@ -108,21 +144,12 @@ def _bucket_keys(row: CorpusRow, group_by: GroupBy) -> list[str]:
     Single-valued for every dimension except ``judge``, where a row joins one bucket
     per panel member (so grouped case counts can exceed the ungrouped total).
     """
-    if group_by == GroupBy.court:
-        return [row.court]
-    if group_by == GroupBy.topic:
-        return [row.topic or _NONE_KEY]
     if group_by == GroupBy.judge:
         return list(row.judges) or [_NONE_KEY]
-    if group_by == GroupBy.term_year:
-        year = corpus.scotus_term_year(row.docket_number)
-        return [str(year) if year is not None else _NONE_KEY]
-    if group_by == GroupBy.originating_court:
-        # The (none) bucket keeps unlinked rows visible: only the REST path
-        # populates the linkage, so coverage matters as much as the split.
-        return [row.originating_court or _NONE_KEY]
-    # GroupBy.disposition — open cases share one bucket rather than scattering.
-    return [row.disposition or _OPEN_KEY]
+    key = _KEY_FNS[GroupBy(group_by)](row)
+    if key is None:
+        return [_OPEN_KEY] if group_by == GroupBy.disposition else [_NONE_KEY]
+    return [key]
 
 
 def _bucket_from_counts(key: str, cases: int, labels: Counter[str]) -> BaseRateBucket:
@@ -235,10 +262,15 @@ def run_analytics(*, corpus_db_path: Path, query: AnalyticsQuery) -> AnalyticsRe
 # scoped to it; the court cut spans the whole corpus for composition context. The
 # per-Term detail is not a section — it is the richer `terms` array (base rates +
 # timing per SCOTUS October Term), built in `build_statpack`.
-_STATPACK_SECTIONS: tuple[tuple[str, str | None, GroupBy], ...] = (
-    ("Cases by court", None, GroupBy.court),
-    ("SCOTUS petitions by nature-of-suit topic", "scotus", GroupBy.topic),
-    ("SCOTUS petitions by originating circuit", "scotus", GroupBy.originating_court),
+_STATPACK_SECTIONS: tuple[tuple[str, str | None, bool, GroupBy], ...] = (
+    ("Cases by court", None, False, GroupBy.court),
+    ("SCOTUS petitions by nature-of-suit topic", "scotus", False, GroupBy.topic),
+    ("SCOTUS petitions by originating circuit", "scotus", False, GroupBy.originating_court),
+    ("SCOTUS cases by era", "scotus", False, GroupBy.era),
+    # The calibration anchor the predict prompts point at: modern Term-prefixed
+    # discretionary-cert dockets only, so the grant/deny split is not drowned by
+    # historical merits-era labels.
+    ("Modern discretionary-cert petitions by disposition", "scotus", True, GroupBy.disposition),
 )
 
 
@@ -285,8 +317,8 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
         # whether the corpus is merely absent or present-but-empty.
         return StatPack(
             sections=[
-                StatPackSection(title=title, court=court, group_by=dimension)
-                for title, court, dimension in _STATPACK_SECTIONS
+                StatPackSection(title=title, court=court, cert_stage=cert_stage, group_by=dimension)
+                for title, court, cert_stage, dimension in _STATPACK_SECTIONS
             ]
         )
     overall = _Slice()
@@ -297,25 +329,34 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     with corpus.connect(corpus_db_path) as conn:
         for row in corpus.iter_rows(conn):
             overall.add(row)
-            for (_, court_filter, dimension), slices in zip(
+            for (_, court_filter, cert_stage, dimension), slices in zip(
                 _STATPACK_SECTIONS, section_slices, strict=True
             ):
-                if court_filter is None or row.court == court_filter:
-                    for key in _bucket_keys(row, dimension):
-                        slices[key].add(row)
+                if court_filter is not None and row.court != court_filter:
+                    continue
+                if cert_stage and not corpus.is_modern_cert(row):
+                    continue
+                for key in _bucket_keys(row, dimension):
+                    slices[key].add(row)
             if row.court == "scotus":
                 year = corpus.scotus_term_year(row.docket_number)
                 if year is not None:
                     term_slices[year].add(row)
 
     sections = []
-    for (title, court_filter, dimension), slices in zip(
+    for (title, court_filter, cert_stage, dimension), slices in zip(
         _STATPACK_SECTIONS, section_slices, strict=True
     ):
         buckets = [entry.bucket(key) for key, entry in slices.items()]
         buckets.sort(key=lambda b: (-b.cases, b.key))
         sections.append(
-            StatPackSection(title=title, court=court_filter, group_by=dimension, buckets=buckets)
+            StatPackSection(
+                title=title,
+                court=court_filter,
+                cert_stage=cert_stage,
+                group_by=dimension,
+                buckets=buckets,
+            )
         )
     total = overall.bucket("")
     return StatPack(
@@ -357,6 +398,8 @@ def render_statpack_markdown(pack: StatPack) -> str:
     ]
     for section in pack.sections:
         scope = "all courts" if section.court is None else section.court
+        if section.cert_stage:
+            scope += ", modern discretionary-cert dockets only"
         lines += [
             "",
             f"## {section.title}",

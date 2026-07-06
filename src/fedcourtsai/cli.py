@@ -1099,6 +1099,13 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     disposition: Annotated[
         str, typer.Option(help="Restrict to one realized outcome label, e.g. granted.")
     ] = "",
+    era: Annotated[
+        str,
+        typer.Option(
+            help="Restrict to one decade era, e.g. 1890s — retrieve priors from "
+            "the case's own period (derived from Term year or filing/decision date)."
+        ),
+    ] = "",
     include_open: Annotated[
         bool, typer.Option(help="Include unresolved cases (default: decided priors only).")
     ] = False,
@@ -1139,6 +1146,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         judges=judge or [],
         citations=citation or [],
         disposition=disp,
+        era=era or None,
         resolved_only=not include_open,
     )
     with corpus.connect_readonly(db_path, backend=backend) as conn:
@@ -1146,6 +1154,9 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         _echo_read_stats(conn)
     for row in priors:
         payload = row.model_dump(mode="json")
+        # Era is derived, not stored; carry it on each prior so relevance is
+        # judgeable without re-deriving.
+        payload["era"] = corpus.case_era(row)
         if not full:
             payload.pop("opinion_text", None)
         typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
@@ -1178,6 +1189,22 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             "cases only; other courts' dockets never match."
         ),
     ] = "",
+    era: Annotated[
+        str,
+        typer.Option(
+            help="Keep cases in one decade era, e.g. 1890s (derived from Term year "
+            "or filing/decision date) — usable on exactly the historical rows "
+            "--term cannot parse."
+        ),
+    ] = "",
+    cert_stage: Annotated[
+        bool,
+        typer.Option(
+            "--cert-stage",
+            help="Keep only modern Term-prefixed discretionary-cert SCOTUS dockets, "
+            "so the base rate reflects the population the cert model predicts.",
+        ),
+    ] = False,
     resolved_only: Annotated[
         bool, typer.Option(help="Drop unresolved cases (default keeps them for the open count).")
     ] = False,
@@ -1185,8 +1212,8 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         str,
         typer.Option(
             help="Break base-rates down by a dimension: court, topic, judge, "
-            "term_year, disposition, or originating_court. Omit for the overall "
-            "base rate only."
+            "term_year, disposition, originating_court, or era. Omit for the "
+            "overall base rate only."
         ),
     ] = "",
     summary_out: Annotated[
@@ -1242,6 +1269,8 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         date_from=parsed_from,
         date_to=parsed_to,
         term=parsed_term,
+        era=era or None,
+        cert_stage=cert_stage,
         resolved_only=resolved_only,
         group_by=dimension,
     )

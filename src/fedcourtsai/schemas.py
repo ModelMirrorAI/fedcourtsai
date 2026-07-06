@@ -57,6 +57,9 @@ class GroupBy(StrEnum):
     ``originating_court`` groups by the lower court a docket came from (the
     circuit-scorecard cut for SCOTUS petitions); rows without the linkage share
     one ``(none)`` bucket, so coverage is visible rather than silently dropped.
+    ``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` — Term year,
+    else filing/decision date), so historical cases base-rate against their own
+    period; rows with no date signal share one ``(none)`` bucket.
     """
 
     court = "court"
@@ -65,6 +68,7 @@ class GroupBy(StrEnum):
     term_year = "term_year"
     disposition = "disposition"
     originating_court = "originating_court"
+    era = "era"
 
 
 class UsageRole(StrEnum):
@@ -695,6 +699,12 @@ class StatPackSection(_Strict):
 
     title: str = Field(description="Human title of the breakdown, e.g. 'Cases by court'")
     court: str | None = Field(default=None, description="Court filter applied; None = all courts")
+    cert_stage: bool = Field(
+        default=False,
+        description="True when the section is restricted to modern Term-prefixed "
+        "discretionary-cert dockets (the population the cert model predicts), so "
+        "its base rates are not diluted by historical merits-era labels",
+    )
     group_by: GroupBy = Field(description="The dimension the buckets break down by")
     buckets: list[BaseRateBucket] = Field(default_factory=list)
 
