@@ -64,6 +64,9 @@ def test_appears_decided() -> None:
     assert appears_decided(from_api_docket(DECIDED_DOCKET)) is True
     pending = from_api_docket({"id": 1, "court_id": "ca9", "date_filed": "2024-01-01"})
     assert appears_decided(pending) is False
+    # A SCOTUS docket whose only decided signal is the petition-stage cert date.
+    cert_dated = from_api_docket({"id": 2, "court_id": "scotus", "date_cert_denied": "2023-01-09"})
+    assert appears_decided(cert_dated) is True
 
 
 # --- detection -----------------------------------------------------------------
@@ -78,6 +81,28 @@ def test_single_open_event_resolves_deterministically() -> None:
     assert outcome.actual_granted == 0
     assert outcome.resolved_at == date(2022, 6, 15)
     assert outcome.source == "12 F.4th 100"
+
+
+def test_cert_dated_petition_resolves_at_the_petition_stage() -> None:
+    # A fresh SCOTUS docket typically carries the petition decision only as a
+    # cert-stage date: no disposition string, and for a granted petition no
+    # termination until the merits judgment. The derived disposition plus the
+    # petition-stage resolution date make it deterministic, stamped at the grant.
+    row = from_api_docket(
+        {
+            "id": 22451,
+            "court_id": "scotus",
+            "docket_number": "22-451",
+            "date_cert_granted": "2022-10-03",
+            "date_terminated": "2023-06-30",
+        }
+    )
+    resolution = detect_resolution(row, "scotus", 22451, ["evt-petition-disposition"])
+    assert not resolution.reconciles
+    outcome = resolution.outcomes["evt-petition-disposition"]
+    assert outcome.actual_disposition == Disposition.granted
+    assert outcome.actual_granted == 1
+    assert outcome.resolved_at == date(2022, 10, 3)
 
 
 def test_undecided_docket_is_a_noop() -> None:

@@ -131,6 +131,42 @@ def test_selection_keeps_modern_cert_with_trusted_labels_recent_first(tmp_path: 
     assert [i.features.case_id for i in capped] == ["scotus/2"]
 
 
+def test_selection_orders_by_petition_stage_resolution(tmp_path: Path) -> None:
+    # A granted petition ranks by its cert-grant date, not the merits termination
+    # months later — so it slots between denials decided around the grant.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-100",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2022, 10, 3),
+                    date_decided=date(2023, 6, 30),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="22-200",
+                    disposition=Disposition.denied,
+                    date_cert_denied=date(2023, 1, 9),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="21-300",
+                    disposition=Disposition.denied,
+                    date_cert_denied=date(2022, 6, 27),
+                ),
+            ],
+        )
+        items = select_cert_backtest_set(conn)
+    assert [i.features.case_id for i in items] == ["scotus/2", "scotus/1", "scotus/3"]
+
+
 def test_redact_snapshot_strips_outcome_fields_only() -> None:
     payload = {
         "id": 304,

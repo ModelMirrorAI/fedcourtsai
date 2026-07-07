@@ -739,11 +739,41 @@ def is_modern_cert(row: CorpusRow) -> bool:
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
 
 
+class ResolutionDatedRow(Protocol):
+    """The fields resolution timing reads — satisfied by both the storage row
+    (:class:`CorpusRow`) and the ingestion row, which carry the same date facts."""
+
+    @property
+    def court(self) -> str: ...
+    @property
+    def date_decided(self) -> date | None: ...
+    @property
+    def date_cert_granted(self) -> date | None: ...
+    @property
+    def date_cert_denied(self) -> date | None: ...
+
+
+def resolution_date(row: ResolutionDatedRow) -> date | None:
+    """When the matter this row predicts actually resolved, or ``None``.
+
+    For a SCOTUS docket the predicted event is the cert petition, whose true
+    resolution moment is the petition-stage decision: the cert grant/denial date
+    when the row carries one, falling back to ``date_decided``. (For a granted
+    petition ``date_decided`` is the *termination* of the whole case — the merits
+    judgment, months after the grant — so the cert date must win.) Everywhere
+    else the docket-level decision date is the resolution.
+    """
+    if row.court == "scotus":
+        return row.date_cert_granted or row.date_cert_denied or row.date_decided
+    return row.date_decided
+
+
 def case_year(row: CorpusRow) -> int | None:
     """The year a case is anchored to, from its best temporal signal, or ``None``.
 
-    A SCOTUS row's parsed October-Term year, then ``date_filed``, then
-    ``date_decided``. Most corpus rows carry no full dates, so this year is the
+    A SCOTUS row's parsed October-Term year, then ``date_filed``, then the
+    :func:`resolution_date` (petition-stage cert date before the docket's
+    ``date_decided``). Most corpus rows carry no full dates, so this year is the
     finest timing signal that generalizes: it is the key behind
     :func:`case_era` and the ``decided_before`` retrieval cutoff. ``None`` when
     the row carries no signal at all (the bare bulk-import shells).
@@ -754,8 +784,9 @@ def case_year(row: CorpusRow) -> int | None:
             return year
     if row.date_filed is not None:
         return row.date_filed.year
-    if row.date_decided is not None:
-        return row.date_decided.year
+    resolved = resolution_date(row)
+    if resolved is not None:
+        return resolved.year
     return None
 
 
@@ -1230,12 +1261,15 @@ class PriorQuery(BaseModel):
 def recency_key(row: CorpusRow) -> tuple[int, int]:
     """Sort key putting decided cases first, newest decision first.
 
-    Undated rows sort after dated ones; among dated rows the negated ordinal
-    makes the most recent decision compare smallest (so it leads in an ascending
-    sort).
+    Keys on :func:`resolution_date` — the petition-stage cert date on SCOTUS
+    dockets, the docket decision date elsewhere — so a granted petition ranks by
+    when cert was granted, not by the merits termination months later. Undated
+    rows sort after dated ones; among dated rows the negated ordinal makes the
+    most recent decision compare smallest (so it leads in an ascending sort).
     """
-    if row.date_decided is not None:
-        return (0, -row.date_decided.toordinal())
+    resolved = resolution_date(row)
+    if resolved is not None:
+        return (0, -resolved.toordinal())
     return (1, 0)
 
 
