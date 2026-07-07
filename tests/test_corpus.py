@@ -448,12 +448,20 @@ def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction(
         "No. 155, Orig.",
         "155, Original.",
         "Orig. 155",
-        # Miscellaneous forms: the modern motions docket ("22M75", "No. 03M77.")
-        # and the pre-1971 separate docket's text label ("No. 33, Misc.").
+        # Miscellaneous forms: the modern motions docket ("22M75", "No. 03M77."),
+        # its hyphenated spelling ("No. M-62", en-dash variant), and the pre-1971
+        # separate docket's text label ("No. 33, Misc.").
         "22M75",
         "No. 03M77.",
+        "No. M-62",
+        "M" + chr(0x2013) + "371",
         "No. 33, Misc.",
         "33, Misc",
+        # A trailing parenthetical companion — a related docket or a Term
+        # annotation — does not defeat the format match.
+        "No. A-706 (98-1368)",
+        "No. A-241 (O. T. 1995)",
+        "01A753 (01-1632)",
     )
     for number in non_cert:
         row = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number=number)
@@ -468,11 +476,72 @@ def test_is_non_cert_scotus_form_keeps_cert_dockets_and_non_scotus() -> None:
     bare = corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="801")
     blank = corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="")
     lower = corpus.CorpusRow(case_id="ca9/6", court="ca9", docket_number="22A123")
+    # A cert docket noting an application *companion* in the parenthetical is
+    # still the cert docket — the letter form must match before the parenthetical.
+    cert_with_companion = corpus.CorpusRow(
+        case_id="scotus/7", court="scotus", docket_number="No. 09-9000 (09A743)"
+    )
     assert corpus.is_non_cert_scotus_form(cert) is False
     assert corpus.is_non_cert_scotus_form(labeled_cert) is False
     assert corpus.is_non_cert_scotus_form(bare) is False
     assert corpus.is_non_cert_scotus_form(blank) is False
     assert corpus.is_non_cert_scotus_form(lower) is False
+    assert corpus.is_non_cert_scotus_form(cert_with_companion) is False
+
+
+def test_is_disbarment_docket_matches_both_spellings_while_open() -> None:
+    # The disbarment (attorney-discipline) docket: the plain "D-####" form (label,
+    # dash-variant, and trailing-period tolerant) and the Term-prefixed "##D####"
+    # spelling, whose sequence numbers continue the same D series.
+    disbarment = (
+        "No. D-2464",
+        "D-2464",
+        "D2464",
+        "D" + chr(0x2013) + "2464",  # en-dash variant folds to a hyphen
+        "No. D-100.",
+        "16D2924",
+        "16D02977",
+        "25D03158",
+    )
+    for number in disbarment:
+        row = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number=number)
+        assert corpus.is_disbarment_docket(row) is True, number
+
+
+def test_is_disbarment_docket_keeps_cert_resolved_and_non_scotus() -> None:
+    # Never a cert form, a bare/blank number, or another court's docket.
+    cert = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="24-101")
+    labeled_cert = corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="No. 93-7515")
+    bare = corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="801")
+    blank = corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="")
+    lower = corpus.CorpusRow(case_id="ca9/6", court="ca9", docket_number="D-2464")
+    assert corpus.is_disbarment_docket(cert) is False
+    assert corpus.is_disbarment_docket(labeled_cert) is False
+    assert corpus.is_disbarment_docket(bare) is False
+    assert corpus.is_disbarment_docket(blank) is False
+    assert corpus.is_disbarment_docket(lower) is False
+    # Only while still open: a resolved or dated row is never this rule's business.
+    resolved = corpus.CorpusRow(
+        case_id="scotus/7",
+        court="scotus",
+        docket_number="No. D-2464",
+        disposition=Disposition.denied,
+    )
+    dated = corpus.CorpusRow(
+        case_id="scotus/8",
+        court="scotus",
+        docket_number="16D2924",
+        date_decided=date(2017, 6, 1),
+    )
+    assert corpus.is_disbarment_docket(resolved) is False
+    assert corpus.is_disbarment_docket(dated) is False
+
+
+def test_is_disbarment_docket_carries_its_own_reason() -> None:
+    row = corpus.CorpusRow(case_id="scotus/9", court="scotus", docket_number="No. D-2464")
+    assert corpus.out_of_scope_reason(row) == (
+        "SCOTUS disbarment docket — attorney discipline, not discretionary cert"
+    )
 
 
 def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
@@ -539,8 +608,15 @@ def test_consolidated_out_of_scope_needs_every_member_to_agree() -> None:
     assert corpus.is_consolidated_out_of_scope(_consolidated("Nos. 522, 523, 524")) is True
     # All stale Term years on a still-open row.
     assert corpus.is_consolidated_out_of_scope(_consolidated("93-7515; 94-100")) is True
-    # Disagreement (bare + Term-form) stays in scope, visible in the audit.
+    # All non-cert letter forms: consolidated miscellaneous and application pairs,
+    # including a member carrying a parenthetical companion.
+    assert corpus.is_consolidated_out_of_scope(_consolidated("No. 99M81; No. 99M82")) is True
+    assert corpus.is_consolidated_out_of_scope(_consolidated("A-363; A-366")) is True
+    assert corpus.is_consolidated_out_of_scope(_consolidated("A-174 (97-369); A-175")) is True
+    # Disagreement (bare + Term-form, or non-cert + live cert) stays in scope,
+    # visible in the audit.
     assert corpus.is_consolidated_out_of_scope(_consolidated("801; 93-7515")) is False
+    assert corpus.is_consolidated_out_of_scope(_consolidated("22A123; 24-101")) is False
     # Recent consolidated Terms are live petitions: neither branch matches.
     assert corpus.is_consolidated_out_of_scope(_consolidated("24-101; 24-102")) is False
     # A resolved row cannot be stale-unresolvable, whatever its members' Terms.

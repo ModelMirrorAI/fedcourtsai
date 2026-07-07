@@ -706,9 +706,13 @@ class ScopeDocketShape(_Strict):
     """A docket-number *shape* and how many unparseable open events carry it (#343).
 
     The shape masks digits→``9`` and letters→``A``/``a`` (punctuation/space kept), so
-    ``01-7700`` → ``99-9999`` and ``22O141`` → ``99A999``. It tells us, concretely,
-    which docket formats drive the "Term not parseable" bucket — i.e. exactly what the
-    Term parser would need to handle to bring those events into scope.
+    ``01-7700`` → ``99-9999`` and ``22O141`` → ``99A999`` — every uppercase letter
+    masks to ``A``, so a shape names a format class, not a specific docket letter.
+    It tells us, concretely, which docket formats drive the "Term not parseable"
+    bucket — i.e. exactly what the Term parser would need to handle to bring those
+    events into scope. A shape carrying fewer than ~100 open events is an accepted
+    fragment: it stays visible here by design, and no exclusion predicate is added
+    for it.
     """
 
     shape: str = Field(description="Digit/letter-masked docket-number shape")
@@ -748,7 +752,9 @@ class CorpusScopeAudit(_Strict):
     unparseable_docket_shapes: list[ScopeDocketShape] = Field(
         default_factory=list,
         description="Top docket-number shapes in the 'Term not parseable' bucket — the "
-        "concrete formats a parser broadening would target (#343)",
+        "concrete formats a parser broadening would target (#343); shapes under ~100 "
+        "open events are accepted fragments, left visible here by design with no "
+        "predicate chased for them",
     )
 
 

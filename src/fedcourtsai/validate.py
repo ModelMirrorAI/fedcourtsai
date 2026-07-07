@@ -659,7 +659,10 @@ class _Bucket:
 
 # The bucket whose docket-number shapes we histogram, so a refinement (#343) can see
 # exactly which formats the Term parser would need to handle. Kept as a constant so the
-# tally below and the bucket label never drift apart.
+# tally below and the bucket label never drift apart. Accepted-fragment threshold: a
+# shape carrying fewer than ~100 open events is an accepted fragment — it stays
+# visible in this bucket and the shape histogram by design, and no exclusion
+# predicate is chased for it (the residual tail is cheaper to see than to classify).
 _UNPARSEABLE_REASON = "docket Term not parseable (a format the predicate skips)"
 
 # Top docket-number shapes to report — enough to see the long tail, still bounded.
@@ -681,7 +684,9 @@ def _docket_shape(docket_number: str) -> str:
     """Mask a docket number to its shape: digit→``9``, letter→``A``/``a``, else kept.
 
     ``"01-7700"`` -> ``"99-9999"``, ``"22O141"`` -> ``"99A999"`` — so distinct numbers
-    of the same format collapse to one shape we can count.
+    of the same format collapse to one shape we can count. ``A`` masks *every*
+    uppercase letter, not the literal letter A: ``"D-1234"`` also renders as
+    ``"A-9999"``, so read a shape as a format class, never as a specific docket letter.
     """
     out = []
     for ch in docket_number.strip():
