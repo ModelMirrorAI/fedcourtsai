@@ -797,13 +797,21 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
 
 
 # SCOTUS application ("22A123", older "A-9999"), original-jurisdiction ("22O141"),
-# and miscellaneous/motions ("22M75", "03M77") docket numbers — the term letter
-# (A / O / M) marks a form that is not the modern discretionary-cert petition. A
-# trailing period on the historical spelling ("22A99.") is tolerated; the letter
-# is what a cert docket's ``YY-NNNN`` never carries.
-_SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+)\.?$")
-_SCOTUS_ORIGINAL_RE = re.compile(r"^\d{2}O\d+\.?$")
-_SCOTUS_MISCELLANEOUS_RE = re.compile(r"^\d{2}M\d+\.?$")
+# and miscellaneous/motions ("22M75", "03M77", hyphenated "M-62") docket numbers —
+# the term letter (A / O / M) marks a form that is not the modern
+# discretionary-cert petition. Each form tolerates a trailing period on the
+# historical spelling ("22A99.") and a single trailing parenthetical companion —
+# a related docket ("A-706 (98-1368)") or a Term annotation ("A-241 (O. T. 1995)")
+# — which would otherwise defeat the end anchor; the letter is what a cert
+# docket's ``YY-NNNN`` never carries. Typographic dashes are already folded to a
+# hyphen by :func:`normalize_docket_number` before these regexes see the string.
+_SCOTUS_FORM_SUFFIX = r"(?:\([^()]+\))?\.?$"
+_SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+)" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_ORIGINAL_RE = re.compile(r"^\d{2}O\d+" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_MISCELLANEOUS_RE = re.compile(r"^(?:\d{2}M\d+|M-?\d+)" + _SCOTUS_FORM_SUFFIX)
+# SCOTUS disbarment ("D-2464", Term-prefixed "16D2924" / "16D02977") — the
+# attorney-discipline docket, same tolerances as the sibling letter forms.
+_SCOTUS_DISBARMENT_RE = re.compile(r"^(?:\d{2}D\d+|D-?\d+)" + _SCOTUS_FORM_SUFFIX)
 # The spelled-out original-jurisdiction ("No. 155, Orig." / "155, Original.") and
 # miscellaneous ("No. 33, Misc." — the pre-1971 separate docket, merged into the
 # unified numbering at OT1970) markers — the text-form counterparts of the numeric
@@ -815,12 +823,14 @@ _SCOTUS_MISC_TEXT_RE = re.compile(r"MISC")
 def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is an application or original-jurisdiction matter (issue #362).
 
-    A stay / emergency **application** (``22A123``, older ``A-9999``), an
+    A stay / emergency **application** (``22A123``, older ``A-9999``, with or
+    without a parenthetical companion like ``A-706 (98-1368)``), an
     **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
     ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), and a
-    **miscellaneous** docket (``22M75`` / ``03M77`` — the modern motions docket,
-    e.g. leave to file out of time — or the pre-1971 ``No. 33, Misc.`` separate
-    docket, merged into the unified numbering at OT1970) are not the
+    **miscellaneous** docket (``22M75`` / ``03M77``, hyphenated ``M-62`` — the
+    motions docket, e.g. leave to file out of time — or the pre-1971
+    ``No. 33, Misc.`` separate docket, merged into the unified numbering at
+    OT1970) are not the
     discretionary-cert form the ``evt-petition-disposition`` model targets: an
     application's disposition is a stay grant/deny, an original case's a merits
     judgment, and a motions docket's a procedural leave — none the cert
@@ -847,6 +857,32 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
         or _SCOTUS_ORIGINAL_TEXT_RE.search(dn)
         or _SCOTUS_MISC_TEXT_RE.search(dn)
     )
+
+
+def is_disbarment_docket(row: CorpusRow) -> bool:
+    """Whether a still-open SCOTUS docket is a disbarment (attorney-discipline) matter.
+
+    The Court's disbarment docket — ``No. D-2464``, or the Term-prefixed spelling
+    ``16D2924`` / ``16D02977`` (October-Term year + the same ``D`` sequence, whose
+    numbers continue the plain ``D-####`` series) — disciplines members of the
+    Court's bar, typically reciprocally after state-court discipline. Its
+    disposition is a disbarment order, not the cert grant/deny the
+    ``evt-petition-disposition`` model calibrates on, so predict scope excludes
+    it, keyed on the ``D`` form letter a cert docket's ``YY-NNNN`` never carries
+    (same period / parenthetical / dash tolerances as the sibling letter forms).
+
+    Same guards as the siblings: SCOTUS-only, and only while the row is still
+    open (no ``disposition`` and no ``date_decided``) — a resolved row carries
+    ground truth and is never this rule's business, and the two-directional
+    scope reconcile releases a latched row that later resolves. Format-only
+    otherwise, so it can never catch a live cert petition.
+    """
+    if row.court != "scotus":
+        return False
+    if row.disposition is not None or row.date_decided is not None:
+        return False
+    dn = normalize_docket_number(row.docket_number) or ""
+    return bool(_SCOTUS_DISBARMENT_RE.match(dn))
 
 
 # Separators a consolidated multi-docket string joins its members with:
@@ -881,12 +917,14 @@ def is_consolidated_out_of_scope(row: CorpusRow) -> bool:
     (:func:`consolidated_docket_members`) and runs **each member through the
     existing single-docket predicates** on a copy of the row: the row leaves
     predict scope only when *every* member agrees — all bare-sequential numbers
-    (the pre-1925 mandatory-jurisdiction regime, #309) or all stale Term years
-    on a still-open row (#333). Any disagreement, or any member the predicates
-    cannot read, keeps the row in scope and visible in the audit's unclassified
-    bucket — conservative like every sibling: it can under-catch, never drop a
-    live consolidated petition (whose members parse to recent Terms and match
-    neither branch). SCOTUS-only.
+    (the pre-1925 mandatory-jurisdiction regime, #309), all stale Term years
+    on a still-open row (#333), or all non-cert letter forms
+    (:func:`is_non_cert_scotus_form` — e.g. the consolidated miscellaneous
+    pair ``No. 99M81; No. 99M82`` or application pair ``A-363; A-366``). Any
+    disagreement, or any member the predicates cannot read, keeps the row in
+    scope and visible in the audit's unclassified bucket — conservative like
+    every sibling: it can under-catch, never drop a live consolidated petition
+    (whose members parse to recent Terms and match no branch). SCOTUS-only.
     """
     if row.court != "scotus":
         return False
@@ -894,8 +932,10 @@ def is_consolidated_out_of_scope(row: CorpusRow) -> bool:
     if members is None:
         return False
     member_rows = [row.model_copy(update={"docket_number": member}) for member in members]
-    return all(is_historical_mandatory(member) for member in member_rows) or all(
-        is_stale_unresolvable(member) for member in member_rows
+    return (
+        all(is_historical_mandatory(member) for member in member_rows)
+        or all(is_stale_unresolvable(member) for member in member_rows)
+        or all(is_non_cert_scotus_form(member) for member in member_rows)
     )
 
 
@@ -993,6 +1033,10 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (
         is_non_cert_scotus_form,
         "SCOTUS application / original-jurisdiction docket — not discretionary cert (#362)",
+    ),
+    (
+        is_disbarment_docket,
+        "SCOTUS disbarment docket — attorney discipline, not discretionary cert",
     ),
     (
         is_consolidated_out_of_scope,
