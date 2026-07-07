@@ -1,10 +1,10 @@
 {
   "entries": [
     {
-      "accuracy": 0.2894283251939098,
+      "accuracy": 0.06348750359092215,
       "events_scored": 6962,
-      "granted_accuracy": 0.9640907785119218,
-      "mean_brier_score": 0.0353881974246372,
+      "granted_accuracy": 0.9639471416259695,
+      "mean_brier_score": 0.03605285837403045,
       "predictor_id": "prior-vote",
       "rank": 1
     },
@@ -19,5 +19,6 @@
   ],
   "events_scored": 6962,
   "predictors_evaluated": 2,
-  "schema_version": "1.0"
+  "schema_version": "1.0",
+  "stratum": "retrospective"
 }

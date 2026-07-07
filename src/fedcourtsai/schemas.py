@@ -195,6 +195,14 @@ class Evaluation(_Strict):
     brier_score: float | None = Field(default=None, ge=0.0, le=1.0)
     vote_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
+    leakage_suspected: bool | None = Field(
+        default=None,
+        description="Evaluator's judgment that the prediction shows signs of using "
+        "post-decision information about this case — its outcome, the disposing "
+        "order, or facts knowable only after the decision. Advisory: it segments "
+        "scores, never changes them. Null when not assessed (offline evaluators "
+        "and records written before the field existed)",
+    )
     notes_doc: str = "evaluation.md"
 
 

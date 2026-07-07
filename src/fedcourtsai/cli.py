@@ -1186,6 +1186,14 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             "the case's own period (derived from Term year or filing/decision date)."
         ),
     ] = "",
+    decided_before: Annotated[
+        int,
+        typer.Option(
+            help="Exclusive year cutoff for back-test replays: keep only priors "
+            "whose best-known year strictly precedes it (rows with no derivable "
+            "year are excluded). 0 = no cutoff (the live, forward view)."
+        ),
+    ] = 0,
     include_open: Annotated[
         bool, typer.Option(help="Include unresolved cases (default: decided priors only).")
     ] = False,
@@ -1227,6 +1235,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         citations=citation or [],
         disposition=disp,
         era=era or None,
+        decided_before=decided_before or None,
         resolved_only=not include_open,
     )
     with corpus.connect_readonly(db_path, backend=backend) as conn:

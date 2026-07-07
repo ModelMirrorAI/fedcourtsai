@@ -57,6 +57,11 @@ disposition **base-rates**, read the committed `metrics/statpack.md` — the
 corpus-wide roll-up (overall, by court, by SCOTUS Term, by originating circuit,
 by era, and the **modern discretionary-cert cut**);
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
+If the `DECIDED_BEFORE` environment variable is set, you are replaying a decided
+case as of a past moment (a back-test): pass `--decided-before "$DECIDED_BEFORE"`
+on every `fedcourts query` call so retrieval surfaces only priors that provably
+precede this case, and weigh base-rates from the case's own era rather than
+later ones.
 For a modern cert petition, anchor on the **"Modern discretionary-cert petitions
 by disposition"** section — it is restricted to Term-prefixed cert dockets, so
 its grant/deny split is not diluted by historical merits-era labels (the overall
@@ -120,6 +125,15 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
 
 ## Rules
 
+- **Predict as if undecided — never retrieve this case's outcome.** Whether the
+  event is live or a back-test replay, do not query the corpus, CourtListener,
+  or the web for this case's own disposition, its subsequent history, or
+  coverage of its decision; the prediction must rest on the pre-decision record
+  plus general legal context. If you already know the outcome (a famous case) or
+  encounter it inadvertently (a stray search result), say so explicitly in
+  `reasoning.md` and add a `flags.json` note (`category` `other`) so the
+  evaluation can discount the cell — then still reason from the pre-decision
+  record only.
 - Stay in your lane: write **only** under your own
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or

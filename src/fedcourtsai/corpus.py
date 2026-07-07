@@ -704,22 +704,35 @@ def is_modern_cert(row: CorpusRow) -> bool:
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
 
 
+def case_year(row: CorpusRow) -> int | None:
+    """The year a case is anchored to, from its best temporal signal, or ``None``.
+
+    A SCOTUS row's parsed October-Term year, then ``date_filed``, then
+    ``date_decided``. Most corpus rows carry no full dates, so this year is the
+    finest timing signal that generalizes: it is the key behind
+    :func:`case_era` and the ``decided_before`` retrieval cutoff. ``None`` when
+    the row carries no signal at all (the bare bulk-import shells).
+    """
+    if row.court == "scotus":
+        year = scotus_term_year(row.docket_number)
+        if year is not None:
+            return year
+    if row.date_filed is not None:
+        return row.date_filed.year
+    if row.date_decided is not None:
+        return row.date_decided.year
+    return None
+
+
 def case_era(row: CorpusRow) -> str | None:
     """The decade bucket a case belongs to (``"1890s"``, ``"2020s"``), or ``None``.
 
-    Derived from whatever signal the row has, best first: a SCOTUS row's parsed
-    October-Term year, then ``date_filed``, then ``date_decided``. ``None`` when
-    the row carries none of them (the bare bulk-import shells), so consumers show
-    a visible no-era bucket rather than guessing. Historical cases can thereby be
-    base-rated against their own period even where ``--term`` cannot parse.
+    :func:`case_year`'s decade; ``None`` when the row carries no temporal signal,
+    so consumers show a visible no-era bucket rather than guessing. Historical
+    cases can thereby be base-rated against their own period even where
+    ``--term`` cannot parse.
     """
-    year: int | None = None
-    if row.court == "scotus":
-        year = scotus_term_year(row.docket_number)
-    if year is None and row.date_filed is not None:
-        year = row.date_filed.year
-    if year is None and row.date_decided is not None:
-        year = row.date_decided.year
+    year = case_year(row)
     if year is None:
         return None
     return f"{year - year % 10}s"
@@ -1122,6 +1135,14 @@ class PriorQuery(BaseModel):
         description="Restrict to one decade era, e.g. `1890s` (see `case_era`) — "
         "so historical cases retrieve priors from their own period.",
     )
+    decided_before: int | None = Field(
+        default=None,
+        description="Exclusive year cutoff: keep only priors whose best-known year "
+        "(`case_year`) strictly precedes it. Rows with no derivable year are "
+        "excluded — a prior qualifies only when it provably came first. This is "
+        "the back-test replay clock; live (forward) retrieval omits it because "
+        "every resolved prior genuinely precedes an open case.",
+    )
     resolved_only: bool = Field(
         default=True, description="Keep only labeled (decided) cases — precedent."
     )
@@ -1176,10 +1197,14 @@ def retrieve_priors(
     scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
     for record in conn.execute(f"SELECT * FROM cases{where}", params):
         row = _from_record(record)
-        # Era is derived (Term year or filing/decision dates), not a stored
-        # column, so it filters here rather than in SQL.
+        # Era and year are derived (Term year or filing/decision dates), not
+        # stored columns, so they filter here rather than in SQL.
         if query.era is not None and case_era(row) != query.era:
             continue
+        if query.decided_before is not None:
+            year = case_year(row)
+            if year is None or year >= query.decided_before:
+                continue
         judge_overlap = want_judges & set(row.judges)
         citation_overlap = want_citations & set(row.citations)
         # Overlap filters are required when given: skip a row that shares none.

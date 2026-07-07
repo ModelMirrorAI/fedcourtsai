@@ -55,6 +55,19 @@
       "title": "Event Id",
       "type": "string"
     },
+    "leakage_suspected": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Evaluator's judgment that the prediction shows signs of using post-decision information about this case \u2014 its outcome, the disposing order, or facts knowable only after the decision. Advisory: it segments scores, never changes them. Null when not assessed (offline evaluators and records written before the field existed)",
+      "title": "Leakage Suspected"
+    },
     "model": {
       "anyOf": [
         {

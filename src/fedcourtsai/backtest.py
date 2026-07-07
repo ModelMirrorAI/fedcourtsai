@@ -13,7 +13,7 @@ corpus, with no clock or randomness — so the same corpus always yields
 byte-identical output. The *predictor* half is a seam: a :class:`Backtester`
 maps the visible features of one trial to a predicted disposition and a
 P(granted). Two reference baselines run entirely offline (a constant floor and a
-corpus-retrieval vote), so the harness produces a real metric today; the
+time-masked corpus-retrieval vote), so the harness produces a real metric today; the
 configured agentic predictors in ``config/predictors.yaml`` plug into the same
 seam and are replayed out of band, exactly as ``run-predict`` runs them live.
 """
@@ -42,17 +42,20 @@ class BacktestFeatures:
     """The pre-decision facts a back-test predictor may see; outcome withheld.
 
     Deliberately excludes everything that reveals the result — the
-    ``disposition`` label itself, the decision date, and the opinion text/summary
-    that only exist once the matter is decided — so a replay is a fair test of
-    foresight rather than hindsight.
+    ``disposition`` label itself, the decision date, the opinion text/summary,
+    and the reporter ``citations`` that only exist once the matter is decided —
+    so a replay is a fair test of foresight rather than hindsight. ``year`` is
+    the replay clock: the trial's own best-known year
+    (:func:`fedcourtsai.corpus.case_year`), bounding the history a time-masked
+    predictor may consult (the ``decided_before`` retrieval cutoff).
     """
 
     case_id: str
     court: str
     topic: str | None
     judges: tuple[str, ...]
-    citations: tuple[str, ...]
     date_filed: date | None
+    year: int | None
 
 
 @dataclass(frozen=True)
@@ -92,8 +95,8 @@ def backtest_features(row: CorpusRow) -> BacktestFeatures:
         court=row.court,
         topic=row.topic,
         judges=tuple(row.judges),
-        citations=tuple(row.citations),
         date_filed=row.date_filed,
+        year=corpus.case_year(row),
     )
 
 
@@ -150,6 +153,7 @@ class _PriorCandidate:
     disposition: Disposition
     judges: frozenset[str]
     citations: frozenset[str]
+    year: int | None
 
 
 class PriorIndex:
@@ -192,6 +196,7 @@ class PriorIndex:
                         disposition=Disposition(str(row.disposition)),
                         judges=frozenset(row.judges),
                         citations=frozenset(row.citations),
+                        year=corpus.case_year(row),
                     )
                 )
                 for judge in row.judges:
@@ -209,16 +214,28 @@ class PriorIndex:
         judges: tuple[str, ...],
         citations: tuple[str, ...],
         limit: int,
+        *,
+        decided_before: int | None = None,
     ) -> list[_PriorCandidate]:
         """Up to ``limit`` priors, most relevant first — ``retrieve_priors`` semantics.
 
         Overlap filters are required when given (a candidate sharing no judge, or
         no citation, is skipped); rank is overlap score descending, then the
         candidate order (most recent decision, then ``case_id``).
+        ``decided_before`` is the exclusive year cutoff: only candidates whose
+        best-known year strictly precedes it qualify, and a candidate with no
+        derivable year never does — history that cannot be proven to precede the
+        trial is never consulted.
         """
+
+        def qualifies(candidate: _PriorCandidate) -> bool:
+            if decided_before is None:
+                return True
+            return candidate.year is not None and candidate.year < decided_before
+
         candidates = self._candidates.get(court, [])
         if not judges and not citations:
-            return candidates[:limit]
+            return [c for c in candidates if qualifies(c)][:limit]
         matched: set[int] | None = None
         if judges:
             postings = self._by_judge.get(court, {})
@@ -239,20 +256,25 @@ class PriorIndex:
                 position,
             ),
         )
-        return [candidates[position] for position in ranked[:limit]]
+        pool = (candidates[position] for position in ranked)
+        return [c for c in pool if qualifies(c)][:limit]
 
 
 @dataclass
 class PriorVoteBacktester:
-    """Predicts the majority disposition among similar resolved priors (leave-one-out).
+    """Predicts the majority disposition among *earlier* similar resolved priors.
 
-    The corpus-as-back-test-set made literal: for each trial it retrieves priors
-    sharing the case's court / judges / citations (excluding the case itself via
-    leave-one-out), predicts their most common disposition, and reads P(granted)
-    off the fraction of those priors that were granted. With no matching prior it
-    falls back to ``denied`` / 0.0, so it always returns a prediction. Retrieval
-    runs against a :class:`PriorIndex` built lazily on the first trial, so a full
-    replay pays one resolved-slice scan rather than one per trial.
+    The corpus-as-back-test-set made literal, time-masked: for each trial it
+    retrieves priors sharing the case's court / judges that **provably precede
+    it** (``decided_before`` the trial's own year — which also excludes the case
+    itself and its same-year contemporaries, whose ordering within the year is
+    unknowable), predicts their most common disposition, and reads P(granted)
+    off the fraction of those priors that were granted. A trial with no
+    derivable year gets no history at all — the conservative floor of
+    ``denied`` / 0.0, never a hindsight vote — and the same fallback covers no
+    matching prior, so it always returns a prediction. Retrieval runs against a
+    :class:`PriorIndex` built lazily on the first trial, so a full replay pays
+    one resolved-slice scan rather than one per trial.
     """
 
     conn: sqlite3.Connection
@@ -261,14 +283,19 @@ class PriorVoteBacktester:
     _index: PriorIndex | None = field(default=None, repr=False)
 
     def predict(self, features: BacktestFeatures) -> BacktestPrediction:
+        if features.year is None:
+            # No replay clock: no prior can be proven to precede this trial.
+            return BacktestPrediction(Disposition.denied, 0.0)
         if self._index is None:
             self._index = PriorIndex.build(self.conn)
-        # Pull one extra so dropping the case under test still leaves up to `limit`.
         retrieved = self._index.top(
-            features.court, features.judges, features.citations, self.limit + 1
+            features.court,
+            features.judges,
+            (),
+            self.limit,
+            decided_before=features.year,
         )
-        priors = [prior for prior in retrieved if prior.case_id != features.case_id]
-        labels = [prior.disposition for prior in priors[: self.limit]]
+        labels = [prior.disposition for prior in retrieved]
         if not labels:
             return BacktestPrediction(Disposition.denied, 0.0)
         # Most common label, ties broken by the Disposition enum order for determinism.

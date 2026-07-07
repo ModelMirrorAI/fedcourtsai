@@ -575,6 +575,20 @@ def test_case_era_prefers_term_year_then_dates() -> None:
     assert corpus.case_era(bare) is None
 
 
+def test_case_year_prefers_term_year_then_dates() -> None:
+    # The year behind case_era and the decided_before cutoff, same signal order.
+    scotus = corpus.CorpusRow(
+        case_id="scotus/1", court="scotus", docket_number="93-7515", date_filed=date(2001, 1, 1)
+    )
+    filed = corpus.CorpusRow(case_id="ca9/1", court="ca9", date_filed=date(2022, 4, 11))
+    decided = corpus.CorpusRow(case_id="scotus/2", court="scotus", date_decided=date(1873, 3, 1))
+    bare = corpus.CorpusRow(case_id="scotus/3", court="scotus")
+    assert corpus.case_year(scotus) == 1993
+    assert corpus.case_year(filed) == 2022
+    assert corpus.case_year(decided) == 1873
+    assert corpus.case_year(bare) is None
+
+
 def test_is_modern_cert_matches_term_prefixed_scotus_only() -> None:
     modern = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="22-451")
     labeled = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="No. 01-7700")
@@ -604,6 +618,34 @@ def test_retrieve_priors_era_filter(tmp_path: Path) -> None:
             conn, corpus.PriorQuery(court="scotus", era="1990s"), limit=10
         )
     assert [r.case_id for r in priors] == ["scotus/1"]
+
+
+def test_retrieve_priors_decided_before_is_exclusive_and_conservative(tmp_path: Path) -> None:
+    # The back-test replay clock: only priors that provably precede the cutoff
+    # qualify — the cutoff year itself and rows with no derivable year never do.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(case_id="scotus/1", court="scotus", docket_number="93-7515"),  # 1993
+                _row(case_id="scotus/2", court="scotus", docket_number="98-100"),  # the cutoff year
+                _row(case_id="scotus/3", court="scotus", docket_number="22-451"),  # later
+                _row(  # no Term, no dates: year underivable -> excluded under a cutoff
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="801",
+                    date_filed=None,
+                    date_decided=None,
+                ),
+            ],
+        )
+        masked = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=1998), limit=10
+        )
+        unmasked = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
+    assert [r.case_id for r in masked] == ["scotus/1"]
+    assert len(unmasked) == 4
 
 
 def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow:
