@@ -39,7 +39,13 @@ stratum is evidence of forecasting skill, so no headline metric may mix them.
   over the always-deny floor** (the honest signal under cert's denial skew), and
   a P(granted) calibration view. Produced out of band by `fedcourts
   cert-backtest` — a real-engine replay spends tokens, so it never runs on a
-  schedule — and labeled retrospective like `backtest.json`.
+  schedule — and labeled retrospective like `backtest.json`. A real run is a
+  maintainer action: `dvc pull` a fresh corpus, check the selectable set with a
+  no-engine (offline, free) invocation, then `fedcourts cert-backtest --engine
+  auto --limit N` locally with the engine CLIs authenticated (~one predict cell
+  per petition per routable predictor), and commit the refreshed report on a
+  branch like any reviewed change. Only petitions holding a snapshot replay;
+  the command names what it skips.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
   published artifact): headline case counts and the overall disposition base rate,
   plus curated breakdowns — cases by court; SCOTUS petitions by Term, by
