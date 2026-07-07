@@ -98,6 +98,51 @@ clusters, opinions, citations, courts) to a public S3 bucket, regenerated on the
 last day of March/June/September/December. That is the right source for the
 historical mass, and it bypasses the throttle entirely.
 
+## The planned end-state: a CourtListener database replica
+
+Free Law Project offers **replication of the CourtListener Postgres database** —
+a commercial subscription feeding a self-hosted, continuously-updated replica.
+That is the intended eventual upstream, once the project has the funding for the
+agreement and a hosted Postgres to receive it: one source with full field
+coverage (docket entries, cert-stage dates, the people/judges directory, the
+citation graph), current within replication lag, and **no request caps** — it
+collapses the seed/pull source split (bulk breadth vs REST depth) and dissolves
+the budget constraint above.
+
+The pivot swaps the **channels**, never the **corpus**. The packed corpus and
+its point-in-time snapshots remain the system of record agents read — but the
+reason is mode-specific, and worth keeping straight. In a **back-test replay**
+the snapshot boundary is a correctness rule: a live query returns the decided
+docket, outcome included. In a **forward** cell nothing live can leak — the
+outcome does not exist yet — and the snapshot rule is instead about
+comparability (every predictor in a fan-out reads the same record, so the
+tournament compares predictors, not fetch timing) and, today, the API budget.
+The replica dissolves the budget half and shrinks snapshot staleness toward
+zero, so keeping the forward-cell rule becomes a deliberate comparability
+choice rather than a necessity — one to revisit consciously at adoption.
+Either way, the replica arrives as a third source feeding the same normalized
+rows — a richer, faster seed-and-pull, not a new consumer surface.
+
+Until then, four guardrails keep interim work from blocking the pivot:
+
+1. **Ingestion stays channel-agnostic.** Everything downstream consumes the
+   normalized corpus row; nothing keys behavior on which channel produced it.
+   New upstream fields land as columns mapped in the shared normalization layer,
+   never as channel-specific side tables.
+2. **The API budget governor stays scoped to the REST client.** It is a
+   constraint to be deleted, not a dependency: nothing outside pull should build
+   on request-scarcity semantics.
+3. **Enrichment flows through ingestion into the corpus, never as agent-side
+   API calls.** The same rule that protects replay integrity and forward
+   comparability today is what makes the replica a drop-in upstream later.
+4. **Bulk-CSV-specific tooling stays thin.** The quarterly export is an interim
+   source; durable investment goes into the normalization seam and the corpus
+   schema, both of which survive the swap.
+
+Adoption also needs a terms review of the replication agreement itself; the
+access-gated, no-republication stance in [data-sources.md](data-sources.md)
+already matches the shape such an agreement requires.
+
 ## Two processes, one shared core
 
 Seed and pull are **separate workflows** because they differ on every axis that
@@ -369,6 +414,19 @@ granted accuracy, and the Brier score of P(granted). It runs over a
 corpus-retrieval majority vote) run entirely offline so the metric is real
 today, and the configured agentic predictors plug into the same seam and are
 replayed out of band, exactly as `run-predict` runs them live.
+
+How much a back-test score is allowed to mean is fixed by the pre-registration
+stratification (see [`fedcourtsai.leaderboard`](../src/fedcourtsai/leaderboard.py)):
+**forward predictions are the test set; the back-test is the validation set.**
+A replay can never be a true test — no redaction removes a model's parametric
+memory of a famous case, and screening many prompt or retrieval variants
+against the same resolved history makes the winner's score optimistic in the
+usual multiple-comparisons way. So back-test deltas drive the intermediate
+feedback loop — retrieval quality, calibration shape, prompt scaffolding, lift
+over the always-deny floor — while predictor *skill* is only ever claimed from
+forward cells. The schemas enforce the line: both back-test reports carry a
+hard-coded `retrospective` stratum, and the leaderboard never blends the
+strata.
 
 The live predict/evaluate cells have the same shape of seam. A cell hands its
 inputs — court, docket, event, the acting predictor/evaluator id, the run id,

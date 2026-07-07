@@ -116,3 +116,11 @@ new predictor designs, registers them in the registry, and lets `run-predict` /
 flow has to change for it — a predictor is just an id, an engine, and a prompt —
 so it is sequenced after the loop and the leaderboard are proven, and after
 back-testing gives a cheap way to screen candidates before they spend live budget.
+
+**Infrastructure step, funding-gated: the CourtListener database replica.** Once
+the project has the support to pay for Free Law Project's replication agreement
+and host a Postgres replica, the seed/pull upstreams consolidate onto it — full
+field coverage, continuously current, no request caps (see *The planned
+end-state* in [data-pipeline.md](data-pipeline.md)). The corpus boundary and
+everything downstream of ingestion are unchanged by design; the interim
+guardrails in that section are what keep this a swap rather than a rebuild.
