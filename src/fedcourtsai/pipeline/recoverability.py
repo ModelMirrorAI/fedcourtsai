@@ -20,12 +20,14 @@ decision is unit-testable against a stubbed client with no network.
 
 from __future__ import annotations
 
+import random
 import re
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
 
 from pydantic import BaseModel, Field
 
+from .. import corpus
 from ..schemas import Disposition
 from .ingest import normalize_disposition
 from .outcome import is_machine_readable
@@ -136,6 +138,11 @@ class DocketProbe(BaseModel):
     )
     reason: str = Field(default="", description="One-line explanation of the verdict")
     error: str | None = Field(default=None, description="Fetch error, if the docket could not load")
+    stratum: str | None = Field(
+        default=None,
+        description="Sample stratum the docket was drawn from, when probed via the "
+        "stratified dateless sample; None for an ad-hoc probe",
+    )
 
     @property
     def docket_id_str(self) -> str:
@@ -394,6 +401,113 @@ def probe_dockets(client: RecoverabilityClient, pairs: list[tuple[str, int]]) ->
     return ProbeReport(dockets=[probe_docket(client, court, docket) for court, docket in pairs])
 
 
+# --- stratified sample over the dateless resolved slice -------------------------
+
+
+class SampleTarget(NamedTuple):
+    """One docket drawn for the stratified dateless sample."""
+
+    stratum: str
+    court: str
+    docket_id: int
+
+
+# The strata the dateless-resolved sample is drawn from, in allocation order:
+# the SCOTUS modern-cert slice (highest back-test value: it feeds the cert
+# back-test set), the dominant circuit slice, and everything else pooled. The
+# per-stratum read sizes what a date backfill can actually recover, and from
+# which source, before the pull budget is spent on the drip.
+SAMPLE_STRATA: tuple[str, ...] = ("scotus-modern-cert", "ca4", "other-circuits")
+
+# Resolved (disposition set) but carrying no decision-time signal at all.
+_DATELESS_RESOLVED_SQL = (
+    "disposition IS NOT NULL AND date_decided IS NULL "
+    "AND date_cert_granted IS NULL AND date_cert_denied IS NULL"
+)
+
+
+def _stratum_candidates(conn: corpus.ReadConnection, stratum: str) -> list[tuple[str, int]]:
+    """The dateless-resolved ``(court, docket_id)`` candidates of one stratum,
+    in stable ``case_id`` order (the deterministic base the sampler draws from)."""
+    params: tuple[str, ...]
+    if stratum == "scotus-modern-cert":
+        clause, params = "court = ?", ("scotus",)
+    elif stratum == "other-circuits":
+        clause, params = "court NOT IN (?, ?)", ("scotus", "ca4")
+    else:
+        clause, params = "court = ?", (stratum,)
+    rows = conn.execute(
+        f"SELECT case_id, court, docket_number FROM cases "
+        f"WHERE {clause} AND {_DATELESS_RESOLVED_SQL} ORDER BY case_id",
+        params,
+    ).fetchall()
+    pairs: list[tuple[str, int]] = []
+    for record in rows:
+        if stratum == "scotus-modern-cert" and (
+            corpus.scotus_term_year(record["docket_number"]) is None
+        ):
+            continue
+        docket = int(str(record["case_id"]).rsplit("/", 1)[1])
+        pairs.append((record["court"], docket))
+    return pairs
+
+
+def sample_dateless_targets(
+    conn: corpus.ReadConnection, *, total: int, seed: int = 0
+) -> list[SampleTarget]:
+    """Draw a stratified random sample of the dateless resolved slice.
+
+    ``total`` splits evenly across :data:`SAMPLE_STRATA` (remainder to the earlier
+    strata); a stratum short of candidates yields what it has and the shortfall
+    tops up the later strata, so the draw uses the full budget whenever the slice
+    is large enough. Deterministic for a given corpus and ``seed`` — candidates
+    are collected in stable order and drawn with a seeded PRNG — so a probe run
+    is reproducible.
+    """
+    if total <= 0:
+        return []
+    rng = random.Random(seed)
+    base, extra = divmod(total, len(SAMPLE_STRATA))
+    shares = [base + (1 if i < extra else 0) for i in range(len(SAMPLE_STRATA))]
+    targets: list[SampleTarget] = []
+    carry = 0
+    for stratum, share in zip(SAMPLE_STRATA, shares, strict=True):
+        candidates = _stratum_candidates(conn, stratum)
+        want = min(share + carry, len(candidates))
+        carry = share + carry - want
+        for court, docket in sorted(rng.sample(candidates, want)):
+            targets.append(SampleTarget(stratum, court, docket))
+    return targets
+
+
+def probe_sample(client: RecoverabilityClient, targets: list[SampleTarget]) -> ProbeReport:
+    """Probe each sampled docket, tagging every probe with its stratum."""
+    dockets = []
+    for stratum, court, docket in targets:
+        probe = probe_docket(client, court, docket)
+        probe.stratum = stratum
+        dockets.append(probe)
+    return ProbeReport(dockets=dockets)
+
+
+def dated_share_snapshot(conn: corpus.ReadConnection) -> tuple[int, int]:
+    """``(dated, machine_readable_resolved)`` over the corpus at probe time.
+
+    The point-in-time "before" measurement the sample report carries: how many
+    machine-readable resolved rows already hold any resolution date (decision or
+    cert-stage), out of the whole back-testable slice.
+    """
+    record = conn.execute(
+        "SELECT "
+        "SUM(CASE WHEN date_decided IS NOT NULL OR date_cert_granted IS NOT NULL "
+        "OR date_cert_denied IS NOT NULL THEN 1 ELSE 0 END) AS dated, "
+        "COUNT(*) AS total FROM cases "
+        "WHERE disposition IS NOT NULL AND disposition != ?",
+        (Disposition.other.value,),
+    ).fetchone()
+    return int(record["dated"] or 0), int(record["total"])
+
+
 def parse_docket_pairs(values: list[str]) -> list[tuple[str, int]]:
     """Parse ``court/docket`` tokens (comma-joined or repeated) into typed pairs.
 
@@ -425,14 +539,39 @@ def parse_docket_pairs(values: list[str]) -> list[tuple[str, int]]:
     return pairs
 
 
-def render_summary(report: ProbeReport) -> str:
-    """Render the report as a short Markdown summary (for the Actions step summary)."""
+def render_summary(report: ProbeReport, *, dated_share: tuple[int, int] | None = None) -> str:
+    """Render the report as a short Markdown summary (for the Actions step summary).
+
+    ``dated_share`` — the :func:`dated_share_snapshot` pair — adds the
+    point-in-time dated-share line a sampled run reports as its "before" number.
+    """
     counts = report.counts()
     lines = ["## Recoverability probe", ""]
     summary_bits = [f"**{counts[c.value]}** {c.value}" for c in Classification]
     if counts["error"]:
         summary_bits.append(f"**{counts['error']}** error")
     lines.append(f"{len(report.dockets)} docket(s): " + " · ".join(summary_bits))
+    if dated_share is not None:
+        dated, total = dated_share
+        pct = f" ({dated / total * 100:.1f}%)" if total else ""
+        lines.extend(
+            [
+                "",
+                f"**Dated share at probe time:** {dated} of {total} machine-readable "
+                f"resolved case(s) carry a resolution date{pct}.",
+            ]
+        )
+    strata = [d.stratum for d in report.dockets if d.stratum is not None]
+    if strata:
+        lines.extend(
+            ["", "| Stratum | dockets | " + " | ".join(c.value for c in Classification) + " |"]
+        )
+        lines.append("| --- | --: | " + " | ".join("--:" for _ in Classification) + " |")
+        for stratum in dict.fromkeys(strata):  # first-seen order, deduplicated
+            members = [d for d in report.dockets if d.stratum == stratum]
+            by_verdict = ProbeReport(dockets=members).counts()
+            cells = " | ".join(str(by_verdict[c.value]) for c in Classification)
+            lines.append(f"| {stratum} | {len(members)} | {cells} |")
     lines.extend(["", "| Docket | Verdict | Source | Reason |", "| --- | --- | --- | --- |"])
     for d in report.dockets:
         if d.classification is None:
