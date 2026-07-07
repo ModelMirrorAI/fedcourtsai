@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus
 from .corpus import CorpusRow
+from .pipeline.outcome import is_machine_readable
 from .schemas import (
     AnalyticsReport,
     BaseRateBucket,
@@ -283,17 +284,26 @@ class _Slice:
     materialized and no per-section re-scan runs.
     """
 
-    __slots__ = ("cases", "days", "labels")
+    __slots__ = ("cases", "dated_resolved", "days", "labels", "machine_readable_resolved")
 
     def __init__(self) -> None:
         self.cases = 0
         self.labels: Counter[str] = Counter()
         self.days: list[int] = []
+        self.machine_readable_resolved = 0
+        self.dated_resolved = 0
 
     def add(self, row: CorpusRow) -> None:
         self.cases += 1
         if row.disposition is not None:
             self.labels[row.disposition] += 1
+            # The back-testable slice and its dated share: a machine-readable
+            # disposition is scoreable, and a resolution date is what lets the
+            # time-masked replay clock anchor the row.
+            if is_machine_readable(Disposition(row.disposition)):
+                self.machine_readable_resolved += 1
+                if corpus.resolution_date(row) is not None:
+                    self.dated_resolved += 1
         days = _decision_days(row)
         if days is not None:
             self.days.append(days)
@@ -363,6 +373,8 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
         corpus_rows=overall.cases,
         resolved=total.resolved,
         open=total.open,
+        machine_readable_resolved=overall.machine_readable_resolved,
+        dated_resolved=overall.dated_resolved,
         overall=total,
         timing=overall.timing(),
         sections=sections,
@@ -389,10 +401,19 @@ def render_statpack_markdown(pack: StatPack) -> str:
         lines.append("_Empty — no corpus present. Regenerated once a corpus is available._")
         return "\n".join(lines) + "\n"
 
+    dated_share = (
+        f" ({_pct(pack.dated_resolved / pack.machine_readable_resolved)})"
+        if pack.machine_readable_resolved
+        else ""
+    )
     lines += [
         f"**{pack.corpus_rows}** case(s): {pack.resolved} resolved, {pack.open} open.",
         "",
         f"**Overall base rate (resolved):** {_disposition_summary(pack.overall)}",
+        "",
+        f"**Dated share:** {pack.dated_resolved} of {pack.machine_readable_resolved} "
+        f"machine-readable resolved case(s) carry a resolution date{dated_share} — "
+        "the slice the time-masked replay clock can anchor.",
         "",
         f"**Filing → decision timing:** {_timing_summary(pack.timing)}",
     ]

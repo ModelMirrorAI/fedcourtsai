@@ -6,15 +6,16 @@ ca9 / ca1 / scotus, four resolved and two open.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import analytics
+from fedcourtsai import analytics, corpus
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
-from fedcourtsai.schemas import StatPack, StatPackSection
+from fedcourtsai.schemas import Disposition, StatPack, StatPackSection
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -31,6 +32,8 @@ def _section(pack: StatPack, title: str) -> StatPackSection:
 def test_build_statpack_headline_and_sections(fixture_corpus: FixtureCorpus) -> None:
     pack = _pack(fixture_corpus)
     assert (pack.corpus_rows, pack.resolved, pack.open) == (6, 4, 2)
+    # All four resolved fixture cases carry concrete labels and date pairs.
+    assert (pack.machine_readable_resolved, pack.dated_resolved) == (4, 4)
     # Overall base rate over the four resolved cases.
     shares = {d.disposition: d.share for d in pack.overall.dispositions}
     assert shares == {"denied": 0.5, "dismissed": 0.25, "granted": 0.25}
@@ -85,6 +88,43 @@ def test_build_statpack_absent_corpus_is_empty_with_scaffolding(tmp_path: Path) 
     assert all(s.buckets == [] for s in pack.sections)
 
 
+def test_build_statpack_dated_share_counts(tmp_path: Path) -> None:
+    # The dated share reads on the machine-readable resolved slice only: `other`
+    # rows fall out of the denominator, dateless rows out of the numerator, and a
+    # SCOTUS row dated only at the cert stage still counts as dated.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="ca9/1",
+                    court="ca9",
+                    disposition=Disposition.denied,
+                    date_decided=date(2024, 6, 1),
+                ),
+                corpus.CorpusRow(case_id="ca4/2", court="ca4", disposition=Disposition.denied),
+                corpus.CorpusRow(
+                    case_id="ca4/3",
+                    court="ca4",
+                    disposition=Disposition.other,
+                    date_decided=date(2024, 6, 1),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="22-451",
+                    disposition=Disposition.denied,
+                    date_cert_denied=date(2023, 1, 9),
+                ),
+                corpus.CorpusRow(case_id="ca9/5", court="ca9"),  # open: untouched
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    assert pack.machine_readable_resolved == 3
+    assert pack.dated_resolved == 2
+
+
 def test_build_statpack_is_deterministic(fixture_corpus: FixtureCorpus) -> None:
     assert _pack(fixture_corpus).model_dump_json() == _pack(fixture_corpus).model_dump_json()
 
@@ -93,6 +133,7 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     md = analytics.render_statpack_markdown(_pack(fixture_corpus))
     assert md.startswith("# Corpus statpack")
     assert "**6** case(s): 4 resolved, 2 open." in md
+    assert "**Dated share:** 4 of 4 machine-readable resolved case(s)" in md
     assert "## Cases by court" in md
     assert "| ca9 |" in md
     # Headline timing line and the per-Term detail table (recent first).

@@ -238,6 +238,20 @@
       "title": "Corpus Rows",
       "type": "integer"
     },
+    "dated_resolved": {
+      "default": 0,
+      "description": "Machine-readable resolved cases carrying a resolution date \u2014 the share the time-masked replay clock can anchor",
+      "minimum": 0,
+      "title": "Dated Resolved",
+      "type": "integer"
+    },
+    "machine_readable_resolved": {
+      "default": 0,
+      "description": "Resolved cases with a machine-readable disposition \u2014 the back-testable slice",
+      "minimum": 0,
+      "title": "Machine Readable Resolved",
+      "type": "integer"
+    },
     "open": {
       "default": 0,
       "description": "Cases still unresolved",

@@ -890,6 +890,17 @@ class StatPack(_Strict):
     corpus_rows: int = Field(default=0, ge=0, description="Case rows in the corpus")
     resolved: int = Field(default=0, ge=0, description="Cases carrying a realized disposition")
     open: int = Field(default=0, ge=0, description="Cases still unresolved")
+    machine_readable_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Resolved cases with a machine-readable disposition — the back-testable slice",
+    )
+    dated_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Machine-readable resolved cases carrying a resolution date — the "
+        "share the time-masked replay clock can anchor",
+    )
     overall: BaseRateBucket = Field(
         default_factory=BaseRateBucket, description="Base rate over the whole corpus"
     )
