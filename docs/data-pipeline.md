@@ -110,12 +110,18 @@ collapses the seed/pull source split (bulk breadth vs REST depth) and dissolves
 the budget constraint above.
 
 The pivot swaps the **channels**, never the **corpus**. The packed corpus and
-its point-in-time snapshots remain the system of record agents read: that
-boundary is what makes a forward prediction auditable and a back-test
-time-maskable, and a live replica query at predict time would reintroduce the
-outcome leakage the snapshot boundary exists to prevent. The replica becomes a
-third source feeding the same normalized rows — a richer, faster seed-and-pull,
-not a new consumer surface.
+its point-in-time snapshots remain the system of record agents read — but the
+reason is mode-specific, and worth keeping straight. In a **back-test replay**
+the snapshot boundary is a correctness rule: a live query returns the decided
+docket, outcome included. In a **forward** cell nothing live can leak — the
+outcome does not exist yet — and the snapshot rule is instead about
+comparability (every predictor in a fan-out reads the same record, so the
+tournament compares predictors, not fetch timing) and, today, the API budget.
+The replica dissolves the budget half and shrinks snapshot staleness toward
+zero, so keeping the forward-cell rule becomes a deliberate comparability
+choice rather than a necessity — one to revisit consciously at adoption.
+Either way, the replica arrives as a third source feeding the same normalized
+rows — a richer, faster seed-and-pull, not a new consumer surface.
 
 Until then, four guardrails keep interim work from blocking the pivot:
 
@@ -127,8 +133,8 @@ Until then, four guardrails keep interim work from blocking the pivot:
    constraint to be deleted, not a dependency: nothing outside pull should build
    on request-scarcity semantics.
 3. **Enrichment flows through ingestion into the corpus, never as agent-side
-   API calls.** The same rule that protects leakage and reproducibility today is
-   what makes the replica a drop-in upstream later.
+   API calls.** The same rule that protects replay integrity and forward
+   comparability today is what makes the replica a drop-in upstream later.
 4. **Bulk-CSV-specific tooling stays thin.** The quarterly export is an interim
    source; durable investment goes into the normalization seam and the corpus
    schema, both of which survive the swap.
@@ -408,6 +414,19 @@ granted accuracy, and the Brier score of P(granted). It runs over a
 corpus-retrieval majority vote) run entirely offline so the metric is real
 today, and the configured agentic predictors plug into the same seam and are
 replayed out of band, exactly as `run-predict` runs them live.
+
+How much a back-test score is allowed to mean is fixed by the pre-registration
+stratification (see [`fedcourtsai.leaderboard`](../src/fedcourtsai/leaderboard.py)):
+**forward predictions are the test set; the back-test is the validation set.**
+A replay can never be a true test — no redaction removes a model's parametric
+memory of a famous case, and screening many prompt or retrieval variants
+against the same resolved history makes the winner's score optimistic in the
+usual multiple-comparisons way. So back-test deltas drive the intermediate
+feedback loop — retrieval quality, calibration shape, prompt scaffolding, lift
+over the always-deny floor — while predictor *skill* is only ever claimed from
+forward cells. The schemas enforce the line: both back-test reports carry a
+hard-coded `retrospective` stratum, and the leaderboard never blends the
+strata.
 
 The live predict/evaluate cells have the same shape of seam. A cell hands its
 inputs — court, docket, event, the acting predictor/evaluator id, the run id,
