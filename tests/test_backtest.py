@@ -67,14 +67,15 @@ def test_select_features_hide_the_outcome(tmp_path: Path) -> None:
     _seed(db, [_row("ca9/1", Disposition.granted, opinion_text="grant", summary="won")])
     with corpus.connect(db) as conn:
         item = select_backtest_set(conn)[0]
-    # Features carry no field that reveals the disposition (no opinion/summary/date_decided).
+    # Features carry no field that reveals the disposition (no opinion/summary/
+    # date_decided, and no reporter citations — those exist only once decided).
     assert set(vars(item.features)) == {
         "case_id",
         "court",
         "topic",
         "judges",
-        "citations",
         "date_filed",
+        "year",
     }
 
 
@@ -100,13 +101,15 @@ def test_select_court_and_limit_filters(tmp_path: Path) -> None:
 
 
 def _features(case_id: str = "ca9/1", **kw: object) -> BacktestFeatures:
+    # year=2026 puts the trial after the 2025 priors `_row` seeds (their year is
+    # date_filed's, the best signal a non-SCOTUS row carries).
     base: dict[str, object] = {
         "case_id": case_id,
         "court": "ca9",
         "topic": None,
         "judges": (),
-        "citations": (),
         "date_filed": date(2025, 1, 1),
+        "year": 2026,
     }
     base.update(kw)
     return BacktestFeatures(**base)  # type: ignore[arg-type]
@@ -140,10 +143,39 @@ def test_prior_vote_majority_and_granted_share(tmp_path: Path) -> None:
 
 def test_prior_vote_excludes_the_case_under_test(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
-    # The only resolved case is the one being predicted; leave-one-out leaves no prior.
+    # The only resolved case is the one being predicted. Its own year equals the
+    # trial's, and the strict decided_before cutoff excludes the cutoff year —
+    # so the vote can never retrieve the case itself (or its contemporaries).
     _seed(db, [_row("ca9/1", Disposition.granted, judges=["smith"])])
     with corpus.connect(db) as conn:
-        pred = PriorVoteBacktester(conn).predict(_features("ca9/1", judges=("smith",)))
+        pred = PriorVoteBacktester(conn).predict(_features("ca9/1", judges=("smith",), year=2025))
+    assert pred == BacktestPrediction(Disposition.denied, 0.0)
+
+
+def test_prior_vote_never_consults_later_history(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed(
+        db,
+        [
+            # Earlier than the 2026 trial (year = date_filed 2025): the only vote.
+            _row("ca9/10", Disposition.denied, judges=["smith"]),
+            # Later than the trial: hindsight, never consulted.
+            _row("ca9/11", Disposition.granted, judges=["smith"], date_filed=date(2027, 1, 1)),
+            _row("ca9/12", Disposition.granted, judges=["smith"], date_filed=date(2027, 2, 1)),
+        ],
+    )
+    with corpus.connect(db) as conn:
+        pred = PriorVoteBacktester(conn).predict(_features("ca9/99", judges=("smith",)))
+    # Unmasked, the 2-1 granted majority would win; time-masked it must not.
+    assert pred == BacktestPrediction(Disposition.denied, 0.0)
+
+
+def test_prior_vote_without_a_replay_clock_falls_back_to_the_floor(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed(db, [_row("ca9/10", Disposition.granted, judges=["smith"])])
+    with corpus.connect(db) as conn:
+        pred = PriorVoteBacktester(conn).predict(_features("ca9/99", judges=("smith",), year=None))
+    # No derivable year -> no prior can be proven earlier -> the conservative floor.
     assert pred == BacktestPrediction(Disposition.denied, 0.0)
 
 
@@ -167,9 +199,10 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
     """The index must reproduce `retrieve_priors` exactly — same rows, same order.
 
     Covers every semantic branch: pure recency order (no features), required judge
-    overlap, required citation overlap, both filters combined (score sums), an
-    undated-but-resolved row (sorts after dated ones), unresolved rows excluded,
-    a foreign court, and a no-match query.
+    overlap, required citation overlap, both filters combined (score sums), the
+    decided_before cutoff (alone and with overlap filters; a year-less row is
+    excluded under any cutoff), an undated-but-resolved row (sorts after dated
+    ones), unresolved rows excluded, a foreign court, and a no-match query.
     """
     db = tmp_path / "corpus.db"
     _seed(
@@ -187,31 +220,44 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                 Disposition.denied,
                 judges=["beta"],
                 citations=["1 U.S. 1", "2 U.S. 2"],
+                date_filed=date(2024, 1, 1),
                 date_decided=date(2026, 2, 1),
             ),
-            _row("ca9/3", Disposition.dismissed, judges=["gamma"], date_decided=date(2026, 1, 5)),
-            # Resolved but undated: recency sorts it after every dated row.
-            _row("ca9/4", Disposition.denied, judges=["alpha"], date_decided=None),
+            _row(
+                "ca9/3",
+                Disposition.dismissed,
+                judges=["gamma"],
+                date_filed=date(2023, 1, 1),
+                date_decided=date(2026, 1, 5),
+            ),
+            # Resolved but undated: recency sorts it after every dated row, and
+            # no year is derivable, so any decided_before cutoff excludes it.
+            _row("ca9/4", Disposition.denied, judges=["alpha"], date_filed=None, date_decided=None),
             # Unresolved: never a prior.
             _row("ca9/5", None, judges=["alpha"]),
             # Another court: never mixed into ca9 retrievals.
             _row("ca1/6", Disposition.granted, court="ca1", judges=["alpha"]),
         ],
     )
-    queries: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = [
-        ("ca9", (), ()),
-        ("ca9", ("alpha",), ()),
-        ("ca9", ("alpha", "gamma"), ()),
-        ("ca9", (), ("1 U.S. 1",)),
-        ("ca9", (), ("2 U.S. 2",)),
-        ("ca9", ("beta",), ("1 U.S. 1",)),
-        ("ca9", ("nobody",), ()),
-        ("ca1", ("alpha",), ()),
-        ("nowhere", (), ()),
+    queries: list[tuple[str, tuple[str, ...], tuple[str, ...], int | None]] = [
+        ("ca9", (), (), None),
+        ("ca9", ("alpha",), (), None),
+        ("ca9", ("alpha", "gamma"), (), None),
+        ("ca9", (), ("1 U.S. 1",), None),
+        ("ca9", (), ("2 U.S. 2",), None),
+        ("ca9", ("beta",), ("1 U.S. 1",), None),
+        ("ca9", ("nobody",), (), None),
+        ("ca1", ("alpha",), (), None),
+        ("nowhere", (), (), None),
+        ("ca9", (), (), 2026),
+        ("ca9", (), (), 2024),
+        ("ca9", (), (), 1900),
+        ("ca9", ("alpha", "beta"), (), 2026),
+        ("ca9", ("beta",), ("1 U.S. 1",), 2025),
     ]
     with corpus.connect(db) as conn:
         index = PriorIndex.build(conn)
-        for court, judges, citations in queries:
+        for court, judges, citations, decided_before in queries:
             for limit in (1, 3, 10):
                 expected = corpus.retrieve_priors(
                     conn,
@@ -219,15 +265,17 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                         court=court,
                         judges=list(judges),
                         citations=list(citations),
+                        decided_before=decided_before,
                         resolved_only=True,
                     ),
                     limit=limit,
                 )
-                got = index.top(court, judges, citations, limit)
+                got = index.top(court, judges, citations, limit, decided_before=decided_before)
                 assert [c.case_id for c in got] == [r.case_id for r in expected], (
                     court,
                     judges,
                     citations,
+                    decided_before,
                     limit,
                 )
 

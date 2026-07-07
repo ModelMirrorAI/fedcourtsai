@@ -62,12 +62,26 @@ For each predictor you score, write to
   - `reasoning_quality` — your 0–1 qualitative judgment of the predicted reasoning
     (soundness of the legal analysis given the outcome, not just whether it was
     right). `notes_doc` = `evaluation.md`.
+  - `leakage_suspected` — `true`/`false`, from the leakage check below; leave it
+    null only when you could not assess it (e.g. the predictor's `retrieval.md`
+    is missing).
 
   The quantitative pieces are computed identically in code by
   `fedcourtsai.pipeline.evaluate` (`is_correct`, `brier_score`, `vote_accuracy`) —
   match those definitions.
 - **`evaluation.md`** — your qualitative write-up: what the prediction got right or
   wrong and why, and what drove your `reasoning_quality` score.
+
+**Leakage check.** A prediction is only a forecast if it was made without the
+outcome. For each predictor, read its `reasoning.md` and `retrieval.md` for signs
+the prediction used post-decision information about this case: lookups of the
+case's own caption or docket number beyond the provisioned snapshot, citation of
+the disposing order or opinion, facts only knowable after the decision, reasoning
+that presupposes the result, or the predictor's own admission that it knew the
+outcome. Set `leakage_suspected` in that predictor's `evaluation.json`, explain
+the evidence in `evaluation.md`, and when the signs are concrete add a
+`flags.json` note naming the predictor. Suspicion segments the scores — it never
+changes `correct`, `brier_score`, or the other quantitative fields.
 
 You may consult the corpus for context while scoring (never for new case facts):
 `fedcourts query` / `fedcourts open-events` read the corpus blob in place on the

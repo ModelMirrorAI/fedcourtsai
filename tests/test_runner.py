@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -146,6 +147,8 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.env["RUN_ID"] == RUN
     assert recorder.env["MODEL_ID"] == "claude-fable-5"
     assert "EVALUATOR_ID" not in recorder.env
+    # Live cells carry no replay clock; DECIDED_BEFORE is back-test-only.
+    assert "DECIDED_BEFORE" not in recorder.env
     # The command targets the `claude` CLI in print mode with the workflow's args.
     assert recorder.argv[0] == "claude"
     assert "-p" in recorder.argv
@@ -156,6 +159,16 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
     assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+
+
+def test_replay_request_exports_the_decided_before_clock(tmp_path: Path) -> None:
+    recorder = _Recorder()
+    runner = ClaudeCodeRunner(command_runner=recorder)
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    runner.run(replace(request, decided_before=1998))
+    # A back-test replay cell sees its clock so corpus retrieval can be masked.
+    assert recorder.env["DECIDED_BEFORE"] == "1998"
 
 
 def test_evaluate_uses_the_evaluator_id_env_var(tmp_path: Path) -> None:

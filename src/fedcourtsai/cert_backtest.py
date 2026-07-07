@@ -150,6 +150,9 @@ def replay_predictors(
     the working tree says the matter is decided) — under ``work_root`` (a
     scratch tree, never the ``data/`` ledger), then runs each enabled
     predictor's cell via :func:`get_runner` and collects its ``prediction.json``.
+    Each cell carries the trial's year as its replay clock (``DECIDED_BEFORE``),
+    so the agent's own corpus retrieval is masked to provably earlier history —
+    the same cutoff the offline prior-vote baseline honors.
     Returns one :class:`ReplayedBacktester` per predictor, ready for
     :func:`run_cert_backtest`. A real engine spends tokens per cell; ``stub`` /
     ``replay`` run offline.
@@ -196,6 +199,9 @@ def replay_predictors(
                     run_id=run_id,
                     prompt=Path(predictor.prompt),
                     data_root=work_root,
+                    # The replay clock: the cell sees it as DECIDED_BEFORE and
+                    # masks its corpus retrieval to provably earlier history.
+                    decided_before=item.features.year,
                 )
             )
             cell = read_model(

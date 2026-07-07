@@ -81,6 +81,11 @@ class RunRequest:
 
     ``prompt`` is carried for parity with the live engine (which reads it) even
     though the stub does not consult it; it is part of the cell contract.
+
+    ``decided_before`` is the back-test replay clock: set only when a decided
+    case is replayed as of a past moment (the cert back-test's engine replay),
+    it is exported to the cell as ``DECIDED_BEFORE`` so the agent's corpus
+    retrieval masks history from that year on. Live cells never set it.
     """
 
     role: UsageRole
@@ -91,6 +96,7 @@ class RunRequest:
     run_id: str
     prompt: Path
     data_root: Path
+    decided_before: int | None = None
 
     @property
     def case_id(self) -> str:
@@ -321,11 +327,12 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     cell: the case + event ids, the shared run id, the acting id under
     ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate), and the model the
     engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
-    field). Auth and any other secrets are inherited from the ambient
-    environment, never assembled here.
+    field). ``DECIDED_BEFORE`` appears only on back-test replay cells (the live
+    workflows never set ``decided_before``). Auth and any other secrets are
+    inherited from the ambient environment, never assembled here.
     """
     actor_var = "PREDICTOR_ID" if request.role == UsageRole.predictor else "EVALUATOR_ID"
-    return {
+    env = {
         "COURT_ID": request.court_id,
         "DOCKET_ID": str(request.docket_id),
         "EVENT_ID": request.event_id,
@@ -333,6 +340,9 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
         "RUN_ID": request.run_id,
         "MODEL_ID": model,
     }
+    if request.decided_before is not None:
+        env["DECIDED_BEFORE"] = str(request.decided_before)
+    return env
 
 
 def _claude_instruction(request: RunRequest) -> str:

@@ -36,8 +36,8 @@ def _item(case_id: str, actual: Disposition) -> BacktestItem:
             court="scotus",
             topic=None,
             judges=(),
-            citations=(),
             date_filed=None,
+            year=None,
         ),
         actual,
     )
@@ -215,6 +215,9 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
     assert [i.features.case_id for i in items] == ["scotus/304"]
+    # The replay clock rides on the features (docket 22-845 -> OT2022): each
+    # cell receives it as DECIDED_BEFORE so its retrieval is time-masked.
+    assert items[0].features.year == 2022
 
     backtesters = replay_predictors(
         items,
