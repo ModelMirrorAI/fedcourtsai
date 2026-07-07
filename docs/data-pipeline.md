@@ -98,6 +98,45 @@ clusters, opinions, citations, courts) to a public S3 bucket, regenerated on the
 last day of March/June/September/December. That is the right source for the
 historical mass, and it bypasses the throttle entirely.
 
+## The planned end-state: a CourtListener database replica
+
+Free Law Project offers **replication of the CourtListener Postgres database** —
+a commercial subscription feeding a self-hosted, continuously-updated replica.
+That is the intended eventual upstream, once the project has the funding for the
+agreement and a hosted Postgres to receive it: one source with full field
+coverage (docket entries, cert-stage dates, the people/judges directory, the
+citation graph), current within replication lag, and **no request caps** — it
+collapses the seed/pull source split (bulk breadth vs REST depth) and dissolves
+the budget constraint above.
+
+The pivot swaps the **channels**, never the **corpus**. The packed corpus and
+its point-in-time snapshots remain the system of record agents read: that
+boundary is what makes a forward prediction auditable and a back-test
+time-maskable, and a live replica query at predict time would reintroduce the
+outcome leakage the snapshot boundary exists to prevent. The replica becomes a
+third source feeding the same normalized rows — a richer, faster seed-and-pull,
+not a new consumer surface.
+
+Until then, four guardrails keep interim work from blocking the pivot:
+
+1. **Ingestion stays channel-agnostic.** Everything downstream consumes the
+   normalized corpus row; nothing keys behavior on which channel produced it.
+   New upstream fields land as columns mapped in the shared normalization layer,
+   never as channel-specific side tables.
+2. **The API budget governor stays scoped to the REST client.** It is a
+   constraint to be deleted, not a dependency: nothing outside pull should build
+   on request-scarcity semantics.
+3. **Enrichment flows through ingestion into the corpus, never as agent-side
+   API calls.** The same rule that protects leakage and reproducibility today is
+   what makes the replica a drop-in upstream later.
+4. **Bulk-CSV-specific tooling stays thin.** The quarterly export is an interim
+   source; durable investment goes into the normalization seam and the corpus
+   schema, both of which survive the swap.
+
+Adoption also needs a terms review of the replication agreement itself; the
+access-gated, no-republication stance in [data-sources.md](data-sources.md)
+already matches the shape such an agreement requires.
+
 ## Two processes, one shared core
 
 Seed and pull are **separate workflows** because they differ on every axis that

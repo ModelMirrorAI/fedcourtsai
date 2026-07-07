@@ -15,6 +15,12 @@ of the [Free Law Project](https://free.law/), through two channels:
 - the free **quarterly bulk-data exports** on public S3 (historical backfill —
   `seed`).
 
+A third channel is planned but not yet adopted: Free Law Project's commercial
+**database replication** offering, the intended eventual upstream for both roles
+once funding allows — see *The planned end-state* in
+[data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
+agreement's terms alongside the licenses below.
+
 Two layers of rights apply, and they are different:
 
 - **The underlying records are public.** Federal court opinions and docket data are
