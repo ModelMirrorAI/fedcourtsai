@@ -142,6 +142,68 @@ def test_normalize_disposition(raw: str | None, expected: Disposition | None) ->
     assert normalize_disposition(raw) == expected
 
 
+def test_cert_stage_dates_extracted_identically_from_api_and_bulk() -> None:
+    # Upstream carries the petition-stage decision as dates on the docket; both
+    # channels hand the raw record through, so the mapping is source-agnostic.
+    api = from_api_docket(
+        {"id": 9, "court_id": "scotus", "docket_number": "22-451", "date_cert_denied": "2023-01-09"}
+    )
+    bulk = from_bulk_row(
+        {
+            "id": "9",
+            "court_id": "scotus",
+            "docket_number": "22-451",
+            "date_cert_denied": "2023-01-09",
+        }
+    )
+    assert api.model_dump(exclude={"source"}) == bulk.model_dump(exclude={"source"})
+    assert api.date_cert_denied == date(2023, 1, 9)
+    assert api.date_cert_granted is None
+    # The date is the label: a denial date resolves the petition as denied.
+    assert api.disposition == Disposition.denied
+    # And the projection carries both dates onto the storage row.
+    stored = to_corpus_row(api)
+    assert stored.date_cert_denied == date(2023, 1, 9)
+    assert stored.date_cert_granted is None
+    assert stored.disposition == Disposition.denied
+
+
+def test_cert_grant_date_wins_and_derives_granted() -> None:
+    # A granted-then-disposed petition (incl. a GVR) was granted at the petition
+    # stage, so the grant date wins when both cert dates are present.
+    row = from_api_docket(
+        {
+            "id": 10,
+            "court_id": "scotus",
+            "date_cert_granted": "2022-10-03",
+            "date_cert_denied": "2023-06-30",
+        }
+    )
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2022, 10, 3)
+    assert row.date_cert_denied == date(2023, 6, 30)
+
+
+def test_textual_disposition_wins_over_cert_date_derivation() -> None:
+    row = from_api_docket(
+        {
+            "id": 11,
+            "court_id": "scotus",
+            "disposition": "Petition dismissed",
+            "date_cert_denied": "2023-01-09",
+        }
+    )
+    assert row.disposition == Disposition.dismissed
+
+
+def test_cert_dates_never_derive_a_disposition_off_scotus() -> None:
+    # Defensive: only SCOTUS dockets read the petition-stage dates as a label;
+    # the dates themselves are still stored faithfully.
+    row = from_api_docket({"id": 12, "court_id": "ca9", "date_cert_denied": "2023-01-09"})
+    assert row.disposition is None
+    assert row.date_cert_denied == date(2023, 1, 9)
+
+
 def test_merge_rows_last_wins() -> None:
     stale = from_bulk_row({**BULK_ROW, "nature_of_suit": "old"})
     fresh = from_api_docket(API_DOCKET)

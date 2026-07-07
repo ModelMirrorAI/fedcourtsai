@@ -98,6 +98,7 @@ def test_connect_migrates_legacy_cases_table(tmp_path: Path) -> None:
         assert legacy_row is not None
         assert legacy_row.panel == []
         assert legacy_row.parties == []
+        assert legacy_row.date_cert_granted is None and legacy_row.date_cert_denied is None
         assert corpus.rotation_for_pull(conn, limit=10) == [legacy_row]
         # And the enriched columns are now writable.
         assert corpus.upsert_rows(conn, [_row()]) == 1
@@ -213,6 +214,41 @@ def test_originating_link_columns_roundtrip(tmp_path: Path) -> None:
     assert fetched.originating_docket_number == "21-35466"
     assert default is not None
     assert default.originating_court is None and default.originating_docket_number is None
+
+
+def test_cert_stage_date_columns_roundtrip(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-451",
+                    date_cert_granted=date(2022, 10, 3),
+                    date_cert_denied=None,
+                )
+            ],
+        )
+        corpus.upsert_rows(conn, [_row(case_id="ca9/1")])  # default: no cert dates
+        fetched = corpus.get_row(conn, "scotus/1")
+        default = corpus.get_row(conn, "ca9/1")
+    assert fetched is not None
+    assert fetched.date_cert_granted == date(2022, 10, 3)
+    assert fetched.date_cert_denied is None
+    assert default is not None
+    assert default.date_cert_granted is None and default.date_cert_denied is None
+
+
+def test_from_record_tolerates_record_without_cert_date_columns() -> None:
+    """A ranged read of a remote blob packed before the cert-date columns existed."""
+    record = corpus._to_record(_row())
+    del record["date_cert_granted"]
+    del record["date_cert_denied"]
+    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
+    assert row.date_cert_granted is None and row.date_cert_denied is None
+    assert row == _row()
 
 
 @pytest.mark.parametrize(

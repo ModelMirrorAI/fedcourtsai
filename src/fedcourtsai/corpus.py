@@ -160,6 +160,19 @@ class CorpusRow(BaseModel):
     )
     date_filed: date | None = None
     date_decided: date | None = None
+    date_cert_granted: date | None = Field(
+        default=None,
+        description="Petition-stage date certiorari was granted — the petition "
+        "event's true resolution moment. Distinct from `date_decided`, which keeps "
+        "termination semantics: for a granted petition the docket terminates only "
+        "at the merits judgment, months later.",
+    )
+    date_cert_denied: date | None = Field(
+        default=None,
+        description="Petition-stage date certiorari was denied — the petition "
+        "event's resolution moment (for a denied petition, termination and the "
+        "petition-stage decision usually coincide).",
+    )
     disposition: Disposition | None = Field(
         default=None, description="Realized outcome label; None while unresolved."
     )
@@ -285,7 +298,9 @@ CREATE TABLE IF NOT EXISTS cases (
     predict_eligible    INTEGER NOT NULL DEFAULT 0,
     predict_excluded    INTEGER NOT NULL DEFAULT 0,
     originating_court            TEXT,
-    originating_docket_number    TEXT
+    originating_docket_number    TEXT,
+    date_cert_granted   TEXT,
+    date_cert_denied    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -363,6 +378,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "predict_excluded": "INTEGER NOT NULL DEFAULT 0",
     "originating_court": "TEXT",
     "originating_docket_number": "TEXT",
+    "date_cert_granted": "TEXT",
+    "date_cert_denied": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -508,7 +525,23 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "predict_excluded": int(row.predict_excluded),
         "originating_court": row.originating_court,
         "originating_docket_number": row.originating_docket_number,
+        "date_cert_granted": (row.date_cert_granted.isoformat() if row.date_cert_granted else None),
+        "date_cert_denied": row.date_cert_denied.isoformat() if row.date_cert_denied else None,
     }
+
+
+def _optional_date(record: RecordRow, column: str) -> date | None:
+    """Read a date column that a remote blob packed under an older schema lacks.
+
+    Local reads always see every column (``connect`` migrates on open), but the
+    ranged backend serves the remote blob as-is, and its ``Row`` raises for a
+    column the blob predates — treat that as unset rather than failing the row.
+    """
+    try:
+        raw = record[column]
+    except (KeyError, IndexError):
+        return None
+    return date.fromisoformat(raw) if raw else None
 
 
 def _from_record(record: RecordRow) -> CorpusRow:
@@ -537,6 +570,8 @@ def _from_record(record: RecordRow) -> CorpusRow:
         predict_excluded=bool(record["predict_excluded"]),
         originating_court=record["originating_court"],
         originating_docket_number=record["originating_docket_number"],
+        date_cert_granted=_optional_date(record, "date_cert_granted"),
+        date_cert_denied=_optional_date(record, "date_cert_denied"),
     )
 
 
