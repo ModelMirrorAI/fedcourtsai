@@ -104,6 +104,18 @@ class PullConfig(BaseModel):
     # per-case errors (e.g. a 404) never trip it. Deferred cases keep their
     # stalest-first position, so the next window retries them.
     max_consecutive_transient_failures: int = Field(default=5, ge=1)
+    # Interim date backfill (superseded by the replicated CourtListener database):
+    # carve up to this many of each run's `max_cases_per_run` slots for dockets
+    # whose corpus rows lack every decision-time date — total REST spend per run
+    # is unchanged; the general rotation slows by the same count while the
+    # dateless pool drains. 0 disables the backfill entirely.
+    backfill_reserve: int = Field(default=0, ge=0)
+    # Also target *unresolved* SCOTUS modern-cert shells from this October Term
+    # forward (recent Terms first): past-Term petitions are near-certainly decided
+    # upstream, so one fetch dates, resolves, and snapshots each — the feeder that
+    # grows the cert back-test set. None keeps the backfill to already-resolved
+    # rows only.
+    backfill_unresolved_cert_min_term: int | None = Field(default=None, ge=1925)
 
 
 def load_pull_config(config_root: Path) -> PullConfig:

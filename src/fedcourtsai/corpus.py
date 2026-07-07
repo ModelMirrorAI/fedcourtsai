@@ -1413,6 +1413,116 @@ def rotation_for_pull(
     return picked
 
 
+# Where a docket carries no decision-time signal at all: not decided, not
+# cert-dated. The backfill's target predicate (and the rotation's complement —
+# `skip_closed` drops resolved rows, so the two selectors never overlap on the
+# resolved strata).
+_DATELESS_SQL = "date_decided IS NULL AND date_cert_granted IS NULL AND date_cert_denied IS NULL"
+
+# SQL prefilter for the modern Term-prefixed SCOTUS docket form, with the same
+# century pivot as `scotus_term_year` (>= 30 -> 19xx). A cheap index-order GLOB
+# so the selector never scans hundreds of thousands of shells through pydantic;
+# candidates are re-verified in Python with `is_modern_cert`, which also handles
+# the labeled ("No. 22-451") forms the raw GLOB deliberately leaves behind.
+_MODERN_CERT_GLOB = "docket_number GLOB '[0-9][0-9]-*'"
+_TERM_YEAR_SQL = (
+    "CASE WHEN CAST(substr(docket_number, 1, 2) AS INTEGER) >= 30 "
+    "THEN 1900 + CAST(substr(docket_number, 1, 2) AS INTEGER) "
+    "ELSE 2000 + CAST(substr(docket_number, 1, 2) AS INTEGER) END"
+)
+
+# Resolved-but-dateless circuit slices in descending corpus-size order — the
+# strata the backfill drains after the SCOTUS ones. Sized against the bulk-seeded
+# corpus; the trailing catch-all keeps the selector complete if the mix drifts.
+_BACKFILL_CIRCUIT_PRIORITY: tuple[str, ...] = ("ca4", "ca8", "ca2", "cadc", "ca5")
+
+# Rotation order within every backfill stratum: never-pulled first, then oldest
+# `last_pulled` — so a docket that stays dateless after a fetch rotates to the
+# back and the pool self-drains — with the parsed Term (recent first) deciding
+# among equally-stale SCOTUS shells and `case_id` breaking remaining ties.
+_BACKFILL_ORDER = "last_pulled IS NOT NULL, last_pulled ASC"
+
+
+def backfill_rotation(
+    conn: sqlite3.Connection,
+    *,
+    limit: int,
+    unresolved_cert_min_term: int | None = None,
+) -> list[CorpusRow]:
+    """The next ``limit`` dockets the date backfill should fetch, best value first.
+
+    An interim selector behind the ``pull`` governor (deleted wholesale when the
+    replicated CourtListener database supersedes the REST drip): it targets rows a
+    fresh docket fetch can *date* — the upstream payload carries the cert-stage
+    and termination dates the bulk rows lack — in priority strata:
+
+    1. **Unresolved SCOTUS modern-cert shells, recent Terms first** (only when
+       ``unresolved_cert_min_term`` is set, which also bounds how far back it
+       reaches). Petitions from a past Term are near-certainly decided upstream,
+       so one fetch dates, resolves, and snapshots each — the feeder that grows
+       the cert back-test set.
+    2. **Resolved-but-dateless SCOTUS modern-cert rows**, recent Terms first.
+    3. **Resolved-but-dateless circuit rows**, largest slices first.
+
+    Within every stratum: never-pulled first, then oldest ``last_pulled`` (a
+    docket that stays dateless after a fetch rotates to the back, so the pool
+    self-drains), Term recency, then ``case_id``.
+    """
+    if limit <= 0:
+        return []
+    picked: list[CorpusRow] = []
+    seen: set[str] = set()
+
+    def _take(sql: str, params: tuple[object, ...]) -> None:
+        want = limit - len(picked)
+        if want <= 0:
+            return
+        # Over-fetch to cover candidates the Python re-verification or the
+        # cross-stratum dedupe drops.
+        cur = conn.execute(f"{sql} LIMIT ?", (*params, want * 2))
+        for record in cur:
+            row = _from_record(record)
+            if row.case_id in seen or not (row.court != "scotus" or is_modern_cert(row)):
+                continue
+            picked.append(row)
+            seen.add(row.case_id)
+            if len(picked) >= limit:
+                return
+
+    if unresolved_cert_min_term is not None:
+        _take(
+            f"SELECT * FROM cases WHERE court = 'scotus' AND disposition IS NULL "
+            f"AND {_DATELESS_SQL} AND {_MODERN_CERT_GLOB} "
+            f"AND {_TERM_YEAR_SQL} >= ? "
+            f"ORDER BY {_BACKFILL_ORDER}, {_TERM_YEAR_SQL} DESC, case_id ASC",
+            (unresolved_cert_min_term,),
+        )
+    _take(
+        f"SELECT * FROM cases WHERE court = 'scotus' AND disposition IS NOT NULL "
+        f"AND {_DATELESS_SQL} AND {_MODERN_CERT_GLOB} "
+        f"ORDER BY {_BACKFILL_ORDER}, {_TERM_YEAR_SQL} DESC, case_id ASC",
+        (),
+    )
+    circuits: tuple[str | None, ...] = (*_BACKFILL_CIRCUIT_PRIORITY, None)
+    for court in circuits:
+        clause = (
+            "court = ?"
+            if court is not None
+            else (
+                "court != 'scotus' AND court NOT IN "
+                f"({', '.join('?' for _ in _BACKFILL_CIRCUIT_PRIORITY)})"
+            )
+        )
+        params = (court,) if court is not None else _BACKFILL_CIRCUIT_PRIORITY
+        _take(
+            f"SELECT * FROM cases WHERE {clause} AND disposition IS NOT NULL "
+            f"AND {_DATELESS_SQL} "
+            f"ORDER BY {_BACKFILL_ORDER}, case_id ASC",
+            params,
+        )
+    return picked
+
+
 # --- predictable event definitions (raw facts) ---------------------------------
 
 _EVENT_COLUMNS = (

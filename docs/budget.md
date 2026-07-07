@@ -208,7 +208,11 @@ refreshing up to `max_cases_per_run` (30) dockets and discovering new filings �
 600/day (~200 dockets/day): each window's ~30×3 ≈ 90 requests stays under the
 hourly ceiling and the four windows stay under the daily one. A slice of every run
 (`eligible_refresh_reserve`) is reserved for the stalest predict-eligible cases so
-the SCOTUS-touched pilot set rotates fast under the gate. Tier 3+ becomes the floor
+the SCOTUS-touched pilot set rotates fast under the gate. A second slice
+(`backfill_reserve`) feeds the interim date backfill — re-fetching dateless
+resolved rows and recent-Term cert shells so the back-test clock and the cert
+back-test set grow — inside the same per-run cap, so it changes the budget's
+*allocation*, never its total. Tier 3+ becomes the floor
 only once the gate widens toward keeping all fourteen courts current at the live
 frontier. The membership raises the *ceiling*; the client still throttles to
 whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to in the runner

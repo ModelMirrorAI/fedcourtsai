@@ -127,3 +127,19 @@ def test_load_seed_config_defaults_when_missing(tmp_path: Path) -> None:
     cfg = load_seed_config(tmp_path / "absent")
     assert cfg == SeedConfig()
     assert cfg.max_cases_per_run == 2000
+
+
+def test_load_pull_config_reads_backfill_keys(tmp_path: Path) -> None:
+    _write_tracking(
+        tmp_path,
+        "pull:\n  backfill_reserve: 10\n  backfill_unresolved_cert_min_term: 2018\n",
+    )
+    cfg = load_pull_config(tmp_path)
+    assert cfg.backfill_reserve == 10
+    assert cfg.backfill_unresolved_cert_min_term == 2018
+
+
+def test_backfill_defaults_are_off(tmp_path: Path) -> None:
+    cfg = load_pull_config(tmp_path / "absent")
+    assert cfg.backfill_reserve == 0
+    assert cfg.backfill_unresolved_cert_min_term is None

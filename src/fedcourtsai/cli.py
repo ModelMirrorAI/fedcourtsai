@@ -67,7 +67,7 @@ from .ops import (
 from .paths import CasePaths
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
-from .pipeline.pull import pull_case, pull_cases
+from .pipeline.pull import PullQueues, pull_case, pull_cases
 from .pipeline.recoverability import (
     parse_docket_pairs,
     probe_dockets,
@@ -101,6 +101,7 @@ from .schemas import (
 )
 from .serialize import write_json, write_raw_json, write_text, write_yaml
 from .store import (
+    cases_due_for_backfill,
     cases_due_for_pull,
     iter_flags,
     iter_stratified_evaluations,
@@ -1707,6 +1708,13 @@ def pull_all(
     trips, the run stops where it is, defers the unreached cases to the next
     window's rotation, and still writes its queues — so a degraded upstream can
     never hang the job into its CI timeout and lose the window's work.
+
+    ``pull.backfill_reserve`` carves part of the cap for the interim **date
+    backfill** (:func:`fedcourtsai.corpus.backfill_rotation`): dockets whose rows
+    lack every decision-time date, fetched after the live rotation under the same
+    deadline and budget. A backfill docket feeds only the ``reconcile`` queue —
+    its outcome is already known upstream, so it must not spend predict tokens,
+    and it has no predictions to evaluate.
     """
     settings = get_settings()
     pull_cfg = load_pull_config(settings.config_root)
@@ -1729,13 +1737,25 @@ def pull_all(
             typer.echo(
                 f"Discovered {disc.total} new case(s) before refresh{disc_failed}{disc_stopped}"
             )
+        # The date backfill carves its reserve out of the run cap (total REST
+        # spend is unchanged); the live rotation keeps the rest and runs first —
+        # forward freshness is the mission, the backfill is the opportunistic
+        # drain of the dateless pool.
+        backfill_due = cases_due_for_backfill(
+            db,
+            limit=min(pull_cfg.backfill_reserve, cap),
+            unresolved_cert_min_term=pull_cfg.backfill_unresolved_cert_min_term,
+        )
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(
             db,
-            limit=cap,
+            limit=cap - len(backfill_due),
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
         )
+        # An unresolved cert shell can surface in both selectors; the rotation
+        # keeps it (a rotation refresh retains its predict-queue rights).
+        backfill_due = [pair for pair in backfill_due if pair not in set(due)]
         queues = pull_cases(
             client,
             db,
@@ -1745,21 +1765,48 @@ def pull_all(
             deadline=deadline,
             max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
         )
+        backfill_queues = PullQueues()
+        if backfill_due and queues.stopped is None:
+            backfill_queues = pull_cases(
+                client,
+                db,
+                settings.data_root,
+                backfill_due,
+                scope=scope,
+                deadline=deadline,
+                max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
+            )
+        elif backfill_due:
+            # The rotation already exhausted the window; the backfill pool keeps
+            # its place (nothing was stamped) and drains on a later run.
+            backfill_queues.stopped = queues.stopped
+            backfill_queues.deferred = [{"court": c, "docket": d} for c, d in backfill_due]
     _ensure_corpus_layout(db)
+    # The backfill batch feeds only `reconcile` downstream: its dockets are
+    # decided-upstream historical matters, so a `predict` entry would spend live
+    # tokens on a known outcome, and an `evaluate` entry has no predictions to
+    # score — recording ground truth is the batch's whole point.
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
-    reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
+    reconcile_out.write_text(json.dumps(queues.reconcile + backfill_queues.reconcile) + "\n")
     refreshed = len(due) - len(queues.failed) - len(queues.deferred)
     typer.echo(
         f"Refreshed {refreshed}/{cap} case(s){_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.reconcile)} reconcile."
+        f"{len(queues.reconcile) + len(backfill_queues.reconcile)} reconcile."
     )
-    if queues.stopped:
+    if backfill_due or pull_cfg.backfill_reserve:
+        backfilled = len(backfill_due) - len(backfill_queues.failed) - len(backfill_queues.deferred)
         typer.echo(
-            f"Stopped early ({queues.stopped}); deferred {len(queues.deferred)} "
-            f"case(s) to the next rotation."
+            f"Backfill: fetched {backfilled}/{len(backfill_due)} dateless case(s)"
+            f"{_format_refresh_failures(backfill_queues.failed)}; "
+            f"{len(backfill_queues.evaluate)} resolved, "
+            f"{len(backfill_queues.reconcile)} for reconcile."
         )
+    stopped = queues.stopped or backfill_queues.stopped
+    if stopped:
+        deferred = len(queues.deferred) + len(backfill_queues.deferred)
+        typer.echo(f"Stopped early ({stopped}); deferred {deferred} case(s) to the next rotation.")
 
 
 @app.command()
