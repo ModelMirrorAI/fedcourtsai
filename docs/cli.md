@@ -72,10 +72,15 @@ Measurements a maintainer runs to answer a build question, writing nothing.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a seed/pull backfill can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary). Needs a REST token, so it is dispatched by the `run-analytics` workflow (recoverability mode). | `--dockets`, `--summary-out` |
+| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a seed/pull backfill can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary), `--report-out` also writes the JSON to a file (e.g. for a run artifact). Needs a REST token, so it is dispatched by the `run-analytics` workflow (recoverability / recoverability-sample modes). | `--dockets`, `--sample-dateless`, `--seed`, `--report-out`, `--summary-out` |
 
-`--dockets` takes one or more `court/docket` pairs, repeated and/or comma-separated
-(e.g. `--dockets scotus/1000512,scotus/1000515`).
+Targets come from exactly one of two flags. `--dockets` takes one or more
+`court/docket` pairs, repeated and/or comma-separated (e.g.
+`--dockets scotus/1000512,scotus/1000515`). `--sample-dateless N` instead draws a
+deterministic stratified random sample of N resolved-but-dateless corpus rows
+(strata: SCOTUS modern-cert, ca4, other circuits pooled; `--seed` fixes the draw)
+— it needs the corpus on disk (`dvc pull`), and the summary then adds a
+per-stratum verdict rollup plus the corpus's dated share at probe time.
 
 ## Metrics & reporting
 

@@ -40,8 +40,7 @@ staying a read-only presenter that never touches the corpus.
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
 derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
-each as its own least-privilege job that is never granted another mode's
-credential:
+each as its own least-privilege job holding only the credentials its mode needs:
 
 - **`corpus-stats`** (dispatch) assumes the read-only S3 role, `dvc pull`s the
   corpus, and runs `fedcourts stats` to aggregate disposition base-rates (overall,
@@ -54,6 +53,15 @@ credential:
   disposition is actually recoverable from CourtListener (an ingestion gap a
   seed/pull backfill can close) or genuinely absent upstream — the question that
   decides whether such cases stay in scope. Read-only, like `corpus-stats`.
+- **`recoverability-sample`** (dispatch) is the same probe made self-targeting:
+  it draws a deterministic stratified sample of the resolved-but-dateless corpus
+  slice (SCOTUS modern-cert / ca4 / other circuits pooled) and probes it, sizing
+  what a date backfill can recover per stratum before the pull budget is spent on
+  the drip. The one mode holding *both* read-only credentials — the S3 role to
+  draw the sample from the corpus, the REST token to probe it — a deliberate
+  exception that adds no write capability; the machine report is kept as a run
+  artifact, the per-stratum rollup and the corpus's dated share go to the step
+  summary. Read-only, like its siblings.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/leaderboard.json` (input: the `data/`
   evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`

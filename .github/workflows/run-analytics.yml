@@ -11,18 +11,23 @@ name: run-analytics
 #                      cases, is the disposition recoverable from CourtListener
 #                      (an ingestion gap) or genuinely absent? (`probe-recoverability`,
 #                      REST-only.)
+#   - recoverability-sample: the same probe over a deterministic stratified sample
+#                      of the resolved-but-dateless corpus slice, sizing what a
+#                      date backfill can recover per stratum (corpus read + REST).
 #   - metrics-refresh: regenerate the committed metrics artifacts (leaderboard /
 #                      backtest / statpack) and land any change as a **reviewed**
 #                      PR — never a direct commit to main, never auto-merged.
 #                      Also the schedule's job (weekly).
 #
-# The two analysis modes are strictly read-only: neither writes the corpus, `data/`,
+# The analysis modes are strictly read-only: none writes the corpus, `data/`,
 # DVC, or git, opens a PR, or files an issue — every result goes to the Actions step
-# summary and the run log. GitHub scopes permissions and tokens per **job**, so each
-# mode runs as its own least-privilege job gated on `mode` and none is ever granted
-# another's credential: corpus-stats holds only the read-only S3 role, recoverability
-# only the CourtListener REST token, and metrics-refresh alone mints the dev App
-# token (contents + PR write) to open its review PR.
+# summary and the run log (plus a run artifact for the sample's machine report).
+# GitHub scopes permissions and tokens per **job**, so each mode runs as its own
+# least-privilege job gated on `mode` and none is ever granted another's credential:
+# corpus-stats holds only the read-only S3 role, recoverability only the
+# CourtListener REST token, recoverability-sample both read-only credentials (it
+# draws its targets from the corpus, then probes them), and metrics-refresh alone
+# mints the dev App token (contents + PR write) to open its review PR.
 on:
   schedule:
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-seed's
@@ -38,6 +43,7 @@ on:
         options:
           - corpus-stats
           - recoverability
+          - recoverability-sample
           - metrics-refresh
         default: corpus-stats
       # corpus-stats inputs (ignored by the recoverability mode). All are optional; an
@@ -67,6 +73,16 @@ on:
         description: "recoverability: court/docket pairs to probe (comma-separated)."
         type: string
         default: "scotus/1000512,scotus/1000515,scotus/1002339,scotus/1003943"
+      # recoverability-sample inputs (ignored by the other modes). 40 dockets is
+      # ~2-3 REST requests each — roughly a fifth of the Tier 2 daily budget.
+      sample:
+        description: "recoverability-sample: how many dateless resolved dockets to draw."
+        type: string
+        default: "40"
+      seed:
+        description: "recoverability-sample: PRNG seed; same corpus + seed = same draw."
+        type: string
+        default: "0"
 
 # Least privilege by default; each job widens only to what its mode needs.
 permissions: {}
@@ -167,6 +183,68 @@ jobs:
           uv run fedcourts probe-recoverability \
             --dockets "$DOCKETS" \
             --summary-out "$GITHUB_STEP_SUMMARY"
+
+  # Like the plain probe but self-targeting: draws a deterministic stratified
+  # sample of the resolved-but-dateless corpus slice (SCOTUS modern-cert / ca4 /
+  # other circuits) and probes it, sizing what a date backfill can recover per
+  # stratum. Needs both the corpus (to draw the sample — hence the read-only AWS
+  # role) and the REST token (to probe it); still strictly read-only — no App
+  # token, no contents:write, so it cannot touch git, data/, or the DVC remote.
+  # The machine report is kept as a run artifact; the rollup goes to the step
+  # summary.
+  recoverability-sample:
+    if: ${{ inputs.mode == 'recoverability-sample' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: runner
+    concurrency:
+      group: run-analytics-analysis
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to dvc pull the corpus
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The sampler reads the real corpus rows to draw its strata.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
+
+      - name: Probe a stratified sample of the dateless resolved slice
+        env:
+          # Inputs pass through the environment (never interpolated into the
+          # shell) so a maintainer-supplied value cannot inject commands; the CLI
+          # reads each as one argument.
+          SAMPLE: ${{ inputs.sample }}
+          SEED: ${{ inputs.seed }}
+          # Same read-only REST token + rate-limit wiring as the plain probe.
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '15' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '150' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '600' }}
+        run: |
+          set -euo pipefail
+          # Prints the machine JSON to stdout (the run log), writes it to the
+          # artifact file, and appends the per-stratum rollup + dated-share
+          # summary to the step summary. Nothing else is written.
+          uv run fedcourts probe-recoverability \
+            --sample-dateless "$SAMPLE" \
+            --seed "$SEED" \
+            --report-out probe-report.json \
+            --summary-out "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the machine report as a run artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: recoverability-sample-report
+          path: probe-report.json
 
   # Scheduled refresh of the committed metrics artifacts:
   # metrics/leaderboard.json (input: the git data/ evaluations ledger),
