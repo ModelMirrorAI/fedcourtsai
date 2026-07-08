@@ -128,3 +128,25 @@ def test_materialized_event_lets_a_prediction_pass_validate(fixture_corpus: Fixt
 
     fixed = runner.invoke(app, ["validate", str(data_root)])
     assert fixed.exit_code == 0, fixed.output
+
+
+def test_materialize_event_absent_local_corpus_exits_without_creating_it(tmp_path: Path) -> None:
+    # The failure mode behind a mis-provisioned cell: with no corpus on disk the
+    # command must fail loudly — not silently create an empty corpus and report
+    # the event missing as if the data were bad.
+    result = runner.invoke(
+        app,
+        [
+            "materialize-event",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+        ],
+        env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus")},
+    )
+    assert result.exit_code == 1
+    assert "No corpus" in result.stderr
+    assert not (tmp_path / "corpus" / "corpus.db").exists()

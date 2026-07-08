@@ -1663,6 +1663,7 @@ def materialize_event(
         Path | None,
         typer.Option(help="Where to write event.yaml; defaults to the event's ledger path."),
     ] = None,
+    corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a predictable event's ``event.yaml`` from the corpus into the ledger.
 
@@ -1670,15 +1671,22 @@ def materialize_event(
     not as per-case ``event.yaml`` files. But a prediction committed under an event
     directory needs its ``event.yaml`` beside it so the offline PR gate
     (``validate``) can confirm the judgment references a real event without the
-    corpus remote. The predict/evaluate workflows call this after a ``dvc pull`` to
-    project the corpus event row into the committed git ledger. Exits non-zero if
-    the corpus holds no such event for the case.
+    corpus remote. The predict/evaluate cells call this to project the corpus event
+    row into the committed git ledger; like their other corpus reads it honors the
+    configured read backend, so a ranged cell queries the remote blob in place (a
+    local-only open would silently create an empty corpus and find no events).
+    Exits non-zero if the corpus holds no such event for the case.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend == "local" and not db_path.exists():
+        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
+        raise typer.Exit(code=1)
     case = ids.case_id(court, docket)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
         match = next((e for e in corpus.events_for_case(conn, case) if e.event_id == event), None)
+        _echo_read_stats(conn)
     if match is None:
         typer.echo(
             f"No event {event!r} in corpus for {case} (dvc pull the corpus first?)", err=True
