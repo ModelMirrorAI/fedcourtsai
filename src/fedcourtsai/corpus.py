@@ -875,6 +875,15 @@ _SCOTUS_FORM_SUFFIX = r"(?:\([^()]+\))?\.?$"
 _SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+)" + _SCOTUS_FORM_SUFFIX)
 _SCOTUS_ORIGINAL_RE = re.compile(r"^\d{2}O\d+" + _SCOTUS_FORM_SUFFIX)
 _SCOTUS_MISCELLANEOUS_RE = re.compile(r"^(?:\d{2}M\d+|M-?\d+)" + _SCOTUS_FORM_SUFFIX)
+# The bare trailing-letter form: a number followed by a single form letter and
+# nothing else ("515M" from a pre-1971 "515 M", "515A", "515O") — the same
+# application / original / miscellaneous families written number-first with no
+# infix sequence or Term prefix. The end anchor is what keeps it safe: a modern
+# cert docket carries a hyphen ("22-451") and a consolidated string a comma or
+# semicolon ("515M, 516M"), so neither reaches the sole trailing letter the
+# anchor demands; only the parenthetical-companion tolerance the siblings share
+# may follow it.
+_SCOTUS_TRAILING_LETTER_RE = re.compile(r"^\d+[AOM]" + _SCOTUS_FORM_SUFFIX)
 # SCOTUS disbarment ("D-2464", Term-prefixed "16D2924" / "16D02977") — the
 # attorney-discipline docket, same tolerances as the sibling letter forms.
 _SCOTUS_DISBARMENT_RE = re.compile(r"^(?:\d{2}D\d+|D-?\d+)" + _SCOTUS_FORM_SUFFIX)
@@ -894,9 +903,10 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
     ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), and a
     **miscellaneous** docket (``22M75`` / ``03M77``, hyphenated ``M-62`` — the
-    motions docket, e.g. leave to file out of time — or the pre-1971
+    motions docket, e.g. leave to file out of time — the pre-1971
     ``No. 33, Misc.`` separate docket, merged into the unified numbering at
-    OT1970) are not the
+    OT1970, or the bare trailing-letter spelling ``515 M`` → ``515M`` that same
+    pre-1971 docket wears number-first) are not the
     discretionary-cert form the ``evt-petition-disposition`` model targets: an
     application's disposition is a stay grant/deny, an original case's a merits
     judgment, and a motions docket's a procedural leave — none the cert
@@ -920,6 +930,7 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
         _SCOTUS_APPLICATION_RE.match(dn)
         or _SCOTUS_ORIGINAL_RE.match(dn)
         or _SCOTUS_MISCELLANEOUS_RE.match(dn)
+        or _SCOTUS_TRAILING_LETTER_RE.match(dn)
         or _SCOTUS_ORIGINAL_TEXT_RE.search(dn)
         or _SCOTUS_MISC_TEXT_RE.search(dn)
     )
