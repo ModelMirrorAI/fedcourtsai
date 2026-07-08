@@ -16,9 +16,11 @@ import apsw
 import boto3
 import pytest
 from moto import mock_aws
+from typer.testing import CliRunner
 
-from fedcourtsai import corpus, corpus_ranged, store
+from fedcourtsai import cli, corpus, corpus_ranged, store
 from fedcourtsai.fixture import FIXTURE_CASES, build_fixture_corpus
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.cascade import run_cascade
 from fedcourtsai.schemas import Disposition
 
@@ -292,3 +294,44 @@ def test_connect_readonly_ranged_without_remote_url_fails_loudly(
         corpus.connect_readonly(tmp_path / "corpus.db"),
     ):
         pass
+
+
+@mock_aws
+def test_cli_materialize_event_reads_via_ranged_backend(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A ranged predict cell can materialize its event.yaml with no local corpus.
+
+    The cell-side command reads the events table through the same backend seam as
+    its sibling reads; a local-only open here would silently create an empty
+    corpus and report the event missing, failing every ranged matrix cell.
+    """
+    corpus_root = tmp_path / "corpus"
+    db = corpus.corpus_db_path(corpus_root)
+    build_fixture_corpus(db)
+    pointer, _ = _write_pointer(db)
+    _stage_moto_bucket(pointer, db.read_bytes())
+    db.unlink()  # ranged access must not need (or recreate) the local blob
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
+    monkeypatch.setenv("FEDCOURTS_DVC_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    result = CliRunner().invoke(
+        cli.app,
+        [
+            "materialize-event",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    dest = CasePaths(tmp_path / "data", "scotus", 305).event("evt-petition-disposition").event_file
+    assert dest.is_file()
+    assert "ranged corpus reads" in result.stderr  # the per-query egress evidence
+    assert not db.exists(), "the ranged read must not create a local corpus file"

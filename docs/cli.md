@@ -52,7 +52,7 @@ see *The ranged read backend* in [data-pipeline.md](data-pipeline.md)).
 | `open-events` | Print a case's unresolved (predictable) event ids, one per line. | `--court`, `--docket`, `--corpus-backend` |
 | `provision-snapshot` | Materialize a case's latest corpus snapshot to disk for an agent run. | `--court`, `--docket`, `--out`, `--corpus-backend` |
 | `corpus-integration-check` | Run the fixed read set the `integration-corpus` workflow dispatches — a point lookup (open events), a priors retrieval, a snapshot provisioning — each on its own connection so a ranged run reports per-read GET/byte counters. Emits the machine report JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary. Exits non-zero on any empty read or a blown wall-clock budget. | `--court`, `--docket`, `--limit`, `--budget-seconds`, `--snapshot-out`, `--summary-out`, `--corpus-backend` |
-| `materialize-event` | Project a predictable event's `event.yaml` from the corpus into the git ledger. | `--court`, `--docket`, `--event`, `--out` |
+| `materialize-event` | Project a predictable event's `event.yaml` from the corpus into the git ledger. | `--court`, `--docket`, `--event`, `--out`, `--corpus-backend` |
 | `paths` | Print the resolved corpus/case/event paths for a case. | `--court`, `--docket`, `--event` |
 
 ## Validation — the gate
