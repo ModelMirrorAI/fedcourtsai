@@ -26,7 +26,7 @@ fedcourts = "fedcourtsai.cli:app"
 [dependency-groups]
 dev = [
     "ruff>=0.15.20",
-    "mypy>=1.15",
+    "mypy>=2.2.0",
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "types-pyyaml>=6.0",
@@ -39,7 +39,7 @@ dev = [
 # runtime `dependencies` so predict/evaluate installs stay lean — it is heavy
 # (S3/boto, git bindings) and only the data tasks touch the remote.
 data = [
-    "dvc[s3]>=3.0",
+    "dvc[s3]>=3.67.1",
 ]
 
 [tool.uv]
