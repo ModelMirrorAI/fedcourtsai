@@ -21,6 +21,13 @@ once funding allows — see *The planned end-state* in
 [data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
 agreement's terms alongside the licenses below.
 
+For the **live SCOTUS frontier** a separate source is planned:
+**supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
+Court itself — public records with no third-party license attached (the
+CourtListener terms below cover Free Law Project's curation, not these
+records). Design in [live-sources.md](live-sources.md); the ingested facts land
+in the same access-gated corpus under the same no-republication posture.
+
 Two layers of rights apply, and they are different:
 
 - **The underlying records are public.** Federal court opinions and docket data are
