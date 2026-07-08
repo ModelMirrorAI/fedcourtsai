@@ -2,8 +2,8 @@
   "corpus_rows": 2151651,
   "exclusions": [
     {
-      "cases": 33701,
-      "open_events": 33701,
+      "cases": 33707,
+      "open_events": 33707,
       "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
       "recoverable": 0,
       "sample_cases": [
@@ -16,7 +16,7 @@
         "scotus/1049962",
         "scotus/1052705",
         "scotus/1052864",
-        "scotus/106109"
+        "scotus/1055010"
       ]
     },
     {
@@ -74,6 +74,20 @@
       ]
     },
     {
+      "cases": 6,
+      "open_events": 6,
+      "reason": "internally inconsistent dates \u2014 decided before filed (#171)",
+      "recoverable": 6,
+      "sample_cases": [
+        "scotus/65875844",
+        "scotus/65876076",
+        "scotus/65876280",
+        "scotus/65877169",
+        "scotus/65877267",
+        "scotus/65877270"
+      ]
+    },
+    {
       "cases": 82338,
       "open_events": 82338,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
@@ -110,10 +124,10 @@
       ]
     },
     {
-      "cases": 385141,
-      "open_events": 385141,
+      "cases": 385123,
+      "open_events": 385123,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44501,
+      "recoverable": 44495,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -133,7 +147,7 @@
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58705,
+      "open_events": 58695,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/14557919",
@@ -149,10 +163,9 @@
       ]
     },
     {
-      "open_events": 4804,
+      "open_events": 4803,
       "reason": "no docket number",
       "sample_cases": [
-        "scotus/1057937",
         "scotus/1061793",
         "scotus/1062770",
         "scotus/106496",
@@ -161,23 +174,40 @@
         "scotus/1078200",
         "scotus/1088084",
         "scotus/1091099",
-        "scotus/1104586"
+        "scotus/1104586",
+        "scotus/1104590"
       ]
     },
     {
-      "open_events": 452,
+      "open_events": 446,
       "reason": "docket Term not parseable (a format the predicate skips)",
       "sample_cases": [
-        "scotus/1055010",
-        "scotus/1126588",
-        "scotus/1281875",
         "scotus/1303515",
         "scotus/1443044",
         "scotus/1702243",
         "scotus/1770777",
         "scotus/192273",
         "scotus/2045405",
-        "scotus/2308889"
+        "scotus/2308889",
+        "scotus/2593795",
+        "scotus/2593796",
+        "scotus/2593797"
+      ]
+    },
+    {
+      "open_events": 23,
+      "reason": "carries a disposition signal (open despite a recorded decision)",
+      "sample_cases": [
+        "scotus/1056408",
+        "scotus/1056432",
+        "scotus/1056479",
+        "scotus/105697",
+        "scotus/10571",
+        "scotus/105752",
+        "scotus/1057568",
+        "scotus/1057799",
+        "scotus/1057801",
+        "scotus/1057823"
       ]
     }
   ],
