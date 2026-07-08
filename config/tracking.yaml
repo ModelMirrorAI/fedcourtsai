@@ -62,7 +62,10 @@ pull:
   # supersedes the REST drip: carve this many of the max_cases_per_run slots for
   # dockets whose rows lack every decision-time date (cert-stage or termination).
   # Total REST spend per run is unchanged; the general rotation runs ~20/run
-  # while the dateless pool drains. Backfill batches feed only the reconcile
+  # while the dateless pool drains. A dateless docket that links an opinion
+  # cluster costs one extra request (the cluster fetch that recovers its
+  # decision date — the recoverability sample showed the historical slice's
+  # dates live only there), so a backfill slot is ~4 requests, not ~3. Backfill batches feed only the reconcile
   # queue — never predict (known outcomes) or evaluate (no predictions to score).
   # 0 disables.
   backfill_reserve: 10
