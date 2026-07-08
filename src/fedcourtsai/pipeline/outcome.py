@@ -5,9 +5,11 @@ re-ingests a docket through the shared core, decide whether any of the case's
 **open** predictable events have now been decided, and record the ground truth
 that ``run-evaluate`` scores against.
 
-The corpus row carries only **case-level** facts — the docket's
-``date_decided`` and a normalized ``disposition`` — so detection reasons at the
-case level and is deliberately conservative:
+The corpus row carries only **case-level** facts — the docket's resolution
+date (:func:`fedcourtsai.corpus.resolution_date`: the petition-stage cert date
+on a SCOTUS docket, ``date_decided`` elsewhere) and a normalized
+``disposition`` — so detection reasons at the case level and is deliberately
+conservative:
 
 - **Deterministic write.** When the docket appears decided, the disposition is
   *machine-readable* (a concrete :class:`Disposition`, not the ``other`` catch-all
@@ -60,10 +62,12 @@ def is_machine_readable(disposition: Disposition | None) -> bool:
 def appears_decided(row: CorpusRow) -> bool:
     """Whether the refreshed docket now looks resolved.
 
-    A decision date (``date_terminated``/``date_decided`` upstream) or any
-    disposition at all is the signal that the matter is no longer pending.
+    A resolution date — the petition-stage cert grant/denial date on a SCOTUS
+    docket, or the docket-level decision date (``date_terminated``/``date_decided``
+    upstream) — or any disposition at all is the signal that the matter is no
+    longer pending.
     """
-    return row.date_decided is not None or row.disposition is not None
+    return corpus.resolution_date(row) is not None or row.disposition is not None
 
 
 @dataclass(frozen=True)
@@ -96,12 +100,18 @@ class Resolution:
 
 
 def _build_outcome(row: CorpusRow, event_id: str) -> Outcome:
-    """Construct the ground-truth ``Outcome`` from a decided, machine-readable row."""
-    assert row.disposition is not None and row.date_decided is not None
+    """Construct the ground-truth ``Outcome`` from a decided, machine-readable row.
+
+    ``resolved_at`` is the :func:`corpus.resolution_date` — for a SCOTUS petition
+    the cert-stage decision date, so a granted petition's outcome is stamped when
+    cert was granted, not at the merits termination.
+    """
+    resolved_at = corpus.resolution_date(row)
+    assert row.disposition is not None and resolved_at is not None
     return Outcome(
         case_id=row.case_id,
         event_id=event_id,
-        resolved_at=row.date_decided,
+        resolved_at=resolved_at,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
         source=row.citations[0] if row.citations else None,
@@ -123,14 +133,14 @@ def detect_resolution(
     if not open_event_ids or not appears_decided(row):
         return Resolution()
 
-    readable = is_machine_readable(row.disposition) and row.date_decided is not None
+    readable = is_machine_readable(row.disposition) and corpus.resolution_date(row) is not None
     if readable and len(open_event_ids) == 1:
         event_id = open_event_ids[0]
         return Resolution(outcomes={event_id: _build_outcome(row, event_id)})
 
     if not is_machine_readable(row.disposition):
         reason = "docket appears decided but its disposition is not machine-readable"
-    elif row.date_decided is None:
+    elif corpus.resolution_date(row) is None:
         reason = "disposition is machine-readable but the docket carries no decision date"
     else:
         reason = (

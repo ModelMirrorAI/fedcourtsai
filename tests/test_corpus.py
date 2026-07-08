@@ -699,6 +699,71 @@ def test_case_year_prefers_term_year_then_dates() -> None:
     assert corpus.case_year(filed) == 2022
     assert corpus.case_year(decided) == 1873
     assert corpus.case_year(bare) is None
+    # A cert-dated SCOTUS row without a parseable Term or filing date anchors to
+    # the petition-stage decision year, ahead of the merits termination.
+    cert_dated = corpus.CorpusRow(
+        case_id="scotus/4",
+        court="scotus",
+        date_cert_granted=date(2022, 10, 3),
+        date_decided=date(2023, 6, 30),
+    )
+    assert corpus.case_year(cert_dated) == 2022
+
+
+def test_resolution_date_prefers_cert_stage_for_scotus() -> None:
+    granted = corpus.CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        date_cert_granted=date(2022, 10, 3),
+        date_decided=date(2023, 6, 30),  # merits termination, months after the grant
+    )
+    denied = corpus.CorpusRow(case_id="scotus/2", court="scotus", date_cert_denied=date(2023, 1, 9))
+    terminated = corpus.CorpusRow(
+        case_id="scotus/3", court="scotus", date_decided=date(2023, 6, 30)
+    )
+    circuit = corpus.CorpusRow(
+        case_id="ca9/1",
+        court="ca9",
+        date_cert_granted=date(2022, 10, 3),  # defensive: never read off SCOTUS
+        date_decided=date(2022, 6, 15),
+    )
+    assert corpus.resolution_date(granted) == date(2022, 10, 3)
+    assert corpus.resolution_date(denied) == date(2023, 1, 9)
+    assert corpus.resolution_date(terminated) == date(2023, 6, 30)
+    assert corpus.resolution_date(circuit) == date(2022, 6, 15)
+    assert corpus.resolution_date(corpus.CorpusRow(case_id="scotus/5", court="scotus")) is None
+
+
+def test_recency_key_orders_by_petition_stage_resolution() -> None:
+    # A granted petition ranks by when cert was granted, not the later merits
+    # termination — so it sorts between two denials dated around the grant.
+    granted = corpus.CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        date_cert_granted=date(2022, 10, 3),
+        date_decided=date(2023, 6, 30),
+    )
+    newer_denial = corpus.CorpusRow(
+        case_id="scotus/2", court="scotus", date_cert_denied=date(2023, 1, 9)
+    )
+    older_denial = corpus.CorpusRow(
+        case_id="scotus/3", court="scotus", date_cert_denied=date(2022, 6, 27)
+    )
+    undated = corpus.CorpusRow(case_id="scotus/4", court="scotus")
+    ordered = sorted([granted, older_denial, undated, newer_denial], key=corpus.recency_key)
+    assert [r.case_id for r in ordered] == ["scotus/2", "scotus/1", "scotus/3", "scotus/4"]
+
+
+def test_cert_dates_never_trip_date_inconsistency() -> None:
+    # The date-order exclusion reads only filing vs decision; a petition-stage
+    # cert date out of order with the filing date is kept as faithful upstream data.
+    row = corpus.CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        date_filed=date(2022, 5, 1),
+        date_cert_denied=date(2021, 1, 1),
+    )
+    assert corpus.is_date_inconsistent(row) is False
 
 
 def test_is_modern_cert_matches_term_prefixed_scotus_only() -> None:
