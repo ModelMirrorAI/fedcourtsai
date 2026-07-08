@@ -38,10 +38,10 @@
       ]
     },
     {
-      "cases": 32,
-      "open_events": 32,
+      "cases": 33,
+      "open_events": 33,
       "reason": "bare bulk-import row whose snapshot links a published opinion cluster (#438)",
-      "recoverable": 32,
+      "recoverable": 33,
       "sample_cases": [
         "scotus/1002339",
         "scotus/1013004",
@@ -77,7 +77,7 @@
       "cases": 82338,
       "open_events": 82338,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29811,
+      "recoverable": 29808,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -113,7 +113,7 @@
       "cases": 385141,
       "open_events": 385141,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44504,
+      "recoverable": 44501,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -149,10 +149,9 @@
       ]
     },
     {
-      "open_events": 4805,
+      "open_events": 4804,
       "reason": "no docket number",
       "sample_cases": [
-        "scotus/1056393",
         "scotus/1057937",
         "scotus/1061793",
         "scotus/1062770",
@@ -161,7 +160,8 @@
         "scotus/1073912",
         "scotus/1078200",
         "scotus/1088084",
-        "scotus/1091099"
+        "scotus/1091099",
+        "scotus/1104586"
       ]
     },
     {
