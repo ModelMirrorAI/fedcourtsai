@@ -156,6 +156,13 @@ Adoption also needs a terms review of the replication agreement itself; the
 access-gated, no-republication stance in [data-sources.md](data-sources.md)
 already matches the shape such an agreement requires.
 
+The replica serves the *historical* roles (seed breadth, refresh depth). The
+**live frontier** — discovering genuinely pending cases and provisioning case
+content for forward prediction — is a separate track with its own source and
+design: see [live-sources.md](live-sources.md). It follows the same guardrails
+(a third channel through the shared normalizer, the corpus as system of
+record) and is independent of both the REST budget and the replica timeline.
+
 ## Two processes, one shared core
 
 Seed and pull are **separate workflows** because they differ on every axis that
