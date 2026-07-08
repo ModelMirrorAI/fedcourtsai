@@ -495,11 +495,16 @@ def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction(
         "33, Misc",
         # Trailing-letter historical spellings: a bare number followed by the
         # term letter, the pre-unification way the separate dockets were written
-        # ("515 M" normalizes to "515M").
+        # ("515 M" normalizes to "515M"). The parenthetical-companion tolerance
+        # the sibling forms share applies here too.
         "515 M",
         "133M",
         "No. 979 A.",
+        "515A",
         "141 O",
+        "515O",
+        "No. 515 M.",
+        "515M (98-1368)",
         # A trailing parenthetical companion — a related docket or a Term
         # annotation — does not defeat the format match.
         "No. A-706 (98-1368)",
@@ -529,6 +534,10 @@ def test_is_non_cert_scotus_form_keeps_cert_dockets_and_non_scotus() -> None:
     hyphenated_letter = corpus.CorpusRow(
         case_id="scotus/8", court="scotus", docket_number="22-451A"
     )
+    # A consolidated trailing-letter string keeps its comma, so the single-docket
+    # predicate refuses it (the end anchor never reaches a lone trailing letter);
+    # is_consolidated_out_of_scope owns it by splitting the members.
+    consolidated = corpus.CorpusRow(case_id="scotus/9", court="scotus", docket_number="515M, 516M")
     assert corpus.is_non_cert_scotus_form(cert) is False
     assert corpus.is_non_cert_scotus_form(labeled_cert) is False
     assert corpus.is_non_cert_scotus_form(bare) is False
@@ -536,6 +545,8 @@ def test_is_non_cert_scotus_form_keeps_cert_dockets_and_non_scotus() -> None:
     assert corpus.is_non_cert_scotus_form(lower) is False
     assert corpus.is_non_cert_scotus_form(cert_with_companion) is False
     assert corpus.is_non_cert_scotus_form(hyphenated_letter) is False
+    assert corpus.is_non_cert_scotus_form(consolidated) is False
+    assert corpus.is_consolidated_out_of_scope(consolidated) is True
 
 
 def test_is_disbarment_docket_matches_both_spellings_while_open() -> None:
