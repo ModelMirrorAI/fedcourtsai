@@ -150,6 +150,12 @@ Two things hold no matter what you skip locally:
 - **Close issues from the PR.** When a PR completes everything an issue asks for,
   put `Closes #<n>` in the PR description so the merge closes it. PR descriptions
   and commit messages are the only places an issue number belongs.
+- **`run:*` labels are triggers, not categories.** Applying any `run:*` label to
+  an issue immediately starts the matching GitHub Actions workflow and its agent
+  (see [docs/pipeline.md](docs/pipeline.md)) — and that agent will do the work,
+  even if you are about to do it yourself. Apply one only when you intend to
+  start that job *now*; an issue filed for later pickup, or one you plan to fix
+  in your own PR, gets no `run:*` label.
 - **Keep environment variables out of PR and issue text.** Don't reproduce a
   var's name or value in prose, even when it isn't secret (e.g. the var holding
   the DVC remote's S3 URL); refer to it by its role. Secrets never appear anywhere.
