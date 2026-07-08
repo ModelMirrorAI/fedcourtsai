@@ -31,7 +31,12 @@ from . import (
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
-from .cert_backtest import replay_predictors, run_cert_backtest, select_cert_backtest_set
+from .cert_backtest import (
+    replay_predictors,
+    replayable_items,
+    run_cert_backtest,
+    select_cert_backtest_set,
+)
 from .collect import (
     CellStatus,
     CollectPlan,
@@ -87,7 +92,7 @@ from .pipeline.seed import (
     sibling_bulk_url,
 )
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
-from .registry import load_evaluators, load_predictors
+from .registry import enabled_predictors, load_evaluators, load_predictors
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
@@ -462,9 +467,12 @@ def cert_backtest_cmd(
     engine: Annotated[
         str,
         typer.Option(
-            help="Also replay the configured agentic predictors through this engine "
-            "(claude-code, codex, gemini; stub/replay for offline runs). Omit to "
-            "score only the offline reference baselines."
+            help="Also replay the enabled agentic predictors: 'auto' routes each "
+            "predictor through its own configured engine (skipping any whose engine "
+            "has no registered runner); a concrete backend (stub, replay, "
+            "claude-code, codex) routes every predictor through that one backend "
+            "(offline runs / single-engine sweeps). Omit to score only the offline "
+            "reference baselines."
         ),
     ] = "",
     work_dir: Annotated[
@@ -482,10 +490,14 @@ def cert_backtest_cmd(
     and scores them with the honest cert signals: **lift over the always-deny
     floor** and a P(granted) calibration view, alongside accuracy and Brier. The
     offline reference baselines always run; ``--engine`` additionally replays
-    every enabled predictor through the engine runner over redacted snapshots in
-    a scratch tree (this spends tokens on a real engine). Out of band by design:
-    it never writes the ``data/`` ledger, and the report is labeled
-    retrospective (the outcomes predate every modern model's training cutoff).
+    every enabled predictor over redacted snapshots in a scratch tree, each
+    through its own configured engine under ``auto`` (this spends tokens on a
+    real engine). Petitions the corpus cannot replay (no held snapshot or
+    petition event — partial coverage is the norm while the date backfill
+    drains) are dropped up front and named, so every backtester in one report is
+    scored over the same set. Out of band by design: it never writes the
+    ``data/`` ledger, and the report is labeled retrospective (the outcomes
+    predate every modern model's training cutoff).
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -498,15 +510,31 @@ def cert_backtest_cmd(
         items = select_cert_backtest_set(conn, limit=limit)
         backtesters = default_backtesters(conn)
         if engine:
+            items, unreplayable = replayable_items(db_path, items)
+            if unreplayable:
+                typer.echo(
+                    f"skipped {len(unreplayable)} petition(s) without a replayable "
+                    "snapshot: " + ", ".join(unreplayable),
+                    err=True,
+                )
             work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
-            backtesters += replay_predictors(
+            replayed = replay_predictors(
                 items,
                 corpus_db_path=db_path,
                 config_root=settings.config_root,
                 work_root=work_root,
-                engine=engine,
+                engine_override=None if engine == "auto" else engine,
                 run_id=ids.run_id(),
             )
+            replayed_ids = {b.id for b in replayed}
+            for predictor in enabled_predictors(settings.config_root / "predictors.yaml"):
+                if predictor.id not in replayed_ids:
+                    typer.echo(
+                        f"skipped predictor {predictor.id}: engine "
+                        f"{predictor.engine} has no registered runner",
+                        err=True,
+                    )
+            backtesters += replayed
         report = run_cert_backtest(backtesters, items)
     write_json(destination, report)
     typer.echo(

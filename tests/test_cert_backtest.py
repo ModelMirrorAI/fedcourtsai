@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import cert_backtest, corpus
 from fedcourtsai.backtest import (
     BacktestFeatures,
     BacktestItem,
@@ -17,10 +18,12 @@ from fedcourtsai.backtest import (
 from fedcourtsai.cert_backtest import (
     redact_snapshot,
     replay_predictors,
+    replayable_items,
     run_cert_backtest,
     select_cert_backtest_set,
 )
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.runner import RunRequest, StubRunner
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CertBacktest, Disposition
 from fedcourtsai.serialize import read_model
@@ -260,7 +263,7 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
         work_root=work_root,
-        engine="stub",
+        engine_override="stub",
         run_id="20260706T000000Z",
     )
 
@@ -278,6 +281,125 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     event_yaml = next(work_root.rglob("event.yaml")).read_text()
     assert "resolved: false" in event_yaml
     assert not fixture_corpus.data_root.exists()
+
+
+class _RecordingRunner:
+    """Delegates to the stub but records which backend served which predictor."""
+
+    def __init__(self, backend: str, calls: list[tuple[str, str]]) -> None:
+        self._backend = backend
+        self._calls = calls
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        self._calls.append((self._backend, request.actor_id))
+        return self._stub.run(request)
+
+
+def _fake_get_runner(calls: list[tuple[str, str]]) -> object:
+    def factory(backend: str = "stub") -> _RecordingRunner:
+        if backend == "gemini":  # mirrors the real registry: no gemini runner
+            raise KeyError(backend)
+        return _RecordingRunner(backend, calls)
+
+    return factory
+
+
+def test_replay_routes_each_predictor_through_its_own_engine(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Without an override every predictor rides its configured engine — the
+    # apples-to-apples read — and a predictor whose engine has no registered
+    # runner is absent from the result, never mislabeled through another engine.
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    backtesters = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
+    assert ("claude-code", "claude-baseline") in calls
+    assert ("codex", "codex-baseline") in calls
+    # No cell ever ran on an engine other than its predictor's own.
+    routed = {actor: backend for backend, actor in calls}
+    assert routed == {"claude-baseline": "claude-code", "codex-baseline": "codex"}
+
+
+def test_replay_unknown_override_still_raises(fixture_corpus: FixtureCorpus) -> None:
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    with pytest.raises(KeyError):
+        replay_predictors(
+            items,
+            corpus_db_path=fixture_corpus.db_path,
+            config_root=Path("config"),
+            work_root=Path("unused"),
+            engine_override="not-a-backend",
+            run_id="20260706T000000Z",
+        )
+
+
+def test_replayable_items_drops_snapshotless_petitions(fixture_corpus: FixtureCorpus) -> None:
+    # A bulk-seeded row has no snapshot or petition event until its first fetch;
+    # the pre-flight names it and keeps the report's set consistent.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/999",
+                    court="scotus",
+                    docket_number="23-999",
+                    disposition=Disposition.denied,
+                    date_decided=date(2024, 11, 1),
+                )
+            ],
+        )
+        items = select_cert_backtest_set(conn)
+    assert [i.features.case_id for i in items] == ["scotus/999", "scotus/304"]
+    kept, skipped = replayable_items(fixture_corpus.db_path, items)
+    assert [i.features.case_id for i in kept] == ["scotus/304"]
+    assert skipped == ["scotus/999"]
+
+
+def test_cli_auto_routes_and_skips_partial_coverage(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/999",
+                    court="scotus",
+                    docket_number="23-999",
+                    disposition=Disposition.denied,
+                    date_decided=date(2024, 11, 1),
+                )
+            ],
+        )
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    # The snapshotless petition was dropped up front; every backtester —
+    # offline baselines included — scored the same one-petition set.
+    assert report.events_scored == 1
+    assert "skipped 1 petition(s) without a replayable snapshot: scotus/999" in result.stderr
+    ids = {e.predictor_id for e in report.entries}
+    assert {"constant-denied", "prior-vote", "claude-baseline", "codex-baseline"} <= ids
+    assert "gemini-baseline" not in ids
+    assert "skipped predictor gemini-baseline" in result.stderr
 
 
 def test_cli_writes_valid_report_with_stub_replay(

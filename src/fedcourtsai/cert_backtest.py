@@ -40,7 +40,7 @@ from .backtest import (
 )
 from .paths import CasePaths
 from .pipeline.outcome import granted_flag, is_machine_readable
-from .pipeline.runner import RunRequest, get_runner
+from .pipeline.runner import Runner, RunRequest, get_runner
 from .registry import enabled_predictors
 from .schemas import (
     CalibrationBin,
@@ -50,6 +50,7 @@ from .schemas import (
     EventKind,
     PredictableEvent,
     Prediction,
+    PredictorConfig,
     UsageRole,
 )
 from .serialize import read_model, write_raw_json, write_yaml
@@ -133,33 +134,91 @@ class ReplayedBacktester:
         return self.predictions[features.case_id]
 
 
+def replayable_items(
+    corpus_db_path: Path, items: list[BacktestItem]
+) -> tuple[list[BacktestItem], list[str]]:
+    """Split the cert set into replayable petitions and the skipped case ids.
+
+    An engine replay needs what a live predict cell reads — a held snapshot and a
+    petition event — and partial coverage is the norm while the date backfill
+    drains (a bulk-seeded row has neither until its first fetch). Filtering up
+    front keeps one report internally comparable: every backtester, offline
+    baselines included, is scored over the same kept set, and the caller can name
+    what was skipped instead of failing the whole run on the first bare row.
+    """
+    kept: list[BacktestItem] = []
+    skipped: list[str] = []
+    with corpus.connect_readonly(corpus_db_path) as conn:
+        for item in items:
+            found = corpus.latest_snapshot(conn, item.features.case_id)
+            events = corpus.events_for_case(conn, item.features.case_id)
+            if found is not None and any(ev.kind == EventKind.petition for ev in events):
+                kept.append(item)
+            else:
+                skipped.append(item.features.case_id)
+    return kept, skipped
+
+
+def _runners_by_predictor(
+    config_root: Path, engine_override: str | None
+) -> list[tuple[PredictorConfig, Runner]]:
+    """Pair each enabled predictor with its runner, dropping unroutable ones.
+
+    Routing is per predictor — its configured ``engine`` names the backend — so a
+    claude-baseline vs codex-baseline read stays apples-to-apples; a predictor
+    whose engine has no registered runner (e.g. one only the live workflow's
+    agent step can drive) is left out rather than silently replayed, mislabeled,
+    through another model. ``engine_override`` routes every predictor through one
+    named backend instead (the offline ``stub``/``replay`` runs); an unknown
+    override still raises, since that is a caller typo rather than a config gap.
+    """
+    if engine_override is not None:
+        runner = get_runner(engine_override)
+        return [(p, runner) for p in enabled_predictors(config_root / "predictors.yaml")]
+    pairs: list[tuple[PredictorConfig, Runner]] = []
+    runners: dict[str, Runner] = {}
+    for predictor in enabled_predictors(config_root / "predictors.yaml"):
+        backend = str(predictor.engine)
+        if backend not in runners:
+            try:
+                runners[backend] = get_runner(backend)
+            except KeyError:
+                continue
+        pairs.append((predictor, runners[backend]))
+    return pairs
+
+
 def replay_predictors(
     items: list[BacktestItem],
     *,
     corpus_db_path: Path,
     config_root: Path,
     work_root: Path,
-    engine: str,
     run_id: str,
+    engine_override: str | None = None,
 ) -> list[Backtester]:
-    """Replay every enabled predictor over ``items`` through the engine runner.
+    """Replay every routable enabled predictor over ``items``, each through its
+    own configured engine.
 
     For each petition this provisions what a live predict cell reads — the
     latest snapshot (**redacted**, see :func:`redact_snapshot`) and the event
     definition **as it looked while open** (``resolved: false``, so nothing in
     the working tree says the matter is decided) — under ``work_root`` (a
-    scratch tree, never the ``data/`` ledger), then runs each enabled
-    predictor's cell via :func:`get_runner` and collects its ``prediction.json``.
-    Each cell carries the trial's year as its replay clock (``DECIDED_BEFORE``),
-    so the agent's own corpus retrieval is masked to provably earlier history —
-    the same cutoff the offline prior-vote baseline honors.
-    Returns one :class:`ReplayedBacktester` per predictor, ready for
-    :func:`run_cert_backtest`. A real engine spends tokens per cell; ``stub`` /
-    ``replay`` run offline.
+    scratch tree, never the ``data/`` ledger), then runs each predictor's cell
+    via its own engine's runner (see :func:`_runners_by_predictor`; a predictor
+    whose engine has no registered runner is absent from the result rather than
+    mislabeled through another engine, and ``engine_override`` forces one
+    backend for offline ``stub``/``replay`` runs) and collects its
+    ``prediction.json``. Each cell carries the trial's year as its replay clock
+    (``DECIDED_BEFORE``), so the agent's own corpus retrieval is masked to
+    provably earlier history — the same cutoff the offline prior-vote baseline
+    honors. Returns one :class:`ReplayedBacktester` per routable predictor,
+    ready for :func:`run_cert_backtest`. A real engine spends tokens per cell.
+    Callers filter the set through :func:`replayable_items` first; a petition
+    with no snapshot or petition event here is an internal-invariant error.
     """
-    runner = get_runner(engine)
-    predictors = enabled_predictors(config_root / "predictors.yaml")
-    collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p in predictors}
+    pairs = _runners_by_predictor(config_root, engine_override)
+    collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p, _ in pairs}
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
@@ -188,8 +247,8 @@ def replay_predictors(
                 resolved=False,  # the pre-decision view: the outcome stays hidden
             ),
         )
-        for predictor in predictors:
-            runner.run(
+        for predictor, engine_runner in pairs:
+            engine_runner.run(
                 RunRequest(
                     role=UsageRole.predictor,
                     court_id=court,
