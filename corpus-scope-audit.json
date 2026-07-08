@@ -2,10 +2,10 @@
   "corpus_rows": 2151651,
   "exclusions": [
     {
-      "cases": 33707,
-      "open_events": 33707,
+      "cases": 33709,
+      "open_events": 33709,
       "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
-      "recoverable": 0,
+      "recoverable": 2,
       "sample_cases": [
         "scotus/1016450",
         "scotus/1020660",
@@ -91,7 +91,7 @@
       "cases": 82338,
       "open_events": 82338,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29808,
+      "recoverable": 29809,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -106,10 +106,10 @@
       ]
     },
     {
-      "cases": 12014,
-      "open_events": 12014,
+      "cases": 12012,
+      "open_events": 12012,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12014,
+      "recoverable": 12012,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -117,17 +117,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/10598",
-        "scotus/1060024",
         "scotus/1060955",
-        "scotus/1061166"
+        "scotus/1061166",
+        "scotus/1061488",
+        "scotus/1061607"
       ]
     },
     {
-      "cases": 385123,
-      "open_events": 385123,
+      "cases": 385108,
+      "open_events": 385108,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44495,
+      "recoverable": 44487,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -147,7 +147,7 @@
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58695,
+      "open_events": 58685,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/14557919",
@@ -195,7 +195,7 @@
       ]
     },
     {
-      "open_events": 23,
+      "open_events": 48,
       "reason": "carries a disposition signal (open despite a recorded decision)",
       "sample_cases": [
         "scotus/1056408",
