@@ -488,8 +488,11 @@ jobs:
             uv run fedcourts stall-comment --role evaluate --run-url "$run_url" > stall-comment.md
             exit 0
           fi
-          # All cells share the plan's run id; read it off any status file.
-          run_id=$(jq -r '.run_id' cell-artifacts/*/status.json | head -n1)
+          # All cells share the plan's run id; read it off any status file. Search
+          # recursively, matching collect-plan: the download nests each cell in its
+          # own directory only when several artifacts match, while a single-cell
+          # run extracts flat into cell-artifacts/ itself.
+          run_id=$(find cell-artifacts -name status.json -exec jq -r '.run_id' {} + | head -n1)
           # The ready/draft partition, branch names, and PR prose are computed by the
           # tested `collect-plan`; this step only runs git and gh. The ready PR
           # closes the triggering issue on merge (unless a draft still has work).
