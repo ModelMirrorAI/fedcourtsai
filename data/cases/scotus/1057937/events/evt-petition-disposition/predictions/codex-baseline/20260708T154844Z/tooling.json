@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1057937",
+  "gaps": [
+    "The provisioned snapshot lacked party names, docket entries, filing dates, originating court, case type, and legal issue text.",
+    "The committed statpack available in this checkout did not expose a named modern discretionary-cert cut in the rendered Markdown or machine JSON."
+  ],
+  "helpful": [
+    "The path resolver identified the event and snapshot locations.",
+    "The committed statpack provided broad SCOTUS petition base-rate context."
+  ],
+  "notes": "I avoided broad corpus retrieval because the snapshot was a bare docket identifier and a generic SCOTUS query risked surfacing the same case's resolved outcome.",
+  "role": "predictor",
+  "run_id": "20260708T154844Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

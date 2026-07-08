@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1057937",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot for this petition contains only a bare SCOTUS docket label and sparse metadata: no party caption, docket entries, filing date, originating court, case type, or legal issue text. The prediction is therefore base-rate driven and low-confidence.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260708T154844Z",
+  "schema_version": "1.0"
+}
