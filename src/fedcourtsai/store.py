@@ -66,6 +66,26 @@ def cases_due_for_pull(
     return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]
 
 
+def cases_due_for_backfill(
+    corpus_db_path: Path, *, limit: int, unresolved_cert_min_term: int | None = None
+) -> list[tuple[str, int]]:
+    """The ``(court, docket)`` cases the date backfill should fetch this run.
+
+    The interim counterpart of :func:`cases_due_for_pull` (see
+    :func:`fedcourtsai.corpus.backfill_rotation` for the strata and their
+    rationale): at most ``limit`` dockets whose bulk rows lack every decision-time
+    date a fresh REST fetch would carry. Empty if the corpus does not exist yet
+    (reading must not create it).
+    """
+    if limit <= 0 or not corpus_db_path.exists():
+        return []
+    with corpus.connect(corpus_db_path) as conn:
+        rows = corpus.backfill_rotation(
+            conn, limit=limit, unresolved_cert_min_term=unresolved_cert_min_term
+        )
+    return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]
+
+
 def open_events(
     corpus_db_path: Path,
     court_id: str,

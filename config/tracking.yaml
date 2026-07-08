@@ -58,6 +58,20 @@ pull:
   max_consecutive_transient_failures: 5
   # Only trigger run-predict when a pull detects new docket activity.
   predict_on_change_only: true
+  # Interim date backfill, deleted when the replicated CourtListener database
+  # supersedes the REST drip: carve this many of the max_cases_per_run slots for
+  # dockets whose rows lack every decision-time date (cert-stage or termination).
+  # Total REST spend per run is unchanged; the general rotation runs ~20/run
+  # while the dateless pool drains. Backfill batches feed only the reconcile
+  # queue — never predict (known outcomes) or evaluate (no predictions to score).
+  # 0 disables.
+  backfill_reserve: 10
+  # Also target unresolved SCOTUS modern-cert shells from this October Term
+  # forward, recent Terms first: past-Term petitions are near-certainly decided
+  # upstream, so one fetch dates + resolves + snapshots each — the feeder that
+  # grows the cert back-test set. Blank/absent keeps the backfill to
+  # already-resolved rows only.
+  backfill_unresolved_cert_min_term: 2018
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The

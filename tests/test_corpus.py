@@ -1255,3 +1255,94 @@ def test_snapshot_is_per_case(tmp_path: Path) -> None:
         assert corpus.latest_snapshot(conn, "ca9/123") == (date(2026, 6, 10), {"case": "a"})
         assert corpus.latest_snapshot(conn, "ca1/9") == (date(2026, 6, 10), {"case": "b"})
         assert corpus.snapshot_count(conn) == 2
+
+
+def test_backfill_rotation_orders_strata_then_staleness_then_term(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Stratum 1: unresolved modern-cert shells — never-pulled first,
+                # then recent Term first; a pulled-but-still-dateless shell
+                # rotates to the back of its stratum.
+                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="19-200"),
+                corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="22-100"),
+                corpus.CorpusRow(
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="22-400",
+                    last_pulled=date(2026, 6, 1),
+                ),
+                # Below the Term floor / wrong form: never selected.
+                corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="15-300"),
+                corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="22A123"),
+                # Stratum 2: resolved-but-dateless modern cert; the bare
+                # historical docket stays out (not the modern form).
+                corpus.CorpusRow(
+                    case_id="scotus/6",
+                    court="scotus",
+                    docket_number="21-600",
+                    disposition=Disposition.denied,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/7",
+                    court="scotus",
+                    docket_number="801",
+                    disposition=Disposition.denied,
+                ),
+                # Stratum 3: resolved-but-dateless circuit rows, largest slices
+                # first (ca4 before ca8 before the catch-all); dated or
+                # unresolved circuit rows are never selected.
+                corpus.CorpusRow(case_id="ca9/1", court="ca9", disposition=Disposition.denied),
+                corpus.CorpusRow(case_id="ca8/1", court="ca8", disposition=Disposition.denied),
+                corpus.CorpusRow(case_id="ca4/1", court="ca4", disposition=Disposition.denied),
+                corpus.CorpusRow(
+                    case_id="ca4/2",
+                    court="ca4",
+                    disposition=Disposition.denied,
+                    date_decided=date(2024, 1, 1),
+                ),
+                corpus.CorpusRow(case_id="ca4/3", court="ca4"),
+            ],
+        )
+        picked = corpus.backfill_rotation(conn, limit=20, unresolved_cert_min_term=2018)
+        capped = corpus.backfill_rotation(conn, limit=2, unresolved_cert_min_term=2018)
+        no_feeder = corpus.backfill_rotation(conn, limit=20)
+    assert [r.case_id for r in picked] == [
+        "scotus/1",
+        "scotus/2",
+        "scotus/4",
+        "scotus/6",
+        "ca4/1",
+        "ca8/1",
+        "ca9/1",
+    ]
+    assert [r.case_id for r in capped] == ["scotus/1", "scotus/2"]
+    # Without the feeder Term floor the unresolved shells are skipped entirely.
+    assert [r.case_id for r in no_feeder] == ["scotus/6", "ca4/1", "ca8/1", "ca9/1"]
+
+
+def test_backfill_rotation_never_picks_dated_rows(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # A cert-dated shell carries a decision-time signal already.
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="22-100",
+                    date_cert_denied=date(2023, 1, 9),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="22-200",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2022, 10, 3),
+                ),
+            ],
+        )
+        assert corpus.backfill_rotation(conn, limit=5, unresolved_cert_min_term=2018) == []

@@ -13,6 +13,7 @@ from fedcourtsai.schemas import (
     UsageRole,
 )
 from fedcourtsai.store import (
+    cases_due_for_backfill,
     cases_due_for_pull,
     iter_flags,
     iter_tooling,
@@ -226,3 +227,23 @@ def test_iter_tooling_spans_all_three_stages(tmp_path: Path) -> None:
 
 def test_iter_tooling_missing_ledger_is_empty(tmp_path: Path) -> None:
     assert iter_tooling(tmp_path) == []  # no data/cases yet -> nothing, no creation
+
+
+def test_cases_due_for_backfill_returns_pairs_and_caps(tmp_path: Path) -> None:
+    db = tmp_path / "corpus" / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="22-100"),
+                corpus.CorpusRow(case_id="ca4/2", court="ca4", disposition=Disposition.denied),
+            ],
+        )
+    due = cases_due_for_backfill(db, limit=10, unresolved_cert_min_term=2018)
+    assert due == [("scotus", 1), ("ca4", 2)]
+    assert cases_due_for_backfill(db, limit=1, unresolved_cert_min_term=2018) == [("scotus", 1)]
+    assert cases_due_for_backfill(db, limit=0, unresolved_cert_min_term=2018) == []
+
+
+def test_cases_due_for_backfill_missing_corpus_is_empty(tmp_path: Path) -> None:
+    assert cases_due_for_backfill(tmp_path / "absent.db", limit=5) == []
