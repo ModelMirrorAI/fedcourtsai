@@ -62,6 +62,12 @@ class CorpusRow(BaseModel):
     case_name: str = ""
     date_filed: date | None = None
     date_decided: date | None = None
+    date_cert_granted: date | None = Field(
+        default=None, description="Petition-stage date certiorari was granted (SCOTUS)"
+    )
+    date_cert_denied: date | None = Field(
+        default=None, description="Petition-stage date certiorari was denied (SCOTUS)"
+    )
     disposition: Disposition | None = Field(
         default=None, description="Realized outcome label (the back-testing target)"
     )
@@ -255,6 +261,21 @@ def _disposition(record: Mapping[str, Any]) -> Disposition | None:
     return None
 
 
+def _cert_date_disposition(granted: date | None, denied: date | None) -> Disposition | None:
+    """The disposition a SCOTUS docket's cert-stage dates imply, or ``None``.
+
+    Upstream records the petition-stage decision as a date rather than a
+    disposition string, so for a cert petition the date *is* the label. A grant
+    date wins when both are present: a granted-then-disposed petition (including
+    a grant-vacate-remand) was granted at the petition stage.
+    """
+    if granted is not None:
+        return Disposition.granted
+    if denied is not None:
+        return Disposition.denied
+    return None
+
+
 def normalize_disposition(raw: Any) -> Disposition | None:
     """Map a free-text disposition to the shared :class:`Disposition` label.
 
@@ -282,6 +303,13 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
     court = _court_id(record)
     docket_id = int(record["id"])
     panel = _panel(record)
+    date_cert_granted = _date(record.get("date_cert_granted"))
+    date_cert_denied = _date(record.get("date_cert_denied"))
+    # A textual disposition always wins; the cert-stage dates only fill the gap
+    # on SCOTUS dockets, where upstream records the petition decision as a date.
+    disposition = _disposition(record)
+    if disposition is None and court == "scotus":
+        disposition = _cert_date_disposition(date_cert_granted, date_cert_denied)
     return CorpusRow(
         case_id=ids.case_id(court, docket_id),
         court=court,
@@ -290,7 +318,9 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         case_name=_clean(record.get("case_name") or record.get("case_name_full")) or "",
         date_filed=_date(record.get("date_filed")),
         date_decided=_date(record.get("date_terminated") or record.get("date_decided")),
-        disposition=_disposition(record),
+        date_cert_granted=date_cert_granted,
+        date_cert_denied=date_cert_denied,
+        disposition=disposition,
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -401,6 +431,8 @@ def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.
         case_name=row.case_name,
         date_filed=row.date_filed,
         date_decided=row.date_decided,
+        date_cert_granted=row.date_cert_granted,
+        date_cert_denied=row.date_cert_denied,
         disposition=row.disposition,
         judges=row.judges,
         panel=row.panel,
