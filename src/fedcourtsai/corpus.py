@@ -865,19 +865,23 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
 # SCOTUS application ("22A123", older "A-9999"), original-jurisdiction ("22O141"),
 # and miscellaneous/motions ("22M75", "03M77", hyphenated "M-62") docket numbers —
 # the term letter (A / O / M) marks a form that is not the modern
-# discretionary-cert petition. Each form tolerates a trailing period on the
-# historical spelling ("22A99.") and a single trailing parenthetical companion —
-# a related docket ("A-706 (98-1368)") or a Term annotation ("A-241 (O. T. 1995)")
-# — which would otherwise defeat the end anchor; the letter is what a cert
-# docket's ``YY-NNNN`` never carries. Typographic dashes are already folded to a
-# hyphen by :func:`normalize_docket_number` before these regexes see the string.
+# discretionary-cert petition. Each form also carries a **trailing-letter**
+# historical spelling — a bare number followed by the letter ("515 M", "133M",
+# "979 A") — the pre-unification way the separate dockets were written. Each form
+# tolerates a trailing period on the historical spelling ("22A99.") and a single
+# trailing parenthetical companion — a related docket ("A-706 (98-1368)") or a
+# Term annotation ("A-241 (O. T. 1995)") — which would otherwise defeat the end
+# anchor; the letter is what a cert docket's ``YY-NNNN`` never carries (and the
+# trailing-letter alternative requires no hyphen, so a hyphenated cert number
+# can never reach it). Typographic dashes are already folded to a hyphen by
+# :func:`normalize_docket_number` before these regexes see the string.
 _SCOTUS_FORM_SUFFIX = r"(?:\([^()]+\))?\.?$"
-_SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+)" + _SCOTUS_FORM_SUFFIX)
-_SCOTUS_ORIGINAL_RE = re.compile(r"^\d{2}O\d+" + _SCOTUS_FORM_SUFFIX)
-_SCOTUS_MISCELLANEOUS_RE = re.compile(r"^(?:\d{2}M\d+|M-?\d+)" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_APPLICATION_RE = re.compile(r"^(?:\d{2}A\d+|A-?\d+|\d+A)" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_ORIGINAL_RE = re.compile(r"^(?:\d{2}O\d+|\d+O)" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_MISCELLANEOUS_RE = re.compile(r"^(?:\d{2}M\d+|M-?\d+|\d+M)" + _SCOTUS_FORM_SUFFIX)
 # SCOTUS disbarment ("D-2464", Term-prefixed "16D2924" / "16D02977") — the
 # attorney-discipline docket, same tolerances as the sibling letter forms.
-_SCOTUS_DISBARMENT_RE = re.compile(r"^(?:\d{2}D\d+|D-?\d+)" + _SCOTUS_FORM_SUFFIX)
+_SCOTUS_DISBARMENT_RE = re.compile(r"^(?:\d{2}D\d+|D-?\d+|\d+D)" + _SCOTUS_FORM_SUFFIX)
 # The spelled-out original-jurisdiction ("No. 155, Orig." / "155, Original.") and
 # miscellaneous ("No. 33, Misc." — the pre-1971 separate docket, merged into the
 # unified numbering at OT1970) markers — the text-form counterparts of the numeric
@@ -893,10 +897,10 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     without a parenthetical companion like ``A-706 (98-1368)``), an
     **original-jurisdiction** case (``22O141`` numeric, or its spelled-out
     ``No. 155, Orig.`` / ``Original`` form — e.g. a State-v-State dispute), and a
-    **miscellaneous** docket (``22M75`` / ``03M77``, hyphenated ``M-62`` — the
-    motions docket, e.g. leave to file out of time — or the pre-1971
-    ``No. 33, Misc.`` separate docket, merged into the unified numbering at
-    OT1970) are not the
+    **miscellaneous** docket (``22M75`` / ``03M77``, hyphenated ``M-62``,
+    trailing-letter ``515 M`` — the motions docket, e.g. leave to file out of
+    time — or the pre-1971 ``No. 33, Misc.`` separate docket, merged into the
+    unified numbering at OT1970) are not the
     discretionary-cert form the ``evt-petition-disposition`` model targets: an
     application's disposition is a stay grant/deny, an original case's a merits
     judgment, and a motions docket's a procedural leave — none the cert
