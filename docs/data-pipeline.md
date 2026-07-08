@@ -143,9 +143,14 @@ The **date backfill** (`pull.backfill_reserve` in `config/tracking.yaml`) is the
 worked example of these guardrails: bulk rows lack the decision-time dates
 (cert-stage, termination) the replica carries natively, so until the pivot a
 slice of each pull window re-fetches dateless dockets through the existing
-governor — the durable parts (the cert-date columns, their normalization-layer
-mapping, the petition-aware resolution clock) survive the swap, while the
-selector and reserve are deleted with the drip they feed.
+governor. For the historical slice the docket record itself carries no dates
+even upstream — the decision date lives on the linked **opinion cluster** — so
+a refresh that arrives dateless follows the cluster link (one extra request,
+same governor) and gap-fills the decision date, citation, and disposition
+through the shared normalizer. The durable parts (the cert-date columns, their
+normalization-layer mapping, the petition-aware resolution clock) survive the
+swap, while the selector, reserve, and cluster hop are deleted with the drip
+they feed.
 
 Adoption also needs a terms review of the replication agreement itself; the
 access-gated, no-republication stance in [data-sources.md](data-sources.md)

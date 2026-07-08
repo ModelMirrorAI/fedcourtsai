@@ -184,8 +184,12 @@ def _cluster_id_from_url(url: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def _first_cluster_id(docket: JsonDict) -> int | None:
-    """The id of the docket's first linked opinion cluster, if any."""
+def first_cluster_id(docket: JsonDict) -> int | None:
+    """The id of the docket's first linked opinion cluster, if any.
+
+    Public: the pull-side cluster enrichment follows the same link the probe
+    does, so both read the docket's ``clusters`` list through one parser.
+    """
     clusters = docket.get("clusters") or []
     for entry in clusters:
         if isinstance(entry, int):
@@ -384,7 +388,7 @@ def probe_docket(client: RecoverabilityClient, court: str, docket_id: int) -> Do
     probe.docket_entry_count = len(entries)
     probe.entry_signals = scan_entries(entries)
 
-    cluster_id = _first_cluster_id(docket)
+    cluster_id = first_cluster_id(docket)
     if cluster_id is not None:
         try:
             probe.cluster = build_cluster_info(client.get_opinion_cluster(cluster_id))
