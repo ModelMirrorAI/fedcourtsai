@@ -91,7 +91,7 @@
       "cases": 82338,
       "open_events": 82338,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29809,
+      "recoverable": 29810,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -124,10 +124,10 @@
       ]
     },
     {
-      "cases": 385070,
-      "open_events": 385070,
+      "cases": 385057,
+      "open_events": 385057,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44472,
+      "recoverable": 44470,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -195,7 +195,7 @@
       ]
     },
     {
-      "open_events": 98,
+      "open_events": 111,
       "reason": "carries a disposition signal (open despite a recorded decision)",
       "sample_cases": [
         "scotus/1056408",
