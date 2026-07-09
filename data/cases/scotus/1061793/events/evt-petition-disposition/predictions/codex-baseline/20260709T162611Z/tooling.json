@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/1061793",
+  "gaps": [
+    "A same-case exclusion flag on `fedcourts query` would make prior retrieval safer for sparse or historical SCOTUS dockets.",
+    "The committed statpack in this checkout did not include the prompt-referenced modern discretionary-cert section."
+  ],
+  "helpful": [
+    "Provisioned snapshot",
+    "Prediction schema",
+    "Committed statpack base rates"
+  ],
+  "notes": "I avoided live corpus priors because this sparse docket had no docket number/date filters and the query interface did not expose an explicit exclude-case parameter.",
+  "role": "predictor",
+  "run_id": "20260709T162611Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
