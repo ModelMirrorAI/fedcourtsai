@@ -2,10 +2,10 @@
   "corpus_rows": 2151655,
   "exclusions": [
     {
-      "cases": 33710,
-      "open_events": 33710,
+      "cases": 33712,
+      "open_events": 33712,
       "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
-      "recoverable": 4,
+      "recoverable": 7,
       "sample_cases": [
         "scotus/1016450",
         "scotus/1020660",
@@ -106,10 +106,10 @@
       ]
     },
     {
-      "cases": 12010,
-      "open_events": 12010,
+      "cases": 12008,
+      "open_events": 12008,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12010,
+      "recoverable": 12008,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -117,17 +117,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/1061488",
-        "scotus/1061607",
         "scotus/1062790",
-        "scotus/106360"
+        "scotus/106360",
+        "scotus/1063935",
+        "scotus/106434"
       ]
     },
     {
-      "cases": 385094,
-      "open_events": 385094,
+      "cases": 385079,
+      "open_events": 385079,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44484,
+      "recoverable": 44476,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -147,7 +147,7 @@
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58676,
+      "open_events": 58675,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/14557919",
@@ -195,7 +195,7 @@
       ]
     },
     {
-      "open_events": 72,
+      "open_events": 88,
       "reason": "carries a disposition signal (open despite a recorded decision)",
       "sample_cases": [
         "scotus/1056408",
