@@ -1,5 +1,5 @@
 {
-  "corpus_rows": 2151655,
+  "corpus_rows": 2151659,
   "exclusions": [
     {
       "cases": 33712,
@@ -59,7 +59,7 @@
       "cases": 3616,
       "open_events": 3616,
       "reason": "consolidated docket whose members all classify out of scope (#449)",
-      "recoverable": 0,
+      "recoverable": 1,
       "sample_cases": [
         "scotus/1004607",
         "scotus/1017888",
@@ -124,10 +124,10 @@
       ]
     },
     {
-      "cases": 385079,
-      "open_events": 385079,
+      "cases": 385070,
+      "open_events": 385070,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44476,
+      "recoverable": 44472,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -163,10 +163,9 @@
       ]
     },
     {
-      "open_events": 4803,
+      "open_events": 4802,
       "reason": "no docket number",
       "sample_cases": [
-        "scotus/1061793",
         "scotus/1062770",
         "scotus/106496",
         "scotus/106498",
@@ -175,7 +174,8 @@
         "scotus/1088084",
         "scotus/1091099",
         "scotus/1104586",
-        "scotus/1104590"
+        "scotus/1104590",
+        "scotus/1104680"
       ]
     },
     {
@@ -195,7 +195,7 @@
       ]
     },
     {
-      "open_events": 88,
+      "open_events": 98,
       "reason": "carries a disposition signal (open despite a recorded decision)",
       "sample_cases": [
         "scotus/1056408",
