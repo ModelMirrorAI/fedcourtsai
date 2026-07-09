@@ -370,9 +370,10 @@ never committed — through one of two flows with the same read-only blast
 radius. The **maintainer** authenticates via IAM Identity Center: the
 devcontainer's post-create hook (`.devcontainer/setup-corpus-access.sh`)
 writes `~/.aws/config` profiles whose short-lived SSO session
-(`fedcourts-sso`) assumes the read-only corpus role (`fedcourts-ro`, made the
-shell's default profile) — rerun `aws sso login --profile fedcourts-sso` when
-the session expires. **Contributors** use a dedicated read-only IAM user's
+(`fedcourts-sso`) assumes the read-only corpus role
+(`fedcourts-ro`, made the shell's default profile) —
+rerun `aaws sso login --sso-session modelmirror --use-device-code`
+when the session expires. **Contributors** use a dedicated read-only IAM user's
 key pair (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`), which boto3 reads
 straight from the environment — nothing to configure. The IAM user is
 provisioned on demand (see [SECURITY.md](../SECURITY.md)); ask via an issue
