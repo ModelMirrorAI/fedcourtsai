@@ -4,7 +4,7 @@
     {
       "cases": 33714,
       "open_events": 33714,
-      "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
+      "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert",
       "recoverable": 7,
       "sample_cases": [
         "scotus/1016450",
@@ -40,7 +40,7 @@
     {
       "cases": 36,
       "open_events": 36,
-      "reason": "bare bulk-import row whose snapshot links a published opinion cluster (#438)",
+      "reason": "bare bulk-import row whose snapshot links a published opinion cluster",
       "recoverable": 36,
       "sample_cases": [
         "scotus/1002339",
@@ -58,7 +58,7 @@
     {
       "cases": 3617,
       "open_events": 3617,
-      "reason": "consolidated docket whose members all classify out of scope (#449)",
+      "reason": "consolidated docket whose members all classify out of scope",
       "recoverable": 2,
       "sample_cases": [
         "scotus/1004607",
@@ -76,7 +76,7 @@
     {
       "cases": 6,
       "open_events": 6,
-      "reason": "internally inconsistent dates \u2014 decided before filed (#171)",
+      "reason": "internally inconsistent dates \u2014 decided before filed",
       "recoverable": 6,
       "sample_cases": [
         "scotus/65875844",
@@ -90,7 +90,7 @@
     {
       "cases": 82338,
       "open_events": 82338,
-      "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
+      "reason": "pre-1925 mandatory-jurisdiction matter",
       "recoverable": 29809,
       "sample_cases": [
         "scotus/1000314",
@@ -108,7 +108,7 @@
     {
       "cases": 12003,
       "open_events": 12003,
-      "reason": "published opinion but no machine-readable cert disposition (#363)",
+      "reason": "published opinion but no machine-readable cert disposition",
       "recoverable": 12003,
       "sample_cases": [
         "scotus/1000512",
@@ -126,7 +126,7 @@
     {
       "cases": 385029,
       "open_events": 385029,
-      "reason": "stale unresolvable old SCOTUS petition (#333)",
+      "reason": "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
       "recoverable": 44461,
       "sample_cases": [
         "scotus/1000",
@@ -143,11 +143,11 @@
     }
   ],
   "schema_version": "1.0",
-  "scotus_open_events": 589284,
+  "scotus_open_events": 589233,
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58674,
+      "open_events": 58626,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/14557919",
@@ -195,7 +195,7 @@
       ]
     },
     {
-      "open_events": 142,
+      "open_events": 139,
       "reason": "carries a disposition signal (open despite a recorded decision)",
       "sample_cases": [
         "scotus/1056408",
