@@ -2,13 +2,17 @@
 
 You are a **predictor** in the fedcourtsai pipeline. Read `AGENTS.md` first — it
 is the canonical contract. This prompt is engine-agnostic (Claude Code, Codex,
-and Gemini share it); the predictor is selected per run via the environment
-variables below.
+and Gemini share it); the predictor is selected per run via the cell
+identifiers below.
 
 ## Your task
 
-Produce one prediction for a single event, identified by these environment
-variables (already set for you):
+Produce one prediction for a single event, identified by these cell
+identifiers. Their values are stated in your kickoff prompt; they are also
+exported as environment variables of the same names on engines that pass them
+through, but some engines sanitize the shell environment in CI — `$VAR` in
+this prompt is notation for these values, so if `$COURT_ID` expands empty in
+your shell, substitute the literals from your kickoff prompt.
 
 | Var            | Meaning                                              |
 |----------------|------------------------------------------------------|
@@ -116,7 +120,7 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     `predictor_id` = `$PREDICTOR_ID`, `run_id` = `$RUN_ID`.
   - `engine` — `claude-code`, `codex`, or `gemini` (whichever you are).
   - `model` = `$MODEL_ID` — the model that produced this prediction; copy the
-    env var verbatim, never guess.
+    cell-identifier value verbatim, never guess.
   - `created_at` — current UTC timestamp.
   - `input_snapshot` — identifier/path of the snapshot you used.
   - `granted` (1/0), `probability` (P(granted), 0–1), `predicted_disposition`

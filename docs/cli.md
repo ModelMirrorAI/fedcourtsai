@@ -172,9 +172,10 @@ would — **review and discard them**, don't commit a local cascade's output.
   over realistic output; identity fields are rebound to each cell. Set
   `FEDCOURTS_REPLAY_ROOT` or the command errors clearly.
 - `claude-code` / `codex` — drive the **real** headless agents (`claude`, `codex`)
-  over the same env-var + prompt-file contract the workflows use, so the cells are
-  byte-identical in shape to a CI run. The `claude` CLI ships in the devcontainer
-  (`codex` you install yourself).
+  over the same cell contract the workflows use (the inline-identifier kickoff
+  prompt plus the env vars), so the cells are byte-identical in shape to a CI
+  run. The `claude` CLI ships in the devcontainer (`codex` you install
+  yourself).
 
 **Auth for the real engines.** Credentials are inherited from the environment,
 never assembled by the command. For Claude, set either:

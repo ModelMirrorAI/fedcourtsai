@@ -128,6 +128,10 @@ jobs:
     steps:
       - name: Mint agent comment token
         id: agent-token
+        # Only the Claude step consumes this token (Codex never took one, and
+        # Gemini's CLI strips custom env vars from agent shells in CI): don't
+        # mint a live credential in cells that cannot use it.
+        if: matrix.engine == 'claude-code'
         # Least-privilege token the agent itself uses to comment on the triggering
         # issue/PR. No contents:write — the agent only writes files locally, which
         # ride to the collect job as an artifact; that job (its own token) does the
@@ -263,15 +267,31 @@ jobs:
                 "ENABLE_PROMPT_CACHING_1H": "1"
               }
             }
+          # The kickoff prompt is identical across the three engines and carries
+          # the cell identifiers inline: some engines sanitize the shell
+          # environment in CI (Gemini strips every custom env var), so the
+          # prompt text — not the env — is the contract's delivery channel.
           prompt: |
             Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
-            for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables.
-            Write ONLY the prediction.json and reasoning.md files. Do not commit,
-            push, or open a PR — the workflow handles git. You run headless with no
-            interactive input; if you are blocked, post a brief note on the
-            triggering issue (#${{ github.event.issue.number }}) with
-            `gh issue comment` and explain it in reasoning.md, then finish — do not
-            wait for a reply.
+            for this cell:
+
+            COURT_ID=${{ matrix.court }}
+            DOCKET_ID=${{ matrix.docket }}
+            EVENT_ID=${{ matrix.event_id }}
+            PREDICTOR_ID=${{ matrix.predictor_id }}
+            RUN_ID=${{ matrix.run_id }}
+            MODEL_ID=${{ matrix.model }}
+
+            These values are authoritative; the same identifiers are exported as
+            environment variables on engines that pass them through, but if
+            `$COURT_ID` expands empty in your shell, use the literals above.
+            Write only the output files the prompt contract names for your cell.
+            Do not commit, push, or open a PR — the workflow handles git. You run
+            headless with no interactive input; if you are blocked, record it in
+            flags.json and explain it in reasoning.md, then finish — do not wait
+            for a reply. (A brief `gh issue comment` on the triggering issue
+            (#${{ github.event.issue.number }}) is a welcome extra where your
+            engine has GitHub access.)
           # The model comes from the plan job's matrix (registry override or the
           # engine's predict/evaluate default in fedcourtsai.pricing) — repo
           # config, not user input.
@@ -302,7 +322,31 @@ jobs:
           # codex-action's write-access check, which a bot installation fails.
           allow-bot-users: "fedcourtsai-data[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt-file: ${{ matrix.prompt }}
+          # The same kickoff prompt as the Claude and Gemini steps (identifiers
+          # inline — the engines' methodology stays comparable, and the contract
+          # never depends on env passthrough); the agent reads the template
+          # itself, as the other engines do.
+          prompt: |
+            Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
+            for this cell:
+
+            COURT_ID=${{ matrix.court }}
+            DOCKET_ID=${{ matrix.docket }}
+            EVENT_ID=${{ matrix.event_id }}
+            PREDICTOR_ID=${{ matrix.predictor_id }}
+            RUN_ID=${{ matrix.run_id }}
+            MODEL_ID=${{ matrix.model }}
+
+            These values are authoritative; the same identifiers are exported as
+            environment variables on engines that pass them through, but if
+            `$COURT_ID` expands empty in your shell, use the literals above.
+            Write only the output files the prompt contract names for your cell.
+            Do not commit, push, or open a PR — the workflow handles git. You run
+            headless with no interactive input; if you are blocked, record it in
+            flags.json and explain it in reasoning.md, then finish — do not wait
+            for a reply. (A brief `gh issue comment` on the triggering issue
+            (#${{ github.event.issue.number }}) is a welcome extra where your
+            engine has GitHub access.)
           model: ${{ matrix.model }}
           effort: high
           sandbox: workspace-write
@@ -348,22 +392,39 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # The agent's least-privilege token (no contents:write) for any `gh issue
-          # comment` it makes; the workflow's app-token does the commit/PR.
-          GITHUB_TOKEN: ${{ steps.agent-token.outputs.token }}
+          # No GITHUB_TOKEN here: the Gemini CLI (0.49.0's environment
+          # sanitization runs in strict mode whenever GITHUB_SHA is present)
+          # strips every custom env var from the agent's shell commands in CI,
+          # so a comment token could never be used — flags.json is this
+          # engine's blocked-channel. Re-check on a CLI version bump.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Headless runs need the workspace trusted explicitly (the CLI exits 55
           # otherwise); the runner workspace is a fresh clone of this repo.
           GEMINI_CLI_TRUST_WORKSPACE: "true"
+          # The same kickoff prompt as the Claude and Codex steps: the inline
+          # identifiers are what the agent works from, because the env vars
+          # above never survive the CLI's shell sanitization.
           PROMPT: |
             Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
-            for the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables.
-            Write ONLY the prediction.json and reasoning.md files. Do not commit,
-            push, or open a PR — the workflow handles git. You run headless with no
-            interactive input; if you are blocked, post a brief note on the
-            triggering issue (#${{ github.event.issue.number }}) with
-            `gh issue comment` and explain it in reasoning.md, then finish — do not
-            wait for a reply.
+            for this cell:
+
+            COURT_ID=${{ matrix.court }}
+            DOCKET_ID=${{ matrix.docket }}
+            EVENT_ID=${{ matrix.event_id }}
+            PREDICTOR_ID=${{ matrix.predictor_id }}
+            RUN_ID=${{ matrix.run_id }}
+            MODEL_ID=${{ matrix.model }}
+
+            These values are authoritative; the same identifiers are exported as
+            environment variables on engines that pass them through, but if
+            `$COURT_ID` expands empty in your shell, use the literals above.
+            Write only the output files the prompt contract names for your cell.
+            Do not commit, push, or open a PR — the workflow handles git. You run
+            headless with no interactive input; if you are blocked, record it in
+            flags.json and explain it in reasoning.md, then finish — do not wait
+            for a reply. (A brief `gh issue comment` on the triggering issue
+            (#${{ github.event.issue.number }}) is a welcome extra where your
+            engine has GitHub access.)
         run: |
           set -euo pipefail
           gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json

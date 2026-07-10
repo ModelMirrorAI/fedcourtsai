@@ -21,8 +21,9 @@ and identical in *shape* to what the workflow produces.
 Three families of backend target this seam. The offline :class:`StubRunner` is the
 fast reference used in tests and ``local-cascade --engine stub``. The agentic
 :class:`ClaudeCodeRunner` / :class:`CodexRunner` drive the *real* headless agents
-(``claude`` / ``codex``) over the identical cell contract — the same env vars,
-the same registry prompt file, the same output paths the live workflows use — so
+(``claude`` / ``codex``) over the identical cell contract — the same
+inline-identifier kickoff prompt and env vars, the same registry prompt
+template, the same output paths the live workflows use — so
 ``local-cascade`` can exercise a real engine end-to-end exactly as CI would. The
 live workflows still invoke their engine through the action wrappers; these CLI
 backends are the local mirror of that, not a replacement for it.
@@ -345,21 +346,46 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     return env
 
 
-def _claude_instruction(request: RunRequest) -> str:
-    """The wrapper prompt ``run-predict`` / ``run-evaluate`` give claude-code-action."""
+def _claude_instruction(request: RunRequest, model: str) -> str:
+    """The kickoff prompt, mirroring what the live workflows give their engines.
+
+    The cell identifiers ride inline in the prompt text (with the env vars as a
+    secondary channel), exactly as ``run-predict.yml`` / ``run-evaluate.yml``
+    now phrase it: some engines sanitize the shell environment in CI, so the
+    prompt — not the env — is the contract's delivery channel, and the local
+    harness keeps the same shape so a cell reads identically here and in CI.
+    (The workflows' extra sentence about commenting on the triggering issue is
+    omitted: a local cell has no issue.)
+    """
     prompt = request.prompt.as_posix()
     if request.role == UsageRole.predictor:
-        return (
-            f"Read {prompt} and AGENTS.md, then produce the prediction for the event "
-            "in the COURT_ID/DOCKET_ID/EVENT_ID environment variables. Write ONLY "
-            "the prediction.json and reasoning.md files. Do not commit, push, or "
-            "open a PR."
+        task = f"Read {prompt} and AGENTS.md, then produce the prediction for this cell:"
+        actor_line = f"PREDICTOR_ID={request.actor_id}"
+        blocked_doc = "reasoning.md"
+    else:
+        task = (
+            f"Read {prompt} and AGENTS.md, then score every predictor's prediction "
+            "for this cell against its outcome.json:"
         )
+        actor_line = f"EVALUATOR_ID={request.actor_id}"
+        blocked_doc = "evaluation.md"
     return (
-        f"Read {prompt} and AGENTS.md, then score every predictor's prediction for "
-        "the event in the COURT_ID/DOCKET_ID/EVENT_ID environment variables against "
-        "its outcome.json. Write ONLY the evaluation.json and evaluation.md files. "
-        "Do not commit, push, or open a PR."
+        f"{task}\n"
+        "\n"
+        f"COURT_ID={request.court_id}\n"
+        f"DOCKET_ID={request.docket_id}\n"
+        f"EVENT_ID={request.event_id}\n"
+        f"{actor_line}\n"
+        f"RUN_ID={request.run_id}\n"
+        f"MODEL_ID={model}\n"
+        "\n"
+        "These values are authoritative; the same identifiers are exported as "
+        "environment variables on engines that pass them through, but if "
+        "`$COURT_ID` expands empty in your shell, use the literals above. "
+        "Write only the output files the prompt contract names for your cell. "
+        "Do not commit, push, or open a PR. You run headless with no "
+        "interactive input; if you are blocked, record it in flags.json and "
+        f"explain it in {blocked_doc}, then finish — do not wait for a reply."
     )
 
 
@@ -446,7 +472,7 @@ class ClaudeCodeRunner(AgenticRunner):
         argv = [
             "claude",
             "-p",
-            _claude_instruction(request),
+            _claude_instruction(request, self.model),
             "--model",
             self.model,
             "--max-turns",
@@ -461,8 +487,9 @@ class ClaudeCodeRunner(AgenticRunner):
 class CodexRunner(AgenticRunner):
     """Run the ``codex`` CLI headless, mirroring ``run-evaluate``'s codex step.
 
-    Codex reads the registry prompt file directly (as the workflow's
-    ``prompt-file`` input does); auth is the inherited ``OPENAI_API_KEY``.
+    Codex gets the same inline-identifier kickoff prompt as the other engines
+    (as the workflow's ``prompt`` input now does); auth is the inherited
+    ``OPENAI_API_KEY``.
     """
 
     backend: str = "codex"
@@ -477,7 +504,7 @@ class CodexRunner(AgenticRunner):
             self.model,
             "--sandbox",
             "workspace-write",
-            request.prompt.read_text(),
+            _claude_instruction(request, self.model),
         ]
         return EngineCommand(argv=argv, env=_cell_env(request, self.model))
 

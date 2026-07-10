@@ -21,9 +21,13 @@
   spends pull's quota and forces a rotation that touches pull.
 - **Agents get a least-privilege GitHub App token, never a static one.** So a
   headless agent can post progress/questions on the triggering issue/PR, the
-  `run:predict` / `run:evaluate` / `run:reconcile` agent steps receive a separate
-  short-lived App installation token from `actions/create-github-app-token`, scoped
-  `contents: read` + `issues` + `pull-requests: write` — **comment-only**. The
+  Claude agent steps in `run:predict` / `run:evaluate` / `run:reconcile` receive
+  a separate short-lived App installation token from
+  `actions/create-github-app-token`, scoped `contents: read` + `issues` +
+  `pull-requests: write` — **comment-only**. The Codex and Gemini cells get no
+  GitHub token at all (Gemini's CLI strips custom env vars from agent shells in
+  CI anyway); their blocked-channel is `flags.json`, which the trusted `collect`
+  job surfaces. The
   *workflow* (a distinct `contents: write` app-token) does the commit/PR, so a
   prompt injection in docket text cannot push code with the agent's token. The
   `run:dev` agent, which commits and opens its own PR, holds

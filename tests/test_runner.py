@@ -180,14 +180,18 @@ def test_evaluate_uses_the_evaluator_id_env_var(tmp_path: Path) -> None:
     assert "PREDICTOR_ID" not in recorder.env
 
 
-def test_codex_runner_passes_the_prompt_file(tmp_path: Path) -> None:
+def test_codex_runner_gets_the_inline_identifier_kickoff(tmp_path: Path) -> None:
     recorder = _Recorder()
     runner = CodexRunner(command_runner=recorder)
     runner.run(_predict_request(tmp_path / "data", actor=PREDICTOR))
     assert recorder.argv[:2] == ["codex", "exec"]
     assert "gpt-5.5" in recorder.argv
-    # Codex reads the registry prompt file's contents directly (as the action does).
-    assert "You are a **predictor**" in recorder.argv[-1]
+    # Codex gets the same kickoff as the other engines (as the workflow's
+    # `prompt` input does): the template by reference, the identifiers inline.
+    kickoff = recorder.argv[-1]
+    assert ".github/prompts/predict.md" in kickoff
+    assert f"PREDICTOR_ID={PREDICTOR}" in kickoff
+    assert "EVENT_ID=" in kickoff
 
 
 def test_nonzero_exit_raises_engine_failed(tmp_path: Path) -> None:
