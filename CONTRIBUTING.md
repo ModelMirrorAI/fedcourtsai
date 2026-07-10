@@ -51,7 +51,9 @@ agent-driven run actually flows.
    ```
 
 4. Keep the docs in step — if your change makes any doc stale (`README.md`,
-   `AGENTS.md`, `docs/`, prompts, docstrings), update it in the same PR.
+   `AGENTS.md`, `docs/`, prompts, docstrings), update it in the same PR. Where
+   your change affects pipeline output, a produced example in the PR
+   description is appreciated (see AGENTS.md, "Keep the artifact in view").
 5. Use a conventional-commit-style title (e.g. `fix(pull): …`). If the PR finishes
    an issue, put `Closes #<n>` in the description.
 

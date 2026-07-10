@@ -83,3 +83,8 @@ signal to *update that work in place*, not to open a parallel copy.
 5. Open **one** focused PR against `main` with a conventional-commit title. If a
    PR already exists for `dev/issue-$ISSUE_NUMBER`, your pushed commits update it
    in place — don't open another.
+6. **Connect the change to its artifact.** State in the PR description which
+   pipeline output this change serves. Where the change directly affects that
+   output, include a produced example (against the fixture corpus or via the
+   relevant CLI) with a sentence on what to look at — it is the most useful
+   thing a reviewer can be given.
