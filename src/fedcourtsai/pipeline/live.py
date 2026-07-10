@@ -202,6 +202,7 @@ def poll_live_cases(
     due: list[corpus.CorpusRow],
     *,
     scope: PredictScope = PredictScope.all,
+    queue_predict: bool = True,
     today: date,
 ) -> PullQueues:
     """Refresh each due pending petition and sort it into the handoff queues.
@@ -245,18 +246,28 @@ def poll_live_cases(
             )
             continue
         result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
-        _route_result(queues, corpus_db_path, result, gated=gated)
+        _route_result(queues, corpus_db_path, result, gated=gated, queue_predict=queue_predict)
     return queues
 
 
 def _route_result(
-    queues: PullQueues, corpus_db_path: Path, result: LiveResult, *, gated: bool
+    queues: PullQueues,
+    corpus_db_path: Path,
+    result: LiveResult,
+    *,
+    gated: bool,
+    queue_predict: bool = True,
 ) -> None:
-    """Sort one poll result into the handoff queues (pull's routing, verbatim)."""
+    """Sort one poll result into the handoff queues (pull's routing, verbatim).
+
+    ``queue_predict=False`` suppresses only the predict handoff — the interim
+    spend guard (``live.predict_on_refresh``): outcomes and reconcile signals
+    are ground truth and always route.
+    """
     docket_id = int(result.case_id.rsplit("/", 1)[-1])
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
     events = open_events(corpus_db_path, "scotus", docket_id)
-    if in_scope and result.changed and events:
+    if queue_predict and in_scope and result.changed and events:
         queues.predict.append({"court": "scotus", "docket": docket_id, "events": events})
     if in_scope and result.resolved:
         queues.evaluate.append({"court": "scotus", "docket": docket_id, "events": result.resolved})
@@ -290,6 +301,11 @@ def live_poll_all(
     ingested is excluded from the refresh rotation (its poll is seconds old;
     re-fetching it would only spend cadence), and its result is routed through
     the identical queue logic instead.
+
+    Refresh-driven polls queue predict only when ``config.predict_on_refresh``
+    is on (default off — the interim spend guard until #473's
+    distribution-triggered watchlist times predictions properly); newly
+    discovered petitions always queue.
     """
     discovery = discover_live(
         client,
@@ -315,7 +331,15 @@ def live_poll_all(
             )
             if row.case_id not in fresh
         ][:max_cases]
-    refreshed = poll_live_cases(client, corpus_db_path, data_root, due, scope=scope, today=today)
+    refreshed = poll_live_cases(
+        client,
+        corpus_db_path,
+        data_root,
+        due,
+        scope=scope,
+        queue_predict=config.predict_on_refresh,
+        today=today,
+    )
     queues.predict.extend(refreshed.predict)
     queues.evaluate.extend(refreshed.evaluate)
     queues.reconcile.extend(refreshed.reconcile)

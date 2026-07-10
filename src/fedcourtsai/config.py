@@ -139,6 +139,14 @@ class LiveConfig(BaseModel):
     # Consecutive 404s that mark a numbering stream's frontier (serials are
     # assigned sequentially; the tolerance bridges an occasional withheld one).
     frontier_misses: int = Field(default=2, ge=1)
+    # Whether a *refresh* poll that detects docket change queues run:predict.
+    # Off by default as an interim spend guard: the first rotation sweeps touch
+    # every pending-looking OT2017+ shell, and each genuinely pending petition
+    # would otherwise queue a paid predict fan-out with no timing logic behind
+    # it. Newly *discovered* petitions always queue predict regardless; #473's
+    # conference watchlist replaces this knob with the real trigger (queue on
+    # distribution, the moment resolution is imminent and the record complete).
+    predict_on_refresh: bool = False
 
 
 def load_live_config(config_root: Path) -> LiveConfig:
