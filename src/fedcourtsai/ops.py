@@ -26,8 +26,10 @@ from .schemas import (
     CorpusScopeAudit,
     CostEstimate,
     DataHealth,
+    Evaluation,
     FlagsDigest,
     FlagSeverity,
+    LeakageDigest,
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
@@ -184,6 +186,52 @@ def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
 # severity counts still cover every committed flag, so the cap never hides volume.
 _FLAGS_RECENT_LIMIT = 20
 
+# How many `likely` leakage gradings the dashboard names individually.
+_LEAKAGE_FLAGGED_LIMIT = 20
+
+
+def summarize_leakage(
+    evaluations: Iterable[Evaluation], *, limit: int = _LEAKAGE_FLAGGED_LIMIT
+) -> LeakageDigest:
+    """Roll the evaluators' leakage gradings into the dashboard's leakage digest.
+
+    The visibility half of the backtest-as-iteration doctrine: counts over every
+    committed ``evaluation.json`` that carries a ``leakage`` block, with the
+    ``likely`` offenders named (newest first, capped) so a repeat pattern is
+    attributable to its predictor rather than lost in a count.
+    """
+    assessed = not_applicable = none = possible = likely = 0
+    flagged: list[tuple[str, str]] = []
+    for evaluation in evaluations:
+        if evaluation.leakage is None:
+            continue
+        assessed += 1
+        verdict = evaluation.leakage.influenced_prediction
+        if verdict == "not_applicable":
+            not_applicable += 1
+        elif verdict == "none":
+            none += 1
+        elif verdict == "possible":
+            possible += 1
+        else:
+            likely += 1
+            flagged.append(
+                (
+                    evaluation.run_id,
+                    f"{evaluation.case_id} {evaluation.event_id} "
+                    f"{evaluation.predictor_id} (by {evaluation.evaluator_id})",
+                )
+            )
+    flagged.sort(reverse=True)
+    return LeakageDigest(
+        assessed=assessed,
+        not_applicable=not_applicable,
+        none=none,
+        possible=possible,
+        likely=likely,
+        flagged=[label for _, label in flagged[:limit]],
+    )
+
 
 def summarize_flags(
     flag_sets: Iterable[AgentFlags], *, limit: int = _FLAGS_RECENT_LIMIT
@@ -336,6 +384,7 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
     usage: Iterable[ModelUsage],
     flags: Iterable[AgentFlags] = (),
     tooling: Iterable[AgentToolingFeedback] = (),
+    evaluations: Iterable[Evaluation] = (),
     previous: OpsReport | None = None,
     data_health: DataHealth | None = None,
     scope_audit: CorpusScopeAudit | None = None,
@@ -363,6 +412,7 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
         cost=estimate_cost(run_list, spend),
         data_health=data_health,
         flags=summarize_flags(flags),
+        leakage=summarize_leakage(evaluations),
         tooling=summarize_tooling(tooling),
         scope_audit=scope_audit,
         open_triggers=open_triggers,
@@ -569,6 +619,22 @@ def render_scope_audit(audit: CorpusScopeAudit) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_leakage_digest(digest: LeakageDigest) -> str:
+    """The dashboard's leakage section: is outcome material tainting iteration signal?"""
+    lines = [
+        "## Leakage grading (evaluator, advisory)",
+        f"{digest.assessed} assessed · {digest.not_applicable} forward (n/a) · "
+        f"{digest.none} clean · {digest.possible} possible · **{digest.likely} likely**",
+    ]
+    if digest.flagged:
+        lines.append("")
+        lines += [f"- {label}" for label in digest.flagged]
+    elif digest.assessed == 0:
+        lines.append("")
+        lines.append("_No leakage assessments committed yet._")
+    return "\n".join(lines) + "\n"
+
+
 def render_flags_digest(digest: FlagsDigest) -> str:
     """Render the dashboard's open-agent-flags section from the digest.
 
@@ -717,6 +783,9 @@ def render_markdown(report: OpsReport) -> str:
 
     if report.flags is not None:
         lines += ["", render_flags_digest(report.flags).rstrip("\n")]
+
+    if report.leakage is not None:
+        lines += ["", render_leakage_digest(report.leakage).rstrip("\n")]
 
     if report.tooling is not None:
         lines += ["", render_tooling_digest(report.tooling).rstrip("\n")]

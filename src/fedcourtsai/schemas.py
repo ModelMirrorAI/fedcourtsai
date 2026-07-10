@@ -174,6 +174,39 @@ class Outcome(_Strict):
     source: str | None = Field(default=None, description="Docket entry id or citation")
 
 
+class LeakageAssessment(_Strict):
+    """The cross-evaluator's leakage grading of one prediction (advisory, never a gate).
+
+    The grading half of the leakage doctrine: rather than preventing retrieval,
+    the evaluator assesses whether a **replay** predictor retrieved and used
+    outcome-revealing material, reading the harness-captured
+    ``retrieval_log.json`` (tool calls, query slices, retrieved-document dates)
+    beside the predictor's own reasoning. A **forward** prediction was made
+    before the outcome existed, so it grades ``not_applicable``. Contamination
+    here taints iteration signal — backtest results are never claimable
+    performance either way — so the assessment segments scores; it never
+    changes them.
+    """
+
+    mode: str = Field(
+        description="The prediction's mode as its retrieval_log.json recorded it: "
+        "forward | replay | unknown (no log — assess from reasoning alone)"
+    )
+    retrieved_outcome_material: bool | None = Field(
+        default=None,
+        description="Whether the retrieval log/reasoning shows outcome-revealing "
+        "material about this case was retrieved (post-event-date documents, the "
+        "disposing order, queries for the result). Null when not assessable.",
+    )
+    influenced_prediction: Literal["not_applicable", "none", "possible", "likely"] = Field(
+        description="Whether retrieved outcome material plausibly shaped the "
+        "prediction. not_applicable for a forward prediction."
+    )
+    notes: str | None = Field(
+        default=None, max_length=2000, description="The concrete evidence, briefly"
+    )
+
+
 class Evaluation(_Strict):
     """``evaluation.json`` — one evaluator scoring one predictor's prediction."""
 
@@ -197,11 +230,17 @@ class Evaluation(_Strict):
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
     leakage_suspected: bool | None = Field(
         default=None,
-        description="Evaluator's judgment that the prediction shows signs of using "
-        "post-decision information about this case — its outcome, the disposing "
-        "order, or facts knowable only after the decision. Advisory: it segments "
+        description="Coarse leakage bit, kept in step with `leakage`: true when "
+        "`leakage.influenced_prediction` is possible/likely. Advisory: it segments "
         "scores, never changes them. Null when not assessed (offline evaluators "
         "and records written before the field existed)",
+    )
+    leakage: LeakageAssessment | None = Field(
+        default=None,
+        description="The structured leakage grading over the prediction's "
+        "harness-captured retrieval log (see LeakageAssessment). Advisory and "
+        "cross-only, like the rest of evaluation; null on records written before "
+        "the field existed and on offline evaluator outputs",
     )
     notes_doc: str = "evaluation.md"
 
@@ -1046,6 +1085,29 @@ class DataHealth(_Strict):
     )
 
 
+class LeakageDigest(_Strict):
+    """The evaluators' leakage grading rolled up for the run-ops dashboard.
+
+    The visibility half of the backtest-as-iteration doctrine: replay cells run
+    with the same tools as forward cells, so the dashboard must show — across
+    runs — whether outcome material is contaminating the backtest's iteration
+    signal. Counts are over every committed ``evaluation.json`` carrying a
+    ``leakage`` block; ``likely`` offenders are listed (capped) so a repeat
+    pattern names its predictor.
+    """
+
+    assessed: int = Field(ge=0, description="Evaluations carrying a leakage assessment")
+    not_applicable: int = Field(ge=0, description="Forward predictions (leakage cannot apply)")
+    none: int = Field(ge=0, description="Replay cells graded clean")
+    possible: int = Field(ge=0, description="Replay cells where influence is possible")
+    likely: int = Field(ge=0, description="Replay cells where influence is likely")
+    flagged: list[str] = Field(
+        default_factory=list,
+        description="`case_id event_id predictor (by evaluator)` for each `likely` "
+        "grading, newest first (capped)",
+    )
+
+
 class FlagsDigest(_Strict):
     """Open agent flags scanned from the committed ``flags.json`` files under ``data/``.
 
@@ -1147,6 +1209,11 @@ class OpsReport(_Strict):
     )
     flags: FlagsDigest | None = Field(
         default=None, description="Open agent flags scanned from committed flags.json under data/"
+    )
+    leakage: LeakageDigest | None = Field(
+        default=None,
+        description="The evaluators' leakage grading rolled up across committed "
+        "evaluation.json files; null on a report built before the field existed",
     )
     tooling: ToolingDigest | None = Field(
         default=None, description="Agent tooling self-reports scanned from tooling.json under data/"

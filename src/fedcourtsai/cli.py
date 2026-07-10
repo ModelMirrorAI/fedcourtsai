@@ -937,6 +937,7 @@ def ops_report(
         usage=iter_usage(settings.data_root),
         flags=iter_flags(settings.data_root),
         tooling=iter_tooling(settings.data_root),
+        evaluations=[e for e, _ in iter_stratified_evaluations(settings.data_root)],
         previous=prior,
         data_health=data_health,
         scope_audit=scope_verdict,
