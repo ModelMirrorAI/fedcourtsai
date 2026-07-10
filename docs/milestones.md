@@ -55,19 +55,23 @@ Everything in the next three months is sequenced to make that release possible.
   bulk backfill is loading all fourteen courts against its cursor (free bulk data,
   no API budget). This is the long pole; start it first so it completes well
   before the cert release.
-- **Pull running daily.** Forward freshness keeps the live frontier current within
-  the CourtListener budget; secure the membership tier the budget calls for.
-- **One full cascade proven.** A single case flows seed/pull → `run:predict` →
-  `run:evaluate` end-to-end, producing valid ledger artifacts — even if
-  hand-triggered. This validates the contract before scale.
-- **Cost instrumentation.** Capture real per-run token usage from the first
-  predict/evaluate runs and replace the planning assumption in
-  [budget.md](budget.md); set billing budgets + alerts.
+- **Freshness running daily.** Done, and better than planned: the
+  supremecourt.gov live channel owns SCOTUS freshness budget-free (discovery,
+  conference watchlist, outcomes, documents), while pull's daily CourtListener
+  windows do enrichment under the held membership tier.
+- **One full cascade proven.** Done — live cases flow through
+  `run:predict` → `run:evaluate` on the real triggers, producing valid ledger
+  artifacts.
+- **Cost instrumentation.** Done — per-run token usage is measured from the
+  engines' own logs (`usage.json`, the spend roll-up on the ops dashboard) and
+  [budget.md](budget.md) carries measured rates; billing alerts remain a
+  provider-console task.
 
 ### Phase 1 — Long-conference cert release (OT2026 long conference, late Sept 2026)
 
-- **Backfill complete** for all fourteen courts; steady state drops to quarterly
-  bulk reconciliation.
+- **Historical coverage sufficient for the task**: the frozen bulk load plus
+  the weekly past-Term cert loader growing the back-test set through the live
+  channel (bulk reconciliation returns only if the replica timeline slips).
 - **Prediction scope gated and live.** Per the budget, predict a deliberate slice:
   a case becomes in-scope the first time it **interacts with the Supreme Court** (a
   cert petition is the trigger) and stays in-scope for the rest of its lifecycle —
@@ -87,12 +91,13 @@ Everything in the next three months is sequenced to make that release possible.
   the events resolved so far — Brier score, accuracy, vote accuracy, reasoning
   quality. A mid-term "how the predictors are doing" update can ride the
   Oct–Dec argument-and-grant cadence.
-- **Quarterly reconciliation proven** — the Dec bulk snapshot drives a seed
-  reconciliation pass without disrupting pull.
-- **Data validation live** — a `validate-corpus` verdict (schema conformance,
-  corpus integrity, cross-store referential checks) runs on the corpus-writer path
-  and surfaces in the ops dashboard as data-health, with failures escalated to a
-  single issue — the automated successor to the manual corpus spot-check.
+- **Corpus completeness spot-checked** against a fresh upstream sample (a
+  scheduled bulk reconciliation exists only in the frozen bulk mode; the live
+  channel keeps the prediction-relevant slice current continuously).
+- **Data validation live.** Done — the `validate-corpus` verdict (schema
+  conformance, corpus integrity, cross-store referential checks) runs on the
+  corpus-writer path and surfaces on the ops dashboard as data-health, with
+  failures escalated to a single issue.
 
 ### Phase 3 — Full-docket release + back-testing (end of OT2026 term, ~June 2027)
 

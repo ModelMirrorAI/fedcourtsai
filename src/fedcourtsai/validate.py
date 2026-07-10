@@ -65,8 +65,8 @@ _MAX_SAMPLE = 10
 _MAX_PROBLEMS = 20
 
 # Accepted floor for `case_dates_ordered`: a stable handful of CourtListener rows
-# carry `date_decided < date_filed` (faithful upstream data, not rewritten — see the
-# monitor issue #171). The observed steady-state is ~20; this floor leaves headroom
+# carry `date_decided < date_filed` (faithful upstream data, not rewritten — the
+# check below monitors the count). The observed steady-state is ~20; this floor leaves headroom
 # so noise passes while a material climb fails. Raise it deliberately if the steady
 # count grows (e.g. after a large historical backfill), never to silence a regression.
 _CASE_DATE_ORDER_BASELINE = 50
@@ -220,7 +220,7 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
       a clock or ingestion bug and **always fails** — there is no benign cause.
     - **Decided-before-filed** (``date_filed > date_decided``) is, for a stable
       floor of rows, a faithful copy of upstream CourtListener data we deliberately
-      do not rewrite (the monitor issue #171). It fails only when the count climbs
+      do not rewrite (this check is the standing monitor). It fails only when the count climbs
       **above** that accepted baseline — the "material climb → investigate" signal —
       so the steady-state condition does not hold the data-health verdict
       permanently red.
@@ -268,7 +268,8 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
         checked=checked,
         failures=future + out_of_order,
         detail=f"{future} future-dated, {out_of_order} decided-before-filed vs accepted "
-        f"baseline {_CASE_DATE_ORDER_BASELINE} (as of {cutoff}); see #171",
+        f"baseline {_CASE_DATE_ORDER_BASELINE} (as of {cutoff}); faithful upstream data — "
+        "investigate the climb upstream before raising the baseline",
         problems=sorted(problems)[:_MAX_PROBLEMS],
     )
 
@@ -657,7 +658,7 @@ class _Bucket:
     sample: list[str] = field(default_factory=list)
 
 
-# The bucket whose docket-number shapes we histogram, so a refinement (#343) can see
+# The bucket whose docket-number shapes we histogram, so a refinement can see
 # exactly which formats the Term parser would need to handle. Kept as a constant so the
 # tally below and the bucket label never drift apart. Accepted-fragment threshold: a
 # shape carrying fewer than ~100 open events is an accepted fragment — it stays
@@ -670,7 +671,7 @@ _MAX_SHAPES = 15
 
 
 def _unclassified_reason(row: corpus.CorpusRow) -> str:
-    """Why an open SCOTUS event no predicate excluded stays in scope (#343 bucketing)."""
+    """Why an open SCOTUS event no predicate excluded stays in scope (audit bucketing)."""
     if row.disposition is not None or row.date_decided is not None:
         return "carries a disposition signal (open despite a recorded decision)"
     if corpus.scotus_term_year(row.docket_number) is not None:
@@ -700,7 +701,7 @@ def _docket_shape(docket_number: str) -> str:
 
 
 def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
-    """Census the corpus's open events that the predict scope excludes (issue #343).
+    """Census the corpus's open events that the predict scope excludes.
 
     For every still-open SCOTUS event, classify its case by the shared exclusion
     predicates (`corpus.out_of_scope_reason`): the matched ones are tallied per reason

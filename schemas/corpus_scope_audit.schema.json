@@ -2,7 +2,7 @@
   "$defs": {
     "ScopeDocketShape": {
       "additionalProperties": false,
-      "description": "A docket-number *shape* and how many unparseable open events carry it (#343).\n\nThe shape masks digits\u2192``9`` and letters\u2192``A``/``a`` (punctuation/space kept), so\n``01-7700`` \u2192 ``99-9999`` and ``22O141`` \u2192 ``99A999`` \u2014 every uppercase letter\nmasks to ``A``, so a shape names a format class, not a specific docket letter.\nIt tells us, concretely, which docket formats drive the \"Term not parseable\"\nbucket \u2014 i.e. exactly what the Term parser would need to handle to bring those\nevents into scope. A shape carrying fewer than ~100 open events is an accepted\nfragment: it stays visible here by design, and no exclusion predicate is added\nfor it.",
+      "description": "A docket-number *shape* and how many unparseable open events carry it.\n\nThe shape masks digits\u2192``9`` and letters\u2192``A``/``a`` (punctuation/space kept), so\n``01-7700`` \u2192 ``99-9999`` and ``22O141`` \u2192 ``99A999`` \u2014 every uppercase letter\nmasks to ``A``, so a shape names a format class, not a specific docket letter.\nIt tells us, concretely, which docket formats drive the \"Term not parseable\"\nbucket \u2014 i.e. exactly what the Term parser would need to handle to bring those\nevents into scope. A shape carrying fewer than ~100 open events is an accepted\nfragment: it stays visible here by design, and no exclusion predicate is added\nfor it.",
       "properties": {
         "count": {
           "default": 0,
@@ -42,7 +42,7 @@
           "type": "integer"
         },
         "reason": {
-          "description": "The exclusion reason, e.g. 'stale unresolvable \u2026 (#333)'",
+          "description": "The exclusion reason, e.g. 'stale unresolvable \u2026'",
           "title": "Reason",
           "type": "string"
         },
@@ -70,7 +70,7 @@
     },
     "ScopeUnclassified": {
       "additionalProperties": false,
-      "description": "Why an open SCOTUS event the scope did *not* exclude stays in scope (#343 signal).\n\nThe refinement surface: buckets the open events no predicate caught by the reason\neach is still in scope \u2014 a recent/current Term (legitimately pending), a docket\nTerm the parser cannot read (a format the predicate skips \u2192 a broadening\ncandidate), a recorded disposition the event-state missed, or no docket number.",
+      "description": "Why an open SCOTUS event the scope did *not* exclude stays in scope (refinement signal).\n\nThe refinement surface: buckets the open events no predicate caught by the reason\neach is still in scope \u2014 a recent/current Term (legitimately pending), a docket\nTerm the parser cannot read (a format the predicate skips \u2192 a broadening\ncandidate), a recorded disposition the event-state missed, or no docket number.",
       "properties": {
         "open_events": {
           "default": 0,
@@ -99,7 +99,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes (issue #343).\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction #309, stale\nunresolvable old SCOTUS petitions #333). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the seed-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
+  "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes.\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale\nunresolvable old SCOTUS petitions). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the seed-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
   "properties": {
     "corpus_rows": {
       "default": 0,
@@ -136,7 +136,7 @@
       "type": "boolean"
     },
     "unclassified": {
-      "description": "Open SCOTUS events no predicate excluded, bucketed by why (#343)",
+      "description": "Open SCOTUS events no predicate excluded, bucketed by why",
       "items": {
         "$ref": "#/$defs/ScopeUnclassified"
       },
@@ -144,7 +144,7 @@
       "type": "array"
     },
     "unparseable_docket_shapes": {
-      "description": "Top docket-number shapes in the 'Term not parseable' bucket \u2014 the concrete formats a parser broadening would target (#343); shapes under ~100 open events are accepted fragments, left visible here by design with no predicate chased for them",
+      "description": "Top docket-number shapes in the 'Term not parseable' bucket \u2014 the concrete formats a parser broadening would target; shapes under ~100 open events are accepted fragments, left visible here by design with no predicate chased for them",
       "items": {
         "$ref": "#/$defs/ScopeDocketShape"
       },

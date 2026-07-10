@@ -1,4 +1,4 @@
-"""The seed-side corpus reconcile for predict scope (issue #343).
+"""The seed-side corpus reconcile for predict scope.
 
 The write counterpart of the read-only scope audit (``validate.run_scope_audit``).
 Where the matrix gate excludes out-of-scope cases at *read time* and run-cleanup

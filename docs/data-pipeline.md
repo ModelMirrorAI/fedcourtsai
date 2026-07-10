@@ -64,11 +64,14 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
 
 ## The binding constraint: the CourtListener API budget
 
-CourtListener's authenticated REST throttle is **5 requests/minute, 50/hour,
-125/day** — concurrent limits, most-restrictive-wins (enforced locally by
-`courtlistener/ratelimit.py`). Higher limits require Free Law Project membership
-or a commercial agreement. At roughly **3 requests per docket** (1 docket + ~2
-pages of entries) the token can touch **~30 dockets/day**.
+CourtListener's REST API is throttled per token — the free authenticated tier
+allows 5 requests/minute, 50/hour, 125/day; the pilot's paid membership tier
+raises that (see [budget.md](budget.md) for the held tier and the math). The
+in-process governor (`courtlistener/ratelimit.py`) throttles to whatever
+ceilings the runner environment sets (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` /
+`_RPD`). At roughly **3 requests per docket** (1 docket + ~2 pages of entries)
+the budget is a few hundred dockets a day at most — and the supremecourt.gov
+live channel spends none of it.
 
 Because pull runs headless inside a CI job, budget pressure and a degraded
 upstream must **degrade a run, never hang it** — a silent stall gets the job
@@ -111,7 +114,7 @@ the budget constraint above.
 
 The pivot swaps the **channels**, never the **corpus**. The packed corpus and
 its point-in-time snapshots remain the system of record agents read — under
-the **leakage doctrine** (#525): *timing is the leakage control; the snapshot
+the **leakage doctrine**: *timing is the leakage control; the snapshot
 is the provisioned baseline, not a ceiling.* A **forward** cell uses everything
 practically available — the outcome does not exist yet, so nothing it can
 retrieve leaks it; the snapshot's job is comparability (every predictor in a
@@ -119,7 +122,7 @@ fan-out reads the same guaranteed-common baseline, so the tournament compares
 predictors, not fetch timing). A **replay** cell gets the *same tools* plus
 etiquette (the mode rides in `record/context.json`), harness-side retrieval
 logging (`retrieval_log.json`, read from the engine's own transcript), and
-evaluator grading (#526) — instead of walls. The replay/forward configuration
+evaluator grading — instead of walls. The replay/forward configuration
 difference is deliberately *behavioral, not technical* — a written decision:
 the dry run validates event formation, prompts, and scoring, not the forward
 stratum's evidence availability, and backtest results are iteration signal,
@@ -155,22 +158,17 @@ resolution clock — stayed.
 
 ## Pivot (July 2026): freeze the bulk-era channels, go live-first
 
-The live-sources track ([live-sources.md](live-sources.md), issues
-[#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)–[#474](https://github.com/ModelMirrorAI/fedcourtsai/issues/474)
-and
-[#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)–[#526](https://github.com/ModelMirrorAI/fedcourtsai/issues/526))
-made the bulk-era catch-up channels a dead end before the replica arrived: the
-supremecourt.gov docket JSON carries the dispositions, dates, and documents the
-CourtListener REST drip could not recover at any budget. What changed
-([#524](https://github.com/ModelMirrorAI/fedcourtsai/issues/524)):
+The live-sources track ([live-sources.md](live-sources.md)) made the bulk-era
+catch-up channels a dead end before the replica arrived: the supremecourt.gov
+docket JSON carries the dispositions, dates, and documents the CourtListener
+REST drip could not recover at any budget. What changed:
 
 - **The date backfill is deleted** (selector, `backfill_reserve`, the
   cert-shell feeder `backfill_unresolved_cert_min_term`, and the opinion-cluster
   hop). It was re-fetching dockets whose upstream records are stubs — every
   flagged case landed in an unresolvable reconcile issue. Its budget slice
   returns to the refresh rotation. The past-Term cert set it was meant to grow
-  now comes through the live channel instead
-  ([#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)).
+  now comes through the live channel instead (the `seed-live-terms` loader).
 - **The bulk-CSV seed path is frozen, not deleted** — kept as the fallback if
   the replica timeline slips (frozen ≠ broken: it still imports and passes
   tests). `run-seed`'s **default mode is now the past-Term cert loader**
@@ -181,21 +179,20 @@ CourtListener REST drip could not recover at any budget. What changed
   the committed `seed_live:` section of `config/tracking.yaml` is the sampling
   frame). The bulk path stays reachable via the `run:seed` label or dispatch
   mode=bulk. See [live-sources.md](live-sources.md).
-- **Pull is re-aimed as targeted enrichment.** The live channel
-  ([#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)) owns SCOTUS
+- **Pull is re-aimed as targeted enrichment.** The live channel owns SCOTUS
   freshness; pull's REST budget goes to keeping the SCOTUS-touched set's
   CourtListener records current — most importantly the originating CoA dockets
   the `predict_eligible` latch flags — rather than rotating the whole active
   set stalest-first as the primary freshness mechanism.
-- **`discover_new_filings` is off as of [#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)
-  adoption** (the decision recorded at the pivot): the live channel's frontier
+- **`discover_new_filings` is off as of the live channel's adoption** (the
+  decision recorded at the pivot): the live channel's frontier
   probing onboards newly filed SCOTUS petitions — fresher and budget-free —
   and circuit discovery onboarded cases the SCOTUS-touch gate won't predict
   for years. Its budget slice returned to the enrichment rotation.
 - **`run-reconcile` is paused** (workflow disabled) while the refactor decides
   its fate: with stub upstream records every reconcile agent run failed, and
-  [#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)'s
-  proceedings-text resolution should make most reconcile asks deterministic.
+  the live channel's proceedings-text resolution makes most resolutions
+  deterministic.
 
 Adoption also needs a terms review of the replication agreement itself; the
 access-gated, no-republication stance in [data-sources.md](data-sources.md)
@@ -216,14 +213,15 @@ cadence:
 
 | Axis            | seed (backfill)                         | pull (forward)                    |
 |-----------------|-----------------------------------------|-----------------------------------|
-| Source          | bulk S3 CSV                             | REST API                          |
-| Lifecycle       | finite — chunked **until complete**     | perpetual — runs daily forever    |
-| Budget          | ~0 API                                  | owns the 125/day budget           |
+| Source          | supremecourt.gov JSON (default loader); bulk S3 CSV (frozen mode) | REST API                          |
+| Lifecycle       | perpetual chunked walk (loader); finite until complete (bulk) | perpetual — runs daily forever    |
+| Budget          | ~0 API                                  | owns the CourtListener budget     |
 | Reporting       | long-lived `run:seed` issue, closed by a completion PR | short-lived `pull-log` issue per run |
-| Steady state    | drops to **quarterly** reconciliation   | stays **daily**                   |
+| Steady state    | **weekly** (the past-Term cert loader)  | stays **daily**                   |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a normalization
-layer where an API docket JSON and a bulk CSV row both become the same normalized
+layer where a CourtListener API docket, a bulk CSV row, and a supremecourt.gov
+docket JSON all become the same normalized
 row, then upsert into the packed corpus in `fedcourtsai.corpus`), shared
 dedup/cursor utilities, and shared PR plumbing. **Unify the
 library and the data, not the job.** Both ends write the same corpus, in the same
@@ -233,17 +231,20 @@ legible.
 
 ```
                 shared core (pipeline ingest + store + serialize)
-   API docket JSON ─┐
-   bulk CSV row    ─┴─►  one normalized corpus row
-   ┌───────────────────────┐
-   │ SEED (weekly→quarterly)│ bulk S3 ─► packed corpus (DVC) ─► back-testing, retrieval
-   │  no agent, no budget   │ cursor + run:seed tracking issue
-   └───────────────────────┘
-   ┌───────────────────────┐
-   │ PULL (daily, forever)  │ REST API (per-tier daily governor)
-   │  refresh + discover    │ ─► same packed corpus (DVC): fresh facts + snapshots
-   │  + outcome detect      │ ─► outcome.json + run:predict handoff in the git ledger
-   └───────────────────────┘
+   API docket JSON      ─┐
+   bulk CSV row          ┼─►  one normalized corpus row
+   live docket JSON     ─┘
+   ┌────────────────────────┐
+   │ SEED (weekly loader;    │ supremecourt.gov ─► packed corpus (DVC): the past-Term
+   │  bulk mode frozen)      │ cert set; per-Term cursors + run:seed tracking issue
+   └────────────────────────┘
+   ┌────────────────────────┐
+   │ PULL — pull job (4×/day)│ REST API (per-tier governor) ─► enrichment: fresh
+   │  refresh + outcome      │ facts + snapshots; outcome.json + handoffs (ledger)
+   ├────────────────────────┤
+   │ PULL — live job (4×/day)│ supremecourt.gov (budget-free) ─► discovery,
+   │  watchlist + documents  │ watchlist, outcomes, filed-document text
+   └────────────────────────┘
 ```
 
 ## Storage: one corpus, one ledger
@@ -324,7 +325,7 @@ its access without any long-lived key.
 
 `corpus/corpus.db` is one mutable SQLite blob behind one DVC pointer
 (`corpus/corpus.db.dvc`), and **two** workflows write it — `run-seed` (backfill /
-reconcile) and `run-pull` (forward refresh + discovery). A blob has no merge, so
+reconcile) and `run-pull` (its enrichment and live-poll jobs). A blob has no merge, so
 the pointer is last-writer-wins: if the two ran concurrently, or built on
 divergent bases, the second commit would silently drop the other's rows. Two rules
 prevent that:
@@ -597,29 +598,26 @@ for the real corpus the seed/pull workflows produce.
   not git — so the governor adds and maintains that column (the old
   `TrackedCase.last_pulled` git field was removed when seed/pull moved their raw
   output into the corpus).
-- **Three jobs over the shared core:**
+- **Two jobs over the shared core** (since the July 2026 pivot):
   1. **Refresh** active known cases (`pull_case`), ingesting fresh facts into the
      corpus through the shared core and queuing `run:predict` for changed cases
-     with open events.
-  2. **Discover** newly-filed cases since the last run (CourtListener search by
-     court + `date_filed`) → onboard into the corpus as a tracked case and run the
-     **event-definition stage** to record its predictable event(s). Each court is
-     searched from its **discovery watermark** (per-court tracking state in the
-     corpus): the newest `date_filed` onboarded so far, seeded by `seed` to the
-     bulk snapshot's date (see *Discovery frontier*). The watermark only moves
-     forward, so a run that finds nothing still records the date it searched from
-     and the next run resumes there — never resetting to the start default.
-  3. **Detect resolution** of tracked open events → write `outcome.json` to the
+     with open events. This is targeted CourtListener *enrichment* — most
+     importantly the originating CoA dockets the `predict_eligible` latch flags;
+     the supremecourt.gov live channel owns SCOTUS freshness.
+  2. **Detect resolution** of tracked open events → write `outcome.json` to the
      git ledger deterministically when the disposition is machine-readable (a
      concrete disposition, a decision date, and a single open event), and queue
-     `run:evaluate` for it. Anything ambiguous is **not** guessed: pull files a
-     `run:reconcile` issue and an agent (`run-reconcile`) confirms the outcome from
-     the snapshot, opens a PR recording `outcome.json`, and — when that PR merges —
-     queues `run:evaluate` for the settled events. The `run:reconcile` label routes
-     to that agent workflow, not back to this deterministic pull, so filing one
-     never re-runs a full refresh. Either path feeds `run:evaluate`.
-- **Quarterly bulk reconciliation is seed's job** — the completeness backstop for
-  anything daily pull could not reach within the budget.
+     `run:evaluate` for it. Anything ambiguous is **not** guessed: it lands on
+     the reconcile queue. The `run-reconcile` agent workflow that used to
+     consume that queue is **operationally paused** while the live channel —
+     whose proceedings text makes most resolutions deterministic — settles
+     reconcile's fate; the live job surfaces ambiguous resolutions on its daily
+     log instead of filing issues.
+- **CourtListener discovery is off** (`pull.discover_new_filings: false`, the
+  decision recorded at the pivot): the live channel's frontier probing onboards
+  newly filed SCOTUS petitions, and circuit discovery onboarded cases the
+  SCOTUS-touch gate would not predict for years. The watermark machinery below
+  remains implemented but dormant, and reactivates by flipping the flag.
 
 ## Event definition — deterministic, corpus-driven
 
@@ -648,12 +646,18 @@ stage maps qualifying docket entries → event definitions (`kind`,
   reference it, the event is recorded `resolved`; with no citation the stage does
   not guess, so the event stays predictable.
 - **Deterministic first, agent only if ambiguous.** An entry that reads like a
-  request but matches more than one `kind` is surfaced for an agent `run:reconcile`
-  issue (filed automatically by `run-pull`; see [pipeline.md](pipeline.md)) rather
-  than classified — the same deterministic-first / agent-fallback split resolution
-  detection uses. The default path runs no agent.
+  request but matches more than one `kind` is surfaced for triage rather than
+  classified — the same deterministic-first / agent-fallback split resolution
+  detection uses (see the reconcile pause note above). The default path runs no
+  agent.
 
 ## Discovery frontier — the seed → pull hand-off
+
+> **Dormant.** CourtListener forward discovery is off since the July 2026 pivot
+> (`pull.discover_new_filings: false`) — the live channel onboards SCOTUS
+> filings. The mechanics below stay correct and reactivate with the flag; they
+> also document the watermark semantics the live channel's per-Term cursors
+> mirror.
 
 Forward discovery searches each court from a per-court **discovery watermark** held
 in the corpus (tracking state, never git `data/`). For the hand-off from the bulk
@@ -682,12 +686,15 @@ seed; on its own it discovers nothing useful.
 
 ## Steady state
 
-Once backfill completes: history sits in the DVC corpus (refreshed quarterly from
-bulk); pull keeps the live frontier current daily within the API budget. Because
-seed hands off the snapshot date as the initial discovery watermark, the first
-forward pull onboards everything filed since the snapshot, so there is no gap
-between the backfill and the live frontier. The result is that, each day after pull
-runs, the tracked data is **complete as of that day**.
+History sits in the DVC corpus (the frozen bulk load plus the past-Term cert
+set the live-terms loader keeps growing). **SCOTUS freshness is the live
+channel's**: the run-pull `live` job polls supremecourt.gov four times a day —
+frontier probing onboards new petitions within a cycle, the watchlist refresh
+catches distributions and resolutions within days of the conference. Pull's
+four CourtListener windows spend the API budget on enrichment of the
+SCOTUS-touched set. The result is that the *prediction-relevant* slice — every
+pending petition and its originating docket — is complete to within one live
+cycle, while circuit breadth advances only as enrichment reaches it.
 
 ## Full refresh — rebuild the forward state without losing history
 

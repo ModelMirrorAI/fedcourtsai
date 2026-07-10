@@ -367,16 +367,16 @@ class AgentToolingFeedback(_Strict):
         default=None,
         max_length=20,
         description="The MCP server ids the cell was configured with, echoed from the "
-        "provisioned manifest (#525). Advisory (the agent's echo); the authoritative "
+        "provisioned manifest. Advisory (the agent's echo); the authoritative "
         "pinned manifest is recorded harness-side in retrieval_log.json.",
     )
 
 
 class RetrievalCall(_Strict):
-    """One tool invocation harvested from the engine's own transcript (#525).
+    """One tool invocation harvested from the engine's own transcript.
 
     Captured by the harness from the engine log — never the agent's word — so
-    the evaluator's leakage grading (#526) can see what a cell actually
+    the evaluator's leakage grading can see what a cell actually
     retrieved. Long parameters and results are digested, not stored: the log
     is an audit trail, not a content mirror.
     """
@@ -401,17 +401,17 @@ class RetrievalCall(_Strict):
     retrieved_doc_date: str | None = Field(
         default=None,
         description="A document/decision date parsed from the result, where one is legible "
-        "— the #526 evaluator's timing signal",
+        "— the leakage grading's timing signal",
     )
 
 
 class RetrievalLog(_Strict):
-    """``retrieval_log.json`` — the cell's tool-call transcript, harness-captured (#525).
+    """``retrieval_log.json`` — the cell's tool-call transcript, harness-captured.
 
     Rides to the collect job with the cell's output exactly as ``usage.json``
     does. Under the leakage doctrine, timing is the control: replay cells run
-    with the same tools as forward cells, and this log (plus the #526 evaluator
-    grading over it) replaces walls. ``mcp_servers`` snapshots the pinned tool
+    with the same tools as forward cells, and this log (plus the cross-evaluator's
+    leakage grading over it) replaces walls. ``mcp_servers`` snapshots the pinned tool
     manifest the cell was configured with — the pipeline-attribution record.
     """
 
@@ -422,7 +422,9 @@ class RetrievalLog(_Strict):
     actor_id: str = Field(description="The predictor/evaluator id whose cell this was")
     engine: Engine
     mode: str | None = Field(
-        default=None, description="The cell's provisioned mode: forward | replay; None pre-#525"
+        default=None,
+        description="The cell's provisioned mode: forward | replay; None on records "
+        "written before the mode field existed",
     )
     mcp_servers: list[str] = Field(
         default_factory=list,
@@ -782,7 +784,7 @@ class CorpusValidation(_Strict):
 class ScopeExclusion(_Strict):
     """One exclusion predicate's footprint among the corpus's open events."""
 
-    reason: str = Field(description="The exclusion reason, e.g. 'stale unresolvable … (#333)'")
+    reason: str = Field(description="The exclusion reason, e.g. 'stale unresolvable …'")
     cases: int = Field(default=0, ge=0, description="Distinct cases matched")
     open_events: int = Field(default=0, ge=0, description="Open (unresolved) events on those cases")
     recoverable: int = Field(
@@ -798,7 +800,7 @@ class ScopeExclusion(_Strict):
 
 
 class ScopeUnclassified(_Strict):
-    """Why an open SCOTUS event the scope did *not* exclude stays in scope (#343 signal).
+    """Why an open SCOTUS event the scope did *not* exclude stays in scope (refinement signal).
 
     The refinement surface: buckets the open events no predicate caught by the reason
     each is still in scope — a recent/current Term (legitimately pending), a docket
@@ -812,7 +814,7 @@ class ScopeUnclassified(_Strict):
 
 
 class ScopeDocketShape(_Strict):
-    """A docket-number *shape* and how many unparseable open events carry it (#343).
+    """A docket-number *shape* and how many unparseable open events carry it.
 
     The shape masks digits→``9`` and letters→``A``/``a`` (punctuation/space kept), so
     ``01-7700`` → ``99-9999`` and ``22O141`` → ``99A999`` — every uppercase letter
@@ -829,11 +831,11 @@ class ScopeDocketShape(_Strict):
 
 
 class CorpusScopeAudit(_Strict):
-    """``corpus-scope-audit`` verdict: open events the predict scope excludes (issue #343).
+    """``corpus-scope-audit`` verdict: open events the predict scope excludes.
 
     A read-only census of the corpus's still-**open** events whose case an exclusion
-    predicate drops at the matrix gate (pre-1925 mandatory jurisdiction #309, stale
-    unresolvable old SCOTUS petitions #333). These sit open in the corpus forever
+    predicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale
+    unresolvable old SCOTUS petitions). These sit open in the corpus forever
     because nothing resolves them, so they are the candidates for the seed-side
     corpus reconcile (resolve if recoverable, else latch out of scope). The
     ``recoverable`` split is what tells those two paths apart. ``skipped`` is set
@@ -856,12 +858,12 @@ class CorpusScopeAudit(_Strict):
     )
     unclassified: list[ScopeUnclassified] = Field(
         default_factory=list,
-        description="Open SCOTUS events no predicate excluded, bucketed by why (#343)",
+        description="Open SCOTUS events no predicate excluded, bucketed by why",
     )
     unparseable_docket_shapes: list[ScopeDocketShape] = Field(
         default_factory=list,
         description="Top docket-number shapes in the 'Term not parseable' bucket — the "
-        "concrete formats a parser broadening would target (#343); shapes under ~100 "
+        "concrete formats a parser broadening would target; shapes under ~100 "
         "open events are accepted fragments, left visible here by design with no "
         "predicate chased for them",
     )
@@ -1027,7 +1029,7 @@ class StatPack(_Strict):
 
 
 class ScopeReconcileResult(_Strict):
-    """``reconcile-scope`` result: what the seed scope reconcile changed (issue #343).
+    """``reconcile-scope`` result: what the seed scope reconcile changed.
 
     The write counterpart of :class:`CorpusScopeAudit`: it sets the ``predict_excluded``
     latch on cases an exclusion predicate now matches and clears it on cases that have
@@ -1220,7 +1222,7 @@ class OpsReport(_Strict):
     )
     scope_audit: CorpusScopeAudit | None = Field(
         default=None,
-        description="Census of open events the predict scope excludes (#343), when available",
+        description="Census of open events the predict scope excludes, when available",
     )
     open_triggers: list[OpenTriggerIssue] | None = Field(
         default=None,
@@ -1274,7 +1276,7 @@ _MODEL_ID_PATTERN = r"^[A-Za-z0-9._:-]+$"
 
 
 class McpServerConfig(_Strict):
-    """One MCP server in the tool manifest (``mcp_servers:`` in the registry, #525).
+    """One MCP server in the tool manifest (``mcp_servers:`` in the registry).
 
     The manifest is the pipeline-attribution record once cells' retrieval
     varies: it pins exactly which retrieval tooling a cell was configured with
@@ -1310,7 +1312,7 @@ class PredictorConfig(_Strict):
     mcp_servers: list[str] = Field(
         default_factory=list,
         description="Manifest ids (see `mcp_servers:` in the same file) this predictor's "
-        "cells are configured with (#525). Explicit per predictor — attribution, not a default.",
+        "cells are configured with. Explicit per predictor — attribution, not a default.",
     )
 
 
@@ -1325,7 +1327,7 @@ class EvaluatorConfig(_Strict):
     description: str | None = None
     mcp_servers: list[str] = Field(
         default_factory=list,
-        description="Manifest ids this evaluator's cells are configured with (#525).",
+        description="Manifest ids this evaluator's cells are configured with.",
     )
 
 

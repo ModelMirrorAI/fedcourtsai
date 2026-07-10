@@ -78,7 +78,7 @@ class CorpusRow(BaseModel):
         default=None,
         description="The SCOTUS conference this petition is currently distributed for "
         "(the latest 'DISTRIBUTED for Conference of …' proceedings entry; a "
-        "re-distribution updates it). Live-channel only (#473); None elsewhere.",
+        "re-distribution updates it). Live-channel only; None elsewhere.",
     )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
@@ -360,7 +360,7 @@ def from_bulk_row(row: Mapping[str, Any]) -> CorpusRow:
     return _normalize(row, CorpusSource.bulk)
 
 
-# --- the SCOTUS live channel (supremecourt.gov docket JSON, #472) ---------------
+# --- the SCOTUS live channel (supremecourt.gov docket JSON) ---------------
 
 # The lower-court names the docket JSON's `LowerCourt` uses for the tracked
 # federal courts of appeals, mapped to CourtListener court ids so the live
@@ -398,7 +398,7 @@ def _live_conference_date(entries: list[dict[str, Any]]) -> date | None:
 
     The **last** distribution entry in docket order wins: a relisted or
     re-scheduled petition gets a fresh "DISTRIBUTED for Conference of …" entry
-    per conference, and the latest one is its current membership (#473). An
+    per conference, and the latest one is its current membership. An
     unparseable date degrades to the previous match, never a crash.
     """
     conference: date | None = None

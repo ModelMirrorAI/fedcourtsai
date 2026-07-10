@@ -18,11 +18,11 @@ seed:
   cursor: config/seed-progress.yaml
 
 # pull = targeted CourtListener enrichment from the rate-limited REST API. Owns
-# the API budget. Since the live-sources pivot (July 2026, issues #472/#524) the
+# the API budget. Since the live-sources pivot (July 2026) the
 # supremecourt.gov channel owns SCOTUS freshness; pull's budget goes to keeping
 # the SCOTUS-touched set's CourtListener records current — most importantly the
 # originating CoA dockets the predict_eligible latch flags — not to draining
-# bulk-era gaps (the date backfill was decommissioned with #524).
+# bulk-era gaps (the date backfill was decommissioned in that pivot).
 # The per-request rate limits the client throttles to are NOT set here: they live
 # in the runner env (FEDCOURTS_COURTLISTENER_RPM/_RPH/_RPD, wired from repo
 # variables to the active Free Law Project tier — see docs/budget.md). The caps
@@ -44,9 +44,9 @@ pull:
   # enough to fill it, which is exactly when the pilot should get priority.
   eligible_refresh_reserve: 20
   # Discover newly-filed dockets in the tracked courts since the last run.
-  # OFF as of #472 adoption, per the decision recorded with the July 2026 pivot
-  # (#524): the live channel's frontier probing now onboards newly filed SCOTUS
-  # petitions (fresher, budget-free), and circuit discovery onboarded cases the
+  # OFF as of the July 2026 pivot: the live channel's frontier probing now
+  # onboards newly filed SCOTUS petitions (fresher, budget-free), and circuit
+  # discovery onboarded cases the
   # SCOTUS-touch gate won't predict for years. Its budget slice returns to the
   # enrichment rotation. Flip back on if the live channel is ever paused.
   discover_new_filings: false
@@ -69,7 +69,7 @@ pull:
   # Only trigger run-predict when a pull detects new docket activity.
   predict_on_change_only: true
 
-# live = the SCOTUS live channel (#472): supremecourt.gov per-docket JSON. Owns
+# live = the SCOTUS live channel: supremecourt.gov per-docket JSON. Owns
 # SCOTUS freshness since the July 2026 pivot. No API budget — these caps bound
 # per-cycle wall clock and upstream politeness (~1 req/s), not spend.
 live:
@@ -85,13 +85,13 @@ live:
   throttle_seconds: 1.0
   # Consecutive 404s that mark a numbering stream's current frontier.
   frontier_misses: 2
-  # Per-document cap on extracted text stored in the corpus (#474): ~40 dense
+  # Per-document cap on extracted text stored in the corpus: ~40 dense
   # pages. Documents (petition, questions presented, BIO) are fetched on the
   # same distribution transition that queues predict; the cap bounds DVC blob
   # growth, and a truncated document is flagged in its provisioning manifest.
   document_text_cap: 150000
   # Predict timing is not configured here: the live channel queues run:predict
-  # on a DISTRIBUTION TRANSITION (#473) — a petition newly distributed for a
+  # on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
   # pull.predict_on_change_only. It replaced the interim predict_on_refresh
   # spend guard; max_cases_per_run above still bounds worst-case daily volume.

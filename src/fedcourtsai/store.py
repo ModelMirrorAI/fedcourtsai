@@ -82,8 +82,8 @@ def open_events(
     should target. Empty (not created) if the local corpus does not exist yet;
     ``backend`` selects the read backend (see :func:`corpus.connect_readonly`).
 
-    A case the seed reconcile has latched **out of scope** (``predict_excluded``,
-    issue #343) yields no predictable events here — so a stale/unresolvable or
+    A case the seed reconcile has latched **out of scope** (``predict_excluded``)
+    yields no predictable events here — so a stale/unresolvable or
     inconsistent case is dropped at the source, not just at the read-time matrix
     gate. The reconcile clears the latch if the case ever returns to scope.
     """

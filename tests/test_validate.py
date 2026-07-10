@@ -95,16 +95,16 @@ def _seed_scope_corpus(db: Path) -> None:
         corpus.upsert_rows(
             conn,
             [
-                # Stale-unresolvable (#333), recoverable — carries a citation signal.
+                # Stale-unresolvable, recoverable — carries a citation signal.
                 corpus.CorpusRow(
                     case_id="scotus/1004191",
                     court="scotus",
                     docket_number="01-7700",
                     citations=["537 U.S. 1"],
                 ),
-                # Stale-unresolvable (#333), bare — no recoverability signal.
+                # Stale-unresolvable, bare — no recoverability signal.
                 corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number="93-7515"),
-                # Historical-mandatory (#309), bare.
+                # Historical-mandatory, bare.
                 corpus.CorpusRow(case_id="scotus/1001931", court="scotus", docket_number="801"),
                 # In scope: a recent open petition — counts toward the denominator only.
                 corpus.CorpusRow(case_id="scotus/2400001", court="scotus", docket_number="24-101"),
@@ -112,7 +112,7 @@ def _seed_scope_corpus(db: Path) -> None:
                 corpus.CorpusRow(case_id="scotus/1005000", court="scotus", docket_number="00-100"),
                 # A lower court open event — excluded (predicates are SCOTUS-only).
                 corpus.CorpusRow(case_id="ca9/9", court="ca9", docket_number="9"),
-                # Bare opinion-import (#438): every row field empty, but the
+                # Bare opinion-import: every row field empty, but the
                 # snapshot below links an opinion cluster.
                 corpus.CorpusRow(case_id="scotus/1038466", court="scotus"),
             ],
@@ -152,14 +152,14 @@ def test_run_scope_audit_tallies_open_exclusions_with_recoverable_split(tmp_path
     assert audit.scotus_open_events == 5
     by_reason = {e.reason: e for e in audit.exclusions}
     assert set(by_reason) == {
-        "pre-1925 mandatory-jurisdiction matter (#309)",
-        "stale unresolvable old SCOTUS petition (#333)",
+        "pre-1925 mandatory-jurisdiction matter",
+        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
         corpus.BARE_OPINION_IMPORT_REASON,
     }
-    stale = by_reason["stale unresolvable old SCOTUS petition (#333)"]
+    stale = by_reason["stale unresolvable old SCOTUS petition (pre-2015 Term, still open)"]
     assert (stale.cases, stale.open_events, stale.recoverable) == (2, 2, 1)
     assert stale.sample_cases == ["scotus/1004191", "scotus/1004289"]
-    hist = by_reason["pre-1925 mandatory-jurisdiction matter (#309)"]
+    hist = by_reason["pre-1925 mandatory-jurisdiction matter"]
     assert (hist.cases, hist.open_events, hist.recoverable) == (1, 1, 0)
     # The bare opinion-import class is recoverable by construction (the linked
     # cluster is the ingestion-gap hint).
@@ -212,7 +212,7 @@ def test_run_scope_audit_buckets_unclassified_by_reason(tmp_path: Path) -> None:
         "no docket number": 1,
     }
     # The two unparseable dockets share a shape, so the histogram counts it once at 2 —
-    # the concrete format (#343) a parser broadening would target.
+    # the concrete format a parser broadening would target.
     assert {s.shape: s.count for s in audit.unparseable_docket_shapes} == {
         "Aa. 999; Aa. 99-9999": 2
     }
@@ -437,7 +437,7 @@ def test_future_decided_date_fails(tmp_path: Path) -> None:
 
 
 def test_decided_before_filed_within_baseline_passes(tmp_path: Path) -> None:
-    # A `date_decided < date_filed` row is a faithful upstream quirk (#171); within
+    # A `date_decided < date_filed` row is a faithful upstream quirk; within
     # the accepted baseline the check passes but still records the true count, so the
     # monitor can read it.
     db = tmp_path / "corpus.db"
@@ -459,7 +459,7 @@ def test_decided_before_filed_above_baseline_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # A material climb above the accepted floor must still fail — the regression
-    # signal #171 relies on. Drop the baseline to 0 so a single bad row trips it.
+    # signal the date-order monitor relies on. Drop the baseline to 0 so a single bad row trips it.
     monkeypatch.setattr("fedcourtsai.validate._CASE_DATE_ORDER_BASELINE", 0)
     db = tmp_path / "corpus.db"
     _seed_corpus(db)
@@ -769,8 +769,8 @@ def test_cli_scope_audit_writes_audit_and_summary(tmp_path: Path) -> None:
     audit = read_model(out, CorpusScopeAudit)
     assert audit.scotus_open_events == 5
     assert {e.reason for e in audit.exclusions} == {
-        "pre-1925 mandatory-jurisdiction matter (#309)",
-        "stale unresolvable old SCOTUS petition (#333)",
+        "pre-1925 mandatory-jurisdiction matter",
+        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
         corpus.BARE_OPINION_IMPORT_REASON,
     }
 

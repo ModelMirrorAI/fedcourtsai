@@ -161,7 +161,7 @@ def test_open_and_resolved_events_partition_corpus_events(tmp_path: Path) -> Non
 
 
 def test_open_events_drops_a_predict_excluded_case(tmp_path: Path) -> None:
-    # A case the scope reconcile latched out of scope (#343) yields no predictable
+    # A case the scope reconcile latched out of scope yields no predictable
     # events, so it leaves the predict/queueing universe at the source.
     db = corpus.corpus_db_path(tmp_path)
     with corpus.connect(db) as conn:

@@ -39,7 +39,7 @@
       "type": "string"
     },
     "mcp_servers": {
-      "description": "Manifest ids (see `mcp_servers:` in the same file) this predictor's cells are configured with (#525). Explicit per predictor \u2014 attribution, not a default.",
+      "description": "Manifest ids (see `mcp_servers:` in the same file) this predictor's cells are configured with. Explicit per predictor \u2014 attribution, not a default.",
       "items": {
         "type": "string"
       },

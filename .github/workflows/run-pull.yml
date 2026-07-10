@@ -3,7 +3,7 @@ name: run-pull
 # Refresh tracked dockets — two writer jobs on one surface, at most one per run:
 #
 # - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label): since
-#   the July 2026 pivot (#524, docs/data-pipeline.md "Pivot"), targeted
+#   the July 2026 pivot (docs/data-pipeline.md "Pivot"), targeted
 #   CourtListener *enrichment* for the SCOTUS-touched set — most importantly the
 #   originating CoA dockets the predict_eligible latch flags — not the primary
 #   freshness mechanism. CourtListener discovery is now off (`pull.
@@ -11,7 +11,7 @@ name: run-pull
 #   channel owns SCOTUS onboarding, and circuit discovery onboarded cases the
 #   SCOTUS-touch gate would not predict for years.
 # - `live` (the `47 *` crons or dispatch mode=live): the SCOTUS live channel
-#   (#472, docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
+#   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
 #   re-polls the pending watchlist. No CourtListener token, no API budget; the
 #   same corpus-writer plumbing (DVC push, pointer commit, queue handoffs).
@@ -50,7 +50,7 @@ on:
     - cron: "17 19 * * *"
     # Four live windows/day, interleaved between the pull windows so the two
     # corpus writers rarely even queue on the shared lock. Budget-free
-    # (supremecourt.gov), so cadence is a freshness/politeness choice — #473's
+    # (supremecourt.gov), so cadence is a freshness/politeness choice — the
     # conference watchlist will retune it around the cert calendar.
     - cron: "47 4 * * *"
     - cron: "47 10 * * *"
@@ -69,7 +69,7 @@ on:
 permissions: {}
 
 # Shared with run-seed: both workflows write the single corpus.db pointer, so they
-# run under ONE lock to serialize corpus writers and prevent lost updates (#42).
+# run under ONE lock to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
 # Only a run that will actually write the corpus joins the shared group: every
 # `issues: labeled` event spawns a run of BOTH this workflow and run-seed (the
@@ -388,7 +388,7 @@ jobs:
           if [ "${IS_FINAL_WINDOW}" = "true" ]; then
             gh issue close "$ISSUE" --repo "$REPO" --reason completed
           fi
-          # Ops analytics (#89): the same summary in the Actions UI, no roll-up needed.
+          # Ops analytics: the same summary in the Actions UI, no roll-up needed.
           {
             echo "## run-pull — $(date -u +%Y-%m-%d)"
             echo "$snap"
@@ -401,7 +401,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   live:
-    # The SCOTUS live channel (#472, docs/live-sources.md): `fedcourts live-poll`
+    # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
     # probes supremecourt.gov docket JSON for newly docketed petitions and
     # re-polls the pending watchlist — no CourtListener token, no API budget.
     # Same corpus-writer shape and privileges as `pull` (App token + the

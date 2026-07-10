@@ -63,7 +63,7 @@ class EventPaths:
         return self.prediction_dir(predictor_id, run_id) / "usage.json"
 
     def prediction_retrieval_log(self, predictor_id: str, run_id: str) -> Path:
-        # The harness-captured tool-call transcript (#525), beside usage.json.
+        # The harness-captured tool-call transcript, beside usage.json.
         return self.prediction_dir(predictor_id, run_id) / "retrieval_log.json"
 
     def evaluation_usage(self, evaluator_id: str, run_id: str) -> Path:
@@ -73,7 +73,7 @@ class EventPaths:
         return self.base / "evaluations" / evaluator_id / run_id / "usage.json"
 
     def evaluation_retrieval_log(self, evaluator_id: str, run_id: str) -> Path:
-        # The harness-captured tool-call transcript (#525), keyed like its usage.
+        # The harness-captured tool-call transcript, keyed like its usage.
         return self.base / "evaluations" / evaluator_id / run_id / "retrieval_log.json"
 
     def evaluation_flags(self, evaluator_id: str, run_id: str) -> Path:
@@ -117,7 +117,7 @@ class CasePaths:
 
     @property
     def cell_context(self) -> Path:
-        # The cell's provisioned mode (`{"mode": "forward" | "replay", ...}`, #525):
+        # The cell's provisioned mode (`{"mode": "forward" | "replay", ...}`):
         # written at provisioning so the prompt contract can key etiquette on it.
         # Gitignored with the rest of record/.
         return self.record / "context.json"
@@ -125,7 +125,7 @@ class CasePaths:
     @property
     def documents_dir(self) -> Path:
         # Provisioning location for the case's fetched filed-document text
-        # (petition, questions presented, BIO — #474), materialized from the
+        # (petition, questions presented, BIO), materialized from the
         # corpus alongside the snapshot. Gitignored like everything in record/.
         return self.record / "documents"
 

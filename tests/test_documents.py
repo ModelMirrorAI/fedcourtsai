@@ -1,4 +1,4 @@
-"""Petition-document provisioning (#474): selection, extraction, fetch, cell layout."""
+"""Petition-document provisioning: selection, extraction, fetch, cell layout."""
 
 from __future__ import annotations
 

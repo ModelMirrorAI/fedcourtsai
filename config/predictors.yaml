@@ -11,9 +11,9 @@
 #                fedcourtsai.pricing.DEFAULT_MODELS, e.g. claude-fable-5)
 #   prompt:      repo-relative path to the prompt template
 #   enabled:     skipped when false
-#   mcp_servers: manifest ids (below) this predictor's cells get (#525)
+#   mcp_servers: manifest ids (below) this predictor's cells get
 
-# Tool manifest (#525): the pinned MCP servers cells may be configured with,
+# Tool manifest: the pinned MCP servers cells may be configured with,
 # referenced per predictor by id. This is the pipeline-attribution record once
 # cells' retrieval varies — each cell's retrieval_log.json snapshots the pinned
 # entries it ran with. FREEZE before the September prediction freeze. Fields
@@ -33,7 +33,8 @@ mcp_servers:
     description: >-
       Official CourtListener MCP: search, endpoint access, and citation tools
       over the full legal database. Retrieval under the leakage doctrine —
-      timing is the control; the #526 evaluator grades replay-cell usage.
+      timing is the control; the cross-evaluator's leakage grading covers
+      replay-cell usage.
 
 predictors:
   - id: claude-baseline

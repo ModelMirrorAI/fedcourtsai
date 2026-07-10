@@ -3,7 +3,7 @@
 The registries are the routing table for the multi-agent ``run-predict`` and
 ``run-evaluate`` workflows: each enabled entry becomes one matrix job. Adding a
 new competing predictor is a one-line config change (and, later, the output of
-the hypothesis-generation harness). Since #525 each registry also carries the
+the hypothesis-generation harness). Each registry also carries the
 **tool manifest** (``mcp_servers:``) — the pinned MCP servers its actors'
 cells are configured with, referenced per actor by id.
 """
@@ -36,11 +36,11 @@ def enabled_evaluators(path: Path) -> list[EvaluatorConfig]:
 
 
 def load_mcp_servers(path: Path) -> list[McpServerConfig]:
-    """The tool manifest (``mcp_servers:``) from a registry file (#525).
+    """The tool manifest (``mcp_servers:``) from a registry file.
 
     Lives in the same file as the actor entries that reference it by id, so an
     actor's retrieval configuration is one reviewable diff. A missing section
-    means an empty manifest (pre-#525 registries stay valid).
+    means an empty manifest (registries written before the manifest existed stay valid).
     """
     data = yaml.safe_load(path.read_text()) or {}
     return [McpServerConfig.model_validate(s) for s in data.get("mcp_servers", [])]

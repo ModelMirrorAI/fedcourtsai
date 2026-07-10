@@ -49,7 +49,7 @@ def test_scotus_baseline_is_a_petition() -> None:
 def test_scotus_administrative_motions_extract_no_event() -> None:
     # Extensions of time (and IFP/amicus leave) are filed on nearly every
     # petition and granted as a matter of course — an open event for each would
-    # drag decided cases into the predict queue forever (#472). Substantive
+    # drag decided cases into the predict queue forever. Substantive
     # applications still extract.
     docket = _docket(
         [
@@ -65,7 +65,7 @@ def test_scotus_administrative_motions_extract_no_event() -> None:
 def test_scotus_petition_entry_collapses_into_the_baseline() -> None:
     # At SCOTUS the petition *is* the case: the cert-petition filing entry must
     # not mint a second open petition event beside evt-petition-disposition, or
-    # every deterministic resolution turns two-events-ambiguous (#472). A stay
+    # every deterministic resolution turns two-events-ambiguous. A stay
     # motion on the same docket still extracts as its own event.
     docket = _docket(
         [

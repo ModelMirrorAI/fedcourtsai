@@ -103,7 +103,7 @@ def test_pull_stamps_last_pulled_in_corpus(tmp_path: Path) -> None:
 
 
 def test_refresh_extracts_a_post_onboarding_motion(tmp_path: Path) -> None:
-    # Issue #372: a refresh re-extracts events, so a stay motion filed after the
+    # A refresh re-extracts events, so a stay motion filed after the
     # case was onboarded becomes a tracked predictable event — not just the
     # case-level baseline present at discovery.
     db = corpus.corpus_db_path(tmp_path / "corpus")
@@ -224,7 +224,7 @@ def test_in_predict_scope_excludes_eligible_but_out_of_scope_cases(tmp_path: Pat
                     docket_number="24-101",
                     predict_eligible=True,
                 ),
-                # eligible but stale-unresolvable (#333) -> out of scope
+                # eligible but stale-unresolvable -> out of scope
                 corpus.CorpusRow(
                     case_id="scotus/2",
                     court="scotus",
@@ -234,7 +234,7 @@ def test_in_predict_scope_excludes_eligible_but_out_of_scope_cases(tmp_path: Pat
                 # SCOTUS-touched but not eligible -> out (the existing latch)
                 corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24-9"),
                 # eligible but a bare bulk-import row whose snapshot links an
-                # opinion cluster (#438) -> out via the snapshot-aware rule
+                # opinion cluster -> out via the snapshot-aware rule
                 corpus.CorpusRow(case_id="scotus/4", court="scotus", predict_eligible=True),
             ],
         )
