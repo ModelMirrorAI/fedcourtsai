@@ -85,13 +85,11 @@ live:
   throttle_seconds: 1.0
   # Consecutive 404s that mark a numbering stream's current frontier.
   frontier_misses: 2
-  # Interim spend guard: refresh-driven polls record facts (snapshots, outcomes)
-  # but do NOT queue run:predict — the first rotation sweeps touch every
-  # pending-looking OT2017+ shell, and each genuinely pending petition would
-  # otherwise fire a paid predict fan-out with no timing logic behind it. Newly
-  # DISCOVERED petitions always queue predict. #473's conference watchlist
-  # replaces this knob with the real trigger (predict on distribution).
-  predict_on_refresh: false
+  # Predict timing is not configured here: the live channel queues run:predict
+  # on a DISTRIBUTION TRANSITION (#473) — a petition newly distributed for a
+  # conference, or relisted to a new one — the cert-calendar analogue of
+  # pull.predict_on_change_only. It replaced the interim predict_on_refresh
+  # spend guard; max_cases_per_run above still bounds worst-case daily volume.
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The

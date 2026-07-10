@@ -24,8 +24,10 @@ reserved-range live id. Raw JSON is stored as the dated snapshot — the same
 store, change detection, and provisioning surface as every other channel.
 
 Queue handoffs reuse pull's shapes (:class:`~fedcourtsai.pipeline.pull.PullQueues`):
-a changed in-scope case with open events queues ``predict``, a newly resolved
-one queues ``evaluate``, an ambiguous resolution queues ``reconcile``.
+an in-scope petition queues ``predict`` on a **distribution transition** —
+newly distributed for a conference, or relisted to a new one — the cert-calendar
+analogue of ``predict_on_change_only`` (#473); a newly resolved case queues
+``evaluate``; an ambiguous resolution queues ``reconcile``.
 """
 
 from __future__ import annotations
@@ -64,6 +66,10 @@ class LiveResult:
     resolved: list[str]
     reconcile_events: list[str]
     reconcile_reason: str | None = None
+    # The conference this petition is distributed for after this poll (#473).
+    # The caller compares it against the pre-poll value: a transition (fresh
+    # distribution or a relist's new date) is the predict trigger.
+    distributed: date | None = None
 
 
 @dataclass
@@ -138,6 +144,7 @@ def ingest_live_payload(
         resolved=sorted(resolution.outcomes),
         reconcile_events=[r.event_id for r in resolution.reconciles],
         reconcile_reason=resolution.reconciles[0].reason if resolution.reconciles else None,
+        distributed=row.distributed_for_conference,
     )
 
 
@@ -202,17 +209,20 @@ def poll_live_cases(
     due: list[corpus.CorpusRow],
     *,
     scope: PredictScope = PredictScope.all,
-    queue_predict: bool = True,
     today: date,
 ) -> PullQueues:
     """Refresh each due pending petition and sort it into the handoff queues.
 
-    Mirrors ``pull_cases``' routing exactly — a changed in-scope case with open
-    events to ``predict``, newly recorded outcomes to ``evaluate``, ambiguous
-    resolutions to ``reconcile`` (ungated: ground truth, not prediction spend).
-    A petition whose docket JSON has vanished (404 on a previously served
-    number) is recorded on ``failed`` and its ``last_live_polled`` still
-    advances via the row upsert path — it must not pin the rotation's front.
+    The predict handoff fires on a **distribution transition** — the petition is
+    newly distributed for a conference, or a relist moved its date — the live
+    analogue of ``pull.predict_on_change_only`` tuned to the cert calendar
+    (#473): distribution is the signal that resolution is imminent and the
+    record is complete enough to predict. Outcomes (``evaluate``) and ambiguous
+    resolutions (``reconcile``) route unconditionally — ground truth, not
+    prediction spend. A petition whose docket JSON has vanished (404 on a
+    previously served number) is recorded on ``failed`` and its
+    ``last_live_polled`` still advances via the row upsert path — it must not
+    pin the rotation's front.
     """
     queues = PullQueues()
     gated = scope == PredictScope.scotus_touched
@@ -246,7 +256,13 @@ def poll_live_cases(
             )
             continue
         result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
-        _route_result(queues, corpus_db_path, result, gated=gated, queue_predict=queue_predict)
+        # The transition test: `row` is the pre-poll corpus row, so a fresh
+        # distribution (None -> date) and a relist (date -> new date) both
+        # trigger; an unchanged membership does not, however else the docket moved.
+        transitioned = (
+            result.distributed is not None and result.distributed != row.distributed_for_conference
+        )
+        _route_result(queues, corpus_db_path, result, gated=gated, queue_predict=transitioned)
     return queues
 
 
@@ -256,13 +272,13 @@ def _route_result(
     result: LiveResult,
     *,
     gated: bool,
-    queue_predict: bool = True,
+    queue_predict: bool,
 ) -> None:
     """Sort one poll result into the handoff queues (pull's routing, verbatim).
 
-    ``queue_predict=False`` suppresses only the predict handoff — the interim
-    spend guard (``live.predict_on_refresh``): outcomes and reconcile signals
-    are ground truth and always route.
+    ``queue_predict`` is the caller's distribution-transition verdict (#473) —
+    it gates only the predict handoff; outcomes and reconcile signals are
+    ground truth and always route.
     """
     docket_id = int(result.case_id.rsplit("/", 1)[-1])
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
@@ -296,16 +312,15 @@ def live_poll_all(
 
     ``config`` (the ``live:`` section of ``tracking.yaml``) carries the cycle's
     caps and politeness knobs. Discovery runs first so a petition docketed since
-    the last cycle is onboarded — and, like any changed in-scope case with open
-    events, queued for prediction — this same cycle. A case discovery just
-    ingested is excluded from the refresh rotation (its poll is seconds old;
-    re-fetching it would only spend cadence), and its result is routed through
-    the identical queue logic instead.
+    the last cycle is onboarded this same cycle; a case discovery just ingested
+    is excluded from the refresh rotation (its poll is seconds old; re-fetching
+    it would only spend cadence), and its result is routed through the identical
+    queue logic instead.
 
-    Refresh-driven polls queue predict only when ``config.predict_on_refresh``
-    is on (default off — the interim spend guard until #473's
-    distribution-triggered watchlist times predictions properly); newly
-    discovered petitions always queue.
+    Predict timing is the distribution trigger everywhere (#473): a freshly
+    onboarded petition queues predict only if it is already distributed for a
+    conference (frontier catch-up); an undistributed one simply enters the
+    watchlist, and the refresh queues it when its distribution lands.
     """
     discovery = discover_live(
         client,
@@ -319,7 +334,15 @@ def live_poll_all(
     queues = PullQueues()
     gated = scope == PredictScope.scotus_touched
     for onboarded in discovery.onboarded:
-        _route_result(queues, corpus_db_path, onboarded, gated=gated)
+        # A brand-new row has no prior membership, so "distributed at all" is
+        # the transition test for the discovery path.
+        _route_result(
+            queues,
+            corpus_db_path,
+            onboarded,
+            gated=gated,
+            queue_predict=onboarded.distributed is not None,
+        )
 
     fresh = set(discovery.case_ids)
     max_cases = config.max_cases_per_run
@@ -331,15 +354,7 @@ def live_poll_all(
             )
             if row.case_id not in fresh
         ][:max_cases]
-    refreshed = poll_live_cases(
-        client,
-        corpus_db_path,
-        data_root,
-        due,
-        scope=scope,
-        queue_predict=config.predict_on_refresh,
-        today=today,
-    )
+    refreshed = poll_live_cases(client, corpus_db_path, data_root, due, scope=scope, today=today)
     queues.predict.extend(refreshed.predict)
     queues.evaluate.extend(refreshed.evaluate)
     queues.reconcile.extend(refreshed.reconcile)
