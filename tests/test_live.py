@@ -1,0 +1,439 @@
+"""The SCOTUS live channel (#472): client, mapping, identity, discovery, poll."""
+
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+
+from fedcourtsai import corpus, supremecourt
+from fedcourtsai.cert_backtest import redact_snapshot
+from fedcourtsai.config import LiveConfig, load_live_config
+from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.ingest import CorpusSource, from_live_docket, to_corpus_row
+from fedcourtsai.pipeline.live import (
+    discover_live,
+    ingest_live_payload,
+    live_poll_all,
+)
+from fedcourtsai.supremecourt import (
+    SupremeCourtClient,
+    current_october_term,
+    is_live_docket_id,
+    live_docket_id,
+    parse_scotus_docket_number,
+)
+
+# --- payload fixtures (trimmed real shapes, per docs/live-sources-probe.md) -----
+
+
+def _payload(
+    number: str = "25-100",
+    *,
+    proceedings: list[dict[str, Any]] | None = None,
+    respondent_title: str | None = "Roe, Respondent",
+) -> dict[str, Any]:
+    return {
+        "CaseNumber": f"{number} ",  # the JSON carries a trailing space
+        "bCapitalCase": False,
+        "sJsonCaseType": "Paid",
+        "sJsonTerm": "2025",
+        "sJsonCreationDate": "07/10/2026",
+        "DocketedDate": "June 2, 2026",
+        "PetitionerTitle": "Doe, et al., Petitioners",
+        "RespondentTitle": respondent_title,
+        "LowerCourt": "United States Court of Appeals for the Ninth Circuit",
+        "LowerCourtCaseNumbers": "(23-55501)",
+        "Petitioner": [{"PartyName": "Jane Doe", "Attorney": "A. Counsel"}],
+        "Respondent": [{"PartyName": "Richard Roe", "Attorney": "B. Counsel"}],
+        "ProceedingsandOrder": proceedings
+        if proceedings is not None
+        else [
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Petition for a writ of certiorari filed.",
+                "Links": [{"Description": "Petition", "DocumentUrl": "https://example/p.pdf"}],
+            }
+        ],
+    }
+
+
+_DENIED_ENTRY = {"Date": "Jul 06 2026", "Text": "Petition DENIED."}
+_GRANTED_ENTRY = {"Date": "Jul 06 2026", "Text": "Petition GRANTED limited to Question 1."}
+
+
+# --- identity helpers ------------------------------------------------------------
+
+
+def test_live_docket_id_is_deterministic_and_reserved() -> None:
+    assert live_docket_id(25, 100) == 9_025_000_100
+    assert live_docket_id(25, 5001) == 9_025_005_001
+    assert is_live_docket_id(live_docket_id(17, 1)) is True
+    assert is_live_docket_id(73_265_897) is False  # a CourtListener id
+    with pytest.raises(ValueError):
+        live_docket_id(125, 1)
+    with pytest.raises(ValueError):
+        live_docket_id(25, 0)
+
+
+def test_parse_scotus_docket_number_accepts_term_form_only() -> None:
+    assert parse_scotus_docket_number("25-100 ") == (25, 100)
+    assert parse_scotus_docket_number("22-451") == (22, 451)
+    assert parse_scotus_docket_number("22A123") is None  # application
+    assert parse_scotus_docket_number("801") is None  # pre-1925 bare number
+    assert parse_scotus_docket_number(None) is None
+
+
+def test_current_october_term_rolls_in_october() -> None:
+    assert current_october_term(date(2026, 7, 10)) == 25
+    assert current_october_term(date(2026, 10, 6)) == 26
+
+
+# --- the polite client -----------------------------------------------------------
+
+
+def _client(handler: Any, sleeps: list[float] | None = None) -> SupremeCourtClient:
+    inner = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    record: list[float] = sleeps if sleeps is not None else []
+    return SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=record.append)
+
+
+def test_client_fetches_missing_and_retries() -> None:
+    calls: list[str] = []
+    flaky = {"seen": False}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        assert request.headers["User-Agent"] == supremecourt.BROWSER_USER_AGENT
+        if request.url.path.endswith("25-100.json"):
+            return httpx.Response(200, json=_payload())
+        if request.url.path.endswith("25-101.json"):
+            if not flaky["seen"]:
+                flaky["seen"] = True
+                return httpx.Response(500)
+            return httpx.Response(200, json=_payload("25-101"))
+        if request.url.path.endswith("25-103.json"):
+            return httpx.Response(200, text="<html>not json</html>")
+        return httpx.Response(404)
+
+    sleeps: list[float] = []
+    with _client(handler, sleeps) as client:
+        assert client.get_docket(25, 100) is not None
+        assert client.get_docket(25, 101) is not None  # 500 then success
+        assert client.get_docket(25, 102) is None  # 404
+        assert client.get_docket(25, 103) is None  # HTML body -> no docket
+    # Paced between requests (not before the first), plus the one retry pause.
+    assert sleeps.count(1.0) == 4
+    assert supremecourt._RETRY_PAUSE_SECONDS in sleeps
+    assert len(calls) == 5
+
+
+# --- the live mapping ------------------------------------------------------------
+
+
+def test_from_live_docket_maps_a_pending_petition() -> None:
+    row = from_live_docket(_payload(), live_docket_id(25, 100))
+    assert row.case_id == "scotus/9025000100"
+    assert row.court == "scotus"
+    assert row.docket_number == "25-100"
+    assert row.case_name == "Doe, et al. v. Roe"
+    assert row.date_filed == date(2026, 6, 2)
+    assert row.disposition is None and row.date_cert_denied is None
+    assert row.parties == sorted(["Jane Doe", "Richard Roe"])
+    assert row.attorneys == sorted(["A. Counsel", "B. Counsel"])
+    assert row.originating_court == "ca9"
+    assert row.originating_docket_number == "23-55501"
+    assert row.source == CorpusSource.live
+
+
+def test_from_live_docket_reads_the_disposition_order() -> None:
+    denied = from_live_docket(
+        _payload(proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY]),
+        live_docket_id(25, 100),
+    )
+    assert denied.disposition == "denied"
+    assert denied.date_cert_denied == date(2026, 7, 6)
+    assert denied.date_cert_granted is None
+
+    granted = from_live_docket(_payload(proceedings=[_GRANTED_ENTRY]), live_docket_id(25, 101))
+    assert granted.disposition == "granted"
+    assert granted.date_cert_granted == date(2026, 7, 6)
+
+
+def test_from_live_docket_untracked_lower_court_leaves_linkage_unset() -> None:
+    payload = _payload()
+    payload["LowerCourt"] = "Circuit Court of Michigan, Genesee County"
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.originating_court is None
+    assert row.originating_docket_number == "23-55501"
+
+
+def test_in_re_caption_without_respondent() -> None:
+    payload = _payload(respondent_title=None)
+    payload["PetitionerTitle"] = "In Re Jane Doe, Petitioner"
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    assert row.case_name == "In Re Jane Doe"
+
+
+# --- corpus: cursors, lookup, rotation, tracking column --------------------------
+
+
+def test_live_cursor_roundtrip_and_forward_only(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 25, "paid") is None
+        corpus.set_live_cursor(conn, 25, "paid", 120)
+        corpus.set_live_cursor(conn, 25, "paid", 90)  # rewind ignored
+        assert corpus.get_live_cursor(conn, 25, "paid") == 120
+        assert corpus.get_live_cursor(conn, 25, "ifp") is None
+
+
+def test_scotus_lookup_by_docket_number_normalizes_and_prefers_cl_row(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id="scotus/74112233", court="scotus", docket_number="25-9"),
+                corpus.CorpusRow(
+                    case_id="scotus/9025000009", court="scotus", docket_number="No. 25-9"
+                ),
+                corpus.CorpusRow(case_id="ca9/1", court="ca9", docket_number="25-9"),
+            ],
+        )
+        assert corpus.scotus_case_id_by_docket_number(conn, "25-9 ") == "scotus/74112233"
+        assert corpus.scotus_case_id_by_docket_number(conn, "25-404") is None
+        assert corpus.scotus_case_id_by_docket_number(conn, None) is None
+
+
+def test_live_rotation_orders_recent_term_then_staleness(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # OT25 never-polled -> first; OT25 polled -> after it.
+                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="25-2"),
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    last_live_polled=date(2026, 7, 1),
+                ),
+                # Older Term follows the current one.
+                corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24-3"),
+                # Below the Term floor -> excluded.
+                corpus.CorpusRow(case_id="scotus/4", court="scotus", docket_number="16-4"),
+                # Decided -> excluded.
+                corpus.CorpusRow(
+                    case_id="scotus/5",
+                    court="scotus",
+                    docket_number="25-5",
+                    disposition="denied",
+                ),
+                # Application form -> excluded (not modern cert).
+                corpus.CorpusRow(case_id="scotus/6", court="scotus", docket_number="25A6"),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    kind="petition",
+                    title=f"scotus/{n}",
+                )
+                for n in (1, 2, 3, 4, 5)
+            ],
+        )
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+        assert picked == ["scotus/2", "scotus/1", "scotus/3"]
+        # A case with no open event (scotus/6 above) never enters the rotation.
+
+
+def test_last_live_polled_is_stamped_and_latched(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    row = from_live_docket(_payload(), live_docket_id(25, 100))
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [to_corpus_row(row, last_live_polled=date(2026, 7, 10))])
+        # A later CourtListener-side write without the live stamp keeps it.
+        corpus.upsert_rows(conn, [to_corpus_row(row, last_pulled=date(2026, 7, 11))])
+        stored = corpus.get_row(conn, row.case_id)
+    assert stored is not None
+    assert stored.last_live_polled == date(2026, 7, 10)
+    assert stored.last_pulled == date(2026, 7, 11)
+
+
+# --- ingest + resolution ----------------------------------------------------------
+
+
+def test_ingest_live_payload_pending_then_decided(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 100)
+
+    first = ingest_live_payload(db, data_root, _payload(), docket_id, today=date(2026, 7, 9))
+    assert first.changed is True and first.resolved == []
+    # Identical re-poll: unchanged.
+    second = ingest_live_payload(db, data_root, _payload(), docket_id, today=date(2026, 7, 9))
+    assert second.changed is False
+
+    # The denial order lands: outcome recorded deterministically, event closed.
+    decided_payload = _payload(proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY])
+    decided = ingest_live_payload(
+        db, data_root, decided_payload, docket_id, today=date(2026, 7, 10)
+    )
+    assert decided.changed is True
+    assert decided.resolved == ["evt-petition-disposition"]
+    assert decided.reconcile_events == []
+    outcome_path = (
+        CasePaths(data_root, "scotus", docket_id).event("evt-petition-disposition").outcome
+    )
+    assert outcome_path.exists()
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, first.case_id)
+        snap = corpus.latest_snapshot(conn, first.case_id)
+    assert stored is not None and stored.disposition == "denied"
+    assert snap is not None and snap[1] == decided_payload  # raw JSON is the snapshot
+
+
+# --- discovery: frontier probing + identity reconciliation ------------------------
+
+
+def _frontier_client(served: dict[str, dict[str, Any]]) -> SupremeCourtClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        name = request.url.path.rsplit("/", 1)[-1].removesuffix(".json")
+        if name in served:
+            return httpx.Response(200, json=served[name])
+        return httpx.Response(404)
+
+    return _client(handler)
+
+
+def test_discover_live_onboards_to_the_frontier_and_persists_cursors(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {
+        "25-1": _payload("25-1"),
+        "25-2": _payload("25-2"),
+        "25-5001": _payload("25-5001"),
+    }
+    with _frontier_client(served) as client:
+        found = discover_live(
+            client, db, tmp_path / "data", 25, max_new=10, today=date(2026, 7, 10)
+        )
+    assert found.case_ids == [
+        "scotus/9025000001",
+        "scotus/9025000002",
+        "scotus/9025005001",
+    ]
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 25, "paid") == 2
+        assert corpus.get_live_cursor(conn, 25, "ifp") == 5001
+        events = corpus.events_for_case(conn, "scotus/9025000001")
+    assert [e.event_id for e in events] == ["evt-petition-disposition"]
+
+    # The next cycle resumes past the cursor and finds nothing new.
+    with _frontier_client(served) as client:
+        again = discover_live(
+            client, db, tmp_path / "data", 25, max_new=10, today=date(2026, 7, 11)
+        )
+    assert again.case_ids == []
+
+
+def test_discover_live_enriches_an_existing_courtlistener_row(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/74112233", court="scotus", docket_number="25-1")],
+        )
+    with _frontier_client({"25-1": _payload("25-1")}) as client:
+        found = discover_live(
+            client, db, tmp_path / "data", 25, max_new=10, today=date(2026, 7, 10)
+        )
+    # Enriched under the existing CourtListener-keyed row; no live mint.
+    assert found.case_ids == ["scotus/74112233"]
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, "scotus/9025000001") is None
+        enriched = corpus.get_row(conn, "scotus/74112233")
+    assert enriched is not None and enriched.case_name == "Doe, et al. v. Roe"
+
+
+# --- the full cycle ---------------------------------------------------------------
+
+
+def test_live_poll_all_queues_predict_on_change_and_evaluate_on_resolution(
+    tmp_path: Path,
+) -> None:
+    """#472 acceptance: a live change queues predict within one cycle; a decided
+    petition lands its outcome and queues evaluate."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+
+    # Cycle 1: discovery onboards two pending petitions -> both queue predict.
+    served = {"25-1": _payload("25-1"), "25-2": _payload("25-2")}
+    with _frontier_client(served) as client:
+        queues, discovery = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 9)
+        )
+    assert len(discovery.onboarded) == 2
+    assert {q["docket"] for q in queues.predict} == {9_025_000_001, 9_025_000_002}
+    assert queues.evaluate == [] and queues.reconcile == []
+
+    # Cycle 2: 25-1 gains its denial order -> outcome recorded, evaluate queued;
+    # 25-2 is unchanged -> no predict spam.
+    served["25-1"] = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY]
+    )
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 10)
+        )
+    assert queues2.evaluate == [
+        {"court": "scotus", "docket": 9_025_000_001, "events": ["evt-petition-disposition"]}
+    ]
+    # The decided case's event is closed, so it queues no predict; the unchanged
+    # pending case queues nothing either.
+    assert queues2.predict == []
+
+
+# --- replay redaction -------------------------------------------------------------
+
+
+def test_redact_snapshot_strips_live_outcome_keys() -> None:
+    redacted = redact_snapshot(
+        _payload(proceedings=[_DENIED_ENTRY]) | {"docket_entries": [{"id": 1}]}
+    )
+    assert "ProceedingsandOrder" not in redacted
+    assert "sJsonCreationDate" not in redacted
+    assert "docket_entries" not in redacted
+    assert redacted["CaseNumber"] == "25-100 "
+
+
+# --- config -----------------------------------------------------------------------
+
+
+def test_load_live_config_reads_section_and_defaults(tmp_path: Path) -> None:
+    (tmp_path / "tracking.yaml").write_text("live:\n  max_cases_per_run: 5\n")
+    cfg = load_live_config(tmp_path)
+    assert cfg.max_cases_per_run == 5
+    assert cfg.term_floor_year == 2017  # default holds
+
+    defaults = load_live_config(tmp_path / "absent")
+    assert defaults.max_new_cases_per_run == 25
+    assert defaults.frontier_misses == 2
+
+
+def test_repo_tracking_yaml_carries_live_section() -> None:
+    cfg = load_live_config(Path("config"))
+    assert cfg.max_cases_per_run == 30
+    assert cfg.term_floor_year == 2017

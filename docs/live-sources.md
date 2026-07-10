@@ -72,9 +72,12 @@ The live source follows the replica guardrails exactly
   normalized corpus row in the shared normalization layer (a third
   `CorpusSource`), and the raw JSON — proceedings and document links included —
   is stored as the case's dated **snapshot**, exactly like a REST pull. The
-  proceedings list is the docket-entries analogue, so event extraction,
-  resolution detection, and replay redaction (which strips entries wholesale)
-  work unchanged.
+  proceedings list is the docket-entries analogue, so event extraction and
+  resolution detection work unchanged. One caveat found at implementation:
+  replay redaction is a **key-name** blocklist, so the raw JSON's
+  outcome-bearing keys (`ProceedingsandOrder`, `sJsonCreationDate`) had to be
+  added alongside `docket_entries` — a new channel's snapshot shape must always
+  be checked against that list.
 - **The corpus stays the system of record.** Live-ness comes from trigger and
   cadence, not from bypassing the corpus: a watchlist refresh that finds a
   changed docket ingests it and queues `predict` through the same seams the
@@ -86,8 +89,16 @@ The live source follows the replica guardrails exactly
   does not have. The join key is the normalized Term-form docket number, which
   both sources carry: a live ingest first looks for an existing SCOTUS row with
   the same normalized number and enriches it; only a genuinely unseen petition
-  mints a new row (id allocation for that case is the channel's one real schema
-  decision — see the implementation issue).
+  mints a new row. **Decided (#472):** the minted id is deterministic and
+  permanent — `9,000,000,000 + term×1,000,000 + serial` (`25-1234` →
+  `scotus/9025001234`), collision-proof against CourtListener ids and decodable
+  back to the Term-form number — and is **never merged**: `case_id`
+  immutability wins (the ledger and snapshots key on it), so when CourtListener
+  later ingests the same docket, a symmetric guard on its discovery path
+  enriches the live-keyed row by the same docket-number join instead of minting
+  a duplicate. Implemented in `fedcourtsai.supremecourt` (client + identity),
+  `pipeline/live.py` (poller), and the `live-poll` CLI cycle; the per-Term
+  discovery cursor persists in the corpus like the other watermarks.
 
 ## The live cert watchlist and conference detection
 

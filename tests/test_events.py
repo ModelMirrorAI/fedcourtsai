@@ -46,6 +46,42 @@ def test_scotus_baseline_is_a_petition() -> None:
     assert result.events[0].event_id == "evt-petition-disposition"
 
 
+def test_scotus_administrative_motions_extract_no_event() -> None:
+    # Extensions of time (and IFP/amicus leave) are filed on nearly every
+    # petition and granted as a matter of course — an open event for each would
+    # drag decided cases into the predict queue forever (#472). Substantive
+    # applications still extract.
+    docket = _docket(
+        [
+            _entry(1, "Motion to extend the time to file a response filed.", number=1),
+            _entry(2, "Motion for leave to proceed in forma pauperis filed.", number=2),
+        ],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+    )
+    result = extract_events(docket)
+    assert [e.event_id for e in result.events] == ["evt-petition-disposition"]
+
+
+def test_scotus_petition_entry_collapses_into_the_baseline() -> None:
+    # At SCOTUS the petition *is* the case: the cert-petition filing entry must
+    # not mint a second open petition event beside evt-petition-disposition, or
+    # every deterministic resolution turns two-events-ambiguous (#472). A stay
+    # motion on the same docket still extracts as its own event.
+    docket = _docket(
+        [
+            _entry(1, "Petition for a writ of certiorari filed.", number=1),
+            _entry(2, "MOTION for stay pending disposition filed by Applicant", number=2),
+        ],
+        court="https://www.courtlistener.com/api/rest/v4/courts/scotus/",
+    )
+    result = extract_events(docket)
+    assert [e.event_id for e in result.events] == [
+        "evt-petition-disposition",
+        "evt-motion-stay-pending-disposition",
+    ]
+    assert result.ambiguous == []
+
+
 def test_motion_entry_becomes_predictable_event() -> None:
     result = extract_events(
         _docket([_entry(10, "MOTION for stay pending appeal filed by Appellant", number=10)])

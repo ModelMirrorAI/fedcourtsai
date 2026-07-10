@@ -19,6 +19,7 @@ predictions, evaluations) are never written here — they belong to the git ledg
 
 from __future__ import annotations
 
+import sqlite3
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -31,7 +32,7 @@ import httpx
 from .. import corpus
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded
 from .events import AmbiguousEntry, extract_events
-from .ingest import from_api_docket, to_corpus_row
+from .ingest import CorpusRow, from_api_docket, to_corpus_row
 
 
 class _DocketSearch(Protocol):
@@ -72,6 +73,25 @@ class DiscoverResult:
     @property
     def total(self) -> int:
         return len(self.case_ids)
+
+
+def _reconcile_identity(conn: sqlite3.Connection, row: CorpusRow) -> CorpusRow:
+    """Re-key a discovered SCOTUS docket onto its existing corpus row, if any.
+
+    The CourtListener half of the live channel's identity scheme (#472): when
+    the live poller saw a petition first, its row keys on the reserved-range
+    live docket id — permanent, never merged. A later CourtListener discovery
+    of the *same* petition must therefore enrich that row (matched by the
+    normalized Term-form docket number, the same ``norm_dn`` join the live side
+    uses) rather than mint a duplicate under the CourtListener id. Non-SCOTUS
+    dockets and unmatched (or self-matched) numbers pass through unchanged.
+    """
+    if row.court != "scotus":
+        return row
+    existing = corpus.scotus_case_id_by_docket_number(conn, row.docket_number)
+    if existing is None or existing == row.case_id:
+        return row
+    return row.model_copy(update={"case_id": existing})
 
 
 def discover_cases(
@@ -142,16 +162,20 @@ def discover_cases(
                 # cannot skip a real filing; the watermark only ever moves forward.
                 corpus.set_discovery_watermark(conn, court, since)
                 continue
-            rows = [from_api_docket(d) for d in dockets]
+            rows = [_reconcile_identity(conn, from_api_docket(d)) for d in dockets]
 
             store_rows = [to_corpus_row(r) for r in rows]
             corpus.upsert_rows(conn, store_rows)
             # A discovered SCOTUS docket latches its originating tracked CoA docket
             # eligible (the second half of the prediction-scope rule).
             corpus.latch_originating_eligible(conn, store_rows)
-            for docket in dockets:
+            for docket, row in zip(dockets, rows, strict=True):
                 extraction = extract_events(docket)
-                corpus.upsert_events(conn, extraction.events)
+                # Events follow the reconciled identity: a docket re-keyed onto a
+                # live-first row must define its events under that row's case_id,
+                # never the CourtListener-derived one the extractor mints.
+                events = [e.model_copy(update={"case_id": row.case_id}) for e in extraction.events]
+                corpus.upsert_events(conn, events)
                 result.ambiguous.extend(extraction.ambiguous)
 
             watermark = max((r.date_filed for r in rows if r.date_filed is not None), default=since)

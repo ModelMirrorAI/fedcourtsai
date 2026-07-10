@@ -117,6 +117,41 @@ def load_pull_config(config_root: Path) -> PullConfig:
     return PullConfig.model_validate((data or {}).get("pull", {}))
 
 
+class LiveConfig(BaseModel):
+    """The ``live:`` section of ``tracking.yaml`` — the SCOTUS live channel (#472).
+
+    The supremecourt.gov docket JSON has no API budget, so these caps bound
+    wall-clock per cycle and upstream politeness, not spend: at the default
+    ~1 req/s throttle a full cycle (discovery + refresh) stays around a minute.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # Pending petitions re-polled per cycle (the watchlist refresh rotation).
+    max_cases_per_run: int = Field(default=30, ge=0)
+    # New petitions onboarded from the Term's numbering frontier per cycle.
+    max_new_cases_per_run: int = Field(default=25, ge=0)
+    # Oldest October Term the refresh rotation reaches — the reachability
+    # probe's floor (docs/live-sources-probe.md): full JSON coverage OT2017+.
+    term_floor_year: int = Field(default=2017, ge=1925)
+    # Polite-client pacing between requests, seconds.
+    throttle_seconds: float = Field(default=1.0, gt=0)
+    # Consecutive 404s that mark a numbering stream's frontier (serials are
+    # assigned sequentially; the tolerance bridges an occasional withheld one).
+    frontier_misses: int = Field(default=2, ge=1)
+
+
+def load_live_config(config_root: Path) -> LiveConfig:
+    """Read the live channel's settings from ``config_root/tracking.yaml``.
+
+    Falls back to defaults if the file or its ``live`` section is absent,
+    mirroring :func:`load_pull_config`.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return LiveConfig.model_validate((data or {}).get("live", {}))
+
+
 def load_courts(config_root: Path) -> list[str]:
     """The tracked courts from ``config_root/tracking.yaml`` (``courts:``).
 
