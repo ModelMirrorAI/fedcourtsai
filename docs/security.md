@@ -140,10 +140,9 @@ the App token.
 ## The `runner` environment
 
 Every secret and both S3 role ARNs live on the `runner` environment — the App
-credentials, the Claude OAuth token, the Codex/OpenAI key, the Gemini API key,
-the CourtListener API token (ingestion) and `COURTLISTENER_AGENT_API_TOKEN`
-(the cells' dedicated agent-traffic token — evaluate cells now carry an
-agent credential they previously didn't; unset degrades to anonymous rate
+credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
+the CourtListener API token (used by pull's ingestion and, via the cells'
+MCP config, by agent retrieval; unset degrades the agents to anonymous rate
 limits), the AWS role ARNs and region, and the DVC remote URL (referenced by
 role, never committed). Every job that needs any of them declares
 `environment: runner`.

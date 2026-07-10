@@ -184,13 +184,13 @@ jobs:
       # tool manifest (config/evaluators.yaml `mcp_servers:`) — evaluators get
       # the same retrieval as predictors so a judge can check a cited authority
       # rather than take it on faith. Same posture as run-predict: the tested
-      # `mcp-config` command emits each engine's client format, the DEDICATED
-      # agent-traffic token is injected into the workspace-local, gitignored
+      # `mcp-config` command emits each engine's client format, the
+      # CourtListener API token is injected into the workspace-local, gitignored
       # file (never uploaded — the artifact lists status.json + data/), and an
       # unset secret degrades to anonymous rate limits.
       - name: Configure agent retrieval (MCP)
         env:
-          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
           ENGINE: ${{ matrix.engine }}
           EVALUATOR_ID: ${{ matrix.evaluator_id }}
         run: |
@@ -318,7 +318,7 @@ jobs:
           npm install --silent --no-audit --ignore-scripts --global @google/gemini-cli@0.49.0
           gemini --version
           # .gemini/settings.json (telemetry + mcpServers) is written by the
-          # "Configure agent retrieval" step above: it needs the agent token in
+          # "Configure agent retrieval" step above: it needs the CourtListener token in
           # its env, and this npm step must stay secret-free.
 
       # Gemini runs through its CLI directly, not the upstream run-gemini-cli
