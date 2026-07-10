@@ -9,6 +9,61 @@
       ],
       "title": "Engine",
       "type": "string"
+    },
+    "LeakageAssessment": {
+      "additionalProperties": false,
+      "description": "The cross-evaluator's leakage grading of one prediction (advisory, never a gate).\n\nThe grading half of the leakage doctrine: rather than preventing retrieval,\nthe evaluator assesses whether a **replay** predictor retrieved and used\noutcome-revealing material, reading the harness-captured\n``retrieval_log.json`` (tool calls, query slices, retrieved-document dates)\nbeside the predictor's own reasoning. A **forward** prediction was made\nbefore the outcome existed, so it grades ``not_applicable``. Contamination\nhere taints iteration signal \u2014 backtest results are never claimable\nperformance either way \u2014 so the assessment segments scores; it never\nchanges them.",
+      "properties": {
+        "influenced_prediction": {
+          "description": "Whether retrieved outcome material plausibly shaped the prediction. not_applicable for a forward prediction.",
+          "enum": [
+            "not_applicable",
+            "none",
+            "possible",
+            "likely"
+          ],
+          "title": "Influenced Prediction",
+          "type": "string"
+        },
+        "mode": {
+          "description": "The prediction's mode as its retrieval_log.json recorded it: forward | replay | unknown (no log \u2014 assess from reasoning alone)",
+          "title": "Mode",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The concrete evidence, briefly",
+          "title": "Notes"
+        },
+        "retrieved_outcome_material": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the retrieval log/reasoning shows outcome-revealing material about this case was retrieved (post-event-date documents, the disposing order, queries for the result). Null when not assessable.",
+          "title": "Retrieved Outcome Material"
+        }
+      },
+      "required": [
+        "mode",
+        "influenced_prediction"
+      ],
+      "title": "LeakageAssessment",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -55,6 +110,18 @@
       "title": "Event Id",
       "type": "string"
     },
+    "leakage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LeakageAssessment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The structured leakage grading over the prediction's harness-captured retrieval log (see LeakageAssessment). Advisory and cross-only, like the rest of evaluation; null on records written before the field existed and on offline evaluator outputs"
+    },
     "leakage_suspected": {
       "anyOf": [
         {
@@ -65,7 +132,7 @@
         }
       ],
       "default": null,
-      "description": "Evaluator's judgment that the prediction shows signs of using post-decision information about this case \u2014 its outcome, the disposing order, or facts knowable only after the decision. Advisory: it segments scores, never changes them. Null when not assessed (offline evaluators and records written before the field existed)",
+      "description": "Coarse leakage bit, kept in step with `leakage`: true when `leakage.influenced_prediction` is possible/likely. Advisory: it segments scores, never changes them. Null when not assessed (offline evaluators and records written before the field existed)",
       "title": "Leakage Suspected"
     },
     "model": {

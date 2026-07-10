@@ -39,8 +39,8 @@ request.
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
 | `run:seed`     | `run-seed`      | Load historical dockets into the corpus (label = the frozen bulk mode; the weekly schedule runs the past-Term cert loader) | Script |
-| `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script |
-| `run:reconcile`| `run-reconcile` | Confirm a decided event's `outcome.json` from the docket when pull can't | Claude Code |
+| `run:pull`     | `run-pull`      | Two scheduled jobs: targeted CourtListener enrichment (four windows/day), and the **supremecourt.gov live poll** (four windows/day) that discovers pending petitions, tracks conference distribution, records outcomes, and provisions filed-document text | Script |
+| `run:reconcile`| `run-reconcile` | Confirm an ambiguous outcome by agent — **paused** while the live channel (whose proceedings text resolves outcomes deterministically) settles its fate | Claude Code |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex + Gemini |
 
@@ -49,11 +49,14 @@ label — it runs on a schedule (or manual dispatch). See [`docs/pipeline.md`](d
 
 ```mermaid
 flowchart TD
-    seed["run:seed — seed dockets"] --> corpus[("corpus")]
-    pull["run:pull — refresh dockets<br/>(daily schedule)"] --> corpus
-    pull -->|"changed?"| predict["run:predict — predict open events<br/>(matrix over predictors)"]
+    seed["run:seed — past-Term cert loader<br/>(weekly; bulk mode frozen)"] --> corpus[("corpus")]
+    live["run-pull live job — supremecourt.gov poll<br/>(4×/day: discover, watchlist, outcomes, documents)"] --> corpus
+    pull["run-pull pull job — CourtListener enrichment<br/>(4×/day)"] --> corpus
+    live -->|"distributed for conference"| predict["run:predict — predict open events<br/>(matrix over predictors)"]
+    pull -->|"changed, open events"| predict
     predict --> ppr[/"pull requests"/]
-    predict -.->|"outcome lands via pull,<br/>or run:reconcile"| evaluate["run:evaluate — score every predictor"]
+    live -.->|"outcome recorded"| evaluate["run:evaluate — score every predictor<br/>(incl. leakage grading)"]
+    predict -.-> evaluate
     evaluate --> epr[/"pull requests"/]
 ```
 
@@ -83,6 +86,13 @@ publish predictions we can't stand behind. Currently out of scope:
   only as bare stubs — no docket entries, no recorded disposition — that the corpus
   can never resolve. They are excluded rather than predicted in perpetuity against
   ground truth that does not exist.
+- **Non-cert SCOTUS docket forms.** Stay/emergency applications (`22A123`) and
+  original-jurisdiction matters (`22O141`) resolve as stays or merits rulings,
+  not cert grant/deny, so the cert event model is not scored against them.
+- **Decided-on-paper-only cases.** A docket whose only outcome signal is a
+  published opinion with no machine-readable disposition, or a bare bulk-import
+  row whose snapshot carries nothing to predict from, is excluded until real
+  record data arrives.
 - **Cases with internally inconsistent dates.** A docket that looks decided before
   it was filed (a faithful but nonsensical upstream record) can't anchor a
   meaningful prediction, so it is excluded — without altering the data or the

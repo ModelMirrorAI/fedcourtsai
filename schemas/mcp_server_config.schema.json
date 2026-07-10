@@ -1,6 +1,6 @@
 {
   "additionalProperties": false,
-  "description": "One MCP server in the tool manifest (``mcp_servers:`` in the registry, #525).\n\nThe manifest is the pipeline-attribution record once cells' retrieval\nvaries: it pins exactly which retrieval tooling a cell was configured with\n(echoed into each cell's ``retrieval_log.json``), and is frozen before the\nSeptember prediction freeze. Local-install stdio only \u2014 the hosted\nendpoint's OAuth flow does not fit headless CI.",
+  "description": "One MCP server in the tool manifest (``mcp_servers:`` in the registry).\n\nThe manifest is the pipeline-attribution record once cells' retrieval\nvaries: it pins exactly which retrieval tooling a cell was configured with\n(echoed into each cell's ``retrieval_log.json``), and is frozen before the\nSeptember prediction freeze. Local-install stdio only \u2014 the hosted\nendpoint's OAuth flow does not fit headless CI.",
   "properties": {
     "command": {
       "description": "The stdio server entrypoint, e.g. `courtlistener-mcp`",

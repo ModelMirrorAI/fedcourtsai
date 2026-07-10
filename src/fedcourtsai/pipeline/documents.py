@@ -1,4 +1,4 @@
-"""Petition-document selection and text extraction for predict inputs (#474).
+"""Petition-document selection and text extraction for predict inputs.
 
 The input-richness half of the live-sources design: the docket JSON links every
 filed PDF, and the questions presented plus the petition/BIO are the signals

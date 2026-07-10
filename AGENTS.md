@@ -74,7 +74,7 @@ non-interactive** container. Two consequences shape everything you do:
   enabling work further from the output, a one-line "this serves X" is enough.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
-- **The snapshot is the baseline; timing is the leakage control (#525).** The
+- **The snapshot is the baseline; timing is the leakage control.** The
   provisioned point-in-time snapshot is every predictor's guaranteed-common
   input, not a ceiling. What else a cell may retrieve is keyed on its **mode**
   (`record/context.json`): a `forward` cell (pending case — the outcome does
@@ -84,7 +84,7 @@ non-interactive** container. Two consequences shape everything you do:
   it surfaces in `flags.json`. Never invent facts. The prompt template carries
   the full contract; all tool calls are logged harness-side.
 - **No secrets in code or data.** Never print or log API tokens; they arrive
-  as environment variables. One narrow carve-out (#525): the workflow's
+  as environment variables. One narrow carve-out: the workflow's
   MCP-config step writes the dedicated agent-traffic CourtListener token into
   the runner-local, gitignored client-config files the engines read
   (`mcp-servers.json`, `.codex/`, `.gemini/`) — never into `data/`, a commit,
@@ -119,13 +119,28 @@ and `actionlint` (syntax + `run:` shell). See `.github/workflows/lint-actions.ym
 for the pinned versions, and *Authoring or changing a workflow* in
 `docs/pipeline.md` for the cross-cutting traps these checks do **not** catch.
 
-**Before you push any change under `.github/workflows` or `.github/actions`, run
-the `workflow-reviewer` subagent** (`.claude/agents/workflow-reviewer.md`) on the
-diff and resolve its blockers. It runs the linters above and reviews for what they
-miss: the security model (fail-closed authorization, the handoff-token gotcha,
-expression injection, least privilege) and this repo's **logic-in-tested-Python,
-bash-only-plumbs** rule. Treat a clean linter run as necessary but not sufficient.
-If you cannot invoke the subagent, self-review against its checklist.
+**Before you push, run the relevant reviewer subagent(s)** (`.claude/agents/`)
+on the diff and resolve their blockers; each reviews, runs the relevant checks,
+and reports — it never edits. Pick by what the diff touches (several may apply
+to one diff):
+
+- `.github/workflows/**` or `.github/actions/**` → **`workflow-reviewer`**
+  (the linters above plus the security model: fail-closed authorization, the
+  handoff-token gotcha, expression injection, least privilege, and the
+  logic-in-tested-Python, bash-only-plumbs rule).
+- `src/**`, `tests/**`, or `config/**` → **`code-reviewer`** (correctness,
+  latch/idempotency semantics, the ingestion and queue seams, schema-is-law,
+  tests-prove-the-claim).
+- `docs/**`, `README.md`, `AGENTS.md`, `SECURITY.md`, `metrics/README.md`,
+  `.github/prompts/**`, or config comments → **`docs-reviewer`** (every factual
+  claim checked against the code; no internal contradictions across the docs,
+  prompts, and this file).
+- Anything touching secrets/tokens, authorization, agent capabilities (tools,
+  MCP servers, fetch rights), or network fetchers → **`security-reviewer`**
+  (the written threat model in `SECURITY.md`/`docs/security.md` is its rubric).
+
+Treat a clean linter/gate run as necessary but not sufficient. If you cannot
+invoke a subagent, self-review against its checklist file.
 
 Two things hold no matter what you skip locally:
 

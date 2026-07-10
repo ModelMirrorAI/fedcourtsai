@@ -10,7 +10,7 @@ from fedcourtsai.schemas import Disposition
 
 def _rows() -> list[corpus.CorpusRow]:
     return [
-        # eligible + out of scope (stale unresolvable #333) -> should be latched out
+        # eligible + out of scope (stale unresolvable) -> should be latched out
         corpus.CorpusRow(
             case_id="scotus/1", court="scotus", docket_number="01-7700", predict_eligible=True
         ),
@@ -81,7 +81,7 @@ def test_reconcile_is_idempotent_and_two_directional(tmp_path: Path) -> None:
 
 
 def test_reconcile_latches_and_releases_bare_opinion_import(tmp_path: Path) -> None:
-    # Issue #438: a bare bulk-import row (every predicate-keyed field empty) whose
+    # A bare bulk-import row (every predicate-keyed field empty) whose
     # snapshot links an opinion cluster is latched out; a later re-ingest that
     # fills in real petition-stage facts breaks the profile and releases it.
     db = corpus.corpus_db_path(tmp_path)

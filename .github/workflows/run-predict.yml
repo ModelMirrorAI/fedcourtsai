@@ -89,7 +89,7 @@ jobs:
           else
             echo "has_jobs=false" >> "$GITHUB_OUTPUT"
           fi
-          # Ops analytics (#89): record the planned fan-out in the Actions UI.
+          # Ops analytics: record the planned fan-out in the Actions UI.
           echo "## run-predict — queued ${count} prediction job(s)" >> "$GITHUB_STEP_SUMMARY"
 
       # An empty matrix means every queued case was out of scope (or already
@@ -169,7 +169,7 @@ jobs:
           DOCKET_ID: ${{ matrix.docket }}
         # `--mode forward`: a run-predict cell predicts a genuinely pending
         # event, and the mode in record/context.json keys the prompt contract's
-        # retrieval etiquette (#525); the cert back-test's replay provisioner
+        # retrieval etiquette; the cert back-test's replay provisioner
         # writes `replay` itself.
         run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --mode forward
 
@@ -185,7 +185,7 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
-      # Configure the cell's MCP retrieval (#525) from the versioned tool
+      # Configure the cell's MCP retrieval from the versioned tool
       # manifest (config/predictors.yaml `mcp_servers:`). The tested `mcp-config`
       # command emits each engine's client format; this step only plumbs stdout
       # to the file the engine reads. The DEDICATED agent-traffic token
@@ -239,7 +239,7 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # The dedicated agent-traffic token (#525) — never ingestion's.
+          # The dedicated agent-traffic token — never ingestion's.
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
         with:
           # run-pull files this predict issue as the trusted pipeline App
@@ -297,7 +297,7 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # The dedicated agent-traffic token (#525) — never ingestion's.
+          # The dedicated agent-traffic token — never ingestion's.
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
@@ -353,7 +353,7 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # The dedicated agent-traffic token (#525) — never ingestion's.
+          # The dedicated agent-traffic token — never ingestion's.
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
           # The agent's least-privilege token (no contents:write) for any `gh issue
           # comment` it makes; the workflow's app-token does the commit/PR.
@@ -406,7 +406,7 @@ jobs:
           else
             args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
           fi
-          # Surface the measured tokens + estimated $ in the Actions UI (#89). The
+          # Surface the measured tokens + estimated $ in the Actions UI. The
           # command already prints `usage: <actor> <N> tok ~$<cost> -> <path>`; keep
           # all but the path. A miss just warns (best-effort, like the step itself).
           if out=$(uv run fedcourts "${args[@]}"); then
@@ -419,7 +419,7 @@ jobs:
             echo "::warning::no model usage captured for ${EVENT_ID}"
           fi
 
-      # Harvest the cell's tool-call transcript to retrieval_log.json (#525) —
+      # Harvest the cell's tool-call transcript to retrieval_log.json —
       # from the engine's own log (the same sources the usage capture reads),
       # never the agent's word — so the cross-evaluator can grade what a cell
       # actually retrieved. Runs even when the agent failed or timed out

@@ -1,4 +1,4 @@
-"""The SCOTUS live channel's poller: discover and refresh pending petitions (#472).
+"""The SCOTUS live channel's poller: discover and refresh pending petitions.
 
 The live counterpart of :mod:`fedcourtsai.pipeline.pull`, fed by the
 supremecourt.gov docket JSON (:class:`fedcourtsai.supremecourt.SupremeCourtClient`)
@@ -26,7 +26,7 @@ store, change detection, and provisioning surface as every other channel.
 Queue handoffs reuse pull's shapes (:class:`~fedcourtsai.pipeline.pull.PullQueues`):
 an in-scope petition queues ``predict`` on a **distribution transition** —
 newly distributed for a conference, or relisted to a new one — the cert-calendar
-analogue of ``predict_on_change_only`` (#473); a newly resolved case queues
+analogue of ``predict_on_change_only``; a newly resolved case queues
 ``evaluate``; an ambiguous resolution queues ``reconcile``.
 """
 
@@ -67,7 +67,7 @@ class LiveResult:
     resolved: list[str]
     reconcile_events: list[str]
     reconcile_reason: str | None = None
-    # The conference this petition is distributed for after this poll (#473).
+    # The conference this petition is distributed for after this poll.
     # The caller compares it against the pre-poll value: a transition (fresh
     # distribution or a relist's new date) is the predict trigger.
     distributed: date | None = None
@@ -92,7 +92,7 @@ def _resolve_identity(
 ) -> int:
     """The docket id this petition's row keys on: the matched row's, or a live mint.
 
-    The reconciliation decision (#472): join by normalized Term-form docket
+    The reconciliation decision: join by normalized Term-form docket
     number onto any existing SCOTUS row and enrich it; only a genuinely unseen
     petition mints the deterministic reserved-range id. The minted id is
     permanent — see :func:`fedcourtsai.supremecourt.live_docket_id`.
@@ -158,7 +158,7 @@ def provision_documents(
     char_cap: int,
     today: date,
 ) -> int:
-    """Fetch this petition's predict-input documents into the corpus (#474).
+    """Fetch this petition's predict-input documents into the corpus.
 
     Called on the same **distribution transition** that queues prediction — the
     moment the record is complete enough to predict is the moment its content
@@ -257,8 +257,8 @@ def poll_live_cases(
 
     The predict handoff fires on a **distribution transition** — the petition is
     newly distributed for a conference, or a relist moved its date — the live
-    analogue of ``pull.predict_on_change_only`` tuned to the cert calendar
-    (#473): distribution is the signal that resolution is imminent and the
+    analogue of ``pull.predict_on_change_only`` tuned to the cert calendar:
+    distribution is the signal that resolution is imminent and the
     record is complete enough to predict. Outcomes (``evaluate``) and ambiguous
     resolutions (``reconcile``) route unconditionally — ground truth, not
     prediction spend. A petition whose docket JSON has vanished (404 on a
@@ -330,7 +330,7 @@ def _route_result(
 ) -> None:
     """Sort one poll result into the handoff queues (pull's routing, verbatim).
 
-    ``queue_predict`` is the caller's distribution-transition verdict (#473) —
+    ``queue_predict`` is the caller's distribution-transition verdict —
     it gates only the predict handoff; outcomes and reconcile signals are
     ground truth and always route.
     """
@@ -371,7 +371,7 @@ def live_poll_all(
     it would only spend cadence), and its result is routed through the identical
     queue logic instead.
 
-    Predict timing is the distribution trigger everywhere (#473): a freshly
+    Predict timing is the distribution trigger everywhere: a freshly
     onboarded petition queues predict only if it is already distributed for a
     conference (frontier catch-up); an undistributed one simply enters the
     watchlist, and the refresh queues it when its distribution lands.

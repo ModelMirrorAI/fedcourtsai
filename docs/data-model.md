@@ -30,10 +30,12 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
     prediction.json               # Prediction: granted 1/0, P(granted), votes
     reasoning.md                  # predicted reasoning (qualitative)
     usage.json                    # ModelUsage: measured tokens + estimated cost
+    retrieval_log.json            # RetrievalLog: harness-captured tool calls + manifest
     flags.json                    # AgentFlags: structured feedback (optional)
     tooling.json                  # AgentToolingFeedback: tooling self-report
   evaluations/<evaluator_id>/<run_id>/
     usage.json                    # ModelUsage for the evaluator's run (all predictors)
+    retrieval_log.json            # RetrievalLog for the evaluator's own retrieval
     flags.json                    # AgentFlags: structured feedback (optional)
     tooling.json                  # AgentToolingFeedback: tooling self-report
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
@@ -113,17 +115,22 @@ Predictions from different predictors live together under
 `events/<event_id>/predictions/<predictor_id>/` rather than in a separate
 per-predictor tree. Co-locating keeps one event's story in one place; the cost is
 that a cross-predictor leaderboard is a glob/index rather than a flat scan — a
-cheap trade, served by a `fedcourts report` command.
+cheap trade, served by a `fedcourts leaderboard` command.
 
 ## The corpus (raw facts)
 
 The historical backlog (all of SCOTUS + the 13 circuits) and the fresh facts
 `pull` fetches are far too large to hold as per-case files — millions of YAML
 files would choke `git` even under LFS. They land instead in one packed,
-normalized, **labeled** corpus, written identically by `seed` (from CourtListener
-bulk data) and `pull` (from the REST API). Each row carries the realized
-`disposition`, so the corpus doubles as a back-testing set and a retrieval source
-for prediction context.
+normalized, **labeled** corpus, written identically by every channel — bulk
+`seed` (CourtListener CSV), `pull` (the REST API), and the supremecourt.gov
+live channel (docket JSON) — through one shared normalizer. Each row carries
+the realized `disposition`, so the corpus doubles as a back-testing set and a
+retrieval source for prediction context. Beside the rows sit the dated
+point-in-time snapshots, the predictable-event definitions, per-Term discovery
+cursors, and a `documents` table of pipeline-extracted filed-document text
+(petition, questions presented, brief in opposition) that provisioning
+materializes into a cell's `record/documents/`.
 
 The pydantic models are the contract for the ledger; the corpus is governed by
 its own normalized schema (`CorpusRow` in `fedcourtsai.corpus`). The packed store

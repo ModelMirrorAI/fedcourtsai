@@ -89,7 +89,7 @@ The live source follows the replica guardrails exactly
   does not have. The join key is the normalized Term-form docket number, which
   both sources carry: a live ingest first looks for an existing SCOTUS row with
   the same normalized number and enriches it; only a genuinely unseen petition
-  mints a new row. **Decided (#472):** the minted id is deterministic and
+  mints a new row. **Decided (July 2026):** the minted id is deterministic and
   permanent — `9,000,000,000 + term×1,000,000 + serial` (`25-1234` →
   `scotus/9025001234`), collision-proof against CourtListener ids and decodable
   back to the Term-form number — and is **never merged**: `case_id`
@@ -110,7 +110,7 @@ petitions before each conference, discovered while they are pending — so
 predictions fire ahead of the conference and score against the order-list
 outcome days later, all in the forward stratum.
 
-**Implemented (#473):** the latest distribution entry per petition lands as the
+**Implemented:** the latest distribution entry per petition lands as the
 corpus's `distributed_for_conference` (a relist updates it; non-live writers
 preserve it); the refresh rotation leads with distributed petitions, nearest
 conference first; and **predict fires on the distribution transition** — a
@@ -135,7 +135,7 @@ actually turns on. Two rules govern their use:
   RECAP archive when already liberated, else the RECAP Fetch API purchases them
   from PACER at PACER prices — a later, costed extension.
 
-**Implemented (#474):** the live poller fetches the petition and the brief in
+**Implemented:** the live poller fetches the petition and the brief in
 opposition on the same **distribution transition** that queues prediction (the
 record-complete moment, and near filing time — links are a rolling ~5-Term
 window upstream). Text is extracted with pypdf (born-digital filings under the

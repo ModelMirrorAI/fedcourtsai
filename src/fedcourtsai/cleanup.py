@@ -10,8 +10,8 @@ auto-merged) PR.
 The decision is a pure function of the corpus plus the committed tree, so it is
 testable offline and identical every run. The first rule prunes *predictions* for
 cases that are out of predict scope: every scope-exclusion predicate the matrix
-gate drops on — :func:`corpus.is_historical_mandatory` (#309),
-:func:`corpus.is_stale_unresolvable` (#333) — does double duty here, one predicate
+gate drops on — :func:`corpus.is_historical_mandatory`,
+:func:`corpus.is_stale_unresolvable` — does double duty here, one predicate
 with two enforcement points (the forward gate in ``cli._scope_filtered`` and this
 backward sweep). The event definition and any ``outcome.json`` stay; only the
 out-of-scope predictions go.
@@ -85,7 +85,7 @@ def find_out_of_scope_predictions(data_root: Path, corpus_db: Path) -> list[Prun
     Walks every ``data/cases/<court>/<docket>/events/<event>/predictions`` directory,
     groups by case, and keeps a case only when its corpus row matches an exclusion
     predicate. A case with predictions but **no** corpus row is left untouched — the
-    gate is the real corpus row, never a proxy (issue #320). Read-only and
+    gate is the real corpus row, never a proxy. Read-only and
     deterministic (cases and paths returned in sorted order); callers decide whether
     to remove the returned paths. Paths are repo-relative posix strings.
     """

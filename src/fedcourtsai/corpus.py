@@ -206,7 +206,7 @@ class CorpusRow(BaseModel):
     last_live_polled: date | None = Field(
         default=None,
         description="Tracking state: date the SCOTUS live channel (supremecourt.gov "
-        "docket JSON, #472) last polled this case; None until first polled. Drives "
+        "docket JSON) last polled this case; None until first polled. Drives "
         "the live poller's rotation, kept separate from `last_pulled` so the two "
         "channels' rotations never disturb each other.",
     )
@@ -214,7 +214,7 @@ class CorpusRow(BaseModel):
         default=None,
         description="The SCOTUS conference this petition is currently distributed for, "
         "parsed from the live proceedings ('DISTRIBUTED for Conference of …'; the "
-        "latest entry wins, so a re-distribution updates it, #473). The watchlist "
+        "latest entry wins, so a re-distribution updates it). The watchlist "
         "prioritizes and the conference-set report groups on it. Only the live "
         "channel supplies it; other writers preserve the stored value.",
     )
@@ -226,7 +226,7 @@ class CorpusRow(BaseModel):
     )
     predict_excluded: bool = Field(
         default=False,
-        description="Out-of-scope latch (issue #343): True when the seed reconcile has "
+        description="Out-of-scope latch: True when the seed reconcile has "
         "marked this case excluded from predict scope (an out-of-scope predicate matched). "
         "Owned by the reconcile — not monotonic (cleared when a case returns to scope) and "
         "preserved across ingestion re-writes. Read by `open_events` so excluded cases yield "
@@ -277,7 +277,7 @@ class CorpusEvent(BaseModel):
 
 
 class CaseDocument(BaseModel):
-    """One filed document's extracted text, stored as a raw fact (#474).
+    """One filed document's extracted text, stored as a raw fact.
 
     Fetched pipeline-side by the live poller (never agent-side) and keyed
     ``(case_id, kind)`` — the latest fetch of a kind wins, so a corrected or
@@ -396,7 +396,7 @@ CREATE TABLE IF NOT EXISTS live_discovery_cursors (
     PRIMARY KEY (term, stream)
 );
 
--- Per-case filed-document text (#474): a raw fact fetched pipeline-side by the
+-- Per-case filed-document text: a raw fact fetched pipeline-side by the
 -- live poller on the distribution transition. Keyed (case_id, kind) — the
 -- latest fetch of a kind wins. Text stays in the DVC-backed corpus
 -- (access-gated), never the git ledger; provisioning materializes it per cell.
@@ -479,7 +479,7 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # Typographic dashes (en U+2013 / em U+2014) that stand in for a plain hyphen in a
-# docket number, folded so a dash-variant reads as the modern Term-year form (#362).
+# docket number, folded so a dash-variant reads as the modern Term-year form.
 _DN_DASHES = {0x2013: "-", 0x2014: "-"}
 
 
@@ -744,7 +744,7 @@ def latch_originating_eligible(conn: sqlite3.Connection, rows: Iterable[CorpusRo
 def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -> str | None:
     """The existing SCOTUS row matching a Term-form docket number, or ``None``.
 
-    The identity-reconciliation join for the live channel (#472): the corpus
+    The identity-reconciliation join for the live channel: the corpus
     keys on docket ids, which a supremecourt.gov record does not carry, so both
     channels reconcile on the normalized docket-number string (the same
     ``norm_dn`` rule the lower-court latch uses) before minting a row — a live
@@ -775,7 +775,7 @@ _DISCRETIONARY_ERA_YEAR = 1925
 
 
 def is_historical_mandatory(row: CorpusRow) -> bool:
-    """Whether a SCOTUS row is a pre-1925 mandatory-jurisdiction matter (issue #309).
+    """Whether a SCOTUS row is a pre-1925 mandatory-jurisdiction matter.
 
     The ``evt-petition-disposition`` event model targets the *modern discretionary
     cert* regime (a ~1% grant base rate, "granted" = the Court takes the case up).
@@ -791,7 +791,7 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
     Non-SCOTUS rows are never historical-mandatory here — the regime is a Supreme
     Court concept, and the gate only ever sees a case once it is SCOTUS-eligible.
 
-    The bare-number test is applied to the *normalized* docket (issue #343): a great
+    The bare-number test is applied to the *normalized* docket: a great
     many historical SCOTUS dockets carry a ``No.`` label (``"No. 123"``), which a raw
     ``isdigit`` misses; :func:`normalize_docket_number` strips that, so they read as
     the bare sequential numbers they are.
@@ -812,7 +812,7 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
 # revisit the pivot before the 2030 Term.
 _SCOTUS_TERM_RE = re.compile(r"^(\d{2})-\d+")
 
-# Provisional staleness cutoff (issue #343 refines it against the corpus). A SCOTUS
+# Provisional staleness cutoff (the scope reconcile refines it against the corpus). A SCOTUS
 # Term before this is long past any pending-petition horizon; far enough back that a
 # genuinely open modern cert petition is never caught.
 _STALE_TERM_CUTOFF_YEAR = 2015
@@ -916,18 +916,18 @@ def case_era(row: CorpusRow) -> str | None:
 
 
 def is_stale_unresolvable(row: CorpusRow) -> bool:
-    """Whether a SCOTUS row is an old petition the corpus can never resolve (issue #333).
+    """Whether a SCOTUS row is an old petition the corpus can never resolve.
 
     Modern-format SCOTUS petitions from old Terms (e.g. ``93-7515`` -> OT1993,
     ``01-7700`` -> OT2001) whose snapshots are bare stubs — empty docket entries,
     null cert dates — sit perpetually open because deterministic outcome detection
     has nothing to resolve them from, so they are re-predicted every run decades
-    after they actually resolved (the bulk of the noise on the #333 feedback issue).
+    after they actually resolved (the bulk of the feedback-issue noise).
     Distinct from :func:`is_historical_mandatory`: those are *pre-1925* mandatory-
     jurisdiction matters with bare sequential numbers; these are post-1925
     discretionary-cert dockets that are simply too old to still be pending.
 
-    **Provisional and deliberately conservative — issue #343 refines it.** Caught
+    **Provisional and deliberately conservative — the scope reconcile refines it.** Caught
     only when: SCOTUS; no realized ``disposition`` and no ``date_decided`` (still
     open in the corpus); and a docket-number Term year older than
     ``_STALE_TERM_CUTOFF_YEAR``. Rows whose Term year cannot be parsed from the
@@ -943,7 +943,7 @@ def is_stale_unresolvable(row: CorpusRow) -> bool:
 
 
 def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
-    """Whether a still-open SCOTUS row's disposition lives only in an opinion (issue #363).
+    """Whether a still-open SCOTUS row's disposition lives only in an opinion.
 
     The recoverability probe (`run-analytics`, recoverability mode) found these historical
     ``evt-petition-disposition`` cases carry a **linked published opinion** (a reporter
@@ -954,8 +954,8 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
     a cert grant/deny, so the modern discretionary-cert model cannot score it. Predict
     scope therefore excludes it.
 
-    Complements the two siblings for the cases their docket-number tests cannot parse
-    (issue #362): :func:`is_stale_unresolvable` needs a parseable ``YY-NNNN`` Term year,
+    Complements the two siblings for the cases their docket-number tests cannot
+    parse: :func:`is_stale_unresolvable` needs a parseable ``YY-NNNN`` Term year,
     and :func:`is_historical_mandatory` needs a bare sequential number or a pre-1925
     ``date_filed`` (null on these rows) — so an old, oddly-formatted docket with a
     published opinion falls through both and lands here instead.
@@ -1002,7 +1002,7 @@ _SCOTUS_MISC_TEXT_RE = re.compile(r"MISC")
 
 
 def is_non_cert_scotus_form(row: CorpusRow) -> bool:
-    """Whether a SCOTUS docket is an application or original-jurisdiction matter (issue #362).
+    """Whether a SCOTUS docket is an application or original-jurisdiction matter.
 
     A stay / emergency **application** (``22A123``, older ``A-9999``, with or
     without a parenthetical companion like ``A-706 (98-1368)``), an
@@ -1017,14 +1017,14 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     judgment, and a motions docket's a procedural leave — none the cert
     grant/deny the model calibrates on — while the pre-1971 miscellaneous docket
     is decades-stale by construction. So predict scope excludes them (as it does
-    the pre-1925 mandatory-jurisdiction regime, #309), keyed on the term letter
+    the pre-1925 mandatory-jurisdiction regime), keyed on the term letter
     (``A`` / ``O`` / ``M``) or the ``Orig`` / ``Misc`` marker that a cert
     docket's ``YY-NNNN`` never carries. SCOTUS-only.
 
     Conservative — it matches on format alone, so it never catches a modern cert
     petition (which carries a hyphen, no letter and no ``Orig``/``Misc`` marker).
-    If application *stays* are later modeled as their own motion events (issue
-    #372), refine this to spare those rather than the whole case; today an
+    If application *stays* are later modeled as their own motion events,
+    refine this to spare those rather than the whole case; today an
     application docket carries only the mis-fit cert baseline, so excluding the
     case loses nothing.
     """
@@ -1091,15 +1091,15 @@ def consolidated_docket_members(raw: str) -> list[str] | None:
 
 
 def is_consolidated_out_of_scope(row: CorpusRow) -> bool:
-    """Whether a consolidated SCOTUS docket's members all classify out of scope (issue #449).
+    """Whether a consolidated SCOTUS docket's members all classify out of scope.
 
     A consolidated row carries several docket numbers in one string, so no
     single-number predicate can read it. This rule splits the members
     (:func:`consolidated_docket_members`) and runs **each member through the
     existing single-docket predicates** on a copy of the row: the row leaves
     predict scope only when *every* member agrees — all bare-sequential numbers
-    (the pre-1925 mandatory-jurisdiction regime, #309), all stale Term years
-    on a still-open row (#333), or all non-cert letter forms
+    (the pre-1925 mandatory-jurisdiction regime), all stale Term years
+    on a still-open row, or all non-cert letter forms
     (:func:`is_non_cert_scotus_form` — e.g. the consolidated miscellaneous
     pair ``No. 99M81; No. 99M82`` or application pair ``A-363; A-366``). Any
     disagreement, or any member the predicates cannot read, keeps the row in
@@ -1121,11 +1121,11 @@ def is_consolidated_out_of_scope(row: CorpusRow) -> bool:
 
 
 def is_date_inconsistent(row: CorpusRow) -> bool:
-    """Whether a case's filing/decision dates are internally inconsistent (issue #171).
+    """Whether a case's filing/decision dates are internally inconsistent.
 
     ``date_decided`` before ``date_filed`` — a case that looks decided before it was
     filed. A faithful but nonsensical CourtListener ordering the validation monitor
-    (#171) tracks *without* rewriting; such a case cannot yield a meaningful
+    tracks *without* rewriting; such a case cannot yield a meaningful
     prediction, so the predict scope excludes it. Court-agnostic (the malformation is
     not SCOTUS-specific). This does **not** weaken the monitor — the validation check
     still counts these rows; only prediction skips them.
@@ -1144,7 +1144,7 @@ def is_bare_import_profile(row: CorpusRow) -> bool:
     **empty docket number, null dates, no disposition, and no citation/opinion
     fields** — exactly the row fields every other exclusion predicate tests — so
     they fall through all of them. This profile is one half of
-    :func:`is_bare_opinion_import` (issue #438); alone it is *not* an exclusion
+    :func:`is_bare_opinion_import`; alone it is *not* an exclusion
     signal, because a row this empty could also be a malformed but genuinely live
     case. The other half — the latest snapshot linking a published opinion
     cluster — is what marks it as a decided historical matter.
@@ -1169,7 +1169,7 @@ def snapshot_links_opinion_cluster(payload: Mapping[str, Any]) -> bool:
 
 
 def is_bare_opinion_import(row: CorpusRow, snapshot: Mapping[str, Any] | None) -> bool:
-    """Whether a row is a bare bulk-import docket whose snapshot links an opinion (issue #438).
+    """Whether a row is a bare bulk-import docket whose snapshot links an opinion.
 
     The profile of a historical opinion-import docket: every row field the sibling
     exclusion predicates key on is empty (:func:`is_bare_import_profile`), while
@@ -1194,9 +1194,7 @@ def is_bare_opinion_import(row: CorpusRow, snapshot: Mapping[str, Any] | None) -
     )
 
 
-BARE_OPINION_IMPORT_REASON = (
-    "bare bulk-import row whose snapshot links a published opinion cluster (#438)"
-)
+BARE_OPINION_IMPORT_REASON = "bare bulk-import row whose snapshot links a published opinion cluster"
 
 
 # Each (predicate, reason) the predict-scope gate excludes a case on from the row
@@ -1205,15 +1203,18 @@ BARE_OPINION_IMPORT_REASON = (
 # every point. Snapshot-aware exclusions (the bare opinion-import rule) cannot live
 # in this row-only list; they are applied by :func:`out_of_scope_reason_full`.
 OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
-    (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter (#309)"),
-    (is_stale_unresolvable, "stale unresolvable old SCOTUS petition (#333)"),
+    (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter"),
+    (
+        is_stale_unresolvable,
+        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
+    ),
     (
         is_published_opinion_unresolvable,
-        "published opinion but no machine-readable cert disposition (#363)",
+        "published opinion but no machine-readable cert disposition",
     ),
     (
         is_non_cert_scotus_form,
-        "SCOTUS application / original-jurisdiction docket — not discretionary cert (#362)",
+        "SCOTUS application / original-jurisdiction docket — not discretionary cert",
     ),
     (
         is_disbarment_docket,
@@ -1221,9 +1222,9 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     ),
     (
         is_consolidated_out_of_scope,
-        "consolidated docket whose members all classify out of scope (#449)",
+        "consolidated docket whose members all classify out of scope",
     ),
-    (is_date_inconsistent, "internally inconsistent dates — decided before filed (#171)"),
+    (is_date_inconsistent, "internally inconsistent dates — decided before filed"),
 ]
 
 
@@ -1312,7 +1313,7 @@ def iter_rows(
 
 
 def set_predict_excluded(conn: sqlite3.Connection, case_id: str, excluded: bool) -> None:
-    """Set a case's out-of-scope latch (issue #343). The seed reconcile's sole writer.
+    """Set a case's out-of-scope latch. The seed reconcile's sole writer.
 
     Owned here rather than through ``upsert_rows`` so ingestion never disturbs it
     (the upsert keeps the stored value — see :func:`_update_clause`) and so the
@@ -1550,7 +1551,7 @@ def live_rotation(
     (docs/live-sources-probe.md). **Distributed petitions lead** (nearest
     conference first — they are days from resolution, the opposite of
     stalest-first; a past conference date sorts first of all, since that
-    petition is overdue for its order-list result, #473), then recent Terms
+    petition is overdue for its order-list result), then recent Terms
     first, then never-polled before stale, then ``case_id`` for determinism.
     Rotates on ``last_live_polled``, never ``last_pulled``, so the CourtListener
     enrichment rotation is undisturbed.
@@ -1578,7 +1579,7 @@ def live_rotation(
 def conference_watchlist(conn: ReadConnection, *, term_floor_year: int = 2017) -> list[CorpusRow]:
     """Every pending petition distributed for a conference, nearest date first.
 
-    The live cert watchlist read (#473): pending modern-cert petitions whose
+    The live cert watchlist read: pending modern-cert petitions whose
     proceedings carry a parsed ``distributed_for_conference``, ordered by that
     date then ``case_id``. The pending-before-conference set — the September
     framing's long-conference set is a date-slice of it — exposed via the
@@ -1761,7 +1762,7 @@ def set_discovery_watermark(conn: sqlite3.Connection, court: str, last_filed: da
         )
 
 
-# --- per-Term live-discovery cursors (tracking state, #472) ---------------------
+# --- per-Term live-discovery cursors (tracking state) ---------------------
 
 
 def get_live_cursor(conn: sqlite3.Connection, term: int, stream: str) -> int | None:
@@ -1842,7 +1843,7 @@ def snapshot_count(conn: ReadConnection) -> int:
     return int(cur.fetchone()["n"])
 
 
-# --- per-case filed-document text (raw facts, #474) ------------------------------
+# --- per-case filed-document text (raw facts) ------------------------------
 
 
 def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) -> int:

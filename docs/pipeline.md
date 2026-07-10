@@ -9,7 +9,7 @@ stage.
 | `run:dev`       | `run-dev`        | issue labeled                       | Claude Code          |
 | `run:seed`      | `run-seed`       | weekly schedule + manual (live-terms loader, the default mode); tracking issue / dispatch mode=bulk (frozen bulk backfill) | script (no agent)    |
 | `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual | script (no agent)    |
-| `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
+| `run:reconcile` | `run-reconcile`  | issue labeled — the workflow is **disabled** (pull may still file these; nothing consumes them while the live channel settles reconcile's fate) | Claude Code |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
@@ -83,11 +83,13 @@ read set plus an optional stub `local-cascade` cell — dispatched around change
 to corpus access or the corpus-consuming workflows and before releases. See
 *Infra-bound integration* in [testing.md](testing.md).
 
-**seed** loads the historical backlog from CourtListener **bulk data** — chunked
-catch-up while backfilling, then a weekly snapshot-id check that reconciles when a
-new quarterly bulk snapshot drops; **pull** keeps the active set current from
-the rate-limited **REST API** and owns the 125/day budget. After backfilling, seed
-also runs the **predict-scope reconcile** (`fedcourts reconcile-scope`): it latches
+**seed**'s weekly schedule runs the **past-Term cert loader** (supremecourt.gov,
+budget-free), growing the back-test set; the frozen **bulk** backfill stays
+reachable via the `run:seed` label or dispatch mode=bulk. **pull** does targeted
+CourtListener enrichment from the rate-limited **REST API** (it owns that
+budget; the live job owns SCOTUS freshness for free). Both seed jobs
+also run the **predict-scope reconcile** (`fedcourts reconcile-scope`) — the
+weekly loader carries the sweep's cadence now: it latches
 out-of-scope cases (the shared exclusion rules — era, staleness, docket form, date
 consistency, and the snapshot-aware bare opinion-import profile) in the corpus so
 they leave the predictable set at the source, then `dvc push`es the pointer like
@@ -98,9 +100,11 @@ historical corpus — is in [data-pipeline.md](data-pipeline.md).
 ## Cascade
 
 ```
-run:seed (weekly, chunked until done) → backfill bulk corpus chunk → commit + progress comment
+run:seed schedule (weekly) → seed-live-terms → walk decided Terms, ingest grants + sampled denials
+                              └─ checkpointed: dvc push + pointer commit per chunk
+   run:seed label / dispatch mode=bulk → frozen bulk backfill chunk → commit + progress comment
                               └─ when complete: completion PR (flips `completed`) → closes tracker
-   daily / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
+   daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ detect resolution → write outcome.json when the
                                  │  disposition is machine-readable (git ledger)
@@ -109,7 +113,7 @@ run:seed (weekly, chunked until done) → backfill bulk corpus chunk → commit 
                                     ├─ run:evaluate   (case that gained an outcome)
                                     └─ run:reconcile  (decided but not machine-readable
                                                        → agent reconciles by hand)
-   daily ×4 → run-pull (live job, #472) → open live-log issue → push fresh facts to the corpus
+   daily ×4 → run-pull (live job) → open live-log issue → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions (per-Term cursor)
                                  ├─ re-poll the pending cert watchlist (recent Terms first)

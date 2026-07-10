@@ -1,4 +1,4 @@
-# Live-source reachability probe: findings & Term floor (#523)
+# Live-source reachability probe: findings & Term floor
 
 The gate on the live-channel loader ([live-sources.md](live-sources.md)): probe
 `supremecourt.gov/rss/cases/JSON/<term>-<number>.json` per October Term, walking
@@ -44,8 +44,8 @@ served"). Machine detail rides in the probe's `--report-out` JSON.
 - **Disposition orders are machine-matchable: 64/64 served records** matched a
   cert-disposition signal (`pipeline.cert_signals.match_disposition_signal`,
   the shared cert-order patterns) in plain `ProceedingsandOrder` text — e.g.
-  "Petition DENIED." So the loader's ingest-time resolution (#523) and the
-  live channel's outcome capture (#473) work off the shelf; every sampled
+  "Petition DENIED." So the loader's ingest-time resolution and the
+  live channel's outcome capture work off the shelf; every sampled
   decided petition would land resolved with a machine-readable cert label.
 - **Document links have a much higher floor than the JSON: ~OT2021.** Links are
   healthy OT2021–OT2025 (petitions, appendices, BIOs; the one sampled granted
@@ -53,7 +53,7 @@ served"). Machine detail rides in the probe's `--report-out` JSON.
   per Term) even for paid cases — the records exist, the proceedings text is
   full, but the `Links`/`DocumentUrl` fields are absent. This looks like a
   rolling retention window (~5 Terms), not an e-filing boundary. Two
-  consequences: (a) document-rich replay cells (#474: petition text, QP) are
+  consequences: (a) document-rich replay cells (petition text, QP) are
   only JSON-servable for ~OT2021+; (b) **forward-mode document fetching should
   happen near filing time** — links visible today may not be served in five
   years, so provisioning at ingest (already the design) is also the archival
@@ -62,7 +62,7 @@ served"). Machine detail rides in the probe's `--report-out` JSON.
 - **`QPLink` is rare on denied petitions** (1/64, the granted case). The
   questions presented for the typical denied petition must come from the
   petition PDF itself (whose first pages carry the QP), not a dedicated link —
-  sizing input for #474's extract-vs-link decision.
+  sizing input for the document-provisioning extract-vs-link decision.
 - **Politeness posture confirmed**: browser UA required (default UA → 403,
   verified), 1 req/s sustained with zero 403/429/5xx across the run.
 
@@ -72,6 +72,6 @@ served"). Machine detail rides in the probe's `--report-out` JSON.
   petition lands with a machine-readable cert label. This is the floor for the
   corpus/backtest breadth (denial base rates, calibration strata).
 - **Document-rich floor: OT2021** — the slice where replay cells can be
-  provisioned with petition/QP/BIO text (#474). #523's stratified sampling
+  provisioned with petition/QP/BIO text. The loader's stratified sampling
   should therefore draw its document-dependent strata from OT2021+, and treat
   OT2017–OT2020 as metadata+proceedings-only rows.

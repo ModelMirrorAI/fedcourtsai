@@ -476,7 +476,7 @@ def test_render_stall_comment_names_the_role_and_retry_path() -> None:
 
 
 def test_reconcile_rolls_up_flags_into_body_and_feedback() -> None:
-    # Reconcile uses the same durable channel as predict/evaluate (issue #325): an
+    # Reconcile uses the same durable channel as predict/evaluate: an
     # ambiguous event the agent could not settle rides the PR body and is wrapped for
     # the long-lived agent-feedback issue, keyed on the reconcile role.
     plan = reconcile_collect_plan(

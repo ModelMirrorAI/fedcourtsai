@@ -283,10 +283,10 @@ def corpus_scope_audit_cmd(
         ),
     ] = None,
 ) -> None:
-    """Census open corpus events the predict scope excludes; emit a JSON audit (#343).
+    """Census open corpus events the predict scope excludes; emit a JSON audit.
 
     Read-only: opens the packed corpus and, for every still-open SCOTUS event, tallies
-    by exclusion reason (pre-1925 mandatory jurisdiction #309, stale unresolvable #333)
+    by exclusion reason (pre-1925 mandatory jurisdiction, stale unresolvable, and siblings)
     the cases, open events, and the recoverable subset (those whose case carries an
     opinion/citation/decision-date signal — a hint the disposition is an ingestion gap
     rather than genuinely absent). Writes the `CorpusScopeAudit` and prints a summary.
@@ -327,7 +327,7 @@ def reconcile_scope_cmd(
         ),
     ] = False,
 ) -> None:
-    """Reconcile the corpus's out-of-scope latch with the predicate set (issue #343).
+    """Reconcile the corpus's out-of-scope latch with the predicate set.
 
     The write counterpart of `corpus-scope-audit`: over the predict-eligible cases, it
     latches `predict_excluded` on those the shared exclusion reasoning now matches
@@ -726,11 +726,11 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         Path | None, typer.Option(help="Gemini CLI telemetry.log to read tool calls from.")
     ] = None,
 ) -> None:
-    """Record the cell's tool-call transcript to ``retrieval_log.json`` (#525).
+    """Record the cell's tool-call transcript to ``retrieval_log.json``.
 
     The load-bearing half of the leakage doctrine: the log is harvested from
     the engine's own transcript (the same sources ``record-usage`` reads),
-    never the agent's word, so the #526 evaluator can grade what a replay cell
+    never the agent's word, so the cross-evaluator's leakage grading can see what a replay cell
     actually retrieved. The pinned tool manifest the cell was configured with
     (from the actor's registry entry) is snapshotted alongside — the
     pipeline-attribution record. A cell with zero tool calls still records an
@@ -937,6 +937,7 @@ def ops_report(
         usage=iter_usage(settings.data_root),
         flags=iter_flags(settings.data_root),
         tooling=iter_tooling(settings.data_root),
+        evaluations=[e for e, _ in iter_stratified_evaluations(settings.data_root)],
         previous=prior,
         data_health=data_health,
         scope_audit=scope_verdict,
@@ -980,7 +981,7 @@ def mcp_config_cmd(
         ),
     ] = None,
 ) -> None:
-    """Emit one engine's MCP client config from the versioned tool manifest (#525).
+    """Emit one engine's MCP client config from the versioned tool manifest.
 
     The single seam between the registry's ``mcp_servers`` manifest and the
     three engines' client formats (Claude ``--mcp-config`` JSON, Codex
@@ -1227,7 +1228,7 @@ def probe_live_terms(
         typer.Option(help="Append the Markdown findings table here (e.g. $GITHUB_STEP_SUMMARY)."),
     ] = None,
 ) -> None:
-    """Probe supremecourt.gov docket-JSON availability per October Term (#523).
+    """Probe supremecourt.gov docket-JSON availability per October Term.
 
     The live-sources reachability probe: for each Term from ``--max-term`` back
     to ``--min-term`` it fetches a small sample of docket numbers and reports
@@ -1578,7 +1579,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     ``--full``. Reads the ``dvc pull``-ed file, or the blob in place on the
     remote with ``--corpus-backend ranged``.
 
-    Maintained as-is (#525): cells' open-web retrieval moved to the official
+    Maintained as-is: cells' open-web retrieval moved to the official
     CourtListener MCP server, so this surface gets no further feature work —
     it stays the corpus-priors/base-rates read (the one retrieval a *replay*
     cell leans on) rather than growing into a bespoke search engine.
@@ -1789,7 +1790,7 @@ def provision_snapshot(
     mode: Annotated[
         str,
         typer.Option(
-            help="The cell's mode, written into record/context.json (#525): forward "
+            help="The cell's mode, written into record/context.json: forward "
             "(a live cell — the default) | replay (a back-test cell; the replay "
             "provisioner in cert_backtest writes this itself)."
         ),
@@ -1804,7 +1805,7 @@ def provision_snapshot(
     file, or the blob in place on the remote with ``--corpus-backend ranged`` —
     and write it where the agent reads it (a gitignored ``record/`` path, never
     committed). Any stored filed-document text (petition, questions presented,
-    brief in opposition — fetched pipeline-side by the live poller, #474) is
+    brief in opposition — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. Exits non-zero if the corpus holds no snapshot for the case.
@@ -1827,7 +1828,7 @@ def provision_snapshot(
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
-    # The cell's mode context (#525): stated at provisioning so the prompt
+    # The cell's mode context: stated at provisioning so the prompt
     # contract keys replay etiquette on it rather than inferring from env vars.
     write_raw_json(paths.cell_context, {"mode": mode})
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}) -> {dest}")
@@ -2194,7 +2195,7 @@ def live_poll(
 ) -> None:
     """One SCOTUS live-channel cycle: discover new petitions, refresh pending ones.
 
-    The live counterpart of ``pull-all`` (#472), fed by the supremecourt.gov
+    The live counterpart of ``pull-all``, fed by the supremecourt.gov
     docket JSON — no CourtListener token, no API budget; caps in the ``live``
     section of ``config/tracking.yaml`` bound wall clock and politeness.
     Discovery probes the Term's numbering frontier from the persisted per-Term
@@ -2242,7 +2243,7 @@ def conference_set(
 ) -> None:
     """The pending-before-conference set: the live cert watchlist, by conference.
 
-    Read-only (#473): every pending modern-cert petition whose live proceedings
+    Read-only: every pending modern-cert petition whose live proceedings
     carry a "DISTRIBUTED for Conference of …" membership, grouped by conference
     date — the set predictions fire ahead of and score against days later. The
     September long-conference set is this report's largest date bucket.
@@ -2628,12 +2629,12 @@ def cleanup_out_of_scope_predictions_cmd(
         int, typer.Option(help="Trigger issue the PR closes on merge (0 = none).")
     ] = 0,
 ) -> None:
-    """Prune committed predictions for cases now out of predict scope (issues #320/#333).
+    """Prune committed predictions for cases now out of predict scope.
 
     Reads the corpus (must be ``dvc pull``'d) and the committed ``data/`` tree and
     finds every ``…/predictions`` directory whose case an exclusion predicate drops —
-    pre-1925 mandatory jurisdiction (#309) or a stale unresolvable old SCOTUS petition
-    (#333); the event definition and any ``outcome.json`` stay, only the out-of-scope
+    pre-1925 mandatory jurisdiction or a stale unresolvable old SCOTUS petition;
+    the event definition and any ``outcome.json`` stay, only the out-of-scope
     predictions go. Prints a JSON summary
     ``{"prunable":[{case_id,reason,paths}],"removed":<bool>,"pr":<branch/title/commit/body|null>}``;
     with ``--apply`` it also removes the directories. The ``pr`` block (rendered here, not
@@ -2740,7 +2741,7 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     Because every artifact carries the full ``data/`` tree, *previously committed*
     flag files from earlier runs ride along in each cell, so two filters keep the
     per-run roll-up honest (without them a prior run's flags reappear once per cell,
-    growing with both history and matrix width — see issue #333):
+    growing with both history and matrix width):
 
     * **run id** — keep only flags from this ``run_id``; an earlier run's committed
       flags are not this run's feedback.

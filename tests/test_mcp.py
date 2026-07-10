@@ -1,4 +1,4 @@
-"""The tool manifest + per-engine MCP config emission (#525)."""
+"""The tool manifest + per-engine MCP config emission."""
 
 from __future__ import annotations
 

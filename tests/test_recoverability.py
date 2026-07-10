@@ -1,4 +1,4 @@
-"""Unit tests for the read-only recoverability probe (issue #369).
+"""Unit tests for the read-only recoverability probe.
 
 Everything here runs against a canned, stubbed client — no live network — mirroring
 the stub seam described in ``docs/testing.md``. The three headline cases the probe
@@ -166,7 +166,7 @@ def test_genuinely_bare_docket_is_absent() -> None:
 
 
 def test_linked_cluster_without_disposition_or_citation_is_ambiguous() -> None:
-    # The #333 pattern: a linked cluster exists but exposes nothing usable.
+    # The stale-stub pattern: a linked cluster exists but exposes nothing usable.
     client = StubClient(
         dockets={1004289: _bare_docket(1004289, clusters=[42])},
         clusters={

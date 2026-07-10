@@ -1,4 +1,4 @@
-"""Harness-side retrieval capture from the engines' own transcripts (#525)."""
+"""Harness-side retrieval capture from the engines' own transcripts."""
 
 from __future__ import annotations
 
@@ -177,7 +177,7 @@ def test_record_retrieval_writes_log_with_manifest(
 
 
 def test_record_retrieval_empty_transcript_still_records(fixture_corpus: FixtureCorpus) -> None:
-    # "Retrieved nothing" is evidence for the #526 evaluator, not a skip.
+    # "Retrieved nothing" is evidence for the leakage grading, not a skip.
     result = runner.invoke(
         app,
         [

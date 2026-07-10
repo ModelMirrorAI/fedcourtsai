@@ -8,12 +8,24 @@ fedcourtsai is a **label-driven pipeline** of GitHub Actions over two stores —
 ## Components
 
 - **Library (`src/fedcourtsai/`)** — the deterministic core:
-  - `courtlistener/` — REST API v4 client (docket + entries) for seed/pull.
+  - `courtlistener/` — REST API v4 client (docket + entries) for pull's
+    CourtListener enrichment; owns the API-budget throttle.
+  - `supremecourt.py` — the SCOTUS live-channel client (per-docket JSON +
+    filed-document PDFs; polite, budget-free) and the live identity scheme.
+  - `corpus.py` / `corpus_ranged.py` — the packed raw-fact store (rows, events,
+    snapshots, documents, tracking cursors) and its ranged read backend that
+    queries the blob in place on the DVC remote.
   - `schemas.py` — the pydantic data contract (also exported to `schemas/*.json`).
   - `paths.py` / `ids.py` / `store.py` — the on-disk layout and queries over it.
-  - `registry.py` / `matrix.py` — load the predictor/evaluator registries and
-    build the Actions fan-out matrix from them.
-  - `pipeline/` — seed, pull, and the predict/evaluate contract helpers.
+  - `registry.py` / `matrix.py` — the predictor/evaluator registries (including
+    the MCP tool manifest) and the Actions fan-out matrix built from them.
+  - `mcp.py` / `retrieval.py` — the cells' MCP client configs emitted from the
+    manifest, and the harness-side tool-call transcript capture
+    (`retrieval_log.json`) that grounds the evaluators' leakage grading.
+  - `pipeline/` — ingestion and contract helpers: the shared normalizer
+    (`ingest.py`), pull, the live poller (`live.py`), the past-Term loader
+    (`seedlive.py`), document fetch/extraction (`documents.py`), event
+    definition, resolution detection, and the predict/evaluate seams.
   - `cli.py` — `fedcourts`, the entry point used by scripts and workflows.
 - **Workflows (`.github/workflows/`)** — orchestration; see `pipeline.md`.
 - **Prompts (`.github/prompts/`)** — engine-agnostic task instructions shared by

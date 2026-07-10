@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -16,8 +16,10 @@ from fedcourtsai.schemas import (
     CourtProgress,
     DataHealth,
     Engine,
+    Evaluation,
     FlagCategory,
     FlagSeverity,
+    LeakageAssessment,
     LedgerValidation,
     ModelUsage,
     OpsReport,
@@ -310,13 +312,13 @@ def test_render_scope_audit_tabulates_exclusions_and_recoverable() -> None:
         scotus_open_events=50,
         exclusions=[
             ScopeExclusion(
-                reason="stale unresolvable old SCOTUS petition (#333)",
+                reason="stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
                 cases=32,
                 open_events=32,
                 recoverable=12,
             ),
             ScopeExclusion(
-                reason="pre-1925 mandatory-jurisdiction matter (#309)",
+                reason="pre-1925 mandatory-jurisdiction matter",
                 cases=15,
                 open_events=15,
                 recoverable=0,
@@ -333,9 +335,12 @@ def test_render_scope_audit_tabulates_exclusions_and_recoverable() -> None:
     assert "## Out-of-scope open events" in md
     assert "**47** of 50 open SCOTUS event(s) are out of scope" in md
     assert "**12** carry a disposition signal" in md
-    assert "| stale unresolvable old SCOTUS petition (#333) | 32 | 32 | 12 |" in md
-    # The #343 refinement breakdown renders too.
-    assert "the #343 refinement signal" in md
+    assert (
+        "| stale unresolvable old SCOTUS petition (pre-2015 Term, still open) | 32 | 32 | 12 |"
+        in md
+    )
+    # The scope-refinement breakdown renders too.
+    assert "the scope-refinement signal" in md
     assert "| docket Term not parseable (a format the predicate skips) | 3 |" in md
     # …and the docket-shape histogram that targets the parser broadening.
     assert "| `99A999` | 3 |" in md
@@ -359,7 +364,7 @@ def test_render_markdown_includes_scope_audit_when_present() -> None:
             scotus_open_events=10,
             exclusions=[
                 ScopeExclusion(
-                    reason="stale unresolvable old SCOTUS petition (#333)",
+                    reason="stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
                     cases=3,
                     open_events=3,
                     recoverable=1,
@@ -381,8 +386,8 @@ def test_render_data_health_healthy_has_no_failure_table() -> None:
 
 
 def test_render_data_health_surfaces_monitored_within_baseline() -> None:
-    # A passed check with non-zero failures (e.g. case_dates_ordered within the #171
-    # baseline) is healthy overall but its count is still surfaced for the monitor.
+    # A passed check with non-zero failures (e.g. case_dates_ordered within its
+    # accepted baseline) is healthy overall but its count is still surfaced for the monitor.
     health = DataHealth(
         ok=True,
         ledger=LedgerValidation(ok=True, checked=12, invalid=0),
@@ -793,3 +798,44 @@ def test_ops_report_rolls_up_committed_flags(tmp_path: Path) -> None:
     report = json.loads(json_out.read_text())
     assert report["flags"]["total"] == 1 and report["flags"]["warnings"] == 1
     assert report["flags"]["recent"][0]["actor_id"] == "claude-baseline"
+
+
+def _leaky_evaluation(
+    verdict: str, *, run_id: str = "20260710T120000Z", predictor: str = "claude-baseline"
+) -> Evaluation:
+    return Evaluation(
+        case_id="scotus/1",
+        event_id="evt-petition-disposition",
+        predictor_id=predictor,
+        evaluator_id="codex-judge",
+        engine="codex",
+        run_id=run_id,
+        created_at=datetime(2026, 7, 10, 12, tzinfo=UTC),
+        correct=1,
+        leakage_suspected=verdict in ("possible", "likely"),
+        leakage=LeakageAssessment(
+            mode="replay" if verdict != "not_applicable" else "forward",
+            retrieved_outcome_material=verdict in ("possible", "likely"),
+            influenced_prediction=verdict,
+        ),
+    )
+
+
+def test_summarize_leakage_buckets_and_names_likely_offenders() -> None:
+    evaluations = [
+        _leaky_evaluation("not_applicable"),
+        _leaky_evaluation("none"),
+        _leaky_evaluation("possible"),
+        _leaky_evaluation("likely", run_id="20260710T130000Z", predictor="gemini-baseline"),
+        # An old-schema record with no leakage block is skipped, not counted.
+        _leaky_evaluation("none").model_copy(update={"leakage": None}),
+    ]
+    digest = ops.summarize_leakage(evaluations)
+    assert (digest.assessed, digest.not_applicable, digest.none) == (4, 1, 1)
+    assert (digest.possible, digest.likely) == (1, 1)
+    assert digest.flagged == ["scotus/1 evt-petition-disposition gemini-baseline (by codex-judge)"]
+
+
+def test_summarize_leakage_empty_is_all_zero() -> None:
+    digest = ops.summarize_leakage([])
+    assert digest.assessed == 0 and digest.flagged == []
