@@ -34,8 +34,8 @@ from pathlib import Path
 
 from .. import corpus, ids
 from ..paths import CasePaths
-from ..schemas import Disposition, Outcome
-from ..serialize import write_json
+from ..schemas import Disposition, Outcome, PredictableEvent
+from ..serialize import write_json, write_yaml
 from ..store import open_events
 from .ingest import CorpusRow
 
@@ -173,17 +173,48 @@ def record_outcomes(
 
     The derived judgment (``outcome.json``) lands in the git ledger; the event's
     open/resolved state is a raw fact, so the matching ``CorpusEvent`` is flipped
-    ``resolved`` in the packed corpus. Returns the event ids written, sorted.
-    Idempotent: a resolved event is filtered out upstream by :func:`open_events`
-    (which reads the same corpus flag), so a re-run never duplicates or overwrites
-    a recorded outcome.
+    ``resolved`` in the packed corpus. The event's ``event.yaml`` is materialized
+    beside the outcome from the same corpus row: an outcome committed without its
+    event definition is a referential orphan the offline ``validate`` gate
+    rejects, and unlike the agent cells (whose workflows run ``materialize-event``
+    first) the deterministic writers commit straight from this working tree, so
+    this is the only place that can guarantee the pair. Returns the event ids
+    written, sorted. Idempotent: a resolved event is filtered out upstream by
+    :func:`open_events` (which reads the same corpus flag), so a re-run never
+    duplicates or overwrites a recorded outcome.
     """
     case = CasePaths(data_root, court_id, docket_id)
     case_id = ids.case_id(court_id, docket_id)
     written: list[str] = []
     with corpus.connect(corpus_db_path) as conn:
+        events_by_id = {e.event_id: e for e in corpus.events_for_case(conn, case_id)}
         for event_id, outcome in sorted(resolution.outcomes.items()):
+            event = events_by_id.get(event_id)
+            if event is None:
+                # Fail loud, before the outcome is written: an outcome without
+                # its event definition is exactly the orphan the gate rejects,
+                # and a resolution for an event the corpus does not hold is an
+                # internal inconsistency (the open-events read and this write
+                # use the same table), not upstream degradation.
+                raise RuntimeError(
+                    f"corpus holds no event {event_id!r} for {case_id}; "
+                    "refusing to write an orphaned outcome"
+                )
             write_json(case.event(event_id).outcome, outcome)
+            write_yaml(
+                case.event(event_id).event_file,
+                PredictableEvent(
+                    event_id=event.event_id,
+                    case_id=event.case_id,
+                    kind=event.kind,
+                    title=event.title,
+                    description=event.description,
+                    docket_entry_id=event.docket_entry_id,
+                    opened_at=event.opened_at,
+                    decision_target=event.decision_target,
+                    resolved=True,  # the outcome beside it is the resolution
+                ),
+            )
             # An event with a realized outcome is, by definition, resolved: close
             # it in the corpus so the next open_events read stops queuing it.
             corpus.set_event_resolved(conn, case_id, event_id)
