@@ -56,10 +56,10 @@
       ]
     },
     {
-      "cases": 3616,
-      "open_events": 3616,
+      "cases": 3617,
+      "open_events": 3617,
       "reason": "consolidated docket whose members all classify out of scope (#449)",
-      "recoverable": 1,
+      "recoverable": 2,
       "sample_cases": [
         "scotus/1004607",
         "scotus/1017888",
@@ -68,9 +68,9 @@
         "scotus/102484",
         "scotus/105035",
         "scotus/1061844",
+        "scotus/106360",
         "scotus/106432",
-        "scotus/107543",
-        "scotus/1115067"
+        "scotus/107543"
       ]
     },
     {
@@ -91,7 +91,7 @@
       "cases": 82338,
       "open_events": 82338,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29812,
+      "recoverable": 29813,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -106,10 +106,10 @@
       ]
     },
     {
-      "cases": 12007,
-      "open_events": 12007,
+      "cases": 12006,
+      "open_events": 12006,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12007,
+      "recoverable": 12006,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -117,17 +117,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/106360",
         "scotus/1063935",
         "scotus/106434",
-        "scotus/1065"
+        "scotus/1065",
+        "scotus/106687"
       ]
     },
     {
-      "cases": 385046,
-      "open_events": 385046,
+      "cases": 385029,
+      "open_events": 385029,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44469,
+      "recoverable": 44464,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -195,7 +195,7 @@
       ]
     },
     {
-      "open_events": 125,
+      "open_events": 142,
       "reason": "carries a disposition signal (open despite a recorded decision)",
       "sample_cases": [
         "scotus/1056408",
