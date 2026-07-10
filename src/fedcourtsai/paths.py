@@ -108,6 +108,20 @@ class CasePaths:
         return self.record / "snapshots" / f"{day}.json"
 
     @property
+    def documents_dir(self) -> Path:
+        # Provisioning location for the case's fetched filed-document text
+        # (petition, questions presented, BIO — #474), materialized from the
+        # corpus alongside the snapshot. Gitignored like everything in record/.
+        return self.record / "documents"
+
+    def document(self, kind: str) -> Path:
+        return self.documents_dir / f"{kind}.txt"
+
+    @property
+    def documents_manifest(self) -> Path:
+        return self.documents_dir / "documents.json"
+
+    @property
     def events_dir(self) -> Path:
         return self.base / "events"
 

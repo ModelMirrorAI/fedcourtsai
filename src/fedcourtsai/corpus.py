@@ -276,6 +276,32 @@ class CorpusEvent(BaseModel):
     resolved: bool = False
 
 
+class CaseDocument(BaseModel):
+    """One filed document's extracted text, stored as a raw fact (#474).
+
+    Fetched pipeline-side by the live poller (never agent-side) and keyed
+    ``(case_id, kind)`` — the latest fetch of a kind wins, so a corrected or
+    re-filed document supersedes. Text lives here in the DVC-backed corpus,
+    never the git ledger (the access-gated, no-republication posture);
+    provisioning materializes it into a cell's gitignored ``record/`` path.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    kind: str = Field(description="petition | brief-in-opposition | questions-presented | …")
+    url: str = Field(description="The supremecourt.gov DocumentUrl fetched (or the source doc's)")
+    entry_date: str | None = Field(
+        default=None, description="The proceedings entry date the link rode on, verbatim"
+    )
+    fetched_at: date
+    pages: int = Field(default=0, description="PDF page count (0 for a derived section)")
+    truncated: bool = Field(
+        default=False, description="Extracted text hit the storage cap and was cut"
+    )
+    text: str = Field(description="Extracted text (capped at ingest; may be empty for a scan)")
+
+
 class DiscoveryWatermark(BaseModel):
     """Per-court forward-discovery cursor: the newest ``date_filed`` seen so far.
 
@@ -363,6 +389,22 @@ CREATE TABLE IF NOT EXISTS live_discovery_cursors (
     stream       TEXT NOT NULL,
     last_serial  INTEGER NOT NULL,
     PRIMARY KEY (term, stream)
+);
+
+-- Per-case filed-document text (#474): a raw fact fetched pipeline-side by the
+-- live poller on the distribution transition. Keyed (case_id, kind) — the
+-- latest fetch of a kind wins. Text stays in the DVC-backed corpus
+-- (access-gated), never the git ledger; provisioning materializes it per cell.
+CREATE TABLE IF NOT EXISTS documents (
+    case_id     TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    url         TEXT NOT NULL,
+    entry_date  TEXT,
+    fetched_at  TEXT NOT NULL,
+    pages       INTEGER NOT NULL DEFAULT 0,
+    truncated   INTEGER NOT NULL DEFAULT 0,
+    text        TEXT NOT NULL,
+    PRIMARY KEY (case_id, kind)
 );
 
 -- Dated point-in-time docket snapshots: a raw fact, one per (case, pull date).
@@ -1793,3 +1835,71 @@ def snapshot_count(conn: ReadConnection) -> int:
     """Total number of dated snapshot rows in the corpus."""
     cur = conn.execute("SELECT COUNT(*) AS n FROM snapshots")
     return int(cur.fetchone()["n"])
+
+
+# --- per-case filed-document text (raw facts, #474) ------------------------------
+
+
+def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) -> int:
+    """Insert or replace documents by ``(case_id, kind)``; returns rows written.
+
+    Latest-wins by design: a corrected or re-filed document (a new BIO after a
+    bounced one) simply supersedes the stored text for its kind.
+    """
+    with conn:
+        conn.executemany(
+            "INSERT INTO documents (case_id, kind, url, entry_date, fetched_at, pages, "
+            "truncated, text) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(case_id, kind) DO UPDATE SET url = excluded.url, "
+            "entry_date = excluded.entry_date, fetched_at = excluded.fetched_at, "
+            "pages = excluded.pages, truncated = excluded.truncated, text = excluded.text",
+            [
+                (
+                    d.case_id,
+                    d.kind,
+                    d.url,
+                    d.entry_date,
+                    d.fetched_at.isoformat(),
+                    d.pages,
+                    int(d.truncated),
+                    d.text,
+                )
+                for d in documents
+            ],
+        )
+    return len(documents)
+
+
+def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]:
+    """Every stored document for a case, ordered by kind (deterministic).
+
+    Provisioning materializes these into the cell's gitignored ``record/``
+    path; empty when the live poller has not fetched for this case (a
+    pre-OT2021 petition whose links the site no longer serves, or a case the
+    distribution trigger has not yet reached). Like :func:`_optional_date` for
+    columns, a remote blob packed before the table existed reads as "no
+    documents" rather than failing the ranged cell.
+    """
+    try:
+        cur = conn.execute(
+            "SELECT case_id, kind, url, entry_date, fetched_at, pages, truncated, text "
+            "FROM documents WHERE case_id = ? ORDER BY kind",
+            (case_id,),
+        )
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            return []
+        raise
+    return [
+        CaseDocument(
+            case_id=record["case_id"],
+            kind=record["kind"],
+            url=record["url"],
+            entry_date=record["entry_date"],
+            fetched_at=date.fromisoformat(record["fetched_at"]),
+            pages=int(record["pages"]),
+            truncated=bool(record["truncated"]),
+            text=record["text"],
+        )
+        for record in cur
+    ]

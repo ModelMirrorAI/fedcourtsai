@@ -26,6 +26,7 @@ from fedcourtsai.supremecourt import (
     live_docket_id,
     parse_scotus_docket_number,
 )
+from tests.test_documents import _pdf
 
 # --- payload fixtures (trimmed real shapes, per docs/live-sources-probe.md) -----
 
@@ -574,3 +575,45 @@ def test_repo_tracking_yaml_carries_live_section() -> None:
     cfg = load_live_config(Path("config"))
     assert cfg.max_cases_per_run == 30
     assert cfg.term_floor_year == 2017
+
+
+def test_distribution_transition_provisions_documents(tmp_path: Path) -> None:
+    # #474: the same transition that queues predict fetches the petition text
+    # and derives the questions presented into the corpus documents table.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served_docs = {
+        "https://example/p.pdf": _pdf(
+            "QUESTION PRESENTED Whether Z. PARTIES TO THE PROCEEDING Acme."
+        )
+    }
+    served = {"25-1": _payload("25-1")}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url in served_docs:
+            return httpx.Response(200, content=served_docs[url])
+        name = request.url.path.rsplit("/", 1)[-1].removesuffix(".json")
+        if name in served:
+            return httpx.Response(200, json=served[name])
+        return httpx.Response(404)
+
+    # Cycle 1: onboarded undistributed -> no documents fetched.
+    with _client(handler) as client:
+        live_poll_all(client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 9))
+    with corpus.connect(db) as conn:
+        assert corpus.documents_for_case(conn, "scotus/9025000001") == []
+
+    # Cycle 2: distribution lands -> predict queues AND documents provision.
+    served["25-1"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 10 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+    )
+    with _client(handler) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 10)
+        )
+    assert [q["docket"] for q in queues.predict] == [9_025_000_001]
+    with corpus.connect(db) as conn:
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9025000001")}
+    assert set(stored) == {"petition", "questions-presented"}
+    assert stored["questions-presented"].text == "Whether Z."

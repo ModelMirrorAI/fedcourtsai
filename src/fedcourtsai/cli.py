@@ -1559,14 +1559,18 @@ def provision_snapshot(
     ] = None,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
-    """Materialize a case's latest corpus snapshot to disk for an agent run.
+    """Materialize a case's latest corpus snapshot (and documents) for an agent run.
 
     Point-in-time snapshots are raw facts that live in the packed corpus, not
     git. The predict/evaluate/reconcile workflows call this to read the most
     recent dated snapshot for the case out of the corpus — the ``dvc pull``-ed
     file, or the blob in place on the remote with ``--corpus-backend ranged`` —
     and write it where the agent reads it (a gitignored ``record/`` path, never
-    committed). Exits non-zero if the corpus holds no snapshot for the case.
+    committed). Any stored filed-document text (petition, questions presented,
+    brief in opposition — fetched pipeline-side by the live poller, #474) is
+    materialized alongside, under ``record/documents/`` with a
+    ``documents.json`` manifest, so the cell reads identical content with no
+    fetch rights. Exits non-zero if the corpus holds no snapshot for the case.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -1574,14 +1578,25 @@ def provision_snapshot(
     backend = _corpus_backend(corpus_backend)
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         found = corpus.latest_snapshot(conn, case)
+        documents = corpus.documents_for_case(conn, case)
         _echo_read_stats(conn)
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (dvc pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
     snapshot_date, payload = found
-    dest = out or CasePaths(settings.data_root, court, docket).snapshot(snapshot_date.isoformat())
+    paths = CasePaths(settings.data_root, court, docket)
+    dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} -> {dest}")
+    if documents:
+        for doc in documents:
+            write_text(paths.document(doc.kind), doc.text)
+        write_raw_json(
+            paths.documents_manifest,
+            [doc.model_dump(mode="json", exclude={"text"}) for doc in documents],
+        )
+        kinds = ", ".join(doc.kind for doc in documents)
+        typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
 
 
 @app.command("corpus-integration-check")
