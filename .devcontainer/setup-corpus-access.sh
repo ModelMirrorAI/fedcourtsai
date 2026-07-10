@@ -36,8 +36,9 @@ fi
 sso_configured=false
 if [[ -n "${AWS_SSO_START_URL:-}" ]]; then
   # Maintainer flow: an SSO session (short-lived tokens; refresh with
-  # `aws sso login --profile fedcourts-sso`) whose fedcourts-ro profile
-  # assumes the read-only corpus role.
+  # `aws sso login --sso-session modelmirror --use-device-code` — device code
+  # because a codespace has no browser for the redirect flow) whose
+  # fedcourts-ro profile assumes the read-only corpus role.
   mkdir -p "${HOME}/.aws"
   cat > "${HOME}/.aws/config" <<EOF
 [sso-session modelmirror]
@@ -64,7 +65,7 @@ EOF
     echo "export AWS_PROFILE=fedcourts-ro" >> "${HOME}/.bashrc"
   fi
   sso_configured=true
-  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run 'aws sso login --profile fedcourts-sso' when the session expires."
+  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run 'corpus-login' (aws sso login --sso-session modelmirror --use-device-code) when the session expires."
 elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
   # Contributor flow: nothing to configure — boto3 picks the key pair up from
   # the environment, and no profile must be set (see the remoteEnv note above).
