@@ -139,18 +139,53 @@ Until then, four guardrails keep interim work from blocking the pivot:
    source; durable investment goes into the normalization seam and the corpus
    schema, both of which survive the swap.
 
-The **date backfill** (`pull.backfill_reserve` in `config/tracking.yaml`) is the
+The **date backfill** (`pull.backfill_reserve`, removed July 2026) was the
 worked example of these guardrails: bulk rows lack the decision-time dates
-(cert-stage, termination) the replica carries natively, so until the pivot a
-slice of each pull window re-fetches dateless dockets through the existing
-governor. For the historical slice the docket record itself carries no dates
-even upstream — the decision date lives on the linked **opinion cluster** — so
-a refresh that arrives dateless follows the cluster link (one extra request,
-same governor) and gap-fills the decision date, citation, and disposition
-through the shared normalizer. The durable parts (the cert-date columns, their
-normalization-layer mapping, the petition-aware resolution clock) survive the
-swap, while the selector, reserve, and cluster hop are deleted with the drip
-they feed.
+(cert-stage, termination) the replica carries natively, so a slice of each pull
+window re-fetched dateless dockets through the existing governor, following the
+linked **opinion cluster** when the docket record itself carried no dates. As
+the guardrails promised, the selector, reserve, and cluster hop were deleted
+with the drip they fed (see the pivot section below), while the durable parts —
+the cert-date columns, their normalization-layer mapping, the petition-aware
+resolution clock — stayed.
+
+## Pivot (July 2026): freeze the bulk-era channels, go live-first
+
+The live-sources track ([live-sources.md](live-sources.md), issues
+[#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)–[#474](https://github.com/ModelMirrorAI/fedcourtsai/issues/474)
+and
+[#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)–[#526](https://github.com/ModelMirrorAI/fedcourtsai/issues/526))
+made the bulk-era catch-up channels a dead end before the replica arrived: the
+supremecourt.gov docket JSON carries the dispositions, dates, and documents the
+CourtListener REST drip could not recover at any budget. What changed
+([#524](https://github.com/ModelMirrorAI/fedcourtsai/issues/524)):
+
+- **The date backfill is deleted** (selector, `backfill_reserve`, the
+  cert-shell feeder `backfill_unresolved_cert_min_term`, and the opinion-cluster
+  hop). It was re-fetching dockets whose upstream records are stubs — every
+  flagged case landed in an unresolvable reconcile issue. Its budget slice
+  returns to the refresh rotation. The past-Term cert set it was meant to grow
+  now comes through the live channel instead
+  ([#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)).
+- **The bulk-CSV seed path is frozen, not deleted** — kept as the fallback if
+  the replica timeline slips. When the [#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)
+  loader lands it becomes `run-seed`'s default mode; until then the bulk path
+  still imports and passes tests (frozen ≠ broken).
+- **Pull is re-aimed as targeted enrichment.** The live channel
+  ([#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)) owns SCOTUS
+  freshness; pull's REST budget goes to keeping the SCOTUS-touched set's
+  CourtListener records current — most importantly the originating CoA dockets
+  the `predict_eligible` latch flags — rather than rotating the whole active
+  set stalest-first as the primary freshness mechanism.
+- **`discover_new_filings` stays on until [#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)
+  lands** — it is currently the only path that onboards newly filed SCOTUS
+  petitions. The recorded decision: flip it off at #472 adoption (circuit
+  discovery onboards cases the SCOTUS-touch gate won't predict for years) and
+  reclaim its budget slice for enrichment.
+- **`run-reconcile` is paused** (workflow disabled) while the refactor decides
+  its fate: with stub upstream records every reconcile agent run failed, and
+  [#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)'s
+  proceedings-text resolution should make most reconcile asks deterministic.
 
 Adoption also needs a terms review of the replication agreement itself; the
 access-gated, no-republication stance in [data-sources.md](data-sources.md)
@@ -471,6 +506,12 @@ the offline reference *data* under the engines above; it is never a substitute
 for the real corpus the seed/pull workflows produce.
 
 ## Seed — historical backfill
+
+> **Frozen (July 2026 pivot).** The bulk-CSV path below is kept as the fallback
+> if the replica timeline slips, and still imports and passes tests — but no
+> scheduled run drives it, and the [#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)
+> live-channel loader becomes `run-seed`'s default mode when it lands. See the
+> pivot section above.
 
 - **Trigger:** a single long-lived `run:seed` tracking issue (a maintainer opens
   it and applies the `run:seed` label; see [seed-backfill.md](seed-backfill.md))

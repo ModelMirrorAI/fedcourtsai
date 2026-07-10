@@ -23,7 +23,6 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any
 
 import httpx
 
@@ -34,57 +33,6 @@ from ..store import open_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .outcome import ReconcileRequest, resolve_case
-from .recoverability import build_cluster_info, first_cluster_id
-
-# The decision-time fields a docket record may carry; a record with none of them
-# is dateless and a candidate for the linked-cluster enrichment below.
-_DECISION_DATE_KEYS = ("date_terminated", "date_decided", "date_cert_granted", "date_cert_denied")
-
-
-def _enrich_dateless_from_cluster(
-    client: CourtListenerClient, docket: dict[str, Any]
-) -> dict[str, Any]:
-    """Fill a dateless docket's decision facts from its linked opinion cluster.
-
-    The historical bulk-era slice carries no docket-level dates even on a fresh
-    fetch — the decision date lives on the linked opinion cluster (its
-    ``date_filed``), alongside the reporter citation and sometimes a disposition
-    string. When the docket record has no decision-time date but links a
-    cluster, spend one extra request on the cluster and gap-fill the record
-    *upstream-shaped*, so the shared normalizer ingests it like any other source
-    field:
-
-    - cluster ``date_filed`` → ``date_decided`` — termination semantics in every
-      case: for a denied petition the cluster is the denial order (petition-stage
-      ≈ termination), while for a granted one it is the *merits opinion*, whose
-      date is the termination, never the grant — so the cert-stage columns are
-      deliberately not written here.
-    - cluster disposition / citations → the same keys, only when the docket
-      carries none.
-
-    Returns the docket unchanged when it is dated, links no cluster, or the
-    cluster fetch fails (enrichment must never fail the refresh). Pure gap-fill:
-    a docket-level fact always wins over the cluster's.
-    """
-    if any(docket.get(key) for key in _DECISION_DATE_KEYS):
-        return docket
-    cluster_id = first_cluster_id(docket)
-    if cluster_id is None:
-        return docket
-    try:
-        info = build_cluster_info(client.get_opinion_cluster(cluster_id))
-    except httpx.HTTPError:
-        return docket
-    enriched = dict(docket)
-    if info.date_filed:
-        enriched["date_decided"] = info.date_filed
-    if info.raw_disposition and not any(
-        docket.get(key) for key in ("disposition", "outcome", "nature_of_judgement")
-    ):
-        enriched["disposition"] = info.raw_disposition
-    if info.citations and not docket.get("citations"):
-        enriched["citations"] = info.citations
-    return enriched
 
 
 @dataclass
@@ -126,10 +74,7 @@ def pull_case(
         changed = prior is None or prior[1] != fresh
         corpus.upsert_snapshot(conn, case_id, today, fresh)
 
-    # The normalized row (not the snapshot — that stays the raw docket) reads
-    # through the cluster enrichment, so a dateless historical docket gains its
-    # decision date from the linked opinion cluster on the same refresh.
-    row = from_api_docket(_enrich_dateless_from_cluster(client, fresh))
+    row = from_api_docket(fresh)
     # Stamp the corpus tracking state so the budget governor can rotate this case
     # to the back of the oldest-`last_pulled`-first queue on the next run.
     upsert_to_corpus(corpus_db_path, [row], last_pulled=today)

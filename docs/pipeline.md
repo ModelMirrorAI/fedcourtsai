@@ -56,8 +56,9 @@ each as its own least-privilege job holding only the credentials its mode needs:
 - **`recoverability-sample`** (dispatch) is the same probe made self-targeting:
   it draws a deterministic stratified sample of the resolved-but-dateless corpus
   slice (SCOTUS modern-cert / ca4 / other circuits pooled) and probes it, sizing
-  what a date backfill can recover per stratum before the pull budget is spent on
-  the drip. The one mode holding *both* read-only credentials — the S3 role to
+  what a REST re-fetch can recover per stratum (it sized the date backfill the
+  July 2026 pivot later decommissioned — kept as a zero-maintenance diagnostic).
+  The one mode holding *both* read-only credentials — the S3 role to
   draw the sample from the corpus, the REST token to probe it — a deliberate
   exception that adds no write capability; the machine report is kept as a run
   artifact, the per-stratum rollup and the corpus's dated share go to the step

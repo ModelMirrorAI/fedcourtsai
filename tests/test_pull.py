@@ -31,26 +31,15 @@ class FakeClient:
         self,
         docket: dict[str, Any],
         entries: list[dict[str, Any]],
-        clusters: dict[int, dict[str, Any]] | None = None,
     ) -> None:
         self._docket = docket
         self._entries = entries
-        self._clusters = clusters or {}
-        self.cluster_fetches = 0
 
     def get_docket(self, docket_id: int) -> dict[str, Any]:
         return self._docket
 
     def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
         return self._entries
-
-    def get_opinion_cluster(self, cluster_id: int) -> dict[str, Any]:
-        self.cluster_fetches += 1
-        if cluster_id not in self._clusters:
-            raise httpx.HTTPStatusError(
-                "404", request=httpx.Request("GET", "x"), response=httpx.Response(404)
-            )
-        return self._clusters[cluster_id]
 
 
 def _pull(client: FakeClient, tmp_path: Path) -> Any:
@@ -519,129 +508,3 @@ def test_format_discovery_failures_surfaces_each_courts_reason() -> None:
     # Both the court id and its failure type/message are visible from the log line.
     assert "scotus [ReadTimeout: read timed out]" in summary
     assert "ca1 [HTTPStatusError: 429 Too Many Requests]" in summary
-
-
-# --- linked-cluster enrichment for dateless dockets ------------------------------
-
-CLUSTER_URL = "https://www.courtlistener.com/api/rest/v4/clusters/85157/"
-
-
-def _dateless_docket(**kw: Any) -> dict[str, Any]:
-    """A historical bulk-era docket: no decision-time dates, one linked cluster."""
-    base: dict[str, Any] = {
-        "id": 64512345,
-        "court": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
-        "docket_number": "21-55555",
-        "case_name": "Doe v. Roe",
-        "clusters": [CLUSTER_URL],
-    }
-    base.update(kw)
-    return base
-
-
-def test_dateless_docket_gains_decision_facts_from_its_cluster(tmp_path: Path) -> None:
-    # The recoverability probe's headline finding: the docket carries no dates
-    # even on a fresh fetch, but its cluster holds the decision date, citation,
-    # and (sometimes) a disposition string. One extra request recovers them all.
-    client = FakeClient(
-        _dateless_docket(),
-        [],
-        clusters={
-            85157: {
-                "id": 85157,
-                "date_filed": "1993-11-29",
-                "disposition": "Petition denied",
-                "citations": [{"volume": 510, "reporter": "U.S.", "page": "992"}],
-            }
-        },
-    )
-    result = _pull(client, tmp_path)
-    assert client.cluster_fetches == 1
-    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
-        row = corpus.get_row(conn, "ca9/64512345")
-        snapshot = corpus.latest_snapshot(conn, "ca9/64512345")
-    assert row is not None
-    assert row.date_decided == date(1993, 11, 29)
-    assert row.disposition == "denied"
-    assert row.citations == ["510 U.S. 992"]
-    # The snapshot stays the raw docket: enrichment feeds only the normalized row.
-    assert snapshot is not None
-    assert "date_decided" not in snapshot[1]
-    assert result.changed is True
-
-
-def test_cluster_date_alone_dates_the_row_and_routes_to_reconcile(tmp_path: Path) -> None:
-    # The realistic cert-denial shape: the cluster carries the date and the
-    # reporter cite but no disposition text — the date is the win (the replay
-    # clock anchors), and the still-unlabeled outcome goes to the agent.
-    db = corpus.corpus_db_path(tmp_path / "corpus")
-    with corpus.connect(db) as conn:
-        corpus.upsert_events(
-            conn,
-            [
-                corpus.CorpusEvent(
-                    event_id="evt-petition-review",
-                    case_id="ca9/64512345",
-                    court="ca9",
-                    kind=EventKind.petition,
-                    title="Petition for review",
-                )
-            ],
-        )
-    client = FakeClient(
-        _dateless_docket(),
-        [],
-        clusters={85157: {"id": 85157, "date_filed": "1993-11-29", "disposition": ""}},
-    )
-    result = _pull(client, tmp_path)
-    with corpus.connect(db) as conn:
-        row = corpus.get_row(conn, "ca9/64512345")
-    assert row is not None
-    assert row.date_decided == date(1993, 11, 29)
-    assert row.disposition is None
-    (req,) = result.reconcile
-    assert "not machine-readable" in req.reason
-
-
-def test_dated_docket_skips_the_cluster_fetch(tmp_path: Path) -> None:
-    client = FakeClient(
-        _dateless_docket(date_terminated="2022-06-15", disposition="Petition denied"),
-        [],
-    )
-    _pull(client, tmp_path)
-    assert client.cluster_fetches == 0
-
-
-def test_dateless_docket_without_cluster_skips_the_fetch(tmp_path: Path) -> None:
-    client = FakeClient(_dateless_docket(clusters=[]), [])
-    _pull(client, tmp_path)
-    assert client.cluster_fetches == 0
-
-
-def test_cluster_fetch_failure_never_fails_the_refresh(tmp_path: Path) -> None:
-    # No canned cluster -> the fake 404s; the refresh proceeds unenriched.
-    client = FakeClient(_dateless_docket(), [])
-    result = _pull(client, tmp_path)
-    assert client.cluster_fetches == 1
-    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
-        row = corpus.get_row(conn, "ca9/64512345")
-    assert row is not None and row.date_decided is None
-    assert result.case_id == "ca9/64512345"
-
-
-def test_docket_level_facts_win_over_the_cluster(tmp_path: Path) -> None:
-    # Gap-fill only: a docket carrying its own disposition text keeps it even
-    # when the cluster disagrees; the cluster still supplies the missing date.
-    client = FakeClient(
-        _dateless_docket(disposition="Petition dismissed"),
-        [],
-        clusters={
-            85157: {"id": 85157, "date_filed": "1993-11-29", "disposition": "Petition denied"}
-        },
-    )
-    _pull(client, tmp_path)
-    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
-        row = corpus.get_row(conn, "ca9/64512345")
-    assert row is not None
-    assert row.disposition == "dismissed"
-    assert row.date_decided == date(1993, 11, 29)
