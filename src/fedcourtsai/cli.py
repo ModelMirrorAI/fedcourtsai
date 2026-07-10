@@ -70,6 +70,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths
+from .pipeline import liveprobe
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
 from .pipeline.pull import pull_case, pull_cases
@@ -1045,6 +1046,68 @@ def probe_recoverability(
     if summary_out is not None:
         with summary_out.open("a", encoding="utf-8") as fh:
             fh.write(summary)
+
+
+@app.command("probe-live-terms")
+def probe_live_terms(
+    max_term: Annotated[
+        int,
+        typer.Option(help="Newest two-digit October Term to probe (e.g. 25 for OT2025)."),
+    ],
+    min_term: Annotated[
+        int,
+        typer.Option(help="Oldest two-digit October Term to probe (inclusive)."),
+    ],
+    numbers: Annotated[
+        str,
+        typer.Option(help="Comma-separated docket numbers sampled per Term (paid and IFP ranges)."),
+    ] = ",".join(str(n) for n in liveprobe.DEFAULT_SAMPLE_NUMBERS),
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    report_out: Annotated[
+        Path | None,
+        typer.Option(help="Also write the machine per-Term/per-record JSON here."),
+    ] = None,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(help="Append the Markdown findings table here (e.g. $GITHUB_STEP_SUMMARY)."),
+    ] = None,
+) -> None:
+    """Probe supremecourt.gov docket-JSON availability per October Term (#523).
+
+    The live-sources reachability probe: for each Term from ``--max-term`` back
+    to ``--min-term`` it fetches a small sample of docket numbers and reports
+    availability, document-link coverage, schema stability, and whether the
+    proceedings text carries machine-matchable disposition orders. Strictly
+    **read-only** and budget-free: this is the supremecourt.gov channel, not the
+    CourtListener client — no token, no governor; writes nothing but the report
+    files named. Findings feed the Term-floor decision in
+    ``docs/live-sources-probe.md``.
+    """
+    if min_term > max_term:
+        typer.echo("--min-term must not exceed --max-term", err=True)
+        raise typer.Exit(code=2)
+    try:
+        sample = [int(n) for n in numbers.split(",") if n.strip()]
+    except ValueError as exc:
+        typer.echo(f"bad --numbers value: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    terms = range(max_term, min_term - 1, -1)
+    summaries, records = liveprobe.probe_terms(terms, sample, throttle_seconds=throttle)
+    table = liveprobe.render_markdown(summaries)
+    payload = {
+        "terms": [t.model_dump(mode="json") for t in summaries],
+        "records": [r.model_dump(mode="json") for r in records],
+    }
+    typer.echo(json.dumps(payload, indent=2))
+    typer.echo(table, err=True)
+    if report_out is not None:
+        write_raw_json(report_out, payload)
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(table + "\n")
 
 
 @app.command("seed-backfill")
