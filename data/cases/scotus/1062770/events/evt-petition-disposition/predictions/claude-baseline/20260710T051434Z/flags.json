@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/1062770",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Predictor recognizes this caption from general legal knowledge as Stone v. Farmers' Loan & Trust Co. (1886), one of the Railroad Commission Cases, and therefore knows the actual outcome. The prediction was made from the pre-decision record and corpus base rates only, but the evaluation may want to discount this cell.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot is nearly empty: no docket entries, no dates, no docket number, no nature-of-suit — only the caption, court, and an opinion-cluster link (not consulted, as it would reveal the outcome). There are essentially no case-specific facts to predict from.",
+      "severity": "warning"
+    },
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "This is an 1880s merits-era case under the Supreme Court's then-mandatory appellate jurisdiction; a cert-style granted/denied disposition target fits it poorly. Consistent with the corpus, the realized label for such cases is almost always 'other'.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T051434Z",
+  "schema_version": "1.0"
+}
