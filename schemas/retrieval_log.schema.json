@@ -12,7 +12,7 @@
     },
     "RetrievalCall": {
       "additionalProperties": false,
-      "description": "One tool invocation harvested from the engine's own transcript (#525).\n\nCaptured by the harness from the engine log \u2014 never the agent's word \u2014 so\nthe evaluator's leakage grading (#526) can see what a cell actually\nretrieved. Long parameters and results are digested, not stored: the log\nis an audit trail, not a content mirror.",
+      "description": "One tool invocation harvested from the engine's own transcript.\n\nCaptured by the harness from the engine log \u2014 never the agent's word \u2014 so\nthe evaluator's leakage grading can see what a cell actually\nretrieved. Long parameters and results are digested, not stored: the log\nis an audit trail, not a content mirror.",
       "properties": {
         "params_digest": {
           "anyOf": [
@@ -64,7 +64,7 @@
             }
           ],
           "default": null,
-          "description": "A document/decision date parsed from the result, where one is legible \u2014 the #526 evaluator's timing signal",
+          "description": "A document/decision date parsed from the result, where one is legible \u2014 the leakage grading's timing signal",
           "title": "Retrieved Doc Date"
         },
         "timestamp": {
@@ -104,7 +104,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``retrieval_log.json`` \u2014 the cell's tool-call transcript, harness-captured (#525).\n\nRides to the collect job with the cell's output exactly as ``usage.json``\ndoes. Under the leakage doctrine, timing is the control: replay cells run\nwith the same tools as forward cells, and this log (plus the #526 evaluator\ngrading over it) replaces walls. ``mcp_servers`` snapshots the pinned tool\nmanifest the cell was configured with \u2014 the pipeline-attribution record.",
+  "description": "``retrieval_log.json`` \u2014 the cell's tool-call transcript, harness-captured.\n\nRides to the collect job with the cell's output exactly as ``usage.json``\ndoes. Under the leakage doctrine, timing is the control: replay cells run\nwith the same tools as forward cells, and this log (plus the cross-evaluator's\nleakage grading over it) replaces walls. ``mcp_servers`` snapshots the pinned tool\nmanifest the cell was configured with \u2014 the pipeline-attribution record.",
   "properties": {
     "actor_id": {
       "description": "The predictor/evaluator id whose cell this was",
@@ -145,7 +145,7 @@
         }
       ],
       "default": null,
-      "description": "The cell's provisioned mode: forward | replay; None pre-#525",
+      "description": "The cell's provisioned mode: forward | replay; None on records written before the mode field existed",
       "title": "Mode"
     },
     "role": {

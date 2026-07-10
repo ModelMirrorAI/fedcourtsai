@@ -92,7 +92,7 @@ def select_cert_backtest_set(
 # the decision), stripped before an agentic replay sees the docket. Docket
 # entries go wholesale: the disposing order lives there, and no deterministic
 # rule can separate it from pre-decision entries. The live channel's snapshots
-# (#472) are the raw supremecourt.gov JSON, whose entries key is
+# are the raw supremecourt.gov JSON, whose entries key is
 # `ProceedingsandOrder` — the disposing order rides there as plain text
 # ("Petition DENIED."), so it gets the same wholesale treatment; this blocklist
 # is key-name-based, so every channel's outcome-bearing keys must be listed.
@@ -117,8 +117,8 @@ SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
     # (and thereby leaks the existence of) the decision.
     "sJsonCreationDate",
     # The /qp/ page is generated when certiorari is GRANTED and opens with the
-    # grant order — the key's very presence leaks the outcome (verified live,
-    # #474). The questions presented reach cells from the petition text instead.
+    # grant order — the key's very presence leaks the outcome (verified live).
+    # The questions presented reach cells from the petition text instead.
     "QPLink",
 )
 
@@ -245,9 +245,9 @@ def replay_predictors(
             )
         snapshot_date, payload = found
         write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redact_snapshot(payload))
-        # The cell's mode context (#525): a replay cell runs with the same tools
-        # as a forward one — etiquette, logging, and the #526 evaluator replace
-        # walls — so the prompt contract needs the mode stated, not inferred.
+        # The cell's mode context: a replay cell runs with the same tools
+        # as a forward one — etiquette, logging, and the cross-evaluator's leakage
+        # grading replace walls — so the prompt contract needs the mode stated, not inferred.
         write_raw_json(
             case_paths.cell_context,
             {"mode": "replay", "decided_before": str(item.features.year)},

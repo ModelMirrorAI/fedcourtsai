@@ -118,7 +118,7 @@ def load_pull_config(config_root: Path) -> PullConfig:
 
 
 class LiveConfig(BaseModel):
-    """The ``live:`` section of ``tracking.yaml`` — the SCOTUS live channel (#472).
+    """The ``live:`` section of ``tracking.yaml`` — the SCOTUS live channel.
 
     The supremecourt.gov docket JSON has no API budget, so these caps bound
     wall-clock per cycle and upstream politeness, not spend: at the default
@@ -139,7 +139,7 @@ class LiveConfig(BaseModel):
     # Consecutive 404s that mark a numbering stream's frontier (serials are
     # assigned sequentially; the tolerance bridges an occasional withheld one).
     frontier_misses: int = Field(default=2, ge=1)
-    # Per-document cap on extracted text stored in the corpus (#474): petitions
+    # Per-document cap on extracted text stored in the corpus: petitions
     # run 30-300 pages, and the cap is what keeps the DVC blob's growth sane.
     # ~150k characters is roughly 40 dense pages — the petition's argument in
     # full for a typical filing; a longer one is stored truncated (and flagged).
@@ -188,7 +188,7 @@ class SeedLiveConfig(BaseModel):
     # Polite-client pacing between requests, seconds.
     throttle_seconds: float = Field(default=1.0, gt=0)
     # Oldest two-digit Term whose ingested petitions get their filed documents
-    # fetched (#474): links are a rolling ~5-Term window upstream, near-zero
+    # fetched: links are a rolling ~5-Term window upstream, near-zero
     # before ~OT2021, so older Terms load as metadata+proceedings-only rows.
     document_floor_term: int = Field(default=21, ge=0, le=99)
     # Per-document cap on extracted text stored in the corpus (see `live:`).

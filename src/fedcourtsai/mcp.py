@@ -1,4 +1,4 @@
-"""Per-engine MCP client configuration, emitted from the tool manifest (#525).
+"""Per-engine MCP client configuration, emitted from the tool manifest.
 
 One manifest (``mcp_servers:`` in the actor registry), three client formats:
 Claude Code reads an ``--mcp-config`` JSON file, Codex reads

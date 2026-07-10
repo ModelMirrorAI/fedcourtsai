@@ -82,7 +82,7 @@ jobs:
           else
             echo "has_jobs=false" >> "$GITHUB_OUTPUT"
           fi
-          # Ops analytics (#89): record the planned fan-out in the Actions UI.
+          # Ops analytics: record the planned fan-out in the Actions UI.
           echo "## run-reconcile — queued ${count} reconcile job(s)" >> "$GITHUB_STEP_SUMMARY"
 
   reconcile:

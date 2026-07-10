@@ -259,7 +259,7 @@ def test_from_record_tolerates_record_without_cert_date_columns() -> None:
         ("No. 21-35466", "21-35466"),
         ("no. 21-35466", "21-35466"),
         ("21-35466, 21-35467", "21-35466,21-35467"),  # consolidated: kept distinct
-        ("01" + chr(0x2013) + "7700", "01-7700"),  # issue #362: en-dash folded to a hyphen
+        ("01" + chr(0x2013) + "7700", "01-7700"),  # en-dash folded to a hyphen
         ("No. 01" + chr(0x2013) + "7700.", "01-7700."),  # dominant historical form + label
         ("01" + chr(0x2014) + "7700", "01-7700"),  # em-dash folded too
         ("", None),
@@ -332,7 +332,7 @@ def test_latch_originating_is_idempotent_and_never_clears(tmp_path: Path) -> Non
 
 
 def test_is_historical_mandatory_detects_bare_scotus_docket() -> None:
-    # A pre-1925 mandatory-jurisdiction matter (issue #309): the snapshot is sparse
+    # A pre-1925 mandatory-jurisdiction matter: the snapshot is sparse
     # and every activity date is null, but the bare sequential docket number ("801",
     # no Term-year prefix) gives it away.
     row = corpus.CorpusRow(case_id="scotus/1001931", court="scotus", docket_number="801")
@@ -364,7 +364,7 @@ def test_is_historical_mandatory_uses_pre_1925_filing_date() -> None:
 
 
 def test_is_historical_mandatory_detects_labeled_bare_docket() -> None:
-    # Issue #343: "No. 123" is a bare sequential number behind a label; normalization
+    # "No. 123" is a bare sequential number behind a label; normalization
     # strips the label so it reads as historical-mandatory like a raw "123" would.
     row = corpus.CorpusRow(case_id="scotus/12", court="scotus", docket_number="No. 123")
     assert corpus.is_historical_mandatory(row) is True
@@ -378,21 +378,21 @@ def test_is_historical_mandatory_only_applies_to_scotus() -> None:
 
 
 def test_is_stale_unresolvable_detects_old_open_scotus_petition() -> None:
-    # Issue #333: a modern-format docket from an old Term ("93-7515" -> OT1993),
+    # A modern-format docket from an old Term ("93-7515" -> OT1993),
     # still open in the corpus (no disposition, no decision date), is unresolvable.
     row = corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number="93-7515")
     assert corpus.is_stale_unresolvable(row) is True
 
 
 def test_is_stale_unresolvable_detects_labeled_old_petition() -> None:
-    # Issue #343: the dominant historical format carries a `No.` label that the raw
+    # The dominant historical format carries a `No.` label that the raw
     # parser missed; normalization makes "No. 01-7700" read as OT2001 -> stale.
     row = corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="No. 01-7700")
     assert corpus.is_stale_unresolvable(row) is True
 
 
 def test_is_stale_unresolvable_detects_en_dash_old_petition() -> None:
-    # Issue #362: the same old cert docket behind a typographic en-dash now folds to a
+    # The same old cert docket behind a typographic en-dash now folds to a
     # hyphen and reads as OT1993 -> stale, instead of falling through unparsed.
     docket = "No. 93" + chr(0x2013) + "7515."
     row = corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number=docket)
@@ -432,7 +432,7 @@ def test_is_stale_unresolvable_ignores_unparseable_and_non_scotus() -> None:
 
 
 def test_is_published_opinion_unresolvable_detects_opinion_only_disposition() -> None:
-    # Issue #363: the shape the recoverability probe found — a still-open SCOTUS docket
+    # The shape the recoverability probe found — a still-open SCOTUS docket
     # (no disposition, no decision date) whose only outcome signal is a linked published
     # opinion (a reporter citation). The disposition lives in the opinion text, not a
     # structured field, so the cert model cannot score it. Each recoverable signal
@@ -470,7 +470,7 @@ def test_is_published_opinion_unresolvable_keeps_resolved_or_dated_or_non_scotus
 
 
 def test_is_non_cert_scotus_form_detects_applications_and_original_jurisdiction() -> None:
-    # Issue #362: a stay/emergency application ("22A123", older "A-9999") and an
+    # A stay/emergency application ("22A123", older "A-9999") and an
     # original-jurisdiction case — numeric "22O141" or the spelled-out "No. 155, Orig."
     # / "155, Original." text form — are not discretionary cert, so the
     # evt-petition-disposition model does not fit them; excluded by docket format.
@@ -617,16 +617,16 @@ def test_scotus_term_year_parses_two_digit_term_with_pivot() -> None:
     assert corpus.scotus_term_year("30-100") == 1930
     assert corpus.scotus_term_year("801") is None
     assert corpus.scotus_term_year("22A123") is None
-    # Issue #343: the `No.` label (the dominant historical format) is normalized away.
+    # The `No.` label (the dominant historical format) is normalized away.
     assert corpus.scotus_term_year("No. 01-7700") == 2001
     assert corpus.scotus_term_year("No. 93-7515") == 1993
-    # Issue #362: a typographic en-dash is folded, so the Term parses like a hyphen.
+    # A typographic en-dash is folded, so the Term parses like a hyphen.
     assert corpus.scotus_term_year("01" + chr(0x2013) + "7700") == 2001
     assert corpus.scotus_term_year("No. 93" + chr(0x2013) + "7515.") == 1993
 
 
 def test_is_date_inconsistent_flags_decided_before_filed() -> None:
-    # Issue #171: decided before filed — court-agnostic, excluded from prediction.
+    # Decided before filed — court-agnostic, excluded from prediction.
     bad = corpus.CorpusRow(
         case_id="ca1/4490126",
         court="ca1",
@@ -641,7 +641,7 @@ def test_is_date_inconsistent_flags_decided_before_filed() -> None:
     assert corpus.is_date_inconsistent(ok) is False  # normal ordering
     assert corpus.is_date_inconsistent(open_case) is False  # undecided -> not inconsistent
     assert corpus.out_of_scope_reason(bad) == (
-        "internally inconsistent dates — decided before filed (#171)"
+        "internally inconsistent dates — decided before filed"
     )
 
 
@@ -693,7 +693,7 @@ def test_consolidated_out_of_scope_needs_every_member_to_agree() -> None:
 
 def test_consolidated_out_of_scope_carries_its_own_reason() -> None:
     assert corpus.out_of_scope_reason(_consolidated("No. 155; No. 156")) == (
-        "consolidated docket whose members all classify out of scope (#449)"
+        "consolidated docket whose members all classify out of scope"
     )
 
 
@@ -856,7 +856,7 @@ def _bare_row(case_id: str = "scotus/1038466", **kw: object) -> corpus.CorpusRow
 
 
 def test_is_bare_import_profile_matches_only_empty_scotus_rows() -> None:
-    # Issue #438: the profile is every field the sibling predicates key on, empty.
+    # The profile is every field the sibling predicates key on, empty.
     assert corpus.is_bare_import_profile(_bare_row()) is True
     # A whitespace-only docket number normalizes to empty and still counts.
     assert corpus.is_bare_import_profile(_bare_row(docket_number="  ")) is True
@@ -901,7 +901,7 @@ def test_out_of_scope_reason_full_adds_the_snapshot_aware_rule(tmp_path: Path) -
         # Row rules still come first and short-circuit the snapshot fetch.
         historical = corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="801")
         assert corpus.out_of_scope_reason_full(conn, historical) == (
-            "pre-1925 mandatory-jurisdiction matter (#309)"
+            "pre-1925 mandatory-jurisdiction matter"
         )
 
 

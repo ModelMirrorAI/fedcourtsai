@@ -260,7 +260,7 @@ def test_collect_plan_rolls_up_flag_files(tmp_path: Path) -> None:
 
 
 def test_collect_plan_scopes_flags_to_run_and_dedupes(tmp_path: Path) -> None:
-    # Regression for #333: each cell artifact ships the whole data/ tree, so a prior
+    # Regression: each cell artifact ships the whole data/ tree, so a prior
     # run's committed flags ride along in every cell. They must not inflate this run's
     # roll-up, and a note shipped in more than one cell counts once.
     base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
@@ -360,7 +360,7 @@ def test_collect_reconcile_plan_emits_per_case_json(tmp_path: Path) -> None:
 
 
 def test_collect_reconcile_plan_rolls_up_flag_files(tmp_path: Path) -> None:
-    # Reconcile flags ride the same channel as predict/evaluate (issue #325).
+    # Reconcile flags ride the same channel as predict/evaluate.
     _write_cell(
         tmp_path,
         "reconcile-scotus-1",

@@ -1,4 +1,4 @@
-"""The SCOTUS live channel (#472): client, mapping, identity, discovery, poll."""
+"""The SCOTUS live channel: client, mapping, identity, discovery, poll."""
 
 from __future__ import annotations
 
@@ -374,7 +374,7 @@ def test_discover_live_enriches_an_existing_courtlistener_row(tmp_path: Path) ->
 def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
     tmp_path: Path,
 ) -> None:
-    """#472 + #473 acceptance: predictions queue on distribution transitions
+    """Live-channel acceptance: predictions queue on distribution transitions
     (fresh distribution, relist), never on mere docket change; a decided
     petition lands its outcome and queues evaluate."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
@@ -578,7 +578,7 @@ def test_repo_tracking_yaml_carries_live_section() -> None:
 
 
 def test_distribution_transition_provisions_documents(tmp_path: Path) -> None:
-    # #474: the same transition that queues predict fetches the petition text
+    # The same transition that queues predict fetches the petition text
     # and derives the questions presented into the corpus documents table.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"

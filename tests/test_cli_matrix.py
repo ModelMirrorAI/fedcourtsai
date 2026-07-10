@@ -112,7 +112,7 @@ def test_predict_matrix_drops_pre_1925_mandatory_jurisdiction_case(tmp_path: Pat
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
     # Both requested cases are SCOTUS-eligible, but 24002 carries a bare historical
-    # docket number — a pre-1925 mandatory-jurisdiction matter (issue #309) — whose
+    # docket number — a pre-1925 mandatory-jurisdiction matter — whose
     # disposition meaning the modern cert model does not fit, so it is dropped even
     # though its latch is on.
     env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
@@ -143,7 +143,7 @@ def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path)
     body.write_text(_BATCH_BODY)
     # Both cases are SCOTUS-eligible, but 24002 is an old-Term petition ("01-7700" ->
     # OT2001) the corpus never resolved (no disposition / decision date) — a stale,
-    # unresolvable stub (issue #333) — so it is dropped even with its latch on.
+    # unresolvable stub — so it is dropped even with its latch on.
     env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_rows(
@@ -162,7 +162,7 @@ def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path)
     )
     assert result.exit_code == 0
     assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
-    # The drop is explained on stderr, distinct from the out-of-scope and #309 notes.
+    # The drop is explained on stderr, distinct from the out-of-scope and pre-1925 notes.
     assert "24002" in result.stderr
     assert "stale unresolvable" in result.stderr
 
@@ -172,7 +172,7 @@ def test_predict_matrix_drops_bare_opinion_import_case(tmp_path: Path) -> None:
     body.write_text(_BATCH_BODY)
     # Both cases are SCOTUS-eligible, but 24002 is a bare bulk-import row (every
     # predicate-keyed field empty) whose snapshot links an opinion cluster — the
-    # snapshot-aware exclusion (issue #438) — so the backstop drops it too.
+    # snapshot-aware exclusion — so the backstop drops it too.
     env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_rows(

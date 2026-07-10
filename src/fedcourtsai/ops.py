@@ -501,7 +501,7 @@ def render_data_health(health: DataHealth) -> str:
         lines += [f"| {name} | {n} | {sample.replace('|', '\\|')} |" for name, n, sample in rows]
 
     # A check that passed but counted non-zero failures is a known condition held
-    # within an accepted baseline (e.g. case_dates_ordered, #171). Surface it so the
+    # within an accepted baseline (e.g. case_dates_ordered). Surface it so the
     # count stays visible — the verdict is green, but the monitor still reads it.
     monitored = (
         [c for c in corpus_v.checks if c.passed and c.failures]
@@ -518,7 +518,7 @@ def render_data_health(health: DataHealth) -> str:
 def render_scope_audit(audit: CorpusScopeAudit) -> str:
     """Render the predict-scope census: open events the scope excludes, by reason.
 
-    The dashboard window onto issue #343 / the seed reconcile: how many still-open
+    The dashboard window onto the seed scope reconcile: how many still-open
     SCOTUS events the corpus carries that the predict scope drops, split into a
     ``recoverable`` subset (a disposition signal — re-ingestible) and the bare rest.
     """
@@ -536,7 +536,7 @@ def render_scope_audit(audit: CorpusScopeAudit) -> str:
     lines += [
         f"**{excluded:,}** of {audit.scotus_open_events:,} open SCOTUS event(s) are out of "
         f"scope — **{recoverable:,}** carry a disposition signal (re-ingestible), the rest are "
-        "bare. Candidates for the seed-side corpus reconcile (#343).",
+        "bare. Candidates for the seed-side corpus reconcile.",
         "",
         "| reason | cases | open events | recoverable |",
         "|--------|------:|------------:|------------:|",
@@ -548,7 +548,7 @@ def render_scope_audit(audit: CorpusScopeAudit) -> str:
         lines += [
             "",
             f"_Not excluded ({in_scope:,} open SCOTUS event(s)) — why the scope keeps them, the "
-            "#343 refinement signal:_",
+            "scope-refinement signal:_",
             "",
             "| in-scope reason | open events |",
             "|-----------------|------------:|",

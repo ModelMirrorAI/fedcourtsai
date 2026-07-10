@@ -31,7 +31,7 @@ from fedcourtsai.pipeline.seed import backfill, load_cursor, snapshot_date
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.store import cases_due_for_pull
 
-# Reuse the per-stage fakes exactly as the unit suites define them (issues #49, #55).
+# Reuse the per-stage fakes exactly as the unit suites define them.
 from tests.test_discover import FakeSearch
 from tests.test_discover import _docket as _search_docket
 from tests.test_seed import FakeBulkSource, _row
@@ -122,7 +122,7 @@ def test_seed_fills_shared_corpus_without_signing_off(tmp_path: Path) -> None:
         baseline = corpus.events_for_case(conn, "ca1/0")
         assert [e.event_id for e in baseline] == [_EVENT_ID]
         assert baseline[0].kind == EventKind.appeal and baseline[0].resolved is False
-    # Completion is reported, but the maintainer sign-off flag (#47) is not flipped
+    # Completion is reported, but the maintainer sign-off flag is not flipped
     # automatically — only the completion PR sets it.
     assert load_cursor(cursor).completed is False
 

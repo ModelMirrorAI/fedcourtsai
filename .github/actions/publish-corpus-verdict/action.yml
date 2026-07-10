@@ -2,7 +2,7 @@ name: Publish corpus verdicts
 description: >
   Run the read-only corpus verdicts where the corpus is already pulled —
   `fedcourts validate-corpus` (integrity + referential) and `fedcourts
-  corpus-scope-audit` (open events the predict scope excludes, #343) — and publish
+  corpus-scope-audit` (open events the predict scope excludes) — and publish
   both JSONs to the orphan `ops-metrics` branch for the run-ops dashboard to present.
   NON-BLOCKING by design: a failing verdict (or a publish hiccup) must not fail the
   host run, so the workflow step that uses this action sets `continue-on-error: true`.
@@ -48,7 +48,7 @@ runs:
         # continue-on-error regardless.
         uv run fedcourts validate-corpus --out corpus-validation.json "${baseline_args[@]}" || true
 
-        # The read-only predict-scope census (#343), produced the same way — also
+        # The read-only predict-scope census, produced the same way — also
         # loud-not-fatal, so a hiccup never fails the host run.
         uv run fedcourts corpus-scope-audit --out corpus-scope-audit.json || true
 

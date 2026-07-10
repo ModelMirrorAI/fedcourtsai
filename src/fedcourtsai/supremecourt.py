@@ -1,11 +1,11 @@
-"""The SCOTUS live channel's client: supremecourt.gov per-docket JSON (#472).
+"""The SCOTUS live channel's client: supremecourt.gov per-docket JSON.
 
 The Court's own site serves a structured JSON docket per case at
 ``supremecourt.gov/rss/cases/JSON/<term>-<number>.json`` — the authoritative
 record, minutes-to-hours fresh, with **no API budget**. This is deliberately
 *not* the CourtListener client: no token, no request governor, none of the
 budget machinery. The three access facts from docs/live-sources.md (verified by
-the #523 probe, docs/live-sources-probe.md) shape it instead: a browser
+the reachability probe, docs/live-sources-probe.md) shape it instead: a browser
 user-agent (the default programmatic UA is refused with a 403), a polite ~1
 request/second throttle, and backoff on errors.
 
@@ -32,7 +32,7 @@ import httpx
 DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{term:02d}-{serial}.json"
 
 # Any ordinary browser UA is accepted; the default programmatic UA gets a 403.
-# Pinned so runs are comparable (shared with the #523 probe's posture).
+# Pinned so runs are comparable (shared with the reachability probe's posture).
 BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0"
 
 # The reserved identity range for live-first petitions. CourtListener docket ids

@@ -1,4 +1,4 @@
-"""Reachability probe for the supremecourt.gov docket-JSON channel (#523).
+"""Reachability probe for the supremecourt.gov docket-JSON channel.
 
 The gate on the live-sources loader (docs/live-sources.md): before any ingest
 code is written, establish — per October Term, walking backward from the

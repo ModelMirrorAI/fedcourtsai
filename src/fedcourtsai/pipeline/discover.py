@@ -78,7 +78,7 @@ class DiscoverResult:
 def _reconcile_identity(conn: sqlite3.Connection, row: CorpusRow) -> CorpusRow:
     """Re-key a discovered SCOTUS docket onto its existing corpus row, if any.
 
-    The CourtListener half of the live channel's identity scheme (#472): when
+    The CourtListener half of the live channel's identity scheme: when
     the live poller saw a petition first, its row keys on the reserved-range
     live docket id — permanent, never merged. A later CourtListener discovery
     of the *same* petition must therefore enrich that row (matched by the
