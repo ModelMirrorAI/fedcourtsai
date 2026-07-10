@@ -26,6 +26,7 @@ from fedcourtsai.supremecourt import (
     live_docket_id,
     parse_scotus_docket_number,
 )
+from tests.conftest import seed_prediction
 from tests.test_documents import _pdf
 
 # --- payload fixtures (trimmed real shapes, per docs/live-sources-probe.md) -----
@@ -408,6 +409,9 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
 
     # Cycle 2: 25-1 gains its denial order -> outcome + evaluate, no predict; a
     # BIO lands on 25-2 (docket changed, still undistributed) -> no predict.
+    # The evaluate handoff requires a committed prediction (nothing to score
+    # otherwise), so seed one for 25-1 as a predict run would have.
+    seed_prediction(data_root, "scotus", 9_025_000_001, "evt-petition-disposition")
     served["25-1"] = _payload(
         "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY]
     )
@@ -617,3 +621,27 @@ def test_distribution_transition_provisions_documents(tmp_path: Path) -> None:
         stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9025000001")}
     assert set(stored) == {"petition", "questions-presented"}
     assert stored["questions-presented"].text == "Whether Z."
+
+
+def test_resolution_without_predictions_queues_no_evaluate(tmp_path: Path) -> None:
+    # The 51-case incident shape: the live sweep resolves petitions nothing ever
+    # predicted — record the outcome, but queue NO evaluate (an evaluator cell
+    # per judge with nothing to score is pure spend).
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    # Cycle 1 onboards it pending (open event); cycle 2's denial resolves it —
+    # with no committed prediction, exactly the incident's shape.
+    served = {"25-1": _payload("25-1")}
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 9))
+    served["25-1"] = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY]
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 10)
+        )
+    assert queues.evaluate == []  # resolved, but never predicted -> nothing to score
+    # The outcome + event.yaml pair still lands (ground truth is never gated).
+    paths = CasePaths(data_root, "scotus", 9_025_000_001).event("evt-petition-disposition")
+    assert paths.outcome.exists() and paths.event_file.exists()

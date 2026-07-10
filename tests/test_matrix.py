@@ -9,6 +9,7 @@ from fedcourtsai.matrix import (
     predict_matrix,
     reconcile_matrix,
 )
+from tests.conftest import seed_prediction
 
 PREDICTORS = Path("config/predictors.yaml")
 EVALUATORS = Path("config/evaluators.yaml")
@@ -148,3 +149,18 @@ def test_parse_cases_rejects_entry_missing_keys() -> None:
 ```"""
     with pytest.raises(ValueError, match=r"court.*docket"):
         parse_cases(body)
+
+
+def test_evaluate_matrix_drops_predictionless_events(tmp_path: Path) -> None:
+    # The plan-time cost gate: an event with no committed prediction mints no
+    # evaluator cells (nothing to score); one with a prediction fans out fully.
+    seed_prediction(tmp_path / "data", "scotus", 1, "evt-petition-disposition")
+    cases = [
+        CaseRequest(court="scotus", docket=1, events=("evt-petition-disposition",)),
+        CaseRequest(court="scotus", docket=2, events=("evt-petition-disposition",)),
+    ]
+    gated = evaluate_matrix(EVALUATORS, cases, "RID", data_root=tmp_path / "data")
+    assert {(c["docket"]) for c in gated["include"]} == {1}
+    # Without a ledger, the gate is off and both fan out (offline callers).
+    ungated = evaluate_matrix(EVALUATORS, cases, "RID")
+    assert {(c["docket"]) for c in ungated["include"]} == {1, 2}

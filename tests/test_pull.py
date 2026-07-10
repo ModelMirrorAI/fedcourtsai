@@ -13,6 +13,7 @@ from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import _in_predict_scope, pull_case, pull_cases
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.store import open_events, resolved_events
+from tests.conftest import seed_prediction
 
 DOCKET: dict[str, Any] = {
     "id": 64512345,
@@ -480,7 +481,9 @@ def test_discover_pull_predict_then_evaluate_from_corpus_events(tmp_path: Path) 
     assert queues.predict[0]["events"] == ["evt-appeal-disposition"]
     assert queues.evaluate == []
 
-    # The case resolves: a later refresh records outcome.json and enqueues evaluate.
+    # The case resolves: a later refresh records outcome.json and enqueues
+    # evaluate — which requires a committed prediction to score.
+    seed_prediction(tmp_path / "data", "ca9", 101, "evt-appeal-disposition")
     client.docket = {**pending, "date_terminated": "2026-09-01", "disposition": "Petition denied"}
     client.entries = [{"id": 1, "description": "Order denying the petition"}]
     queues = pull_cases(cast(CourtListenerClient, client), db, data_root, [("ca9", 101)])

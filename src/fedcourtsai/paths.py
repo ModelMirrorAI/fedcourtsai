@@ -42,8 +42,12 @@ class EventPaths:
     def outcome(self) -> Path:
         return self.base / "outcome.json"
 
+    @property
+    def predictions_dir(self) -> Path:
+        return self.base / "predictions"
+
     def prediction_dir(self, predictor_id: str, run_id: str) -> Path:
-        return self.base / "predictions" / predictor_id / run_id
+        return self.predictions_dir / predictor_id / run_id
 
     def prediction(self, predictor_id: str, run_id: str) -> Path:
         return self.prediction_dir(predictor_id, run_id) / "prediction.json"

@@ -27,7 +27,9 @@ Queue handoffs reuse pull's shapes (:class:`~fedcourtsai.pipeline.pull.PullQueue
 an in-scope petition queues ``predict`` on a **distribution transition** —
 newly distributed for a conference, or relisted to a new one — the cert-calendar
 analogue of ``predict_on_change_only``; a newly resolved case queues
-``evaluate``; an ambiguous resolution queues ``reconcile``.
+``evaluate`` when the ledger holds a prediction to score (the live sweeps
+resolve plenty of never-predicted petitions — nothing to score, no cells); an
+ambiguous resolution queues ``reconcile``.
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ import httpx
 
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope
+from ..matrix import event_has_predictions
 from ..store import open_events
 from ..supremecourt import (
     IFP_SERIAL_BASE,
@@ -259,9 +262,10 @@ def poll_live_cases(
     newly distributed for a conference, or a relist moved its date — the live
     analogue of ``pull.predict_on_change_only`` tuned to the cert calendar:
     distribution is the signal that resolution is imminent and the
-    record is complete enough to predict. Outcomes (``evaluate``) and ambiguous
-    resolutions (``reconcile``) route unconditionally — ground truth, not
-    prediction spend. A petition whose docket JSON has vanished (404 on a
+    record is complete enough to predict. Ground-truth *recording* is ungated;
+    the ``evaluate`` queue requires a committed prediction to score (drops are
+    surfaced on ``evaluate_skipped``), and ambiguous resolutions route to
+    ``reconcile`` unconditionally. A petition whose docket JSON has vanished (404 on a
     previously served number) is recorded on ``failed`` and its
     ``last_live_polled`` still advances via the row upsert path — it must not
     pin the rotation's front.
@@ -316,13 +320,16 @@ def poll_live_cases(
                 char_cap=document_text_cap,
                 today=today,
             )
-        _route_result(queues, corpus_db_path, result, gated=gated, queue_predict=transitioned)
+        _route_result(
+            queues, corpus_db_path, data_root, result, gated=gated, queue_predict=transitioned
+        )
     return queues
 
 
 def _route_result(
     queues: PullQueues,
     corpus_db_path: Path,
+    data_root: Path,
     result: LiveResult,
     *,
     gated: bool,
@@ -330,9 +337,10 @@ def _route_result(
 ) -> None:
     """Sort one poll result into the handoff queues (pull's routing, verbatim).
 
-    ``queue_predict`` is the caller's distribution-transition verdict —
-    it gates only the predict handoff; outcomes and reconcile signals are
-    ground truth and always route.
+    ``queue_predict`` is the caller's distribution-transition verdict — it
+    gates only the predict handoff. The evaluate handoff requires a committed
+    prediction (an unscoreable resolution lands on ``evaluate_skipped``);
+    reconcile signals always route.
     """
     docket_id = int(result.case_id.rsplit("/", 1)[-1])
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
@@ -340,7 +348,22 @@ def _route_result(
     if queue_predict and in_scope and result.changed and events:
         queues.predict.append({"court": "scotus", "docket": docket_id, "events": events})
     if in_scope and result.resolved:
-        queues.evaluate.append({"court": "scotus", "docket": docket_id, "events": result.resolved})
+        # Only events something actually predicted reach evaluation: the live
+        # sweeps resolve plenty of never-predicted petitions (frontier catch-up,
+        # historical rotation), and each queued case fans out one agent cell per
+        # evaluator — pure spend with nothing to score.
+        scoreable = [
+            event_id
+            for event_id in result.resolved
+            if event_has_predictions(data_root, "scotus", docket_id, event_id)
+        ]
+        if scoreable:
+            queues.evaluate.append({"court": "scotus", "docket": docket_id, "events": scoreable})
+        unscoreable = [e for e in result.resolved if e not in scoreable]
+        if unscoreable:
+            queues.evaluate_skipped.append(
+                {"court": "scotus", "docket": docket_id, "events": unscoreable}
+            )
     if result.reconcile_events:
         queues.reconcile.append(
             {
@@ -394,6 +417,7 @@ def live_poll_all(
         _route_result(
             queues,
             corpus_db_path,
+            data_root,
             onboarded,
             gated=gated,
             queue_predict=onboarded.distributed is not None,

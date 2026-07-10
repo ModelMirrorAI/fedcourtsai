@@ -9,11 +9,15 @@ token, no network — exactly as the offline local loop does.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from fedcourtsai import corpus, fixture
+from fedcourtsai.paths import CasePaths
+from fedcourtsai.schemas import Disposition, Prediction
+from fedcourtsai.serialize import write_json
 
 
 @dataclass(frozen=True)
@@ -43,3 +47,36 @@ def fixture_corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FixtureCo
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
     monkeypatch.delenv("FEDCOURTS_COURTLISTENER_API_TOKEN", raising=False)
     return FixtureCorpus(corpus_root=corpus_root, data_root=data_root)
+
+
+def seed_prediction(
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    *,
+    predictor_id: str = "claude-baseline",
+) -> None:
+    """Commit one minimal valid prediction into the ledger under ``data_root``.
+
+    The evaluate paths now gate on a committed prediction existing for an event
+    (nothing to score = no evaluator cell); tests asserting the evaluate
+    handoff seed one with this instead of hand-rolling the layout.
+    """
+    run_id = "20260101T000000Z"
+    write_json(
+        CasePaths(data_root, court, docket).event(event_id).prediction(predictor_id, run_id),
+        Prediction(
+            case_id=f"{court}/{docket}",
+            event_id=event_id,
+            predictor_id=predictor_id,
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id=run_id,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.05,
+            predicted_disposition=Disposition.denied,
+        ),
+    )
