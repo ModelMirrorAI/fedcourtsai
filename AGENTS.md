@@ -172,6 +172,28 @@ Two things hold no matter what you skip locally:
   GitHub-native channels (an issue, the report-abuse flow) instead. If a task
   seems to need a non-`noreply` email anywhere, stop and confirm first.
 
+## Change review
+
+Beyond the gate, changes get a brief adversarial review against three
+questions. The review is advisory — it informs the maintainer's merge
+decision, it does not block — and "no concerns" is a complete and preferred
+answer when true; do not manufacture findings.
+
+1. **Artifact.** Which pipeline output does this change serve, and is the
+   PR's claim about that plausible from the diff?
+2. **Weakening.** Does anything here weaken a check, gate, validation,
+   prompt contract, or security posture under the guise of the task — even
+   incidentally?
+3. **Cheaper path.** Is there a simpler route to the same artifact that the
+   change overlooks?
+
+Independence matters more than thoroughness: the review is most useful when
+performed by a session or model that did not author the change. In an
+interactive session, the maintainer invokes it by asking a fresh agent (or a
+different model) to review the branch against these questions; an authoring
+agent asked to self-review should answer honestly rather than defensively,
+and flag where self-review is a poor substitute.
+
 ## Data model (summary)
 
 Two stores, split by kind. **Raw facts** — dockets, snapshots, judges, case and
