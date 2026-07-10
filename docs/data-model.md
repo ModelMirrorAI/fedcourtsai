@@ -50,7 +50,14 @@ per-event subtree shown above.
 Each `usage.json` records one matrix cell's token usage and an estimated USD cost
 (rates in `fedcourtsai.pricing`, kept in sync with [budget.md](budget.md)). The
 workflow captures it from the engine's own run log — never the agent's word — so a
-maintainer can roll it up (`fedcourts usage-summary`) into a measured \$/run.
+maintainer can roll it up (`fedcourts usage-summary`) into a measured \$/run. It
+also carries the cell's **pipeline provenance**: `pipeline_sha` is the git commit
+of the checkout that ran the cell (`GITHUB_SHA` in CI, the local HEAD otherwise),
+pinning the prompt templates, harness, and registry in force at run time — the
+cell's `prediction.json` / `evaluation.json` identify the acting
+*predictor/evaluator design* (`predictor_id` / `evaluator_id`) and the *model*
+(`model`); the sha identifies the *system version*. Records written before the
+field existed carry no sha (as does a run where no sha is resolvable).
 
 The optional `flags.json` (an `AgentFlags`) is a cell's **durable feedback
 channel**: a headless predictor/evaluator writes one only when it has a structured

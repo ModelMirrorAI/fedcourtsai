@@ -1,4 +1,4 @@
-"""Extract token counts from the engines' own run logs.
+"""Extract token counts from the engines' own run logs, plus run provenance.
 
 The three agentic engines report token usage in different places and shapes:
 
@@ -24,10 +24,40 @@ capture is best-effort instrumentation that must never fail a real run.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
 from .pricing import TokenCounts
+
+
+def resolve_pipeline_sha(explicit: str = "") -> str | None:
+    """The git commit of the pipeline checkout that ran this cell, if resolvable.
+
+    Provenance for ``usage.json``: the sha pins the prompt templates, harness,
+    and registry in force at run time. An explicit value wins; otherwise
+    ``GITHUB_SHA`` (set by Actions on every workflow step) covers CI, and the
+    local ``git rev-parse HEAD`` covers the local harness. Best-effort: a
+    non-repo cwd or missing git resolves to ``None`` rather than failing the
+    capture.
+    """
+    if explicit:
+        return explicit
+    from_env = os.environ.get("GITHUB_SHA", "")
+    if from_env:
+        return from_env
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return out.stdout.strip() or None
 
 
 def _as_int(value: Any) -> int:

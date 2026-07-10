@@ -21,7 +21,10 @@ def _data_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path / "data"
 
 
-def test_record_predict_usage_from_explicit_tokens(_data_root: Path) -> None:
+def test_record_predict_usage_from_explicit_tokens(
+    _data_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GITHUB_SHA", "ci-checkout-sha")
     result = runner.invoke(
         app,
         [
@@ -59,6 +62,44 @@ def test_record_predict_usage_from_explicit_tokens(_data_root: Path) -> None:
     assert usage.estimated_cost_usd == pytest.approx(1.90)
     # created_at was derived from the run id timestamp.
     assert usage.created_at.isoformat() == "2026-06-24T10:30:00+00:00"
+    # Provenance resolved ambiently from the Actions checkout env.
+    assert usage.pipeline_sha == "ci-checkout-sha"
+
+
+def test_record_usage_stamps_the_explicit_pipeline_sha(_data_root: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "record-usage",
+            "--court",
+            "ca9",
+            "--docket",
+            "123",
+            "--event",
+            "evt-motion-stay",
+            "--run-id",
+            "20260624T103000Z",
+            "--engine",
+            "claude-code",
+            "--role",
+            "predictor",
+            "--actor",
+            "claude-baseline",
+            "--input-tokens",
+            "1000",
+            "--output-tokens",
+            "10",
+            "--pipeline-sha",
+            "feedc0ffee",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    path = (
+        CasePaths(_data_root, "ca9", 123)
+        .event("evt-motion-stay")
+        .prediction_usage("claude-baseline", "20260624T103000Z")
+    )
+    assert read_model(path, ModelUsage).pipeline_sha == "feedc0ffee"
 
 
 def test_record_evaluate_usage_uses_evaluator_path(_data_root: Path) -> None:
