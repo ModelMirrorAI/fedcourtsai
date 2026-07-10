@@ -65,6 +65,13 @@ non-interactive** container. Two consequences shape everything you do:
   `predictions/<predictor_id>/<run_id>/` path. An evaluator writes only under its
   own `evaluations/<evaluator_id>/...` path. Never edit another agent's output,
   the docket record, or snapshots.
+- **Keep the artifact in view.** The project's progress is measured by what the
+  pipeline produces — predictions, events, provisioned cells, reports — not by
+  merged PRs. When you make a change, know which produced artifact it serves,
+  and say so briefly in the PR description. If the change directly affects
+  output, showing a produced example (a provisioned cell, a formed event, a
+  rendered report section) is the most useful thing a PR can contain; for
+  enabling work further from the output, a one-line "this serves X" is enough.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
 - **Predict from the snapshot.** Predictors reason only from the point-in-time
