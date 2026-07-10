@@ -55,6 +55,13 @@ Three access facts shape the client:
   poll on a cadence matched to the docket's rhythm (hourly for the conference
   watchlist, daily for frontier probing) rather than hammering.
 
+These facts — and the channel's Term reach — are empirically verified: the
+reachability probe (`fedcourts probe-live-terms`, run 2026-07-10) found 100 %
+JSON availability for OT2017+, a stable schema across all served Terms, and
+machine-matchable disposition orders on every sampled decided petition, with
+document links reliable only ~OT2021+. Findings and the Term-floor decision:
+[live-sources-probe.md](live-sources-probe.md).
+
 ## Architecture: a third channel, the same corpus
 
 The live source follows the replica guardrails exactly

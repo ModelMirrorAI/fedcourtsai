@@ -229,6 +229,17 @@ def _match_signal(text: str) -> tuple[Disposition, str, str] | None:
     return None
 
 
+def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
+    """First cert-disposition signal in free text, as (disposition, label, snippet).
+
+    The public seam over ``_ENTRY_SIGNALS`` for the live-sources channel (#523):
+    the supremecourt.gov proceedings text carries the disposition orders in the
+    same order-list language these patterns model, so the reachability probe (and
+    later the loader's ingest-time resolution) match against it directly.
+    """
+    return _match_signal(text)
+
+
 def scan_entries(entries: list[JsonDict]) -> list[EntrySignal]:
     """Find every docket entry whose text signals a concrete cert disposition."""
     signals: list[EntrySignal] = []
