@@ -19,9 +19,23 @@ def test_default_models_have_rates() -> None:
 
 
 def test_gemini_default_model_and_rate() -> None:
-    assert DEFAULT_MODELS["gemini"] == "gemini-3.1-pro-preview"
-    rate = MODEL_RATES["gemini-3.1-pro-preview"]
-    assert (rate.input_per_mtok, rate.output_per_mtok) == (2.0, 12.0)
+    assert DEFAULT_MODELS["gemini"] == "gemini-3.5-flash"
+    rate = MODEL_RATES["gemini-3.5-flash"]
+    assert (rate.input_per_mtok, rate.output_per_mtok) == (1.5, 9.0)
+
+
+def test_codex_default_model_and_rate() -> None:
+    assert DEFAULT_MODELS["codex"] == "gpt-5.6-sol"
+    rate = MODEL_RATES["gpt-5.6-sol"]
+    assert (rate.input_per_mtok, rate.output_per_mtok) == (5.0, 30.0)
+
+
+def test_superseded_production_models_stay_priceable() -> None:
+    # record-usage exits non-zero on a model absent from MODEL_RATES, so a
+    # re-recorded old cell (explicit --model) needs the superseded production
+    # models to keep their entries.
+    assert "gpt-5.5" in MODEL_RATES
+    assert "gemini-3.1-pro-preview" in MODEL_RATES
 
 
 def test_claude_default_model_and_rate() -> None:

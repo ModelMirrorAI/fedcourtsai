@@ -45,8 +45,8 @@ Three engines run the agentic stages, routed per registry entry
 |--------|---------|---------|----------------------|
 | **Claude Code** (`claude-fable-5`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x). API: **$10 in / $50 out** |
 | **Claude Code** (`claude-opus-4-8`) | all `run:dev`, `run:reconcile` | Anthropic API (workflows) | **$5 in / $25 out** |
-| **Codex** (`gpt-5.5`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
-| **Gemini** (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | **$2 in / $12 out** (≤200K context) |
+| **Codex** (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
+| **Gemini** (`gemini-3.5-flash`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | **$1.50 in / $9 out** |
 
 Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-the-max-plan),
 [Claude API pricing](https://platform.claude.com/docs/en/pricing),
@@ -61,21 +61,24 @@ effective input (the large majority served from cache) + ~6K output per run**.
 
 This was once a planning assumption (~$1–2/run); it is now **measured**. Every
 predict/evaluate run records its tokens and an estimated cost (at the rates in
-this section, kept in `fedcourtsai.pricing`) to a `usage.json` beside its output,
-and `fedcourts usage-summary` rolls those up. Across the 82 predict runs to date
-(41 per predictor) the cost holds at **≈ $0.50/run** (claude-baseline ~$0.42,
-codex-baseline ~$0.56) — roughly a third of the old assumption, because prompt
-caching on the stable prefix is working as designed. **Caveats:** this is the
-*predict* figure; no event has resolved yet, so **evaluate per-run cost is still
-unmeasured**, and **Gemini is newly added and has not yet run**, so its per-run
-cost is unmeasured too. The estimates below assume both are comparable (~$0.50)
-and should be re-checked against the first real evaluations and Gemini runs —
-Gemini's lower token rate ($2/$12 vs Codex $5/$30) makes a flat $0.50 a
-conservative ceiling for its share. **Caveat (2026-07):** the measured
-claude-baseline figure (~$0.42) was earned on `claude-opus-4-8` ($5/$25);
-predict/evaluate now default to `claude-fable-5` ($10/$50), so expect the
-Claude share to roughly double (~$0.85/run) until re-measured — re-check
-`fedcourts usage-summary` after the first Fable runs.
+this section, kept in `fedcourtsai.pricing`) to a `usage.json` beside its
+output, and `fedcourts usage-summary` rolls those up. Across the **99 predict
+runs** in the committed ledger: claude-baseline earned **~$0.55/run** on
+`claude-opus-4-8` (8 runs) but runs at **~$2.09/run** since the default moved
+to `claude-fable-5` (38 runs — the 2× token rate plus heavier retrieval);
+codex-baseline holds at **~$0.91/run** on `gpt-5.5` (46 runs); gemini-baseline
+measured **~$0.52/run** on `gemini-3.1-pro-preview` (7 runs). Prompt caching
+on the stable prefix is what keeps the sub-Fable figures near the original
+$0.50 expectation. **Caveats:** these are *predict* figures; no event has been
+evaluated yet, so **evaluate per-run cost is unmeasured**. The full-scope
+estimates below still use the historical **~$0.50/run** anchor, which
+understates a Fable-heavy mix (the blended measured mean is ≈ $1.31/run) —
+re-anchor them once the evaluate side is measured. **Model refresh (2026-07):**
+codex's successor default `gpt-5.6-sol` is priced identically to `gpt-5.5`
+($5/$30), so no step change is expected there; gemini's new default
+`gemini-3.5-flash` ($1.50/$9) is cheaper than the 3.1 Pro rate its $0.52 was
+earned on. Re-check `fedcourts usage-summary` after the first runs on the new
+defaults.
 
 That ≈ $0.50/run is an **on-demand** figure; one discount produces it:
 

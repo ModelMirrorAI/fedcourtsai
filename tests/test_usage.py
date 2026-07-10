@@ -115,7 +115,7 @@ def _gemini_event(
 ) -> dict[str, object]:
     return {
         "name": "gemini_cli.api_response",
-        "model": "gemini-3.1-pro-preview",
+        "model": "gemini-3.5-flash",
         "input_token_count": input_tokens,
         "cached_content_token_count": cached,
         "output_token_count": output_tokens,

@@ -93,7 +93,7 @@ def test_record_evaluate_usage_uses_evaluator_path(_data_root: Path) -> None:
         .evaluation_usage("codex-judge", "20260624T110000Z")
     )
     usage = read_model(path, ModelUsage)
-    assert usage.model == "gpt-5.5"
+    assert usage.model == "gpt-5.6-sol"
     assert usage.actor_id == "codex-judge"
 
 
@@ -147,7 +147,7 @@ def test_record_usage_reads_gemini_telemetry_file(_data_root: Path, tmp_path: Pa
         json.dumps(
             {
                 "name": "gemini_cli.api_response",
-                "model": "gemini-3.1-pro-preview",
+                "model": "gemini-3.5-flash",
                 "input_token_count": 90_000,
                 "cached_content_token_count": 20_000,
                 "output_token_count": 4_000,
@@ -180,7 +180,7 @@ def test_record_usage_reads_gemini_telemetry_file(_data_root: Path, tmp_path: Pa
     assert result.exit_code == 0, result.output
     usage = iter_usage(_data_root)[0]
     assert usage.engine == "gemini"
-    assert usage.model == "gemini-3.1-pro-preview"  # engine default applied
+    assert usage.model == "gemini-3.5-flash"  # engine default applied
     assert usage.input_tokens == 70_000  # 90k - 20k cached
     assert usage.cache_read_input_tokens == 20_000
     assert usage.output_tokens == 5_000  # 4k + 1k thoughts
