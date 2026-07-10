@@ -65,6 +65,13 @@ non-interactive** container. Two consequences shape everything you do:
   `predictions/<predictor_id>/<run_id>/` path. An evaluator writes only under its
   own `evaluations/<evaluator_id>/...` path. Never edit another agent's output,
   the docket record, or snapshots.
+- **Keep the artifact in view.** The project's progress is measured by what the
+  pipeline produces — predictions, events, provisioned cells, reports — not by
+  merged PRs. When you make a change, know which produced artifact it serves,
+  and say so briefly in the PR description. If the change directly affects
+  output, showing a produced example (a provisioned cell, a formed event, a
+  rendered report section) is the most useful thing a PR can contain; for
+  enabling work further from the output, a one-line "this serves X" is enough.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
 - **Predict from the snapshot.** Predictors reason only from the point-in-time
@@ -164,6 +171,28 @@ Two things hold no matter what you skip locally:
   must not appear in files, commit messages, or PR/issue text — point to
   GitHub-native channels (an issue, the report-abuse flow) instead. If a task
   seems to need a non-`noreply` email anywhere, stop and confirm first.
+
+## Change review
+
+Beyond the gate, changes get a brief adversarial review against three
+questions. The review is advisory — it informs the maintainer's merge
+decision, it does not block — and "no concerns" is a complete and preferred
+answer when true; do not manufacture findings.
+
+1. **Artifact.** Which pipeline output does this change serve, and is the
+   PR's claim about that plausible from the diff?
+2. **Weakening.** Does anything here weaken a check, gate, validation,
+   prompt contract, or security posture under the guise of the task — even
+   incidentally?
+3. **Cheaper path.** Is there a simpler route to the same artifact that the
+   change overlooks?
+
+Independence matters more than thoroughness: the review is most useful when
+performed by a session or model that did not author the change. In an
+interactive session, the maintainer invokes it by asking a fresh agent (or a
+different model) to review the branch against these questions; an authoring
+agent asked to self-review should answer honestly rather than defensively,
+and flag where self-review is a poor substitute.
 
 ## Data model (summary)
 
