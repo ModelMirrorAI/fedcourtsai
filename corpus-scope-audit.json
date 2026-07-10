@@ -2,8 +2,8 @@
   "corpus_rows": 2151659,
   "exclusions": [
     {
-      "cases": 33712,
-      "open_events": 33712,
+      "cases": 33714,
+      "open_events": 33714,
       "reason": "SCOTUS application / original-jurisdiction docket \u2014 not discretionary cert (#362)",
       "recoverable": 7,
       "sample_cases": [
@@ -38,10 +38,10 @@
       ]
     },
     {
-      "cases": 33,
-      "open_events": 33,
+      "cases": 36,
+      "open_events": 36,
       "reason": "bare bulk-import row whose snapshot links a published opinion cluster (#438)",
-      "recoverable": 33,
+      "recoverable": 36,
       "sample_cases": [
         "scotus/1002339",
         "scotus/1013004",
@@ -91,7 +91,7 @@
       "cases": 82338,
       "open_events": 82338,
       "reason": "pre-1925 mandatory-jurisdiction matter (#309)",
-      "recoverable": 29813,
+      "recoverable": 29809,
       "sample_cases": [
         "scotus/1000314",
         "scotus/1000316",
@@ -106,10 +106,10 @@
       ]
     },
     {
-      "cases": 12006,
-      "open_events": 12006,
+      "cases": 12003,
+      "open_events": 12003,
       "reason": "published opinion but no machine-readable cert disposition (#363)",
-      "recoverable": 12006,
+      "recoverable": 12003,
       "sample_cases": [
         "scotus/1000512",
         "scotus/1000515",
@@ -117,17 +117,17 @@
         "scotus/1003943",
         "scotus/1004865",
         "scotus/1005618",
-        "scotus/1063935",
-        "scotus/106434",
-        "scotus/1065",
-        "scotus/106687"
+        "scotus/106687",
+        "scotus/1068",
+        "scotus/1068424",
+        "scotus/1070924"
       ]
     },
     {
       "cases": 385029,
       "open_events": 385029,
       "reason": "stale unresolvable old SCOTUS petition (#333)",
-      "recoverable": 44464,
+      "recoverable": 44461,
       "sample_cases": [
         "scotus/1000",
         "scotus/100001",
@@ -163,11 +163,9 @@
       ]
     },
     {
-      "open_events": 4801,
+      "open_events": 4799,
       "reason": "no docket number",
       "sample_cases": [
-        "scotus/106496",
-        "scotus/106498",
         "scotus/1073912",
         "scotus/1078200",
         "scotus/1088084",
@@ -175,7 +173,9 @@
         "scotus/1104586",
         "scotus/1104590",
         "scotus/1104680",
-        "scotus/1105546"
+        "scotus/1105546",
+        "scotus/1114906",
+        "scotus/1118898"
       ]
     },
     {
