@@ -85,7 +85,7 @@ non-interactive** container. Two consequences shape everything you do:
   the full contract; all tool calls are logged harness-side.
 - **No secrets in code or data.** Never print or log API tokens; they arrive
   as environment variables. One narrow carve-out: the workflow's
-  MCP-config step writes the dedicated agent-traffic CourtListener token into
+  MCP-config step writes the CourtListener API token into
   the runner-local, gitignored client-config files the engines read
   (`mcp-servers.json`, `.codex/`, `.gemini/`) — never into `data/`, a commit,
   or an artifact. Do not copy tokens anywhere else.

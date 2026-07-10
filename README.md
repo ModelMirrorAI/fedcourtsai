@@ -15,8 +15,9 @@ the court's reasoning.
 > are in place; most feature work is done by AI coding agents via the
 > label-driven workflows below.
 >
-> No predictions have been published yet — the first target is the OT2026
-> long-conference cert release (see [milestones](docs/milestones.md)).
+> Pilot predictions are accumulating in the open ledger under `data/`, but none
+> has resolved or been scored yet — the first published-results target is the
+> OT2026 long-conference cert release (see [milestones](docs/milestones.md)).
 
 > **Not legal advice.** Outputs are experimental model predictions — they may be
 > wrong, carry no affiliation with or endorsement by any court, and are not legal
@@ -55,7 +56,7 @@ flowchart TD
     live -->|"distributed for conference"| predict["run:predict — predict open events<br/>(matrix over predictors)"]
     pull -->|"changed, open events"| predict
     predict --> ppr[/"pull requests"/]
-    live -.->|"outcome recorded"| evaluate["run:evaluate — score every predictor<br/>(incl. leakage grading)"]
+    live -.->|"outcome recorded on a predicted event"| evaluate["run:evaluate — score every predictor<br/>(incl. leakage grading)"]
     predict -.-> evaluate
     evaluate --> epr[/"pull requests"/]
 ```

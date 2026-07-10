@@ -110,7 +110,8 @@ run:seed schedule (weekly) → seed-live-terms → walk decided Terms, ingest gr
                                  │  disposition is machine-readable (git ledger)
                                  └─ create issues  ← APP TOKEN
                                     ├─ run:predict    (changed case with open events)
-                                    ├─ run:evaluate   (case that gained an outcome)
+                                    ├─ run:evaluate   (predicted event that gained
+                                    │                  an outcome)
                                     └─ run:reconcile  (decided but not machine-readable
                                                        → agent reconciles by hand)
    daily ×4 → run-pull (live job) → open live-log issue → push fresh facts to the corpus

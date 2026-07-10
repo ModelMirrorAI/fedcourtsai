@@ -218,8 +218,13 @@ only once the gate widens toward keeping all fourteen courts current at the live
 frontier. The membership raises the *ceiling*; the client still throttles to
 whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to in the runner
 env (wired in `run-pull.yml` from repo variables, defaulting to the held tier), so
-realizing a higher rate means setting those variables — no code change. The
-throttle paces, it never stalls: a wait past the client's max-wait setting (an
+realizing a higher rate means setting those variables — no code change. One
+caveat to the arithmetic: the predict/evaluate cells' MCP retrieval uses the
+same CourtListener token but does not pass through this in-process governor,
+so agent lookups draw from the same per-token quota the pull math above
+treats as pull's alone — a retrieval-heavy run consumes headroom the governor
+cannot see. The throttle paces, it never stalls: a wait past the client's
+max-wait setting (an
 exhausted hour/day window) raises instead of sleeping, and the run wraps up early
 — see the degradation guards in [data-pipeline.md](data-pipeline.md).
 
