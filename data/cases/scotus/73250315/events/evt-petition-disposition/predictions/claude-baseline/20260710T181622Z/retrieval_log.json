@@ -1,0 +1,326 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "3f68b2e014cead6e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "b2a46795362b07fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "152fefc1932f7b9a",
+      "query": "echo \"COURT_ID=$COURT_ID DOCKET_ID=$DOCKET_ID EVENT_ID=$EVENT_ID\"",
+      "result_digest": "66ddce82d5623aad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d9315b0c3a3e8ad2",
+      "query": "echo \"PREDICTOR_ID=$PREDICTOR_ID RUN_ID=$RUN_ID MODEL_ID=$MODEL_ID DECIDED_BEFORE=$DECIDED_BEFORE\"",
+      "result_digest": "c83fa5d00ff90fc3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "191513e36c7359c2",
+      "query": "find data/cases/scotus/73250315 -type f | head -50",
+      "result_digest": "5342701feea4617b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "68721d9f1bcc8150",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73250315/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "77d81fb19dfd86bb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73250315/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "7405d6334972002c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "197ab08cf2e5dabc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73250315/record/snapshots/2026-07-10.json\"}",
+      "result_digest": "01323903378dad13",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "dd894931c71cb9f1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73250315/record/documents/documents.json\"}",
+      "result_digest": "66a0565350998e6a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b55c4eed0f6b151c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73250315/record/documents/questions-presented.txt\"}",
+      "result_digest": "a050132337aeaed7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2745a028ee093f3b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73250315/record/documents/petition.txt\"}",
+      "result_digest": "2b94c54aae5f06e8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "3faa9842caa93fe1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "08256e5161f5f923",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/docs/cli.md\"}",
+      "result_digest": "364e0fcb85fa74be",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "83f2940b6af04310",
+      "query": "grep -o '\"[a-z_]*\":' metrics/statpack.json | sort -u | head -30; echo ---; python3 -c \"\nimport json\nd=json.load(open('metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "dc425ae16f3f9f4e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "da00e21e2b895e85",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('metrics/statpack.json'))\nfor s in d['sections']:\n    print('##', s['title'])\n    if 'Modern' in s.get('title','') or 'cert' in s.get('title','').lower():\n        print(json.dumps(s, indent=1)[:2000])\n\"",
+      "result_digest": "fb1d01e69d83be19",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cc7a1c6e4c1f01e4",
+      "query": "uv run fedcourts query --court scotus --era 2020 --limit 8 --corpus-backend ranged 2>&1 | tail -20",
+      "result_digest": "9660aa6b599087d1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3f26dc83654f0790",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "61e83f006b3c94e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "93d870660aada1b7",
+      "query": "uv run fedcourts query --court scotus --era 2020s --citation \"875\" --limit 8 --corpus-backend ranged 2>err1.txt | head -20; echo \"--- stderr:\"; cat err1.txt",
+      "result_digest": "95a3865d0ec88939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "923cae11889bcde2",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 --corpus-backend ranged 2>err2.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','caption','era','disposition','term_year','decided')})\n\"; echo \"--- stderr:\"; cat err2.txt",
+      "result_digest": "73b7945dc49735fe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ee4417ad4afb2d6e",
+      "query": "+courtlistener search",
+      "result_digest": "e235e477619924b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "5b3857d0df0dd00d",
+      "query": "courtlistener docket opinion citation",
+      "result_digest": "e235e477619924b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "c7884332d72de661",
+      "query": "search legal cases dockets",
+      "result_digest": "ba1c0a40b9220014",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "fb8efd96875a5213",
+      "query": "Nformangum v. United States 25-7259 certiorari indictment structural error",
+      "result_digest": "46e5f18021f35e8a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "7fb742f90d5e0ca1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "b7123a0b72e6d938",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "703f58d57e0141cf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3caf44684ca71d7e",
+      "query": "mkdir -p data/cases/scotus/73250315/events/evt-petition-disposition/predictions/claude-baseline/20260710T181622Z",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "175d60676d1b7609",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73250315\\\",\\n  \\\"confidence\\\": 0.6,\\n  \\\"created_at\\\": \\\"2026-07-10T18:21:31Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73250315/record/snapshots/2026-07-10.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.13,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run_",
+      "result_digest": "577a4dd638ed5530",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "24515128571c192f",
+      "query": "{\"content\": \"# Nformangum v. United States, No. 25-7259 \\u2014 cert disposition\\n\\n**Prediction: denied. P(granted) = 0.13.**\\n\\n## The event\\n\\nPetition for a writ of certiorari (IFP, but counseled) from the Fifth Circuit's\\nunpublished decision in *United States v. Nformangum*, 2026 WL 18900 (5th Cir.\\nJan. 2, 2026). Forward-mode cell: the petition is genuinely pending, with the\\ngovernment's response now due August 7, 2026.\\n\\n## The legal question\\n\\nThe question presented: whether an indict",
+      "result_digest": "db7669e04476810a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "bc7851b3de357c36",
+      "query": "{\"content\": \"# Retrieval log \\u2014 claude-baseline, run 20260710T181622Z\\n\\nBeyond the provisioned inputs (snapshot `2026-07-10.json`, `petition.txt`,\\n`questions-presented.txt`, `documents.json`, `event.yaml`, `context.json`):\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --era 2020 --limit 8 --corpus-backend ranged`\\n   \\u2014 no rows (wrong era token).\\n   `ranged corpus reads: 378 GET(s), 99090432 byte(s)`\\n2. `uv run fedcourts query --court",
+      "result_digest": "b46b86d7d34a608b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "161cf5a294b1020f",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73250315\\\",\\n  \\\"gaps\\\": [\\n    \\\"The committed statpack lacks the 'Modern discretionary-cert petitions by disposition' section the predict prompt tells cert predictors to anchor on; only overall/by-court/by-topic/by-originating-circuit/by-Term sections are present.\\\",\\n    \\\"The configured CourtListener MCP server never surfaced tools in this cell, so no MCP retrieval was possible.\\\",\\n    \\\"A conditional base rate fo",
+      "result_digest": "af3db77f2f0a4676",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "908b791dd5bcf202",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73250315\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": null,\\n      \\\"message\\\": \\\"The committed metrics/statpack.md lacks the 'Modern discretionary-cert petitions by disposition' section that .github/prompts/predict.md tells cert predictors to anchor on (statpack.json has only overall/by-court/by-topic/by-originating-circuit/by-Term sections). Fell back to the overall SCOTUS res",
+      "result_digest": "0e29bb32b40c9866",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e1b33e70deff0f94",
+      "query": "uv run fedcourts validate data && rm -f err1.txt err2.txt && git status --short data/",
+      "result_digest": "301ac2c41bd2050a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5ab0e5d59427bd6e",
+      "query": "uv run fedcourts validate data 2>&1 | grep -c ORPHAN; uv run fedcourts validate data 2>&1 | grep 73250315; echo \"---\"; uv run fedcourts validate data/cases/scotus/73250315; echo \"exit=$?\"; echo \"---\"; git log --oneline -1 -- data/cases/scotus/72598770/",
+      "result_digest": "6fd9657d942ffe6c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5c3aac0ec92dc127",
+      "query": "uv run fedcourts validate data 2>&1 | tail -40",
+      "result_digest": "c7fd7a27917e2080",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d3ac7d5422f39cbb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73250315/events/evt-petition-disposition/predictions/claude-baseline/20260710T181622Z/flags.json\", \"new_string\": \"    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"event_id\\\": null,\\n      \\\"message\\\": \\\"The configured CourtListener MCP server never became available in this cell (tool search surfaced no CourtListener tools after the server was reported as connecting). Zero MCP calls were made; the prediction proceeded on the",
+      "result_digest": "a1ce937a9882d895",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Edit"
+    },
+    {
+      "params_digest": "e2af883c62f28d89",
+      "query": "uv run fedcourts validate data/cases/scotus/73250315 && gh issue comment 539 --body \"predict cell claude-baseline (scotus/73250315, evt-petition-disposition, run 20260710T181622Z): prediction written and the cell's own subtree validates clean. Heads-up: \\`fedcourts validate data\\` currently fails on main with 51 pre-existing referential problems \u2014 orphan \\`outcome.json\\` files from the latest live refresh commit with no matching \\`event.yaml\\` (outside this cell's write lane, so not fixable here",
+      "result_digest": "d6c19abe78b2ce14",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "10eeb5c4d9a924e2",
+      "query": "rm -f err1.txt err2.txt; git status --short",
+      "result_digest": "009ece05a9875309",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73250315",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260710T181622Z",
+  "schema_version": "1.0"
+}

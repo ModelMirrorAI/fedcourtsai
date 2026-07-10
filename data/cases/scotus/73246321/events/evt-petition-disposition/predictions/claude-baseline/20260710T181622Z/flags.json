@@ -1,0 +1,32 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73246321",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Provisioned record/documents/petition.txt is blank (whitespace only): the filed petition is a 10-page scanned PDF with no extractable text layer, while documents.json reports pages=10, truncated=false, which reads as if usable text were present. The questions presented were therefore unreadable and the prediction rests on docket metadata, lower-court posture, and base rates. Consider OCR for scanned pro se filings, or marking text-extraction failures explicitly in documents.json.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The configured CourtListener MCP server never became available in this cell (server did not finish connecting; no MCP tools discoverable), so zero MCP calls were made. Degraded but not blocking for this forward-mode cell: the corpus CLI, committed statpack, and one web search sufficed. retrieval_log.json for this run will show no MCP traffic for this reason, not by choice.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The committed metrics/statpack.md has no 'Modern discretionary-cert petitions by disposition' section, but .github/prompts/predict.md instructs predictors to anchor modern cert petitions on it. Used the resolved-SCOTUS court row (granted 1.4% across all eras) plus known modern cert dynamics instead. Either regenerate the statpack with that cut or update the prompt.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "message": "'fedcourts validate data' currently exits 1 on main itself: 51 pre-existing referential problems (outcome.json files with no matching event.yaml in the ledger, e.g. scotus/72598770, scotus/73256937), introduced by the latest live refresh commit of outcomes. None involve this cell (this run's artifacts validate with 0 invalid and no problems referencing scotus/73246321), but if the run PR's required check runs the same validation it will fail for this pre-existing reason.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T181622Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73264659",
+  "gaps": [
+    "The ranged corpus query could not reach the remote from this sandbox, so no similar resolved priors were available.",
+    "The committed statpack available in this checkout did not expose a named modern discretionary-cert cut in the rendered Markdown or machine JSON."
+  ],
+  "helpful": [
+    "The provisioned petition and questions-presented text gave enough case-specific signal for a certworthiness assessment.",
+    "The committed statpack provided broad SCOTUS petition base-rate context."
+  ],
+  "notes": "I proceeded from the provisioned SCOTUS docket snapshot, petition materials, and committed base rates after the corpus prior lookup failed before returning rows.",
+  "role": "predictor",
+  "run_id": "20260710T181622Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "fedcourts query (attempted, failed before returning priors)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
