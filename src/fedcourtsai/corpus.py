@@ -210,6 +210,14 @@ class CorpusRow(BaseModel):
         "the live poller's rotation, kept separate from `last_pulled` so the two "
         "channels' rotations never disturb each other.",
     )
+    distributed_for_conference: date | None = Field(
+        default=None,
+        description="The SCOTUS conference this petition is currently distributed for, "
+        "parsed from the live proceedings ('DISTRIBUTED for Conference of …'; the "
+        "latest entry wins, so a re-distribution updates it, #473). The watchlist "
+        "prioritizes and the conference-set report groups on it. Only the live "
+        "channel supplies it; other writers preserve the stored value.",
+    )
     predict_eligible: bool = Field(
         default=False,
         description="Prediction-scope latch: True once the case has interacted with "
@@ -308,7 +316,8 @@ CREATE TABLE IF NOT EXISTS cases (
     originating_docket_number    TEXT,
     date_cert_granted   TEXT,
     date_cert_denied    TEXT,
-    last_live_polled    TEXT
+    last_live_polled    TEXT,
+    distributed_for_conference TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -400,6 +409,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "date_cert_granted": "TEXT",
     "date_cert_denied": "TEXT",
     "last_live_polled": "TEXT",
+    "distributed_for_conference": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -548,6 +558,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "date_cert_granted": (row.date_cert_granted.isoformat() if row.date_cert_granted else None),
         "date_cert_denied": row.date_cert_denied.isoformat() if row.date_cert_denied else None,
         "last_live_polled": row.last_live_polled.isoformat() if row.last_live_polled else None,
+        "distributed_for_conference": (
+            row.distributed_for_conference.isoformat() if row.distributed_for_conference else None
+        ),
     }
 
 
@@ -594,6 +607,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         date_cert_granted=_optional_date(record, "date_cert_granted"),
         date_cert_denied=_optional_date(record, "date_cert_denied"),
         last_live_polled=_optional_date(record, "last_live_polled"),
+        distributed_for_conference=_optional_date(record, "distributed_for_conference"),
     )
 
 
@@ -608,7 +622,10 @@ def _update_clause(column: str) -> str:
     by the seed reconcile (not an ingestion fact), so an upsert keeps the stored value
     rather than resetting it to the model default.
     """
-    if column in ("last_pulled", "last_live_polled"):
+    if column in ("last_pulled", "last_live_polled", "distributed_for_conference"):
+        # Channel-supplied values only ever fill in: a writer that does not carry
+        # the fact (a bulk seed, a CourtListener enrichment without the live
+        # channel's conference parse) must not wipe what another channel stamped.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column == "predict_eligible":
         return f"{column}=MAX(excluded.{column}, cases.{column})"
@@ -1483,10 +1500,13 @@ def live_rotation(
     The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: pending
     modern-cert petitions (no disposition, no termination, an open event) from
     ``term_floor_year`` forward — the floor the reachability probe established
-    (docs/live-sources-probe.md). Recent Terms first (they are days-to-weeks from
-    resolution, the opposite of stalest-first), then never-polled before stale,
-    then ``case_id`` for determinism. Rotates on ``last_live_polled``, never
-    ``last_pulled``, so the CourtListener enrichment rotation is undisturbed.
+    (docs/live-sources-probe.md). **Distributed petitions lead** (nearest
+    conference first — they are days from resolution, the opposite of
+    stalest-first; a past conference date sorts first of all, since that
+    petition is overdue for its order-list result, #473), then recent Terms
+    first, then never-polled before stale, then ``case_id`` for determinism.
+    Rotates on ``last_live_polled``, never ``last_pulled``, so the CourtListener
+    enrichment rotation is undisturbed.
     """
     if limit <= 0:
         return []
@@ -1497,7 +1517,8 @@ def live_rotation(
         f"AND {_TERM_YEAR_SQL} >= ? "
         "AND EXISTS (SELECT 1 FROM events "
         "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
-        f"ORDER BY {_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
+        "ORDER BY distributed_for_conference IS NULL, distributed_for_conference ASC, "
+        f"{_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
         "last_live_polled ASC, case_id ASC LIMIT ?"
     )
     # Over-fetch to cover candidates the Python re-verification drops (labeled
@@ -1505,6 +1526,30 @@ def live_rotation(
     cur = conn.execute(sql, (term_floor_year, limit * 2))
     picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
     return picked[:limit]
+
+
+def conference_watchlist(conn: ReadConnection, *, term_floor_year: int = 2017) -> list[CorpusRow]:
+    """Every pending petition distributed for a conference, nearest date first.
+
+    The live cert watchlist read (#473): pending modern-cert petitions whose
+    proceedings carry a parsed ``distributed_for_conference``, ordered by that
+    date then ``case_id``. The pending-before-conference set — the September
+    framing's long-conference set is a date-slice of it — exposed via the
+    ``conference-set`` CLI so the set is visible before a live run fires.
+    """
+    sql = (
+        "SELECT * FROM cases WHERE court = 'scotus' "
+        "AND disposition IS NULL AND date_decided IS NULL "
+        "AND distributed_for_conference IS NOT NULL "
+        "AND docket_number GLOB '[0-9][0-9]-*' "
+        f"AND {_TERM_YEAR_SQL} >= ? "
+        "ORDER BY distributed_for_conference ASC, case_id ASC"
+    )
+    return [
+        row
+        for record in conn.execute(sql, (term_floor_year,))
+        if is_modern_cert(row := _from_record(record))
+    ]
 
 
 # --- predictable event definitions (raw facts) ---------------------------------

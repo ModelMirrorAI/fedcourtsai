@@ -74,6 +74,12 @@ class CorpusRow(BaseModel):
     disposition: Disposition | None = Field(
         default=None, description="Realized outcome label (the back-testing target)"
     )
+    distributed_for_conference: date | None = Field(
+        default=None,
+        description="The SCOTUS conference this petition is currently distributed for "
+        "(the latest 'DISTRIBUTED for Conference of …' proceedings entry; a "
+        "re-distribution updates it). Live-channel only (#473); None elsewhere.",
+    )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
     panel: list[corpus.PanelMember] = Field(
@@ -324,6 +330,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         date_cert_granted=date_cert_granted,
         date_cert_denied=date_cert_denied,
         disposition=disposition,
+        distributed_for_conference=_date(record.get("distributed_for_conference")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -379,6 +386,33 @@ _LIVE_LOWER_COURT_IDS: Final[dict[str, str]] = {
 # Trailing role labels on the JSON's party titles ("Acme Corp., Petitioner",
 # "..., et al., Petitioners"), stripped so the caption reads `X v. Y`.
 _LIVE_TITLE_ROLE_RE = re.compile(r",\s*(?:petitioner|respondent|applicant|appellant)s?\s*$", re.I)
+
+# Conference membership rides in the proceedings as its own entry —
+# "DISTRIBUTED for Conference of 3/24/2023." — one entry per (re)distribution.
+# Anchored on the full phrase so a filing's "(Distributed)" suffix never matches.
+_LIVE_DISTRIBUTED_RE = re.compile(r"DISTRIBUTED\s+for\s+Conference\s+of\s+([\d/A-Za-z, ]+)", re.I)
+
+
+def _live_conference_date(entries: list[dict[str, Any]]) -> date | None:
+    """The conference this petition is currently distributed for, or ``None``.
+
+    The **last** distribution entry in docket order wins: a relisted or
+    re-scheduled petition gets a fresh "DISTRIBUTED for Conference of …" entry
+    per conference, and the latest one is its current membership (#473). An
+    unparseable date degrades to the previous match, never a crash.
+    """
+    conference: date | None = None
+    for entry in entries:
+        match = _LIVE_DISTRIBUTED_RE.search(str(entry.get("description") or ""))
+        if match is None:
+            continue
+        try:
+            parsed = _date(match.group(1).strip(" ."))
+        except (ValueError, OverflowError):
+            continue
+        if parsed is not None:
+            conference = parsed
+    return conference
 
 
 def _live_title(raw: Any) -> str | None:
@@ -473,6 +507,7 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
     petition (``fedcourtsai.supremecourt.live_docket_id``).
     """
     entries = _live_entries(payload)
+    conference = _live_conference_date(entries)
     disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
@@ -489,6 +524,7 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
         "date_cert_granted": cert_granted.isoformat() if cert_granted else None,
         "date_cert_denied": cert_denied.isoformat() if cert_denied else None,
         "date_terminated": terminated.isoformat() if terminated else None,
+        "distributed_for_conference": conference.isoformat() if conference else None,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,
@@ -598,6 +634,7 @@ def to_corpus_row(
         date_cert_granted=row.date_cert_granted,
         date_cert_denied=row.date_cert_denied,
         disposition=row.disposition,
+        distributed_for_conference=row.distributed_for_conference,
         judges=row.judges,
         panel=row.panel,
         parties=row.parties,

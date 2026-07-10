@@ -110,6 +110,16 @@ petitions before each conference, discovered while they are pending — so
 predictions fire ahead of the conference and score against the order-list
 outcome days later, all in the forward stratum.
 
+**Implemented (#473):** the latest distribution entry per petition lands as the
+corpus's `distributed_for_conference` (a relist updates it; non-live writers
+preserve it); the refresh rotation leads with distributed petitions, nearest
+conference first; and **predict fires on the distribution transition** — a
+fresh distribution or a relist's new date — the cert-calendar analogue of
+`pull.predict_on_change_only`, replacing the interim `predict_on_refresh`
+guard. The pending-before-conference set is readable via
+`fedcourts conference-set` (grouped by conference date; the September
+long-conference set is its largest bucket).
+
 ## Documents: from metadata to content
 
 The document PDFs linked from each docket are the step-change in input quality

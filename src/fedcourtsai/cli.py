@@ -1975,6 +1975,56 @@ def live_poll(
     )
 
 
+@app.command("conference-set")
+def conference_set(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Also write the machine JSON (per-petition rows) here."),
+    ] = None,
+) -> None:
+    """The pending-before-conference set: the live cert watchlist, by conference.
+
+    Read-only (#473): every pending modern-cert petition whose live proceedings
+    carry a "DISTRIBUTED for Conference of …" membership, grouped by conference
+    date — the set predictions fire ahead of and score against days later. The
+    September long-conference set is this report's largest date bucket.
+    """
+    settings = get_settings()
+    db = corpus.corpus_db_path(settings.corpus_root)
+    if not db.exists():
+        typer.echo(f"no corpus at {db}", err=True)
+        raise typer.Exit(code=2)
+    with corpus.connect_readonly(db) as conn:
+        rows = corpus.conference_watchlist(conn)
+    by_conference: dict[str, list[corpus.CorpusRow]] = {}
+    for row in rows:
+        assert row.distributed_for_conference is not None  # the query guarantees it
+        by_conference.setdefault(row.distributed_for_conference.isoformat(), []).append(row)
+    typer.echo(
+        f"{len(rows)} pending petition(s) distributed across {len(by_conference)} conference(s)\n"
+    )
+    for conference, members in by_conference.items():
+        typer.echo(f"Conference of {conference} — {len(members)} petition(s)")
+        for row in members:
+            typer.echo(f"  {row.docket_number:>9}  {row.case_name or row.case_id}")
+        typer.echo("")
+    if out is not None:
+        write_raw_json(
+            out,
+            [
+                {
+                    "case_id": row.case_id,
+                    "docket_number": row.docket_number,
+                    "case_name": row.case_name,
+                    "conference": row.distributed_for_conference.isoformat()
+                    if row.distributed_for_conference
+                    else None,
+                }
+                for row in rows
+            ],
+        )
+
+
 @app.command()
 def discover(
     since: Annotated[

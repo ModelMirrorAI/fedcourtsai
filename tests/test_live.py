@@ -370,44 +370,46 @@ def test_discover_live_enriches_an_existing_courtlistener_row(tmp_path: Path) ->
 # --- the full cycle ---------------------------------------------------------------
 
 
-def test_live_poll_all_queues_predict_on_change_and_evaluate_on_resolution(
+def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
     tmp_path: Path,
 ) -> None:
-    """#472 acceptance: a live change queues predict within one cycle; a decided
+    """#472 + #473 acceptance: predictions queue on distribution transitions
+    (fresh distribution, relist), never on mere docket change; a decided
     petition lands its outcome and queues evaluate."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     config = LiveConfig()
 
-    # Cycle 1: discovery onboards two pending petitions -> both queue predict.
-    served = {"25-1": _payload("25-1"), "25-2": _payload("25-2")}
+    # Cycle 1: discovery onboards two undistributed pending petitions (they only
+    # enter the watchlist) and one already distributed (frontier catch-up -> it
+    # queues predict immediately).
+    served = {
+        "25-1": _payload("25-1"),
+        "25-2": _payload("25-2"),
+        "25-3": _payload(
+            "25-3",
+            proceedings=[
+                _payload()["ProceedingsandOrder"][0],
+                {"Date": "Jul 07 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."},
+            ],
+        ),
+    }
     with _frontier_client(served) as client:
         queues, discovery = live_poll_all(
             client, db, data_root, term=25, config=config, today=date(2026, 7, 9)
         )
-    assert len(discovery.onboarded) == 2
-    assert {q["docket"] for q in queues.predict} == {9_025_000_001, 9_025_000_002}
+    assert len(discovery.onboarded) == 3
+    assert {q["docket"] for q in queues.predict} == {9_025_000_003}
     assert queues.evaluate == [] and queues.reconcile == []
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000003")
+    assert row is not None and row.distributed_for_conference == date(2026, 9, 29)
 
-    # Cycle 2: 25-1 gains its denial order -> outcome recorded, evaluate queued;
-    # 25-2 is unchanged -> nothing.
+    # Cycle 2: 25-1 gains its denial order -> outcome + evaluate, no predict; a
+    # BIO lands on 25-2 (docket changed, still undistributed) -> no predict.
     served["25-1"] = _payload(
         "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY]
     )
-    with _frontier_client(served) as client:
-        queues2, _ = live_poll_all(
-            client, db, data_root, term=25, config=config, today=date(2026, 7, 10)
-        )
-    assert queues2.evaluate == [
-        {"court": "scotus", "docket": 9_025_000_001, "events": ["evt-petition-disposition"]}
-    ]
-    # The decided case's event is closed, so it queues no predict; the unchanged
-    # pending case queues nothing either.
-    assert queues2.predict == []
-
-    # Cycle 3: 25-2's docket changes (a BIO lands). Under the default interim
-    # guard a refresh-driven change queues no predict; with predict_on_refresh
-    # it does — the knob #473's distribution trigger will replace.
     served["25-2"] = _payload(
         "25-2",
         proceedings=[
@@ -416,35 +418,129 @@ def test_live_poll_all_queues_predict_on_change_and_evaluate_on_resolution(
         ],
     )
     with _frontier_client(served) as client:
-        guarded, _ = live_poll_all(
-            client, db, data_root, term=25, config=config, today=date(2026, 7, 11)
+        queues2, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 10)
         )
-    assert guarded.predict == []
-    with _frontier_client(served) as client:
-        ungated, _ = live_poll_all(
-            client,
-            db,
-            data_root,
-            term=25,
-            config=config.model_copy(update={"predict_on_refresh": True}),
-            today=date(2026, 7, 12),
-        )
-    assert ungated.predict == []  # unchanged since cycle 3's poll...
+    assert queues2.evaluate == [
+        {"court": "scotus", "docket": 9_025_000_001, "events": ["evt-petition-disposition"]}
+    ]
+    assert queues2.predict == []
+
+    # Cycle 3: 25-2 is distributed -> the transition queues predict.
     served["25-2"]["ProceedingsandOrder"].append(
         {"Date": "Jul 12 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
     )
     with _frontier_client(served) as client:
-        ungated, _ = live_poll_all(
-            client,
-            db,
-            data_root,
-            term=25,
-            config=config.model_copy(update={"predict_on_refresh": True}),
-            today=date(2026, 7, 13),
+        queues3, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 13)
         )
-    assert ungated.predict == [
+    assert queues3.predict == [
         {"court": "scotus", "docket": 9_025_000_002, "events": ["evt-petition-disposition"]}
     ]
+
+    # Cycle 4: unchanged membership -> nothing; then a relist (new conference
+    # date) -> predict fires again.
+    with _frontier_client(served) as client:
+        queues4, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 14)
+        )
+    assert queues4.predict == []
+    served["25-2"]["ProceedingsandOrder"].append(
+        {"Date": "Oct 01 2026", "Text": "DISTRIBUTED for Conference of 10/10/2026."}
+    )
+    with _frontier_client(served) as client:
+        queues5, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 10, 2)
+        )
+    assert queues5.predict == [
+        {"court": "scotus", "docket": 9_025_000_002, "events": ["evt-petition-disposition"]}
+    ]
+    with corpus.connect(db) as conn:
+        relisted = corpus.get_row(conn, "scotus/9025000002")
+    assert relisted is not None
+    assert relisted.distributed_for_conference == date(2026, 10, 10)
+
+
+def test_conference_parse_last_distribution_wins() -> None:
+    payload = _payload(
+        proceedings=[
+            _payload()["ProceedingsandOrder"][0],
+            {"Date": "Mar 08 2023", "Text": "DISTRIBUTED for Conference of 3/24/2023."},
+            {"Date": "Mar 08 2023", "Text": "Reply of petitioners filed. (Distributed)"},
+            {"Date": "Mar 27 2023", "Text": "DISTRIBUTED for Conference of 3/31/2023."},
+        ]
+    )
+    row = from_live_docket(payload, live_docket_id(25, 100))
+    # The relist's date wins; the "(Distributed)" filing suffix never matches.
+    assert row.distributed_for_conference == date(2023, 3, 31)
+
+
+def test_live_rotation_distributed_petitions_lead(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                # Undistributed current-Term petition.
+                corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="25-1"),
+                # Distributed, nearest conference -> first overall despite older Term.
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="24-2",
+                    distributed_for_conference=date(2026, 9, 29),
+                ),
+                # Distributed for a later conference -> second.
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-3",
+                    distributed_for_conference=date(2026, 10, 10),
+                ),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    kind="petition",
+                    title=f"scotus/{n}",
+                )
+                for n in (1, 2, 3)
+            ],
+        )
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+        watchlist = [r.case_id for r in corpus.conference_watchlist(conn)]
+    assert picked == ["scotus/2", "scotus/3", "scotus/1"]
+    assert watchlist == ["scotus/2", "scotus/3"]
+
+
+def test_conference_date_survives_a_courtlistener_write(tmp_path: Path) -> None:
+    # A CourtListener enrichment (no conference parse) must not wipe the live
+    # channel's stored membership — the COALESCE latch, like last_live_polled.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-1",
+                    distributed_for_conference=date(2026, 9, 29),
+                )
+            ],
+        )
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="25-1")],
+        )
+        stored = corpus.get_row(conn, "scotus/1")
+    assert stored is not None
+    assert stored.distributed_for_conference == date(2026, 9, 29)
 
 
 # --- replay redaction -------------------------------------------------------------
