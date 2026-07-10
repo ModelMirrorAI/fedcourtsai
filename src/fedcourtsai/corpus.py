@@ -380,10 +380,15 @@ CREATE TABLE IF NOT EXISTS discovery_watermarks (
     last_filed  TEXT NOT NULL
 );
 
--- Per-Term live-discovery cursor for the SCOTUS live channel (#472): the highest
--- docket serial confirmed served, per numbering stream (paid petitions from 1,
--- IFP from 5001). Tracking state, mirroring the watermarks above: the sequential
--- prober resumes from the cursor and a 404 past it marks the Term's frontier.
+-- Per-Term live-discovery cursor for the SCOTUS live channel: the highest
+-- docket serial confirmed served, per numbering stream. Tracking state,
+-- mirroring the watermarks above: a sequential prober resumes from the cursor
+-- and a 404 past it marks the Term's frontier. Two walkers share the table
+-- under disjoint stream names: the forward poller's frontier discovery uses
+-- "paid" / "ifp" (paid petitions from 1, IFP from 5001), and the past-Term
+-- cert loader (pipeline.seedlive) uses "seed-paid" / "seed-ifp" over the same
+-- serial spaces — so the loader can walk a Term the poller is also tracking
+-- without either rewinding the other.
 CREATE TABLE IF NOT EXISTS live_discovery_cursors (
     term         INTEGER NOT NULL,
     stream       TEXT NOT NULL,

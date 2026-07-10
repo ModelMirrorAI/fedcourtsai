@@ -168,9 +168,15 @@ CourtListener REST drip could not recover at any budget. What changed
   now comes through the live channel instead
   ([#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)).
 - **The bulk-CSV seed path is frozen, not deleted** — kept as the fallback if
-  the replica timeline slips. When the [#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)
-  loader lands it becomes `run-seed`'s default mode; until then the bulk path
-  still imports and passes tests (frozen ≠ broken).
+  the replica timeline slips (frozen ≠ broken: it still imports and passes
+  tests). `run-seed`'s **default mode is now the past-Term cert loader**
+  (`fedcourts seed-live-terms`, the `live-terms` job): it walks decided October
+  Terms' docket serials over the supremecourt.gov docket JSON — the same
+  client, identity, and ingest seams as the forward poller — and lands the
+  sampled cert back-test set (all grants/GVRs plus a systematic denial slice;
+  the committed `seed_live:` section of `config/tracking.yaml` is the sampling
+  frame). The bulk path stays reachable via the `run:seed` label or dispatch
+  mode=bulk. See [live-sources.md](live-sources.md).
 - **Pull is re-aimed as targeted enrichment.** The live channel
   ([#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)) owns SCOTUS
   freshness; pull's REST budget goes to keeping the SCOTUS-touched set's
@@ -510,9 +516,10 @@ for the real corpus the seed/pull workflows produce.
 
 > **Frozen (July 2026 pivot).** The bulk-CSV path below is kept as the fallback
 > if the replica timeline slips, and still imports and passes tests — but no
-> scheduled run drives it, and the [#523](https://github.com/ModelMirrorAI/fedcourtsai/issues/523)
-> live-channel loader becomes `run-seed`'s default mode when it lands. See the
-> pivot section above.
+> scheduled run drives it: `run-seed`'s schedule and default dispatch mode run
+> the live-channel past-Term cert loader (`fedcourts seed-live-terms`) instead,
+> and the bulk path is reached via the `run:seed` label or dispatch mode=bulk.
+> See the pivot section above and [live-sources.md](live-sources.md).
 
 - **Trigger:** a single long-lived `run:seed` tracking issue (a maintainer opens
   it and applies the `run:seed` label; see [seed-backfill.md](seed-backfill.md))

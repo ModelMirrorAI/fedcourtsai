@@ -19,18 +19,20 @@ configured metrics root and `--out`/`--json` overrides it.
 
 Onboard and refresh raw facts. `seed`/`pull`/`discover`/`pull-all` use the
 rate-limited CourtListener **REST API** (need an API token); `seed-backfill` uses
-the public **bulk** snapshot (no token, no budget); `live-poll` uses the
-**supremecourt.gov docket JSON** (no token, no budget — the SCOTUS live channel,
-[live-sources.md](live-sources.md)). All ingest through the same core, so the
-corpus is written identically. `make-fixture-corpus` is the odd one
-out: it writes a tiny **synthetic** corpus from hard-coded facts (no source, no
-network) for offline local runs and tests, never a substitute for the real corpus.
+the public **bulk** snapshot (no token, no budget); `live-poll` and
+`seed-live-terms` use the **supremecourt.gov docket JSON** (no token, no budget —
+the SCOTUS live channel, [live-sources.md](live-sources.md)). All ingest through
+the same core, so the corpus is written identically. `make-fixture-corpus` is the
+odd one out: it writes a tiny **synthetic** corpus from hard-coded facts (no
+source, no network) for offline local runs and tests, never a substitute for the
+real corpus.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
 | `seed` | Onboard one docket from the REST API into the corpus. | `--court`, `--docket` |
 | `pull` | Refresh one already-onboarded docket and report whether it changed. | `--court`, `--docket` |
-| `seed-backfill` | Load the next chunk of CourtListener bulk data, advancing the committed cursor. The `run-seed` workflow loops it. | `--max-cases`, `--report`, `--staging-path` |
+| `seed-backfill` | Load the next chunk of CourtListener bulk data, advancing the committed cursor. The `run-seed` workflow's `bulk` mode (the frozen fallback) loops it. | `--max-cases`, `--report`, `--staging-path` |
+| `seed-live-terms` | Load one capped chunk of the past-Term cert back-test set through the live channel: walk the configured decided October Terms' docket serials sequentially (persisted per-(Term, stream) cursors, so runs resume) and ingest every decided petition except denials, which are systematically sampled per `seed_live:` in `config/tracking.yaml` — the committed sampling frame. Ingested petitions land already resolved (label, snapshot, events, OT2021+ documents) and feed replay/evaluation only; **writes no handoff queues**. The `run-seed` workflow's default `live-terms` mode loops it. | `--report`, `--totals`, `--max-probes`, `--summary-out` |
 | `discover` | Onboard newly-filed dockets in the tracked courts, advancing each court's watermark. | `--since`, `--limit` |
 | `pull-all` | Refresh the stalest tracked cases within the API budget; write the predict/evaluate/reconcile handoff queues. | `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
 | `live-poll` | One SCOTUS live-channel cycle (#472/#473): probe the Term's docket-number frontier for new petitions (persisted per-Term cursor), re-poll the pending watchlist (distributed petitions first, nearest conference first), detect resolution from the proceedings text, and write the same three handoff queues as `pull-all` — with predict queued on **distribution transitions** (fresh distribution or relist), the cert-calendar predict trigger. | `--term`, `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
