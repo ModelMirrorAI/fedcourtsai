@@ -7,8 +7,8 @@ reads ``mcpServers`` in ``.gemini/settings.json``. The tested emitters here
 keep the three in lockstep so the workflow steps only plumb bytes to files
 (the logic-in-tested-Python rule).
 
-Every server launches as ``uvx --from <pinned package> <command>`` over stdio
-— resolution is pinned by the manifest and needs no separate install step —
+Every server launches via ``uvx --from <pinned package>`` over stdio —
+resolution is pinned by the manifest and needs no separate install step —
 and its API token is injected as a **literal env value read from this
 process's environment at emission time**. The emitting step runs on the
 ephemeral cell runner with the token already in its env; the generated file is
@@ -33,6 +33,36 @@ CODEX_CONFIG_FILENAME = "config.toml"
 GEMINI_SETTINGS_FILENAME = "settings.json"
 
 
+# WORKAROUND for a packaging bug in courtlistener-api-client 1.0.0 (its only
+# release): `create_mcp_server()` reads bundled icon files from
+# `courtlistener/mcp/assets/`, but neither the wheel nor the sdist ships that
+# directory, so the `courtlistener-mcp` entry point crashes on startup with
+# FileNotFoundError — on every engine ("MCP issues detected" in Gemini,
+# silently zero MCP tools in Claude/Codex). Until upstream ships the assets,
+# launch the pinned package through `python -c` with a shim that writes
+# placeholder icon bytes (they are only base64-embedded into the server's
+# icon metadata) before calling the same `main()`. The shim is keyed to the
+# exact broken release, so bumping the manifest pin self-retires it back to
+# the plain entry point — delete this block once a fixed release is pinned.
+_BROKEN_COURTLISTENER_RELEASE = "courtlistener-api-client[mcp]==1.0.0"
+_COURTLISTENER_MCP_SHIM = (
+    "import pathlib\n"
+    "import courtlistener.mcp\n"
+    "assets = pathlib.Path(courtlistener.mcp.__file__).parent / 'assets'\n"
+    "assets.mkdir(exist_ok=True)\n"
+    "for name, blob in (\n"
+    "    ('favicon.svg', b\"<svg xmlns='http://www.w3.org/2000/svg'/>\"),\n"
+    "    ('apple-touch-icon.png', b'\\x89PNG\\r\\n\\x1a\\n'),\n"
+    "    ('favicon.ico', b''),\n"
+    "):\n"
+    "    path = assets / name\n"
+    "    if not path.exists():\n"
+    "        path.write_bytes(blob)\n"
+    "from courtlistener.mcp.server import main\n"
+    "main()\n"
+)
+
+
 def _launch(server: McpServerConfig) -> tuple[str, list[str], dict[str, str]]:
     """(command, args, env) for one manifest entry's stdio launch."""
     env: dict[str, str] = {}
@@ -40,6 +70,9 @@ def _launch(server: McpServerConfig) -> tuple[str, list[str], dict[str, str]]:
         token = os.environ.get(server.token_env, "")
         if token:
             env[server.token_env] = token
+    if server.package == _BROKEN_COURTLISTENER_RELEASE:
+        # The missing-assets workaround above; same pinned package, same env.
+        return "uvx", ["--from", server.package, "python", "-c", _COURTLISTENER_MCP_SHIM], env
     return "uvx", ["--from", server.package, server.command], env
 
 

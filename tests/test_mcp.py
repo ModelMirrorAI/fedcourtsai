@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.mcp import (
+    _COURTLISTENER_MCP_SHIM,
     claude_mcp_config,
     codex_mcp_config,
     gemini_mcp_settings,
@@ -52,8 +53,34 @@ def test_claude_config_pins_uvx_launch_and_injects_token(
     doc = json.loads(claude_mcp_config([_SERVER]))
     server = doc["mcpServers"]["courtlistener"]
     assert server["command"] == "uvx"
-    assert server["args"] == ["--from", "courtlistener-api-client[mcp]==1.0.0", "courtlistener-mcp"]
+    # The missing-assets shim: same pinned package, launched through python -c.
+    assert server["args"][:4] == [
+        "--from",
+        "courtlistener-api-client[mcp]==1.0.0",
+        "python",
+        "-c",
+    ]
+    # Exact equality: the constant is the ONLY thing in the -c slot, so any
+    # future interpolation into the payload fails here.
+    assert server["args"][4] == _COURTLISTENER_MCP_SHIM
     assert server["env"] == {"COURTLISTENER_API_TOKEN": "tok-agent"}
+
+
+def test_courtlistener_shim_writes_the_missing_assets_then_starts_main() -> None:
+    # courtlistener-api-client 1.0.0 ships no mcp/assets directory, so the
+    # upstream entry point crashes at startup; the shim must create the icon
+    # files the server reads before handing over to the same main().
+    shim = _COURTLISTENER_MCP_SHIM
+    assert "favicon.svg" in shim
+    assert "apple-touch-icon.png" in shim
+    assert shim.rstrip().endswith("main()")
+    compile(shim, "<shim>", "exec")  # stays valid python
+
+
+def test_non_courtlistener_command_launches_directly() -> None:
+    other = McpServerConfig(id="other", package="some-pkg==1.0", command="some-mcp")
+    doc = json.loads(claude_mcp_config([other]))
+    assert doc["mcpServers"]["other"]["args"] == ["--from", "some-pkg==1.0", "some-mcp"]
 
 
 def test_unset_token_omits_env_for_anonymous_degradation(
@@ -69,6 +96,9 @@ def test_codex_config_is_valid_toml_tables(monkeypatch: pytest.MonkeyPatch) -> N
     doc = tomllib.loads(codex_mcp_config([_SERVER]))
     table = doc["mcp_servers"]["courtlistener"]
     assert table["command"] == "uvx"
+    # The multi-line shim must round-trip byte-exact through the JSON-escaped
+    # TOML string (quotes, \x/\r\n byte escapes and all).
+    assert table["args"][-1] == _COURTLISTENER_MCP_SHIM
     assert table["env"] == {"COURTLISTENER_API_TOKEN": "tok-agent"}
 
 
