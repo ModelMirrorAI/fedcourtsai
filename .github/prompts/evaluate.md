@@ -62,9 +62,10 @@ For each predictor you score, write to
   - `reasoning_quality` — your 0–1 qualitative judgment of the predicted reasoning
     (soundness of the legal analysis given the outcome, not just whether it was
     right). `notes_doc` = `evaluation.md`.
-  - `leakage_suspected` — `true`/`false`, from the leakage check below; leave it
-    null only when you could not assess it (e.g. the predictor's `retrieval.md`
-    is missing).
+  - `leakage` — the structured assessment from the leakage grading below
+    (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
+    and `leakage_suspected` kept in step with it (`true` iff
+    `influenced_prediction` is `possible` or `likely`).
 
   The quantitative pieces are computed identically in code by
   `fedcourtsai.pipeline.evaluate` (`is_correct`, `brier_score`, `vote_accuracy`) —
@@ -72,16 +73,39 @@ For each predictor you score, write to
 - **`evaluation.md`** — your qualitative write-up: what the prediction got right or
   wrong and why, and what drove your `reasoning_quality` score.
 
-**Leakage check.** A prediction is only a forecast if it was made without the
-outcome. For each predictor, read its `reasoning.md` and `retrieval.md` for signs
-the prediction used post-decision information about this case: lookups of the
-case's own caption or docket number beyond the provisioned snapshot, citation of
-the disposing order or opinion, facts only knowable after the decision, reasoning
-that presupposes the result, or the predictor's own admission that it knew the
-outcome. Set `leakage_suspected` in that predictor's `evaluation.json`, explain
-the evidence in `evaluation.md`, and when the signs are concrete add a
-`flags.json` note naming the predictor. Suspicion segments the scores — it never
-changes `correct`, `brier_score`, or the other quantitative fields.
+**Leakage grading — mode-aware, over the harness-captured log.** Under the
+leakage doctrine, timing is the control: a **forward** prediction was made
+while the event was genuinely unresolved (its retrieval was unrestricted by
+design — nothing it could find leaked an outcome that did not exist), while a
+**replay** prediction ran against a decided case with etiquette instead of
+walls, and grading its retrieval is your job. For each predictor:
+
+1. Read its `predictions/<predictor_id>/<run_id>/retrieval_log.json` — the
+   tool-call transcript the harness captured from the engine's own log (never
+   the agent's word): tool names, query slices, and `retrieved_doc_date` where
+   a document date was legible. Its `mode` field tells you which stratum the
+   prediction ran in; a missing log or mode grades as `unknown` (assess from
+   `reasoning.md`/`retrieval.md` alone).
+2. **`forward`** → `leakage.influenced_prediction` = `not_applicable` (and
+   `leakage_suspected` = `false`), unless the reasoning itself shows the
+   prediction was somehow made post-resolution.
+3. **`replay`** → grade two things. `retrieved_outcome_material`: does the log
+   or reasoning show outcome-revealing material about *this case* was retrieved
+   — a `retrieved_doc_date` on or after the event's resolution, queries for the
+   case's own docket/caption reaching past the event date, the disposing order
+   or opinion, or the predictor's own `flags.json` disclosure (an honest
+   disclosure is a point *for* the cell's integrity, not against it)?
+   `influenced_prediction`: did that material plausibly shape the prediction —
+   `none` (retrieved but demonstrably unused, or nothing retrieved), `possible`,
+   or `likely` (reasoning presupposes the result, cites post-decision facts, or
+   admits knowing the outcome)? Put the concrete evidence in `leakage.notes`
+   and `evaluation.md`, and when it is `likely`, add a `flags.json` note naming
+   the predictor.
+
+The assessment is **advisory and segments scores — it never changes**
+`correct`, `brier_score`, or the other quantitative fields. Its point is to
+keep the backtest stratum honest as *iteration signal*; backtest results are
+never claimable performance regardless (only the forward stratum is).
 
 You may consult the corpus for context while scoring (never for new case facts):
 `fedcourts query` / `fedcourts open-events` read the corpus blob in place on the

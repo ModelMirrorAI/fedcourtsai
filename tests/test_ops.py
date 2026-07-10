@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -16,8 +16,10 @@ from fedcourtsai.schemas import (
     CourtProgress,
     DataHealth,
     Engine,
+    Evaluation,
     FlagCategory,
     FlagSeverity,
+    LeakageAssessment,
     LedgerValidation,
     ModelUsage,
     OpsReport,
@@ -793,3 +795,44 @@ def test_ops_report_rolls_up_committed_flags(tmp_path: Path) -> None:
     report = json.loads(json_out.read_text())
     assert report["flags"]["total"] == 1 and report["flags"]["warnings"] == 1
     assert report["flags"]["recent"][0]["actor_id"] == "claude-baseline"
+
+
+def _leaky_evaluation(
+    verdict: str, *, run_id: str = "20260710T120000Z", predictor: str = "claude-baseline"
+) -> Evaluation:
+    return Evaluation(
+        case_id="scotus/1",
+        event_id="evt-petition-disposition",
+        predictor_id=predictor,
+        evaluator_id="codex-judge",
+        engine="codex",
+        run_id=run_id,
+        created_at=datetime(2026, 7, 10, 12, tzinfo=UTC),
+        correct=1,
+        leakage_suspected=verdict in ("possible", "likely"),
+        leakage=LeakageAssessment(
+            mode="replay" if verdict != "not_applicable" else "forward",
+            retrieved_outcome_material=verdict in ("possible", "likely"),
+            influenced_prediction=verdict,
+        ),
+    )
+
+
+def test_summarize_leakage_buckets_and_names_likely_offenders() -> None:
+    evaluations = [
+        _leaky_evaluation("not_applicable"),
+        _leaky_evaluation("none"),
+        _leaky_evaluation("possible"),
+        _leaky_evaluation("likely", run_id="20260710T130000Z", predictor="gemini-baseline"),
+        # An old-schema record with no leakage block is skipped, not counted.
+        _leaky_evaluation("none").model_copy(update={"leakage": None}),
+    ]
+    digest = ops.summarize_leakage(evaluations)
+    assert (digest.assessed, digest.not_applicable, digest.none) == (4, 1, 1)
+    assert (digest.possible, digest.likely) == (1, 1)
+    assert digest.flagged == ["scotus/1 evt-petition-disposition gemini-baseline (by codex-judge)"]
+
+
+def test_summarize_leakage_empty_is_all_zero() -> None:
+    digest = ops.summarize_leakage([])
+    assert digest.assessed == 0 and digest.flagged == []

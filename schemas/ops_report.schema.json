@@ -707,6 +707,59 @@
       "title": "FlagsDigest",
       "type": "object"
     },
+    "LeakageDigest": {
+      "additionalProperties": false,
+      "description": "The evaluators' leakage grading rolled up for the run-ops dashboard.\n\nThe visibility half of the backtest-as-iteration doctrine: replay cells run\nwith the same tools as forward cells, so the dashboard must show \u2014 across\nruns \u2014 whether outcome material is contaminating the backtest's iteration\nsignal. Counts are over every committed ``evaluation.json`` carrying a\n``leakage`` block; ``likely`` offenders are listed (capped) so a repeat\npattern names its predictor.",
+      "properties": {
+        "assessed": {
+          "description": "Evaluations carrying a leakage assessment",
+          "minimum": 0,
+          "title": "Assessed",
+          "type": "integer"
+        },
+        "flagged": {
+          "description": "`case_id event_id predictor (by evaluator)` for each `likely` grading, newest first (capped)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Flagged",
+          "type": "array"
+        },
+        "likely": {
+          "description": "Replay cells where influence is likely",
+          "minimum": 0,
+          "title": "Likely",
+          "type": "integer"
+        },
+        "none": {
+          "description": "Replay cells graded clean",
+          "minimum": 0,
+          "title": "None",
+          "type": "integer"
+        },
+        "not_applicable": {
+          "description": "Forward predictions (leakage cannot apply)",
+          "minimum": 0,
+          "title": "Not Applicable",
+          "type": "integer"
+        },
+        "possible": {
+          "description": "Replay cells where influence is possible",
+          "minimum": 0,
+          "title": "Possible",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "assessed",
+        "not_applicable",
+        "none",
+        "possible",
+        "likely"
+      ],
+      "title": "LeakageDigest",
+      "type": "object"
+    },
     "LedgerValidation": {
       "additionalProperties": false,
       "description": "``validate`` result over the git ledger under ``data/`` \u2014 schema conformance only.\n\nThe git-only, corpus-free half of data health: every artifact under ``data/``\nparsed and validated against its schema model. ``run-ops`` runs this on its\nschedule (no corpus needed), catching anything that reached the default branch\nwithout the local gate, plus model/data bit-rot over time. ``problems`` is a\nbounded sample of the specific failures; the true total is ``invalid``.",
@@ -1153,6 +1206,18 @@
       },
       "title": "Health",
       "type": "array"
+    },
+    "leakage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LeakageDigest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The evaluators' leakage grading rolled up across committed evaluation.json files; null on a report built before the field existed"
     },
     "open_triggers": {
       "anyOf": [

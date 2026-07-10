@@ -33,6 +33,19 @@ outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
 `fedcourtsai.leaderboard` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
+
+**The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
+the replay runs, `backtest.json`, `cert-backtest.json`) are **iteration
+instruments** — for tuning prompts, retrieval, and calibration — and are
+**never claimable performance**; the project claims results only from genuine
+forward predictions. Timing is the integrity mechanism: the prediction's git
+commit timestamp against the outcome's `resolved_at`, both content-addressed
+committed artifacts, decides the stratum — not any restriction on what a cell
+could retrieve. Replay cells run with the same tools as forward cells; the
+cross-evaluator's leakage grading (the `leakage` block on each
+`evaluation.json`, read off the harness-captured `retrieval_log.json`) exists
+so contamination of the *iteration signal* is visible, not to police a claim
+that is structurally never made.
 - `cert-backtest.json` — the cert-specific back-test (not a DVC stage): predictors
   replayed over the most recently decided modern discretionary-cert petitions,
   outcome hidden behind a redacted snapshot, scored on accuracy, Brier, **lift
