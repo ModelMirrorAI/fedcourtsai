@@ -70,9 +70,10 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths
+from .pipeline import liveprobe
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
-from .pipeline.pull import PullQueues, pull_case, pull_cases
+from .pipeline.pull import pull_case, pull_cases
 from .pipeline.recoverability import (
     dated_share_snapshot,
     parse_docket_pairs,
@@ -109,7 +110,6 @@ from .schemas import (
 )
 from .serialize import write_json, write_raw_json, write_text, write_yaml
 from .store import (
-    cases_due_for_backfill,
     cases_due_for_pull,
     iter_flags,
     iter_stratified_evaluations,
@@ -1048,6 +1048,68 @@ def probe_recoverability(
             fh.write(summary)
 
 
+@app.command("probe-live-terms")
+def probe_live_terms(
+    max_term: Annotated[
+        int,
+        typer.Option(help="Newest two-digit October Term to probe (e.g. 25 for OT2025)."),
+    ],
+    min_term: Annotated[
+        int,
+        typer.Option(help="Oldest two-digit October Term to probe (inclusive)."),
+    ],
+    numbers: Annotated[
+        str,
+        typer.Option(help="Comma-separated docket numbers sampled per Term (paid and IFP ranges)."),
+    ] = ",".join(str(n) for n in liveprobe.DEFAULT_SAMPLE_NUMBERS),
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    report_out: Annotated[
+        Path | None,
+        typer.Option(help="Also write the machine per-Term/per-record JSON here."),
+    ] = None,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(help="Append the Markdown findings table here (e.g. $GITHUB_STEP_SUMMARY)."),
+    ] = None,
+) -> None:
+    """Probe supremecourt.gov docket-JSON availability per October Term (#523).
+
+    The live-sources reachability probe: for each Term from ``--max-term`` back
+    to ``--min-term`` it fetches a small sample of docket numbers and reports
+    availability, document-link coverage, schema stability, and whether the
+    proceedings text carries machine-matchable disposition orders. Strictly
+    **read-only** and budget-free: this is the supremecourt.gov channel, not the
+    CourtListener client — no token, no governor; writes nothing but the report
+    files named. Findings feed the Term-floor decision in
+    ``docs/live-sources-probe.md``.
+    """
+    if min_term > max_term:
+        typer.echo("--min-term must not exceed --max-term", err=True)
+        raise typer.Exit(code=2)
+    try:
+        sample = [int(n) for n in numbers.split(",") if n.strip()]
+    except ValueError as exc:
+        typer.echo(f"bad --numbers value: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    terms = range(max_term, min_term - 1, -1)
+    summaries, records = liveprobe.probe_terms(terms, sample, throttle_seconds=throttle)
+    table = liveprobe.render_markdown(summaries)
+    payload = {
+        "terms": [t.model_dump(mode="json") for t in summaries],
+        "records": [r.model_dump(mode="json") for r in records],
+    }
+    typer.echo(json.dumps(payload, indent=2))
+    typer.echo(table, err=True)
+    if report_out is not None:
+        write_raw_json(report_out, payload)
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(table + "\n")
+
+
 @app.command("seed-backfill")
 def seed_backfill(
     max_cases: Annotated[
@@ -1788,13 +1850,6 @@ def pull_all(
     trips, the run stops where it is, defers the unreached cases to the next
     window's rotation, and still writes its queues — so a degraded upstream can
     never hang the job into its CI timeout and lose the window's work.
-
-    ``pull.backfill_reserve`` carves part of the cap for the interim **date
-    backfill** (:func:`fedcourtsai.corpus.backfill_rotation`): dockets whose rows
-    lack every decision-time date, fetched after the live rotation under the same
-    deadline and budget. A backfill docket feeds only the ``reconcile`` queue —
-    its outcome is already known upstream, so it must not spend predict tokens,
-    and it has no predictions to evaluate.
     """
     settings = get_settings()
     pull_cfg = load_pull_config(settings.config_root)
@@ -1817,25 +1872,13 @@ def pull_all(
             typer.echo(
                 f"Discovered {disc.total} new case(s) before refresh{disc_failed}{disc_stopped}"
             )
-        # The date backfill carves its reserve out of the run cap (total REST
-        # spend is unchanged); the live rotation keeps the rest and runs first —
-        # forward freshness is the mission, the backfill is the opportunistic
-        # drain of the dateless pool.
-        backfill_due = cases_due_for_backfill(
-            db,
-            limit=min(pull_cfg.backfill_reserve, cap),
-            unresolved_cert_min_term=pull_cfg.backfill_unresolved_cert_min_term,
-        )
         # Rotation reads after discovery so freshly-onboarded cases are eligible.
         due = cases_due_for_pull(
             db,
-            limit=cap - len(backfill_due),
+            limit=cap,
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
         )
-        # An unresolved cert shell can surface in both selectors; the rotation
-        # keeps it (a rotation refresh retains its predict-queue rights).
-        backfill_due = [pair for pair in backfill_due if pair not in set(due)]
         queues = pull_cases(
             client,
             db,
@@ -1845,48 +1888,21 @@ def pull_all(
             deadline=deadline,
             max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
         )
-        backfill_queues = PullQueues()
-        if backfill_due and queues.stopped is None:
-            backfill_queues = pull_cases(
-                client,
-                db,
-                settings.data_root,
-                backfill_due,
-                scope=scope,
-                deadline=deadline,
-                max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
-            )
-        elif backfill_due:
-            # The rotation already exhausted the window; the backfill pool keeps
-            # its place (nothing was stamped) and drains on a later run.
-            backfill_queues.stopped = queues.stopped
-            backfill_queues.deferred = [{"court": c, "docket": d} for c, d in backfill_due]
     _ensure_corpus_layout(db)
-    # The backfill batch feeds only `reconcile` downstream: its dockets are
-    # decided-upstream historical matters, so a `predict` entry would spend live
-    # tokens on a known outcome, and an `evaluate` entry has no predictions to
-    # score — recording ground truth is the batch's whole point.
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
-    reconcile_out.write_text(json.dumps(queues.reconcile + backfill_queues.reconcile) + "\n")
+    reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
     refreshed = len(due) - len(queues.failed) - len(queues.deferred)
     typer.echo(
         f"Refreshed {refreshed}/{cap} case(s){_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.reconcile) + len(backfill_queues.reconcile)} reconcile."
+        f"{len(queues.reconcile)} reconcile."
     )
-    if backfill_due or pull_cfg.backfill_reserve:
-        backfilled = len(backfill_due) - len(backfill_queues.failed) - len(backfill_queues.deferred)
+    if queues.stopped:
+        deferred = len(queues.deferred)
         typer.echo(
-            f"Backfill: fetched {backfilled}/{len(backfill_due)} dateless case(s)"
-            f"{_format_refresh_failures(backfill_queues.failed)}; "
-            f"{len(backfill_queues.evaluate)} resolved, "
-            f"{len(backfill_queues.reconcile)} for reconcile."
+            f"Stopped early ({queues.stopped}); deferred {deferred} case(s) to the rotation."
         )
-    stopped = queues.stopped or backfill_queues.stopped
-    if stopped:
-        deferred = len(queues.deferred) + len(backfill_queues.deferred)
-        typer.echo(f"Stopped early ({stopped}); deferred {deferred} case(s) to the next rotation.")
 
 
 @app.command()

@@ -18,15 +18,11 @@ deterministic-first / agent-fallback outcome split runs through the real
 holds across two rounds over the shared corpus.
 """
 
-import json
 from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
-import pytest
-from typer.testing import CliRunner
-
-from fedcourtsai import cli, corpus
+from fedcourtsai import corpus
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.discover import discover_cases
@@ -274,108 +270,3 @@ def test_rotation_is_oldest_first_and_skips_resolved(tmp_path: Path) -> None:
     # stamped, and the resolved case (0) is dropped from the active set entirely.
     round2 = cases_due_for_pull(db, limit=10)
     assert round2 == [("ca1", 2), ("ca1", 3), ("ca1", 1)]
-
-
-# --- 5. the date-backfill reserve inside one pull-all window --------------------
-
-
-def test_pull_all_backfill_reserve_splits_the_cap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """One window: the rotation keeps cap - reserve slots and its predict rights;
-    the backfill batch dates + resolves cert shells but feeds no predict/evaluate."""
-    corpus_root = tmp_path / "corpus"
-    db = corpus.corpus_db_path(corpus_root)
-    config_root = tmp_path / "config"
-    config_root.mkdir()
-    (config_root / "tracking.yaml").write_text(
-        "pull:\n"
-        "  max_cases_per_run: 4\n"
-        "  discover_new_filings: false\n"
-        "  backfill_reserve: 2\n"
-        "  backfill_unresolved_cert_min_term: 2018\n"
-        "predict:\n"
-        "  scope: all\n"
-    )
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(
-            conn,
-            [
-                # The live rotation's targets (never-pulled, unresolved, open events).
-                corpus.CorpusRow(case_id="ca9/1", court="ca9", docket_number="21-1"),
-                corpus.CorpusRow(case_id="ca9/2", court="ca9", docket_number="21-2"),
-                # The backfill feeder's targets: dateless modern-cert shells.
-                corpus.CorpusRow(case_id="scotus/900", court="scotus", docket_number="22-900"),
-                corpus.CorpusRow(case_id="scotus/901", court="scotus", docket_number="22-901"),
-            ],
-        )
-        corpus.upsert_events(
-            conn,
-            [
-                corpus.CorpusEvent(
-                    event_id="evt-appeal-disposition",
-                    case_id=f"ca9/{n}",
-                    court="ca9",
-                    kind=EventKind.appeal,
-                    title=f"ca9/{n}",
-                )
-                for n in (1, 2)
-            ]
-            + [
-                corpus.CorpusEvent(
-                    event_id="evt-petition-disposition",
-                    case_id=f"scotus/{n}",
-                    court="scotus",
-                    kind=EventKind.petition,
-                    title=f"scotus/{n}",
-                )
-                for n in (900, 901)
-            ],
-        )
-    fake = FakeCourtListenerClient(
-        {
-            1: _docket(1),
-            2: _docket(2),
-            # Fresh cert dockets carry the petition decision only as a date.
-            900: _docket(900, court="scotus", date_cert_denied="2023-01-09"),
-            901: _docket(901, court="scotus", date_cert_denied="2023-06-20"),
-        }
-    )
-
-    class _ClientCM:
-        def __enter__(self) -> CourtListenerClient:
-            return _client(fake)
-
-        def __exit__(self, *exc: object) -> None:
-            return None
-
-    monkeypatch.setattr(cli, "_client", _ClientCM)
-    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
-    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
-    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config_root))
-    monkeypatch.chdir(tmp_path)
-
-    result = CliRunner().invoke(cli.app, ["pull-all"])
-    assert result.exit_code == 0, result.output
-
-    # The rotation kept cap - reserve = 2 slots (the ca9 pair, stalest first)
-    # and its predict rights; the backfill pair fed no downstream queue.
-    predict = json.loads((tmp_path / "predict-queue.json").read_text())
-    evaluate = json.loads((tmp_path / "evaluate-queue.json").read_text())
-    reconcile = json.loads((tmp_path / "reconcile-queue.json").read_text())
-    assert {(e["court"], e["docket"]) for e in predict} == {("ca9", 1), ("ca9", 2)}
-    assert evaluate == [] and reconcile == []
-    assert "Backfill: fetched 2/2 dateless case(s); 2 resolved" in result.output
-
-    # Each backfilled shell was dated, resolved, and snapshotted in one fetch,
-    # with the outcome stamped at the petition stage.
-    with corpus.connect(db) as conn:
-        row = corpus.get_row(conn, "scotus/900")
-        assert row is not None
-        assert row.disposition == "denied"
-        assert row.date_cert_denied == date(2023, 1, 9)
-        assert corpus.latest_snapshot(conn, "scotus/900") is not None
-    outcome_path = (
-        CasePaths(tmp_path / "data", "scotus", 900).event("evt-petition-disposition").outcome
-    )
-    assert outcome_path.exists()

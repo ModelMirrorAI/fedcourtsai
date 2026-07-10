@@ -1,11 +1,16 @@
 name: run-pull
 
-# Refresh tracked dockets. Runs on a staggered intraday schedule (four windows a
-# day), on manual dispatch, or when an issue is labeled `run:pull`. Spreading the
-# refresh over several windows lifts daily throughput toward the CourtListener
-# tier's daily ceiling while each window stays under the hourly one.
-# Deterministic (no agent): discovers newly-filed
-# cases, re-fetches each tracked docket, and detects resolution of open events —
+# Refresh tracked dockets. Since the July 2026 pivot (#524, docs/data-pipeline.md
+# "Pivot"), pull is targeted CourtListener *enrichment* for the SCOTUS-touched
+# set — most importantly the originating CoA dockets the predict_eligible latch
+# flags — not the primary freshness mechanism: the supremecourt.gov live channel
+# (#472) owns SCOTUS freshness. Runs on a staggered intraday schedule (four
+# windows a day), on manual dispatch, or when an issue is labeled `run:pull`.
+# Spreading the refresh over several windows lifts daily throughput toward the
+# CourtListener tier's daily ceiling while each window stays under the hourly one.
+# Deterministic (no agent): discovers newly-filed cases (until #472 lands — the
+# recorded decision is to disable discovery then and reclaim its budget slice),
+# re-fetches each tracked docket, and detects resolution of open events —
 # writing `outcome.json` when the disposition is machine-readable — ingesting the
 # raw facts (including each refresh's point-in-time snapshot) into the DVC-managed
 # corpus (pulled from / pushed back to the S3 remote). The new outcomes and the
