@@ -132,7 +132,12 @@ from .store import (
     resolved_events,
 )
 from .supremecourt import SupremeCourtClient, current_october_term
-from .usage import parse_claude_usage, parse_codex_usage, parse_gemini_usage
+from .usage import (
+    parse_claude_usage,
+    parse_codex_usage,
+    parse_gemini_usage,
+    resolve_pipeline_sha,
+)
 from .validate import (
     run_corpus_validation,
     run_ledger_referential_checks,
@@ -638,6 +643,13 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     created_at: Annotated[
         str, typer.Option(help="ISO timestamp; defaults to the run id's timestamp.")
     ] = "",
+    pipeline_sha: Annotated[
+        str,
+        typer.Option(
+            help="Pipeline checkout commit (provenance); defaults to GITHUB_SHA, "
+            "then the local git HEAD, else omitted."
+        ),
+    ] = "",
 ) -> None:
     """Record one run's measured token usage and estimated cost to ``usage.json``.
 
@@ -685,6 +697,7 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         engine=engine,
         model=resolved_model,
         created_at=when,
+        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         input_tokens=counts.input_tokens,
         output_tokens=counts.output_tokens,
         cache_read_input_tokens=counts.cache_read_input_tokens,

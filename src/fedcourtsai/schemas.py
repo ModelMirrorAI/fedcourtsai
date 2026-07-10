@@ -266,6 +266,13 @@ class ModelUsage(_Strict):
     engine: Engine
     model: str = Field(description="Model the cost rates were applied to (resolved, never null)")
     created_at: datetime
+    pipeline_sha: str | None = Field(
+        default=None,
+        description="Git commit of the pipeline checkout that ran this cell "
+        "(GITHUB_SHA in CI, the local HEAD otherwise) — pins the prompt "
+        "templates, harness, and registry in force at run time. Null on "
+        "records written before the field existed or when unresolvable.",
+    )
     input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
     output_tokens: int = Field(ge=0)
     cache_read_input_tokens: int = Field(default=0, ge=0, description="Input served from cache")

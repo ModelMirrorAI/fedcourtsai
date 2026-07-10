@@ -1,9 +1,17 @@
 """Parsing token usage out of the engines' own run logs."""
 
 import json
+import subprocess
 from pathlib import Path
 
-from fedcourtsai.usage import parse_claude_usage, parse_codex_usage, parse_gemini_usage
+import pytest
+
+from fedcourtsai.usage import (
+    parse_claude_usage,
+    parse_codex_usage,
+    parse_gemini_usage,
+    resolve_pipeline_sha,
+)
 
 
 def _write_claude(path: Path, events: list[dict[str, object]]) -> Path:
@@ -173,3 +181,36 @@ def test_gemini_missing_empty_or_tokenless_returns_none(tmp_path: Path) -> None:
     tokenless = tmp_path / "tokenless.log"
     tokenless.write_text(json.dumps({"name": "gemini_cli.tool_call", "function": "read_file"}))
     assert parse_gemini_usage(tokenless) is None
+
+
+# --- pipeline provenance ---------------------------------------------------------
+
+
+def test_pipeline_sha_explicit_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_SHA", "env-sha")
+    assert resolve_pipeline_sha("explicit-sha") == "explicit-sha"
+
+
+def test_pipeline_sha_prefers_the_actions_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # In CI, GITHUB_SHA is the exact workflow checkout — never shell out for it.
+    monkeypatch.setenv("GITHUB_SHA", "abc123")
+    assert resolve_pipeline_sha() == "abc123"
+
+
+def test_pipeline_sha_falls_back_to_the_local_head(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_SHA", raising=False)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert resolve_pipeline_sha() == head
+
+
+def test_pipeline_sha_unresolvable_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Provenance is best-effort: no env and no git must not fail the capture.
+    monkeypatch.delenv("GITHUB_SHA", raising=False)
+
+    def boom(*args: object, **kwargs: object) -> object:
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(subprocess, "run", boom)
+    assert resolve_pipeline_sha() is None

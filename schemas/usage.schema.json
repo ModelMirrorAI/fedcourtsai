@@ -81,6 +81,19 @@
       "title": "Output Tokens",
       "type": "integer"
     },
+    "pipeline_sha": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Git commit of the pipeline checkout that ran this cell (GITHUB_SHA in CI, the local HEAD otherwise) \u2014 pins the prompt templates, harness, and registry in force at run time. Null on records written before the field existed or when unresolvable.",
+      "title": "Pipeline Sha"
+    },
     "role": {
       "$ref": "#/$defs/UsageRole",
       "description": "Which stage produced the usage"
