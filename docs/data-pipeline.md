@@ -794,7 +794,10 @@ path, is caught in review rather than a day later. Because forward discovery kee
 event definitions in the corpus, the predict/evaluate/reconcile workflows
 materialize each event's `event.yaml` from the corpus into its ledger directory
 (`fedcourts materialize-event`, beside the snapshot provisioning) so the judgment
-PR carries it. The corpus checks need the
+PR carries it — and the deterministic outcome writer (`record_outcomes`, the
+pull/live path that commits straight to main) materializes it beside every
+`outcome.json` it writes, refusing to write an outcome whose event the corpus
+does not hold. The corpus checks need the
 remote, so they stay on the schedule (the gate is deliberately offline) — at PR time
 "the event exists" means it is defined in the git ledger; the schedule additionally
 confirms it against the corpus. This automates, and extends across stores, the
