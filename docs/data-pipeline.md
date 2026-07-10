@@ -177,11 +177,11 @@ CourtListener REST drip could not recover at any budget. What changed
   CourtListener records current — most importantly the originating CoA dockets
   the `predict_eligible` latch flags — rather than rotating the whole active
   set stalest-first as the primary freshness mechanism.
-- **`discover_new_filings` stays on until [#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)
-  lands** — it is currently the only path that onboards newly filed SCOTUS
-  petitions. The recorded decision: flip it off at #472 adoption (circuit
-  discovery onboards cases the SCOTUS-touch gate won't predict for years) and
-  reclaim its budget slice for enrichment.
+- **`discover_new_filings` is off as of [#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)
+  adoption** (the decision recorded at the pivot): the live channel's frontier
+  probing onboards newly filed SCOTUS petitions — fresher and budget-free —
+  and circuit discovery onboarded cases the SCOTUS-touch gate won't predict
+  for years. Its budget slice returned to the enrichment rotation.
 - **`run-reconcile` is paused** (workflow disabled) while the refactor decides
   its fate: with stub upstream records every reconcile agent run failed, and
   [#472](https://github.com/ModelMirrorAI/fedcourtsai/issues/472)'s

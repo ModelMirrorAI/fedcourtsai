@@ -44,12 +44,12 @@ pull:
   # enough to fill it, which is exactly when the pilot should get priority.
   eligible_refresh_reserve: 20
   # Discover newly-filed dockets in the tracked courts since the last run.
-  # Decision recorded with the July 2026 pivot (#524): stays ON until the live
-  # channel (#472) lands, because this is currently the only path that onboards
-  # newly filed SCOTUS petitions. Flip to false at #472 adoption — circuit
-  # discovery onboards cases the SCOTUS-touch gate won't predict for years, and
-  # its budget slice is better spent on enrichment.
-  discover_new_filings: true
+  # OFF as of #472 adoption, per the decision recorded with the July 2026 pivot
+  # (#524): the live channel's frontier probing now onboards newly filed SCOTUS
+  # petitions (fresher, budget-free), and circuit discovery onboarded cases the
+  # SCOTUS-touch gate won't predict for years. Its budget slice returns to the
+  # enrichment rotation. Flip back on if the live channel is ever paused.
+  discover_new_filings: false
   # Hard cap on new dockets onboarded per discovery run (its own slice of the
   # budget, separate from max_cases_per_run above).
   max_new_cases_per_run: 10

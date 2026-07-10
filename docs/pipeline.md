@@ -8,7 +8,7 @@ stage.
 |-----------------|------------------|-------------------------------------|----------------------|
 | `run:dev`       | `run-dev`        | issue labeled                       | Claude Code          |
 | `run:seed`      | `run-seed`       | tracking issue + weekly schedule    | script (bulk data)   |
-| `run:pull`      | `run-pull`       | daily schedule, label, manual       | script (no agent)    |
+| `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual | script (no agent)    |
 | `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
@@ -100,9 +100,8 @@ historical corpus — is in [data-pipeline.md](data-pipeline.md).
 ```
 run:seed (weekly, chunked until done) → backfill bulk corpus chunk → commit + progress comment
                               └─ when complete: completion PR (flips `completed`) → closes tracker
-   daily / run:pull → run-pull → open pull-log issue → push fresh facts + snapshots to the corpus
+   daily / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
-                                 ├─ discover new filings → onboard + define events
                                  ├─ detect resolution → write outcome.json when the
                                  │  disposition is machine-readable (git ledger)
                                  └─ create issues  ← APP TOKEN
@@ -110,6 +109,15 @@ run:seed (weekly, chunked until done) → backfill bulk corpus chunk → commit 
                                     ├─ run:evaluate   (case that gained an outcome)
                                     └─ run:reconcile  (decided but not machine-readable
                                                        → agent reconciles by hand)
+   daily ×4 → run-pull (live job, #472) → open live-log issue → push fresh facts to the corpus
+                                 ├─ probe supremecourt.gov docket-number frontier
+                                 │  → onboard new petitions (per-Term cursor)
+                                 ├─ re-poll the pending cert watchlist (recent Terms first)
+                                 ├─ detect resolution from the proceedings text
+                                 │  → write outcome.json (git ledger)
+                                 └─ create run:predict / run:evaluate issues  ← APP TOKEN
+                                    (no reconcile filing: ambiguous resolutions are
+                                     summarized on the log while run-reconcile is paused)
        run:reconcile → plan → reconcile[matrix] (outcome.json per case, as an artifact)
                                  └─ collect → one auto-merged PR per run
                                        └─ on merge → run:evaluate  (per reconciled case)  ← APP TOKEN
