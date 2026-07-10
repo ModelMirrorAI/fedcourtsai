@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/66800253",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition",
+      "message": "The forward-mode snapshot is very sparse and already contains a post-opinion docket entry (`Opinion Issued` on 2025-04-10) plus opinion-cluster links, but no readable disposition, issue, panel, lower-court metadata, briefing, or opinion text. I avoided opening the opinion or docket page and made a conservative prediction from the provisioned snapshot and committed statpack base rates.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T205613Z",
+  "schema_version": "1.0"
+}
