@@ -1,6 +1,8 @@
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from fedcourtsai import corpus
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import from_api_docket
@@ -12,7 +14,7 @@ from fedcourtsai.pipeline.outcome import (
     record_outcomes,
     resolve_case,
 )
-from fedcourtsai.schemas import Disposition, EventKind, Outcome
+from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
 from fedcourtsai.serialize import read_model
 
 DECIDED_DOCKET = {
@@ -159,6 +161,12 @@ def test_record_outcomes_writes_outcome_and_marks_resolved(tmp_path: Path) -> No
     event_paths = CasePaths(tmp_path, "ca9", 64512345).event("evt-petition-review")
     written_outcome = read_model(event_paths.outcome, Outcome)
     assert written_outcome.actual_disposition == Disposition.denied
+    # The event.yaml is materialized beside the outcome (resolved), so the
+    # deterministic writers' straight-to-main commits never leave a referential
+    # orphan for the offline validate gate to reject.
+    materialized = read_model(event_paths.event_file, PredictableEvent)
+    assert materialized.event_id == "evt-petition-review"
+    assert materialized.resolved is True
     # The corpus event is flipped resolved so it stays consistent with its outcome.
     with corpus.connect(_db(tmp_path)) as conn:
         (event,) = corpus.events_for_case(conn, "ca9/64512345")
@@ -181,3 +189,14 @@ def test_resolve_case_is_idempotent(tmp_path: Path) -> None:
     again = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
     assert not again.outcomes
     assert not again.reconciles
+
+
+def test_record_outcomes_refuses_an_orphaned_outcome(tmp_path: Path) -> None:
+    # A resolution for an event the corpus does not hold is an internal
+    # inconsistency: fail before writing, never commit an outcome the offline
+    # validate gate would reject as a referential orphan.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
+    with pytest.raises(RuntimeError, match="orphaned outcome"):
+        record_outcomes(_db(tmp_path), tmp_path, "ca9", 64512345, resolution)
+    assert not CasePaths(tmp_path, "ca9", 64512345).event("evt-petition-review").outcome.exists()
