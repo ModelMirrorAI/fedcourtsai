@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73250315",
+  "gaps": [
+    "Remote ranged corpus query failed before returning priors because network name resolution was unavailable in this sandbox.",
+    "The rendered statpack in this checkout did not include the prompt's named modern discretionary-cert section."
+  ],
+  "helpful": [
+    "The provisioned Supreme Court snapshot gave current docket posture, including the response-request signal.",
+    "The provisioned questions-presented and petition text supplied the legal issue, asserted split, and vehicle facts.",
+    "The committed statpack supplied broad SCOTUS petition base-rate context."
+  ],
+  "notes": "The prediction used provisioned inputs and broad statpack base rates. Corpus prior queries were attempted but returned no rows because remote access failed before ranged reads began.",
+  "role": "predictor",
+  "run_id": "20260710T181622Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "fedcourts query (attempted)",
+    "provisioned petition documents"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

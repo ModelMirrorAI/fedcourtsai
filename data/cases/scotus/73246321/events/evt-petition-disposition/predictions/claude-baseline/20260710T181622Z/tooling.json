@@ -1,0 +1,28 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73246321",
+  "gaps": [
+    "CourtListener MCP server never connected in this cell, so the configured retrieval surface was unusable (zero MCP calls possible)",
+    "OCR/text extraction for scanned filings: petition.txt was provisioned but blank because the pro se petition PDF has no text layer, leaving the questions presented unreadable",
+    "The committed statpack lacks the 'Modern discretionary-cert petitions by disposition' section the predict prompt tells predictors to anchor on"
+  ],
+  "helpful": [
+    "metrics/statpack.md resolved-SCOTUS base-rate row",
+    "fedcourts query era/disposition filters for profiling recent denials vs grants",
+    "provisioned snapshot's ProceedingsandOrder (waiver of response and long-conference distribution were the decisive signals)"
+  ],
+  "notes": "The prediction was easy despite the degraded inputs because the docket metadata alone (pro se paid petition, state insurance dispute, doubly discretionary state posture, waived response, long-conference distribution) is close to dispositive for a cert-denial call. A readable petition text would matter much more on a counseled petition alleging a split.",
+  "role": "predictor",
+  "run_id": "20260710T181622Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "web search (lower-court history confirmation)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
