@@ -96,6 +96,44 @@ live:
   # pull.predict_on_change_only. It replaced the interim predict_on_refresh
   # spend guard; max_cases_per_run above still bounds worst-case daily volume.
 
+# seed_live = the past-Term cert loader (run-seed's live-terms mode): builds
+# the cert back-test set by walking decided October Terms over the
+# supremecourt.gov docket JSON — the same client/ingest path as `live:` above,
+# so no API budget. This section IS the back-test set's sampling frame; it is
+# committed so the set's construction stays documented and reproducible.
+seed_live:
+  # Two-digit October Terms to walk, in walk order (newest decided Term first).
+  # Floor OT2017, the reachability probe's full-JSON floor
+  # (docs/live-sources-probe.md); the current in-session Term belongs to the
+  # forward poller (`live:`), not this loader.
+  terms: [24, 23, 22, 21, 20, 19, 18, 17]
+  # The denial sample: a Term is overwhelmingly denials, so every decided
+  # petition is ingested EXCEPT denials, which are kept when their docket
+  # serial is a multiple of this (10 = a systematic ~10% slice, uniform over
+  # each Term's filing sequence and deterministic per serial, so a resumed run
+  # keeps the identical sample). 1 keeps every denial.
+  denial_sample_every: 10
+  # Docket-JSON probes per `seed-live-terms` invocation = the run-seed loop's
+  # checkpoint chunk (~10 min at the polite ~1 req/s; ingested petitions'
+  # document fetches ride on top). Trades crash-loss / corpus-push frequency,
+  # not the total loaded per run — that is the workflow loop's wall clock.
+  max_probes_per_run: 600
+  # Per-invocation wall-clock backstop, minutes, checked between serials — so
+  # a degraded upstream's retry pauses stop the chunk instead of stalling it.
+  max_run_minutes: 20
+  # Consecutive 404s that mark a (Term, stream)'s frontier — for a finished
+  # Term, the true end of its docket sequence.
+  frontier_misses: 2
+  # Seconds between requests (polite-client pacing; browser UA is built in).
+  throttle_seconds: 1.0
+  # Oldest Term whose ingested petitions get filed documents fetched (the
+  # document-rich replay cells need them): document links are a rolling
+  # ~5-Term window upstream, near-zero before ~OT2021, so older Terms load as
+  # metadata+proceedings-only rows. Two-digit Term form.
+  document_floor_term: 21
+  # Per-document cap on extracted text stored in the corpus (see `live:`).
+  document_text_cap: 150000
+
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The
   # pilot slice"). Restricts only the agentic predict/evaluate stages; ingestion

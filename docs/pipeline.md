@@ -7,7 +7,7 @@ stage.
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
 | `run:dev`       | `run-dev`        | issue labeled                       | Claude Code          |
-| `run:seed`      | `run-seed`       | tracking issue + weekly schedule    | script (bulk data)   |
+| `run:seed`      | `run-seed`       | weekly schedule + manual (live-terms loader, the default mode); tracking issue / dispatch mode=bulk (frozen bulk backfill) | script (no agent)    |
 | `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual | script (no agent)    |
 | `run:reconcile` | `run-reconcile`  | issue labeled (created by run-pull) | Claude Code          |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |

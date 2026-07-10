@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -155,6 +155,64 @@ def load_live_config(config_root: Path) -> LiveConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return LiveConfig.model_validate((data or {}).get("live", {}))
+
+
+class SeedLiveConfig(BaseModel):
+    """The ``seed_live:`` section of ``tracking.yaml`` — the past-Term cert loader.
+
+    Drives ``fedcourts seed-live-terms`` (the run-seed live-terms mode): a
+    sequential walk of decided past Terms over the supremecourt.gov docket JSON
+    that builds the cert back-test set. The sampling frame lives here so the
+    set's construction is documented and reproducible: **every decided petition
+    is ingested except denials, which are systematically sampled** — a denial
+    is kept when its docket serial is a multiple of ``denial_sample_every``
+    (deterministic per serial, so a resumed run keeps the same sample). No API
+    budget: the caps bound per-invocation wall clock and upstream politeness.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # Two-digit October Terms to walk, in walk order. Floor OT2017 — the
+    # reachability probe's full-JSON floor (docs/live-sources-probe.md).
+    terms: list[int] = Field(default=[24, 23, 22, 21, 20, 19, 18, 17])
+    # Keep a denial when serial % denial_sample_every == 0 (1 keeps every denial).
+    denial_sample_every: int = Field(default=10, ge=1)
+    # Docket-JSON probes per invocation = the run-seed loop's checkpoint chunk
+    # (~10 min at the polite 1 req/s; document fetches ride on top).
+    max_probes_per_run: int = Field(default=600, ge=0)
+    # Per-invocation wall-clock backstop, minutes, checked between serials.
+    max_run_minutes: float = Field(default=20.0, gt=0)
+    # Consecutive 404s that mark a (Term, stream)'s frontier — for a finished
+    # Term, the end of its docket sequence.
+    frontier_misses: int = Field(default=2, ge=1)
+    # Polite-client pacing between requests, seconds.
+    throttle_seconds: float = Field(default=1.0, gt=0)
+    # Oldest two-digit Term whose ingested petitions get their filed documents
+    # fetched (#474): links are a rolling ~5-Term window upstream, near-zero
+    # before ~OT2021, so older Terms load as metadata+proceedings-only rows.
+    document_floor_term: int = Field(default=21, ge=0, le=99)
+    # Per-document cap on extracted text stored in the corpus (see `live:`).
+    document_text_cap: int = Field(default=150_000, ge=1_000)
+
+    @field_validator("terms")
+    @classmethod
+    def _terms_in_served_range(cls, terms: list[int]) -> list[int]:
+        # OT2017 is the probe-established floor; two-digit Term form above it.
+        bad = [t for t in terms if not 17 <= t <= 99]
+        if bad:
+            raise ValueError(f"terms must be two-digit October Terms >= 17: {bad}")
+        return terms
+
+
+def load_seed_live_config(config_root: Path) -> SeedLiveConfig:
+    """Read the past-Term loader's settings from ``config_root/tracking.yaml``.
+
+    Falls back to defaults if the file or its ``seed_live`` section is absent,
+    mirroring :func:`load_live_config`.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return SeedLiveConfig.model_validate((data or {}).get("seed_live", {}))
 
 
 def load_courts(config_root: Path) -> list[str]:

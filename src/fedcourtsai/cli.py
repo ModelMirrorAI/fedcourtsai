@@ -58,6 +58,7 @@ from .config import (
     load_predict_config,
     load_pull_config,
     load_seed_config,
+    load_seed_live_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
@@ -71,7 +72,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths
-from .pipeline import liveprobe
+from .pipeline import liveprobe, seedlive
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
@@ -1202,6 +1203,82 @@ def seed_backfill(
     typer.echo(
         f"seed-backfill snapshot={rep.snapshot} loaded_this_run={rep.loaded_this_run} "
         f"complete={rep.complete}"
+    )
+
+
+@app.command("seed-live-terms")
+def seed_live_terms(
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Write this invocation's JSON report here for the workflow's loop."),
+    ] = None,
+    totals: Annotated[
+        Path | None,
+        typer.Option(
+            help="Fold this invocation's counts into the cumulative JSON report at "
+            "this path (created if absent) — the run-seed loop's whole-run totals, "
+            "which its single progress comment renders."
+        ),
+    ] = None,
+    max_probes: Annotated[
+        int | None,
+        typer.Option(
+            help="Optional lower cap on docket-JSON probes this invocation; cannot "
+            "exceed seed_live.max_probes_per_run."
+        ),
+    ] = None,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(help="Append the Markdown progress table here (e.g. $GITHUB_STEP_SUMMARY)."),
+    ] = None,
+) -> None:
+    """Load one capped chunk of the past-Term cert back-test set (no agent).
+
+    The back-test half of the live channel (docs/live-sources.md): walks the
+    configured decided October Terms' docket serials sequentially over the
+    supremecourt.gov docket JSON — resuming from the persisted per-(Term, stream)
+    cursors — and ingests **every decided petition except denials, which are
+    systematically sampled** (all grants/GVRs kept; a denial kept when its
+    serial is a multiple of ``seed_live.denial_sample_every``). Ingested
+    petitions land through the shared live path: identity reconciled by docket
+    number, raw JSON snapshotted, the resolved row + ``outcome.json`` recorded,
+    and filed documents provisioned for OT``document_floor_term``+ — so they
+    feed replay/evaluation only. **Writes no handoff queues**: these are
+    decided historical matters and must never queue forward prediction. The
+    ``run-seed`` workflow's ``live-terms`` mode loops this command, committing
+    the corpus after each chunk.
+    """
+    settings = get_settings()
+    cfg = load_seed_live_config(settings.config_root)
+    cap = cfg.max_probes_per_run if max_probes is None else min(max_probes, cfg.max_probes_per_run)
+    db = corpus.corpus_db_path(settings.corpus_root)
+    with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+        rep = seedlive.load_terms(
+            client,
+            db,
+            settings.data_root,
+            cfg.model_copy(update={"max_probes_per_run": cap}),
+            today=date.today(),
+        )
+    _ensure_corpus_layout(db)
+    if report is not None:
+        write_raw_json(report, rep.model_dump(mode="json"))
+    if totals is not None:
+        prior = (
+            seedlive.SeedLiveReport.model_validate_json(totals.read_text())
+            if totals.exists()
+            else None
+        )
+        write_raw_json(totals, seedlive.fold_totals(prior, rep).model_dump(mode="json"))
+    if summary_out is not None:
+        with summary_out.open("a", encoding="utf-8") as fh:
+            fh.write(seedlive.render_markdown(rep) + "\n")
+    ingested = rep.ingested_granted + rep.ingested_denied + rep.ingested_other
+    typer.echo(
+        f"seed-live-terms probed={rep.probed} served={rep.served} ingested={ingested} "
+        f"(granted={rep.ingested_granted} denied={rep.ingested_denied} other={rep.ingested_other}) "
+        f"skipped_denials={rep.skipped_denials} documents={rep.documents} "
+        f"stopped={rep.stopped} complete={rep.complete}"
     )
 
 

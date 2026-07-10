@@ -1,4 +1,12 @@
-# Seed-backfill (the `run-seed` workflow)
+# Seed-backfill (the `run-seed` workflow's `bulk` mode)
+
+> This page covers the **frozen** CourtListener bulk-CSV mode, kept as the
+> replica-timeline fallback and reached via the `run:seed` label or dispatch
+> mode=bulk. `run-seed`'s schedule and default dispatch mode run the live-channel
+> **past-Term cert loader** (`fedcourts seed-live-terms`) instead — same
+> checkpointed-loop shape, different source; see
+> [live-sources.md](live-sources.md) and the pivot section of
+> [data-pipeline.md](data-pipeline.md).
 
 Bulk historical backfill: how the corpus is loaded with the existing backlog of
 cases. It has three parts that fit together —

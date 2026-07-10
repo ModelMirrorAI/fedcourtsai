@@ -1,28 +1,43 @@
 name: run-seed
 
-# Deterministic, NO-AGENT historical backfill. Stages the CourtListener PUBLIC
-# bulk-data snapshot once (not the rate-limited REST API, so it spends no API
-# budget), then LOOPS `fedcourts seed-backfill` over that staging — reusing it via
-# a runner-local --staging-path so the heavy download/parse is paid once per job —
-# loading a checkpoint chunk (seed.max_cases_per_run) at a time. After each chunk
-# it pushes the corpus blob to the DVC S3 remote and commits the corpus pointer +
-# cursor bump DIRECTLY to the default branch, so a crash/timeout loses at most one
-# chunk and the next run resumes from the cursor. The loop runs until the backlog
-# is done or its wall-clock budget runs out, then comments per-court progress on
-# the long-lived run:seed tracking issue; on the run that exhausts every court it
-# opens a one-time completion PR that flips the cursor's `completed` sign-off flag
-# (merging it closes the tracker). Then it reconciles quarterly when a new bulk
-# snapshot drops. Scheduled weekly overnight: with the backfill in, most runs are a
-# cheap snapshot-id check that no-ops in seconds; a quarterly reconciliation still
-# finishes well before run-pull (07:17) — both share the `corpus-write` lock. See
-# docs/seed-backfill.md and docs/data-pipeline.md.
+# Deterministic, NO-AGENT historical loading — two loader jobs on one surface,
+# at most one per run:
+#
+# - `seed-live-terms` (the weekly schedule, or dispatch mode=live-terms — the
+#   DEFAULT mode since the July 2026 pivot): the past-Term cert loader
+#   (docs/live-sources.md). LOOPS `fedcourts seed-live-terms`, which walks the
+#   configured decided October Terms' docket serials over the supremecourt.gov
+#   docket JSON (no token, no API budget) from persisted per-(Term, stream)
+#   cursors and ingests the sampled cert back-test set: every decided petition
+#   except denials, which are systematically sampled (seed_live in
+#   config/tracking.yaml IS the committed sampling frame). Ingested petitions
+#   land already resolved and feed replay/evaluation only — this job files NO
+#   predict/evaluate handoffs, ever.
+# - `seed` (a `run:seed` label, or dispatch mode=bulk): the FROZEN CourtListener
+#   bulk-CSV backfill, kept as the fallback (docs/seed-backfill.md). Stages the
+#   PUBLIC bulk snapshot once, then LOOPS `fedcourts seed-backfill` over that
+#   staging via a runner-local --staging-path, loading a checkpoint chunk
+#   (seed.max_cases_per_run) at a time; comments per-court progress on the
+#   long-lived run:seed tracking issue and opens a one-time completion PR when
+#   every court is exhausted.
+#
+# Both loops checkpoint identically: after each chunk they push the corpus blob
+# to the DVC S3 remote and commit the small corpus pointer (+ cursor / outcome
+# files) DIRECTLY to the default branch, so a crash/timeout loses at most one
+# chunk and the next run resumes from the persisted cursors. See
+# docs/data-pipeline.md.
 on:
   schedule:
-    - cron: "23 0 * * 0" # weekly (Sun), overnight: catches a new quarterly snapshot within a week; a reconciliation still ends before run-pull (07:17)
+    - cron: "23 0 * * 0" # weekly (Sun), overnight: runs the live-terms loader; the shared corpus-write lock serializes it against run-pull's windows
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Which loader to run: live-terms (the past-Term cert loader, the default) or bulk (the frozen CourtListener bulk backfill)"
+        type: choice
+        options: [live-terms, bulk]
+        default: live-terms
       full_refresh:
-        description: "Full refresh: reset the seed cursor + corpus forward cursors so the whole tracked set re-seeds and re-pulls fresh (history preserved). See docs/data-pipeline.md."
+        description: "(bulk mode only) Full refresh: reset the seed cursor + corpus forward cursors so the whole tracked set re-seeds and re-pulls fresh (history preserved). See docs/data-pipeline.md."
         type: boolean
         default: false
   issues:
@@ -44,7 +59,12 @@ concurrency:
 
 jobs:
   seed:
-    if: github.event_name != 'issues' || github.event.label.name == 'run:seed'
+    # The frozen bulk backfill: a `run:seed` label (the long-lived tracker's
+    # historical trigger) or an explicit dispatch mode=bulk. The schedule runs
+    # the live-terms loader below instead.
+    if: >-
+      (github.event_name == 'issues' && github.event.label.name == 'run:seed') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'bulk')
     runs-on: ubuntu-latest
     timeout-minutes: 330 # headroom for a quarterly reconciliation (stage once + loop ingest); ends before run-pull
     environment: runner
@@ -545,6 +565,296 @@ jobs:
       # so produce the correctness verdict and publish it to the ops-metrics branch
       # for run-ops to present and escalate. continue-on-error keeps a failing verdict
       # (or a publish hiccup) from failing the seed — loud-not-fatal by contract.
+      - name: Produce + publish the corpus validation verdict
+        continue-on-error: true
+        uses: ./.github/actions/publish-corpus-verdict
+        with:
+          token: ${{ steps.app-token-post.outputs.token }}
+
+  seed-live-terms:
+    # The past-Term cert loader (docs/live-sources.md): walks decided October
+    # Terms' docket serials over the supremecourt.gov docket JSON and ingests
+    # the sampled cert back-test set — every decided petition except denials,
+    # which are systematically sampled per config/tracking.yaml's committed
+    # `seed_live:` frame. No CourtListener token, no API budget; the same
+    # corpus-writer plumbing as the bulk job (checkpointed loop, DVC push,
+    # pointer commit). Deliberately files NO predict/evaluate handoffs: every
+    # ingested petition is decided history, landed already resolved.
+    # Schedule/dispatch only: there is no trigger label for this job, so
+    # nothing an outside actor can file fires it and no issue-form
+    # authorization gate is needed.
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'live-terms')
+    runs-on: ubuntu-latest
+    # Headroom for the checkpointed walk (LOOP_BUDGET_SECONDS + the fixed
+    # setup and post-loop steps), mirroring the bulk job; the cap releases the
+    # shared corpus-write lock if a network step hangs.
+    timeout-minutes: 330
+    environment: runner
+    # The ambient GITHUB_TOKEN is never used here (checkout, the corpus push,
+    # and every gh call run on App tokens) — so it carries no write at all.
+    permissions:
+      contents: read
+      id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Same read-write (append-only) role as the bulk job: the loader adds
+      # snapshots, rows, and documents to the corpus blob but can never wipe
+      # remote objects. The loop pushes for hours, so the session must outlast
+      # the wall-clock budget (must stay <= the role's MaxSessionDuration).
+      - name: Configure AWS credentials (DVC S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 18000 # 5h
+
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+
+      - name: Pull the current corpus from the DVC remote
+        run: |
+          # The per-(Term, stream) walk cursors and identity reconciliation
+          # read prior corpus state, so it must be restored; guard the very
+          # first run.
+          if [ -f corpus/corpus.db.dvc ]; then
+            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          else
+            echo "No corpus pointer yet; starting a fresh corpus."
+          fi
+
+      - name: Walk the Terms in checkpointed chunks until done or out of time
+        env:
+          # The loop pushes for hours, but a single installation token lives at
+          # most 1h (GitHub's hard cap). So the loop re-mints its own short-lived
+          # tokens from the App's private key as it goes; these two feed that.
+          APP_CLIENT_ID: ${{ vars.DATA_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          # Wall-clock budget for the whole loop, kept under timeout-minutes
+          # with room for setup and the post-loop steps.
+          LOOP_BUDGET_SECONDS: "16200" # 4.5h
+        run: |
+          set -euo pipefail
+
+          # --- Self-refreshing App token ----------------------------------------
+          # Same helper as the bulk job's loop: mint fresh, repo-scoped
+          # `contents: write` tokens from the App's private key and refresh
+          # before they age out (installation tokens hard-expire at 1h).
+          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          mint_app_token() {
+            local now header payload unsigned sig jwt install_id body
+            now=$(date -u +%s)
+            header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+            # iss = the App's client id; iat backdated 60s for clock skew; exp 9m.
+            payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
+              "$((now - 60))" "$((now + 540))" "$APP_CLIENT_ID" | b64url)
+            unsigned="${header}.${payload}"
+            sig=$(printf '%s' "$unsigned" \
+              | openssl dgst -sha256 -sign <(printf '%s' "$APP_PRIVATE_KEY") -binary \
+              | b64url)
+            jwt="${unsigned}.${sig}"
+            install_id=$(curl -fsS \
+              -H "Authorization: Bearer ${jwt}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/installation" \
+              | jq -r .id)
+            # Least privilege: scoped to THIS repo, only the push permission the
+            # loop uses (the post-loop comment step mints its own token).
+            body=$(printf '{"repositories":["%s"],"permissions":{"contents":"write"}}' \
+              "${GITHUB_REPOSITORY##*/}")
+            curl -fsS -X POST \
+              -H "Authorization: Bearer ${jwt}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/app/installations/${install_id}/access_tokens" \
+              -d "$body" \
+              | jq -r .token
+          }
+
+          # persist-credentials is false on checkout, so authenticate the push via
+          # the App token's git credential helper. `gh auth git-credential` reads
+          # $GH_TOKEN at call time, so refreshing the variable mid-loop is enough.
+          GH_TOKEN=$(mint_app_token); export GH_TOKEN
+          gh auth setup-git
+          token_minted=$(date -u +%s)
+          TOKEN_MAX_AGE_SECONDS=3000 # re-mint at 50min, well under the 1h cap
+
+          refresh_token_if_stale() {
+            if [ "$(( $(date -u +%s) - token_minted ))" -lt "$TOKEN_MAX_AGE_SECONDS" ]; then
+              return 0
+            fi
+            GH_TOKEN=$(mint_app_token); export GH_TOKEN
+            token_minted=$(date -u +%s)
+            echo "Re-minted the App token (the previous one neared its 1h expiry)."
+          }
+          # ----------------------------------------------------------------------
+
+          deadline=$(( $(date -u +%s) + LOOP_BUDGET_SECONDS ))
+
+          checkpoint() {
+            # Push the blob BEFORE committing the pointer so the committed pointer
+            # always resolves against the remote; then prune the runner-local DVC
+            # cache copies the workspace no longer references (cache.type is
+            # `copy`, so they pile up across a long loop's checkpoints). Facts go
+            # straight to the default branch under the shared corpus-write lock:
+            # the pointer, plus any outcome.json the loader's resolution recorded
+            # onto a previously-open (bulk-era) event under data/.
+            uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+            uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+            uvx --from 'dvc[s3]' dvc gc --workspace --force
+            refresh_token_if_stale
+            git add corpus/corpus.db.dvc
+            if [ -d data ]; then
+              git add data/
+            fi
+            if git diff --cached --quiet; then
+              echo "No corpus or outcome change this chunk; nothing to commit."
+              return 0
+            fi
+            local ingested probed attempt
+            ingested=$(jq -r '.ingested_granted + .ingested_denied + .ingested_other' seed-live-report.json)
+            probed=$(jq -r '.probed' seed-live-report.json)
+            git commit -m "seed(live-terms): +${ingested} petition(s) (${probed} probed)"
+            # The default branch may have advanced since checkout; the shared
+            # corpus-write lock keeps the other corpus writers out, so rebase
+            # onto the latest tip and retry so the push is always a fast-forward.
+            for attempt in 1 2 3; do
+              git pull --rebase origin "${GITHUB_REF_NAME}"
+              if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+                return 0
+              fi
+              echo "::warning::push rejected (default branch advanced); retry ${attempt}"
+              sleep 3
+            done
+            echo "::error::could not push the corpus pointer after 3 attempts"
+            return 1
+          }
+
+          while :; do
+            # One checkpoint chunk (seed_live.max_probes_per_run docket probes).
+            # The per-(Term, stream) cursors advance inside the corpus and are
+            # pushed each pass, so the loop resumes cleanly after any stop; the
+            # totals file accumulates the whole run's counts for the comment.
+            uv run fedcourts seed-live-terms \
+              --report seed-live-report.json --totals seed-live-totals.json
+            checkpoint
+
+            stopped=$(jq -r '.stopped' seed-live-report.json)
+            if [ "$(jq -r '.complete' seed-live-report.json)" = "true" ]; then
+              echo "Term walk complete: every configured stream is at its frontier."
+              break
+            fi
+            if [ "$stopped" = "stream-errors" ]; then
+              echo "::warning::upstream errors stopped the remaining streams; resumes next run."
+              break
+            fi
+            if [ "$(date -u +%s)" -ge "$deadline" ]; then
+              echo "Wall-clock budget reached; the walk resumes next run from the cursors."
+              break
+            fi
+          done
+
+      # The loop can run for hours, so the up-front App token is long expired by
+      # the time it returns. Mint a fresh one for the comment/verdict steps.
+      - name: Re-mint app token for the post-loop steps
+        id: app-token-post
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+
+      - name: Summarize the run; comment progress on the tracking issue
+        env:
+          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The body is rendered by the tested library renderer over the run's
+          # cumulative totals; this step only posts it.
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          from fedcourtsai.pipeline.seedlive import SeedLiveReport, render_markdown
+
+          report = SeedLiveReport.model_validate_json(Path("seed-live-totals.json").read_text())
+          Path("seed-live-summary.md").write_text(render_markdown(report) + "\n")
+          PY
+          cat seed-live-summary.md >> "$GITHUB_STEP_SUMMARY"
+          # Best-effort progress comment on the open run:seed tracker, if one
+          # exists (dispatch runs without a tracker keep the step summary).
+          num=$(gh issue list --repo "$REPO" --label run:seed --state open \
+            --json number --jq '.[0].number')
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$REPO" --body-file seed-live-summary.md
+          else
+            echo "No open run:seed tracking issue; progress lives in the step summary."
+          fi
+
+      # Reconcile predict scope on the now-current corpus, exactly as on the
+      # bulk job: latch the out-of-scope cases so `open_events` drops them at
+      # the source, and clear the latch on any back in scope. This job carries
+      # the weekly schedule now, so the sweep's cadence lives here. NON-BLOCKING:
+      # a hiccup must not fail the loader run.
+      - name: Reconcile predict scope (latch out-of-scope cases)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db.dvc ]; then
+            echo "no corpus pointer yet; skipping scope reconcile"; exit 0
+          fi
+          gh auth setup-git  # persist-credentials is false on checkout
+          uv run fedcourts reconcile-scope --apply
+          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+          # Reclaim the runner's local DVC cache (cache.type is copy) like the
+          # loop's checkpoint — the blob is already on the remote.
+          uvx --from 'dvc[s3]' dvc gc --workspace --force
+          git add corpus/corpus.db.dvc
+          if git diff --cached --quiet; then
+            echo "Scope latch already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed(reconcile): latch out-of-scope cases"
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "::warning::pointer push rejected (branch advanced); retry ${attempt}"
+            sleep 3
+          done
+          echo "::error::could not push the scope-latch pointer after 3 attempts"
+          exit 1
+
+      # Trailing, NON-BLOCKING data-validation, exactly as on the bulk job:
+      # produce the correctness verdict on the now-current corpus and publish it
+      # for run-ops to present and escalate — loud-not-fatal by contract.
       - name: Produce + publish the corpus validation verdict
         continue-on-error: true
         uses: ./.github/actions/publish-corpus-verdict

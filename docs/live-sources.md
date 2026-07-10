@@ -149,6 +149,30 @@ generated when certiorari is *granted* and opens with the grant order, so the
 key is an outcome artifact — it is also stripped by replay redaction for the
 same reason (verified live at implementation).
 
+## The past-Term cert set: the back-test through the same channel
+
+The docket JSON serves decided petitions all the way back to OT2017 (the
+e-filing era; see [live-sources-probe.md](live-sources-probe.md)), so the cert
+**back-test set** is built through the identical client, mapping, identity, and
+ingest seams as the forward task — the dry run validates the actual instrument,
+not a proxy. `fedcourts seed-live-terms` (the `run-seed` workflow's default
+`live-terms` mode) walks each configured decided Term's two numbering streams
+sequentially from persisted cursors (`seed-paid` / `seed-ifp` in the same
+cursor table as the forward frontier's, disjoint names so the walkers never
+collide) and **samples deliberately rather than ingesting the sequence**: a
+Term is overwhelmingly denials, so every decided petition is ingested except
+denials, which are kept when their serial is a multiple of the configured
+sampling interval — deterministic per serial, so resumed runs keep the same
+sample, and the committed `seed_live:` config section documents the set's
+construction. Each kept petition lands through `ingest_live_payload` already
+**resolved** (machine-read label, dated raw-JSON snapshot, its cert event
+latched closed) with filed documents provisioned for OT2021+ (the links'
+retention window), so it provisions replay cells like any other case. Decided
+history must never feed forward prediction: the loader files **no handoff
+queues at all**, records with no readable disposition are skipped (pending
+matters are the forward poller's charter), and resolved rows are structurally
+invisible to the pending refresh rotation.
+
 ## Later: push for the circuit courts
 
 CourtListener's **webhooks** (docket alerts fire within seconds of PACER

@@ -38,7 +38,7 @@ request.
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
-| `run:seed`     | `run-seed`      | Ingest initial dockets from CourtListener into the corpus            | Script |
+| `run:seed`     | `run-seed`      | Load historical dockets into the corpus (label = the frozen bulk mode; the weekly schedule runs the past-Term cert loader) | Script |
 | `run:pull`     | `run-pull`      | Refresh tracked dockets (also runs on a daily schedule)             | Script |
 | `run:reconcile`| `run-reconcile` | Confirm a decided event's `outcome.json` from the docket when pull can't | Claude Code |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
@@ -147,17 +147,21 @@ uv run fedcourts seed --court ca9 --docket <docket_id>   # onboard one docket in
 uv run fedcourts pull --court ca9 --docket <docket_id>   # refresh one docket; report changes
 ```
 
-The historical mass is loaded by `seed-backfill`, what the `run-seed` workflow
-runs: deterministic, no-agent ingestion of CourtListener **bulk data** (no API
-token, no API budget) into the *same* corpus through the *same* core. It loads
-one chunk of the tracked courts per run against a resumable cursor
-(`config/seed-progress.yaml`), chunked until complete:
+The historical mass is loaded by the `run-seed` workflow's two deterministic,
+no-agent loader modes, both chunked against resumable cursors into the *same*
+corpus through the *same* core and neither spending API budget: the default
+`live-terms` mode runs `seed-live-terms` (the past-Term SCOTUS cert set,
+sampled from the supremecourt.gov docket JSON), and the frozen `bulk` fallback
+runs `seed-backfill` (CourtListener **bulk data**, cursor in
+`config/seed-progress.yaml`):
 
 ```bash
-uv run fedcourts seed-backfill --report seed-report.json   # load the next bulk chunk
+uv run fedcourts seed-live-terms --report seed-live-report.json   # load the next cert-set chunk
+uv run fedcourts seed-backfill --report seed-report.json          # load the next bulk chunk
 ```
 
-See [`docs/seed-backfill.md`](docs/seed-backfill.md) and
+See [`docs/live-sources.md`](docs/live-sources.md),
+[`docs/seed-backfill.md`](docs/seed-backfill.md), and
 [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## For AI agents
