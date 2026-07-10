@@ -185,7 +185,7 @@ def test_codex_runner_gets_the_inline_identifier_kickoff(tmp_path: Path) -> None
     runner = CodexRunner(command_runner=recorder)
     runner.run(_predict_request(tmp_path / "data", actor=PREDICTOR))
     assert recorder.argv[:2] == ["codex", "exec"]
-    assert "gpt-5.5" in recorder.argv
+    assert "gpt-5.6-sol" in recorder.argv
     # Codex gets the same kickoff as the other engines (as the workflow's
     # `prompt` input does): the template by reference, the identifiers inline.
     kickoff = recorder.argv[-1]
