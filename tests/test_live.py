@@ -390,7 +390,7 @@ def test_live_poll_all_queues_predict_on_change_and_evaluate_on_resolution(
     assert queues.evaluate == [] and queues.reconcile == []
 
     # Cycle 2: 25-1 gains its denial order -> outcome recorded, evaluate queued;
-    # 25-2 is unchanged -> no predict spam.
+    # 25-2 is unchanged -> nothing.
     served["25-1"] = _payload(
         "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY]
     )
@@ -404,6 +404,47 @@ def test_live_poll_all_queues_predict_on_change_and_evaluate_on_resolution(
     # The decided case's event is closed, so it queues no predict; the unchanged
     # pending case queues nothing either.
     assert queues2.predict == []
+
+    # Cycle 3: 25-2's docket changes (a BIO lands). Under the default interim
+    # guard a refresh-driven change queues no predict; with predict_on_refresh
+    # it does — the knob #473's distribution trigger will replace.
+    served["25-2"] = _payload(
+        "25-2",
+        proceedings=[
+            _payload()["ProceedingsandOrder"][0],
+            {"Date": "Jul 09 2026", "Text": "Brief of respondent in opposition filed."},
+        ],
+    )
+    with _frontier_client(served) as client:
+        guarded, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 11)
+        )
+    assert guarded.predict == []
+    with _frontier_client(served) as client:
+        ungated, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config.model_copy(update={"predict_on_refresh": True}),
+            today=date(2026, 7, 12),
+        )
+    assert ungated.predict == []  # unchanged since cycle 3's poll...
+    served["25-2"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 12 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+    )
+    with _frontier_client(served) as client:
+        ungated, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=config.model_copy(update={"predict_on_refresh": True}),
+            today=date(2026, 7, 13),
+        )
+    assert ungated.predict == [
+        {"court": "scotus", "docket": 9_025_000_002, "events": ["evt-petition-disposition"]}
+    ]
 
 
 # --- replay redaction -------------------------------------------------------------
