@@ -2,8 +2,9 @@
 
 ``run-predict`` runs every enabled predictor against every open event; this is
 the cartesian product the matrix needs. ``run-evaluate`` runs every enabled
-evaluator against every resolved event (each evaluator scores all predictors for
-that event internally, so predictors are not part of the matrix dimension).
+evaluator against every resolved event **that holds a committed prediction**
+(each evaluator scores all predictors for that event internally, so predictors
+are not part of the matrix dimension; a predictionless event mints no cells).
 ``run-reconcile`` runs a single agent against each case ``run-pull`` flagged as
 decided-but-not-machine-readable, so it fans out **per case** (not per event):
 the agent must weigh all of a case's open events together to attribute the
@@ -31,6 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .paths import CasePaths
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
 
@@ -112,15 +114,41 @@ def predict_matrix(
     return {"include": include}
 
 
+def event_has_predictions(data_root: Path, court: str, docket: int, event_id: str) -> bool:
+    """Whether the git ledger holds at least one prediction for this event.
+
+    The evaluate cost gate: an evaluator cell scores predictions against the
+    outcome, so an event with none — typical for a petition the pipeline
+    resolved without ever predicting (a frontier catch-up, a rotation sweep of
+    a decided historical case) — has nothing for an agent to do, and every
+    cell minted for it is pure model spend. Predictions are committed files,
+    so the check is offline and exact at plan time.
+    """
+    predictions_root = CasePaths(data_root, court, docket).event(event_id).predictions_dir
+    return any(predictions_root.glob("*/*/prediction.json"))
+
+
 def evaluate_matrix(
     evaluators_path: Path,
     cases: list[CaseRequest],
     run_id: str,
+    data_root: Path | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
+    """Build the evaluator x case x event matrix, dropping predictionless events.
+
+    With ``data_root``, an event with no committed prediction is dropped before
+    any agent cell is minted (:func:`event_has_predictions`) — the plan job's
+    deterministic cost gate. ``None`` skips the gate (callers that assemble
+    their own ledger).
+    """
     include: list[dict[str, Any]] = []
     for evaluator in enabled_evaluators(evaluators_path):
         for case in cases:
             for event_id in case.events:
+                if data_root is not None and not event_has_predictions(
+                    data_root, case.court, case.docket, event_id
+                ):
+                    continue
                 include.append(
                     {
                         "evaluator_id": evaluator.id,

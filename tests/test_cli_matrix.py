@@ -1,4 +1,5 @@
 import json
+import shutil
 from datetime import date
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from tests.conftest import seed_prediction
 
 runner = CliRunner()
 
@@ -49,7 +51,17 @@ def _env(tmp_path: Path, *, scope: str, eligible: tuple[str, ...] = ()) -> dict[
                 for cid in eligible
             ],
         )
-    return {"FEDCOURTS_CONFIG_ROOT": str(config_root), "FEDCOURTS_CORPUS_ROOT": str(corpus_root)}
+    # The evaluate gate reads the ledger: seed one committed prediction per
+    # eligible case's event so evaluate-matrix keeps them.
+    data_root = tmp_path / "data"
+    for cid in eligible:
+        court, _, docket = cid.partition("/")
+        seed_prediction(data_root, court, int(docket), "evt-petition-cert")
+    return {
+        "FEDCOURTS_CONFIG_ROOT": str(config_root),
+        "FEDCOURTS_CORPUS_ROOT": str(corpus_root),
+        "FEDCOURTS_DATA_ROOT": str(data_root),
+    }
 
 
 def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
@@ -325,3 +337,17 @@ def test_reconcile_matrix_single_case_flags_join_events(tmp_path: Path) -> None:
 def test_matrix_without_body_or_flags_errors() -> None:
     result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"])
     assert result.exit_code == 2
+
+
+def test_evaluate_matrix_reports_the_drop_count(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    # Remove one case's seeded prediction: its 3 evaluator cells drop, loudly.
+    shutil.rmtree(tmp_path / "data" / "cases" / "scotus" / "24002")
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "dropped 3 predictionless cell(s)" in result.output

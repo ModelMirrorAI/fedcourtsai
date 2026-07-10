@@ -30,6 +30,7 @@ from fedcourtsai.pipeline.pull import pull_cases
 from fedcourtsai.pipeline.seed import backfill, load_cursor, snapshot_date
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.store import cases_due_for_pull
+from tests.conftest import seed_prediction
 
 # Reuse the per-stage fakes exactly as the unit suites define them.
 from tests.test_discover import FakeSearch
@@ -209,6 +210,10 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
 
     due = cases_due_for_pull(db, limit=50)
     assert due == [("ca9", 1), ("ca9", 2), ("ca9", 3)]  # rotation feeds pull the seeded set
+
+    # The evaluate handoff requires something to score: seed the prediction a
+    # predict run would have committed for the case that is about to resolve.
+    seed_prediction(data_root, "ca9", 1, _EVENT_ID)
 
     queues = pull_cases(_client(client), db, data_root, due)
 

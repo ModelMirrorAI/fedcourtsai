@@ -29,6 +29,7 @@ import httpx
 from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
+from ..matrix import event_has_predictions
 from ..store import open_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
@@ -118,6 +119,13 @@ class PullQueues:
 
     predict: list[dict[str, object]] = field(default_factory=list)
     evaluate: list[dict[str, object]] = field(default_factory=list)
+    # Resolved events dropped from the evaluate queue because the ledger holds
+    # no prediction to score. Surfaced (never silently discarded): resolution
+    # latches closed, so the drop is once-only — if a prediction lands *after*
+    # the outcome (an in-flight predict run racing a fast resolution), nothing
+    # re-queues it automatically, and the recovery is a ledger scan (outcome +
+    # predictions present, evaluations absent).
+    evaluate_skipped: list[dict[str, object]] = field(default_factory=list)
     reconcile: list[dict[str, object]] = field(default_factory=list)
     # Cases whose refresh hit an unrecoverable REST error this run (e.g. a 404,
     # or retries exhausted). Recorded so a single bad docket degrades the run
@@ -166,10 +174,12 @@ def pull_cases(
     The per-case half of ``pull-all``: for every ``(court, docket)`` the rotation
     governor selected, refresh the docket (:func:`pull_case`, which also detects
     resolution), then route the result — a *changed* case with open events to
-    ``predict``, a case that gained an ``outcome.json`` this run to ``evaluate``,
-    and a case that appears decided but could not be recorded deterministically to
-    ``reconcile``. Case selection (discovery + rotation) stays with the caller, so
-    this seam composes the same way the CLI's ``pull-all`` does.
+    ``predict``, a case that gained an ``outcome.json`` this run to ``evaluate``
+    **when the ledger holds a prediction to score** (ground-truth recording is
+    ungated; only the evaluator fan-out is), and a case that appears decided but
+    could not be recorded deterministically to ``reconcile``. Case selection
+    (discovery + rotation) stays with the caller, so this seam composes the
+    same way the CLI's ``pull-all`` does.
 
     The prediction-scope gate is the primary cost-saver: under
     ``scope == scotus_touched`` an out-of-scope case never reaches the ``predict``
@@ -235,7 +245,21 @@ def pull_cases(
         if in_scope and result.changed and events:
             queues.predict.append({"court": court, "docket": docket, "events": events})
         if in_scope and result.resolved:
-            queues.evaluate.append({"court": court, "docket": docket, "events": result.resolved})
+            # Only events something actually predicted reach evaluation: an
+            # outcome recorded for a never-predicted event has nothing to score,
+            # and each queued case fans out one agent cell per evaluator.
+            scoreable = [
+                event_id
+                for event_id in result.resolved
+                if event_has_predictions(data_root, court, docket, event_id)
+            ]
+            if scoreable:
+                queues.evaluate.append({"court": court, "docket": docket, "events": scoreable})
+            unscoreable = [e for e in result.resolved if e not in scoreable]
+            if unscoreable:
+                queues.evaluate_skipped.append(
+                    {"court": court, "docket": docket, "events": unscoreable}
+                )
         if result.reconcile:
             queues.reconcile.append(
                 {

@@ -607,7 +607,10 @@ for the real corpus the seed/pull workflows produce.
   2. **Detect resolution** of tracked open events → write `outcome.json` to the
      git ledger deterministically when the disposition is machine-readable (a
      concrete disposition, a decision date, and a single open event), and queue
-     `run:evaluate` for it. Anything ambiguous is **not** guessed: it lands on
+     `run:evaluate` for it **when the ledger holds a prediction to score**
+     (ground-truth recording is ungated; the evaluator fan-out is — a
+     never-predicted resolution has nothing to evaluate, and the evaluate plan
+     re-checks the same gate before minting cells). Anything ambiguous is **not** guessed: it lands on
      the reconcile queue. The `run-reconcile` agent workflow that used to
      consume that queue is **operationally paused** while the live channel —
      whose proceedings text makes most resolutions deterministic — settles

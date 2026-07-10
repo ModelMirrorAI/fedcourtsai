@@ -2158,7 +2158,13 @@ def pull_all(
     typer.echo(
         f"Refreshed {refreshed}/{cap} case(s){_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.reconcile)} reconcile."
+        f"{len(queues.reconcile)} reconcile"
+        + (
+            f" ({len(queues.evaluate_skipped)} resolved case(s) had no prediction to score)"
+            if queues.evaluate_skipped
+            else ""
+        )
+        + "."
     )
     if queues.stopped:
         deferred = len(queues.deferred)
@@ -2230,7 +2236,13 @@ def live_poll(
         f"Live cycle (OT{probe_term:02d}): onboarded {len(discovery.onboarded)} new petition(s)"
         f"{discovery_failed}{_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.reconcile)} reconcile."
+        f"{len(queues.reconcile)} reconcile"
+        + (
+            f" ({len(queues.evaluate_skipped)} resolved case(s) had no prediction to score)"
+            if queues.evaluate_skipped
+            else ""
+        )
+        + "."
     )
 
 
@@ -2479,7 +2491,18 @@ def evaluate_matrix_cmd(
         ),
         lambda c, d: resolved_events(corpus.corpus_db_path(settings.corpus_root), c, d),
     )
-    matrix = evaluate_matrix(settings.config_root / "evaluators.yaml", cases, run_id)
+    # The cost gate: events with no committed prediction are dropped here, at
+    # plan time, so no evaluator cell (and no model spend) is minted for them —
+    # a resolved-without-ever-predicted case has nothing to score.
+    matrix = evaluate_matrix(
+        settings.config_root / "evaluators.yaml", cases, run_id, data_root=settings.data_root
+    )
+    evaluator_count = len(
+        [e for e in load_evaluators(settings.config_root / "evaluators.yaml") if e.enabled]
+    )
+    dropped = evaluator_count * sum(len(c.events) for c in cases) - len(matrix["include"])
+    if dropped:
+        typer.echo(f"evaluate-matrix: dropped {dropped} predictionless cell(s)", err=True)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
