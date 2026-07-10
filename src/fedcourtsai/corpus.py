@@ -203,6 +203,13 @@ class CorpusRow(BaseModel):
         description="Tracking state: date `pull` last refreshed this case via REST; "
         "None until first pulled. Drives the budget governor's rotation.",
     )
+    last_live_polled: date | None = Field(
+        default=None,
+        description="Tracking state: date the SCOTUS live channel (supremecourt.gov "
+        "docket JSON, #472) last polled this case; None until first polled. Drives "
+        "the live poller's rotation, kept separate from `last_pulled` so the two "
+        "channels' rotations never disturb each other.",
+    )
     predict_eligible: bool = Field(
         default=False,
         description="Prediction-scope latch: True once the case has interacted with "
@@ -300,7 +307,8 @@ CREATE TABLE IF NOT EXISTS cases (
     originating_court            TEXT,
     originating_docket_number    TEXT,
     date_cert_granted   TEXT,
-    date_cert_denied    TEXT
+    date_cert_denied    TEXT,
+    last_live_polled    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -335,6 +343,17 @@ CREATE INDEX IF NOT EXISTS idx_events_open ON events(case_id, event_id) WHERE re
 CREATE TABLE IF NOT EXISTS discovery_watermarks (
     court       TEXT PRIMARY KEY,
     last_filed  TEXT NOT NULL
+);
+
+-- Per-Term live-discovery cursor for the SCOTUS live channel (#472): the highest
+-- docket serial confirmed served, per numbering stream (paid petitions from 1,
+-- IFP from 5001). Tracking state, mirroring the watermarks above: the sequential
+-- prober resumes from the cursor and a 404 past it marks the Term's frontier.
+CREATE TABLE IF NOT EXISTS live_discovery_cursors (
+    term         INTEGER NOT NULL,
+    stream       TEXT NOT NULL,
+    last_serial  INTEGER NOT NULL,
+    PRIMARY KEY (term, stream)
 );
 
 -- Dated point-in-time docket snapshots: a raw fact, one per (case, pull date).
@@ -380,6 +399,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "originating_docket_number": "TEXT",
     "date_cert_granted": "TEXT",
     "date_cert_denied": "TEXT",
+    "last_live_polled": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -527,6 +547,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "originating_docket_number": row.originating_docket_number,
         "date_cert_granted": (row.date_cert_granted.isoformat() if row.date_cert_granted else None),
         "date_cert_denied": row.date_cert_denied.isoformat() if row.date_cert_denied else None,
+        "last_live_polled": row.last_live_polled.isoformat() if row.last_live_polled else None,
     }
 
 
@@ -572,6 +593,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         originating_docket_number=record["originating_docket_number"],
         date_cert_granted=_optional_date(record, "date_cert_granted"),
         date_cert_denied=_optional_date(record, "date_cert_denied"),
+        last_live_polled=_optional_date(record, "last_live_polled"),
     )
 
 
@@ -586,7 +608,7 @@ def _update_clause(column: str) -> str:
     by the seed reconcile (not an ingestion fact), so an upsert keeps the stored value
     rather than resetting it to the model default.
     """
-    if column == "last_pulled":
+    if column in ("last_pulled", "last_live_polled"):
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column == "predict_eligible":
         return f"{column}=MAX(excluded.{column}, cases.{column})"
@@ -653,6 +675,31 @@ def latch_originating_eligible(conn: sqlite3.Connection, rows: Iterable[CorpusRo
             )
             latched += cur.rowcount
     return latched
+
+
+def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -> str | None:
+    """The existing SCOTUS row matching a Term-form docket number, or ``None``.
+
+    The identity-reconciliation join for the live channel (#472): the corpus
+    keys on docket ids, which a supremecourt.gov record does not carry, so both
+    channels reconcile on the normalized docket-number string (the same
+    ``norm_dn`` rule the lower-court latch uses) before minting a row — a live
+    poll enriches the CourtListener-keyed row when one exists, and CourtListener
+    discovery enriches the live-keyed row when the live channel saw the petition
+    first. Should two rows ever match (a pre-guard historical duplicate), the
+    lowest docket id — the CourtListener-keyed row — wins deterministically.
+    """
+    norm = normalize_docket_number(raw)
+    if norm is None:
+        return None
+    cur = conn.execute(
+        "SELECT case_id FROM cases WHERE court = 'scotus' AND norm_dn(docket_number) = ?",
+        (norm,),
+    )
+    case_ids: list[str] = [str(record["case_id"]) for record in cur]
+    if not case_ids:
+        return None
+    return min(case_ids, key=lambda cid: int(cid.rsplit("/", 1)[-1]))
 
 
 # The Judiciary Act of 1925 (the "Judges' Bill") made the Supreme Court's
@@ -1417,6 +1464,49 @@ def rotation_for_pull(
     return picked
 
 
+# SQL October-Term-year expression over the modern Term-prefixed docket form,
+# with the same century pivot as `scotus_term_year` (>= 30 -> 19xx). Requires
+# the GLOB prefilter so the leading two characters are digits; candidates are
+# re-verified in Python with `is_modern_cert`.
+_TERM_YEAR_SQL = (
+    "CASE WHEN CAST(substr(docket_number, 1, 2) AS INTEGER) >= 30 "
+    "THEN 1900 + CAST(substr(docket_number, 1, 2) AS INTEGER) "
+    "ELSE 2000 + CAST(substr(docket_number, 1, 2) AS INTEGER) END"
+)
+
+
+def live_rotation(
+    conn: sqlite3.Connection, *, limit: int, term_floor_year: int = 2017
+) -> list[CorpusRow]:
+    """The next ``limit`` pending petitions the live poller should refresh.
+
+    The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: pending
+    modern-cert petitions (no disposition, no termination, an open event) from
+    ``term_floor_year`` forward — the floor the reachability probe established
+    (docs/live-sources-probe.md). Recent Terms first (they are days-to-weeks from
+    resolution, the opposite of stalest-first), then never-polled before stale,
+    then ``case_id`` for determinism. Rotates on ``last_live_polled``, never
+    ``last_pulled``, so the CourtListener enrichment rotation is undisturbed.
+    """
+    if limit <= 0:
+        return []
+    sql = (
+        "SELECT * FROM cases WHERE court = 'scotus' "
+        "AND disposition IS NULL AND date_decided IS NULL "
+        "AND docket_number GLOB '[0-9][0-9]-*' "
+        f"AND {_TERM_YEAR_SQL} >= ? "
+        "AND EXISTS (SELECT 1 FROM events "
+        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
+        f"ORDER BY {_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
+        "last_live_polled ASC, case_id ASC LIMIT ?"
+    )
+    # Over-fetch to cover candidates the Python re-verification drops (labeled
+    # docket-number spellings the raw GLOB admits but `is_modern_cert` rejects).
+    cur = conn.execute(sql, (term_floor_year, limit * 2))
+    picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
+    return picked[:limit]
+
+
 # --- predictable event definitions (raw facts) ---------------------------------
 
 _EVENT_COLUMNS = (
@@ -1576,6 +1666,40 @@ def set_discovery_watermark(conn: sqlite3.Connection, court: str, last_filed: da
             "ON CONFLICT(court) DO UPDATE SET last_filed = excluded.last_filed "
             "WHERE excluded.last_filed > discovery_watermarks.last_filed",
             (court, last_filed.isoformat()),
+        )
+
+
+# --- per-Term live-discovery cursors (tracking state, #472) ---------------------
+
+
+def get_live_cursor(conn: sqlite3.Connection, term: int, stream: str) -> int | None:
+    """The highest docket serial the live prober has confirmed served, or ``None``.
+
+    ``None`` means the (Term, stream) pair has never been probed; the caller
+    starts from the stream's numbering base (paid petitions from 1, IFP from
+    5001).
+    """
+    cur = conn.execute(
+        "SELECT last_serial FROM live_discovery_cursors WHERE term = ? AND stream = ?",
+        (term, stream),
+    )
+    record = cur.fetchone()
+    return int(record["last_serial"]) if record is not None else None
+
+
+def set_live_cursor(conn: sqlite3.Connection, term: int, stream: str, last_serial: int) -> None:
+    """Advance (or initialize) a (Term, stream) live-discovery cursor.
+
+    Forward-only, mirroring :func:`set_discovery_watermark`: a write below the
+    stored serial is ignored, so a degraded run cannot rewind the frontier and
+    re-onboard the whole Term.
+    """
+    with conn:
+        conn.execute(
+            "INSERT INTO live_discovery_cursors (term, stream, last_serial) VALUES (?, ?, ?) "
+            "ON CONFLICT(term, stream) DO UPDATE SET last_serial = excluded.last_serial "
+            "WHERE excluded.last_serial > live_discovery_cursors.last_serial",
+            (term, stream, last_serial),
         )
 
 

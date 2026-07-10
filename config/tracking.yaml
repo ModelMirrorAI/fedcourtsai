@@ -69,6 +69,30 @@ pull:
   # Only trigger run-predict when a pull detects new docket activity.
   predict_on_change_only: true
 
+# live = the SCOTUS live channel (#472): supremecourt.gov per-docket JSON. Owns
+# SCOTUS freshness since the July 2026 pivot. No API budget — these caps bound
+# per-cycle wall clock and upstream politeness (~1 req/s), not spend.
+live:
+  # Pending petitions re-polled per cycle (recent Terms first, then stalest).
+  max_cases_per_run: 30
+  # New petitions onboarded from the Term's numbering frontier per cycle
+  # (sequential probing: paid from <term>-1, IFP from <term>-5001).
+  max_new_cases_per_run: 25
+  # Oldest October Term the refresh rotation reaches — the reachability probe's
+  # floor (docs/live-sources-probe.md): full JSON coverage OT2017+.
+  term_floor_year: 2017
+  # Seconds between requests (polite-client pacing; browser UA is built in).
+  throttle_seconds: 1.0
+  # Consecutive 404s that mark a numbering stream's current frontier.
+  frontier_misses: 2
+  # Interim spend guard: refresh-driven polls record facts (snapshots, outcomes)
+  # but do NOT queue run:predict — the first rotation sweeps touch every
+  # pending-looking OT2017+ shell, and each genuinely pending petition would
+  # otherwise fire a paid predict fan-out with no timing logic behind it. Newly
+  # DISCOVERED petitions always queue predict. #473's conference watchlist
+  # replaces this knob with the real trigger (predict on distribution).
+  predict_on_refresh: false
+
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The
   # pilot slice"). Restricts only the agentic predict/evaluate stages; ingestion

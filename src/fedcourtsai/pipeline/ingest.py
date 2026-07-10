@@ -21,6 +21,7 @@ and ``pull`` both land facts in one place through one seam.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping
 from datetime import date
 from enum import StrEnum
@@ -32,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
 from ..schemas import Disposition, EventKind
+from .cert_signals import match_disposition_signal
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -41,6 +43,7 @@ class CorpusSource(StrEnum):
 
     api = "api"
     bulk = "bulk"
+    live = "live"
 
 
 class CorpusRow(BaseModel):
@@ -350,6 +353,164 @@ def from_bulk_row(row: Mapping[str, Any]) -> CorpusRow:
     return _normalize(row, CorpusSource.bulk)
 
 
+# --- the SCOTUS live channel (supremecourt.gov docket JSON, #472) ---------------
+
+# The lower-court names the docket JSON's `LowerCourt` uses for the tracked
+# federal courts of appeals, mapped to CourtListener court ids so the live
+# channel populates the same originating linkage the REST path does. A state
+# court, a district court, or an unlisted tribunal maps to None — the raw name
+# stays on the snapshot; only the tracked-court *linkage* needs the id.
+_LIVE_LOWER_COURT_IDS: Final[dict[str, str]] = {
+    "united states court of appeals for the first circuit": "ca1",
+    "united states court of appeals for the second circuit": "ca2",
+    "united states court of appeals for the third circuit": "ca3",
+    "united states court of appeals for the fourth circuit": "ca4",
+    "united states court of appeals for the fifth circuit": "ca5",
+    "united states court of appeals for the sixth circuit": "ca6",
+    "united states court of appeals for the seventh circuit": "ca7",
+    "united states court of appeals for the eighth circuit": "ca8",
+    "united states court of appeals for the ninth circuit": "ca9",
+    "united states court of appeals for the tenth circuit": "ca10",
+    "united states court of appeals for the eleventh circuit": "ca11",
+    "united states court of appeals for the district of columbia circuit": "cadc",
+    "united states court of appeals for the federal circuit": "cafc",
+}
+
+# Trailing role labels on the JSON's party titles ("Acme Corp., Petitioner",
+# "..., et al., Petitioners"), stripped so the caption reads `X v. Y`.
+_LIVE_TITLE_ROLE_RE = re.compile(r",\s*(?:petitioner|respondent|applicant|appellant)s?\s*$", re.I)
+
+
+def _live_title(raw: Any) -> str | None:
+    text = _clean(raw)
+    return _LIVE_TITLE_ROLE_RE.sub("", text) if text else None
+
+
+def _live_counsel(payload: Mapping[str, Any]) -> tuple[list[str], list[str]]:
+    """(parties, attorneys) from the JSON's counsel blocks, order-preserving."""
+    parties: list[str] = []
+    attorneys: list[str] = []
+    for side in ("Petitioner", "Respondent", "Other"):
+        blocks = payload.get(side)
+        if not isinstance(blocks, list):
+            continue
+        for block in blocks:
+            if not isinstance(block, Mapping):
+                continue
+            party = _clean(block.get("PartyName"))
+            attorney = _clean(block.get("Attorney"))
+            if party is not None and party not in parties:
+                parties.append(party)
+            if attorney is not None and attorney not in attorneys:
+                attorneys.append(attorney)
+    return parties, attorneys
+
+
+def _live_entries(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The proceedings list as CourtListener-shaped docket entries.
+
+    Synthetic 1-based ids/numbers: the proceedings list is append-only, so the
+    index is stable across polls and downstream event definitions pinned to it
+    stay coherent. Dates are re-serialized to ISO (the entry classifier parses
+    ``date.fromisoformat``); an unparseable date degrades to ``None``, never a
+    crash.
+    """
+    entries: list[dict[str, Any]] = []
+    for index, entry in enumerate(payload.get("ProceedingsandOrder") or [], start=1):
+        if not isinstance(entry, Mapping):
+            continue
+        entry_date: date | None
+        try:
+            entry_date = _date(entry.get("Date"))
+        except (ValueError, OverflowError):
+            entry_date = None
+        entries.append(
+            {
+                "id": index,
+                "entry_number": index,
+                "date_filed": entry_date.isoformat() if entry_date else None,
+                "description": _clean(entry.get("Text")) or "",
+            }
+        )
+    return entries
+
+
+def _live_resolution(
+    entries: list[dict[str, Any]],
+) -> tuple[str | None, date | None, date | None, date | None]:
+    """(disposition, cert_granted, cert_denied, terminated) from the proceedings.
+
+    The disposition orders ride as plain proceedings text ("Petition DENIED."),
+    which the recoverability cert-order patterns match — 64/64 on the probe
+    sample (docs/live-sources-probe.md). The first matching entry, in docket
+    order, is the cert-stage disposition and its entry date is the decision
+    date: a grant dates ``date_cert_granted``, a denial ``date_cert_denied``,
+    and anything else (dismissed / withdrawn) dates the termination.
+    """
+    for entry in entries:
+        matched = match_disposition_signal(str(entry.get("description") or ""))
+        if matched is None:
+            continue
+        disposition = matched[0].value
+        decided = date.fromisoformat(entry["date_filed"]) if entry.get("date_filed") else None
+        if disposition == Disposition.granted.value:
+            return disposition, decided, None, None
+        if disposition == Disposition.denied.value:
+            return disposition, None, decided, None
+        return disposition, None, None, decided
+    return None, None, None, None
+
+
+def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any]:
+    """A supremecourt.gov docket JSON as an upstream-shaped ingestion record.
+
+    The live channel's half of the guardrail "new upstream fields land as
+    columns mapped in the shared normalization layer": this produces a record
+    the shared :func:`_normalize` (and the entry classifier) consumes exactly
+    like a REST docket, so nothing downstream keys on the channel. ``docket_id``
+    is supplied by the caller, which resolved identity first — the matched
+    existing row's id, or the reserved-range live id for a genuinely unseen
+    petition (``fedcourtsai.supremecourt.live_docket_id``).
+    """
+    entries = _live_entries(payload)
+    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+    petitioner = _live_title(payload.get("PetitionerTitle"))
+    respondent = _live_title(payload.get("RespondentTitle"))
+    case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
+    parties, attorneys = _live_counsel(payload)
+    lower_court = _clean(payload.get("LowerCourt"))
+    lower_numbers = _clean(payload.get("LowerCourtCaseNumbers"))
+    return {
+        "id": docket_id,
+        "court_id": "scotus",
+        "docket_number": _clean(payload.get("CaseNumber")) or "",
+        "case_name": case_name,
+        "date_filed": _clean(payload.get("DocketedDate")),
+        "date_cert_granted": cert_granted.isoformat() if cert_granted else None,
+        "date_cert_denied": cert_denied.isoformat() if cert_denied else None,
+        "date_terminated": terminated.isoformat() if terminated else None,
+        "disposition": disposition,
+        "parties": parties,
+        "attorneys": attorneys,
+        "appeal_from_id": _LIVE_LOWER_COURT_IDS.get(lower_court.lower()) if lower_court else None,
+        "originating_court_information": (
+            # The JSON parenthesizes the lower-court numbers ("(21-5166)").
+            {"docket_number": lower_numbers.strip("()")} if lower_numbers else None
+        ),
+        "docket_entries": entries,
+    }
+
+
+def from_live_record(record: Mapping[str, Any]) -> CorpusRow:
+    """Normalize an already-mapped live record (the entry classifier's seam)."""
+    return _normalize(record, CorpusSource.live)
+
+
+def from_live_docket(payload: Mapping[str, Any], docket_id: int) -> CorpusRow:
+    """Normalize a raw supremecourt.gov docket JSON (the live-poll path)."""
+    return from_live_record(map_live_docket(payload, docket_id))
+
+
 # --- predictable event derivation ---------------------------------------------
 
 
@@ -413,16 +574,19 @@ def merge_rows(rows: Iterable[CorpusRow]) -> list[CorpusRow]:
     return list(by_case.values())
 
 
-def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.CorpusRow:
+def to_corpus_row(
+    row: CorpusRow, *, last_pulled: date | None = None, last_live_polled: date | None = None
+) -> corpus.CorpusRow:
     """Project a normalized ingestion row onto the packed-corpus storage row.
 
     The ingestion model carries provenance the storage model does not need
     (``source``, ``schema_version``, ``docket_id`` — recoverable from
     ``case_id``); ``nature_of_suit`` maps onto the store's ``topic`` column.
 
-    ``last_pulled`` is pull-time tracking state (not a docket fact), so it is
-    supplied by the caller: ``pull`` stamps the refresh date, while bulk seed
-    leaves it ``None`` (the upsert preserves any timestamp a prior pull set).
+    ``last_pulled`` and ``last_live_polled`` are channel tracking state (not
+    docket facts), so they are supplied by the caller: ``pull`` stamps the REST
+    refresh date, the live poller stamps its own, and every other writer leaves
+    both ``None`` (the upsert preserves any timestamp a prior stamp set).
     """
     return corpus.CorpusRow(
         case_id=row.case_id,
@@ -444,6 +608,7 @@ def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.
         precedential_status=row.precedential_status,
         summary=row.summary,
         last_pulled=last_pulled,
+        last_live_polled=last_live_polled,
         predict_eligible=is_predict_eligible(row),
         originating_court=row.originating_court,
         originating_docket_number=row.originating_docket_number,
@@ -451,20 +616,28 @@ def to_corpus_row(row: CorpusRow, *, last_pulled: date | None = None) -> corpus.
 
 
 def upsert_to_corpus(
-    db_path: Path, rows: Iterable[CorpusRow], *, last_pulled: date | None = None
+    db_path: Path,
+    rows: Iterable[CorpusRow],
+    *,
+    last_pulled: date | None = None,
+    last_live_polled: date | None = None,
 ) -> int:
     """Upsert normalized rows into the packed SQLite corpus at ``db_path``.
 
     Idempotent by ``case_id`` (last write wins), so re-ingesting a docket — by
-    ``seed`` or ``pull`` — overwrites its row rather than duplicating it. When
-    ``pull`` passes ``last_pulled`` it stamps the refresh date onto every row in
-    this batch, advancing the governor's rotation key.
+    ``seed``, ``pull``, or the live poller — overwrites its row rather than
+    duplicating it. ``last_pulled`` / ``last_live_polled`` stamp the writing
+    channel's refresh date onto every row in the batch, advancing that channel's
+    rotation key (each preserves the other channel's prior stamp).
 
     After the upsert, any SCOTUS row in the batch carrying a lower-court link
     latches its originating tracked court-of-appeals docket eligible (the second
     half of the prediction-scope rule); an unlinked or untracked one is a no-op.
     """
-    store_rows = [to_corpus_row(row, last_pulled=last_pulled) for row in merge_rows(rows)]
+    store_rows = [
+        to_corpus_row(row, last_pulled=last_pulled, last_live_polled=last_live_polled)
+        for row in merge_rows(rows)
+    ]
     with corpus.connect(db_path) as conn:
         written = corpus.upsert_rows(conn, store_rows)
         corpus.latch_originating_eligible(conn, store_rows)

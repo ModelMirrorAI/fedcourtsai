@@ -30,7 +30,7 @@ from collections.abc import Callable, Iterable, Sequence
 import httpx
 from pydantic import BaseModel, Field
 
-from .recoverability import match_disposition_signal
+from .cert_signals import match_disposition_signal
 
 DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{term:02d}-{number}.json"
 
@@ -70,7 +70,7 @@ class RecordProbe(BaseModel):
     disposition_label: str | None = Field(
         default=None,
         description="First cert-disposition signal matched in the proceedings text "
-        "(recoverability's _ENTRY_SIGNALS), e.g. 'cert denied'; None if no order matched",
+        "(cert_signals.match_disposition_signal), e.g. 'cert denied'; None if no order matched",
     )
 
 

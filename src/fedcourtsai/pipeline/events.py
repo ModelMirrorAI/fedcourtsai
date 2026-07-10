@@ -75,6 +75,10 @@ _SUBJECT_PATTERNS: dict[EventKind, re.Pattern[str]] = {
     EventKind.petition: re.compile(r"petition(?:s)?\s+for\s+(?:a\s+)?(.+)", re.IGNORECASE),
 }
 
+# The substantive SCOTUS applications worth an entry-pinned event; every other
+# SCOTUS motion (extensions, IFP leave, amicus leave, …) is administrative.
+_SCOTUS_SUBSTANTIVE_MOTION_RE = re.compile(r"\bstay\b|\binjunction\b|\bemergency\b", re.IGNORECASE)
+
 # How a disposing order cites the entry it resolves: "Dkt. 12", "ECF No. 12",
 # "entry 12", "#12". The captured number is matched against an entry's number.
 _REFERENCE_RE = re.compile(
@@ -229,6 +233,33 @@ def extract_events(
             continue
 
         kind = kinds[0]
+        if (
+            kind == EventKind.motion
+            and row.court == "scotus"
+            and not _SCOTUS_SUBSTANTIVE_MOTION_RE.search(entry.text)
+        ):
+            # A SCOTUS docket's motions are overwhelmingly administrative —
+            # extensions of time, IFP leave, amicus leave — filed and granted as
+            # a matter of course; the live channel (#472) surfaces them on every
+            # petition, and each would sit as an open "predictable" event
+            # forever (SCOTUS orders never cite entry numbers, so the
+            # disposing-order latch cannot close them) and drag decided cases
+            # into the predict queue. Only the substantive applications the
+            # pipeline actually means to track (stay / injunction / emergency)
+            # earn an entry-pinned event; widening this is additive — a new
+            # pattern extracts on the next refresh.
+            continue
+        if kind == EventKind.petition and row.court == "scotus":
+            # At SCOTUS the petition *is* the case: the "petition for a writ of
+            # certiorari filed" entry (every live docket's first proceedings
+            # line, #472) duplicates the case-level baseline
+            # `evt-petition-disposition`, and a second open petition event would
+            # turn every deterministic resolution ambiguous ("the case-level
+            # disposition cannot be attributed to one event"). Rehearing and
+            # successive petitions collapse into the same baseline for the same
+            # reason; stays and emergency applications are motions and still
+            # extract as their own events.
+            continue
         event_id = ids.event_id(kind.value, _subject_slug(entry.text, kind))
         # Guarantee within-case uniqueness deterministically (two like motions).
         if event_id in used_ids:

@@ -54,6 +54,7 @@ from .config import (
     PredictScope,
     get_settings,
     load_courts,
+    load_live_config,
     load_predict_config,
     load_pull_config,
     load_seed_config,
@@ -73,6 +74,7 @@ from .paths import CasePaths
 from .pipeline import liveprobe
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
+from .pipeline.live import live_poll_all
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.recoverability import (
     dated_share_snapshot,
@@ -118,6 +120,7 @@ from .store import (
     open_events,
     resolved_events,
 )
+from .supremecourt import SupremeCourtClient, current_october_term
 from .usage import parse_claude_usage, parse_codex_usage, parse_gemini_usage
 from .validate import (
     run_corpus_validation,
@@ -1903,6 +1906,73 @@ def pull_all(
         typer.echo(
             f"Stopped early ({queues.stopped}); deferred {deferred} case(s) to the rotation."
         )
+
+
+@app.command("live-poll")
+def live_poll(
+    out: Annotated[Path, typer.Option(help="Write the predict queue JSON here.")] = Path(
+        "predict-queue.json"
+    ),
+    evaluate_out: Annotated[
+        Path, typer.Option(help="Write the evaluate queue JSON here (newly resolved events).")
+    ] = Path("evaluate-queue.json"),
+    reconcile_out: Annotated[
+        Path, typer.Option(help="Write the reconcile queue JSON here (decided but not readable).")
+    ] = Path("reconcile-queue.json"),
+    term: Annotated[
+        int | None,
+        typer.Option(
+            help="Two-digit October Term to probe for new filings (default: the "
+            "current Term, derived from today's date)."
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(
+            help="Optional lower cap on pending petitions to re-poll this cycle; "
+            "cannot exceed live.max_cases_per_run."
+        ),
+    ] = None,
+) -> None:
+    """One SCOTUS live-channel cycle: discover new petitions, refresh pending ones.
+
+    The live counterpart of ``pull-all`` (#472), fed by the supremecourt.gov
+    docket JSON — no CourtListener token, no API budget; caps in the ``live``
+    section of ``config/tracking.yaml`` bound wall clock and politeness.
+    Discovery probes the Term's numbering frontier from the persisted per-Term
+    cursor and onboards each served petition; the refresh re-polls the pending
+    modern-cert watchlist (recent Terms first). Resolution is detected from the
+    proceedings text, so a decided petition lands ``outcome.json``
+    deterministically. Writes the same three handoff queues as ``pull-all``.
+    """
+    settings = get_settings()
+    live_cfg = load_live_config(settings.config_root)
+    scope = load_predict_config(settings.config_root).scope
+    cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
+    today = date.today()
+    probe_term = term if term is not None else current_october_term(today)
+    db = corpus.corpus_db_path(settings.corpus_root)
+    with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
+        queues, discovery = live_poll_all(
+            client,
+            db,
+            settings.data_root,
+            term=probe_term,
+            config=live_cfg.model_copy(update={"max_cases_per_run": cap}),
+            scope=scope,
+            today=today,
+        )
+    _ensure_corpus_layout(db)
+    out.write_text(json.dumps(queues.predict) + "\n")
+    evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
+    reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
+    discovery_failed = f" ({len(discovery.failed)} stream error(s))" if discovery.failed else ""
+    typer.echo(
+        f"Live cycle (OT{probe_term:02d}): onboarded {len(discovery.onboarded)} new petition(s)"
+        f"{discovery_failed}{_format_refresh_failures(queues.failed)}; "
+        f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
+        f"{len(queues.reconcile)} reconcile."
+    )
 
 
 @app.command()

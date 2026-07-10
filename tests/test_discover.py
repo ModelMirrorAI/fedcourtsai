@@ -226,3 +226,37 @@ def test_discovery_stops_when_the_api_budget_is_exhausted(tmp_path: Path) -> Non
     assert result.stopped is not None
     assert result.stopped.startswith("API budget exhausted")
     assert result.failed == []
+
+
+def test_scotus_discovery_enriches_a_live_first_row(tmp_path: Path) -> None:
+    # The CourtListener half of the live channel's identity scheme (#472): a
+    # petition the live poller saw first keys on its reserved-range live id
+    # forever. CL discovery of the same docket number must enrich that row —
+    # and define its events under it — not mint a duplicate under the CL id.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/9025000007", court="scotus", docket_number="25-7")],
+        )
+    client = FakeSearch(
+        {
+            "scotus": [
+                _docket(
+                    74112233,
+                    "scotus",
+                    "2026-06-10",
+                    docket_number="25-7",
+                    case_name="Doe v. Roe",
+                )
+            ]
+        }
+    )
+    result = _discover(client, tmp_path, courts=["scotus"])
+    assert result.case_ids == ["scotus/9025000007"]
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, "scotus/74112233") is None
+        enriched = corpus.get_row(conn, "scotus/9025000007")
+        events = corpus.events_for_case(conn, "scotus/9025000007")
+    assert enriched is not None and enriched.case_name == "Doe v. Roe"
+    assert [e.event_id for e in events] == ["evt-petition-disposition"]

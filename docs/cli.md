@@ -19,8 +19,10 @@ configured metrics root and `--out`/`--json` overrides it.
 
 Onboard and refresh raw facts. `seed`/`pull`/`discover`/`pull-all` use the
 rate-limited CourtListener **REST API** (need an API token); `seed-backfill` uses
-the public **bulk** snapshot (no token, no budget). All ingest through the same
-core, so the corpus is written identically. `make-fixture-corpus` is the odd one
+the public **bulk** snapshot (no token, no budget); `live-poll` uses the
+**supremecourt.gov docket JSON** (no token, no budget — the SCOTUS live channel,
+[live-sources.md](live-sources.md)). All ingest through the same core, so the
+corpus is written identically. `make-fixture-corpus` is the odd one
 out: it writes a tiny **synthetic** corpus from hard-coded facts (no source, no
 network) for offline local runs and tests, never a substitute for the real corpus.
 
@@ -31,6 +33,7 @@ network) for offline local runs and tests, never a substitute for the real corpu
 | `seed-backfill` | Load the next chunk of CourtListener bulk data, advancing the committed cursor. The `run-seed` workflow loops it. | `--max-cases`, `--report`, `--staging-path` |
 | `discover` | Onboard newly-filed dockets in the tracked courts, advancing each court's watermark. | `--since`, `--limit` |
 | `pull-all` | Refresh the stalest tracked cases within the API budget; write the predict/evaluate/reconcile handoff queues. | `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
+| `live-poll` | One SCOTUS live-channel cycle (#472): probe the Term's docket-number frontier for new petitions (persisted per-Term cursor), re-poll the pending modern-cert watchlist (recent Terms first), detect resolution from the proceedings text, and write the same three handoff queues as `pull-all`. | `--term`, `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
 | `full-refresh` | Reset the seed cursor + corpus forward cursors so the whole tracked set re-seeds and re-pulls fresh (history preserved). Run by `run-seed` on the `full_refresh` dispatch input. | `--dry-run`, `--report` |
 | `make-fixture-corpus` | Build a tiny deterministic synthetic corpus (cases/events/snapshots across several courts) so the read commands work offline, no remote. | `--out` |
 

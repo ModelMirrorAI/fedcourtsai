@@ -91,7 +91,11 @@ def select_cert_backtest_set(
 # Snapshot fields that exist only because the matter was decided (or that record
 # the decision), stripped before an agentic replay sees the docket. Docket
 # entries go wholesale: the disposing order lives there, and no deterministic
-# rule can separate it from pre-decision entries.
+# rule can separate it from pre-decision entries. The live channel's snapshots
+# (#472) are the raw supremecourt.gov JSON, whose entries key is
+# `ProceedingsandOrder` — the disposing order rides there as plain text
+# ("Petition DENIED."), so it gets the same wholesale treatment; this blocklist
+# is key-name-based, so every channel's outcome-bearing keys must be listed.
 SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
     "disposition",
     "date_terminated",
@@ -108,6 +112,10 @@ SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
     "precedential_status",
     "summary",
     "docket_entries",
+    "ProceedingsandOrder",
+    # Regenerated on docket activity, so on a decided live docket it postdates
+    # (and thereby leaks the existence of) the decision.
+    "sJsonCreationDate",
 )
 
 
