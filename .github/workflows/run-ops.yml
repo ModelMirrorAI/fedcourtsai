@@ -1,6 +1,6 @@
 name: run-ops
 
-# Operational analytics dashboard (#89). A read-only DAILY roll-up of authoritative
+# Operational analytics dashboard. A read-only DAILY roll-up of authoritative
 # sources — pipeline health (the GitHub Actions run history), backfill progress +
 # rate/ETA (the seed cursor vs the previous snapshot), and model + Actions spend
 # (the usage ledger + run durations) — rendered by `fedcourts ops-report`.

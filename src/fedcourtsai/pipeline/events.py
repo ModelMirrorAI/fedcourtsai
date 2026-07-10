@@ -240,7 +240,7 @@ def extract_events(
         ):
             # A SCOTUS docket's motions are overwhelmingly administrative —
             # extensions of time, IFP leave, amicus leave — filed and granted as
-            # a matter of course; the live channel (#472) surfaces them on every
+            # a matter of course; the live channel surfaces them on every
             # petition, and each would sit as an open "predictable" event
             # forever (SCOTUS orders never cite entry numbers, so the
             # disposing-order latch cannot close them) and drag decided cases
@@ -252,7 +252,7 @@ def extract_events(
         if kind == EventKind.petition and row.court == "scotus":
             # At SCOTUS the petition *is* the case: the "petition for a writ of
             # certiorari filed" entry (every live docket's first proceedings
-            # line, #472) duplicates the case-level baseline
+            # line) duplicates the case-level baseline
             # `evt-petition-disposition`, and a second open petition event would
             # turn every deterministic resolution ambiguous ("the case-level
             # disposition cannot be attributed to one event"). Rehearing and

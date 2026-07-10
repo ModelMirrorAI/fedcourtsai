@@ -1,4 +1,4 @@
-"""The #523 reachability probe: classification, aggregation, and polite fetch."""
+"""The live-channel reachability probe: classification, aggregation, and polite fetch."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def test_classify_record_reads_links_and_disposition() -> None:
     assert probe.entries_with_links == 1
     assert probe.documents == 2
     # The plain-text denial order matches recoverability's cert-order signals —
-    # the fact that makes ingest-time resolution (#523) viable on this channel.
+    # the fact that makes ingest-time resolution viable on this channel.
     assert probe.disposition_label == "cert denied"
     assert "ProceedingsandOrder" in probe.keys
 

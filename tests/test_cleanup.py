@@ -38,7 +38,7 @@ def test_find_flags_out_of_scope_cases_only(tmp_path: Path) -> None:
     corpus_db = _seed_corpus(
         tmp_path / "corpus",
         [
-            # Out of scope: pre-1925 mandatory jurisdiction (#309) and stale unresolvable (#333).
+            # Out of scope: pre-1925 mandatory jurisdiction and stale unresolvable.
             corpus.CorpusRow(case_id="scotus/1001931", court="scotus", docket_number="801"),
             corpus.CorpusRow(case_id="scotus/1004191", court="scotus", docket_number="01-7700"),
             # In scope: a recent open petition.
@@ -63,7 +63,7 @@ def test_find_flags_out_of_scope_cases_only(tmp_path: Path) -> None:
 
 
 def test_find_flags_bare_opinion_import_case(tmp_path: Path) -> None:
-    # Issue #438: a bare bulk-import row (no docket number, no dates, no citation
+    # A bare bulk-import row (no docket number, no dates, no citation
     # fields) whose snapshot links an opinion cluster is prunable; the same bare
     # row without the cluster link stays untouched.
     data_root = tmp_path / "data"
@@ -133,12 +133,12 @@ def test_render_cleanup_pr_table_and_closes() -> None:
     prunable = [
         cleanup.PrunableCase(
             case_id="scotus/1004191",
-            reason="stale unresolvable old SCOTUS petition (#333)",
+            reason="stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
             paths=["data/cases/scotus/1004191/events/evt-petition-disposition/predictions"],
         ),
         cleanup.PrunableCase(
             case_id="scotus/1001931",
-            reason="pre-1925 mandatory-jurisdiction matter (#309)",
+            reason="pre-1925 mandatory-jurisdiction matter",
             paths=["p1", "p2"],
         ),
     ]
@@ -146,8 +146,11 @@ def test_render_cleanup_pr_table_and_closes() -> None:
     assert pr.branch == "cleanup/out-of-scope-predictions-RID"
     assert pr.title == "cleanup: prune predictions for 2 out-of-scope cases"
     assert pr.commit_message == pr.title
-    assert "| `scotus/1004191` | stale unresolvable old SCOTUS petition (#333) | 1 |" in pr.body
-    assert "| `scotus/1001931` | pre-1925 mandatory-jurisdiction matter (#309) | 2 |" in pr.body
+    assert (
+        "| `scotus/1004191` | stale unresolvable old SCOTUS petition "
+        "(pre-2015 Term, still open) | 1 |" in pr.body
+    )
+    assert "| `scotus/1001931` | pre-1925 mandatory-jurisdiction matter | 2 |" in pr.body
     assert "Closes #320." in pr.body
     assert "not** auto-merged" in pr.body
 

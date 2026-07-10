@@ -39,7 +39,7 @@
       "type": "string"
     },
     "mcp_servers": {
-      "description": "Manifest ids this evaluator's cells are configured with (#525).",
+      "description": "Manifest ids this evaluator's cells are configured with.",
       "items": {
         "type": "string"
       },

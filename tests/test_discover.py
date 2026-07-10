@@ -229,7 +229,7 @@ def test_discovery_stops_when_the_api_budget_is_exhausted(tmp_path: Path) -> Non
 
 
 def test_scotus_discovery_enriches_a_live_first_row(tmp_path: Path) -> None:
-    # The CourtListener half of the live channel's identity scheme (#472): a
+    # The CourtListener half of the live channel's identity scheme: a
     # petition the live poller saw first keys on its reserved-range live id
     # forever. CL discovery of the same docket number must enrich that row —
     # and define its events under it — not mint a duplicate under the CL id.

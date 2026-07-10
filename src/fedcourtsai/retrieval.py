@@ -1,9 +1,10 @@
-"""Extract the cell's tool-call transcript from the engines' own run logs (#525).
+"""Extract the cell's tool-call transcript from the engines' own run logs.
 
 The retrieval-logging counterpart of :mod:`fedcourtsai.usage`, and the
 load-bearing piece of the lean-agentic leakage approach: the log is harvested
-from the engine's transcript — **never the agent's word** — so the #526
-evaluator can grade what a replay cell actually retrieved. The three engines
+from the engine's transcript — **never the agent's word** — so the
+cross-evaluator's leakage grading can see what a replay cell actually
+retrieved. The three engines
 log tool calls in the same places their token usage lives:
 
 - **Claude Code**: the ``execution_file`` transcript's assistant messages carry
@@ -39,7 +40,7 @@ from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollou
 _QUERY_CAP = 500
 # Keys that carry the query-ish part of a tool's params, most specific first.
 _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "endpoint")
-# A document/decision date in a result payload — the #526 timing signal. The
+# A document/decision date in a result payload — the leakage grading's timing signal. The
 # quotes tolerate a backslash: a result often nests JSON inside a text block,
 # so the serialized form the regex scans carries escaped quotes.
 _DOC_DATE_RE = re.compile(

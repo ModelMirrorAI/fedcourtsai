@@ -90,7 +90,7 @@ jobs:
           else
             echo "has_jobs=false" >> "$GITHUB_OUTPUT"
           fi
-          # Ops analytics (#89): record the planned fan-out in the Actions UI.
+          # Ops analytics: record the planned fan-out in the Actions UI.
           echo "## run-evaluate — queued ${count} evaluation job(s)" >> "$GITHUB_STEP_SUMMARY"
 
       # An empty matrix means every queued case was out of scope (or has no scorable
@@ -180,7 +180,7 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
-      # Configure the cell's MCP retrieval (#525) from the evaluator registry's
+      # Configure the cell's MCP retrieval from the evaluator registry's
       # tool manifest (config/evaluators.yaml `mcp_servers:`) — evaluators get
       # the same retrieval as predictors so a judge can check a cited authority
       # rather than take it on faith. Same posture as run-predict: the tested
@@ -393,7 +393,7 @@ jobs:
           else
             args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
           fi
-          # Surface the measured tokens + estimated $ in the Actions UI (#89). The
+          # Surface the measured tokens + estimated $ in the Actions UI. The
           # command already prints `usage: <actor> <N> tok ~$<cost> -> <path>`; keep
           # all but the path. A miss just warns (best-effort, like the step itself).
           if out=$(uv run fedcourts "${args[@]}"); then
@@ -406,7 +406,7 @@ jobs:
             echo "::warning::no model usage captured for ${EVENT_ID}"
           fi
 
-      # Harvest the cell's tool-call transcript to retrieval_log.json (#525) —
+      # Harvest the cell's tool-call transcript to retrieval_log.json —
       # from the engine's own log, never the agent's word — the same posture as
       # run-predict. Runs even when the agent failed (a partial transcript is
       # still evidence); best-effort, so a parse miss warns rather than fails.
