@@ -62,11 +62,19 @@ class EventPaths:
     def prediction_usage(self, predictor_id: str, run_id: str) -> Path:
         return self.prediction_dir(predictor_id, run_id) / "usage.json"
 
+    def prediction_retrieval_log(self, predictor_id: str, run_id: str) -> Path:
+        # The harness-captured tool-call transcript (#525), beside usage.json.
+        return self.prediction_dir(predictor_id, run_id) / "retrieval_log.json"
+
     def evaluation_usage(self, evaluator_id: str, run_id: str) -> Path:
         # One evaluate cell scores every predictor for the event in a single run,
         # so its usage is keyed by evaluator x run, a level above the per-predictor
         # evaluation directories.
         return self.base / "evaluations" / evaluator_id / run_id / "usage.json"
+
+    def evaluation_retrieval_log(self, evaluator_id: str, run_id: str) -> Path:
+        # The harness-captured tool-call transcript (#525), keyed like its usage.
+        return self.base / "evaluations" / evaluator_id / run_id / "retrieval_log.json"
 
     def evaluation_flags(self, evaluator_id: str, run_id: str) -> Path:
         # An evaluate cell's optional flags.json, keyed by evaluator x run like its
@@ -106,6 +114,13 @@ class CasePaths:
         # from the corpus by the predict/evaluate/reconcile workflow. Gitignored
         # (`record/` is never committed) — the snapshot's home is the corpus.
         return self.record / "snapshots" / f"{day}.json"
+
+    @property
+    def cell_context(self) -> Path:
+        # The cell's provisioned mode (`{"mode": "forward" | "replay", ...}`, #525):
+        # written at provisioning so the prompt contract can key etiquette on it.
+        # Gitignored with the rest of record/.
+        return self.record / "context.json"
 
     @property
     def documents_dir(self) -> Path:

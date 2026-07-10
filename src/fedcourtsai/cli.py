@@ -14,7 +14,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -26,7 +26,9 @@ from . import (
     dvc,
     ids,
     integration_check,
+    mcp,
     metrics_refresh,
+    retrieval,
 )
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
@@ -96,7 +98,13 @@ from .pipeline.seed import (
     sibling_bulk_url,
 )
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
-from .registry import enabled_predictors, load_evaluators, load_predictors
+from .registry import (
+    enabled_predictors,
+    load_evaluators,
+    load_mcp_servers,
+    load_predictors,
+    resolve_mcp_servers,
+)
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
@@ -109,6 +117,8 @@ from .schemas import (
     ModelUsage,
     OpsReport,
     PredictableEvent,
+    RetrievalCall,
+    RetrievalLog,
     UsageRole,
 )
 from .serialize import write_json, write_raw_json, write_text, write_yaml
@@ -694,6 +704,86 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     )
 
 
+@app.command("record-retrieval")
+def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex | gemini).")],
+    role: Annotated[UsageRole, typer.Option(help="predictor (predict) | evaluator (evaluate).")],
+    actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
+    mode: Annotated[
+        str, typer.Option(help="The cell's provisioned mode: forward | replay ('' = unknown).")
+    ] = "",
+    claude_execution_file: Annotated[
+        Path | None, typer.Option(help="Claude Code execution_file JSON to read tool calls from.")
+    ] = None,
+    codex_sessions_dir: Annotated[
+        Path | None, typer.Option(help="Codex sessions dir (CODEX_HOME/sessions) to read.")
+    ] = None,
+    gemini_telemetry_file: Annotated[
+        Path | None, typer.Option(help="Gemini CLI telemetry.log to read tool calls from.")
+    ] = None,
+) -> None:
+    """Record the cell's tool-call transcript to ``retrieval_log.json`` (#525).
+
+    The load-bearing half of the leakage doctrine: the log is harvested from
+    the engine's own transcript (the same sources ``record-usage`` reads),
+    never the agent's word, so the #526 evaluator can grade what a replay cell
+    actually retrieved. The pinned tool manifest the cell was configured with
+    (from the actor's registry entry) is snapshotted alongside — the
+    pipeline-attribution record. A cell with zero tool calls still records an
+    empty log: "retrieved nothing" is itself evidence.
+    """
+    settings = get_settings()
+    calls: list[RetrievalCall] = []
+    if claude_execution_file is not None:
+        calls = retrieval.parse_claude_retrieval(claude_execution_file)
+    elif codex_sessions_dir is not None:
+        calls = retrieval.parse_codex_retrieval(codex_sessions_dir)
+    elif gemini_telemetry_file is not None:
+        calls = retrieval.parse_gemini_retrieval(gemini_telemetry_file)
+
+    registry_file = settings.config_root / (
+        "predictors.yaml" if role == UsageRole.predictor else "evaluators.yaml"
+    )
+    labels: list[str] = []
+    try:
+        actors: list[Any] = (
+            load_predictors(registry_file)
+            if role == UsageRole.predictor
+            else load_evaluators(registry_file)
+        )
+        match = next((a for a in actors if a.id == actor), None)
+        if match is not None:
+            servers = resolve_mcp_servers(load_mcp_servers(registry_file), match.mcp_servers)
+            labels = mcp.manifest_labels(servers)
+    except (OSError, KeyError):
+        # Attribution is best-effort here: a registry drift must not lose the
+        # harvested calls (the plan already validated the registry).
+        labels = []
+
+    record = RetrievalLog(
+        case_id=ids.case_id(court, docket),
+        run_id=run_id,
+        role=role,
+        actor_id=actor,
+        engine=engine,
+        mode=mode or None,
+        mcp_servers=labels,
+        calls=calls,
+    )
+    event_paths = CasePaths(settings.data_root, court, docket).event(event)
+    destination = (
+        event_paths.prediction_retrieval_log(actor, run_id)
+        if role == UsageRole.predictor
+        else event_paths.evaluation_retrieval_log(actor, run_id)
+    )
+    write_json(destination, record)
+    typer.echo(f"retrieval: {actor} {len(calls)} call(s) -> {destination}")
+
+
 @app.command("usage-summary")
 def usage_summary() -> None:
     """Sum recorded ``usage.json`` into an actual \\$/run, as JSON on stdout.
@@ -871,6 +961,64 @@ def export_schemas(
     for name, model in EXPORTABLE_MODELS.items():
         write_raw_json(out / f"{name}.schema.json", model.model_json_schema())
     typer.echo(f"Exported {len(EXPORTABLE_MODELS)} schema(s) to {out}")
+
+
+@app.command("mcp-config")
+def mcp_config_cmd(
+    engine: Annotated[
+        str, typer.Option(help="Which client format to emit: claude-code | codex | gemini.")
+    ],
+    role: Annotated[
+        str, typer.Option(help="Registry to read: predictor (predictors.yaml) | evaluator.")
+    ],
+    actor: Annotated[str, typer.Option(help="The predictor/evaluator id whose manifest to emit.")],
+    base_settings: Annotated[
+        Path | None,
+        typer.Option(
+            help="gemini only: existing settings.json to merge mcpServers into "
+            "(preserves the telemetry block the usage capture reads)."
+        ),
+    ] = None,
+) -> None:
+    """Emit one engine's MCP client config from the versioned tool manifest (#525).
+
+    The single seam between the registry's ``mcp_servers`` manifest and the
+    three engines' client formats (Claude ``--mcp-config`` JSON, Codex
+    ``config.toml`` tables, Gemini ``settings.json``), so the workflow steps
+    only plumb stdout to a file. Token values are injected from THIS process's
+    environment (see ``fedcourtsai.mcp``); run it in the step that holds the
+    dedicated agent token. An actor with an empty manifest emits an empty
+    config — a cell without retrieval is a valid configuration, not an error.
+    """
+    settings = get_settings()
+    if role not in ("predictor", "evaluator"):
+        typer.echo(f"unknown --role '{role}'; choose predictor or evaluator", err=True)
+        raise typer.Exit(code=2)
+    registry_file = settings.config_root / (
+        "predictors.yaml" if role == "predictor" else "evaluators.yaml"
+    )
+    actors: list[Any] = (
+        load_predictors(registry_file) if role == "predictor" else load_evaluators(registry_file)
+    )
+    match = next((a for a in actors if a.id == actor), None)
+    if match is None:
+        typer.echo(f"no {role} '{actor}' in {registry_file}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        servers = resolve_mcp_servers(load_mcp_servers(registry_file), match.mcp_servers)
+    except KeyError as exc:
+        typer.echo(f"manifest id {exc} not in {registry_file} mcp_servers", err=True)
+        raise typer.Exit(code=2) from exc
+    if engine == "claude-code":
+        typer.echo(mcp.claude_mcp_config(servers), nl=False)
+    elif engine == "codex":
+        typer.echo(mcp.codex_mcp_config(servers), nl=False)
+    elif engine == "gemini":
+        base = json.loads(base_settings.read_text()) if base_settings else None
+        typer.echo(mcp.gemini_mcp_settings(servers, base), nl=False)
+    else:
+        typer.echo(f"unknown --engine '{engine}'", err=True)
+        raise typer.Exit(code=2)
 
 
 CorpusBackendOption = Annotated[
@@ -1428,8 +1576,12 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     match on overlap and rank the results by how much they share. Prints one
     compact JSON row per line, ranked, with ``opinion_text`` omitted unless
     ``--full``. Reads the ``dvc pull``-ed file, or the blob in place on the
-    remote with ``--corpus-backend ranged``. Semantic search lands later on the
-    same query seam.
+    remote with ``--corpus-backend ranged``.
+
+    Maintained as-is (#525): cells' open-web retrieval moved to the official
+    CourtListener MCP server, so this surface gets no further feature work —
+    it stays the corpus-priors/base-rates read (the one retrieval a *replay*
+    cell leans on) rather than growing into a bespoke search engine.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -1634,6 +1786,14 @@ def provision_snapshot(
         Path | None,
         typer.Option(help="Where to write the snapshot; defaults to the case's record path."),
     ] = None,
+    mode: Annotated[
+        str,
+        typer.Option(
+            help="The cell's mode, written into record/context.json (#525): forward "
+            "(a live cell — the default) | replay (a back-test cell; the replay "
+            "provisioner in cert_backtest writes this itself)."
+        ),
+    ] = "forward",
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's latest corpus snapshot (and documents) for an agent run.
@@ -1660,11 +1820,17 @@ def provision_snapshot(
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (dvc pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
+    if mode not in ("forward", "replay"):
+        typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
+        raise typer.Exit(code=2)
     snapshot_date, payload = found
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
-    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} -> {dest}")
+    # The cell's mode context (#525): stated at provisioning so the prompt
+    # contract keys replay etiquette on it rather than inferring from env vars.
+    write_raw_json(paths.cell_context, {"mode": mode})
+    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}) -> {dest}")
     if documents:
         for doc in documents:
             write_text(paths.document(doc.kind), doc.text)

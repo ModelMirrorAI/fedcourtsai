@@ -180,6 +180,43 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
+      # Configure the cell's MCP retrieval (#525) from the evaluator registry's
+      # tool manifest (config/evaluators.yaml `mcp_servers:`) — evaluators get
+      # the same retrieval as predictors so a judge can check a cited authority
+      # rather than take it on faith. Same posture as run-predict: the tested
+      # `mcp-config` command emits each engine's client format, the DEDICATED
+      # agent-traffic token is injected into the workspace-local, gitignored
+      # file (never uploaded — the artifact lists status.json + data/), and an
+      # unset secret degrades to anonymous rate limits.
+      - name: Configure agent retrieval (MCP)
+        env:
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
+          ENGINE: ${{ matrix.engine }}
+          EVALUATOR_ID: ${{ matrix.evaluator_id }}
+        run: |
+          set -euo pipefail
+          case "$ENGINE" in
+            claude-code)
+              uv run fedcourts mcp-config --engine claude-code \
+                --role evaluator --actor "$EVALUATOR_ID" > mcp-servers.json
+              ;;
+            codex)
+              mkdir -p .codex
+              uv run fedcourts mcp-config --engine codex \
+                --role evaluator --actor "$EVALUATOR_ID" > .codex/config.toml
+              ;;
+            gemini)
+              # Written whole here (telemetry block included): the secret-free
+              # npm install step below must not carry the token this step holds.
+              mkdir -p .gemini
+              printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
+              uv run fedcourts mcp-config --engine gemini \
+                --role evaluator --actor "$EVALUATOR_ID" \
+                --base-settings .gemini/settings.json > .gemini/settings.json.new
+              mv .gemini/settings.json.new .gemini/settings.json
+              ;;
+          esac
+
       - name: Evaluate with Claude Code
         id: evaluate_claude
         if: matrix.engine == 'claude-code'
@@ -236,6 +273,7 @@ jobs:
             --model ${{ matrix.model }}
             --max-turns 120
             --permission-mode bypassPermissions
+            --mcp-config mcp-servers.json
 
       - name: Evaluate with Codex
         id: evaluate_codex
@@ -279,10 +317,9 @@ jobs:
           set -euo pipefail
           npm install --silent --no-audit --ignore-scripts --global @google/gemini-cli@0.49.0
           gemini --version
-          mkdir -p .gemini
-          # Emit token usage to a local telemetry log the capture step parses; never
-          # log prompt/response bodies (docket text is untrusted third-party data).
-          printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
+          # .gemini/settings.json (telemetry + mcpServers) is written by the
+          # "Configure agent retrieval" step above: it needs the agent token in
+          # its env, and this npm step must stay secret-free.
 
       # Gemini runs through its CLI directly, not the upstream run-gemini-cli
       # action: that action internally `uses:` unpinned actions
@@ -368,6 +405,39 @@ jobs:
           else
             echo "::warning::no model usage captured for ${EVENT_ID}"
           fi
+
+      # Harvest the cell's tool-call transcript to retrieval_log.json (#525) —
+      # from the engine's own log, never the agent's word — the same posture as
+      # run-predict. Runs even when the agent failed (a partial transcript is
+      # still evidence); best-effort, so a parse miss warns rather than fails.
+      - name: Capture retrieval log
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          EVALUATOR_ID: ${{ matrix.evaluator_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          ENGINE: ${{ matrix.engine }}
+          CLAUDE_EXECUTION_FILE: ${{ steps.evaluate_claude.outputs.execution_file }}
+          CODEX_HOME: ${{ github.workspace }}/.codex
+          GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
+        run: |
+          set -euo pipefail
+          args=(record-retrieval
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
+            --run-id "$RUN_ID" --engine "$ENGINE"
+            --role evaluator --actor "$EVALUATOR_ID")
+          if [ "$ENGINE" = "claude-code" ] && [ -n "$CLAUDE_EXECUTION_FILE" ]; then
+            args+=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+          elif [ "$ENGINE" = "gemini" ]; then
+            args+=(--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE")
+          elif [ "$ENGINE" = "codex" ]; then
+            args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
+          fi
+          uv run fedcourts "${args[@]}" \
+            || echo "::warning::no retrieval log captured for ${EVENT_ID}"
 
       # Finalize even when the agent step failed or timed out (`!cancelled()`), so a
       # run stopped by max-turns or the step timeout still hands its partial output

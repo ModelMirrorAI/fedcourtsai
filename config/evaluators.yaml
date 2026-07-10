@@ -3,12 +3,27 @@
 # event (evaluator x predictor fan-out). Quantitative scores (correctness,
 # Brier, vote accuracy) are computed identically in code; evaluators add the
 # qualitative judgment of the predicted reasoning.
+
+# Tool manifest (#525): same shape and rules as config/predictors.yaml —
+# pinned MCP servers, referenced per evaluator by id, echoed into each cell's
+# retrieval_log.json. Evaluators get the same retrieval as predictors so a
+# judge can check a cited authority rather than take it on faith.
+mcp_servers:
+  - id: courtlistener
+    package: "courtlistener-api-client[mcp]==1.0.0"
+    command: courtlistener-mcp
+    token_env: COURTLISTENER_API_TOKEN
+    description: >-
+      Official CourtListener MCP (see config/predictors.yaml for the full
+      rationale; keep the two manifests' pins in lockstep).
+
 evaluators:
   - id: claude-judge
     engine: claude-code
     model: null
     prompt: .github/prompts/evaluate.md
     enabled: true
+    mcp_servers: [courtlistener]
     description: Claude Code evaluator scoring reasoning quality against the outcome.
 
   - id: codex-judge
@@ -16,6 +31,7 @@ evaluators:
     model: null
     prompt: .github/prompts/evaluate.md
     enabled: true
+    mcp_servers: [courtlistener]
     description: Codex evaluator, for cross-checking the Claude evaluator.
 
   - id: gemini-judge
@@ -23,4 +39,5 @@ evaluators:
     model: null
     prompt: .github/prompts/evaluate.md
     enabled: true
+    mcp_servers: [courtlistener]
     description: Gemini evaluator, for cross-checking the Claude and Codex evaluators.

@@ -74,12 +74,21 @@ non-interactive** container. Two consequences shape everything you do:
   enabling work further from the output, a one-line "this serves X" is enough.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
-- **Predict from the snapshot.** Predictors reason only from the point-in-time
-  snapshot the workflow provisions from the corpus. Do not invent facts or fetch
-  new docket facts mid-prediction. (You may use the CourtListener MCP server for
-  *legal context* like precedent — never for new case facts.)
-- **No secrets in code or data.** Never print, log, or write API tokens. They
-  arrive only as environment variables.
+- **The snapshot is the baseline; timing is the leakage control (#525).** The
+  provisioned point-in-time snapshot is every predictor's guaranteed-common
+  input, not a ceiling. What else a cell may retrieve is keyed on its **mode**
+  (`record/context.json`): a `forward` cell (pending case — the outcome does
+  not exist yet) may use the configured retrieval tools without restriction; a
+  `replay` cell has the same tools but must not seek information about *its
+  case* postdating the event date, and discloses any outcome-revealing material
+  it surfaces in `flags.json`. Never invent facts. The prompt template carries
+  the full contract; all tool calls are logged harness-side.
+- **No secrets in code or data.** Never print or log API tokens; they arrive
+  as environment variables. One narrow carve-out (#525): the workflow's
+  MCP-config step writes the dedicated agent-traffic CourtListener token into
+  the runner-local, gitignored client-config files the engines read
+  (`mcp-servers.json`, `.codex/`, `.gemini/`) — never into `data/`, a commit,
+  or an artifact. Do not copy tokens anywhere else.
 
 ## Local gate
 

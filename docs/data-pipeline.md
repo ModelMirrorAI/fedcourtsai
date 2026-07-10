@@ -110,18 +110,22 @@ collapses the seed/pull source split (bulk breadth vs REST depth) and dissolves
 the budget constraint above.
 
 The pivot swaps the **channels**, never the **corpus**. The packed corpus and
-its point-in-time snapshots remain the system of record agents read — but the
-reason is mode-specific, and worth keeping straight. In a **back-test replay**
-the snapshot boundary is a correctness rule: a live query returns the decided
-docket, outcome included. In a **forward** cell nothing live can leak — the
-outcome does not exist yet — and the snapshot rule is instead about
-comparability (every predictor in a fan-out reads the same record, so the
-tournament compares predictors, not fetch timing) and, today, the API budget.
-The replica dissolves the budget half and shrinks snapshot staleness toward
-zero, so keeping the forward-cell rule becomes a deliberate comparability
-choice rather than a necessity — one to revisit consciously at adoption.
-Either way, the replica arrives as a third source feeding the same normalized
-rows — a richer, faster seed-and-pull, not a new consumer surface.
+its point-in-time snapshots remain the system of record agents read — under
+the **leakage doctrine** (#525): *timing is the leakage control; the snapshot
+is the provisioned baseline, not a ceiling.* A **forward** cell uses everything
+practically available — the outcome does not exist yet, so nothing it can
+retrieve leaks it; the snapshot's job is comparability (every predictor in a
+fan-out reads the same guaranteed-common baseline, so the tournament compares
+predictors, not fetch timing). A **replay** cell gets the *same tools* plus
+etiquette (the mode rides in `record/context.json`), harness-side retrieval
+logging (`retrieval_log.json`, read from the engine's own transcript), and
+evaluator grading (#526) — instead of walls. The replay/forward configuration
+difference is deliberately *behavioral, not technical* — a written decision:
+the dry run validates event formation, prompts, and scoring, not the forward
+stratum's evidence availability, and backtest results are iteration signal,
+never claimable performance. Either way, the replica arrives as a third source
+feeding the same normalized rows — a richer, faster seed-and-pull, not a new
+consumer surface.
 
 Until then, four guardrails keep interim work from blocking the pivot:
 

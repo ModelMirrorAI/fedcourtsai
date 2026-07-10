@@ -11,12 +11,37 @@
 #                fedcourtsai.pricing.DEFAULT_MODELS, e.g. claude-fable-5)
 #   prompt:      repo-relative path to the prompt template
 #   enabled:     skipped when false
+#   mcp_servers: manifest ids (below) this predictor's cells get (#525)
+
+# Tool manifest (#525): the pinned MCP servers cells may be configured with,
+# referenced per predictor by id. This is the pipeline-attribution record once
+# cells' retrieval varies — each cell's retrieval_log.json snapshots the pinned
+# entries it ran with. FREEZE before the September prediction freeze. Fields
+# validate against schemas/mcp_server_config.schema.json; the per-engine client
+# configs are emitted by `fedcourts mcp-config` from these entries.
+mcp_servers:
+  - id: courtlistener
+    # The official Free Law Project server, local-install stdio mode (the hosted
+    # endpoint's OAuth flow does not fit headless CI). Launched as
+    # `uvx --from '<package>' courtlistener-mcp`; exact-version pinned.
+    package: "courtlistener-api-client[mcp]==1.0.0"
+    command: courtlistener-mcp
+    # The DEDICATED agent-traffic token (repo secret COURTLISTENER_AGENT_API_TOKEN
+    # wired to this env var in the cell), never ingestion's token — a chatty cell
+    # must not starve pull. Unset degrades to anonymous rate limits.
+    token_env: COURTLISTENER_API_TOKEN
+    description: >-
+      Official CourtListener MCP: search, endpoint access, and citation tools
+      over the full legal database. Retrieval under the leakage doctrine —
+      timing is the control; the #526 evaluator grades replay-cell usage.
+
 predictors:
   - id: claude-baseline
     engine: claude-code
     model: null
     prompt: .github/prompts/predict.md
     enabled: true
+    mcp_servers: [courtlistener]
     description: >-
       Baseline Claude Code predictor. Reads the case snapshot and event, emits a
       calibrated grant/deny probability, panel votes, and a reasoning document.
@@ -26,6 +51,7 @@ predictors:
     model: null
     prompt: .github/prompts/predict.md
     enabled: true
+    mcp_servers: [courtlistener]
     description: >-
       Baseline Codex predictor using the same prompt for an apples-to-apples
       comparison against claude-baseline.
@@ -35,6 +61,7 @@ predictors:
     model: null
     prompt: .github/prompts/predict.md
     enabled: true
+    mcp_servers: [courtlistener]
     description: >-
       Baseline Gemini predictor using the same prompt for an apples-to-apples
       comparison against claude-baseline and codex-baseline.
