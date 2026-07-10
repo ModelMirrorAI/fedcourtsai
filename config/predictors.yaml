@@ -26,9 +26,11 @@ mcp_servers:
     # `uvx --from '<package>' courtlistener-mcp`; exact-version pinned.
     package: "courtlistener-api-client[mcp]==1.0.0"
     command: courtlistener-mcp
-    # The DEDICATED agent-traffic token (repo secret COURTLISTENER_AGENT_API_TOKEN
-    # wired to this env var in the cell), never ingestion's token — a chatty cell
-    # must not starve pull. Unset degrades to anonymous rate limits.
+    # The agent-traffic secret (repo secret COURTLISTENER_AGENT_API_TOKEN wired
+    # to this env var in the cell) — a separate secret name, not a separate
+    # CourtListener identity: the project runs one CourtListener account, so it
+    # may hold the same token as ingestion's. Unset degrades to anonymous rate
+    # limits.
     token_env: COURTLISTENER_API_TOKEN
     description: >-
       Official CourtListener MCP: search, endpoint access, and citation tools

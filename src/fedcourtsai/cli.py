@@ -988,7 +988,7 @@ def mcp_config_cmd(
     ``config.toml`` tables, Gemini ``settings.json``), so the workflow steps
     only plumb stdout to a file. Token values are injected from THIS process's
     environment (see ``fedcourtsai.mcp``); run it in the step that holds the
-    dedicated agent token. An actor with an empty manifest emits an empty
+    agent-traffic secret. An actor with an empty manifest emits an empty
     config — a cell without retrieval is a valid configuration, not an error.
     """
     settings = get_settings()

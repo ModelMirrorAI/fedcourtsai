@@ -26,7 +26,7 @@ everything outside `.github/workflows`.)
 
 - **Secrets.** No token printed, logged, committed, or written to a path that
   can reach a commit or an artifact. The one documented carve-out is the
-  MCP-config step writing the dedicated agent token into runner-local
+  MCP-config step writing the agent-traffic secret into runner-local
   gitignored client files — anything beyond it needs the docs updated and a
   justification. New secrets belong on the `runner` environment and in
   `docs/security.md`'s inventory.

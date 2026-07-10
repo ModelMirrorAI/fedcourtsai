@@ -188,12 +188,16 @@ jobs:
       # Configure the cell's MCP retrieval from the versioned tool
       # manifest (config/predictors.yaml `mcp_servers:`). The tested `mcp-config`
       # command emits each engine's client format; this step only plumbs stdout
-      # to the file the engine reads. The DEDICATED agent-traffic token
-      # (COURTLISTENER_AGENT_API_TOKEN — never ingestion's token, so a chatty
-      # cell cannot starve pull) is injected into the generated file, which is
-      # workspace-local, gitignored, and never part of the uploaded artifact
-      # (the upload lists status.json + data/ explicitly). An unset secret
-      # degrades the server to anonymous rate limits rather than failing the cell.
+      # to the file the engine reads. The agent-traffic secret
+      # (COURTLISTENER_AGENT_API_TOKEN) is injected into the generated file,
+      # which is workspace-local, gitignored, and never part of the uploaded
+      # artifact (the upload lists status.json + data/ explicitly). It is a
+      # separate secret NAME, not a separate CourtListener identity —
+      # CourtListener issues one token per account and this project runs a
+      # single account, so it may hold the same token as ingestion's; the
+      # distinct name is the seam for giving agent traffic its own credential
+      # later without rewiring. An unset secret degrades the server to
+      # anonymous rate limits rather than failing the cell.
       - name: Configure agent retrieval (MCP)
         env:
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
@@ -239,7 +243,7 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # The dedicated agent-traffic token — never ingestion's.
+          # The agent-traffic secret (may hold the same CourtListener token as ingestion's).
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
         with:
           # run-pull files this predict issue as the trusted pipeline App
@@ -297,7 +301,7 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # The dedicated agent-traffic token — never ingestion's.
+          # The agent-traffic secret (may hold the same CourtListener token as ingestion's).
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
@@ -353,7 +357,7 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # The dedicated agent-traffic token — never ingestion's.
+          # The agent-traffic secret (may hold the same CourtListener token as ingestion's).
           COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
           # The agent's least-privilege token (no contents:write) for any `gh issue
           # comment` it makes; the workflow's app-token does the commit/PR.

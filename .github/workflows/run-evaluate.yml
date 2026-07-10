@@ -184,8 +184,8 @@ jobs:
       # tool manifest (config/evaluators.yaml `mcp_servers:`) — evaluators get
       # the same retrieval as predictors so a judge can check a cited authority
       # rather than take it on faith. Same posture as run-predict: the tested
-      # `mcp-config` command emits each engine's client format, the DEDICATED
-      # agent-traffic token is injected into the workspace-local, gitignored
+      # `mcp-config` command emits each engine's client format, the
+      # agent-traffic secret is injected into the workspace-local, gitignored
       # file (never uploaded — the artifact lists status.json + data/), and an
       # unset secret degrades to anonymous rate limits.
       - name: Configure agent retrieval (MCP)

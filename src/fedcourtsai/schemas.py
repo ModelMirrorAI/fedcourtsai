@@ -1293,8 +1293,8 @@ class McpServerConfig(_Strict):
     command: str = Field(description="The stdio server entrypoint, e.g. `courtlistener-mcp`")
     token_env: str | None = Field(
         default=None,
-        description="Environment variable carrying the server's API token (the dedicated "
-        "agent-traffic token, never ingestion's). Unset/empty at runtime degrades to "
+        description="Environment variable carrying the server's API token (wired from "
+        "the agent-traffic secret in the cell). Unset/empty at runtime degrades to "
         "anonymous rate limits rather than failing the cell.",
     )
     description: str | None = None

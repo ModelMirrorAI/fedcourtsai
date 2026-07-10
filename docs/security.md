@@ -142,11 +142,12 @@ the App token.
 Every secret and both S3 role ARNs live on the `runner` environment — the App
 credentials, the Claude OAuth token, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (ingestion) and `COURTLISTENER_AGENT_API_TOKEN`
-(the cells' dedicated agent-traffic token — evaluate cells now carry an
-agent credential they previously didn't; unset degrades to anonymous rate
-limits), the AWS role ARNs and region, and the DVC remote URL (referenced by
-role, never committed). Every job that needs any of them declares
-`environment: runner`.
+(the cells' agent-traffic secret — a separate secret name that may hold the
+same single-account CourtListener token as ingestion's, so a leak from an
+agent cell burns the ingestion credential too and rotation is a single
+account-wide event; unset degrades to anonymous rate limits), the AWS role
+ARNs and region, and the DVC remote URL (referenced by role, never
+committed). Every job that needs any of them declares `environment: runner`.
 
 **Deployment branches are restricted to `main`.** A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch —

@@ -218,7 +218,13 @@ only once the gate widens toward keeping all fourteen courts current at the live
 frontier. The membership raises the *ceiling*; the client still throttles to
 whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to in the runner
 env (wired in `run-pull.yml` from repo variables, defaulting to the held tier), so
-realizing a higher rate means setting those variables — no code change. The
+realizing a higher rate means setting those variables — no code change. One
+caveat to the arithmetic: agent-cell MCP retrieval does not pass through this
+in-process governor, and when the agent-traffic secret holds the same
+single-account token as ingestion's, cell lookups draw from the same per-token
+quota the pull math above treats as pull's alone — a chatty run can consume
+headroom the governor cannot see. The separate secret name is the seam that
+restores the bound if agent traffic ever gets its own credential. The
 throttle paces, it never stalls: a wait past the client's max-wait setting (an
 exhausted hour/day window) raises instead of sleeping, and the run wraps up early
 — see the degradation guards in [data-pipeline.md](data-pipeline.md).

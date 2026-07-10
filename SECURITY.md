@@ -12,9 +12,12 @@
   action handles `CLAUDE_CODE_OAUTH_TOKEN` and the Gemini action `GEMINI_API_KEY`
   similarly. The lower-sensitivity CourtListener tokens are passed as a scoped
   step env only where needed — with one deliberate carve-out: the cells'
-  MCP-config step writes the **dedicated agent-traffic token**
-  (`COURTLISTENER_AGENT_API_TOKEN`, a separate rate-limit identity from
-  ingestion's, rotatable without touching pull) into the runner-local,
+  MCP-config step writes the **agent-traffic secret**
+  (`COURTLISTENER_AGENT_API_TOKEN` — a separate secret name, not a separate
+  CourtListener identity: CourtListener issues one token per account and the
+  project deliberately runs a single account, so it may hold the same token
+  as ingestion's, and a leak from an agent cell then burns the ingestion
+  credential too) into the runner-local,
   gitignored MCP client-config files the engines read. Exposure equals the
   step-env's own: the files are on an ephemeral runner, never committed, and
   the artifact upload is an explicit allowlist that excludes them.
