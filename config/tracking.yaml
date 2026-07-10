@@ -85,6 +85,11 @@ live:
   throttle_seconds: 1.0
   # Consecutive 404s that mark a numbering stream's current frontier.
   frontier_misses: 2
+  # Per-document cap on extracted text stored in the corpus (#474): ~40 dense
+  # pages. Documents (petition, questions presented, BIO) are fetched on the
+  # same distribution transition that queues predict; the cap bounds DVC blob
+  # growth, and a truncated document is flagged in its provisioning manifest.
+  document_text_cap: 150000
   # Predict timing is not configured here: the live channel queues run:predict
   # on a DISTRIBUTION TRANSITION (#473) — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of

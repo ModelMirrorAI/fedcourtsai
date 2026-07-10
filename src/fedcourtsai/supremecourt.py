@@ -138,6 +138,27 @@ class SupremeCourtClient:
     def get_docket(self, term: int, serial: int) -> dict[str, Any] | None:
         """Fetch one docket's JSON, or ``None`` when no docket is served there."""
         url = DOCKET_JSON_URL.format(term=term, serial=serial)
+        response = self._fetch(url)
+        if response is None:
+            return None
+        try:
+            payload = response.json()
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def get_document(self, url: str) -> bytes | None:
+        """Fetch one linked document (a filed PDF), or ``None`` when not served.
+
+        Same politeness as the docket fetch. Document links may vanish — the
+        reachability probe found coverage is a rolling ~5-Term window — so a
+        missing document is an expected condition, never an error.
+        """
+        response = self._fetch(url)
+        return response.content if response is not None else None
+
+    def _fetch(self, url: str) -> httpx.Response | None:
+        """One paced GET with a single-retry backoff; ``None`` on a 404."""
         for attempt in (1, 2):
             self._pace()
             try:
@@ -154,9 +175,5 @@ class SupremeCourtClient:
                     self._sleep(_RETRY_PAUSE_SECONDS)
                     continue
                 response.raise_for_status()
-            try:
-                payload = response.json()
-            except json.JSONDecodeError:
-                return None
-            return payload if isinstance(payload, dict) else None
+            return response
         raise AssertionError("unreachable")  # pragma: no cover

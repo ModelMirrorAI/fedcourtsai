@@ -139,6 +139,11 @@ class LiveConfig(BaseModel):
     # Consecutive 404s that mark a numbering stream's frontier (serials are
     # assigned sequentially; the tolerance bridges an occasional withheld one).
     frontier_misses: int = Field(default=2, ge=1)
+    # Per-document cap on extracted text stored in the corpus (#474): petitions
+    # run 30-300 pages, and the cap is what keeps the DVC blob's growth sane.
+    # ~150k characters is roughly 40 dense pages — the petition's argument in
+    # full for a typical filing; a longer one is stored truncated (and flagged).
+    document_text_cap: int = Field(default=150_000, ge=1_000)
 
 
 def load_live_config(config_root: Path) -> LiveConfig:

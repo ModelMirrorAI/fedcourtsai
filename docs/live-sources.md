@@ -135,6 +135,20 @@ actually turns on. Two rules govern their use:
   RECAP archive when already liberated, else the RECAP Fetch API purchases them
   from PACER at PACER prices — a later, costed extension.
 
+**Implemented (#474):** the live poller fetches the petition and the brief in
+opposition on the same **distribution transition** that queues prediction (the
+record-complete moment, and near filing time — links are a rolling ~5-Term
+window upstream). Text is extracted with pypdf (born-digital filings under the
+e-filing mandate; a scanned paper filing degrades to empty text), capped at
+`live.document_text_cap` per document, and stored in the DVC-backed corpus's
+`documents` table — never the git ledger. `provision-snapshot` materializes it
+into the cell's gitignored `record/documents/` with a `documents.json`
+manifest, and the predict prompt points agents at it. **The questions presented
+are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
+generated when certiorari is *granted* and opens with the grant order, so the
+key is an outcome artifact — it is also stripped by replay redaction for the
+same reason (verified live at implementation).
+
 ## Later: push for the circuit courts
 
 CourtListener's **webhooks** (docket alerts fire within seconds of PACER

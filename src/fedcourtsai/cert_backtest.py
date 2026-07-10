@@ -116,6 +116,10 @@ SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
     # Regenerated on docket activity, so on a decided live docket it postdates
     # (and thereby leaks the existence of) the decision.
     "sJsonCreationDate",
+    # The /qp/ page is generated when certiorari is GRANTED and opens with the
+    # grant order — the key's very presence leaks the outcome (verified live,
+    # #474). The questions presented reach cells from the petition text instead.
+    "QPLink",
 )
 
 

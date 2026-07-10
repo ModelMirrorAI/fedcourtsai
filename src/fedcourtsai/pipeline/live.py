@@ -48,6 +48,7 @@ from ..supremecourt import (
     live_docket_id,
     parse_scotus_docket_number,
 )
+from .documents import fetch_case_documents
 from .events import extract_events
 from .ingest import from_live_record, map_live_docket, upsert_to_corpus
 from .outcome import resolve_case
@@ -148,6 +149,34 @@ def ingest_live_payload(
     )
 
 
+def provision_documents(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    case_id: str,
+    payload: dict[str, object],
+    *,
+    char_cap: int,
+    today: date,
+) -> int:
+    """Fetch this petition's predict-input documents into the corpus (#474).
+
+    Called on the same **distribution transition** that queues prediction — the
+    moment the record is complete enough to predict is the moment its content
+    is provisioned, and the fetch happens near filing time (document links are
+    a rolling window upstream). Idempotent per (kind, url); returns the number
+    of documents written.
+    """
+    with corpus.connect(corpus_db_path) as conn:
+        stored = {d.kind: d.url for d in corpus.documents_for_case(conn, case_id)}
+    documents = fetch_case_documents(
+        client, case_id, payload, stored_urls=stored, char_cap=char_cap, today=today
+    )
+    if not documents:
+        return 0
+    with corpus.connect(corpus_db_path) as conn:
+        return corpus.upsert_documents(conn, documents)
+
+
 def discover_live(
     client: SupremeCourtClient,
     corpus_db_path: Path,
@@ -156,6 +185,7 @@ def discover_live(
     *,
     max_new: int,
     frontier_misses: int = 2,
+    document_text_cap: int = 150_000,
     today: date,
 ) -> LiveDiscovery:
     """Probe the Term's frontier serials and onboard each served petition.
@@ -195,6 +225,17 @@ def discover_live(
             ingested = ingest_live_payload(
                 corpus_db_path, data_root, payload, docket_id, today=today
             )
+            if ingested.distributed is not None:
+                # Frontier catch-up on an already-distributed petition: it will
+                # queue predict this cycle, so provision its documents now.
+                provision_documents(
+                    client,
+                    corpus_db_path,
+                    ingested.case_id,
+                    payload,
+                    char_cap=document_text_cap,
+                    today=today,
+                )
             with corpus.connect(corpus_db_path) as conn:
                 corpus.set_live_cursor(conn, term, stream, serial)
             result.onboarded.append(ingested)
@@ -209,6 +250,7 @@ def poll_live_cases(
     due: list[corpus.CorpusRow],
     *,
     scope: PredictScope = PredictScope.all,
+    document_text_cap: int = 150_000,
     today: date,
 ) -> PullQueues:
     """Refresh each due pending petition and sort it into the handoff queues.
@@ -262,6 +304,18 @@ def poll_live_cases(
         transitioned = (
             result.distributed is not None and result.distributed != row.distributed_for_conference
         )
+        if transitioned:
+            # Predict is about to be queued for this petition — provision its
+            # documents (petition / QP / BIO) on the same trigger. Idempotent
+            # per (kind, url), so a relist with unchanged filings costs nothing.
+            provision_documents(
+                client,
+                corpus_db_path,
+                result.case_id,
+                payload,
+                char_cap=document_text_cap,
+                today=today,
+            )
         _route_result(queues, corpus_db_path, result, gated=gated, queue_predict=transitioned)
     return queues
 
@@ -329,6 +383,7 @@ def live_poll_all(
         term,
         max_new=config.max_new_cases_per_run,
         frontier_misses=config.frontier_misses,
+        document_text_cap=config.document_text_cap,
         today=today,
     )
     queues = PullQueues()
@@ -354,7 +409,15 @@ def live_poll_all(
             )
             if row.case_id not in fresh
         ][:max_cases]
-    refreshed = poll_live_cases(client, corpus_db_path, data_root, due, scope=scope, today=today)
+    refreshed = poll_live_cases(
+        client,
+        corpus_db_path,
+        data_root,
+        due,
+        scope=scope,
+        document_text_cap=config.document_text_cap,
+        today=today,
+    )
     queues.predict.extend(refreshed.predict)
     queues.evaluate.extend(refreshed.evaluate)
     queues.reconcile.extend(refreshed.reconcile)
