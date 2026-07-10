@@ -20,8 +20,9 @@ Design context: [data-pipeline.md](data-pipeline.md) §Seed and §Pull. Seed is
 **deterministic, no agent, no API secret** — it loads the public CourtListener
 **bulk** snapshot (not the REST API) into the unified corpus. The `run-seed`
 workflow stages the snapshot once, then **loops** the command over it — loading a
-chunk and checkpointing (DVC push + commit) after each — overnight until complete,
-then a quarterly reconciliation pass.
+chunk and checkpointing (DVC push + commit) after each — overnight until
+complete. (A quarterly reconciliation against fresh bulk snapshots returns only
+if the frozen bulk mode is revived, e.g. a replica-timeline slip.)
 
 ## 1. `fedcourts seed-backfill` — the command
 
@@ -167,9 +168,9 @@ Per-run order:
 
 ```yaml
 on:
-  schedule:    [{ cron: "23 0 * * 0" }]   # weekly, overnight; a quarterly reconciliation ends before run-pull (07:17)
-  workflow_dispatch:
-  issues:      { types: [labeled] }        # gate: label.name == 'run:seed'
+  schedule:    [{ cron: "23 0 * * 0" }]   # weekly — runs the past-Term cert LOADER, not this bulk mode
+  workflow_dispatch:                       # inputs.mode: live-terms (default) | bulk
+  issues:      { types: [labeled] }        # gate: label.name == 'run:seed' → the frozen bulk mode below
 concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with run-pull
 ```
 
@@ -183,7 +184,8 @@ concurrency: { group: corpus-write, cancel-in-progress: false }  # shared with r
 
   ```markdown
   Long-lived tracker for the seed phase. `run-seed` loads the historical backlog
-  from CourtListener bulk data (no REST API budget), runs weekly until complete,
+  from CourtListener bulk data (no REST API budget), runs on each `run:seed`
+  label or dispatch until complete,
   comments progress here after each chunk, and commits each chunk's corpus pointer
   + cursor to the default branch. When every court is loaded it opens a completion
   PR that flips the cursor's `completed` flag; merging that PR closes this issue.

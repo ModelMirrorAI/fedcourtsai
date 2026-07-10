@@ -11,7 +11,7 @@
   Codex action proxies `OPENAI_API_KEY` so the CLI never holds it; the Claude
   action handles `CLAUDE_CODE_OAUTH_TOKEN` and the Gemini action `GEMINI_API_KEY`
   similarly. The lower-sensitivity CourtListener tokens are passed as a scoped
-  step env only where needed — with one deliberate carve-out (#525): the cells'
+  step env only where needed — with one deliberate carve-out: the cells'
   MCP-config step writes the **dedicated agent-traffic token**
   (`COURTLISTENER_AGENT_API_TOKEN`, a separate rate-limit identity from
   ingestion's, rotatable without touching pull) into the runner-local,

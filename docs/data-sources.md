@@ -8,25 +8,25 @@ personal data in court records is handled. For the ingestion mechanics see
 
 ## Source and attribution
 
-All case data comes from [CourtListener](https://www.courtlistener.com/), a project
-of the [Free Law Project](https://free.law/), through two channels:
+Case data comes from two upstream providers, through three channels:
 
-- the **REST API** (forward freshness — `pull`), and
-- the free **quarterly bulk-data exports** on public S3 (historical backfill —
-  `seed`).
+- **[CourtListener](https://www.courtlistener.com/)**, a project of the
+  [Free Law Project](https://free.law/): the **REST API** (targeted enrichment —
+  `pull`) and the free **quarterly bulk-data exports** on public S3 (the frozen
+  historical backfill — bulk `seed`).
+- **supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
+  Court itself — the live SCOTUS channel that owns SCOTUS freshness and loads
+  the past-Term cert set. These are public records with no third-party license
+  attached (the CourtListener terms below cover Free Law Project's curation,
+  not these records). Design in [live-sources.md](live-sources.md); the
+  ingested facts land in the same access-gated corpus under the same
+  no-republication posture.
 
-A third channel is planned but not yet adopted: Free Law Project's commercial
-**database replication** offering, the intended eventual upstream for both roles
-once funding allows — see *The planned end-state* in
+A further channel is planned but not yet adopted: Free Law Project's commercial
+**database replication** offering, the intended eventual upstream for the
+CourtListener roles once funding allows — see *The planned end-state* in
 [data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
 agreement's terms alongside the licenses below.
-
-For the **live SCOTUS frontier** a separate source is planned:
-**supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
-Court itself — public records with no third-party license attached (the
-CourtListener terms below cover Free Law Project's curation, not these
-records). Design in [live-sources.md](live-sources.md); the ingested facts land
-in the same access-gated corpus under the same no-republication posture.
 
 Two layers of rights apply, and they are different:
 
@@ -62,16 +62,19 @@ The automated consumer stays within CourtListener's published API limits by desi
 
 - **Bulk `seed` spends no API budget** — it reads the public bulk exports, which sit
   outside the throttle entirely.
-- **`pull` owns the API budget** and is held under the **5 requests/minute, 50/hour,
-  125/day** authenticated default by an in-process governor
-  (`courtlistener/ratelimit.py`), with the matching ceilings declared in
-  [`config/tracking.yaml`](../config/tracking.yaml) (`api_per_minute` /
-  `_hour` / `_day`) and a per-run cap well under them.
+- **The supremecourt.gov channel spends no API budget either** — the Court's
+  site has no metered API; the client is simply polite (browser user-agent,
+  ~1 request/second, backoff on errors).
+- **`pull` owns the CourtListener API budget**, throttled in-process
+  (`courtlistener/ratelimit.py`) to the ceilings set in the runner environment
+  (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`, wired from repo variables
+  to the held Free Law Project tier — see [budget.md](budget.md)), with
+  per-run caps in [`config/tracking.yaml`](../config/tracking.yaml) well under
+  them.
 
-The budget assumes the **standard authenticated tier** (a free API token). Higher
-limits require Free Law Project **membership** or a commercial agreement; if the
-project ever needs more throughput, that is the tier to obtain rather than a code
-change to the governor.
+The pilot holds a paid Free Law Project **membership tier**; if the project
+ever needs more throughput, a higher tier (or the replication agreement) is
+the path rather than a code change to the governor.
 
 ## PII stance
 

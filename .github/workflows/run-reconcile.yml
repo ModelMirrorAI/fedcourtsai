@@ -1,5 +1,13 @@
 name: run-reconcile
 
+# OPERATIONALLY PAUSED (July 2026 pivot): the workflow is disabled in the repo
+# settings, so nothing consumes `run:reconcile` issues. run-pull's PULL job can
+# still file them for ambiguous CourtListener resolutions (they sit open as the
+# filing dedup latch); the LIVE job deliberately files none — its
+# proceedings-text resolution records most outcomes deterministically, and the
+# pivot decides this workflow's fate. The mechanics below remain accurate for
+# when (if) it is re-enabled.
+#
 # Resolves the reconcile issues `run-pull` files when a docket appears decided but
 # its outcome could not be recorded deterministically (an unreadable disposition,
 # a missing decision date, or a case-level disposition that cannot be attributed

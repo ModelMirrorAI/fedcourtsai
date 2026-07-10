@@ -203,8 +203,10 @@ healthy refresh rotation); **Tier 4 ($100/mo)** buys comfortable headroom as the
 tracked set grows. Above Tier 4 is a custom commercial agreement (unpublished).
 
 The **pilot currently holds Tier 2 ($250/yr, billed annually)**. Pull runs four windows a day, each
-refreshing up to `max_cases_per_run` (30) dockets and discovering new filings — so
-~120 refreshes/day plus discovery, comfortably inside Tier 2's 15/min · 150/hr ·
+refreshing up to `max_cases_per_run` (30) dockets — ~120 refreshes/day of
+targeted enrichment (CourtListener discovery is off since the July 2026 pivot;
+the budget-free supremecourt.gov live job owns SCOTUS freshness and
+onboarding), comfortably inside Tier 2's 15/min · 150/hr ·
 600/day (~200 dockets/day): each window's ~30×3 ≈ 90 requests stays under the
 hourly ceiling and the four windows stay under the daily one. A slice of every run
 (`eligible_refresh_reserve`) is reserved for the stalest predict-eligible cases so
@@ -232,11 +234,12 @@ wall-clock (jobs cap at 60 min). The repo is **public**, and on a public repo
 ([Actions pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing)).
 The realistic runner-minute footprint, free at every level:
 
-- **Backfill (now):** `run:seed` is the spike — its daily loop runs to a ~4.5h
-  budget, so on the order of **~8K runner-min/month** while the backlog loads, then
-  drops to quarterly reconciliation.
-- **Steady pilot:** `run:pull`'s four daily windows are deterministic and light
-  (**~700 min/month**); gated predict/evaluate add roughly **~2–4K min/month**
+- **Loading spikes:** a `run:seed` loop (the weekly past-Term cert loader, or a
+  dispatched bulk backfill) runs to a ~4.5h budget — order **~1–2K
+  runner-min/month** at the weekly cadence.
+- **Steady pilot:** `run-pull`'s eight daily windows (four CourtListener
+  enrichment + four supremecourt.gov live polls) are deterministic and light
+  (**~1.5K min/month**); gated predict/evaluate add roughly **~2–4K min/month**
   depending on SCOTUS activity.
 - **September long-conference burst:** ~2,000 petitions × 3 engines is a one-time
   spike of **tens of thousands** of runner-minutes around the conference
@@ -292,10 +295,11 @@ DVC keeps historical versions, so budget for a small multiple:
   ~4 TB ≈ **$350+** at even a 2 GB blob; the ranged redesign is what keeps this
   term flat as the blob grows.
 - **Recurring full pulls (the remaining bulk egress):** the scan-shaped
-  consumers still move whole blobs — the writer (`run-pull`, **four windows a
-  day** ⇒ ~120 pulls/mo on its own), the plan jobs each triggered run, then
+  consumers still move whole blobs — the corpus-writer jobs (`run-pull`,
+  **eight windows a day** across its pull + live jobs ⇒ ~240 pulls/mo on their
+  own), the plan jobs each triggered run, then
   analytics/cleanup and an occasional deliberate Codespaces exploration or
-  integration check. Order **~120–200 full pulls/mo × blob size**: at today's
+  integration check. Order **~250–300 full pulls/mo × blob size**: at today's
   ~0.8 GB blob that is ~100–170 GB/mo, **at or above the free tier** ⇒
   ≈ **$0–10/mo**. This term scales linearly with the blob: at a 10 GB blob the
   same cadence moves ~1–2 TB/mo ≈ **$80–170/mo**, making it — not the cells —
