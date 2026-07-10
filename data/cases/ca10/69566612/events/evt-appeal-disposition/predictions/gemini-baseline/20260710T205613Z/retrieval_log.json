@@ -1,0 +1,1486 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:56:53.824Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:56:53.833Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:56:53.833Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:56:59.065Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:02.843Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:05.151Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:05.151Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:07.859Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:07.860Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:07.860Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:09.904Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:12.489Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:32.972Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:40.913Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:54.656Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:03.503Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:05.545Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:09.431Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:11.498Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:16.605Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:21.588Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:25.252Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:34.165Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:37.112Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:39.681Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:41.967Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:46.542Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:51.493Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:54.773Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:57.450Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:00.670Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:04.757Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:08.238Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:12.090Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "ca10/69566612",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260710T205613Z",
+  "schema_version": "1.0"
+}

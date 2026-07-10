@@ -1,0 +1,406 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "c21256393c17c0ea",
+      "query": "{\"cmd\": \"sed -n '1,260p' AGENTS.md\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "69ad4233618344e5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:04.664Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "3a36191bc9e737f8",
+      "query": "{\"cmd\": \"sed -n '1,280p' .github/prompts/predict.md\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "2ea093438595dc65",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:04.664Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "9aa969b980080606",
+      "query": "{\"cmd\": \"sed -n '1,260p' schemas/prediction.schema.json\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "51ba6e54e4d87838",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:10.742Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "32791b7db6f94ae0",
+      "query": "{\"cmd\": \"sed -n '1,220p' schemas/agent_tooling.schema.json\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "499199a104ddb76c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:10.742Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "26b32b821b0c57aa",
+      "query": "{\"cmd\": \"sed -n '1,220p' schemas/agent_flags.schema.json\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "5712d670652383d8",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:10.742Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "c56948d7089e20d7",
+      "query": "{\"cmd\": \"uv run fedcourts paths --court ca10 --docket 69566612 --event evt-appeal-disposition\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 30000}",
+      "result_digest": "7d25f8c9c04ce72d",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:10.742Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "38a2208347af3a48",
+      "query": "{\"cmd\": \"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts paths --court ca10 --docket 69566612 --event evt-appeal-disposition\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 30000}",
+      "result_digest": "7ca9a0844b516a59",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:16.379Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "ab26d3b1c6e9f6af",
+      "query": "{\"cmd\": \"find data/cases/ca10/69566612 -maxdepth 5 -type f | sort\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "68762b4f6d46d55f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:16.379Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "e220387dc8cf40f9",
+      "query": "{\"cmd\": \"find data/cases/ca10/69566612 -maxdepth 5 -type d | sort\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "463aeed564ae304e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:16.379Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "be1d9929ff5f2bba",
+      "query": "{\"cmd\": \"find . -path '*69566612*' -maxdepth 8 -type f | sort\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "267fe3327e2c3fdf",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:16.380Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "abcaec24a7ee6577",
+      "query": "{\"cmd\": \"sed -n '1,240p' data/cases/ca10/69566612/events/evt-appeal-disposition/event.yaml\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "c073d392d87343b1",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:23.296Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "d26289e411c8c3bb",
+      "query": "{\"cmd\": \"sed -n '1,260p' data/cases/ca10/69566612/record/context.json\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "7c793120a2f14294",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:23.296Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "5d6c49b60188e24b",
+      "query": "{\"cmd\": \"sed -n '1,260p' data/cases/ca10/69566612/record/snapshots/2026-07-10.json\", \"max_output_tokens\": 40000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "9ae870afcdbf696a",
+      "retrieved_doc_date": "2025-02-24",
+      "timestamp": "2026-07-10T20:57:23.296Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "ccc739600f45cabb",
+      "query": "{\"cmd\": \"find data/cases/ca10/69566612/record -maxdepth 3 -type f | sort\", \"max_output_tokens\": 10000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "61ec39b46e502689",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:23.296Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "bb53558205f61f31",
+      "query": "{\"cmd\": \"rg -n \\\"evt-appeal-disposition|kind: appeal|decision_target: disposition|appeal-disposition\\\" data/cases docs src tests metrics -g '*.md' -g '*.yaml' -g '*.json' -g '*.py'\", \"max_output_tokens\": 40000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "e23b434325b29cd6",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:31.992Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "f8e226954975f763",
+      "query": "{\"cmd\": \"sed -n '1,260p' metrics/statpack.md\", \"max_output_tokens\": 40000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "95fa1fe2705154ba",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:31.992Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "aeb4d09624521bdc",
+      "query": "{\"cmd\": \"rg -n \\\"appeal|affirm|reverse|disposition|granted\\\" src tests docs metrics -g '*.py' -g '*.md' -g '*.json' -g '*.yaml'\", \"max_output_tokens\": 50000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "8116f586f420fd0f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:31.993Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "a9fd1fb0378657c8",
+      "query": "{\"cmd\": \"sed -n '120,150p' tests/test_ingest.py\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "2eb25aadef1bf0ee",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:35.873Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "f988e5c479fc4c16",
+      "query": "{\"cmd\": \"sed -n '330,365p' tests/test_ingest.py\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "d957d1d1d7f102ec",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:35.873Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "43f36adc90da8144",
+      "query": "{\"cmd\": \"find tests/cassettes/realistic-grant -maxdepth 2 -type f -print -exec sed -n '1,160p' {} \\\\;\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "6ed79f104f1f31f2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:35.873Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "de8a23f1b54e258a",
+      "query": "{\"cmd\": \"sed -n '620,650p' docs/data-pipeline.md\", \"max_output_tokens\": 10000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "35d64a304c86213b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:35.873Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "45d87bd8ddcce706",
+      "query": "{\"cmd\": \"rg -n \\\"def normalize_disposition|class Disposition|Disposition\\\\.|date_decided|query\\\" src/fedcourtsai -g '*.py'\", \"max_output_tokens\": 40000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "e6e1e6eedf775851",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:47.896Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "2173c82217831751",
+      "query": "{\"cmd\": \"sed -n '1,220p' docs/cli.md\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "3e9fd8643a005243",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:47.896Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "4d7257313a3d5b9b",
+      "query": "{\"cmd\": \"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts query --help\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 30000}",
+      "result_digest": "c9f51abd32e09e70",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:57:47.897Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "938b423e19f464b1",
+      "query": "{\"cmd\": \"jq '.by_court[] | select(.court==\\\"ca10\\\")' metrics/statpack.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "673dda3c2f654554",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:05.799Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "253ee3436b011aba",
+      "query": "{\"cmd\": \"jq '.overall' metrics/statpack.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "cec9c148874d0072",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:05.806Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "05511dd28bc6e744",
+      "query": "{\"cmd\": \"sed -n '260,312p' src/fedcourtsai/pipeline/ingest.py\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "1f8fec4217a83fa2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:05.806Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "ad59660c6bcba14c",
+      "query": "{\"cmd\": \"sed -n '1,90p' src/fedcourtsai/pipeline/outcome.py\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "5ba37672b6dc80c5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:05.807Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "63a0301536e2489c",
+      "query": "{\"cmd\": \"jq 'keys' metrics/statpack.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "1862e0ffabd19f79",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:10.328Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "e9c808cbfdeb2b3f",
+      "query": "{\"cmd\": \"jq '.courts[] | select(.court==\\\"ca10\\\")' metrics/statpack.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "dbeec52dcc5b4103",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:10.350Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "c79048d407e86048",
+      "query": "{\"cmd\": \"find data/cases/ca10/69566612/events/evt-appeal-disposition -maxdepth 3 -type d -print | sort\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "2a8c74e9fbe28b28",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:10.350Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "7a6a2fa3fea1e2b2",
+      "query": "{\"cmd\": \"git status --short -- data/cases/ca10/69566612/events/evt-appeal-disposition\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "5eb8b7a1624cabb3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:10.351Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "544ac7c17fda333c",
+      "query": "{\"cmd\": \"jq '.sections | keys' metrics/statpack.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "f4fa95815a014786",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:14.685Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "bea4dc452c160908",
+      "query": "{\"cmd\": \"jq '.sections[] | {name, scope, rows: (.rows // .items // null)}' metrics/statpack.json | head -n 160\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "74b66e33976c2c02",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:14.686Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "87eea388e8cccbc3",
+      "query": "{\"cmd\": \"jq '.sections[] | select(.name==\\\"Cases by court\\\")' metrics/statpack.json\", \"max_output_tokens\": 40000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "0dc5c1beb32ad905",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:14.686Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "5b0a84cd20c7dee0",
+      "query": "{\"cmd\": \"jq '.sections[0]' metrics/statpack.json | head -n 120\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "8a8069b289c3c9fe",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:18.288Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "939bd5fda5b75364",
+      "query": "{\"cmd\": \"jq '.sections[1]' metrics/statpack.json | head -n 80\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "5d2133298ec3337f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:18.288Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "01e6e3c679f24fe4",
+      "query": "{\"cmd\": \"jq '.sections[2]' metrics/statpack.json | head -n 80\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "6b100c0de8ec3919",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:18.299Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "76e91d82d6252049",
+      "query": "{\"cmd\": \"jq '.sections[0].buckets[] | select(.key==\\\"ca10\\\")' metrics/statpack.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "cd82d2e77c8085cf",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:20.386Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "60dd065bae0950c6",
+      "query": "{\"cmd\": \"test -e data/cases/ca10/69566612/events/evt-appeal-disposition/outcome.json; printf '%s\\\\n' $?\", \"max_output_tokens\": 10000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "66c4eec6b9925e97",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:26.403Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "e0f467088c147da9",
+      "query": "{\"cmd\": \"date -u +%Y-%m-%dT%H:%M:%SZ\", \"max_output_tokens\": 10000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "68e11370318424c3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:26.403Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "e02631614529df17",
+      "query": "{\"cmd\": \"find data/cases/ca10/69566612/events/evt-appeal-disposition -maxdepth 4 -type f | sort\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "d901e8684f39edbb",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:58:26.403Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "1768226fb5fa14c3",
+      "query": "*** Begin Patch\n*** Add File: data/cases/ca10/69566612/events/evt-appeal-disposition/predictions/codex-baseline/20260710T205613Z/prediction.json\n+{\n+  \"case_id\": \"ca10/69566612\",\n+  \"confidence\": 0.42,\n+  \"created_at\": \"2026-07-10T20:58:26Z\",\n+  \"engine\": \"codex\",\n+  \"event_id\": \"evt-appeal-disposition\",\n+  \"granted\": 0,\n+  \"input_snapshot\": \"data/cases/ca10/69566612/record/snapshots/2026-07-10.json\",\n+  \"model\": \"gpt-5.5\",\n+  \"predicted_disposition\": \"other\",\n+  \"predictor_id\": \"codex-baseline\"",
+      "result_digest": "09ccdcef987df9f4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:01.457Z",
+      "tool": "apply_patch"
+    },
+    {
+      "params_digest": "3d28f12709488474",
+      "query": "{\"cmd\": \"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts validate data\", \"max_output_tokens\": 50000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 30000}",
+      "result_digest": "5cc53a514b3f2e85",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:06.609Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "190dc77c3dd14d48",
+      "query": "{\"cmd\": \"git status --short -- data/cases/ca10/69566612/events/evt-appeal-disposition\", \"max_output_tokens\": 20000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "e63d8a0f9c13f33b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:06.610Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "a4cb0249755b817c",
+      "query": "{\"cmd\": \"find data/cases/ca10/69566612/events/evt-appeal-disposition/predictions/codex-baseline/20260710T205613Z -maxdepth 1 -type f -print | sort\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "05290a9059303179",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:06.618Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "b40c3b7876514015",
+      "query": "{\"cmd\": \"git status --short\", \"max_output_tokens\": 30000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "433165b776c6cd08",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:14.185Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "4172799806a05316",
+      "query": "{\"cmd\": \"sed -n '1,220p' data/cases/ca10/69566612/events/evt-appeal-disposition/predictions/codex-baseline/20260710T205613Z/prediction.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "501f73a3090a5a88",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:14.185Z",
+      "tool": "exec_command"
+    },
+    {
+      "params_digest": "cc6d6c7b9fdcf2cb",
+      "query": "{\"cmd\": \"sed -n '1,220p' data/cases/ca10/69566612/events/evt-appeal-disposition/predictions/codex-baseline/20260710T205613Z/flags.json\", \"max_output_tokens\": 12000, \"workdir\": \"/home/runner/work/fedcourtsai/fedcourtsai\", \"yield_time_ms\": 10000}",
+      "result_digest": "64a679d1863f20bd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-10T20:59:14.189Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "ca10/69566612",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260710T205613Z",
+  "schema_version": "1.0"
+}

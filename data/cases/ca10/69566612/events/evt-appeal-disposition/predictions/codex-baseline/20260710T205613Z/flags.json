@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca10/69566612",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition",
+      "message": "The cell context is forward, but the provisioned snapshot includes a 2025-02-24 docket entry described as case termination for opinion. I did not inspect the outcome or linked opinion, but the baseline input appears to contain a post-decision signal.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T205613Z",
+  "schema_version": "1.0"
+}

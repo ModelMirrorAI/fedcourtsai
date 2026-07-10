@@ -1,0 +1,20 @@
+{
+  "case_id": "ca11/66800253",
+  "run_id": "20260710T205613Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "During initial research to understand the case context (as the provisioned snapshot contained only one docket entry with 'Opinion Issued' and no underlying details), a web search for the case name and docket number inadvertently revealed the final outcome of the appeal (affirmed). This knowledge has been explicitly disclosed in reasoning.md, and the prediction was reasoned according to base rates and general legal context.",
+      "event_id": "evt-appeal-disposition"
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The provisioned snapshot for this case only contains a single docket entry (entry 37, 'Opinion Issued') from the day the appeal was disposed. The pre-decision record (the lower court order, briefs, and earlier docket entries) is entirely missing from the snapshot.",
+      "event_id": "evt-appeal-disposition"
+    }
+  ]
+}
