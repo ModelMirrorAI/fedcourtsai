@@ -177,8 +177,9 @@ def pull_cases(
     ``predict``, a case that gained an ``outcome.json`` this run to ``evaluate``
     **when the ledger holds a prediction to score** (ground-truth recording is
     ungated; only the evaluator fan-out is), and a case that appears decided but
-    could not be recorded deterministically to ``reconcile``. Case selection (discovery + rotation) stays with the caller, so
-    this seam composes the same way the CLI's ``pull-all`` does.
+    could not be recorded deterministically to ``reconcile``. Case selection
+    (discovery + rotation) stays with the caller, so this seam composes the
+    same way the CLI's ``pull-all`` does.
 
     The prediction-scope gate is the primary cost-saver: under
     ``scope == scotus_touched`` an out-of-scope case never reaches the ``predict``
