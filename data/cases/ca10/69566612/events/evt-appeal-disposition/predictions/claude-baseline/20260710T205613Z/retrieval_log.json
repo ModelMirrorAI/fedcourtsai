@@ -1,0 +1,270 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "1951454c43effb45",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "3ed65ea48951aa27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "75283a713042471c",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10 -type f | head -50; echo ---; env | grep -E 'COURT_ID|DOCKET_ID|EVENT_ID|PREDICTOR_ID|RUN_ID|MODEL_ID|DECIDED_BEFORE' || echo \"no env vars\"",
+      "result_digest": "853ae457552d16d5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fde6002e7eef665a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69566612/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b5b28969e0069fc3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69566612/events/evt-appeal-disposition/event.yaml\"}",
+      "result_digest": "d895a1eac8c9ab64",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "059868bba1ed4c73",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69566612/record/snapshots/2026-07-10.json\"}",
+      "result_digest": "47da2f2d4a6beb29",
+      "retrieved_doc_date": "2025-02-24",
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4486a5c4504a0893",
+      "query": "uv run fedcourts paths --court ca10 --docket 69566612 --event evt-appeal-disposition 2>&1; echo ---; uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "f6eadaea895452d3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "41dd68eb974b0cbb",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "8b9f28fb4bf24e32",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "3faa9842caa93fe1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bce30a7a6989cf41",
+      "query": "uv run fedcourts query --court ca10 --corpus-backend ranged 2>&1 | head -30",
+      "result_digest": "03292cd7e3feccfc",
+      "retrieved_doc_date": "2020-02-04",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fd13af011fab88fe",
+      "query": "courtlistener search docket",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "d7cba6ebc31e1380",
+      "query": "+courtlistener",
+      "result_digest": "e235e477619924b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "139f519312c7bd6e",
+      "query": "docket opinion citation court search recap",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "bdb49ecc758da4f6",
+      "query": "ls -la /home/runner/work/fedcourtsai/fedcourtsai/ | grep -iE 'mcp|codex|gemini'; cat /home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json 2>/dev/null | sed 's/\"[A-Za-z0-9_-]\\{20,\\}\"/\"<REDACTED>\"/g'",
+      "result_digest": "5b95dd9f7c74c97d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bd6db7d7d9a21ce7",
+      "query": "+mcp courtlistener search",
+      "result_digest": "c4e348966a824a36",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "62c3fa4cd47e40b6",
+      "query": "TOKEN=$(jq -r '.mcpServers.courtlistener.env | to_entries[0].value' mcp-servers.json) && curl -sS -H \"Authorization: Token $TOKEN\" \"https://www.courtlistener.com/api/rest/v4/audio/96337/\" | jq '{case_name, docket, panel, judges, duration, date_created, sha1: null, download_url, local_path_mp3: null, source}' 2>&1 | head -40",
+      "result_digest": "70c8df2987a8aee4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1ef9dfd50865158a",
+      "query": "TOKEN=$(jq -r '.mcpServers.courtlistener.env | to_entries[0].value' mcp-servers.json) && curl -sS -H \"Authorization: Token $TOKEN\" \"https://www.courtlistener.com/api/rest/v4/search/?type=r&q=Koel%20%22Citizens%20Medical%20Center%22&court=ksd\" | jq '{count, results: [.results[] | {caseName, docketNumber, docket_id, court_id, dateFiled, dateTerminated: .dateTerminated, assignedTo, natureOfSuit, cause}]}' 2>&1 | head -60",
+      "result_digest": "6090b3ee19dba9af",
+      "retrieved_doc_date": "2021-04-08",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6f5074cd8266ae0b",
+      "query": "TOKEN=$(jq -r '.mcpServers.courtlistener.env | to_entries[0].value' mcp-servers.json) && curl -sS -H \"Authorization: Token $TOKEN\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=59807235&order_by=-date_filed&page_size=20\" | jq '[.results[] | {entry_number, date_filed, description: (.description | .[0:300])}]' 2>&1 | head -80",
+      "result_digest": "a07273fbb7483d47",
+      "retrieved_doc_date": "2025-10-06",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e4d2f90b92c2dba6",
+      "query": "TOKEN=$(jq -r '.mcpServers.courtlistener.env | to_entries[0].value' mcp-servers.json) && curl -sS -H \"Authorization: Token $TOKEN\" \"https://www.courtlistener.com/api/rest/v4/search/?type=o&q=Koel%20%22Citizens%20Medical%22&court=ksd\" | jq '{count, results: [.results[] | {caseName, dateFiled, cluster_id, snippet: (.opinions[0].snippet // \"\" | .[0:200])}]}'",
+      "result_digest": "e6408d07f4f6048a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "74ebefdf966f7cdf",
+      "query": "TOKEN=$(jq -r '.mcpServers.courtlistener.env | to_entries[0].value' mcp-servers.json) && curl -sS -H \"Authorization: Token $TOKEN\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=59807235&entry_number=178\" | jq '.results[0].recap_documents[] | {id, description, is_available, page_count, filepath_local, absolute_url}'",
+      "result_digest": "8b78b9734527342c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1c393afc6e350891",
+      "query": "TOKEN=$(jq -r '.mcpServers.courtlistener.env | to_entries[0].value' mcp-servers.json) && curl -sS -H \"Authorization: Token $TOKEN\" \"https://www.courtlistener.com/api/rest/v4/recap-documents/374804441/?fields=plain_text\" | jq -r '.plain_text' > /tmp/ksd_msj_order.txt; wc -c /tmp/ksd_msj_order.txt; head -c 1500 /tmp/ksd_msj_order.txt",
+      "result_digest": "eafdff31d0d0eade",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bc6fa8eddabcf9a4",
+      "query": "{\"file_path\": \"/tmp/ksd_msj_order.txt\"}",
+      "result_digest": "23ba6c5daf6dacc3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7211121902a7fac5",
+      "query": "f=/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/fb3495a4-a78e-4bc2-946c-6003480bd76a/tool-results/btc2cohz2.txt; grep -c '^{' $f; grep '^{' $f | jq -r '.disposition' | sort | uniq -c; grep '^{' $f | jq -r 'select(.topic != null) | .topic' | sort | uniq -c | sort -rn | head -15",
+      "result_digest": "91b8111cbabcd607",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b1fcea0883488157",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69566612/events/evt-appeal-disposition/predictions/claude-baseline/20260710T205613Z",
+      "result_digest": "028670366fd93a71",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d53126629e3802af",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"ca10/69566612\\\",\\n  \\\"confidence\\\": 0.6,\\n  \\\"created_at\\\": \\\"2026-07-10T21:01:12Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/ca10/69566612/record/snapshots/2026-07-10.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.18,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run_id\\\": ",
+      "result_digest": "32fba45518d78f67",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "dacbb20aa686c201",
+      "query": "{\"content\": \"# Koel v. Citizens Medical Center \\u2014 Tenth Circuit No. 23-3232 (appeal disposition)\\n\\n**Prediction: affirmance (`denied`), P(granted) = 0.18.** In this event's\\nvocabulary I read `granted` as the appellant obtaining relief (reversal or\\nvacatur, in whole or in part) and `denied` as affirmance of the judgment below.\\n\\n## The case\\n\\nRicky Koel suffered an occult ruptured globe of the right eye in a farm\\naccident and sought emergency care at Citizens Medical Center (\\\"CMCI\\\"), ",
+      "result_digest": "d20a38885b5d89e9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e52dda34ac9a6b36",
+      "query": "{\"content\": \"# Retrieval log \\u2014 ca10/69566612 evt-appeal-disposition (claude-baseline, 20260710T205613Z)\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court ca10 --corpus-backend ranged`\\n  - `ranged corpus reads: 38 GET(s), 9895936 byte(s)`\\n  - 20 priors returned (18 `other`, 2 `denied`); no medical-malpractice or\\n    EMTALA topic among them \\u2014 nothing on point, used only to confirm the CA10\\n    cut is thin.\\n- Read the committed `metrics/statpack.md` for base rates. CA10 row: ",
+      "result_digest": "f2b3a309b75c7647",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8609a7eacac686cd",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca10/69566612\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n      \\\"message\\\": \\\"Cell mode is 'forward' but the provisioned snapshot's only docket entry (2025-02-24, 'Case termination for opinion') and its populated opinion-cluster link show the appeal was decided ~16 months before this run. I treated the cell as a de facto replay: predicted from the pre-dec",
+      "result_digest": "d9c69c10bd6e26b2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "53f27e6899fae669",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca10/69566612\\\",\\n  \\\"gaps\\\": [\\n    \\\"The CourtListener MCP server did not come up; a health check or automatic REST fallback guidance in the prompt would make this failure mode cheaper.\\\",\\n    \\\"Panel composition for argued CA10 appeals is absent from the snapshot and the audio metadata; a provisioned panel list would enable per-judge votes.\\\",\\n    \\\"Corpus priors and the statpack have almost no circuit-appeal coverage (C",
+      "result_digest": "7aee39141a6926e7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5bdc4d69d3b95b0a",
+      "query": "uv run fedcourts validate data && git status --short data/",
+      "result_digest": "c91861ff743a1283",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "31285b7e6bc29d7c",
+      "query": "gh issue comment 550 --body \"**claude-baseline \u00b7 ca10/69566612 \u00b7 evt-appeal-disposition \u00b7 run 20260710T205613Z** \u2014 prediction written: **denied (affirmance)**, P(granted) = 0.18, confidence 0.6. Predicted from the pre-decision record (D. Kan. 2:21-cv-02166 summary-judgment order under review). Two warnings in flags.json: the cell is marked \\`forward\\` but the snapshot shows the appeal was decided 2025-02-24 (treated as de facto replay; outcome not retrieved), and the CourtListener MCP server nev",
+      "result_digest": "e084b325b182081d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "ca10/69566612",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260710T205613Z",
+  "schema_version": "1.0"
+}
