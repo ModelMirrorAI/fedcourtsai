@@ -245,6 +245,13 @@ def replay_predictors(
             )
         snapshot_date, payload = found
         write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redact_snapshot(payload))
+        # The cell's mode context (#525): a replay cell runs with the same tools
+        # as a forward one — etiquette, logging, and the #526 evaluator replace
+        # walls — so the prompt contract needs the mode stated, not inferred.
+        write_raw_json(
+            case_paths.cell_context,
+            {"mode": "replay", "decided_before": str(item.features.year)},
+        )
         event = petitions[0]
         write_yaml(
             case_paths.event(event.event_id).event_file,

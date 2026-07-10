@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "RetrievalCall": {
+      "additionalProperties": false,
+      "description": "One tool invocation harvested from the engine's own transcript (#525).\n\nCaptured by the harness from the engine log \u2014 never the agent's word \u2014 so\nthe evaluator's leakage grading (#526) can see what a cell actually\nretrieved. Long parameters and results are digested, not stored: the log\nis an audit trail, not a content mirror.",
+      "properties": {
+        "params_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA-256 (hex, 16 chars) of the full serialized params",
+          "title": "Params Digest"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The human-legible query/params slice (truncated), where extractable",
+          "title": "Query"
+        },
+        "result_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHA-256 (hex, 16 chars) of the logged result payload",
+          "title": "Result Digest"
+        },
+        "retrieved_doc_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A document/decision date parsed from the result, where one is legible \u2014 the #526 evaluator's timing signal",
+          "title": "Retrieved Doc Date"
+        },
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Engine-logged wall-clock time of the call, verbatim",
+          "title": "Timestamp"
+        },
+        "tool": {
+          "description": "Tool name as the engine logged it, e.g. mcp__courtlistener__search",
+          "title": "Tool",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool"
+      ],
+      "title": "RetrievalCall",
+      "type": "object"
+    },
+    "UsageRole": {
+      "description": "Which agentic stage a usage record belongs to.",
+      "enum": [
+        "predictor",
+        "evaluator",
+        "reconciler"
+      ],
+      "title": "UsageRole",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``retrieval_log.json`` \u2014 the cell's tool-call transcript, harness-captured (#525).\n\nRides to the collect job with the cell's output exactly as ``usage.json``\ndoes. Under the leakage doctrine, timing is the control: replay cells run\nwith the same tools as forward cells, and this log (plus the #526 evaluator\ngrading over it) replaces walls. ``mcp_servers`` snapshots the pinned tool\nmanifest the cell was configured with \u2014 the pipeline-attribution record.",
+  "properties": {
+    "actor_id": {
+      "description": "The predictor/evaluator id whose cell this was",
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "calls": {
+      "description": "Tool invocations in transcript order (500 caps a runaway cell)",
+      "items": {
+        "$ref": "#/$defs/RetrievalCall"
+      },
+      "maxItems": 500,
+      "title": "Calls",
+      "type": "array"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "engine": {
+      "$ref": "#/$defs/Engine"
+    },
+    "mcp_servers": {
+      "description": "Pinned manifest entries the cell was configured with (id==version strings)",
+      "items": {
+        "type": "string"
+      },
+      "title": "Mcp Servers",
+      "type": "array"
+    },
+    "mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The cell's provisioned mode: forward | replay; None pre-#525",
+      "title": "Mode"
+    },
+    "role": {
+      "$ref": "#/$defs/UsageRole",
+      "description": "Which stage produced the log"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "run_id",
+    "role",
+    "actor_id",
+    "engine"
+  ],
+  "title": "RetrievalLog",
+  "type": "object"
+}

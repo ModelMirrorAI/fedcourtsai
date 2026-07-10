@@ -1,0 +1,53 @@
+{
+  "additionalProperties": false,
+  "description": "One MCP server in the tool manifest (``mcp_servers:`` in the registry, #525).\n\nThe manifest is the pipeline-attribution record once cells' retrieval\nvaries: it pins exactly which retrieval tooling a cell was configured with\n(echoed into each cell's ``retrieval_log.json``), and is frozen before the\nSeptember prediction freeze. Local-install stdio only \u2014 the hosted\nendpoint's OAuth flow does not fit headless CI.",
+  "properties": {
+    "command": {
+      "description": "The stdio server entrypoint, e.g. `courtlistener-mcp`",
+      "title": "Command",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "id": {
+      "description": "Manifest key, e.g. `courtlistener`",
+      "title": "Id",
+      "type": "string"
+    },
+    "package": {
+      "description": "Pinned installable, e.g. `courtlistener-api-client[mcp]==1.0.0` \u2014 launched via `uvx --from <package> <command>` so no separate install step runs",
+      "title": "Package",
+      "type": "string"
+    },
+    "token_env": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Environment variable carrying the server's API token (the dedicated agent-traffic token, never ingestion's). Unset/empty at runtime degrades to anonymous rate limits rather than failing the cell.",
+      "title": "Token Env"
+    }
+  },
+  "required": [
+    "id",
+    "package",
+    "command"
+  ],
+  "title": "McpServerConfig",
+  "type": "object"
+}

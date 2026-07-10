@@ -38,6 +38,14 @@
       "title": "Id",
       "type": "string"
     },
+    "mcp_servers": {
+      "description": "Manifest ids this evaluator's cells are configured with (#525).",
+      "items": {
+        "type": "string"
+      },
+      "title": "Mcp Servers",
+      "type": "array"
+    },
     "model": {
       "anyOf": [
         {

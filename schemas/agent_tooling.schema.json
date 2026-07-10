@@ -69,6 +69,23 @@
       "title": "Schema Version",
       "type": "string"
     },
+    "tool_manifest": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The MCP server ids the cell was configured with, echoed from the provisioned manifest (#525). Advisory (the agent's echo); the authoritative pinned manifest is recorded harness-side in retrieval_log.json.",
+      "title": "Tool Manifest"
+    },
     "tools_used": {
       "description": "Tools/abilities the agent reports using this run (e.g. fedcourts query, MCP)",
       "items": {

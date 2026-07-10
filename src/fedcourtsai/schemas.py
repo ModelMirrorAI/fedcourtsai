@@ -324,6 +324,76 @@ class AgentToolingFeedback(_Strict):
     notes: str | None = Field(
         default=None, max_length=2000, description="Free-text remarks about the tooling, optional"
     )
+    tool_manifest: list[str] | None = Field(
+        default=None,
+        max_length=20,
+        description="The MCP server ids the cell was configured with, echoed from the "
+        "provisioned manifest (#525). Advisory (the agent's echo); the authoritative "
+        "pinned manifest is recorded harness-side in retrieval_log.json.",
+    )
+
+
+class RetrievalCall(_Strict):
+    """One tool invocation harvested from the engine's own transcript (#525).
+
+    Captured by the harness from the engine log — never the agent's word — so
+    the evaluator's leakage grading (#526) can see what a cell actually
+    retrieved. Long parameters and results are digested, not stored: the log
+    is an audit trail, not a content mirror.
+    """
+
+    tool: str = Field(
+        description="Tool name as the engine logged it, e.g. mcp__courtlistener__search"
+    )
+    query: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="The human-legible query/params slice (truncated), where extractable",
+    )
+    params_digest: str | None = Field(
+        default=None, description="SHA-256 (hex, 16 chars) of the full serialized params"
+    )
+    timestamp: str | None = Field(
+        default=None, description="Engine-logged wall-clock time of the call, verbatim"
+    )
+    result_digest: str | None = Field(
+        default=None, description="SHA-256 (hex, 16 chars) of the logged result payload"
+    )
+    retrieved_doc_date: str | None = Field(
+        default=None,
+        description="A document/decision date parsed from the result, where one is legible "
+        "— the #526 evaluator's timing signal",
+    )
+
+
+class RetrievalLog(_Strict):
+    """``retrieval_log.json`` — the cell's tool-call transcript, harness-captured (#525).
+
+    Rides to the collect job with the cell's output exactly as ``usage.json``
+    does. Under the leakage doctrine, timing is the control: replay cells run
+    with the same tools as forward cells, and this log (plus the #526 evaluator
+    grading over it) replaces walls. ``mcp_servers`` snapshots the pinned tool
+    manifest the cell was configured with — the pipeline-attribution record.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    run_id: str
+    role: UsageRole = Field(description="Which stage produced the log")
+    actor_id: str = Field(description="The predictor/evaluator id whose cell this was")
+    engine: Engine
+    mode: str | None = Field(
+        default=None, description="The cell's provisioned mode: forward | replay; None pre-#525"
+    )
+    mcp_servers: list[str] = Field(
+        default_factory=list,
+        description="Pinned manifest entries the cell was configured with (id==version strings)",
+    )
+    calls: list[RetrievalCall] = Field(
+        default_factory=list,
+        max_length=500,
+        description="Tool invocations in transcript order (500 caps a runaway cell)",
+    )
 
 
 class LeaderboardStratum(_Strict):
@@ -1136,6 +1206,31 @@ class SeedProgress(_Strict):
 _MODEL_ID_PATTERN = r"^[A-Za-z0-9._:-]+$"
 
 
+class McpServerConfig(_Strict):
+    """One MCP server in the tool manifest (``mcp_servers:`` in the registry, #525).
+
+    The manifest is the pipeline-attribution record once cells' retrieval
+    varies: it pins exactly which retrieval tooling a cell was configured with
+    (echoed into each cell's ``retrieval_log.json``), and is frozen before the
+    September prediction freeze. Local-install stdio only — the hosted
+    endpoint's OAuth flow does not fit headless CI.
+    """
+
+    id: str = Field(description="Manifest key, e.g. `courtlistener`")
+    package: str = Field(
+        description="Pinned installable, e.g. `courtlistener-api-client[mcp]==1.0.0` — "
+        "launched via `uvx --from <package> <command>` so no separate install step runs"
+    )
+    command: str = Field(description="The stdio server entrypoint, e.g. `courtlistener-mcp`")
+    token_env: str | None = Field(
+        default=None,
+        description="Environment variable carrying the server's API token (the dedicated "
+        "agent-traffic token, never ingestion's). Unset/empty at runtime degrades to "
+        "anonymous rate limits rather than failing the cell.",
+    )
+    description: str | None = None
+
+
 class PredictorConfig(_Strict):
     """An entry in ``config/predictors.yaml``."""
 
@@ -1145,6 +1240,11 @@ class PredictorConfig(_Strict):
     prompt: str = Field(description="Repo-relative path to the prompt template")
     enabled: bool = True
     description: str | None = None
+    mcp_servers: list[str] = Field(
+        default_factory=list,
+        description="Manifest ids (see `mcp_servers:` in the same file) this predictor's "
+        "cells are configured with (#525). Explicit per predictor — attribution, not a default.",
+    )
 
 
 class EvaluatorConfig(_Strict):
@@ -1156,6 +1256,10 @@ class EvaluatorConfig(_Strict):
     prompt: str
     enabled: bool = True
     description: str | None = None
+    mcp_servers: list[str] = Field(
+        default_factory=list,
+        description="Manifest ids this evaluator's cells are configured with (#525).",
+    )
 
 
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
@@ -1172,6 +1276,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "ops.json": OpsReport,
     "flags.json": AgentFlags,
     "tooling.json": AgentToolingFeedback,
+    "retrieval_log.json": RetrievalLog,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -1194,4 +1299,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "statpack": StatPack,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
+    "mcp_server_config": McpServerConfig,
+    "retrieval_log": RetrievalLog,
 }

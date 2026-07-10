@@ -167,7 +167,11 @@ jobs:
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
-        run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
+        # `--mode forward`: a run-predict cell predicts a genuinely pending
+        # event, and the mode in record/context.json keys the prompt contract's
+        # retrieval etiquette (#525); the cert back-test's replay provisioner
+        # writes `replay` itself.
+        run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --mode forward
 
       # A predictable event is a corpus fact, not a committed file. Project it into
       # the event's ledger directory so the prediction PR carries its event.yaml and
@@ -180,6 +184,45 @@ jobs:
           DOCKET_ID: ${{ matrix.docket }}
           EVENT_ID: ${{ matrix.event_id }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
+
+      # Configure the cell's MCP retrieval (#525) from the versioned tool
+      # manifest (config/predictors.yaml `mcp_servers:`). The tested `mcp-config`
+      # command emits each engine's client format; this step only plumbs stdout
+      # to the file the engine reads. The DEDICATED agent-traffic token
+      # (COURTLISTENER_AGENT_API_TOKEN — never ingestion's token, so a chatty
+      # cell cannot starve pull) is injected into the generated file, which is
+      # workspace-local, gitignored, and never part of the uploaded artifact
+      # (the upload lists status.json + data/ explicitly). An unset secret
+      # degrades the server to anonymous rate limits rather than failing the cell.
+      - name: Configure agent retrieval (MCP)
+        env:
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
+          ENGINE: ${{ matrix.engine }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+        run: |
+          set -euo pipefail
+          case "$ENGINE" in
+            claude-code)
+              uv run fedcourts mcp-config --engine claude-code \
+                --role predictor --actor "$PREDICTOR_ID" > mcp-servers.json
+              ;;
+            codex)
+              mkdir -p .codex
+              uv run fedcourts mcp-config --engine codex \
+                --role predictor --actor "$PREDICTOR_ID" > .codex/config.toml
+              ;;
+            gemini)
+              # The Gemini settings file is (re)written whole here — telemetry
+              # block included — because the secret-free install step below must
+              # stay secret-free; mcp-config merges mcpServers over the base.
+              mkdir -p .gemini
+              printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
+              uv run fedcourts mcp-config --engine gemini \
+                --role predictor --actor "$PREDICTOR_ID" \
+                --base-settings .gemini/settings.json > .gemini/settings.json.new
+              mv .gemini/settings.json.new .gemini/settings.json
+              ;;
+          esac
 
       - name: Predict with Claude Code
         id: predict_claude
@@ -196,7 +239,8 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The dedicated agent-traffic token (#525) — never ingestion's.
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
         with:
           # run-pull files this predict issue as the trusted pipeline App
           # (`fedcourtsai-data[bot]`), which the plan job's authorize-trigger gate
@@ -238,6 +282,7 @@ jobs:
             --model ${{ matrix.model }}
             --max-turns 120
             --permission-mode bypassPermissions
+            --mcp-config mcp-servers.json
 
       - name: Predict with Codex
         id: predict_codex
@@ -252,7 +297,8 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The dedicated agent-traffic token (#525) — never ingestion's.
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
         with:
@@ -282,10 +328,9 @@ jobs:
           set -euo pipefail
           npm install --silent --no-audit --ignore-scripts --global @google/gemini-cli@0.49.0
           gemini --version
-          mkdir -p .gemini
-          # Emit token usage to a local telemetry log the capture step parses; never
-          # log prompt/response bodies (docket text is untrusted third-party data).
-          printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
+          # .gemini/settings.json (telemetry + mcpServers) is written by the
+          # "Configure agent retrieval" step above: it needs the agent token in
+          # its env, and this npm step must stay secret-free.
 
       # Gemini runs through its CLI directly, not the upstream run-gemini-cli
       # action: that action internally `uses:` unpinned actions
@@ -308,7 +353,8 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The dedicated agent-traffic token (#525) — never ingestion's.
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_AGENT_API_TOKEN }}
           # The agent's least-privilege token (no contents:write) for any `gh issue
           # comment` it makes; the workflow's app-token does the commit/PR.
           GITHUB_TOKEN: ${{ steps.agent-token.outputs.token }}
@@ -372,6 +418,41 @@ jobs:
           else
             echo "::warning::no model usage captured for ${EVENT_ID}"
           fi
+
+      # Harvest the cell's tool-call transcript to retrieval_log.json (#525) —
+      # from the engine's own log (the same sources the usage capture reads),
+      # never the agent's word — so the cross-evaluator can grade what a cell
+      # actually retrieved. Runs even when the agent failed or timed out
+      # (a partial transcript is still evidence); best-effort like the usage
+      # capture, so a parse miss warns rather than failing the cell.
+      - name: Capture retrieval log
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+          ENGINE: ${{ matrix.engine }}
+          CLAUDE_EXECUTION_FILE: ${{ steps.predict_claude.outputs.execution_file }}
+          CODEX_HOME: ${{ github.workspace }}/.codex
+          GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
+        run: |
+          set -euo pipefail
+          args=(record-retrieval
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
+            --run-id "$RUN_ID" --engine "$ENGINE"
+            --role predictor --actor "$PREDICTOR_ID" --mode forward)
+          if [ "$ENGINE" = "claude-code" ] && [ -n "$CLAUDE_EXECUTION_FILE" ]; then
+            args+=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+          elif [ "$ENGINE" = "gemini" ]; then
+            args+=(--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE")
+          elif [ "$ENGINE" = "codex" ]; then
+            args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
+          fi
+          uv run fedcourts "${args[@]}" \
+            || echo "::warning::no retrieval log captured for ${EVENT_ID}"
 
       # The cell no longer opens a PR. Even when the agent failed or timed out
       # (`!cancelled()`), record what it produced and hand its output to the

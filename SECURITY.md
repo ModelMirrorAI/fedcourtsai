@@ -10,8 +10,14 @@
 - **No static key in the runner's process env where untrusted code runs.** The
   Codex action proxies `OPENAI_API_KEY` so the CLI never holds it; the Claude
   action handles `CLAUDE_CODE_OAUTH_TOKEN` and the Gemini action `GEMINI_API_KEY`
-  similarly. The lower-sensitivity CourtListener token is passed as a scoped step
-  env only where needed.
+  similarly. The lower-sensitivity CourtListener tokens are passed as a scoped
+  step env only where needed — with one deliberate carve-out (#525): the cells'
+  MCP-config step writes the **dedicated agent-traffic token**
+  (`COURTLISTENER_AGENT_API_TOKEN`, a separate rate-limit identity from
+  ingestion's, rotatable without touching pull) into the runner-local,
+  gitignored MCP client-config files the engines read. Exposure equals the
+  step-env's own: the files are on an ephemeral runner, never committed, and
+  the artifact upload is an explicit allowlist that excludes them.
 - **Agents get a least-privilege GitHub App token, never a static one.** So a
   headless agent can post progress/questions on the triggering issue/PR, the
   `run:predict` / `run:evaluate` / `run:reconcile` agent steps receive a separate
