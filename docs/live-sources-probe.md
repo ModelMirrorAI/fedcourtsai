@@ -42,8 +42,8 @@ served"). Machine detail rides in the probe's `--report-out` JSON.
   Links, Other) appear per-case, not per-era. One normalizer mapping covers the
   whole range; the optional keys must simply be optional in it.
 - **Disposition orders are machine-matchable: 64/64 served records** matched a
-  cert-disposition signal (`recoverability.match_disposition_signal`, the
-  `_ENTRY_SIGNALS` patterns) in plain `ProceedingsandOrder` text — e.g.
+  cert-disposition signal (`pipeline.cert_signals.match_disposition_signal`,
+  the shared cert-order patterns) in plain `ProceedingsandOrder` text — e.g.
   "Petition DENIED." So the loader's ingest-time resolution (#523) and the
   live channel's outcome capture (#473) work off the shelf; every sampled
   decided petition would land resolved with a machine-readable cert label.

@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 
 from .. import corpus
 from ..schemas import Disposition
+from .cert_signals import match_disposition_signal
 from .ingest import normalize_disposition
 from .outcome import is_machine_readable
 
@@ -55,40 +56,6 @@ class Classification(StrEnum):
     recoverable = "RECOVERABLE"
     absent = "ABSENT"
     ambiguous = "AMBIGUOUS"
-
-
-# Docket-entry text patterns that signal a concrete cert disposition. Each maps the
-# matched phrase to a :class:`Disposition` and a short human label; the first match
-# (scanned in order) wins, so the more specific GVR pattern precedes bare "granted".
-_ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
-    # Grant/vacate/remand: the petition is granted, so it lands on the granted side.
-    (re.compile(r"\bgvr\b", re.IGNORECASE), Disposition.granted, "GVR"),
-    (
-        re.compile(r"grant\w*.{0,60}?vacat\w*.{0,60}?remand\w*", re.IGNORECASE | re.DOTALL),
-        Disposition.granted,
-        "GVR",
-    ),
-    (
-        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?denied", re.IGNORECASE),
-        Disposition.denied,
-        "cert denied",
-    ),
-    (
-        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?dismiss\w*", re.IGNORECASE),
-        Disposition.dismissed,
-        "cert dismissed",
-    ),
-    (
-        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?grant\w*", re.IGNORECASE),
-        Disposition.granted,
-        "cert granted",
-    ),
-    (re.compile(r"\bcertiorari denied\b", re.IGNORECASE), Disposition.denied, "cert denied"),
-    (re.compile(r"\bcertiorari granted\b", re.IGNORECASE), Disposition.granted, "cert granted"),
-)
-
-# How much text around a matched signal to surface as evidence.
-_SNIPPET_PAD = 40
 
 
 class EntrySignal(BaseModel):
@@ -217,34 +184,11 @@ def _entry_text(entry: JsonDict) -> str:
     return "  ".join(parts)
 
 
-def _match_signal(text: str) -> tuple[Disposition, str, str] | None:
-    """First cert-disposition signal in ``text`` as (disposition, label, snippet)."""
-    for pattern, disposition, label in _ENTRY_SIGNALS:
-        match = pattern.search(text)
-        if match:
-            start = max(0, match.start() - _SNIPPET_PAD)
-            end = min(len(text), match.end() + _SNIPPET_PAD)
-            snippet = " ".join(text[start:end].split())
-            return disposition, label, snippet
-    return None
-
-
-def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
-    """First cert-disposition signal in free text, as (disposition, label, snippet).
-
-    The public seam over ``_ENTRY_SIGNALS`` for the live-sources channel (#523):
-    the supremecourt.gov proceedings text carries the disposition orders in the
-    same order-list language these patterns model, so the reachability probe (and
-    later the loader's ingest-time resolution) match against it directly.
-    """
-    return _match_signal(text)
-
-
 def scan_entries(entries: list[JsonDict]) -> list[EntrySignal]:
     """Find every docket entry whose text signals a concrete cert disposition."""
     signals: list[EntrySignal] = []
     for entry in entries:
-        matched = _match_signal(_entry_text(entry))
+        matched = match_disposition_signal(_entry_text(entry))
         if matched is None:
             continue
         disposition, label, snippet = matched

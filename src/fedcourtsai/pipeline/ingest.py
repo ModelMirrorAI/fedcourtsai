@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
 from ..schemas import Disposition, EventKind
+from .cert_signals import match_disposition_signal
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -446,10 +447,6 @@ def _live_resolution(
     date: a grant dates ``date_cert_granted``, a denial ``date_cert_denied``,
     and anything else (dismissed / withdrawn) dates the termination.
     """
-    # Deferred import: recoverability imports this module (normalize_disposition),
-    # so the signal matcher cannot be a top-level import without a cycle.
-    from .recoverability import match_disposition_signal  # noqa: PLC0415
-
     for entry in entries:
         matched = match_disposition_signal(str(entry.get("description") or ""))
         if matched is None:
