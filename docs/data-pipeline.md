@@ -455,11 +455,16 @@ ledger models in `fedcourtsai.schemas`.
   that writes `metrics/backtest.json`; see [`fedcourtsai.backtest`](../src/fedcourtsai/backtest.py).
 - **Base-rate aggregation** — roll the corpus into disposition base-rates instead of
   individual priors. On demand as `fedcourts stats` (overall, filtered to one SCOTUS
-  Term with `--term`, or grouped by court / originating circuit /
-  topic / judge / SCOTUS Term); as the published **statpack** (`fedcourts statpack`,
-  the `statpack` DVC stage → `metrics/statpack.{json,md}`, kept fresh by
-  `run-analytics`'s weekly metrics-refresh job — see [pipeline.md](pipeline.md));
-  and behind `run-analytics`'s dispatch modes. See
+  Term with `--term`, or grouped by court / originating circuit / topic / judge /
+  SCOTUS Term / relist count / CVSG status / fee class); as the published
+  **statpack** (`fedcourts statpack`, the `statpack` DVC stage →
+  `metrics/statpack.{json,md}`, kept fresh by `run-analytics`'s weekly
+  metrics-refresh job — see [pipeline.md](pipeline.md)); and behind
+  `run-analytics`'s dispatch modes. The statpack's cert statistics compute over
+  the **live/historical slice** (rows the supremecourt.gov channel wrote) with
+  each row counted `sample_weight` times, so the walker's denial sampling never
+  biases a published rate; its per-Term array carries the cursor-derived
+  filings census and walk-complete flags. See
   [`fedcourtsai.analytics`](../src/fedcourtsai/analytics.py).
 - **Retrieval** — at prediction time a model pulls a handful of *relevant*
   priors instead of loading the bulk set into context. Structured retrieval is

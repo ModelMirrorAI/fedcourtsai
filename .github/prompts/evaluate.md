@@ -116,7 +116,10 @@ You may consult the corpus for context while scoring (never for new case facts):
 `fedcourts query` / `fedcourts open-events` read the corpus blob in place on the
 remote via ranged reads (the blob is not on your cell's disk) and report each
 invocation's transfer as a `ranged corpus reads: …` line on stderr; the committed
-`metrics/statpack.md` carries the corpus-wide base-rates. Write **one**
+`metrics/statpack.md` carries the base-rates (its cert statistics are
+live/historical-slice, denial-reweighted estimates — each section's scope line
+says so). When you grade a replay cell's base-rate use, the per-Term table is
+the surface it should have self-selected pre-cutoff rows from. Write **one**
 `retrieval.md` for this cell, at
 `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$EVALUATOR_ID/$RUN_ID/retrieval.md`
 — your retrieval log: each corpus lookup (command + its `ranged corpus reads: …`
