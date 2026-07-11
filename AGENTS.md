@@ -16,7 +16,7 @@ in any given run:
    schemas, or prompts. This happens in an interactive session (e.g. Codespaces)
    on the branch-and-PR flow below, like any contributor — there is no agent
    workflow for it. Do **not** touch `data/`.
-2. **Data production** (`run:pull` / `run:predict` / `run:evaluate`): produce or
+2. **Data production** (`run:pull` / `run:predict` / `run:evaluate` / `run:backtest`): produce or
    update data — the raw-fact corpus (DVC/S3) and/or the derived artifacts under
    `data/`. Do **not** change pipeline code to make your task easier, and never
    weaken validation, CI, lint, type, or security checks.

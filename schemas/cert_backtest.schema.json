@@ -120,7 +120,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/cert-backtest.json`` \u2014 predictors replayed over decided cert petitions.\n\nThe standing instrument for vetting cert predictors and prompt changes:\nreplay over a curated set of resolved modern discretionary-cert petitions\n(outcome hidden \u2014 the replay provisions a redacted snapshot), scored against\nthe realized grant/deny. Produced out of band by ``fedcourts cert-backtest``\n(it spends tokens when agentic engines are replayed), never by a schedule.",
+  "description": "``metrics/cert-backtest.json`` \u2014 predictors replayed over decided cert petitions.\n\nThe standing instrument for vetting cert predictors and prompt changes:\nreplay over a curated set of resolved modern discretionary-cert petitions\n(outcome hidden \u2014 the replay provisions a redacted snapshot), scored against\nthe realized grant/deny. Produced by the maintainer-triggered\n``run-backtest`` workflow via ``fedcourts cert-backtest``\n(it spends tokens when agentic engines are replayed), never by a schedule.",
   "properties": {
     "always_denied_accuracy": {
       "default": 0.0,

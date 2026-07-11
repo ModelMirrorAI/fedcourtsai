@@ -42,6 +42,7 @@ request.
 | `run:pull`     | `run-pull`      | Three scheduled jobs: targeted CourtListener enrichment (four windows/day), the **supremecourt.gov live poll** (four windows/day) that discovers pending petitions, tracks conference distribution, records outcomes, and provisions filed-document text, and the daily **historical Term walker** that accumulates decided petitions newest-Term-first for base rates and back-testing | Script |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex + Gemini |
+| `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR | Claude Code + Codex (replay) |
 
 Plus `run-ops`, a read-only daily dashboard — run health, substantive results
 (scored cells, calibration, live-frontier readiness), spend — with a weekly

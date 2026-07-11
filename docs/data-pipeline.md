@@ -293,6 +293,7 @@ Access mirrors each workflow's role in the pipeline:
 |-------------------------------------------|---------------|----------------------------------|
 | `run-pull` (all three jobs)               | read-write    | corpus writers (`dvc push`)      |
 | `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the whole corpus (full `dvc pull`) |
+| `run-backtest`                            | read-only     | replay provisioning over redacted snapshots (full `dvc pull`) |
 | `run-predict`, `run-evaluate` — cell jobs | read-only | point lookups + retrieval, blob queried in place (ranged reads, no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `dvc pull`) |
 | `ci`                                      | none          | gate stays offline/fast          |
