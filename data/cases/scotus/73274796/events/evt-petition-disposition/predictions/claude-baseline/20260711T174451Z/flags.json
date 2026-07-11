@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73274796",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The single most predictive input for this cell — the Solicitor General's CVSG amicus recommendation (reported as: hold pending St. Mary Catholic Parish v. Roy, No. 25-581, then dispose as appropriate; preemption question not certworthy) — could not be read from the primary PDF: supremecourt.gov DocketPDF and justice.gov both returned HTTP 403 to the engine's web fetcher. The recommendation rests on two independent web-search summaries plus corroborating docket behavior (no order after the 6/25/2026 conference). If the pipeline could provision CVSG/SG amicus briefs under record/documents/ the way it provisions the petition and BIO, forward-mode SCOTUS cells would lose this fragility.",
+      "severity": "info"
+    },
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "The most likely resolution path is a hold followed by a GVR after St. Mary (No. 25-581) is decided (~June 2027). I verified that the pipeline's order-list classifier (src/fedcourtsai/pipeline/cert_signals.py) labels a GVR as 'granted', and predicted accordingly (granted, P=0.70). If evaluation intends GVR to score differently from a plenary grant, this cell's disposition label should be read with that in mind. Resolution is also likely ~a year away, so the event will stay open well past this run.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T174451Z",
+  "schema_version": "1.0"
+}

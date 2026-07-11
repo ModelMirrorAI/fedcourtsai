@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73274796",
+  "gaps": [
+    "Provisioned text of the SG's CVSG amicus brief under record/documents/ (supremecourt.gov and justice.gov 403-block direct fetches, so the decisive cert-stage signal had to come from secondary search summaries)",
+    "A statpack cut for CVSG'd petitions (grant/GVR/deny rates conditional on the SG's recommendation) — the modern discretionary-cert base rate is the wrong prior once a CVSG has issued",
+    "fedcourts query --citation matched nothing for '494 U.S. 872'; citation-based prior retrieval seems to have little coverage for cert-stage dockets"
+  ],
+  "helpful": [
+    "Provisioned questions-presented.txt / petition.txt / brief-in-opposition.txt",
+    "Snapshot's full ProceedingsandOrder list (the CVSG, SG filing, and end-of-Term silence carried most of the signal)",
+    "metrics/statpack.md modern discretionary-cert cut",
+    "fedcourts query --era 2020s --disposition granted (showed sibling 6/25/2026-conference petitions were granted 6/29, confirming this docket's silence reads as a hold)",
+    "Engine web search for the SG recommendation and the St. Mary (25-581) grant"
+  ],
+  "notes": "Forward-mode cell. CourtListener MCP was configured but not needed; no MCP call errored and no REST fallback was used. Roughly 9 retrieval calls total.",
+  "role": "predictor",
+  "run_id": "20260711T174451Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "WebSearch/WebFetch (engine)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
