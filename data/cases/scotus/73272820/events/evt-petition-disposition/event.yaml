@@ -1,0 +1,12 @@
+case_id: scotus/73272820
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-07-18'
+resolved: true
+schema_version: '1.0'
+title: James Thomas Ballard, Individually and as Trustee of the James T. Ballard Millennium
+  Trust, dated January 9, 2002, Petitioner v. City of West Hollywood, California,
+  et al.
