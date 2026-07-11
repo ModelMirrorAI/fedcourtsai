@@ -27,7 +27,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .schemas import Backtest, Leaderboard, StatPack
+from .schemas import Backtest, CertBacktest, Leaderboard, StatPack
 from .serialize import read_model
 
 REFRESH_BRANCH = "metrics/refresh"
@@ -104,6 +104,56 @@ def render_refresh_pr(
     )
     return MetricsRefreshPr(
         branch=REFRESH_BRANCH,
+        title=title,
+        commit_message=title,
+        body=body,
+    )
+
+
+BACKTEST_BRANCH = "metrics/cert-backtest"
+
+
+def render_backtest_pr(
+    metrics_root: Path, run_id: str, *, limit: int, engine: str
+) -> MetricsRefreshPr | None:
+    """Render the review PR for a maintainer-triggered cert back-test run.
+
+    Reads the freshly-written ``metrics/cert-backtest.json`` for its headline
+    (top lift over the always-deny floor, sample size) so the PR states what the
+    run measured, not just that it ran. Returns ``None`` when the report is
+    absent (the command wrote nothing) — the workflow then exits quietly. The
+    markdown lives in tested code rather than a workflow heredoc, mirroring
+    :func:`render_refresh_pr`.
+    """
+    report_path = metrics_root / "cert-backtest.json"
+    if not report_path.exists():
+        return None
+    report = read_model(report_path, CertBacktest)
+    if report.entries:
+        top = report.entries[0]
+        headline = (
+            f"top predictor `{top.predictor_id}`: lift "
+            f"**{top.lift_over_always_denied:+.1%}** over always-deny "
+            f"(accuracy {top.accuracy:.0%}, Brier {top.mean_brier_score:.3f})"
+        )
+    else:
+        headline = "no predictors scored (empty set)"
+    title = f"metrics: cert back-test over {report.events_scored} petition(s)"
+    body = (
+        f"Maintainer-triggered cert back-test (run `{run_id}`): the enabled "
+        f"predictors replayed over the {report.events_scored} most recently "
+        f"decided modern discretionary-cert petition(s) with outcomes hidden "
+        f"(`--limit {limit} --engine {engine}`), scored against the realized "
+        "grant/deny. Retrospective by construction — iteration signal, never "
+        "claimable performance.\n\n"
+        f"- {headline}\n"
+        f"- always-deny floor: **{report.always_denied_accuracy:.0%}** over this set\n"
+        f"- predictors on the board: {report.predictors_evaluated}\n\n"
+        "Review and merge — this PR is intentionally **not** auto-merged; a "
+        "later run force-pushes this same branch and the PR updates in place.\n"
+    )
+    return MetricsRefreshPr(
+        branch=BACKTEST_BRANCH,
         title=title,
         commit_message=title,
         body=body,

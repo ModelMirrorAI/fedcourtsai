@@ -2515,6 +2515,34 @@ def cleanup_out_of_scope_predictions_cmd(
     )
 
 
+@app.command("cert-backtest-plan")
+def cert_backtest_plan(
+    run_id: Annotated[
+        str, typer.Option(help="The back-test run id for the PR prose; defaults to now (UTC).")
+    ] = "",
+    limit: Annotated[
+        int, typer.Option(help="The --limit the run used (echoed in the prose).")
+    ] = 25,
+    engine: Annotated[
+        str, typer.Option(help="The --engine the run used (echoed in the prose).")
+    ] = "auto",
+) -> None:
+    """Render the review-PR plan for a cert back-test run (``run-backtest``).
+
+    The workflow runs ``cert-backtest``, then hands the run's parameters here;
+    this prints a JSON plan ``{"pr": <branch/title/commit/body|null>}`` with a
+    headline read from the freshly-written report. ``pr`` is null when no
+    report exists, so the workflow can exit quietly. The prose is rendered
+    here, not with ``jq`` and a heredoc in the workflow, mirroring
+    ``metrics-refresh-plan``.
+    """
+    settings = get_settings()
+    pr = metrics_refresh.render_backtest_pr(
+        settings.metrics_root, run_id or ids.run_id(), limit=limit, engine=engine
+    )
+    typer.echo(json.dumps({"pr": pr.model_dump() if pr is not None else None}))
+
+
 @app.command("metrics-refresh-plan")
 def metrics_refresh_plan(
     changed_file: Annotated[

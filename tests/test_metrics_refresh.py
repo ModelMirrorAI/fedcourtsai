@@ -7,11 +7,13 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
-from fedcourtsai.metrics_refresh import REFRESH_BRANCH, render_refresh_pr
+from fedcourtsai.metrics_refresh import REFRESH_BRANCH, render_backtest_pr, render_refresh_pr
 from fedcourtsai.schemas import (
     Backtest,
     BacktestEntry,
     BaseRateBucket,
+    CertBacktest,
+    CertBacktestEntry,
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStratum,
@@ -145,3 +147,42 @@ def test_cli_plan_is_null_when_nothing_changed(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     plan = json.loads(result.output)
     assert plan == {"changed": [], "pr": None}
+
+
+def test_render_backtest_pr_reads_the_report_headline(tmp_path: Path) -> None:
+    report = CertBacktest(
+        events_scored=25,
+        predictors_evaluated=3,
+        always_denied_accuracy=0.92,
+        entries=[
+            CertBacktestEntry(
+                predictor_id="claude-baseline",
+                rank=1,
+                events_scored=25,
+                accuracy=0.96,
+                granted_accuracy=0.96,
+                mean_brier_score=0.05,
+                lift_over_always_denied=0.04,
+            )
+        ],
+    )
+    (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=25, engine="auto")
+    assert pr is not None
+    assert pr.branch == "metrics/cert-backtest"
+    assert "cert back-test over 25 petition(s)" in pr.title
+    assert "`claude-baseline`" in pr.body and "+4.0%" in pr.body
+    assert "always-deny floor: **92%**" in pr.body
+    assert "--limit 25 --engine auto" in pr.body
+    assert "not** auto-merged" in pr.body
+
+
+def test_render_backtest_pr_none_without_a_report(tmp_path: Path) -> None:
+    assert render_backtest_pr(tmp_path, "RID", limit=25, engine="stub") is None
+
+
+def test_render_backtest_pr_empty_set_still_renders(tmp_path: Path) -> None:
+    empty = CertBacktest(events_scored=0, predictors_evaluated=0)
+    (tmp_path / "cert-backtest.json").write_text(empty.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=25, engine="stub")
+    assert pr is not None and "no predictors scored" in pr.body

@@ -1,0 +1,220 @@
+name: run-backtest
+
+# Maintainer-triggered cert back-test: replay the enabled predictors over the
+# most recently decided modern discretionary-cert petitions (outcomes hidden —
+# redacted snapshots in a scratch tree, never data/) and land the refreshed
+# `metrics/cert-backtest.json` as a **reviewed** PR — never a direct commit,
+# never auto-merged. Retrospective by construction: iteration signal, never
+# claimable performance (see metrics/README.md).
+#
+# Replaying agentic engines SPENDS MODEL TOKENS (~one cell per predictor per
+# petition), so every run is an explicit maintainer decision: a `run:backtest`
+# label on an issue (fail-closed authorization below) runs the real thing with
+# the defaults, and a workflow_dispatch chooses the parameters — its `engine`
+# defaults to the free offline `stub` so an accidental dispatch spends nothing;
+# pick `auto` deliberately to route each predictor through its real engine.
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: "Replay backend: auto = each predictor's real engine (SPENDS TOKENS); stub = free offline dry run."
+        type: choice
+        options: [stub, auto]
+        default: stub
+      limit:
+        description: "Replay the N most recently decided petitions (~one cell per predictor each; model spend scales linearly)."
+        type: string
+        default: "25"
+
+permissions: {}
+
+# One back-test at a time; a queued run waits (a superseded parameter choice is
+# the maintainer's to cancel, never silently dropped). Concurrency is evaluated
+# before the job `if`, and every `issues: labeled` event on the repo spawns a
+# to-be-skipped run of this workflow — so only a run this workflow will
+# actually perform joins the real group; everything else gets a throwaway
+# group (the run-pull pattern), or an unrelated label could supersede a queued
+# back-test. Apply the label to a dedicated issue: a `run:backtest` label on a
+# live predict/evaluate trigger issue would contend with that issue's own
+# concurrency group.
+concurrency:
+  group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:backtest') && 'run-backtest' || format('run-backtest-skip-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    # A label run is the real thing with the defaults (labeling IS the explicit
+    # spend decision); dispatch parameterizes it. Every other label event on
+    # this repo skips here.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'run:backtest'
+    runs-on: ubuntu-latest
+    # Headroom for ~25 petitions x 2 routable predictors of real agent cells
+    # plus the corpus pull (Gemini has no registered runner and is skipped);
+    # the cap keeps a hung engine from burning six billable hours.
+    timeout-minutes: 180
+    environment: runner
+    permissions:
+      contents: read
+      issues: write # comment the run/PR link back on the trigger issue
+      id-token: write # assume the read-only AWS role to dvc pull the corpus
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      # An issue label can be applied by any actor with triage on a public repo,
+      # and this run spends model tokens — so the label path requires the actor
+      # to be the pipeline App or a maintainer with write access, fail closed,
+      # BEFORE any token is minted or the corpus is read. The decision lives in
+      # the tested `authorize-trigger` command. (Dispatch is already write-gated
+      # by GitHub, so it skips this.)
+      - name: Authorize the trigger (label from the pipeline App or a maintainer)
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
+        run: |
+          uv run fedcourts authorize-trigger \
+            --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
+
+      # The replay provisions redacted snapshots from the corpus, so it must be
+      # on disk; without a pointer there is nothing to back-test.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
+          missing-pointer: warn
+
+      # The real-engine replay shells out to the agent CLIs through the tested
+      # runner seam — the same binaries the devcontainer ships. Installed only
+      # when a real engine will run; the stub backend needs nothing. Gemini
+      # predictors have no registered runner and are skipped under `auto` (the
+      # report names what ran).
+      - name: Install the agent CLIs
+        if: github.event_name == 'issues' || inputs.engine == 'auto'
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pins, scripts
+        # disabled, and a secret-free environment are the practical controls for
+        # global CLIs; a lockfile is not expressible for `npm i -g`.
+        run: |
+          set -euo pipefail
+          npm install --silent --no-audit --ignore-scripts --global \
+            @anthropic-ai/claude-code@2.1.207 @openai/codex@0.144.1
+          claude --version
+          codex --version
+
+      - name: Run the cert back-test
+        env:
+          # Engine credentials for the replay cells; unused by the stub backend.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # A label run uses the real engines with the default set size;
+          # dispatch chooses. `--limit` IS the set-size cap (there is no higher
+          # ceiling to lower), so a large dispatch value is a deliberate,
+          # write-gated spend decision — the PR body echoes what ran.
+          ENGINE: ${{ github.event_name == 'issues' && 'auto' || inputs.engine }}
+          LIMIT: ${{ github.event_name == 'issues' && '25' || inputs.limit }}
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db ]; then
+            echo "::error::no corpus on disk; nothing to back-test" >&2
+            exit 1
+          fi
+          uv run fedcourts cert-backtest \
+            --engine "$ENGINE" --limit "$LIMIT" \
+            --work-dir "$RUNNER_TEMP/backtest-cells"
+
+      # The review PR is opened with the dev App token, exactly like the
+      # metrics refresh: the dev App is not a branch-protection bypass actor,
+      # so the PR still faces the required `gate` check and review is
+      # mandatory. Minted only after the run produced a report.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The branch name and PR prose come from the tested `cert-backtest-plan`
+      # (null pr = no report); this step only runs git and gh, mirroring the
+      # metrics-refresh job. The fixed branch is force-pushed so an unmerged
+      # back-test PR updates in place rather than stacking.
+      - name: Open or update the review PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          ENGINE: ${{ github.event_name == 'issues' && 'auto' || inputs.engine }}
+          LIMIT: ${{ github.event_name == 'issues' && '25' || inputs.limit }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git add -A metrics/
+          if git diff --cached --quiet -- metrics/; then
+            echo "Back-test report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          plan=$(uv run fedcourts cert-backtest-plan --run-id "$GITHUB_RUN_ID" \
+            --limit "$LIMIT" --engine "$ENGINE")
+          if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
+            echo "No back-test report produced; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch=$(jq -r '.pr.branch' <<<"$plan")
+          title=$(jq -r '.pr.title' <<<"$plan")
+          jq -r '.pr.body' <<<"$plan" > pr-body.md
+          git commit -m "$(jq -r '.pr.commit_message' <<<"$plan")"
+          git push --force origin "HEAD:refs/heads/${branch}"
+          # Reuse an open PR for the fixed branch (the force-push updated it);
+          # otherwise open a fresh one.
+          existing=$(gh pr list --repo "$REPO" --state open --head "$branch" \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$REPO" --title "$title" --body-file pr-body.md
+            echo "Updated the open back-test PR." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            gh pr create --repo "$REPO" --base main --head "$branch" \
+              --title "$title" --body-file pr-body.md
+          fi
+          cat pr-body.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Close the loop on the label path: the trigger issue gets the run and
+      # review-PR links (the ambient token is non-triggering by design, so this
+      # comment cannot re-fire anything). The issue stays open — whether it is a
+      # one-shot trigger or a standing back-test tracker is the maintainer's
+      # call. Best-effort: a comment hiccup must not fail a run that already
+      # landed its PR.
+      - name: Comment the result on the trigger issue
+        if: always() && github.event_name == 'issues'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OUTCOME: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          pr_url=$(gh pr list --repo "$REPO" --state open --head metrics/cert-backtest \
+            --json url --jq '.[0].url // empty')
+          body="Cert back-test run finished (${OUTCOME}): ${RUN_URL}"
+          if [ -n "$pr_url" ]; then
+            body=$(printf '%s\nReview PR: %s' "$body" "$pr_url")
+          fi
+          gh issue comment "$ISSUE" --repo "$REPO" --body "$body"

@@ -611,7 +611,8 @@ class CertBacktest(_Strict):
     The standing instrument for vetting cert predictors and prompt changes:
     replay over a curated set of resolved modern discretionary-cert petitions
     (outcome hidden — the replay provisions a redacted snapshot), scored against
-    the realized grant/deny. Produced out of band by ``fedcourts cert-backtest``
+    the realized grant/deny. Produced by the maintainer-triggered
+    ``run-backtest`` workflow via ``fedcourts cert-backtest``
     (it spends tokens when agentic engines are replayed), never by a schedule.
     """
 

@@ -24,7 +24,8 @@ agent is merely instructed to follow:
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
-  `run-evaluate`. Its client id is the `DEV_APP_CLIENT_ID`
+  `run-evaluate` and the back-test PR opener (`run-backtest`). Its client id
+  is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   reviewed PR.
@@ -36,6 +37,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
+| `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
