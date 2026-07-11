@@ -46,8 +46,9 @@
   credential in the system is the contributor path's read-only key below).
   **Two roles,
   split by access:** corpus writers (`run-pull` →
-  `AWS_ROLE_TO_ASSUME`) get a **read-write** role; retrieval consumers
-  (`run-predict`, `run-evaluate` →
+  `AWS_ROLE_TO_ASSUME`) get a **read-write** role; corpus consumers
+  (`run-predict`, `run-evaluate`, `run-backtest`, `run-analytics`,
+  `integration-corpus` →
   `AWS_ROLE_TO_ASSUME_READONLY`) get a **read-only** role, so a compromised
   consumer runner cannot tamper with the corpus. The write role is **append-only**
   (get/put/list, **no delete**) and the bucket keeps **versioning** on, so no run

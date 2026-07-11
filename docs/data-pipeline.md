@@ -141,60 +141,43 @@ Until then, four guardrails keep interim work from blocking the pivot:
 3. **Enrichment flows through ingestion into the corpus, never as agent-side
    API calls.** The same rule that protects replay integrity and forward
    comparability today is what makes the replica a drop-in upstream later.
-4. **Bulk-CSV-specific tooling stays thin.** The quarterly export is an interim
-   source; durable investment goes into the normalization seam and the corpus
-   schema, both of which survive the swap.
-
-The **date backfill** (`pull.backfill_reserve`, removed July 2026) was the
-worked example of these guardrails: bulk rows lack the decision-time dates
-(cert-stage, termination) the replica carries natively, so a slice of each pull
-window re-fetched dateless dockets through the existing governor, following the
-linked **opinion cluster** when the docket record itself carried no dates. As
-the guardrails promised, the selector, reserve, and cluster hop were deleted
-with the drip they fed (see the pivot section below), while the durable parts —
-the cert-date columns, their normalization-layer mapping, the petition-aware
-resolution clock — stayed.
+4. **Bulk-shaped tooling stays thin.** A bulk-shaped source (the replica's
+   tables, a future export) enters through the shared normalizer
+   (`ingest.from_bulk_row`); durable investment goes into the normalization
+   seam and the corpus schema, both of which survive the swap.
 
 ## Pivot (July 2026): retire the bulk-era channels, go live-first
 
 The live-sources track ([live-sources.md](live-sources.md)) made the bulk-era
 catch-up channels a dead end before the replica arrived: the supremecourt.gov
 docket JSON carries the dispositions, dates, and documents the CourtListener
-REST drip could not recover at any budget. What changed:
+REST drip could not recover at any budget. The decisions that hold:
 
-- **The date backfill is deleted** (selector, `backfill_reserve`, the
-  cert-shell feeder `backfill_unresolved_cert_min_term`, and the opinion-cluster
-  hop). It was re-fetching dockets whose upstream records are stubs — every
-  flagged case proved unresolvable. Its budget slice
-  returns to the refresh rotation. The per-Term historical set it was meant to
-  grow now comes through the live channel instead (the `historical-terms`
-  walker).
-- **The bulk-CSV seed path is deleted** (git history keeps it; a future
-  bulk-shaped source — the replica, or CourtListener logical replication —
-  re-enters through the shared normalizer, `ingest.from_bulk_row`). Historical
-  loading is the **historical Term walker** (`fedcourts historical-terms`,
-  `run-pull`'s daily `historical` job): it walks October Terms' docket serials
-  newest-first over the supremecourt.gov docket JSON — the same client,
-  identity, and ingest seams as the forward poller — and lands the sampled
-  decided set (every decided petition, with denials systematically sampled; the
-  committed `historical:` section of `config/tracking.yaml` is the sampling frame),
-  primarily for the statpack's per-Term base rates, secondarily the cert
-  back-test set. See [live-sources.md](live-sources.md).
+- **Historical loading is the historical Term walker**
+  (`fedcourts historical-terms`, `run-pull`'s daily `historical` job): it walks
+  October Terms' docket serials newest-first over the supremecourt.gov docket
+  JSON — the same client, identity, and ingest seams as the forward poller —
+  and lands the sampled decided set (every decided petition, with denials
+  systematically sampled; the committed `historical:` section of
+  `config/tracking.yaml` is the sampling frame), primarily for the statpack's
+  per-Term base rates, secondarily the cert back-test set. A future bulk-shaped
+  source — the replica, or CourtListener logical replication — enters through
+  the shared normalizer, `ingest.from_bulk_row`. See
+  [live-sources.md](live-sources.md).
 - **Pull is re-aimed as targeted enrichment.** The live channel owns SCOTUS
   freshness; pull's REST budget goes to keeping the tracked set's
   CourtListener records current rather than rotating the whole active
   set stalest-first as the primary freshness mechanism.
-- **`discover_new_filings` is off as of the live channel's adoption** (the
-  decision recorded at the pivot): the live channel's frontier
-  probing onboards newly filed SCOTUS petitions — fresher and budget-free —
-  and circuit discovery onboarded cases outside the prediction scope. Its
-  budget slice returned to the enrichment rotation.
-- **The reconcile agent workflow is retired.** The live channel's
-  proceedings-text resolution makes most resolutions deterministic; a decided
-  case whose outcome still cannot be recorded deterministically becomes an
-  **unrecorded outcome**, surfaced per-case on the daily pull-log / live-log
-  issue comment (with the count on the step summary) for maintainer triage — no
-  agent runs and no issue is filed.
+- **CourtListener discovery is off** (`pull.discover_new_filings: false`): the
+  live channel's frontier probing onboards newly filed SCOTUS petitions —
+  fresher and budget-free — and circuit discovery onboarded cases outside the
+  prediction scope. Its budget slice stays with the enrichment rotation.
+- **Resolution is deterministic-first; ambiguity is triaged, not delegated.**
+  The live channel's proceedings-text resolution records most outcomes
+  deterministically; a decided case whose outcome still cannot be recorded
+  deterministically becomes an **unrecorded outcome**, surfaced per-case on the
+  daily pull-log / live-log issue comment (with the count on the step summary)
+  for maintainer triage — no agent runs and no issue is filed.
 
 Adoption also needs a terms review of the replication agreement itself; the
 access-gated, no-republication stance in [data-sources.md](data-sources.md)
@@ -393,6 +376,16 @@ can never observe a torn write. Mechanics:
 Credit: michalc/sqlite-s3-query and litements/s3sqlite (both MIT) are the
 reference implementations; this is implemented in-repo so it is typed, tested,
 and reviewed under the same gate as everything else.
+
+One direction under consideration — a direction, not a commitment: the
+predict/evaluate cells could eventually drop their S3/ranged-corpus
+provisioning altogether in favor of retrieving case records from CourtListener
+itself at run time (the MCP server, the REST API, or the web). The corpus would
+remain the system of record for ingestion, analytics, and back-testing; only
+the cells' read path would change. The cells already retrieve from
+CourtListener through their configured MCP tools; what is not built is
+replacing the provisioned baseline — the ranged backend above remains the
+cells' corpus read path today.
 
 ### Developer access (Codespaces)
 
@@ -659,8 +652,8 @@ discovers nothing useful.
 
 ## Steady state
 
-History sits in the DVC corpus (the bulk-era load plus the historical Term
-set the historical Term walker keeps growing). **SCOTUS freshness is the live
+History sits in the DVC corpus, in the historical Term set the historical Term
+walker keeps growing newest-Term-first. **SCOTUS freshness is the live
 channel's**: the run-pull `live` job polls supremecourt.gov four times a day —
 frontier probing onboards new petitions within a cycle, the watchlist refresh
 catches distributions and resolutions within days of the conference. Pull's
@@ -721,5 +714,4 @@ pull/live path that commits straight to main) materializes it beside every
 does not hold. The corpus checks need the
 remote, so they stay on the schedule (the gate is deliberately offline) — at PR time
 "the event exists" means it is defined in the git ledger; the schedule additionally
-confirms it against the corpus. This automates, and extends across stores, the
-manual corpus spot-check that backed the early backfill.
+confirms it against the corpus.

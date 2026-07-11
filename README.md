@@ -45,9 +45,9 @@ request.
 | `run:backtest` | `run-backtest`  | Maintainer-triggered cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR | Claude Code + Codex (replay) |
 
 Plus `run-ops`, a read-only daily dashboard — run health, substantive results
-(scored cells, calibration, live-frontier readiness), spend — with a weekly
-maintainer digest, and no `run:*` label: it runs on a schedule (or manual
-dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
+(scored cells, calibration, live-frontier readiness), spend, and data health —
+with a weekly maintainer digest, and no `run:*` label: it runs on a schedule
+(or manual dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
 
 ```mermaid
 flowchart TD
@@ -92,9 +92,9 @@ publish predictions we can't stand behind. Currently out of scope:
   original-jurisdiction matters (`22O141`) resolve as stays or merits rulings,
   not cert grant/deny, so the cert event model is not scored against them.
 - **Decided-on-paper-only cases.** A docket whose only outcome signal is a
-  published opinion with no machine-readable disposition, or a bare bulk-import
-  row whose snapshot carries nothing to predict from, is excluded until real
-  record data arrives.
+  published opinion with no machine-readable disposition, or a bare
+  opinion-import row whose snapshot carries nothing to predict from, is
+  excluded until real record data arrives.
 - **Cases with internally inconsistent dates.** A docket that looks decided before
   it was filed (a faithful but nonsensical upstream record) can't anchor a
   meaningful prediction, so it is excluded — without altering the data or the
@@ -204,8 +204,10 @@ docs/               architecture, data model, pipeline, security
 ## Data & attribution
 
 Court data comes from [CourtListener](https://www.courtlistener.com/), a project of
-the [Free Law Project](https://free.law/) — via the CourtListener REST API and the
-quarterly bulk-data exports. A great deal of this project rests on their work;
+the [Free Law Project](https://free.law/) — via the CourtListener REST API — and
+from **supremecourt.gov**'s per-docket JSON and filed-document PDFs, public records
+served by the Court itself (see [docs/data-sources.md](docs/data-sources.md)). A
+great deal of this project rests on Free Law Project's work;
 please review and support it. Use of their data is governed by
 [CourtListener's terms](https://www.courtlistener.com/terms/) (CC BY-ND 4.0 for
 CourtListener's own content; the underlying federal records are public domain), with

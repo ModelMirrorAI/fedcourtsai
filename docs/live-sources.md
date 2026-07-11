@@ -73,10 +73,10 @@ The live source follows the replica guardrails exactly
   `CorpusSource`), and the raw JSON — proceedings and document links included —
   is stored as the case's dated **snapshot**, exactly like a REST pull. The
   proceedings list is the docket-entries analogue, so event extraction and
-  resolution detection work unchanged. One caveat found at implementation:
+  resolution detection work unchanged. One caveat:
   replay redaction is a **key-name** blocklist, so the raw JSON's
-  outcome-bearing keys (`ProceedingsandOrder`, `sJsonCreationDate`) had to be
-  added alongside `docket_entries` — a new channel's snapshot shape must always
+  outcome-bearing keys (`ProceedingsandOrder`, `sJsonCreationDate`) sit on it
+  alongside `docket_entries` — a new channel's snapshot shape must always
   be checked against that list.
 - **The corpus stays the system of record.** Live-ness comes from trigger and
   cadence, not from bypassing the corpus: a watchlist refresh that finds a
@@ -89,7 +89,7 @@ The live source follows the replica guardrails exactly
   does not have. The join key is the normalized Term-form docket number, which
   both sources carry: a live ingest first looks for an existing SCOTUS row with
   the same normalized number and enriches it; only a genuinely unseen petition
-  mints a new row. **Decided (July 2026):** the minted id is deterministic and
+  mints a new row. The minted id is deterministic and
   permanent — `9,000,000,000 + term×1,000,000 + serial` (`25-1234` →
   `scotus/9025001234`), collision-proof against CourtListener ids and decodable
   back to the Term-form number — and is **never merged**: `case_id`
@@ -115,8 +115,7 @@ corpus's `distributed_for_conference` (a relist updates it; non-live writers
 preserve it); the refresh rotation leads with distributed petitions, nearest
 conference first; and **predict fires on the distribution transition** — a
 fresh distribution or a relist's new date — the cert-calendar analogue of
-`pull.predict_on_change_only`, replacing the interim `predict_on_refresh`
-guard. The pending-before-conference set is readable via
+`pull.predict_on_change_only`. The pending-before-conference set is readable via
 `fedcourts conference-set` (grouped by conference date; the September
 long-conference set is its largest bucket).
 

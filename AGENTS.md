@@ -47,7 +47,7 @@ non-interactive** container. Two consequences shape everything you do:
     and the workflow commits, pushes, and opens the PR — so do **not** push yourself.
   - **Corpus / large historical data → the DVC remote.** Bulk data lives in the
     S3-backed DVC remote, not git, and persists only via `dvc push` (the run-pull
-    workflows own this). A data file left in the working tree but never pushed to
+    writer jobs own this). A data file left in the working tree but never pushed to
     the remote is lost with the runner. See `docs/data-pipeline.md`.
 
 ## The golden rules

@@ -24,7 +24,8 @@ agent is merely instructed to follow:
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
-  `run-evaluate` and the back-test PR opener (`run-backtest`). Its client id
+  `run-evaluate` and the reviewed-PR openers (`run-backtest`, and
+  `run-analytics`'s metrics-refresh job). Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
@@ -35,9 +36,10 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
-| `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues |
+| `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues; publish the verdict/frontier JSONs to `ops-metrics` |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
+| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
@@ -97,10 +99,13 @@ branch:
   and evaluations under `data/` cannot be rewritten or dropped, even by a
   misbehaving writer that holds the data App's bypass token.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
-  orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots. `run-ops`
-  only ever does a normal append push (never a force-push), so the rule does not
-  impede it; it guards the metrics history from accidental or malicious rewrite once
-  the repo is public. No required PR (the job pushes directly) and no bypass needed.
+  orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
+  corpus-writer path (`run-pull`, via the `publish-corpus-verdict` action) publishes
+  the data-validation verdict and live-frontier snapshot for `run-ops` to present.
+  Both writers only ever do a normal append push (never a force-push), so the rule
+  does not impede them; it guards the metrics history from accidental or malicious
+  rewrite once the repo is public. No required PR (the jobs push directly) and no
+  bypass needed.
 
 ## Repository merge settings
 

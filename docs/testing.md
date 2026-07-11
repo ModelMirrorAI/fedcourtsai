@@ -82,8 +82,7 @@ when a silent read regression would be most expensive.
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
 > composes them (run in the gate as the `test_cascade_smoke.py` smoke), and the
 > one-command `local-cascade` wrapper are all in place today. What remains is folding
-> the rest of the workflow shell into tested CLI commands — see the testing issues
-> tracked on the repo.
+> the rest of the workflow shell into tested CLI commands.
 
 ## Testing the agentic stages locally
 
