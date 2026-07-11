@@ -1244,3 +1244,173 @@ def test_snapshot_is_per_case(tmp_path: Path) -> None:
         assert corpus.latest_snapshot(conn, "ca9/123") == (date(2026, 6, 10), {"case": "a"})
         assert corpus.latest_snapshot(conn, "ca1/9") == (date(2026, 6, 10), {"case": "b"})
         assert corpus.snapshot_count(conn) == 2
+
+
+# --- live-parsed signal columns and the sample-weight min-latch --------------------
+
+
+def test_live_signal_columns_roundtrip(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    row = _row(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="25-100",
+        distribution_count=2,
+        cvsg_date=date(2026, 1, 12),
+        originating_court_name="Supreme Court of Nevada",
+        sample_weight=10,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/1")
+    assert fetched == row
+
+
+def test_live_signal_columns_survive_a_courtlistener_write(tmp_path: Path) -> None:
+    # A REST enrichment carries none of the live-parsed signals; the COALESCE
+    # latch must keep what the live channel stamped (same rule as the
+    # conference date), while a fresh live parse still overwrites.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-100",
+                    distribution_count=1,
+                    cvsg_date=date(2026, 1, 12),
+                    originating_court_name="Supreme Court of Nevada",
+                )
+            ],
+        )
+        corpus.upsert_rows(
+            conn,
+            [_row(case_id="scotus/1", court="scotus", docket_number="25-100")],
+        )
+        after_rest = corpus.get_row(conn, "scotus/1")
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="25-100",
+                    distribution_count=3,
+                )
+            ],
+        )
+        after_relist = corpus.get_row(conn, "scotus/1")
+    assert after_rest is not None and after_relist is not None
+    assert after_rest.distribution_count == 1
+    assert after_rest.cvsg_date == date(2026, 1, 12)
+    assert after_rest.originating_court_name == "Supreme Court of Nevada"
+    assert after_relist.distribution_count == 3  # a fresh parse still advances
+
+
+def test_distribution_count_never_regresses_on_a_degraded_parse(tmp_path: Path) -> None:
+    # A degraded live parse (proceedings missing from the served payload) yields
+    # a confident 0 — asserting "parsed, never distributed" — not NULL, so a
+    # fill-in latch would let it wipe a stored count. Proceedings are
+    # append-only upstream: the max-latch rejects the regression.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", distribution_count=3)])
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", distribution_count=0)])
+        stored = corpus.get_row(conn, "scotus/1")
+    assert stored is not None and stored.distribution_count == 3
+
+
+def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
+    # Weight 1 means "included with certainty"; once known, a walker re-serve
+    # of the sampled serial (weight N) must not regress it — and the other
+    # order converges to the same value, so write order is immaterial.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="scotus/a", sample_weight=10)])
+        corpus.upsert_rows(conn, [_row(case_id="scotus/a", sample_weight=1)])
+        corpus.upsert_rows(conn, [_row(case_id="scotus/a", sample_weight=10)])
+        a = corpus.get_row(conn, "scotus/a")
+        corpus.upsert_rows(conn, [_row(case_id="scotus/b", sample_weight=1)])
+        corpus.upsert_rows(conn, [_row(case_id="scotus/b", sample_weight=10)])
+        b = corpus.get_row(conn, "scotus/b")
+        # A writer with nothing to assert (None) preserves the stored weight.
+        corpus.upsert_rows(conn, [_row(case_id="scotus/a", sample_weight=None)])
+        a_after_none = corpus.get_row(conn, "scotus/a")
+    assert a is not None and a.sample_weight == 1
+    assert b is not None and b.sample_weight == 1
+    assert a_after_none is not None and a_after_none.sample_weight == 1
+
+
+def test_is_live_slice_reads_the_poll_stamp() -> None:
+    assert corpus.is_live_slice(_row(last_live_polled=date(2026, 7, 10))) is True
+    assert corpus.is_live_slice(_row(last_live_polled=None)) is False
+
+
+# --- the persisted frontier on live-discovery cursors ------------------------------
+
+
+def test_live_frontier_roundtrip_and_no_op_without_cursor(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        # No cursor row yet: nothing to stamp onto, silently a no-op.
+        corpus.set_live_frontier(conn, 25, "historical-paid", 100)
+        assert corpus.get_live_frontier(conn, 25, "historical-paid") is None
+        corpus.set_live_cursor(conn, 25, "historical-paid", 120)
+        assert corpus.get_live_frontier(conn, 25, "historical-paid") is None
+        corpus.set_live_frontier(conn, 25, "historical-paid", 120)
+        assert corpus.get_live_frontier(conn, 25, "historical-paid") == 120
+        # The frontier of a live Term moves: a later observation overwrites.
+        corpus.set_live_cursor(conn, 25, "historical-paid", 140)
+        corpus.set_live_frontier(conn, 25, "historical-paid", 140)
+        assert corpus.get_live_frontier(conn, 25, "historical-paid") == 140
+
+
+def test_connect_migrates_a_frontierless_cursor_table(tmp_path: Path) -> None:
+    # A corpus written before `frontier_serial` existed gains the column on
+    # open, with its cursor rows intact and readable.
+    db = tmp_path / "corpus.db"
+    legacy = sqlite3.connect(db)
+    legacy.execute(
+        "CREATE TABLE live_discovery_cursors ("
+        "term INTEGER NOT NULL, stream TEXT NOT NULL, last_serial INTEGER NOT NULL, "
+        "PRIMARY KEY (term, stream))"
+    )
+    legacy.execute("INSERT INTO live_discovery_cursors VALUES (25, 'paid', 42)")
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 25, "paid") == 42
+        assert corpus.get_live_frontier(conn, 25, "paid") is None
+        corpus.set_live_frontier(conn, 25, "paid", 42)
+        assert corpus.get_live_frontier(conn, 25, "paid") == 42
+
+
+def test_rename_live_streams_carries_the_frontier_stamp(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 22, "seed-paid", 300)
+        corpus.set_live_frontier(conn, 22, "seed-paid", 300)
+        corpus.rename_live_streams(conn, {"seed-paid": "historical-paid"})
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 300
+        assert corpus.get_live_frontier(conn, 22, "historical-paid") == 300
+        assert corpus.get_live_cursor(conn, 22, "seed-paid") is None
+
+
+# --- the live-shaped snapshot reader ------------------------------------------------
+
+
+def test_latest_live_snapshot_skips_a_newer_rest_snapshot(tmp_path: Path) -> None:
+    # The snapshots table holds both channels' payloads; the signal backfill
+    # needs the newest *live-shaped* one even when a later pull stored a
+    # CourtListener-shaped snapshot on top.
+    db = tmp_path / "corpus.db"
+    live_payload = {"CaseNumber": "25-100 ", "ProceedingsandOrder": []}
+    rest_payload = {"id": 1, "court": "https://example/courts/scotus/"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 10), live_payload)
+        corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 20), rest_payload)
+        assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 20), rest_payload)
+        assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 10), live_payload)
+        assert corpus.latest_live_snapshot(conn, "scotus/none") is None

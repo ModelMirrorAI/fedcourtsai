@@ -114,6 +114,7 @@ def ingest_live_payload(
     docket_id: int,
     *,
     today: date,
+    sample_weight: int = 1,
 ) -> LiveResult:
     """Land one fetched docket JSON in the corpus; detect change and resolution.
 
@@ -122,6 +123,11 @@ def ingest_live_payload(
     row (stamping ``last_live_polled``), run resolution over the still-open
     events, then re-extract predictable events from the mapped record so a
     filing that appeared since onboarding becomes trackable.
+
+    ``sample_weight`` records how the calling channel came to include this row.
+    The poller's paths include every row they touch — the default 1 — while the
+    historical walker passes ``denial_sample_every`` for a denial its serial
+    sample kept. The upsert min-latches it, so a weight-1 row never regresses.
     """
     case_id = ids.case_id("scotus", docket_id)
     with corpus.connect(corpus_db_path) as conn:
@@ -131,7 +137,7 @@ def ingest_live_payload(
 
     record = map_live_docket(payload, docket_id)
     row = from_live_record(record)
-    upsert_to_corpus(corpus_db_path, [row], last_live_polled=today)
+    upsert_to_corpus(corpus_db_path, [row], last_live_polled=today, sample_weight=sample_weight)
 
     # Resolution before re-extraction, exactly as in pull_case: `default_event`
     # marks a decided case's baseline resolved, so resolution must see the event
@@ -243,6 +249,16 @@ def discover_live(
                 corpus.set_live_cursor(conn, term, stream, serial)
             result.onboarded.append(ingested)
             serial += 1
+        if misses >= frontier_misses:
+            # This probe observed the stream's current end — stamp it at the
+            # cursor so downstream census readers can tell "walked to the
+            # frontier" from "stopped at a cap". A cap/error exit leaves any
+            # prior stamp alone. No cursor row means nothing was ever served
+            # (a Term not yet opened): nothing to stamp.
+            with corpus.connect(corpus_db_path) as conn:
+                stored = corpus.get_live_cursor(conn, term, stream)
+                if stored is not None:
+                    corpus.set_live_frontier(conn, term, stream, stored)
     return result
 
 

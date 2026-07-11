@@ -219,6 +219,39 @@ class CorpusRow(BaseModel):
         "prioritizes and the conference-set report groups on it. Only the live "
         "channel supplies it; other writers preserve the stored value.",
     )
+    distribution_count: int | None = Field(
+        default=None,
+        description="How many distinct conferences this petition has been distributed "
+        "for, parsed from the live proceedings (relists = count - 1, floored at 0). "
+        "None means the proceedings were never live-parsed — the parse-coverage "
+        "sentinel for the whole live-signal family — while 0 asserts the petition "
+        "was parsed and never distributed. Only the live channel supplies it; the "
+        "upsert max-latches it (proceedings are append-only, so it only grows).",
+    )
+    cvsg_date: date | None = Field(
+        default=None,
+        description="Date the Court called for the views of the Solicitor General "
+        "(the 'Solicitor General is invited to file' proceedings entry), parsed by "
+        "the live channel. None asserts 'no CVSG observed' only where "
+        "`distribution_count` is not None (the proceedings were parsed at all).",
+    )
+    originating_court_name: str | None = Field(
+        default=None,
+        description="The raw lower-court name the live docket JSON carries "
+        "(`LowerCourt`), kept verbatim so unmapped tribunals — state courts, "
+        "military courts — stay identifiable where `originating_court` (the "
+        "tracked-court id linkage) is None. Only the live channel supplies it.",
+    )
+    sample_weight: int | None = Field(
+        default=None,
+        description="Inverse inclusion probability of this row under the corpus's "
+        "construction: 1 for every row its channel includes with certainty, "
+        "`denial_sample_every` for a denial the historical walker kept by its "
+        "systematic serial sample — so a weighted aggregate can multiply by it "
+        "and count sampled denials at full strength. None means no channel "
+        "asserted a weight: permanent on rows the live channel never wrote, "
+        "pre-capture within the live slice (backfilled by rule).",
+    )
     predict_eligible: bool = Field(
         default=False,
         description="Derived convenience mirror of the prediction scope "
@@ -346,7 +379,11 @@ CREATE TABLE IF NOT EXISTS cases (
     date_cert_granted   TEXT,
     date_cert_denied    TEXT,
     last_live_polled    TEXT,
-    distributed_for_conference TEXT
+    distributed_for_conference TEXT,
+    distribution_count  INTEGER,
+    cvsg_date           TEXT,
+    originating_court_name TEXT,
+    sample_weight       INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -396,6 +433,13 @@ CREATE TABLE IF NOT EXISTS live_discovery_cursors (
     term         INTEGER NOT NULL,
     stream       TEXT NOT NULL,
     last_serial  INTEGER NOT NULL,
+    -- The serial the stream's frontier (consecutive 404s) was last observed at,
+    -- or NULL if no walk has reached it. `frontier_serial = last_serial` means
+    -- the walk is complete *at the current cursor*: a cursor that later
+    -- advances past the stamp degrades the stream to partial until a fresh
+    -- miss-exit re-confirms the end. The per-Term walk-complete signal for
+    -- downstream census readers — no clock involved.
+    frontier_serial INTEGER,
     PRIMARY KEY (term, stream)
 );
 
@@ -460,6 +504,10 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "date_cert_denied": "TEXT",
     "last_live_polled": "TEXT",
     "distributed_for_conference": "TEXT",
+    "distribution_count": "INTEGER",
+    "cvsg_date": "TEXT",
+    "originating_court_name": "TEXT",
+    "sample_weight": "INTEGER",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -477,6 +525,18 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
     for column in _COLUMNS:
         if column not in existing:
             conn.execute(f"ALTER TABLE cases ADD COLUMN {column} {_CASES_COLUMN_DDL[column]}")
+
+
+def _migrate_live_cursors(conn: sqlite3.Connection) -> None:
+    """Back-fill `live_discovery_cursors` columns added after table creation.
+
+    The cursors table's counterpart of :func:`_migrate_cases` — before
+    ``frontier_serial`` the table needed no migration path. Nullable, no
+    DEFAULT needed; idempotent on a current-schema table.
+    """
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(live_discovery_cursors)")}
+    if "frontier_serial" not in existing:
+        conn.execute("ALTER TABLE live_discovery_cursors ADD COLUMN frontier_serial INTEGER")
 
 
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
@@ -521,6 +581,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         conn.execute(f"PRAGMA page_size = {RANGED_PAGE_SIZE}")
         conn.executescript(_SCHEMA)
         _migrate_cases(conn)
+        _migrate_live_cursors(conn)
         yield conn
     finally:
         conn.close()
@@ -611,6 +672,10 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "distributed_for_conference": (
             row.distributed_for_conference.isoformat() if row.distributed_for_conference else None
         ),
+        "distribution_count": row.distribution_count,
+        "cvsg_date": row.cvsg_date.isoformat() if row.cvsg_date else None,
+        "originating_court_name": row.originating_court_name,
+        "sample_weight": row.sample_weight,
     }
 
 
@@ -626,6 +691,24 @@ def _optional_date(record: RecordRow, column: str) -> date | None:
     except (KeyError, IndexError):
         return None
     return date.fromisoformat(raw) if raw else None
+
+
+def _optional_int(record: RecordRow, column: str) -> int | None:
+    """Read an integer column an older remote blob lacks (see ``_optional_date``)."""
+    try:
+        raw = record[column]
+    except (KeyError, IndexError):
+        return None
+    return int(raw) if raw is not None else None
+
+
+def _optional_str(record: RecordRow, column: str) -> str | None:
+    """Read a text column an older remote blob lacks (see ``_optional_date``)."""
+    try:
+        raw = record[column]
+    except (KeyError, IndexError):
+        return None
+    return raw if raw else None
 
 
 def _from_record(record: RecordRow) -> CorpusRow:
@@ -658,26 +741,62 @@ def _from_record(record: RecordRow) -> CorpusRow:
         date_cert_denied=_optional_date(record, "date_cert_denied"),
         last_live_polled=_optional_date(record, "last_live_polled"),
         distributed_for_conference=_optional_date(record, "distributed_for_conference"),
+        distribution_count=_optional_int(record, "distribution_count"),
+        cvsg_date=_optional_date(record, "cvsg_date"),
+        originating_court_name=_optional_str(record, "originating_court_name"),
+        sample_weight=_optional_int(record, "sample_weight"),
     )
 
 
 def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
-    Most columns take the incoming value (``excluded``). Two are special:
-    ``last_pulled`` only ever advances — a write without a fresh stamp (e.g. a
-    historical-walk re-ingest) keeps the timestamp a prior pull recorded; and
-    ``predict_excluded`` is owned by the scope reconcile (not an ingestion fact),
-    so an upsert keeps the stored value rather than resetting it to the model
-    default. ``predict_eligible`` deliberately takes the incoming value: it is a
-    derived mirror of the court predicate, so a re-ingest self-heals a stale
-    value rather than latching it.
+    Most columns take the incoming value (``excluded``). Four latch families are
+    special: channel-supplied facts (``last_pulled``, the live-parsed signals)
+    only ever fill in, so a writer that does not carry the fact keeps what
+    another channel stamped; ``distribution_count`` is a max-latch (proceedings
+    are append-only, so the count only ever grows); ``sample_weight`` is a
+    min-latch (an inclusion probability is only ever learned upward, toward
+    weight 1); and ``predict_excluded`` is owned by the scope reconcile (not an
+    ingestion fact), so an upsert keeps the stored value rather than resetting
+    it to the model default. ``predict_eligible`` deliberately takes the
+    incoming value: it is a derived mirror of the court predicate, so a
+    re-ingest self-heals a stale value rather than latching it.
     """
-    if column in ("last_pulled", "last_live_polled", "distributed_for_conference"):
+    if column in (
+        "last_pulled",
+        "last_live_polled",
+        "distributed_for_conference",
+        "cvsg_date",
+        "originating_court_name",
+    ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
-        # conference parse) must not wipe what another channel stamped.
+        # conference parse) must not wipe what another channel stamped. Safe for
+        # exactly the columns whose degraded parse yields NULL.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
+    if column == "distribution_count":
+        # A fill-in latch is not enough here: a degraded live parse (a payload
+        # served with its proceedings missing) yields a confident 0 — not NULL —
+        # and 0 asserts "parsed, never distributed", so COALESCE would let it
+        # wipe a stored count. Proceedings are append-only upstream: the count
+        # only ever legitimately grows, so the max-latch takes every real
+        # advance and rejects the regression.
+        return (
+            f"{column}=MAX("
+            f"COALESCE(excluded.{column}, cases.{column}), "
+            f"COALESCE(cases.{column}, excluded.{column}))"
+        )
+    if column == "sample_weight":
+        # An inclusion probability can only be learned upward (toward certainty):
+        # once any channel knows the row is included with P=1 (weight 1), a later
+        # walker re-serve of its sampled serial must not regress it to N — and a
+        # writer with no weight to assert (NULL) preserves the stored value.
+        return (
+            f"{column}=MIN("
+            f"COALESCE(excluded.{column}, cases.{column}), "
+            f"COALESCE(cases.{column}, excluded.{column}))"
+        )
     if column == "predict_excluded":
         # The scope reconcile owns this flag (it is not an ingestion fact and is not
         # monotonic), so a re-ingest must never clobber it — keep the stored value.
@@ -831,6 +950,24 @@ def is_modern_cert(row: CorpusRow) -> bool:
     historical merits-era labels.
     """
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
+
+
+def is_live_slice(row: CorpusRow) -> bool:
+    """Whether a row belongs to the live/historical provenance slice.
+
+    The slice the statpack's predictor-facing base rates aggregate over: rows
+    the supremecourt.gov channel (forward poller or historical Term walker) has
+    written, whose dispositions and dates come from parsed proceedings text
+    rather than the frozen bulk import. ``last_live_polled`` is the marker —
+    every live-channel write stamps it and the upsert COALESCE-latch means a
+    later REST enrichment can never wipe it — so membership is monotonic.
+    SQL pushdown uses :data:`LIVE_SLICE_SQL`.
+    """
+    return row.last_live_polled is not None
+
+
+# The SQL form of `is_live_slice`, for pushed-down filtering.
+LIVE_SLICE_SQL = "last_live_polled IS NOT NULL"
 
 
 class ResolutionDatedRow(Protocol):
@@ -1773,6 +1910,38 @@ def set_live_cursor(conn: sqlite3.Connection, term: int, stream: str, last_seria
         )
 
 
+def get_live_frontier(conn: sqlite3.Connection, term: int, stream: str) -> int | None:
+    """The serial the stream's frontier was last observed at, or ``None``.
+
+    ``None`` means either the (Term, stream) was never probed or its walk has
+    never reached the end. A value equal to :func:`get_live_cursor`'s means the
+    stream is complete at the current cursor (see the table DDL).
+    """
+    cur = conn.execute(
+        "SELECT frontier_serial FROM live_discovery_cursors WHERE term = ? AND stream = ?",
+        (term, stream),
+    )
+    record = cur.fetchone()
+    if record is None or record["frontier_serial"] is None:
+        return None
+    return int(record["frontier_serial"])
+
+
+def set_live_frontier(conn: sqlite3.Connection, term: int, stream: str, serial: int) -> None:
+    """Stamp where a walk observed the (Term, stream) frontier.
+
+    Called on a miss-exit (consecutive 404s) with the cursor at that moment.
+    Overwrites — the frontier of a live Term legitimately moves forward as new
+    petitions are docketed — but only onto an existing cursor row: a stream
+    with no cursor has served nothing, so it has no frontier worth recording.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE live_discovery_cursors SET frontier_serial = ? WHERE term = ? AND stream = ?",
+            (serial, term, stream),
+        )
+
+
 def rename_live_streams(conn: sqlite3.Connection, renames: Mapping[str, str]) -> int:
     """Rename live-discovery cursor streams in place; idempotent migration helper.
 
@@ -1785,16 +1954,27 @@ def rename_live_streams(conn: sqlite3.Connection, renames: Mapping[str, str]) ->
     with conn:
         for old, new in renames.items():
             rows = conn.execute(
-                "SELECT term, last_serial FROM live_discovery_cursors WHERE stream = ?",
+                "SELECT term, last_serial, frontier_serial FROM live_discovery_cursors "
+                "WHERE stream = ?",
                 (old,),
             ).fetchall()
             for record in rows:
+                # The frontier stamp travels with the serial it was observed at:
+                # on a collision it follows the further-along cursor (the same
+                # forward-only rule), so a stale stamp never overwrites a live one.
                 conn.execute(
-                    "INSERT INTO live_discovery_cursors (term, stream, last_serial) "
-                    "VALUES (?, ?, ?) "
-                    "ON CONFLICT(term, stream) DO UPDATE SET last_serial = excluded.last_serial "
+                    "INSERT INTO live_discovery_cursors (term, stream, last_serial, "
+                    "frontier_serial) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(term, stream) DO UPDATE SET "
+                    "last_serial = excluded.last_serial, "
+                    "frontier_serial = excluded.frontier_serial "
                     "WHERE excluded.last_serial > live_discovery_cursors.last_serial",
-                    (int(record["term"]), new, int(record["last_serial"])),
+                    (
+                        int(record["term"]),
+                        new,
+                        int(record["last_serial"]),
+                        record["frontier_serial"],
+                    ),
                 )
                 conn.execute(
                     "DELETE FROM live_discovery_cursors WHERE term = ? AND stream = ?",
@@ -1843,6 +2023,27 @@ def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str,
         return None
     payload: dict[str, Any] = json.loads(record["payload"])
     return date.fromisoformat(record["snapshot_date"]), payload
+
+
+def latest_live_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str, Any]] | None:
+    """The most recent **live-shaped** snapshot for a case, or ``None``.
+
+    The `snapshots` table holds both channels' payloads under one key space —
+    a supremecourt.gov docket JSON (carrying ``ProceedingsandOrder``) and a
+    CourtListener REST docket look nothing alike — so a consumer of the live
+    proceedings (the signal backfill) must skip past any newer REST snapshot a
+    later ``pull`` stored, not just take the newest row.
+    """
+    cur = conn.execute(
+        "SELECT snapshot_date, payload FROM snapshots WHERE case_id = ? "
+        "ORDER BY snapshot_date DESC",
+        (case_id,),
+    )
+    for record in cur:
+        payload: dict[str, Any] = json.loads(record["payload"])
+        if "ProceedingsandOrder" in payload:
+            return date.fromisoformat(record["snapshot_date"]), payload
+    return None
 
 
 def snapshot_count(conn: ReadConnection) -> int:

@@ -74,6 +74,7 @@ from ..matrix import event_has_predictions
 from ..schemas import Disposition
 from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient
 from .cert_signals import match_disposition_signal
+from .ingest import backfill_live_signals
 from .live import _resolve_identity, ingest_live_payload, provision_documents
 
 # The walker's per-Term numbering streams. Same bases as the forward poller's,
@@ -231,14 +232,20 @@ class _Walk:
             with corpus.connect(self.corpus_db_path) as conn:
                 corpus.set_live_cursor(conn, term, stream, serial)
             serial += 1
+        frontier_reached = misses >= self.config.frontier_misses
         with corpus.connect(self.corpus_db_path) as conn:
             stored = corpus.get_live_cursor(conn, term, stream)
+            if frontier_reached and stored is not None:
+                # Persist where the end was observed (previously only this
+                # invocation's report knew): `frontier_serial = last_serial`
+                # is the statpack's per-Term "walk complete" signal.
+                corpus.set_live_frontier(conn, term, stream, stored)
         report.streams.append(
             StreamProgress(
                 term=term,
                 stream=stream,
                 cursor=stored,
-                frontier_reached=misses >= self.config.frontier_misses,
+                frontier_reached=frontier_reached,
             )
         )
 
@@ -270,7 +277,15 @@ class _Walk:
             report.left_to_watchlist += 1
             return
         result = ingest_live_payload(
-            self.corpus_db_path, self.data_root, payload, docket_id, today=self.today
+            self.corpus_db_path,
+            self.data_root,
+            payload,
+            docket_id,
+            today=self.today,
+            # The row's inverse inclusion probability under the walk's sampling
+            # frame: a kept denial stands for `denial_sample_every` serials;
+            # every other decided disposition is kept with certainty.
+            sample_weight=(self.config.denial_sample_every if label == Disposition.denied else 1),
         )
         if label == Disposition.granted:
             report.ingested_granted += 1
@@ -323,6 +338,12 @@ def load_terms(
     progress comment.
     """
     _migrate_legacy_cursors(corpus_db_path)
+    # Pre-capture live rows get their parsed signals and sample weights filled
+    # here — the daily corpus-writer entrypoint — so the statpack's live-slice
+    # aggregates never see a NULL a rule could have resolved. (The forward
+    # poller needs no such hook: its active rows self-heal on the next re-poll
+    # through the ordinary ingest path.)
+    backfill_live_signals(corpus_db_path, denial_sample_every=config.denial_sample_every)
     walk = _Walk(client, corpus_db_path, data_root, config, today)
     deadline = clock() + config.max_run_minutes * 60
 
