@@ -242,6 +242,12 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
+          # For the prompt contract's REST fallback when the MCP server is
+          # down: the agent uses this strictly by env-var reference (never the
+          # literal value — tool-call command lines are harvested into the
+          # committed retrieval_log.json). Same token, same accepted residual
+          # as the MCP client-config carve-out (see SECURITY.md).
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
         with:
           # run-pull files this predict issue as the trusted pipeline App
           # (`fedcourtsai-data[bot]`), which the plan job's authorize-trigger gate
@@ -314,6 +320,11 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
+          # Same REST-fallback env as the Claude step (see its comment). If
+          # Codex's workspace-write sandbox blocks outbound network for shell
+          # commands, the fallback degrades to the prompt's "both routes
+          # unavailable" branch — verify on a real cell and drop this note.
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
           # Pin the session log to a known dir so the usage-capture step can read it.
           CODEX_HOME: ${{ github.workspace }}/.codex
         with:

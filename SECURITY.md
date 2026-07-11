@@ -11,14 +11,21 @@
   Codex action proxies `OPENAI_API_KEY` so the CLI never holds it; the Claude
   action handles `ANTHROPIC_API_KEY` and the Gemini action `GEMINI_API_KEY`
   similarly. The lower-sensitivity CourtListener token is passed as a scoped
-  step env only where needed — with one deliberate carve-out: the cells'
+  step env only where needed — with two deliberate carve-outs: the cells'
   MCP-config step writes it into the runner-local, gitignored MCP
-  client-config files the engines read. Exposure equals the step-env's own:
-  the files are on an ephemeral runner, never committed, and the artifact
-  upload is an explicit allowlist that excludes them. The accepted residual:
-  the engines read that file while processing adversarial docket text, and it
-  is the same token ingestion uses — a leaked or injection-abused token
-  spends pull's quota and forces a rotation that touches pull.
+  client-config files the engines read, and the predict cells' Claude and
+  Codex agent steps carry it in their step env so the prompt contract's REST
+  fallback (used when the MCP server is down) can expand it by env-var
+  reference (Gemini's CLI strips custom env, so its step stays token-free and
+  its agent is told to skip the fallback) — the prompt
+  forbids ever writing the literal value into a command line or output file,
+  because tool-call command lines are harvested into the committed
+  `retrieval_log.json`. Exposure equals the step-env's own: the files are on
+  an ephemeral runner, never committed, and the artifact upload is an explicit
+  allowlist that excludes them. The accepted residual: the engines hold that
+  env and read that file while processing adversarial docket text, and it is
+  the same token ingestion uses — a leaked or injection-abused token spends
+  pull's quota and forces a rotation that touches pull.
 - **Agents get a least-privilege GitHub App token, never a static one.** So a
   headless agent can post progress/questions on the triggering issue/PR, the
   Claude agent steps in `run:predict` / `run:evaluate` / `run:reconcile` receive
