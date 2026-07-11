@@ -83,31 +83,31 @@ def test_cases_due_for_pull_missing_corpus_is_empty(tmp_path: Path) -> None:
     assert not db.exists()  # reading must not create the corpus as a side effect
 
 
-def test_eligible_reserve_pulls_eligible_ahead_of_staler_general(tmp_path: Path) -> None:
+def test_eligible_reserve_pulls_scotus_ahead_of_staler_general(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     rows = [
-        # Eligible, but recently pulled — it would lose the normal staleness race.
+        # In scope (SCOTUS), but recently pulled — it would lose the staleness race.
+        corpus.CorpusRow(case_id="scotus/1", court="scotus", last_pulled=date(2026, 6, 20)),
+        # A stale eligible flag on a CoA row must NOT win it a reserve slot: the
+        # reserve keys on the court predicate, not the derived column.
         corpus.CorpusRow(
-            case_id="scotus/1", court="scotus", last_pulled=date(2026, 6, 20), predict_eligible=True
-        ),
-        corpus.CorpusRow(case_id="ca9/2", court="ca9", last_pulled=None),  # stalest general
+            case_id="ca9/2", court="ca9", last_pulled=None, predict_eligible=True
+        ),  # stalest general
         corpus.CorpusRow(case_id="ca9/3", court="ca9", last_pulled=date(2026, 6, 10)),
     ]
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, rows)
     # Without the reserve, the two stalest general cases win both slots.
     assert cases_due_for_pull(db, limit=2) == [("ca9", 2), ("ca9", 3)]
-    # The reserve gives one slot to the stalest eligible case; the rest stays general.
+    # The reserve gives one slot to the stalest SCOTUS docket; the rest stays general.
     assert cases_due_for_pull(db, limit=2, eligible_reserve=1) == [("scotus", 1), ("ca9", 2)]
 
 
 def test_eligible_reserve_does_not_double_count(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path)
     rows = [
-        # Eligible AND the stalest overall: it must be picked once, not twice.
-        corpus.CorpusRow(
-            case_id="scotus/1", court="scotus", last_pulled=None, predict_eligible=True
-        ),
+        # In scope AND the stalest overall: it must be picked once, not twice.
+        corpus.CorpusRow(case_id="scotus/1", court="scotus", last_pulled=None),
         corpus.CorpusRow(case_id="ca9/2", court="ca9", last_pulled=date(2026, 6, 10)),
         corpus.CorpusRow(case_id="ca9/3", court="ca9", last_pulled=date(2026, 6, 20)),
     ]

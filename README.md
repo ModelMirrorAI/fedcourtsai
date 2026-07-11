@@ -75,10 +75,10 @@ Ingestion covers all fourteen courts, but the agentic predict/evaluate stages ar
 truth is recoverable, and would rather be upfront about what is left out than
 publish predictions we can't stand behind. Currently out of scope:
 
-- **Cases that have not interacted with the Supreme Court.** The pilot gates
-  prediction to cases that touch SCOTUS — a certiorari petition is the canonical
-  trigger; a case stays in scope for the rest of its lifecycle once it qualifies.
-  Appeals that never reach SCOTUS are ingested for context and retrieval but not
+- **Everything that is not a SCOTUS docket.** Prediction is gated to Supreme
+  Court dockets themselves; originating court-of-appeals dockets — including
+  remand activity after a grant — and appeals that never reach SCOTUS are
+  ingested for context and retrieval but not
   predicted. (Scope dial, not a permanent limit — see [`docs/budget.md`](docs/budget.md).)
 - **Pre-1925 mandatory-jurisdiction matters.** The cert event model targets the
   modern *discretionary* certiorari regime; pre-1925 appeals heard as of right

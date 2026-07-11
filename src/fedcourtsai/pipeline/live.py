@@ -271,7 +271,7 @@ def poll_live_cases(
     pin the rotation's front.
     """
     queues = PullQueues()
-    gated = scope == PredictScope.scotus_touched
+    gated = scope == PredictScope.scotus_docket
     for row in due:
         parsed = parse_scotus_docket_number(row.docket_number)
         docket_id = int(row.case_id.rsplit("/", 1)[-1])
@@ -410,7 +410,7 @@ def live_poll_all(
         today=today,
     )
     queues = PullQueues()
-    gated = scope == PredictScope.scotus_touched
+    gated = scope == PredictScope.scotus_docket
     for onboarded in discovery.onboarded:
         # A brand-new row has no prior membership, so "distributed at all" is
         # the transition test for the discovery path.

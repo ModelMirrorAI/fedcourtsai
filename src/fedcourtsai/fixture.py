@@ -247,8 +247,7 @@ def build_fixture_corpus(db_path: Path) -> Path:
     database and its content is a pure function of :data:`FIXTURE_CASES` — the
     determinism the offline loop and tests rely on. Writes the normalized rows,
     their predictable events, and one dated snapshot per case through the corpus
-    write APIs, then runs the originating-court eligibility latch exactly as
-    ingestion does so the prediction-scope flag is set by the real rule.
+    write APIs, so the prediction-scope column is set by the real rule.
     """
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.unlink(missing_ok=True)
@@ -256,7 +255,6 @@ def build_fixture_corpus(db_path: Path) -> Path:
     events = [case.event() for case in FIXTURE_CASES]
     with corpus.connect(db_path) as conn:
         corpus.upsert_rows(conn, rows)
-        corpus.latch_originating_eligible(conn, rows)
         corpus.upsert_events(conn, events)
         for case in FIXTURE_CASES:
             corpus.upsert_snapshot(conn, case.case_id, case.snapshot_date, case.snapshot_payload())

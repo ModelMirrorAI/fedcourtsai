@@ -136,7 +136,7 @@ fan-out stay the controlling decisions.
 
 | Lever | Effect |
 |-------|--------|
-| **Gate the prediction scope** — predict only cases that have interacted with SCOTUS (the pilot gate; see below) rather than every event | Linear cut; the biggest dial |
+| **Gate the prediction scope** — predict only SCOTUS dockets (the gate; see below) rather than every event | Linear cut; the biggest dial |
 | **One engine per stage** instead of three competing | ~67% predict, more on evaluate (which scales with evaluators × predictors) |
 | **Cheaper competitor model** — run one predictor on `claude-haiku-4-5` ($1/$5) or `claude-sonnet-4-6` ($3/$15) | Large cut on that predictor |
 | **Batch API** for back-testing / bulk re-scoring (not used today) | ~50% on eligible work |
@@ -144,17 +144,17 @@ fan-out stay the controlling decisions.
 | **`predict_on_change_only`** (already set) | Avoids re-predicting unchanged cases |
 
 The controlling choices are the first two rows: the prediction *slice* and the
-engine fan-out. The pilot fixes them explicitly with the SCOTUS-interaction gate
+engine fan-out. The pilot fixes them explicitly with the SCOTUS-docket gate
 below.
 
-#### The pilot slice: cases that touch SCOTUS
+#### The pilot slice: SCOTUS dockets
 
-Rather than a fixed sample, the pilot bounds spend with a **gate**: a case becomes
-in-scope for predict/evaluate the first time it interacts with the Supreme Court — a
-petition for certiorari is the canonical trigger — and stays in-scope for the rest of
-its lifecycle, so a granted case's merits events and any remand activity back in the
-courts of appeals are covered, while the ~42K/yr appeals cases that never reach
-SCOTUS are not. Ingestion is unchanged: the ingestion channels still assemble all
+Rather than a fixed sample, the pilot bounds spend with a **gate**: only SCOTUS
+dockets are in-scope for predict/evaluate. A granted case's merits events on its
+SCOTUS docket are covered; its originating court-of-appeals docket (remands
+included) and the ~42K/yr appeals cases that never reach
+SCOTUS are not — the gate keeps spend off pro-se petitions' lower-court
+shadows and every other docket the cert model does not score. Ingestion is unchanged: the ingestion channels still assemble all
 fourteen courts (deterministic, ~$0 model spend) so the full history stays queryable for
 retrieval and back-testing — only the agentic stages are gated. See the prediction
 scope in [data-pipeline.md](data-pipeline.md).
@@ -211,8 +211,8 @@ the budget-free supremecourt.gov live job owns SCOTUS freshness and
 onboarding), comfortably inside Tier 2's 15/min · 150/hr ·
 600/day (~200 dockets/day): each window's ~30×3 ≈ 90 requests stays under the
 hourly ceiling and the four windows stay under the daily one. A slice of every run
-(`eligible_refresh_reserve`) is reserved for the stalest predict-eligible cases so
-the SCOTUS-touched pilot set rotates fast under the gate. (A second slice used to
+(`eligible_refresh_reserve`) is reserved for the stalest SCOTUS dockets so
+the in-scope set rotates fast under the gate. (A second slice used to
 feed the interim date backfill; the July 2026 pivot decommissioned it — see the
 pivot section in [data-pipeline.md](data-pipeline.md) — so its budget now stays
 with the rotation.) Tier 3+ becomes the floor
@@ -330,7 +330,7 @@ variable that scope controls. Two reference points:
 
 ### A. Pilot / low-volume (gated slice, on-demand API)
 
-Development plus the **SCOTUS-interaction gate** at its entry point — the
+Development plus the **SCOTUS-docket gate** — the
 long-conference cert batch on the on-demand API (see *The pilot slice* above).
 Interactive development draws on the Max subscription; the automated predict/eval
 batch is API-metered (all three engines).
@@ -360,7 +360,7 @@ The gap between A and B is almost entirely the prediction *slice* and the
 three-engine fan-out. The budget is governed by choosing where on that line to
 operate: start at **A** (the long-conference batch on the on-demand API), measure
 real per-run token cost (≈$0.50/run, folded into the figures above), then open the
-**SCOTUS-interaction gate** to its steady state (≈$33K/yr inference — roughly 1/8
+**SCOTUS-docket gate** to its steady state (≈$33K/yr inference — roughly 1/8
 of B) before deciding, with a year of cost data, whether to widen the gate toward
 full scope.
 
@@ -372,7 +372,8 @@ Not in scope today, but sized here so the trade-offs are explicit when they come
   eligible batches (the long conference, back-testing, bulk re-scoring). The
   pipeline runs on-demand today; adopting batch for the cert batch alone would
   roughly halve that entry-point cost.
-- **Widen the prediction gate** past SCOTUS-touched cases — e.g. a rotating sample
+- **Widen the prediction gate** past SCOTUS dockets — e.g. the originating
+  courts-of-appeals dockets, or a rotating sample
   of appeals that never reach SCOTUS — once a year of cost data is in hand.
 - **Embeddings for semantic retrieval** over the full backlog: a one-time compute
   pass plus ongoing storage (see driver #4), or reuse of CourtListener's shipped

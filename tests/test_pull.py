@@ -197,9 +197,9 @@ def _gate_queues(tmp_path: Path, scope: PredictScope) -> Any:
     )
 
 
-def test_pull_cases_gate_enqueues_only_eligible_under_scotus_touched(tmp_path: Path) -> None:
-    queues = _gate_queues(tmp_path, PredictScope.scotus_touched)
-    # Only the SCOTUS (eligible) case reaches the predict queue; the ca9 case is gated.
+def test_pull_cases_gate_enqueues_only_scotus_under_scotus_docket(tmp_path: Path) -> None:
+    queues = _gate_queues(tmp_path, PredictScope.scotus_docket)
+    # Only the SCOTUS docket reaches the predict queue; the ca9 case is gated.
     assert {(e["court"], e["docket"]) for e in queues.predict} == {("scotus", 900)}
 
 
@@ -209,8 +209,8 @@ def test_pull_cases_scope_all_enqueues_every_changed_case(tmp_path: Path) -> Non
     assert {(e["court"], e["docket"]) for e in queues.predict} == {("scotus", 900), ("ca9", 901)}
 
 
-def test_in_predict_scope_excludes_eligible_but_out_of_scope_cases(tmp_path: Path) -> None:
-    # The queue-time gate matches the matrix backstop: a SCOTUS-eligible case is still
+def test_in_predict_scope_excludes_scotus_but_out_of_scope_cases(tmp_path: Path) -> None:
+    # The queue-time gate matches the matrix backstop: a SCOTUS docket is still
     # out of scope if an exclusion predicate matches, so pull never queues it (and so
     # never files an all-out-of-scope, empty predict run).
     db = corpus.corpus_db_path(tmp_path / "corpus")
@@ -218,25 +218,32 @@ def test_in_predict_scope_excludes_eligible_but_out_of_scope_cases(tmp_path: Pat
         corpus.upsert_rows(
             conn,
             [
-                # eligible + in scope (recent Term) -> predictable
+                # SCOTUS + in scope (recent Term) -> predictable
                 corpus.CorpusRow(
                     case_id="scotus/1",
                     court="scotus",
                     docket_number="24-101",
-                    predict_eligible=True,
                 ),
-                # eligible but stale-unresolvable -> out of scope
+                # SCOTUS but stale-unresolvable -> out of scope
                 corpus.CorpusRow(
                     case_id="scotus/2",
                     court="scotus",
                     docket_number="93-7515",
+                ),
+                # A SCOTUS docket is in scope regardless of any stale
+                # eligibility flag value — the court predicate is the rule.
+                corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24-9"),
+                # SCOTUS but a bare bulk-import row whose snapshot links an
+                # opinion cluster -> out via the snapshot-aware rule
+                corpus.CorpusRow(case_id="scotus/4", court="scotus"),
+                # A court-of-appeals docket is never in scope — even one
+                # carrying a stale eligible flag from the earlier, broader rule.
+                corpus.CorpusRow(
+                    case_id="ca9/5",
+                    court="ca9",
+                    docket_number="21-35466",
                     predict_eligible=True,
                 ),
-                # SCOTUS-touched but not eligible -> out (the existing latch)
-                corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="24-9"),
-                # eligible but a bare bulk-import row whose snapshot links an
-                # opinion cluster -> out via the snapshot-aware rule
-                corpus.CorpusRow(case_id="scotus/4", court="scotus", predict_eligible=True),
             ],
         )
         corpus.upsert_snapshot(
@@ -247,8 +254,9 @@ def test_in_predict_scope_excludes_eligible_but_out_of_scope_cases(tmp_path: Pat
         )
     assert _in_predict_scope(db, "scotus/1") is True
     assert _in_predict_scope(db, "scotus/2") is False
-    assert _in_predict_scope(db, "scotus/3") is False
+    assert _in_predict_scope(db, "scotus/3") is True
     assert _in_predict_scope(db, "scotus/4") is False
+    assert _in_predict_scope(db, "ca9/5") is False
 
 
 class FakeDiscoverPullClient:

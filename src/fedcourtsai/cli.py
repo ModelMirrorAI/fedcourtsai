@@ -329,7 +329,7 @@ def reconcile_scope_cmd(
 ) -> None:
     """Reconcile the corpus's out-of-scope latch with the predicate set.
 
-    The write counterpart of `corpus-scope-audit`: over the predict-eligible cases, it
+    The write counterpart of `corpus-scope-audit`: over the SCOTUS dockets, it
     latches `predict_excluded` on those the shared exclusion reasoning now matches
     (`corpus.out_of_scope_reason_full` — the row rules plus the snapshot-aware bare
     opinion-import rule) and clears it on those back in scope — so `open-events` (and
@@ -2295,22 +2295,21 @@ def _resolve_cases(
 def _scope_filtered(
     cases: list[CaseRequest], scope: PredictScope, corpus_root: Path
 ) -> list[CaseRequest]:
-    """Drop out-of-scope cases under ``scotus_touched``; the matrix backstop.
+    """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
     A manually-filed predict/evaluate issue cannot bypass the gate the pull
-    queueing applies: eligibility is read from the corpus' latched
-    ``predict_eligible`` flag, and an out-of-scope case is dropped with a visible
-    note (to stderr, so the matrix JSON on stdout stays clean) explaining why a
-    manual run produced an empty matrix. ``scope == all`` passes every case
-    through unchanged.
+    queueing applies: the scope predicate is the corpus row's immutable
+    ``court == "scotus"`` property, and an out-of-scope case is dropped with a
+    visible note (to stderr, so the matrix JSON on stdout stays clean)
+    explaining why a manual run produced an empty matrix. ``scope == all``
+    passes every case through unchanged.
 
-    A SCOTUS-eligible case is still dropped when the shared exclusion reasoning
+    A SCOTUS docket is still dropped when the shared exclusion reasoning
     matches it: the reconcile's ``predict_excluded`` latch, or any reason from
     ``corpus.out_of_scope_reason_full`` (the row rules — era, staleness, docket
     form, date consistency — plus the snapshot-aware bare opinion-import rule),
-    with the reason echoed per case. The eligibility latch stays a pure
-    "SCOTUS-touched" signal; these filters layer on top here so ingestion
-    coverage is unaffected.
+    with the reason echoed per case. These filters layer on top of the court
+    predicate so ingestion coverage is unaffected.
 
     Gating reads the corpus, so the corpus database must be on disk. If it is
     absent the gate cannot distinguish "case not eligible" from "corpus never
@@ -2333,10 +2332,10 @@ def _scope_filtered(
     with corpus.connect(db_path) as conn:
         for case in cases:
             row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
-            if row is None or not row.predict_eligible:
+            if row is None or row.court != "scotus":
                 typer.echo(
                     f"Skipping {case.court}/{case.docket}: out of prediction scope "
-                    f"(predict.scope=scotus_touched, not SCOTUS-eligible).",
+                    f"(predict.scope=scotus_docket, not a SCOTUS docket).",
                     err=True,
                 )
             elif row.predict_excluded:

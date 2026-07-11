@@ -29,12 +29,13 @@ def _cells(stdout: str) -> list[dict[str, object]]:
     return cells
 
 
-def _env(tmp_path: Path, *, scope: str, eligible: tuple[str, ...] = ()) -> dict[str, str]:
+def _env(tmp_path: Path, *, scope: str, cases: tuple[str, ...] = ()) -> dict[str, str]:
     """A hermetic config + corpus for a matrix run.
 
     Copies the real registries so the fan-out dimensions are unchanged, writes a
-    ``tracking.yaml`` pinning ``predict.scope``, and seeds a corpus where the
-    ``eligible`` case ids carry the latched ``predict_eligible`` flag.
+    ``tracking.yaml`` pinning ``predict.scope``, and seeds a corpus holding a
+    row for each of the ``cases`` ids (the gate reads each case's row: an
+    absent row, or a non-SCOTUS court, is out of scope).
     """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
@@ -46,15 +47,12 @@ def _env(tmp_path: Path, *, scope: str, eligible: tuple[str, ...] = ()) -> dict[
     with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
         corpus.upsert_rows(
             conn,
-            [
-                corpus.CorpusRow(case_id=cid, court=cid.split("/")[0], predict_eligible=True)
-                for cid in eligible
-            ],
+            [corpus.CorpusRow(case_id=cid, court=cid.split("/")[0]) for cid in cases],
         )
     # The evaluate gate reads the ledger: seed one committed prediction per
-    # eligible case's event so evaluate-matrix keeps them.
+    # case's event so evaluate-matrix keeps them.
     data_root = tmp_path / "data"
-    for cid in eligible:
+    for cid in cases:
         court, _, docket = cid.partition("/")
         seed_prediction(data_root, court, int(docket), "evt-petition-cert")
     return {
@@ -67,7 +65,7 @@ def _env(tmp_path: Path, *, scope: str, eligible: tuple[str, ...] = ()) -> dict[
 def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     result = runner.invoke(
         app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
@@ -79,10 +77,39 @@ def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None
 
 
 def test_predict_matrix_legacy_single_case_flags_still_work(tmp_path: Path) -> None:
-    # An eligible (SCOTUS-touched, latched) case still fans out via the single-case
-    # flags; the backstop reads the stored flag, not the rule, so a latched ca9
-    # remand docket is in scope.
-    env = _env(tmp_path, scope="scotus_touched", eligible=("ca9/123",))
+    # An in-scope SCOTUS docket still fans out via the single-case flags.
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/123",))
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--court",
+            "scotus",
+            "--docket",
+            "123",
+            "--event",
+            "evt-x",
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    cells = _cells(result.stdout)
+    assert len(cells) == 3
+    assert {c["event_id"] for c in cells} == {"evt-x"}
+
+
+def test_predict_matrix_drops_a_court_of_appeals_docket(tmp_path: Path) -> None:
+    # The scope predicate is the row's court: a CoA docket — even one carrying a
+    # stale eligible flag from the earlier, broader rule — is ingested for
+    # context but never predicted.
+    env = _env(tmp_path, scope="scotus_docket", cases=("ca9/123",))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="ca9/123", court="ca9", predict_eligible=True)],
+        )
     result = runner.invoke(
         app,
         [
@@ -99,16 +126,15 @@ def test_predict_matrix_legacy_single_case_flags_still_work(tmp_path: Path) -> N
         env=env,
     )
     assert result.exit_code == 0
-    cells = _cells(result.stdout)
-    assert len(cells) == 3
-    assert {c["event_id"] for c in cells} == {"evt-x"}
+    assert _cells(result.stdout) == []
+    assert "not a SCOTUS docket" in result.stderr
 
 
 def test_predict_matrix_drops_out_of_scope_case_with_note(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
     # Only one of the two requested cases is eligible; the other is dropped.
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001",))
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
     result = runner.invoke(
         app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
@@ -123,11 +149,11 @@ def test_predict_matrix_drops_out_of_scope_case_with_note(tmp_path: Path) -> Non
 def test_predict_matrix_drops_pre_1925_mandatory_jurisdiction_case(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    # Both requested cases are SCOTUS-eligible, but 24002 carries a bare historical
+    # Both requested cases are SCOTUS dockets, but 24002 carries a bare historical
     # docket number — a pre-1925 mandatory-jurisdiction matter — whose
     # disposition meaning the modern cert model does not fit, so it is dropped even
-    # though its latch is on.
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    # though its court is scotus.
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_rows(
             conn,
@@ -136,7 +162,6 @@ def test_predict_matrix_drops_pre_1925_mandatory_jurisdiction_case(tmp_path: Pat
                     case_id="scotus/24002",
                     court="scotus",
                     docket_number="801",
-                    predict_eligible=True,
                 )
             ],
         )
@@ -153,10 +178,10 @@ def test_predict_matrix_drops_pre_1925_mandatory_jurisdiction_case(tmp_path: Pat
 def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    # Both cases are SCOTUS-eligible, but 24002 is an old-Term petition ("01-7700" ->
+    # Both cases are SCOTUS dockets, but 24002 is an old-Term petition ("01-7700" ->
     # OT2001) the corpus never resolved (no disposition / decision date) — a stale,
-    # unresolvable stub — so it is dropped even with its latch on.
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    # unresolvable stub — so it is dropped even though its court is scotus.
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_rows(
             conn,
@@ -165,7 +190,6 @@ def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path)
                     case_id="scotus/24002",
                     court="scotus",
                     docket_number="01-7700",
-                    predict_eligible=True,
                 )
             ],
         )
@@ -182,14 +206,14 @@ def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path)
 def test_predict_matrix_drops_bare_opinion_import_case(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    # Both cases are SCOTUS-eligible, but 24002 is a bare bulk-import row (every
+    # Both cases are SCOTUS dockets, but 24002 is a bare bulk-import row (every
     # predicate-keyed field empty) whose snapshot links an opinion cluster — the
     # snapshot-aware exclusion — so the backstop drops it too.
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_rows(
             conn,
-            [corpus.CorpusRow(case_id="scotus/24002", court="scotus", predict_eligible=True)],
+            [corpus.CorpusRow(case_id="scotus/24002", court="scotus")],
         )
         corpus.upsert_snapshot(
             conn,
@@ -211,7 +235,7 @@ def test_predict_matrix_drops_latched_case(tmp_path: Path) -> None:
     body.write_text(_BATCH_BODY)
     # A case the corpus reconcile latched out is dropped on the latch alone, even
     # when no live rule re-derives the exclusion at plan time.
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         corpus.upsert_rows(
             conn,
@@ -220,7 +244,6 @@ def test_predict_matrix_drops_latched_case(tmp_path: Path) -> None:
                     case_id="scotus/24002",
                     court="scotus",
                     docket_number="24-102",
-                    predict_eligible=True,
                 )
             ],
         )
@@ -250,7 +273,7 @@ def test_predict_matrix_scope_all_keeps_every_case(tmp_path: Path) -> None:
 
 
 def test_predict_matrix_missing_corpus_fails_loudly(tmp_path: Path) -> None:
-    # Regression: the scope gate reads predict_eligible from the corpus. If the
+    # Regression: the scope gate reads each case's corpus row. If the
     # corpus DB was never provisioned (e.g. the planning job skipped `dvc pull`),
     # an absent database must abort loudly — not silently drop every case and emit
     # an empty matrix, which reads as a normal "nothing in scope" result and skips
@@ -259,7 +282,7 @@ def test_predict_matrix_missing_corpus_fails_loudly(tmp_path: Path) -> None:
     config_root.mkdir()
     for name in ("predictors.yaml", "evaluators.yaml"):
         (config_root / name).write_text((_REPO_CONFIG / name).read_text())
-    (config_root / "tracking.yaml").write_text("predict:\n  scope: scotus_touched\n")
+    (config_root / "tracking.yaml").write_text("predict:\n  scope: scotus_docket\n")
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
     env = {
@@ -277,7 +300,7 @@ def test_predict_matrix_missing_corpus_fails_loudly(tmp_path: Path) -> None:
 def test_evaluate_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     result = runner.invoke(
         app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
@@ -289,7 +312,7 @@ def test_evaluate_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> Non
 def test_evaluate_matrix_drops_out_of_scope_case(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24002",))
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24002",))
     result = runner.invoke(
         app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
@@ -342,7 +365,7 @@ def test_matrix_without_body_or_flags_errors() -> None:
 def test_evaluate_matrix_reports_the_drop_count(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    env = _env(tmp_path, scope="scotus_touched", eligible=("scotus/24001", "scotus/24002"))
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
     # Remove one case's seeded prediction: its 3 evaluator cells drop, loudly.
     shutil.rmtree(tmp_path / "data" / "cases" / "scotus" / "24002")
     result = runner.invoke(

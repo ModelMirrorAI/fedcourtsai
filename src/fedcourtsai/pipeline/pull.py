@@ -157,11 +157,12 @@ class PullQueues:
 
 
 def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
-    """Whether a case is in predict scope: SCOTUS-eligible *and* not excluded.
+    """Whether a case is in predict scope: a SCOTUS docket *and* not excluded.
 
-    Reads the latched ``predict_eligible`` flag and applies the same exclusion
-    reasoning the matrix backstop uses (``corpus.out_of_scope_reason_full`` — the
-    row rules plus the snapshot-aware bare opinion-import rule). Checking it here,
+    The scope predicate is the immutable row property ``court == "scotus"``,
+    with the same exclusion reasoning the matrix backstop layers on
+    (``corpus.out_of_scope_reason_full`` — the row rules plus the snapshot-aware
+    bare opinion-import rule). Checking it here,
     at queue time, means pull never opens a ``run-predict`` issue for a case the
     gate would only drop — so a batch of nothing-but-out-of-scope cases never
     files an empty run (the live evaluation also covers cases the scope reconcile
@@ -170,7 +171,7 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
     with corpus.connect(corpus_db_path) as conn:
         row = corpus.get_row(conn, case_id)
         return bool(
-            row and row.predict_eligible and corpus.out_of_scope_reason_full(conn, row) is None
+            row and row.court == "scotus" and corpus.out_of_scope_reason_full(conn, row) is None
         )
 
 
@@ -223,7 +224,7 @@ def pull_cases(
     same way the CLI's ``pull-all`` does.
 
     The prediction-scope gate is the primary cost-saver: under
-    ``scope == scotus_touched`` an out-of-scope case never reaches the ``predict``
+    ``scope == scotus_docket`` an out-of-scope case never reaches the ``predict``
     or ``evaluate`` queue, so it never opens a ``run-predict`` / ``run-evaluate``
     issue. ``reconcile`` stays ungated — it records ground truth for the corpus /
     back-testing, a different purpose from prediction spend. ``scope == all``
@@ -239,7 +240,7 @@ def pull_cases(
     :class:`RateBudgetExceeded` from the client when the API budget is spent.
     """
     queues = PullQueues()
-    gated = scope == PredictScope.scotus_touched
+    gated = scope == PredictScope.scotus_docket
     due_list = list(due)
     consecutive_transient = 0
 
