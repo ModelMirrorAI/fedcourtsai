@@ -1,30 +1,33 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from typer.testing import CliRunner
 
-from fedcourtsai import ops
+from fedcourtsai import corpus, ops
 from fedcourtsai.cli import app
+from fedcourtsai.leaderboard import Stratum
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
+    BaseRateBucket,
+    ConferenceBucket,
     CorpusCheck,
-    CorpusScopeAudit,
     CorpusValidation,
     DataHealth,
     Engine,
     Evaluation,
     FlagCategory,
     FlagSeverity,
+    GroupBy,
     LeakageAssessment,
     LedgerValidation,
+    LiveFrontier,
     ModelUsage,
     OpsReport,
-    ScopeDocketShape,
-    ScopeExclusion,
-    ScopeUnclassified,
+    StatPack,
+    StatPackSection,
     UsageRole,
 )
 
@@ -212,75 +215,6 @@ def _failing() -> DataHealth:
             ],
         ),
     )
-
-
-def test_render_scope_audit_tabulates_exclusions_and_recoverable() -> None:
-    audit = CorpusScopeAudit(
-        skipped=False,
-        corpus_rows=1000,
-        scotus_open_events=50,
-        exclusions=[
-            ScopeExclusion(
-                reason="stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
-                cases=32,
-                open_events=32,
-                recoverable=12,
-            ),
-            ScopeExclusion(
-                reason="pre-1925 mandatory-jurisdiction matter",
-                cases=15,
-                open_events=15,
-                recoverable=0,
-            ),
-        ],
-        unclassified=[
-            ScopeUnclassified(
-                reason="docket Term not parseable (a format the predicate skips)", open_events=3
-            )
-        ],
-        unparseable_docket_shapes=[ScopeDocketShape(shape="99A999", count=3)],
-    )
-    md = ops.render_scope_audit(audit)
-    assert "## Out-of-scope open events" in md
-    assert "**47** of 50 open SCOTUS event(s) are out of scope" in md
-    assert "**12** carry a disposition signal" in md
-    assert (
-        "| stale unresolvable old SCOTUS petition (pre-2015 Term, still open) | 32 | 32 | 12 |"
-        in md
-    )
-    # The scope-refinement breakdown renders too.
-    assert "the scope-refinement signal" in md
-    assert "| docket Term not parseable (a format the predicate skips) | 3 |" in md
-    # …and the docket-shape histogram that targets the parser broadening.
-    assert "| `99A999` | 3 |" in md
-
-
-def test_render_scope_audit_clean_and_skipped() -> None:
-    clean = ops.render_scope_audit(CorpusScopeAudit(scotus_open_events=12))
-    assert "all 12 open SCOTUS event(s) are in scope" in clean
-    skipped = ops.render_scope_audit(CorpusScopeAudit(skipped=True))
-    assert "skipped (no corpus pulled)" in skipped
-
-
-def test_render_markdown_includes_scope_audit_when_present() -> None:
-    report = ops.build_ops_report(
-        generated_at="2026-06-30T00:00:00+00:00",
-        runs=[],
-        usage=[],
-        scope_audit=CorpusScopeAudit(
-            scotus_open_events=10,
-            exclusions=[
-                ScopeExclusion(
-                    reason="stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
-                    cases=3,
-                    open_events=3,
-                    recoverable=1,
-                )
-            ],
-        ),
-    )
-    assert report.scope_audit is not None
-    assert "## Out-of-scope open events" in ops.render_markdown(report)
 
 
 def test_render_data_health_healthy_has_no_failure_table() -> None:
@@ -604,12 +538,18 @@ runner = CliRunner()
 
 
 def _ops_env(tmp_path: Path) -> dict[str, str]:
-    """An isolated CLI env: empty data/ + an empty config root."""
+    """An isolated CLI env: empty data/, config, and metrics roots.
+
+    The metrics root matters: without it the statpack read falls back to the
+    repo's real committed ``metrics/statpack.json`` (the path is CWD-relative),
+    and these tests' output would change under a future metrics refresh.
+    """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
     return {
         "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
         "FEDCOURTS_CONFIG_ROOT": str(config_root),
+        "FEDCOURTS_METRICS_ROOT": str(tmp_path / "metrics"),
     }
 
 
@@ -735,3 +675,342 @@ def test_summarize_leakage_buckets_and_names_likely_offenders() -> None:
 def test_summarize_leakage_empty_is_all_zero() -> None:
     digest = ops.summarize_leakage([])
     assert digest.assessed == 0 and digest.flagged == []
+
+
+# --- substance: scored cells, calibration, predictor scores, live frontier ------
+
+
+def _evaluation(
+    predictor: str,
+    *,
+    correct: int = 1,
+    brier: float | None = 0.1,
+    quality: float | None = 0.8,
+    run_id: str = "20260701T000000Z",
+) -> Evaluation:
+    return Evaluation(
+        case_id="scotus/1",
+        event_id="evt-petition-disposition",
+        predictor_id=predictor,
+        evaluator_id="codex-judge",
+        engine=Engine.codex,
+        run_id=run_id,
+        created_at=datetime(2026, 7, 1, tzinfo=UTC),
+        correct=correct,
+        brier_score=brier,
+        reasoning_quality=quality,
+    )
+
+
+def _statpack_with_cert_section(denied: int, granted: int) -> StatPack:
+    resolved = denied + granted
+    return StatPack(
+        sections=[
+            StatPackSection(
+                title="Modern discretionary-cert petitions by disposition",
+                court="scotus",
+                cert_stage=True,
+                group_by=GroupBy.disposition,
+                buckets=[
+                    BaseRateBucket(key="denied", cases=denied, resolved=denied),
+                    BaseRateBucket(key="granted", cases=granted, resolved=granted),
+                ],
+            )
+        ],
+        resolved=resolved,
+    )
+
+
+def test_summarize_substance_counts_calibration_and_scores() -> None:
+    stratified: list[tuple[Evaluation, Stratum]] = [
+        (_evaluation("claude-baseline", correct=1, brier=0.05, quality=0.9), "retrospective"),
+        (_evaluation("claude-baseline", correct=0, brier=0.4, quality=0.5), "retrospective"),
+        (_evaluation("gemini-baseline", correct=1, brier=None, quality=None), "forward"),
+    ]
+    digest = ops.summarize_substance(
+        cell_counts=(6, 4, 3),
+        stratified_evaluations=stratified,
+        statpack=_statpack_with_cert_section(denied=90, granted=10),
+    )
+    cells = digest.cells
+    assert (cells.predictions, cells.events_predicted, cells.predicted_resolved) == (6, 4, 3)
+    assert (cells.evaluations_forward, cells.evaluations_retrospective) == (1, 2)
+    assert cells.predictions_delta is None  # no prior snapshot supplied
+
+    cal = digest.calibration
+    assert cal.sample == 2  # replay stratum only
+    assert cal.mean_brier == 0.225
+    assert cal.accuracy == 0.5
+    assert cal.deny_base_rate == 0.9 and cal.base_rate_cases == 100
+    assert cal.lift_over_always_deny == -0.4
+
+    by_id = {row.predictor_id: row for row in digest.predictor_scores}
+    assert by_id["claude-baseline"].evaluations == 2
+    assert by_id["claude-baseline"].median == 0.5 or by_id["claude-baseline"].median == 0.9
+    assert by_id["gemini-baseline"].median is None  # no quality grades reported
+
+
+def test_quantiles_are_deterministic_on_an_odd_sample() -> None:
+    stratified: list[tuple[Evaluation, Stratum]] = [
+        (_evaluation("p", quality=q, run_id=f"2026070{n}T000000Z"), "retrospective")
+        for n, q in enumerate((0.2, 0.5, 0.9), start=1)
+    ]
+    (row,) = ops.summarize_substance(
+        cell_counts=(3, 3, 3), stratified_evaluations=stratified
+    ).predictor_scores
+    assert (row.p25, row.median, row.p75) == (0.2, 0.5, 0.9)
+
+
+def test_summarize_substance_deltas_come_from_the_previous_snapshot() -> None:
+    prior = ops.build_ops_report(
+        generated_at="2026-07-04T00:00:00+00:00",
+        runs=[],
+        usage=[],
+        substance=ops.summarize_substance(cell_counts=(4, 3, 1), stratified_evaluations=[]),
+    )
+    digest = ops.summarize_substance(
+        cell_counts=(6, 4, 3),
+        stratified_evaluations=[(_evaluation("p"), "retrospective")],
+        previous=prior,
+    )
+    assert digest.cells.predictions_delta == 2
+    assert digest.cells.predicted_resolved_delta == 2
+    assert digest.cells.evaluations_retrospective_delta == 1
+    assert digest.cells.evaluations_forward_delta == 0
+
+
+def test_summarize_substance_without_base_rate_leaves_lift_null() -> None:
+    digest = ops.summarize_substance(
+        cell_counts=(1, 1, 1),
+        stratified_evaluations=[(_evaluation("p"), "retrospective")],
+        statpack=StatPack(),  # no cert-stage section
+    )
+    assert digest.calibration.accuracy == 1.0
+    assert digest.calibration.deny_base_rate is None
+    assert digest.calibration.lift_over_always_deny is None
+
+
+def test_render_substance_carries_counts_and_explicit_absences() -> None:
+    digest = ops.summarize_substance(cell_counts=(0, 0, 0), stratified_evaluations=[])
+    md = ops.render_substance(digest)
+    assert "## Substance (is it producing?)" in md
+    assert "_No scored replay cells yet._" in md
+    assert "_Deny base rate unavailable" in md
+    assert "_No evaluations committed yet._" in md
+    assert "_No published watchlist snapshot yet._" in md
+
+
+def test_render_substance_shows_frontier_and_lift() -> None:
+    digest = ops.summarize_substance(
+        cell_counts=(6, 4, 3),
+        stratified_evaluations=[(_evaluation("p", correct=1), "retrospective")],
+        statpack=_statpack_with_cert_section(denied=95, granted=5),
+        live_frontier=LiveFrontier(
+            generated_on=date(2026, 7, 11),
+            watchlist=40,
+            next_conference=date(2026, 9, 29),
+            next_conference_petitions=35,
+            conferences=[ConferenceBucket(conference=date(2026, 9, 29), petitions=35)],
+            documents_provisioned=28,
+        ),
+    )
+    md = ops.render_substance(digest)
+    assert "lift **+5.0%**" in md
+    assert "(n=1)" in md
+    assert "Watchlist **40** petition(s)" in md
+    assert "next conference **2026-09-29** (35 petition(s))" in md
+    assert "documents provisioned on **28/40**" in md
+
+
+def test_render_markdown_includes_substance_when_present() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-07-11T00:00:00+00:00",
+        runs=[],
+        usage=[],
+        substance=ops.summarize_substance(cell_counts=(0, 0, 0), stratified_evaluations=[]),
+    )
+    md = ops.render_markdown(report)
+    assert "## Substance (is it producing?)" in md
+    assert OpsReport.model_validate(report.model_dump()) == report
+
+
+# --- the weekly digest ----------------------------------------------------------
+
+
+def test_render_weekly_digest_asks_the_fixed_questions() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-07-11T00:00:00+00:00",
+        runs=[],
+        usage=[_usage("a", 1.5)],
+        substance=ops.summarize_substance(
+            cell_counts=(6, 4, 3),
+            stratified_evaluations=[
+                (_evaluation("p", correct=1), "retrospective"),
+                (_evaluation("p", correct=1, run_id="20260702T000000Z"), "forward"),
+            ],
+            statpack=_statpack_with_cert_section(denied=95, granted=5),
+            live_frontier=LiveFrontier(
+                generated_on=date(2026, 7, 11),
+                watchlist=40,
+                next_conference=date(2026, 9, 29),
+                next_conference_petitions=35,
+                documents_provisioned=28,
+            ),
+        ),
+        open_triggers=ops.summarize_trigger_issues(
+            [
+                {
+                    "number": 9,
+                    "title": "evaluate: 1 case(s)",
+                    "labels": [{"name": "run:evaluate"}],
+                    "createdAt": "2026-07-08T09:00:00Z",
+                }
+            ]
+        ),
+    )
+    md = ops.render_weekly_digest(report)
+    assert "### Weekly digest" in md
+    assert "Replay calibration on 1 scored cell(s)" in md and "do you believe it?" in md
+    assert "Forward cells scored: 1 total, no prior snapshot to diff" in md
+    assert "35 petition(s) distributed for **2026-09-29**" in md and "28/40" in md
+    assert "Oldest stalled trigger: `run:evaluate` (2d old)" in md
+    assert "Spend vs budget: $1.50" in md
+
+
+def test_render_weekly_digest_all_absent_still_asks() -> None:
+    report = ops.build_ops_report(generated_at="2026-07-11T00:00:00+00:00", runs=[], usage=[])
+    md = ops.render_weekly_digest(report)
+    assert "No scored replay cells yet" in md
+    assert "Stalled triggers: none" in md
+    assert "within plan?" in md
+
+
+# --- lenient prior snapshots ------------------------------------------------------
+
+
+def test_ops_report_drops_deltas_on_an_incompatible_prior_snapshot(tmp_path: Path) -> None:
+    """A prior snapshot carrying since-removed fields (the strict schema rejects
+    them) must silently drop the deltas — never fail the daily report."""
+    stale = {
+        "schema_version": "1.0",
+        "generated_at": "2026-07-01T00:00:00+00:00",
+        "spend": {
+            "runs": 0,
+            "total_tokens": 0,
+            "estimated_cost_usd": 0.0,
+            "mean_cost_usd_per_run": 0.0,
+        },
+        "cost": {
+            "actions_minutes": 0.0,
+            "actions_cost_usd": 0.0,
+            "model_cost_usd": 0.0,
+            "fixed_monthly_usd": 55.0,
+        },
+        "backfill": {"courts_total": 14, "courts_complete": 0, "cases_loaded": 0},
+        "scope_audit": {"skipped": True},
+    }
+    prev = tmp_path / "prev-ops.json"
+    prev.write_text(json.dumps(stale))
+    json_out = tmp_path / "ops.json"
+    result = runner.invoke(
+        app,
+        ["ops-report", "--previous", str(prev), "--json", str(json_out)],
+        env=_ops_env(tmp_path),
+    )
+    assert result.exit_code == 0, result.output
+    parsed = json.loads(json_out.read_text())
+    assert parsed["substance"]["cells"]["predictions_delta"] is None
+
+
+def test_ops_report_writes_the_digest_and_reads_the_frontier(tmp_path: Path) -> None:
+    frontier = LiveFrontier(
+        generated_on=date(2026, 7, 11),
+        watchlist=3,
+        next_conference=date(2026, 9, 29),
+        next_conference_petitions=3,
+        documents_provisioned=2,
+    )
+    frontier_path = tmp_path / "live-frontier.json"
+    frontier_path.write_text(frontier.model_dump_json())
+    digest_out = tmp_path / "digest.md"
+    result = runner.invoke(
+        app,
+        [
+            "ops-report",
+            "--live-frontier",
+            str(frontier_path),
+            "--digest-out",
+            str(digest_out),
+            "--generated-at",
+            "2026-07-11T00:00:00+00:00",
+        ],
+        env=_ops_env(tmp_path),
+    )
+    assert result.exit_code == 0, result.output
+    assert "documents provisioned on **2/3**" in result.output
+    body = digest_out.read_text()
+    assert "### Weekly digest" in body and "3 petition(s) distributed for **2026-09-29**" in body
+
+
+# --- the live-frontier snapshot CLI ------------------------------------------------
+
+
+def _watchlist_row(docket: int, number: str, conference: date) -> "corpus.CorpusRow":
+    return corpus.CorpusRow(
+        case_id=f"scotus/{docket}",
+        court="scotus",
+        docket_number=number,
+        distributed_for_conference=conference,
+    )
+
+
+def test_live_frontier_snapshots_watchlist_and_documents(tmp_path: Path) -> None:
+    corpus_root = tmp_path / "corpus"
+    db = corpus.corpus_db_path(corpus_root)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _watchlist_row(1, "25-101", date(2026, 9, 29)),
+                _watchlist_row(2, "25-102", date(2026, 9, 29)),
+                _watchlist_row(3, "25-103", date(2026, 10, 10)),
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind="petition",
+                    url="https://example/1.pdf",
+                    fetched_at=date(2026, 7, 10),
+                    text="QUESTION PRESENTED",
+                )
+            ],
+        )
+    out = tmp_path / "live-frontier.json"
+    result = runner.invoke(
+        app,
+        ["live-frontier", "--out", str(out), "--today", "2026-07-11"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(corpus_root)},
+    )
+    assert result.exit_code == 0, result.output
+    frontier = LiveFrontier.model_validate_json(out.read_text())
+    assert frontier.watchlist == 3
+    assert frontier.next_conference == date(2026, 9, 29)
+    assert frontier.next_conference_petitions == 2
+    assert [c.petitions for c in frontier.conferences] == [2, 1]
+    assert frontier.documents_provisioned == 1
+    assert frontier.skipped is False
+
+
+def test_live_frontier_skips_gracefully_without_a_corpus(tmp_path: Path) -> None:
+    out = tmp_path / "live-frontier.json"
+    result = runner.invoke(
+        app,
+        ["live-frontier", "--out", str(out), "--today", "2026-07-11"],
+        env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "absent")},
+    )
+    assert result.exit_code == 0, result.output
+    frontier = LiveFrontier.model_validate_json(out.read_text())
+    assert frontier.skipped is True and frontier.watchlist == 0

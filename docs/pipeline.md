@@ -12,28 +12,39 @@ stage.
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
-| _(none)_        | `run-ops`        | daily schedule, manual              | script (no agent)    |
+| _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
 | _(none)_        | `integration-corpus` | manual dispatch                 | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
-operational analytics — pipeline health (the Actions run history), spend (the
-`usage.json` ledger + Actions minutes from run durations), open agent flags
+operational analytics — pipeline health (the Actions run history), **substance**
+(is the machine producing: scored cells by stratum with deltas against the
+week-old snapshot when one exists — else the newest,
+replay calibration vs the modern-cert deny base rate with the sample size beside
+every number, per-predictor evaluation-score distributions, and live-frontier
+readiness — each rendered as an explicit absence until its feed exists), spend
+(the `usage.json` ledger + Actions minutes from run durations), open agent flags
 (the committed `flags.json` files, so agent-surfaced feedback is visible beyond
 the run PR that produced it), and **open trigger issues** (still-open `run:*`
 fan-out triggers = stalled runs, oldest first, so an orphaned issue never sits
 invisible) — rendered by `fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
 dashboard" issue and appends each JSON snapshot to a dedicated **`ops-metrics`
 branch** (an orphan time-series that never merges to `main`, so the default
-branch stays clean and the history is inspectable). It triggers
+branch stays clean and a prior snapshot backs the substance deltas). On the
+Monday schedule tick it additionally posts the short **weekly digest** comment
+to the dashboard issue — the same numbers as fixed questions demanding a
+reaction ("Replay calibration on N scored cell(s): lift over always-deny — do
+you believe it?"), with the daily dashboard staying the reference view. It triggers
 nothing and touches neither `main` nor the corpus.
 
-It is also the **presenter** of the data-validation verdict (see *Data
+It is also the **presenter** of the published corpus-side artifacts (see *Data
 validation* in [data-pipeline.md](data-pipeline.md)): the corpus-writer path
-produces a correctness verdict where the corpus is already pulled, and `run-ops`
-renders it as a **data-health** section and escalates a failing verdict to one
-long-lived issue — so the dashboard surfaces both run-health and data-health while
-staying a read-only presenter that never touches the corpus.
+produces a correctness verdict and the live-frontier readiness snapshot where
+the corpus is already pulled, and `run-ops`
+renders them as the **data-health** section and the substance section's
+watchlist view, escalating a failing verdict to one
+long-lived issue — so the dashboard surfaces run-health, data-health, and
+substance while staying a read-only presenter that never touches the corpus.
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a

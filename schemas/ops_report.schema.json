@@ -193,6 +193,28 @@
       "title": "AgentToolingFeedback",
       "type": "object"
     },
+    "ConferenceBucket": {
+      "additionalProperties": false,
+      "description": "One conference date's slice of the live cert watchlist.",
+      "properties": {
+        "conference": {
+          "format": "date",
+          "title": "Conference",
+          "type": "string"
+        },
+        "petitions": {
+          "minimum": 0,
+          "title": "Petitions",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "conference",
+        "petitions"
+      ],
+      "title": "ConferenceBucket",
+      "type": "object"
+    },
     "CorpusCheck": {
       "additionalProperties": false,
       "description": "One named corpus-integrity or referential check and its result.\n\n``checked`` is how many items the check examined (rows, snapshots, or ledger\nartifacts) and ``failures`` how many violated the invariant; ``problems`` is a\nbounded sample of the specific violations (the full count is ``failures``, so a\ntruncated sample never hides that there were more). ``detail`` is a one-line\nhuman summary, e.g. the row count compared against the baseline.",
@@ -240,64 +262,6 @@
         "passed"
       ],
       "title": "CorpusCheck",
-      "type": "object"
-    },
-    "CorpusScopeAudit": {
-      "additionalProperties": false,
-      "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes.\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale\nunresolvable old SCOTUS petitions). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the corpus-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
-      "properties": {
-        "corpus_rows": {
-          "default": 0,
-          "description": "Case rows in the corpus",
-          "minimum": 0,
-          "title": "Corpus Rows",
-          "type": "integer"
-        },
-        "exclusions": {
-          "description": "One entry per exclusion predicate that matched",
-          "items": {
-            "$ref": "#/$defs/ScopeExclusion"
-          },
-          "title": "Exclusions",
-          "type": "array"
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "scotus_open_events": {
-          "default": 0,
-          "description": "Total open (unresolved) SCOTUS events \u2014 the audit's denominator",
-          "minimum": 0,
-          "title": "Scotus Open Events",
-          "type": "integer"
-        },
-        "skipped": {
-          "default": false,
-          "description": "True when no corpus was present; nothing was audited",
-          "title": "Skipped",
-          "type": "boolean"
-        },
-        "unclassified": {
-          "description": "Open SCOTUS events no predicate excluded, bucketed by why",
-          "items": {
-            "$ref": "#/$defs/ScopeUnclassified"
-          },
-          "title": "Unclassified",
-          "type": "array"
-        },
-        "unparseable_docket_shapes": {
-          "description": "Top docket-number shapes in the 'Term not parseable' bucket \u2014 the concrete formats a parser broadening would target; shapes under ~100 open events are accepted fragments, left visible here by design with no predicate chased for them",
-          "items": {
-            "$ref": "#/$defs/ScopeDocketShape"
-          },
-          "title": "Unparseable Docket Shapes",
-          "type": "array"
-        }
-      },
-      "title": "CorpusScopeAudit",
       "type": "object"
     },
     "CorpusValidation": {
@@ -635,6 +599,88 @@
       "title": "LedgerValidation",
       "type": "object"
     },
+    "LiveFrontier": {
+      "additionalProperties": false,
+      "description": "``live-frontier.json`` \u2014 the live cert watchlist's readiness snapshot.\n\nProduced where the corpus is already pulled (``fedcourts live-frontier``,\npublished by the corpus-writer path like the validation verdict) and\nrendered corpus-free by ``run-ops``: watchlist size, the distribution\ncalendar, and how many watchlist petitions carry provisioned filed-document\ntext. ``next_conference`` is relative to the supplied as-of date.",
+      "properties": {
+        "conferences": {
+          "items": {
+            "$ref": "#/$defs/ConferenceBucket"
+          },
+          "title": "Conferences",
+          "type": "array"
+        },
+        "documents_provisioned": {
+          "default": 0,
+          "description": "Watchlist petitions with >= 1 stored filed document",
+          "minimum": 0,
+          "title": "Documents Provisioned",
+          "type": "integer"
+        },
+        "generated_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "As-of date supplied by the caller",
+          "title": "Generated On"
+        },
+        "next_conference": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Earliest conference on/after the as-of date, when any",
+          "title": "Next Conference"
+        },
+        "next_conference_petitions": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Conference Petitions"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "skipped": {
+          "default": false,
+          "description": "True when no corpus was present; nothing was read",
+          "title": "Skipped",
+          "type": "boolean"
+        },
+        "watchlist": {
+          "default": 0,
+          "description": "Pending petitions distributed for a conference",
+          "minimum": 0,
+          "title": "Watchlist",
+          "type": "integer"
+        }
+      },
+      "title": "LiveFrontier",
+      "type": "object"
+    },
     "OpenTriggerIssue": {
       "additionalProperties": false,
       "description": "One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.\n\nTrigger issues (predict / evaluate / reconcile fan-outs) are transient by\ndesign: the run's ready PR closes them on merge, and an empty matrix closes\nthem with a note. One that stays open means its run stalled \u2014 failed\nwholesale, produced nothing, or was never picked up \u2014 so the dashboard lists\nthem with their age instead of letting them sit invisible.",
@@ -669,101 +715,81 @@
       "title": "OpenTriggerIssue",
       "type": "object"
     },
-    "ScopeDocketShape": {
+    "PredictorScoreRow": {
       "additionalProperties": false,
-      "description": "A docket-number *shape* and how many unparseable open events carry it.\n\nThe shape masks digits\u2192``9`` and letters\u2192``A``/``a`` (punctuation/space kept), so\n``01-7700`` \u2192 ``99-9999`` and ``22O141`` \u2192 ``99A999`` \u2014 every uppercase letter\nmasks to ``A``, so a shape names a format class, not a specific docket letter.\nIt tells us, concretely, which docket formats drive the \"Term not parseable\"\nbucket \u2014 i.e. exactly what the Term parser would need to handle to bring those\nevents into scope. A shape carrying fewer than ~100 open events is an accepted\nfragment: it stays visible here by design, and no exclusion predicate is added\nfor it.",
+      "description": "One predictor's evaluation-score distribution (the at-a-glance view).\n\n``median`` / ``p25`` / ``p75`` summarize the cross-evaluator\n``reasoning_quality`` grades; ``accuracy`` is the share of correct calls.\nAll strata pooled \u2014 the leaderboard remains the stratified reference.",
       "properties": {
-        "count": {
-          "default": 0,
-          "description": "Unparseable open events with this shape",
+        "accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accuracy"
+        },
+        "evaluations": {
           "minimum": 0,
-          "title": "Count",
+          "title": "Evaluations",
           "type": "integer"
         },
-        "shape": {
-          "description": "Digit/letter-masked docket-number shape",
-          "title": "Shape",
+        "median": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Median"
+        },
+        "p25": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "P25"
+        },
+        "p75": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "P75"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
           "type": "string"
         }
       },
       "required": [
-        "shape"
+        "predictor_id",
+        "evaluations"
       ],
-      "title": "ScopeDocketShape",
-      "type": "object"
-    },
-    "ScopeExclusion": {
-      "additionalProperties": false,
-      "description": "One exclusion predicate's footprint among the corpus's open events.",
-      "properties": {
-        "cases": {
-          "default": 0,
-          "description": "Distinct cases matched",
-          "minimum": 0,
-          "title": "Cases",
-          "type": "integer"
-        },
-        "open_events": {
-          "default": 0,
-          "description": "Open (unresolved) events on those cases",
-          "minimum": 0,
-          "title": "Open Events",
-          "type": "integer"
-        },
-        "reason": {
-          "description": "The exclusion reason, e.g. 'stale unresolvable \u2026'",
-          "title": "Reason",
-          "type": "string"
-        },
-        "recoverable": {
-          "default": 0,
-          "description": "Of those open events, how many sit on a case carrying an opinion / citation / decision-date signal \u2014 a hint the disposition may be recoverable (an ingestion gap) rather than genuinely absent",
-          "minimum": 0,
-          "title": "Recoverable",
-          "type": "integer"
-        },
-        "sample_cases": {
-          "description": "A bounded sample of matched case ids, for triage",
-          "items": {
-            "type": "string"
-          },
-          "title": "Sample Cases",
-          "type": "array"
-        }
-      },
-      "required": [
-        "reason"
-      ],
-      "title": "ScopeExclusion",
-      "type": "object"
-    },
-    "ScopeUnclassified": {
-      "additionalProperties": false,
-      "description": "Why an open SCOTUS event the scope did *not* exclude stays in scope (refinement signal).\n\nThe refinement surface: buckets the open events no predicate caught by the reason\neach is still in scope \u2014 a recent/current Term (legitimately pending), a docket\nTerm the parser cannot read (a format the predicate skips \u2192 a broadening\ncandidate), a recorded disposition the event-state missed, or no docket number.",
-      "properties": {
-        "open_events": {
-          "default": 0,
-          "minimum": 0,
-          "title": "Open Events",
-          "type": "integer"
-        },
-        "reason": {
-          "description": "Why this open event was not excluded",
-          "title": "Reason",
-          "type": "string"
-        },
-        "sample_cases": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Sample Cases",
-          "type": "array"
-        }
-      },
-      "required": [
-        "reason"
-      ],
-      "title": "ScopeUnclassified",
+      "title": "PredictorScoreRow",
       "type": "object"
     },
     "SpendSummary": {
@@ -802,6 +828,224 @@
         "mean_cost_usd_per_run"
       ],
       "title": "SpendSummary",
+      "type": "object"
+    },
+    "SubstanceCalibration": {
+      "additionalProperties": false,
+      "description": "Calibration on the scored replay sample, anchored to the deny base rate.\n\nReplay (retrospective) cells only \u2014 the iteration-signal stratum. ``sample``\nis printed beside every number so a small-N figure cannot masquerade as\nsignal. ``lift_over_always_deny`` is replay accuracy minus the modern-cert\ndenial base rate (the accuracy an always-deny predictor would score); null\nuntil both halves exist.",
+      "properties": {
+        "accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accuracy"
+        },
+        "base_rate_cases": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved cases behind the base rate",
+          "title": "Base Rate Cases"
+        },
+        "deny_base_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Denied share of resolved modern discretionary-cert petitions (from the committed statpack), when its section is present",
+          "title": "Deny Base Rate"
+        },
+        "lift_over_always_deny": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "accuracy - deny_base_rate; null until both exist",
+          "title": "Lift Over Always Deny"
+        },
+        "mean_brier": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mean Brier"
+        },
+        "sample": {
+          "description": "Scored replay evaluations",
+          "minimum": 0,
+          "title": "Sample",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sample"
+      ],
+      "title": "SubstanceCalibration",
+      "type": "object"
+    },
+    "SubstanceCells": {
+      "additionalProperties": false,
+      "description": "Scored-cell counts across the pipeline funnel, forward vs replay.\n\nThe funnel: prediction cells committed \u2192 events with at least one prediction\n\u2192 predicted events whose ground truth landed \u2192 evaluations, split by the\npre-registration stratum (the leaderboard's forward/retrospective doctrine \u2014\nnever blended). ``*_delta`` fields carry the change against the prior\nops-metrics snapshot when a comparable one was supplied, else null.",
+      "properties": {
+        "evaluations_forward": {
+          "description": "Scored cells in the forward stratum",
+          "minimum": 0,
+          "title": "Evaluations Forward",
+          "type": "integer"
+        },
+        "evaluations_forward_delta": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluations Forward Delta"
+        },
+        "evaluations_retrospective": {
+          "description": "Scored cells in the retrospective (replay) stratum",
+          "minimum": 0,
+          "title": "Evaluations Retrospective",
+          "type": "integer"
+        },
+        "evaluations_retrospective_delta": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluations Retrospective Delta"
+        },
+        "events_predicted": {
+          "description": "Distinct events with >= 1 prediction",
+          "minimum": 0,
+          "title": "Events Predicted",
+          "type": "integer"
+        },
+        "predicted_resolved": {
+          "description": "Predicted events whose outcome.json has landed",
+          "minimum": 0,
+          "title": "Predicted Resolved",
+          "type": "integer"
+        },
+        "predicted_resolved_delta": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Predicted Resolved Delta"
+        },
+        "predictions": {
+          "description": "prediction.json cells committed under data/",
+          "minimum": 0,
+          "title": "Predictions",
+          "type": "integer"
+        },
+        "predictions_delta": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Change vs the prior snapshot, when comparable",
+          "title": "Predictions Delta"
+        }
+      },
+      "required": [
+        "predictions",
+        "events_predicted",
+        "predicted_resolved",
+        "evaluations_forward",
+        "evaluations_retrospective"
+      ],
+      "title": "SubstanceCells",
+      "type": "object"
+    },
+    "SubstanceDigest": {
+      "additionalProperties": false,
+      "description": "The dashboard's substantive-results section: is the machine producing?\n\nComplements run-health (is the machine running): scored-cell counts by\nstratum, replay calibration vs the deny base rate, per-predictor score\ndistributions, and live-frontier readiness. Every input is a committed or\npublished artifact, keeping run-ops a read-only presenter.",
+      "properties": {
+        "calibration": {
+          "$ref": "#/$defs/SubstanceCalibration"
+        },
+        "cells": {
+          "$ref": "#/$defs/SubstanceCells"
+        },
+        "live_frontier": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LiveFrontier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Published watchlist readiness, when available"
+        },
+        "predictor_scores": {
+          "items": {
+            "$ref": "#/$defs/PredictorScoreRow"
+          },
+          "title": "Predictor Scores",
+          "type": "array"
+        }
+      },
+      "required": [
+        "cells",
+        "calibration"
+      ],
+      "title": "SubstanceDigest",
       "type": "object"
     },
     "ToolingCount": {
@@ -1000,7 +1244,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the\nusage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove. ``flags`` is the open-agent-flags digest scanned from ``data/`` and\n``tooling`` the agent tooling-feedback digest scanned the same way; both are null\non a report built before the field existed (so an older snapshot read back as\n``previous`` still validates).",
+  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, substance, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the\nusage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove. ``flags`` is the open-agent-flags digest scanned from ``data/`` and\n``tooling`` the agent tooling-feedback digest scanned the same way; both are null\non a report built before the field existed (so an older snapshot read back as\na prior still validates). ``substance`` is the substantive-results section \u2014\nnull on older snapshots the same way.",
   "properties": {
     "cost": {
       "$ref": "#/$defs/CostEstimate"
@@ -1075,20 +1319,20 @@
       "title": "Schema Version",
       "type": "string"
     },
-    "scope_audit": {
+    "spend": {
+      "$ref": "#/$defs/SpendSummary"
+    },
+    "substance": {
       "anyOf": [
         {
-          "$ref": "#/$defs/CorpusScopeAudit"
+          "$ref": "#/$defs/SubstanceDigest"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Census of open events the predict scope excludes, when available"
-    },
-    "spend": {
-      "$ref": "#/$defs/SpendSummary"
+      "description": "Substantive results (scored cells, calibration, readiness); null on a report built before the field existed"
     },
     "tooling": {
       "anyOf": [

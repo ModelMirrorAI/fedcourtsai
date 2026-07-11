@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+from pydantic import BaseModel
 
 from . import (
     analytics,
@@ -70,6 +71,8 @@ from .ops import (
     build_ops_report,
     render_data_health,
     render_markdown,
+    render_weekly_digest,
+    summarize_substance,
     summarize_trigger_issues,
 )
 from .paths import CasePaths
@@ -99,16 +102,19 @@ from .registry import (
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
-    CorpusScopeAudit,
+    ConferenceBucket,
     CorpusValidation,
     DataHealth,
     Disposition,
     Engine,
     GroupBy,
+    LiveFrontier,
     ModelUsage,
+    OpsReport,
     PredictableEvent,
     RetrievalCall,
     RetrievalLog,
+    StatPack,
     UsageRole,
 )
 from .serialize import write_json, write_raw_json, write_text, write_yaml
@@ -118,6 +124,7 @@ from .store import (
     iter_stratified_evaluations,
     iter_tooling,
     iter_usage,
+    ledger_cell_counts,
     open_events,
     resolved_events,
 )
@@ -822,8 +829,23 @@ def usage_summary() -> None:
     typer.echo(json.dumps(summary, indent=2, sort_keys=True))
 
 
+def _read_best_effort[T: BaseModel](path: Path | None, model: type[T]) -> T | None:
+    """Read and validate a published feed, best-effort: any miss just drops it.
+
+    A missing file, unreadable JSON, or an incompatible earlier shape (the
+    models are strict) returns ``None`` — a degraded feed degrades its section,
+    never the report.
+    """
+    if path is None or not path.exists():
+        return None
+    try:
+        return model.model_validate_json(path.read_text())
+    except ValueError:
+        return None
+
+
 @app.command("ops-report")
-def ops_report(
+def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     runs: Annotated[
         Path | None,
         typer.Option(
@@ -849,11 +871,26 @@ def ops_report(
         Path | None,
         typer.Option(help="Write the data-health section Markdown here (the escalation body)."),
     ] = None,
-    scope_audit: Annotated[
+    live_frontier: Annotated[
         Path | None,
         typer.Option(
-            help="Latest `corpus-scope-audit` JSON (e.g. from the ops-metrics branch) for the "
-            "out-of-scope-open-events section. Ignored if missing or unreadable."
+            help="Latest `live-frontier` JSON (e.g. from the ops-metrics branch) for the "
+            "substance section's watchlist-readiness view. Ignored if missing or unreadable."
+        ),
+    ] = None,
+    previous: Annotated[
+        Path | None,
+        typer.Option(
+            help="Prior OpsReport JSON (e.g. from the ops-metrics branch) for the "
+            "substance section's deltas. Ignored if missing, unreadable, or from "
+            "an incompatible earlier shape."
+        ),
+    ] = None,
+    digest_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the weekly maintainer digest Markdown here (the short "
+            "interrogative comment the run-ops weekly schedule posts)."
         ),
     ] = None,
     trigger_issues: Annotated[
@@ -864,44 +901,45 @@ def ops_report(
         ),
     ] = None,
 ) -> None:
-    """Roll pipeline health, spend, and data health into an ops snapshot.
+    """Roll pipeline health, substance, spend, and data health into an ops snapshot.
 
     A read-only view of authoritative sources — the GitHub Actions run history
-    (``--runs``), the recorded ``usage.json`` ledger under ``data/``, and the
+    (``--runs``), the recorded ``usage.json`` ledger under ``data/``, the
     committed ``flags.json`` files agents leave there (rolled into the **open
-    agent flags** section). Also presents the **data-health** verdict:
-    it runs the git-only ``validate`` over ``data/`` itself and folds in the latest
-    corpus verdict from ``--corpus-validation`` (produced where the corpus is already
-    pulled). Prints the dashboard Markdown to stdout (the run-ops issue body / step
-    summary) and, with ``--json``, writes the structured ``OpsReport``. Unlike the
-    leaderboard/back-test roll-ups it is a point-in-time snapshot, so it is surfaced,
-    not committed.
+    agent flags** section), and the committed metrics artifacts (the statpack's
+    deny base rate). The **substance** section answers "is the machine producing
+    anything good": scored cells by stratum (with deltas against ``--previous``),
+    replay calibration vs the deny base rate, per-predictor score distributions,
+    and the published ``--live-frontier`` readiness snapshot. Also presents the
+    **data-health** verdict: it runs the git-only ``validate`` over ``data/``
+    itself and folds in the latest corpus verdict from ``--corpus-validation``
+    (produced where the corpus is already pulled). Prints the dashboard Markdown
+    to stdout (the run-ops issue body / step summary); ``--json`` writes the
+    structured ``OpsReport`` and ``--digest-out`` the weekly maintainer digest.
+    Unlike the leaderboard/back-test roll-ups it is a point-in-time snapshot, so
+    it is surfaced, not committed.
     """
     settings = get_settings()
     run_rows = json.loads(runs.read_text()) if runs is not None else []
     # Data health: the git-only ledger schema check always runs here (no corpus
     # needed), and the corpus verdict is read back from the producer path if present
     # (best-effort: a missing/unreadable verdict just leaves that half null).
-    corpus_verdict: CorpusValidation | None = None
-    if corpus_validation is not None and corpus_validation.exists():
-        try:
-            corpus_verdict = CorpusValidation.model_validate_json(corpus_validation.read_text())
-        except ValueError:
-            corpus_verdict = None
+    corpus_verdict = _read_best_effort(corpus_validation, CorpusValidation)
     ledger = validate_ledger(settings.data_root)
     data_health = DataHealth(
         ok=ledger.ok and (corpus_verdict is None or corpus_verdict.ok),
         ledger=ledger,
         corpus=corpus_verdict,
     )
-    # The scope audit is surfaced like the corpus verdict: read back from the producer
-    # path if published, best-effort (a missing/unreadable file just drops the section).
-    scope_verdict: CorpusScopeAudit | None = None
-    if scope_audit is not None and scope_audit.exists():
-        try:
-            scope_verdict = CorpusScopeAudit.model_validate_json(scope_audit.read_text())
-        except ValueError:
-            scope_verdict = None
+    # The live-frontier snapshot is surfaced like the corpus verdict: read back from
+    # the producer path if published. The prior snapshot is additionally
+    # shape-lenient: an older snapshot carrying since-removed fields (OpsReport is
+    # strict) fails validation and just drops the deltas — never the report. The
+    # statpack is a committed metrics artifact; its modern-cert section anchors
+    # the calibration view.
+    frontier = _read_best_effort(live_frontier, LiveFrontier)
+    prior = _read_best_effort(previous, OpsReport)
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     # Open run:* trigger issues (stalled fan-outs), best-effort like the other feeds:
     # a missing/unreadable file just drops the section.
     open_triggers = None
@@ -911,15 +949,23 @@ def ops_report(
         except (ValueError, TypeError):
             open_triggers = None
     when = generated_at or datetime.now(UTC).isoformat()
+    stratified = iter_stratified_evaluations(settings.data_root)
+    substance = summarize_substance(
+        cell_counts=ledger_cell_counts(settings.data_root),
+        stratified_evaluations=stratified,
+        statpack=statpack,
+        live_frontier=frontier,
+        previous=prior,
+    )
     report = build_ops_report(
         generated_at=when,
         runs=run_rows,
         usage=iter_usage(settings.data_root),
         flags=iter_flags(settings.data_root),
         tooling=iter_tooling(settings.data_root),
-        evaluations=[e for e, _ in iter_stratified_evaluations(settings.data_root)],
+        evaluations=[e for e, _ in stratified],
+        substance=substance,
         data_health=data_health,
-        scope_audit=scope_verdict,
         open_triggers=open_triggers,
     )
     if json_out is not None:
@@ -927,6 +973,9 @@ def ops_report(
     if data_health_out is not None:
         data_health_out.parent.mkdir(parents=True, exist_ok=True)
         data_health_out.write_text(render_data_health(data_health))
+    if digest_out is not None:
+        digest_out.parent.mkdir(parents=True, exist_ok=True)
+        digest_out.write_text(render_weekly_digest(report))
     typer.echo(render_markdown(report), nl=False)
 
 
@@ -2125,6 +2174,67 @@ def conference_set(
                 for row in rows
             ],
         )
+
+
+@app.command("live-frontier")
+def live_frontier_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the LiveFrontier JSON here (default: <metrics_root>/live-frontier.json)."
+        ),
+    ] = None,
+    today: Annotated[
+        str,
+        typer.Option(help="ISO as-of date for the next-conference pick; defaults to today (UTC)."),
+    ] = "",
+) -> None:
+    """Snapshot the live cert watchlist's readiness for the ops dashboard.
+
+    Read-only over the corpus: the pending-before-conference watchlist
+    (``conference-set``'s population), its distribution calendar with the next
+    conference relative to ``--today``, and how many watchlist petitions carry
+    provisioned filed-document text. Produced where the corpus is already
+    pulled and published to the ``ops-metrics`` branch (the corpus-writer
+    path), so the corpus-free ``run-ops`` presenter can render live-frontier
+    readiness. Graceful when the corpus is absent: writes a skipped snapshot
+    and exits 0.
+    """
+    settings = get_settings()
+    db = corpus.corpus_db_path(settings.corpus_root)
+    destination = out if out is not None else settings.metrics_root / "live-frontier.json"
+    as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    if not db.exists():
+        write_json(destination, LiveFrontier(skipped=True, generated_on=as_of))
+        typer.echo(f"live-frontier: skipped (no corpus at {db}) -> {destination}")
+        return
+    with corpus.connect_readonly(db) as conn:
+        rows = corpus.conference_watchlist(conn)
+        provisioned = sum(1 for row in rows if corpus.documents_for_case(conn, row.case_id))
+    by_conference: dict[date, int] = {}
+    for row in rows:
+        assert row.distributed_for_conference is not None  # the query guarantees it
+        by_conference[row.distributed_for_conference] = (
+            by_conference.get(row.distributed_for_conference, 0) + 1
+        )
+    upcoming = sorted(day for day in by_conference if day >= as_of)
+    frontier = LiveFrontier(
+        generated_on=as_of,
+        watchlist=len(rows),
+        next_conference=upcoming[0] if upcoming else None,
+        next_conference_petitions=by_conference[upcoming[0]] if upcoming else None,
+        conferences=[
+            ConferenceBucket(conference=day, petitions=count)
+            for day, count in sorted(by_conference.items())
+        ],
+        documents_provisioned=provisioned,
+    )
+    write_json(destination, frontier)
+    typer.echo(
+        f"live-frontier: {frontier.watchlist} petition(s) on the watchlist, "
+        f"next conference {frontier.next_conference or 'none scheduled'}, "
+        f"documents on {frontier.documents_provisioned} -> {destination}"
+    )
 
 
 @app.command()

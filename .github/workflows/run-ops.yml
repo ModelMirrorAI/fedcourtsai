@@ -1,17 +1,27 @@
 name: run-ops
 
 # Operational analytics dashboard. A read-only DAILY roll-up of authoritative
-# sources — pipeline health (the GitHub Actions run history) and model + Actions
-# spend (the usage ledger + run durations) — rendered by `fedcourts ops-report`.
+# sources — pipeline health (the GitHub Actions run history), substance (scored
+# cells, replay calibration, live-frontier readiness — the committed ledger,
+# metrics artifacts, and the published live-frontier snapshot), and model +
+# Actions spend (the usage ledger + run durations) — rendered by
+# `fedcourts ops-report`.
 #
 # Persistence is FULLY in GitHub and never touches the default branch: each run
 # posts the current view to one long-lived "Ops dashboard" issue (updated in place)
 # and appends the JSON snapshot to a dedicated `ops-metrics` branch (an orphan
-# time-series, never merged to main). So `main` stays clean and the
-# corpus-write path is untouched.
+# time-series, never merged to main — a week-old snapshot backs the substance
+# section's deltas). So `main` stays clean and the corpus-write path is
+# untouched. The Monday schedule additionally posts the short interrogative
+# **weekly digest** comment to the dashboard issue — numbers as questions
+# demanding a reaction; the daily dashboard stays the reference view.
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
+    # The weekly digest tick: the same daily job, plus the digest comment (the
+    # step is gated on this exact schedule string). Offset from the daily 08:00
+    # so the two never race on the dashboard issue.
+    - cron: "30 8 * * 1"
   workflow_dispatch:
 
 permissions: {}
@@ -66,26 +76,34 @@ jobs:
       - name: Build the ops report
         run: |
           set -euo pipefail
-          # Pull the latest corpus verdict + scope audit off the ops-metrics
-          # branch (if any). Both are produced by the corpus-writer path — see
-          # publish-corpus-verdict — and feed the data-health / scope sections.
-          # Best-effort: absent on the first ever run, which simply drops those
-          # fields. run-ops itself never pulls the corpus — it only reads these
-          # published artifacts.
+          # Pull the latest corpus verdict + live-frontier snapshot and a prior ops
+          # snapshot off the ops-metrics branch (if any). The verdict and frontier
+          # are produced by the corpus-writer path — see publish-corpus-verdict —
+          # and feed the data-health / substance sections; the prior snapshot backs
+          # the substance deltas (the week-old dated file when present, else the
+          # newest). All best-effort: absent on the first ever run, which simply
+          # drops those fields. run-ops itself never pulls the corpus — it only
+          # reads these published artifacts.
           git fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' 2>/dev/null || true
           prev_args=()
           if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null; then
             if git show origin/ops-metrics:corpus-validation.json > corpus-validation.json 2>/dev/null; then
               prev_args+=(--corpus-validation corpus-validation.json)
             fi
-            if git show origin/ops-metrics:corpus-scope-audit.json > corpus-scope-audit.json 2>/dev/null; then
-              prev_args+=(--scope-audit corpus-scope-audit.json)
+            if git show origin/ops-metrics:live-frontier.json > live-frontier.json 2>/dev/null; then
+              prev_args+=(--live-frontier live-frontier.json)
+            fi
+            week_ago=$(date -u -d '7 days ago' +%Y-%m-%d)
+            if git show "origin/ops-metrics:ops-${week_ago}.json" > prev-ops.json 2>/dev/null \
+              || git show origin/ops-metrics:latest.json > prev-ops.json 2>/dev/null; then
+              prev_args+=(--previous prev-ops.json)
             fi
           fi
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.
           uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
-            "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md > ops.md
+            "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md \
+            --digest-out digest.md > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append the snapshot to the ops-metrics branch
@@ -106,7 +124,7 @@ jobs:
             git -C "$tree" rm -rf . >/dev/null 2>&1 || true
           fi
           cp new-ops.json "$tree/ops-${day}.json" # dated history (last write of the day wins)
-          cp new-ops.json "$tree/latest.json"     # stable name for the newest snapshot
+          cp new-ops.json "$tree/latest.json"     # the fallback prior snapshot for the deltas
           git -C "$tree" add -A
           if git -C "$tree" diff --cached --quiet; then
             echo "No ops change to persist."
@@ -135,6 +153,27 @@ jobs:
             # Update the single dashboard in place so it is always the current view.
             gh issue edit "$num" --repo "$REPO" --body-file ops.md
           fi
+
+      # The weekly digest: a short interrogative comment on the dashboard issue —
+      # the same numbers as questions demanding a reaction, posted only on the
+      # Monday schedule tick (the daily dashboard above stays the reference view).
+      # The body is rendered by the tested `render_weekly_digest`; this step only
+      # posts it.
+      - name: Post the weekly digest comment
+        if: github.event_name == 'schedule' && github.event.schedule == '30 8 * * 1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          num=$(gh issue list --repo "$REPO" --label ops-dashboard --state open \
+            --json number --jq '.[0].number')
+          if [ -z "$num" ]; then
+            echo "No open dashboard issue; the digest lives in the step summary."
+            cat digest.md >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh issue comment "$num" --repo "$REPO" --body-file digest.md
 
       - name: Escalate a failing data-validation verdict
         env:

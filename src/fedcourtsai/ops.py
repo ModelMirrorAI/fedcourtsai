@@ -18,20 +18,26 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 
 from .collect import flags_table
+from .leaderboard import RETROSPECTIVE, Stratum
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
-    CorpusScopeAudit,
     CostEstimate,
     DataHealth,
     Evaluation,
     FlagsDigest,
     FlagSeverity,
     LeakageDigest,
+    LiveFrontier,
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
+    PredictorScoreRow,
     SpendSummary,
+    StatPack,
+    SubstanceCalibration,
+    SubstanceCells,
+    SubstanceDigest,
     ToolingCount,
     ToolingDigest,
     WorkflowHealth,
@@ -109,6 +115,265 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
             )
         )
     return health
+
+
+def _quantile(values: Sequence[float], q: float) -> float | None:
+    """Nearest-rank quantile of ``values`` (``q`` in [0, 1]), or None if empty."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = round(q * (len(ordered) - 1))
+    return round(ordered[rank], 4)
+
+
+def _deny_base_rate(statpack: StatPack | None) -> tuple[float | None, int | None]:
+    """``(denied share, resolved cases)`` from the statpack's modern-cert section.
+
+    The calibration anchor: the disposition breakdown restricted to modern
+    Term-prefixed discretionary-cert dockets. ``(None, None)`` when the statpack
+    or its cert-stage disposition section is absent — the render shows an
+    explicit absence rather than anchoring against the wrong population.
+    """
+    if statpack is None:
+        return (None, None)
+    for section in statpack.sections:
+        if not section.cert_stage or section.group_by != "disposition":
+            continue
+        resolved = sum(b.resolved for b in section.buckets)
+        if not resolved:
+            return (None, None)
+        denied = sum(b.resolved for b in section.buckets if b.key == "denied")
+        return (round(denied / resolved, 4), resolved)
+    return (None, None)
+
+
+def _delta(current: int, previous: int | None) -> int | None:
+    return None if previous is None else current - previous
+
+
+def summarize_substance(
+    *,
+    cell_counts: tuple[int, int, int],
+    stratified_evaluations: Sequence[tuple[Evaluation, Stratum]],
+    statpack: StatPack | None = None,
+    live_frontier: LiveFrontier | None = None,
+    previous: OpsReport | None = None,
+) -> SubstanceDigest:
+    """Roll the committed ledger + metrics artifacts into the substance section.
+
+    Pure over its inputs (no filesystem): the caller supplies the ledger census
+    (:func:`fedcourtsai.store.ledger_cell_counts`), the stratified evaluations,
+    the committed statpack, and the published live-frontier snapshot. Deltas
+    compare against ``previous``'s substance counts and stay null without a
+    comparable prior — a missing or pre-substance snapshot degrades the deltas,
+    never the section.
+    """
+    predictions, events_predicted, predicted_resolved = cell_counts
+    forward = [ev for ev, stratum in stratified_evaluations if stratum != RETROSPECTIVE]
+    replay = [ev for ev, stratum in stratified_evaluations if stratum == RETROSPECTIVE]
+
+    prior_cells = previous.substance.cells if previous is not None and previous.substance else None
+    cells = SubstanceCells(
+        predictions=predictions,
+        events_predicted=events_predicted,
+        predicted_resolved=predicted_resolved,
+        evaluations_forward=len(forward),
+        evaluations_retrospective=len(replay),
+        predictions_delta=_delta(predictions, prior_cells.predictions if prior_cells else None),
+        predicted_resolved_delta=_delta(
+            predicted_resolved, prior_cells.predicted_resolved if prior_cells else None
+        ),
+        evaluations_forward_delta=_delta(
+            len(forward), prior_cells.evaluations_forward if prior_cells else None
+        ),
+        evaluations_retrospective_delta=_delta(
+            len(replay), prior_cells.evaluations_retrospective if prior_cells else None
+        ),
+    )
+
+    deny_rate, base_cases = _deny_base_rate(statpack)
+    accuracy = round(sum(ev.correct for ev in replay) / len(replay), 4) if replay else None
+    briers = [ev.brier_score for ev in replay if ev.brier_score is not None]
+    calibration = SubstanceCalibration(
+        sample=len(replay),
+        mean_brier=round(sum(briers) / len(briers), 4) if briers else None,
+        accuracy=accuracy,
+        deny_base_rate=deny_rate,
+        base_rate_cases=base_cases,
+        lift_over_always_deny=(
+            round(accuracy - deny_rate, 4)
+            if accuracy is not None and deny_rate is not None
+            else None
+        ),
+    )
+
+    by_predictor: dict[str, list[Evaluation]] = {}
+    for ev, _stratum in stratified_evaluations:
+        by_predictor.setdefault(ev.predictor_id, []).append(ev)
+    scores = []
+    for predictor_id in sorted(by_predictor):
+        evals = by_predictor[predictor_id]
+        quality = [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
+        scores.append(
+            PredictorScoreRow(
+                predictor_id=predictor_id,
+                evaluations=len(evals),
+                accuracy=round(sum(ev.correct for ev in evals) / len(evals), 4),
+                median=_quantile(quality, 0.5),
+                p25=_quantile(quality, 0.25),
+                p75=_quantile(quality, 0.75),
+            )
+        )
+
+    return SubstanceDigest(
+        cells=cells,
+        calibration=calibration,
+        predictor_scores=scores,
+        live_frontier=live_frontier,
+    )
+
+
+def _fmt_delta(delta: int | None) -> str:
+    """A signed week-over-week suffix, empty without a comparable prior."""
+    return "" if delta is None else f" ({delta:+d})"
+
+
+def render_substance(digest: SubstanceDigest) -> str:
+    """Render the substantive-results section: is the machine producing?
+
+    Every number that can be small carries its sample size beside it, and a
+    feed that has not landed renders as an explicit absence — an empty view is
+    itself the signal the instrument is not producing yet.
+    """
+    c = digest.cells
+    lines = [
+        "## Substance (is it producing?)",
+        "",
+        f"Prediction cells committed: **{c.predictions}**{_fmt_delta(c.predictions_delta)} "
+        f"over **{c.events_predicted}** event(s); predicted events resolved: "
+        f"**{c.predicted_resolved}**{_fmt_delta(c.predicted_resolved_delta)}; scored cells: "
+        f"**{c.evaluations_forward}** forward{_fmt_delta(c.evaluations_forward_delta)} · "
+        f"**{c.evaluations_retrospective}** replay"
+        f"{_fmt_delta(c.evaluations_retrospective_delta)}.",
+    ]
+
+    cal = digest.calibration
+    lines += ["", "**Calibration (replay stratum, advisory)**"]
+    if cal.sample == 0:
+        lines.append("_No scored replay cells yet._")
+    else:
+        brier = "—" if cal.mean_brier is None else f"{cal.mean_brier:.3f}"
+        accuracy = "—" if cal.accuracy is None else f"{cal.accuracy:.0%}"
+        lines.append(f"Mean Brier **{brier}** · accuracy **{accuracy}** (n={cal.sample})")
+    if cal.deny_base_rate is None:
+        lines.append("_Deny base rate unavailable (no modern-cert statpack section yet)._")
+    else:
+        lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
+        lines.append(
+            f"Always-deny base rate **{cal.deny_base_rate:.0%}** "
+            f"(over {cal.base_rate_cases:,} resolved modern-cert petitions) · "
+            f"lift **{lift}**"
+        )
+
+    lines += ["", "**Evaluation scores by predictor** (reasoning quality, all strata pooled)"]
+    if not digest.predictor_scores:
+        lines.append("_No evaluations committed yet._")
+    else:
+        lines += [
+            "| Predictor | Cells | Accuracy | Median | p25-p75 |",
+            "|-----------|------:|---------:|-------:|---------|",
+        ]
+        for row in digest.predictor_scores:
+            accuracy = "—" if row.accuracy is None else f"{row.accuracy:.0%}"
+            median = "—" if row.median is None else f"{row.median:.2f}"
+            spread = "—" if row.p25 is None or row.p75 is None else f"{row.p25:.2f}-{row.p75:.2f}"
+            lines.append(
+                f"| {row.predictor_id} | {row.evaluations} | {accuracy} | {median} | {spread} |"
+            )
+
+    lines += ["", "**Live frontier**"]
+    frontier = digest.live_frontier
+    if frontier is None or frontier.skipped:
+        lines.append("_No published watchlist snapshot yet._")
+    else:
+        upcoming = (
+            f"next conference **{frontier.next_conference}** "
+            f"({frontier.next_conference_petitions} petition(s))"
+            if frontier.next_conference is not None
+            else "no upcoming conference scheduled"
+        )
+        lines.append(
+            f"Watchlist **{frontier.watchlist}** petition(s) · {upcoming} · "
+            f"documents provisioned on **{frontier.documents_provisioned}/{frontier.watchlist}**"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def render_weekly_digest(report: OpsReport) -> str:
+    """The weekly maintainer digest: fixed questions with this week's answers.
+
+    Deliberately short and interrogative — the numbers demand a reaction rather
+    than sit available for inspection; the daily dashboard stays the reference
+    view. Renders from whatever the report holds, with explicit absences.
+    """
+    substance = report.substance
+    lines = ["### Weekly digest", ""]
+
+    if substance is not None and substance.calibration.sample:
+        cal = substance.calibration
+        lift = (
+            "lift unavailable (no base rate)"
+            if cal.lift_over_always_deny is None
+            else f"lift **{cal.lift_over_always_deny:+.1%}** over always-deny"
+        )
+        lines.append(
+            f"- **Replay calibration on {cal.sample} scored cell(s): {lift} — do you believe it?**"
+        )
+    else:
+        lines.append("- **No scored replay cells yet — what is blocking the first batch?**")
+
+    if substance is not None:
+        c = substance.cells
+        weekly = (
+            f"{c.evaluations_forward_delta:+d} this week, {c.evaluations_forward} total"
+            if c.evaluations_forward_delta is not None
+            else f"{c.evaluations_forward} total, no prior snapshot to diff"
+        )
+        lines.append(f"- **Forward cells scored: {weekly} — is the live frontier producing?**")
+        frontier = substance.live_frontier
+        if frontier is not None and not frontier.skipped:
+            upcoming = (
+                f"{frontier.next_conference_petitions} petition(s) distributed for "
+                f"**{frontier.next_conference}**"
+                if frontier.next_conference is not None
+                else "no upcoming conference on the calendar"
+            )
+            lines.append(
+                f"- **Watchlist vs next conference: {upcoming}; documents on "
+                f"{frontier.documents_provisioned}/{frontier.watchlist} — ready?**"
+            )
+        else:
+            lines.append("- **Watchlist vs next conference: no published snapshot — why not?**")
+
+    if report.open_triggers:
+        oldest = report.open_triggers[0]
+        lines.append(
+            f"- **Oldest stalled trigger: `{oldest.label}` "
+            f"({_age(oldest.created_at, report.generated_at)} old) — why is it still open?**"
+        )
+    else:
+        lines.append("- **Stalled triggers: none — every fan-out landed or closed.**")
+
+    monthly = (
+        "—"
+        if report.cost.estimated_monthly_usd is None
+        else f"${report.cost.estimated_monthly_usd:,.0f}/mo"
+    )
+    lines.append(
+        f"- **Spend vs budget: ${report.spend.estimated_cost_usd:,.2f} model spend cumulative, "
+        f"~{monthly} projected — within plan?**"
+    )
+    return "\n".join(lines) + "\n"
 
 
 def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
@@ -295,16 +560,16 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
     flags: Iterable[AgentFlags] = (),
     tooling: Iterable[AgentToolingFeedback] = (),
     evaluations: Iterable[Evaluation] = (),
+    substance: SubstanceDigest | None = None,
     data_health: DataHealth | None = None,
-    scope_audit: CorpusScopeAudit | None = None,
     open_triggers: list[OpenTriggerIssue] | None = None,
 ) -> OpsReport:
     """Assemble the full operational snapshot. ``generated_at`` is passed in (no clock).
 
     ``data_health`` is the data-validation verdict the dashboard presents alongside
     run health; it is surfaced as supplied (the wiring layer owns producing it),
-    null when absent. ``scope_audit`` is the predict-scope census
-    (``corpus-scope-audit``), surfaced the same way. ``flags`` is the committed
+    null when absent. ``substance`` is the substantive-results digest
+    (:func:`summarize_substance`), surfaced the same way. ``flags`` is the committed
     ``flags.json`` ledger the dashboard rolls into its open-flags digest and
     ``tooling`` the committed ``tooling.json`` self-reports it rolls into the
     tooling-feedback digest (each empty when none are committed).
@@ -316,11 +581,11 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
         health=summarize_health(run_list),
         spend=spend,
         cost=estimate_cost(run_list, spend),
+        substance=substance,
         data_health=data_health,
         flags=summarize_flags(flags),
         leakage=summarize_leakage(evaluations),
         tooling=summarize_tooling(tooling),
-        scope_audit=scope_audit,
         open_triggers=open_triggers,
     )
 
@@ -471,60 +736,6 @@ def render_data_health(health: DataHealth) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_scope_audit(audit: CorpusScopeAudit) -> str:
-    """Render the predict-scope census: open events the scope excludes, by reason.
-
-    The dashboard window onto the corpus scope reconcile: how many still-open
-    SCOTUS events the corpus carries that the predict scope drops, split into a
-    ``recoverable`` subset (a disposition signal — re-ingestible) and the bare rest.
-    """
-    lines = ["## Out-of-scope open events"]
-    if audit.skipped:
-        lines.append("- _skipped (no corpus pulled)_")
-        return "\n".join(lines) + "\n"
-    excluded = sum(e.open_events for e in audit.exclusions)
-    if not excluded:
-        lines.append(
-            f"- None — all {audit.scotus_open_events:,} open SCOTUS event(s) are in scope."
-        )
-        return "\n".join(lines) + "\n"
-    recoverable = sum(e.recoverable for e in audit.exclusions)
-    lines += [
-        f"**{excluded:,}** of {audit.scotus_open_events:,} open SCOTUS event(s) are out of "
-        f"scope — **{recoverable:,}** carry a disposition signal (re-ingestible), the rest are "
-        "bare. Candidates for the corpus-side scope reconcile.",
-        "",
-        "| reason | cases | open events | recoverable |",
-        "|--------|------:|------------:|------------:|",
-    ]
-    for e in audit.exclusions:
-        lines.append(f"| {e.reason} | {e.cases:,} | {e.open_events:,} | {e.recoverable:,} |")
-    if audit.unclassified:
-        in_scope = sum(u.open_events for u in audit.unclassified)
-        lines += [
-            "",
-            f"_Not excluded ({in_scope:,} open SCOTUS event(s)) — why the scope keeps them, the "
-            "scope-refinement signal:_",
-            "",
-            "| in-scope reason | open events |",
-            "|-----------------|------------:|",
-        ]
-        for u in audit.unclassified:
-            lines.append(f"| {u.reason} | {u.open_events:,} |")
-    if audit.unparseable_docket_shapes:
-        lines += [
-            "",
-            "_Top docket shapes in the not-parseable bucket (`9`=digit, `A`/`a`=letter) — "
-            "the formats a Term-parser broadening would target:_",
-            "",
-            "| shape | open events |",
-            "|-------|------------:|",
-        ]
-        for s in audit.unparseable_docket_shapes:
-            lines.append(f"| `{s.shape}` | {s.count:,} |")
-    return "\n".join(lines) + "\n"
-
-
 def render_leakage_digest(digest: LeakageDigest) -> str:
     """The dashboard's leakage section: is outcome material tainting iteration signal?"""
     lines = [
@@ -634,6 +845,9 @@ def render_markdown(report: OpsReport) -> str:
     else:
         lines.append("_No runs in the window._")
 
+    if report.substance is not None:
+        lines += ["", render_substance(report.substance).rstrip("\n")]
+
     s = report.spend
     lines += [
         "",
@@ -673,8 +887,5 @@ def render_markdown(report: OpsReport) -> str:
 
     if report.data_health is not None:
         lines += ["", render_data_health(report.data_health).rstrip("\n")]
-
-    if report.scope_audit is not None:
-        lines += ["", render_scope_audit(report.scope_audit).rstrip("\n")]
 
     return "\n".join(lines) + "\n"
