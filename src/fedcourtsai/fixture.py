@@ -60,6 +60,17 @@ class FixtureCase:
     date_decided: date | None = None
     originating_court: str | None = None
     originating_docket_number: str | None = None
+    # Live-channel facts: a case the fixture treats as written by the
+    # supremecourt.gov channel carries the poll stamp (live-slice membership),
+    # its inclusion weight, and the parsed cert signals — so the statpack's
+    # live-slice sections have a population to aggregate.
+    last_live_polled: date | None = None
+    sample_weight: int | None = None
+    distribution_count: int | None = None
+    cvsg_date: date | None = None
+    originating_court_name: str | None = None
+    date_cert_granted: date | None = None
+    date_cert_denied: date | None = None
 
     @property
     def case_id(self) -> str:
@@ -90,12 +101,17 @@ class FixtureCase:
             citation_count=self.citation_count,
             precedential_status=self.precedential_status,
             opinion_text=self.opinion_text,
-            # SCOTUS dockets are in prediction scope by the ingestion rule; the
-            # originating-court latch (run during the build) extends it to a
-            # linked court-of-appeals docket.
+            # SCOTUS dockets are in prediction scope by the ingestion rule.
             predict_eligible=self.court == "scotus",
             originating_court=self.originating_court,
             originating_docket_number=self.originating_docket_number,
+            last_live_polled=self.last_live_polled,
+            sample_weight=self.sample_weight,
+            distribution_count=self.distribution_count,
+            cvsg_date=self.cvsg_date,
+            originating_court_name=self.originating_court_name,
+            date_cert_granted=self.date_cert_granted,
+            date_cert_denied=self.date_cert_denied,
         )
 
     def event(self) -> corpus.CorpusEvent:
@@ -129,8 +145,9 @@ class FixtureCase:
 # A handful of synthetic cases across three courts (ca9, ca1, scotus), a mix of
 # resolved and open, populating the fields retrieval (court / topic / judges /
 # citations / disposition / recency) and provisioning (the dated snapshot) read.
-# scotus/305 links to ca9/102, so the originating-court latch pulls that
-# court-of-appeals docket into prediction scope during the build.
+# The SCOTUS petitions carry lower-court linkage onto the ca9 dockets (304 →
+# ca9/102, 305 → ca9/103) and are live-slice rows, so the statpack's
+# originating-circuit and weighted cert cuts have material to aggregate.
 FIXTURE_CASES: tuple[FixtureCase, ...] = (
     FixtureCase(
         court="ca9",
@@ -218,6 +235,13 @@ FIXTURE_CASES: tuple[FixtureCase, ...] = (
         snapshot_date=date(2024, 6, 24),
         originating_court="ca9",
         originating_docket_number="22-15044",
+        # Written by the historical walker under an interval-5 denial sample
+        # (serial 845 sits on that grid): the fixture's weighted-aggregate case.
+        last_live_polled=date(2026, 7, 1),
+        sample_weight=5,
+        distribution_count=2,
+        date_cert_denied=date(2024, 6, 24),
+        originating_court_name="United States Court of Appeals for the Ninth Circuit",
         entries=(
             ("2024-01-08", "Petition for writ of certiorari filed."),
             ("2024-06-24", "Petition DENIED."),
@@ -232,6 +256,13 @@ FIXTURE_CASES: tuple[FixtureCase, ...] = (
         snapshot_date=date(2025, 3, 3),
         originating_court="ca9",
         originating_docket_number="24-15110",
+        # Written by the forward poller (weight 1, pending): distributed once,
+        # with a CVSG on file — the fixture's live-signal case.
+        last_live_polled=date(2026, 7, 1),
+        sample_weight=1,
+        distribution_count=1,
+        cvsg_date=date(2025, 6, 2),
+        originating_court_name="United States Court of Appeals for the Ninth Circuit",
         entries=(
             ("2025-01-15", "Petition for writ of certiorari filed."),
             ("2025-03-03", "Brief in opposition requested."),
@@ -258,4 +289,12 @@ def build_fixture_corpus(db_path: Path) -> Path:
         corpus.upsert_events(conn, events)
         for case in FIXTURE_CASES:
             corpus.upsert_snapshot(conn, case.case_id, case.snapshot_date, case.snapshot_payload())
+        # The discovery-cursor state a real walked corpus carries, in miniature:
+        # OT22's paid stream walked to a confirmed frontier (complete — census
+        # 850), its IFP stream mid-walk (partial), and OT24's forward frontier
+        # probed without an end observed. Feeds the statpack's census read.
+        corpus.set_live_cursor(conn, 22, "historical-paid", 850)
+        corpus.set_live_frontier(conn, 22, "historical-paid", 850)
+        corpus.set_live_cursor(conn, 22, "historical-ifp", 5460)
+        corpus.set_live_cursor(conn, 24, "paid", 12)
     return db_path

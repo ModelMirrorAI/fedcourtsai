@@ -84,8 +84,17 @@
       "title": "DispositionShare",
       "type": "object"
     },
+    "FeeClass": {
+      "description": "A SCOTUS docket's fee class, read from its serial's numbering stream.\n\nPaid petitions number from 1, in-forma-pauperis petitions from 5001 \u2014 the\ntwo streams the live channel's discovery walks \u2014 so the class is exact from\nthe docket number alone. The paid/IFP split is the coarsest predictive cut\nthere is (IFP petitions are overwhelmingly pro se and granted at a far\nlower rate), so per-Term statistics carry one entry per class.",
+      "enum": [
+        "paid",
+        "ifp"
+      ],
+      "title": "FeeClass",
+      "type": "string"
+    },
     "GroupBy": {
-      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket.",
+      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket. The three\ncert-signal dimensions read the live-parsed columns: ``relist_bucket``\ngroups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /\n3+ buckets, ``cvsg`` by whether the Court called for the views of the\nSolicitor General, and ``fee_class`` by the docket serial's numbering\nstream (paid / IFP); rows the live channel never parsed share one\n``(unknown)`` bucket on the first two, so parse coverage stays visible.",
       "enum": [
         "court",
         "topic",
@@ -93,10 +102,49 @@
         "term_year",
         "disposition",
         "originating_court",
-        "era"
+        "era",
+        "relist_bucket",
+        "cvsg",
+        "fee_class"
       ],
       "title": "GroupBy",
       "type": "string"
+    },
+    "StatPackCoverage": {
+      "additionalProperties": false,
+      "description": "The statpack's own denominators: how much trustworthy data backs it.\n\nPublished so the artifact states its own coverage instead of implying the\nheadline corpus counts (dominated by the frozen bulk import) back the\npredictor-facing sections. ``census_filings`` totals the cursor-derived\nper-Term censuses, so live-slice ingestion can be read against the true\nfiling volume.",
+      "properties": {
+        "census_filings": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Total docketed filings across every Term x class census the discovery cursors cover; None before any walker has probed",
+          "title": "Census Filings"
+        },
+        "live_slice_resolved": {
+          "default": 0,
+          "description": "Live-slice rows carrying a disposition (raw count)",
+          "minimum": 0,
+          "title": "Live Slice Resolved",
+          "type": "integer"
+        },
+        "live_slice_rows": {
+          "default": 0,
+          "description": "Rows the live/historical channel has written",
+          "minimum": 0,
+          "title": "Live Slice Rows",
+          "type": "integer"
+        }
+      },
+      "title": "StatPackCoverage",
+      "type": "object"
     },
     "StatPackSection": {
       "additionalProperties": false,
@@ -132,10 +180,22 @@
           "$ref": "#/$defs/GroupBy",
           "description": "The dimension the buckets break down by"
         },
+        "live_slice": {
+          "default": false,
+          "description": "True when the section is computed over the live/historical provenance slice only (rows the supremecourt.gov channel wrote, whose dispositions come from parsed proceedings) rather than the whole corpus with its frozen bulk import",
+          "title": "Live Slice",
+          "type": "boolean"
+        },
         "title": {
           "description": "Human title of the breakdown, e.g. 'Cases by court'",
           "title": "Title",
           "type": "string"
+        },
+        "weighted": {
+          "default": false,
+          "description": "True when the section's counts are sample-weighted estimates (each row counted `sample_weight` times, so the historical walker's denial sampling does not bias the base rates); raw ingested counts otherwise",
+          "title": "Weighted",
+          "type": "boolean"
         }
       },
       "required": [
@@ -147,11 +207,47 @@
     },
     "StatPackTerm": {
       "additionalProperties": false,
-      "description": "One SCOTUS October Term's slice of the statpack: base rates plus decision timing.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic DVC metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nCases whose docket number carries no parseable Term appear in no entry \u2014 the\nall-Terms picture lives in the pack's headline counts and curated sections.",
+      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic DVC metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.",
       "properties": {
         "base_rates": {
           "$ref": "#/$defs/BaseRateBucket",
-          "description": "This Term's counts and base rates"
+          "description": "This Term's live-slice counts and weighted base rates"
+        },
+        "classes": {
+          "description": "Per-fee-class detail (paid, then ifp): census, completeness, and weighted estimates",
+          "items": {
+            "$ref": "#/$defs/StatPackTermClass"
+          },
+          "title": "Classes",
+          "type": "array"
+        },
+        "grants": {
+          "default": 0,
+          "description": "Cert grants observed in the live slice this Term",
+          "minimum": 0,
+          "title": "Grants",
+          "type": "integer"
+        },
+        "ingested": {
+          "default": 0,
+          "description": "Live-slice rows present for this Term \u2014 the raw ingested count, as opposed to the weighted estimates in `base_rates`",
+          "minimum": 0,
+          "title": "Ingested",
+          "type": "integer"
+        },
+        "median_days_to_grant": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest-rank median days filing \u2192 cert grant over this Term's granted petitions; None when none carry both dates",
+          "title": "Median Days To Grant"
         },
         "term": {
           "description": "The October-Term year, e.g. 2024",
@@ -160,7 +256,7 @@
         },
         "timing": {
           "$ref": "#/$defs/TimingStats",
-          "description": "Petition filing \u2192 decision timing over this Term's resolved cases"
+          "description": "Filing \u2192 cert-stage resolution timing over this Term's live-slice resolved cases (weighted nearest-rank)"
         }
       },
       "required": [
@@ -170,9 +266,91 @@
       "title": "StatPackTerm",
       "type": "object"
     },
+    "StatPackTermClass": {
+      "additionalProperties": false,
+      "description": "One (Term, fee class) slice of the live-slice cert population.\n\n``filings`` is the cursor-derived census \u2014 the count of docketed serials\nthrough the walked frontier, exact even for petitions the denial sample\nnever ingested (a slight upper bound: withheld serial numbers still count).\n``ingested``/``resolved`` are raw live-slice row counts; the estimates\n(``weighted_resolved``, ``est_grant_rate``, ``dispositions``) count each row\n``sample_weight`` times so the walker's denial sampling does not bias them.",
+      "properties": {
+        "complete": {
+          "default": false,
+          "description": "True when the stream's frontier was observed at its current cursor (`frontier_serial = last_serial`) \u2014 the walk covered every serial. False = partial: rates reflect the walked prefix only",
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "dispositions": {
+          "description": "Weighted disposition estimates over the resolved rows",
+          "items": {
+            "$ref": "#/$defs/DispositionShare"
+          },
+          "title": "Dispositions",
+          "type": "array"
+        },
+        "est_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Weighted granted share of resolved; None when nothing resolved",
+          "title": "Est Grant Rate"
+        },
+        "fee_class": {
+          "$ref": "#/$defs/FeeClass"
+        },
+        "filings": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Census of docketed serials for this Term x class from the discovery cursors; None when no walker has probed the stream",
+          "title": "Filings"
+        },
+        "ingested": {
+          "default": 0,
+          "description": "Live-slice rows present",
+          "minimum": 0,
+          "title": "Ingested",
+          "type": "integer"
+        },
+        "resolved": {
+          "default": 0,
+          "description": "Live-slice rows carrying a disposition (raw count)",
+          "minimum": 0,
+          "title": "Resolved",
+          "type": "integer"
+        },
+        "timing": {
+          "$ref": "#/$defs/TimingStats",
+          "description": "Filing \u2192 cert-stage resolution timing (weighted nearest-rank), keyed on the petition-stage decision date, not docket termination"
+        },
+        "weighted_resolved": {
+          "default": 0,
+          "description": "Sample-weighted resolved estimate \u2014 each row counted `sample_weight` times (an unweighted-capture row counts once)",
+          "minimum": 0,
+          "title": "Weighted Resolved",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fee_class"
+      ],
+      "title": "StatPackTermClass",
+      "type": "object"
+    },
     "TimingStats": {
       "additionalProperties": false,
-      "description": "Filing-to-decision duration stats over the resolved cases carrying both dates.\n\n``cases`` counts the resolved rows with a usable ``date_filed`` \u2192 ``date_decided``\npair (decided on/after filed); rows missing either date are excluded rather than\nguessed, so ``cases`` doubles as the coverage denominator. Percentiles use the\ndeterministic nearest-rank method, so the same corpus reproduces the same stats.",
+      "description": "Duration stats over the resolved cases carrying a usable date pair.\n\nThe pack-level timing keys on ``date_filed`` \u2192 ``date_decided``; the per-Term\nstatistics key on the cert-stage resolution date and weight each row by its\n``sample_weight`` (each use states which). Rows missing either date are\nexcluded rather than guessed, so ``cases`` doubles as the coverage\ndenominator \u2014 a raw count in unweighted uses, the weighted estimate in\nweighted ones. Percentiles use the deterministic nearest-rank method, so the\nsame corpus reproduces the same stats.",
       "properties": {
         "cases": {
           "default": 0,
@@ -238,6 +416,10 @@
       "title": "Corpus Rows",
       "type": "integer"
     },
+    "coverage": {
+      "$ref": "#/$defs/StatPackCoverage",
+      "description": "The pack's own denominators: live-slice rows/resolved and the cursor-derived filings census backing the predictor-facing sections"
+    },
     "dated_resolved": {
       "default": 0,
       "description": "Machine-readable resolved cases carrying a resolution date \u2014 the share the time-masked replay clock can anchor",
@@ -285,7 +467,7 @@
       "type": "array"
     },
     "terms": {
-      "description": "Per-SCOTUS-Term detail (base rates + timing), most recent Term first",
+      "description": "Per-SCOTUS-Term live-slice detail (weighted base rates, timing, per-fee-class census), most recent Term first",
       "items": {
         "$ref": "#/$defs/StatPackTerm"
       },

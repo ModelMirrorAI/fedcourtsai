@@ -59,7 +59,13 @@ class GroupBy(StrEnum):
     one ``(none)`` bucket, so coverage is visible rather than silently dropped.
     ``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` — Term year,
     else filing/decision date), so historical cases base-rate against their own
-    period; rows with no date signal share one ``(none)`` bucket.
+    period; rows with no date signal share one ``(none)`` bucket. The three
+    cert-signal dimensions read the live-parsed columns: ``relist_bucket``
+    groups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /
+    3+ buckets, ``cvsg`` by whether the Court called for the views of the
+    Solicitor General, and ``fee_class`` by the docket serial's numbering
+    stream (paid / IFP); rows the live channel never parsed share one
+    ``(unknown)`` bucket on the first two, so parse coverage stays visible.
     """
 
     court = "court"
@@ -69,6 +75,9 @@ class GroupBy(StrEnum):
     disposition = "disposition"
     originating_court = "originating_court"
     era = "era"
+    relist_bucket = "relist_bucket"
+    cvsg = "cvsg"
+    fee_class = "fee_class"
 
 
 class UsageRole(StrEnum):
@@ -911,17 +920,34 @@ class StatPackSection(_Strict):
         "discretionary-cert dockets (the population the cert model predicts), so "
         "its base rates are not diluted by historical merits-era labels",
     )
+    live_slice: bool = Field(
+        default=False,
+        description="True when the section is computed over the live/historical "
+        "provenance slice only (rows the supremecourt.gov channel wrote, whose "
+        "dispositions come from parsed proceedings) rather than the whole corpus "
+        "with its frozen bulk import",
+    )
+    weighted: bool = Field(
+        default=False,
+        description="True when the section's counts are sample-weighted estimates "
+        "(each row counted `sample_weight` times, so the historical walker's "
+        "denial sampling does not bias the base rates); raw ingested counts "
+        "otherwise",
+    )
     group_by: GroupBy = Field(description="The dimension the buckets break down by")
     buckets: list[BaseRateBucket] = Field(default_factory=list)
 
 
 class TimingStats(_Strict):
-    """Filing-to-decision duration stats over the resolved cases carrying both dates.
+    """Duration stats over the resolved cases carrying a usable date pair.
 
-    ``cases`` counts the resolved rows with a usable ``date_filed`` → ``date_decided``
-    pair (decided on/after filed); rows missing either date are excluded rather than
-    guessed, so ``cases`` doubles as the coverage denominator. Percentiles use the
-    deterministic nearest-rank method, so the same corpus reproduces the same stats.
+    The pack-level timing keys on ``date_filed`` → ``date_decided``; the per-Term
+    statistics key on the cert-stage resolution date and weight each row by its
+    ``sample_weight`` (each use states which). Rows missing either date are
+    excluded rather than guessed, so ``cases`` doubles as the coverage
+    denominator — a raw count in unweighted uses, the weighted estimate in
+    weighted ones. Percentiles use the deterministic nearest-rank method, so the
+    same corpus reproduces the same stats.
     """
 
     cases: int = Field(default=0, ge=0, description="Resolved cases with a usable date pair")
@@ -930,22 +956,137 @@ class TimingStats(_Strict):
     p90_days: float | None = Field(default=None, ge=0.0, description="Nearest-rank 90th pctile")
 
 
+class FeeClass(StrEnum):
+    """A SCOTUS docket's fee class, read from its serial's numbering stream.
+
+    Paid petitions number from 1, in-forma-pauperis petitions from 5001 — the
+    two streams the live channel's discovery walks — so the class is exact from
+    the docket number alone. The paid/IFP split is the coarsest predictive cut
+    there is (IFP petitions are overwhelmingly pro se and granted at a far
+    lower rate), so per-Term statistics carry one entry per class.
+    """
+
+    paid = "paid"
+    ifp = "ifp"
+
+
+class StatPackTermClass(_Strict):
+    """One (Term, fee class) slice of the live-slice cert population.
+
+    ``filings`` is the cursor-derived census — the count of docketed serials
+    through the walked frontier, exact even for petitions the denial sample
+    never ingested (a slight upper bound: withheld serial numbers still count).
+    ``ingested``/``resolved`` are raw live-slice row counts; the estimates
+    (``weighted_resolved``, ``est_grant_rate``, ``dispositions``) count each row
+    ``sample_weight`` times so the walker's denial sampling does not bias them.
+    """
+
+    fee_class: FeeClass
+    filings: int | None = Field(
+        default=None,
+        ge=0,
+        description="Census of docketed serials for this Term x class from the "
+        "discovery cursors; None when no walker has probed the stream",
+    )
+    complete: bool = Field(
+        default=False,
+        description="True when the stream's frontier was observed at its current "
+        "cursor (`frontier_serial = last_serial`) — the walk covered every serial. "
+        "False = partial: rates reflect the walked prefix only",
+    )
+    ingested: int = Field(default=0, ge=0, description="Live-slice rows present")
+    resolved: int = Field(
+        default=0, ge=0, description="Live-slice rows carrying a disposition (raw count)"
+    )
+    weighted_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Sample-weighted resolved estimate — each row counted "
+        "`sample_weight` times (an unweighted-capture row counts once)",
+    )
+    est_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Weighted granted share of resolved; None when nothing resolved",
+    )
+    dispositions: list[DispositionShare] = Field(
+        default_factory=list,
+        description="Weighted disposition estimates over the resolved rows",
+    )
+    timing: TimingStats = Field(
+        default_factory=TimingStats,
+        description="Filing → cert-stage resolution timing (weighted nearest-rank), "
+        "keyed on the petition-stage decision date, not docket termination",
+    )
+
+
 class StatPackTerm(_Strict):
-    """One SCOTUS October Term's slice of the statpack: base rates plus decision timing.
+    """One SCOTUS October Term's slice of the statpack: the live-slice cert population.
 
     The per-Term detail published stat packs devote one document per Term to; here
     every Term is an entry in a single artifact (recent first), so the statpack stays
     one deterministic DVC metric with reviewable diffs and a single-Term view is a
     filter (``fedcourts stats --court scotus --term N``) rather than a separate file.
-    Cases whose docket number carries no parseable Term appear in no entry — the
-    all-Terms picture lives in the pack's headline counts and curated sections.
+    Aggregates are computed over the live/historical provenance slice (weighted, so
+    the denial sampling does not bias them); a Term known only from the discovery
+    cursors still appears, carrying its census with zero ingested rows. **This is
+    the replay self-selection surface**: a time-masked cell anchors only on Term
+    entries strictly preceding its ``DECIDED_BEFORE`` clock.
     """
 
     term: int = Field(description="The October-Term year, e.g. 2024")
-    base_rates: BaseRateBucket = Field(description="This Term's counts and base rates")
+    ingested: int = Field(
+        default=0,
+        ge=0,
+        description="Live-slice rows present for this Term — the raw ingested count, "
+        "as opposed to the weighted estimates in `base_rates`",
+    )
+    base_rates: BaseRateBucket = Field(
+        description="This Term's live-slice counts and weighted base rates"
+    )
     timing: TimingStats = Field(
         default_factory=TimingStats,
-        description="Petition filing → decision timing over this Term's resolved cases",
+        description="Filing → cert-stage resolution timing over this Term's live-slice "
+        "resolved cases (weighted nearest-rank)",
+    )
+    classes: list[StatPackTermClass] = Field(
+        default_factory=list,
+        description="Per-fee-class detail (paid, then ifp): census, completeness, "
+        "and weighted estimates",
+    )
+    grants: int = Field(
+        default=0, ge=0, description="Cert grants observed in the live slice this Term"
+    )
+    median_days_to_grant: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Nearest-rank median days filing → cert grant over this Term's "
+        "granted petitions; None when none carry both dates",
+    )
+
+
+class StatPackCoverage(_Strict):
+    """The statpack's own denominators: how much trustworthy data backs it.
+
+    Published so the artifact states its own coverage instead of implying the
+    headline corpus counts (dominated by the frozen bulk import) back the
+    predictor-facing sections. ``census_filings`` totals the cursor-derived
+    per-Term censuses, so live-slice ingestion can be read against the true
+    filing volume.
+    """
+
+    live_slice_rows: int = Field(
+        default=0, ge=0, description="Rows the live/historical channel has written"
+    )
+    live_slice_resolved: int = Field(
+        default=0, ge=0, description="Live-slice rows carrying a disposition (raw count)"
+    )
+    census_filings: int | None = Field(
+        default=None,
+        ge=0,
+        description="Total docketed filings across every Term x class census the "
+        "discovery cursors cover; None before any walker has probed",
     )
 
 
@@ -983,12 +1124,18 @@ class StatPack(_Strict):
         default_factory=TimingStats,
         description="Filing → decision timing over every resolved case with both dates",
     )
+    coverage: StatPackCoverage = Field(
+        default_factory=StatPackCoverage,
+        description="The pack's own denominators: live-slice rows/resolved and the "
+        "cursor-derived filings census backing the predictor-facing sections",
+    )
     sections: list[StatPackSection] = Field(
         default_factory=list, description="Curated base-rate breakdowns"
     )
     terms: list[StatPackTerm] = Field(
         default_factory=list,
-        description="Per-SCOTUS-Term detail (base rates + timing), most recent Term first",
+        description="Per-SCOTUS-Term live-slice detail (weighted base rates, timing, "
+        "per-fee-class census), most recent Term first",
     )
 
 
@@ -1197,10 +1344,13 @@ class SubstanceCalibration(_Strict):
         ge=0.0,
         le=1.0,
         description="Denied share of resolved modern discretionary-cert petitions "
-        "(from the committed statpack), when its section is present",
+        "(from the committed statpack's live-slice, denial-reweighted section), "
+        "when present",
     )
     base_rate_cases: int | None = Field(
-        default=None, ge=0, description="Resolved cases behind the base rate"
+        default=None,
+        ge=0,
+        description="Estimated resolved petitions behind the base rate (weighted)",
     )
     lift_over_always_deny: float | None = Field(
         default=None, description="accuracy - deny_base_rate; null until both exist"

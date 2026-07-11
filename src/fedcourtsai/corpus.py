@@ -1942,6 +1942,28 @@ def set_live_frontier(conn: sqlite3.Connection, term: int, stream: str, serial: 
         )
 
 
+def live_cursor_rows(conn: sqlite3.Connection) -> list[tuple[int, str, int, int | None]]:
+    """Every live-discovery cursor as ``(term, stream, last_serial, frontier_serial)``.
+
+    The statpack's census/completeness read: one query over the whole (small)
+    table, deterministically ordered. Local opens migrate the schema, so both
+    columns always exist here.
+    """
+    cur = conn.execute(
+        "SELECT term, stream, last_serial, frontier_serial FROM live_discovery_cursors "
+        "ORDER BY term, stream"
+    )
+    return [
+        (
+            int(row["term"]),
+            str(row["stream"]),
+            int(row["last_serial"]),
+            int(row["frontier_serial"]) if row["frontier_serial"] is not None else None,
+        )
+        for row in cur
+    ]
+
+
 def rename_live_streams(conn: sqlite3.Connection, renames: Mapping[str, str]) -> int:
     """Rename live-discovery cursor streams in place; idempotent migration helper.
 
