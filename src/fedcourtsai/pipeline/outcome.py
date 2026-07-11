@@ -1,4 +1,4 @@
-"""Outcome detection: turn a resolved docket into ``outcome.json`` (or a reconcile ask).
+"""Outcome detection: turn a resolved docket into ``outcome.json`` (or surface it).
 
 This is ``pull``'s third job (see ``docs/data-pipeline.md``): once a refresh
 re-ingests a docket through the shared core, decide whether any of the case's
@@ -16,11 +16,10 @@ conservative:
   or ``None``), there is a decision date to stamp as ``resolved_at``, and the case
   has exactly **one** open event, the event's outcome is unambiguous: write
   ``outcome.json`` and mark the event resolved.
-- **Reconcile otherwise.** Anything ambiguous — an unreadable/absent disposition,
+- **Surface otherwise.** Anything ambiguous — an unreadable/absent disposition,
   no decision date, or more than one open event the case-level disposition cannot
-  be attributed to — produces a :class:`ReconcileRequest` so an agent (via a
-  ``run:reconcile`` issue that ``run-pull`` files) confirms and records it by
-  hand. Nothing is written on a guess.
+  be attributed to — produces an :class:`UnrecordedOutcome`, surfaced on the
+  run's daily log for maintainer triage. Nothing is written on a guess.
 
 The pure decision (:func:`detect_resolution`) is separated from the ledger write
 (:func:`record_outcomes`) so the logic is testable without a filesystem.
@@ -57,7 +56,7 @@ def is_machine_readable(disposition: Disposition | None) -> bool:
 
     ``None`` (no disposition) and :attr:`Disposition.other` (the normalizer's
     catch-all for text it could not classify) are *not* machine-readable — they
-    mean "decided, but we do not know how", which is the reconcile path.
+    mean "decided, but we do not know how", which is the unrecorded path.
     """
     return disposition is not None and disposition != Disposition.other
 
@@ -111,11 +110,15 @@ def termination_signal(docket: Mapping[str, Any]) -> str | None:
 
 
 @dataclass(frozen=True)
-class ReconcileRequest:
+class UnrecordedOutcome:
     """An open event that appears decided but cannot be recorded deterministically.
 
-    Carried out of the library so the workflow can open a ``run:pull`` reconcile
-    issue; ``reason`` explains to the agent why automatic recording was declined.
+    Carried out of the library so the workflow can surface it on the run's
+    daily log; ``reason`` explains why automatic recording was declined.
+    ``reason`` must stay a fixed-vocabulary string (the literals in
+    :func:`detect_resolution`, interpolating only closed-enum values): it is
+    rendered into a GitHub issue comment, so raw docket text — e.g.
+    :func:`termination_signal` output — must never route here.
     """
 
     case_id: str
@@ -132,11 +135,11 @@ class Resolution:
     """The outcome of detection for one case in one refresh.
 
     ``outcomes`` maps each deterministically-resolved event id to the
-    :class:`Outcome` to write; ``reconciles`` lists the events left for an agent.
+    :class:`Outcome` to write; ``unrecorded`` lists the events left for triage.
     """
 
     outcomes: dict[str, Outcome] = field(default_factory=dict)
-    reconciles: tuple[ReconcileRequest, ...] = ()
+    unrecorded: tuple[UnrecordedOutcome, ...] = ()
 
 
 def _build_outcome(row: CorpusRow, event_id: str) -> Outcome:
@@ -166,8 +169,8 @@ def detect_resolution(
 ) -> Resolution:
     """Decide how each open event resolves, given the refreshed corpus row.
 
-    Pure: no I/O. Returns deterministic outcomes to write and reconcile requests
-    for the rest. An undecided docket, or one with no open events, resolves to an
+    Pure: no I/O. Returns deterministic outcomes to write and unrecorded
+    outcomes for the rest. An undecided docket, or one with no open events, resolves to an
     empty :class:`Resolution` (nothing to do).
     """
     if not open_event_ids or not appears_decided(row):
@@ -187,8 +190,8 @@ def detect_resolution(
             f"docket decided ({row.disposition}) but {len(open_event_ids)} events are open; "
             "the case-level disposition cannot be attributed to one event"
         )
-    reconciles = tuple(
-        ReconcileRequest(
+    unrecorded = tuple(
+        UnrecordedOutcome(
             case_id=row.case_id,
             court_id=court_id,
             docket_id=docket_id,
@@ -199,7 +202,7 @@ def detect_resolution(
         )
         for event_id in open_event_ids
     )
-    return Resolution(reconciles=reconciles)
+    return Resolution(unrecorded=unrecorded)
 
 
 def record_outcomes(
@@ -274,7 +277,7 @@ def resolve_case(
     Reads the case's open events from the corpus (:func:`open_events`), decides
     each (:func:`detect_resolution`), writes the deterministic outcomes and closes
     their corpus events (:func:`record_outcomes`), and returns the full
-    :class:`Resolution` so the caller can queue reconcile issues for the rest.
+    :class:`Resolution` so the caller can surface the unrecorded rest.
     """
     open_event_ids = open_events(corpus_db_path, court_id, docket_id)
     resolution = detect_resolution(row, court_id, docket_id, open_event_ids)

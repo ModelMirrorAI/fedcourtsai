@@ -7,7 +7,6 @@ from fedcourtsai.matrix import (
     evaluate_matrix,
     parse_cases,
     predict_matrix,
-    reconcile_matrix,
 )
 from tests.conftest import seed_prediction
 
@@ -75,39 +74,6 @@ def test_predict_matrix_fans_out_across_many_cases() -> None:
         ("scotus", 2, "evt-petition-b"),
         ("scotus", 2, "evt-petition-c"),
     }
-
-
-def test_reconcile_matrix_is_one_cell_per_case() -> None:
-    cases = [
-        CaseRequest("ca9", 123, ("evt-a", "evt-b")),
-        CaseRequest("scotus", 1, ("evt-petition",)),
-    ]
-    m = reconcile_matrix(cases, "RID")
-    inc = m["include"]
-    # One cell per case (not per event); both events ride in one space-joined field.
-    assert len(inc) == 2
-    first = inc[0]
-    assert first == {
-        "engine": "claude-code",
-        "prompt": ".github/prompts/reconcile.md",
-        "court": "ca9",
-        "docket": 123,
-        "events": "evt-a evt-b",
-        "run_id": "RID",
-    }
-    assert inc[1]["court"] == "scotus"
-    assert inc[1]["events"] == "evt-petition"
-
-
-def test_reconcile_matrix_skips_cases_with_no_open_events() -> None:
-    cases = [
-        CaseRequest("ca9", 123, ()),
-        CaseRequest("ca9", 456, ("evt-a",)),
-    ]
-    m = reconcile_matrix(cases, "RID")
-    inc = m["include"]
-    assert len(inc) == 1
-    assert inc[0]["docket"] == 456
 
 
 def test_parse_cases_accepts_single_object() -> None:

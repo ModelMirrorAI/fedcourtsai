@@ -1,6 +1,6 @@
 """Shared finalize helpers for the matrix workflows.
 
-The matrix stages (``run-predict`` / ``run-evaluate`` / ``run-reconcile``) used to
+The matrix stages (``run-predict`` / ``run-evaluate``) used to
 have the workflow name a branch and open a PR per cell from this module; that
 routing now lives in :mod:`fedcourtsai.collect` (each cell uploads an artifact and
 a ``collect`` job opens one PR per run). What remains here is the small piece every
@@ -23,7 +23,6 @@ class FinalizeRole(StrEnum):
 
     predict = "predict"
     evaluate = "evaluate"
-    reconcile = "reconcile"
 
 
 def agent_produced_output(
@@ -44,7 +43,7 @@ def agent_produced_output(
     checks for the agent's actual output — the ``prediction.json`` (predict) or any
     ``evaluation.json`` for this evaluator and run (evaluate) — so the cell can
     report whether it produced output rather than uploading only the event
-    scaffold. Reconcile has its own settled-events check and is not handled here.
+    scaffold.
     """
     events = CasePaths(data_root, court, docket).event(event)
     if role is FinalizeRole.predict:

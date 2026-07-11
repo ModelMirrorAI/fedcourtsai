@@ -165,7 +165,7 @@ REST drip could not recover at any budget. What changed:
 - **The date backfill is deleted** (selector, `backfill_reserve`, the
   cert-shell feeder `backfill_unresolved_cert_min_term`, and the opinion-cluster
   hop). It was re-fetching dockets whose upstream records are stubs — every
-  flagged case landed in an unresolvable reconcile issue. Its budget slice
+  flagged case proved unresolvable. Its budget slice
   returns to the refresh rotation. The per-Term historical set it was meant to
   grow now comes through the live channel instead (the `historical-terms`
   walker).
@@ -189,10 +189,12 @@ REST drip could not recover at any budget. What changed:
   probing onboards newly filed SCOTUS petitions — fresher and budget-free —
   and circuit discovery onboarded cases outside the prediction scope. Its
   budget slice returned to the enrichment rotation.
-- **`run-reconcile` is paused** (workflow disabled) while the refactor decides
-  its fate: with stub upstream records every reconcile agent run failed, and
-  the live channel's proceedings-text resolution makes most resolutions
-  deterministic.
+- **The reconcile agent workflow is retired.** The live channel's
+  proceedings-text resolution makes most resolutions deterministic; a decided
+  case whose outcome still cannot be recorded deterministically becomes an
+  **unrecorded outcome**, surfaced per-case on the daily pull-log / live-log
+  issue comment (with the count on the step summary) for maintainer triage — no
+  agent runs and no issue is filed.
 
 Adoption also needs a terms review of the replication agreement itself; the
 access-gated, no-republication stance in [data-sources.md](data-sources.md)
@@ -290,14 +292,14 @@ Access mirrors each workflow's role in the pipeline:
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
 | `run-pull` (all three jobs)               | read-write    | corpus writers (`dvc push`)      |
-| `run-predict`, `run-evaluate`, `run-reconcile` — plan jobs | read-only | scope gating over the whole corpus (full `dvc pull`) |
-| `run-predict`, `run-evaluate`, `run-reconcile` — cell jobs | read-only | point lookups + retrieval, blob queried in place (ranged reads, no pull) |
-| `run-analytics`, `run-cleanup`            | read-only     | scan-heavy analysis / metrics refresh / cleanup (full `dvc pull`) |
+| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the whole corpus (full `dvc pull`) |
+| `run-predict`, `run-evaluate` — cell jobs | read-only | point lookups + retrieval, blob queried in place (ranged reads, no pull) |
+| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `dvc pull`) |
 | `ci`                                      | none          | gate stays offline/fast          |
 
 The split is deliberate: a cell touches KBs of one case's data, so it reads the
 immutable blob in place via the ranged backend and moves no full blob; the plan
-jobs, `run-analytics`, and `run-cleanup` scan the corpus and keep the full pull.
+jobs and `run-analytics` scan the corpus and keep the full pull.
 
 The gate has no remote, so it cannot diff the corpus blob against S3; it runs the
 offline half instead. `fedcourts dvc-status` checks that the committed DVC
@@ -310,7 +312,7 @@ workflows that hold the credentials.
 
 **Two IAM roles, split by access.** Corpus writers (`AWS_ROLE_TO_ASSUME`) assume a
 **read-write** role; retrieval consumers (`AWS_ROLE_TO_ASSUME_READONLY`) assume a
-**read-only** role, so a compromised predict/evaluate/reconcile runner cannot write
+**read-only** role, so a compromised predict/evaluate runner cannot write
 or poison the corpus. The write role is **append-only** — get/put/list but **no
 delete** — and the bucket has **versioning** on, so no run can wipe corpus objects
 (no run garbage-collects the *remote* — the historical job prunes only its local
@@ -552,8 +554,8 @@ for the real corpus the run-pull writer jobs produce.
 - **Trigger:** an intraday cron that fires several windows a day (staggered from
   other jobs), `workflow_dispatch`, or a maintainer-applied `run:pull` label for an
   on-demand refresh (which re-runs the full `pull-all`, not a single case).
-  Recording a decided event's outcome is split off to `run:reconcile` (see *Detect
-  resolution* below), so it is **no longer** the deterministic pull's job.
+  Detecting and recording a decided event's outcome happens inline and
+  deterministically (see *Detect resolution* below).
 - **Per-window tracking:** the day's windows share one short-lived `pull-log`
   issue — the first window opens it, each posts a summary (handoffs opened, whether
   snapshots were committed), and the final daily window closes it on success — left
@@ -575,7 +577,7 @@ for the real corpus the run-pull writer jobs produce.
      corpus through the shared core and queuing `run:predict` for changed cases
      with open events — unless the refreshed docket already looks decided (its
      *latest* entry reads terminal, like "Case termination …"/"Opinion Issued",
-     or a reconcile was asked for its open events), in which case the case is
+     or its open events surfaced an unrecorded outcome), in which case the case is
      skipped and surfaced in the run log: a forward cell on a decided case is
      a mislabeled back-test. This is targeted CourtListener *enrichment* of the
      tracked set; the supremecourt.gov live channel owns SCOTUS freshness.
@@ -585,12 +587,12 @@ for the real corpus the run-pull writer jobs produce.
      `run:evaluate` for it **when the ledger holds a prediction to score**
      (ground-truth recording is ungated; the evaluator fan-out is — a
      never-predicted resolution has nothing to evaluate, and the evaluate plan
-     re-checks the same gate before minting cells). Anything ambiguous is **not** guessed: it lands on
-     the reconcile queue. The `run-reconcile` agent workflow that used to
-     consume that queue is **operationally paused** while the live channel —
-     whose proceedings text makes most resolutions deterministic — settles
-     reconcile's fate; the live job surfaces ambiguous resolutions on its daily
-     log instead of filing issues.
+     re-checks the same gate before minting cells). Anything ambiguous is **not**
+     guessed: it lands on the runner-local **unrecorded queue**
+     (`unrecorded-queue.json`), and both the pull and live jobs surface each
+     entry per-case ("court/docket — reason") on their daily log issue comment
+     — with the count on the Actions step summary — for maintainer triage; no
+     issue is filed.
 - **CourtListener discovery is off** (`pull.discover_new_filings: false`):
   the live channel's frontier probing onboards
   newly filed SCOTUS petitions, and circuit discovery onboarded cases the
@@ -623,11 +625,11 @@ stage maps qualifying docket entries → event definitions (`kind`,
   referencing it* (citing its docket-entry number). When a disposing order does
   reference it, the event is recorded `resolved`; with no citation the stage does
   not guess, so the event stays predictable.
-- **Deterministic first, agent only if ambiguous.** An entry that reads like a
+- **Deterministic first, triage if ambiguous.** An entry that reads like a
   request but matches more than one `kind` is surfaced for triage rather than
-  classified — the same deterministic-first / agent-fallback split resolution
-  detection uses (see the reconcile pause note above). The default path runs no
-  agent.
+  classified — the same deterministic-first stance resolution detection takes
+  (ambiguity surfaces on the daily log rather than being guessed; see *Detect
+  resolution* above). The default path runs no agent.
 
 ## Discovery frontier
 
@@ -709,7 +711,7 @@ long-lived issue — loud, but never blocking the pipeline. The git-only referen
 checks fold into `fedcourts validate` so they also run at PR time: a judgment whose
 event has no `event.yaml` in the git tree, or whose declared ids disagree with its
 path, is caught in review rather than a day later. Because forward discovery keeps
-event definitions in the corpus, the predict/evaluate/reconcile workflows
+event definitions in the corpus, the predict/evaluate workflows
 materialize each event's `event.yaml` from the corpus into its ledger directory
 (`fedcourts materialize-event`, beside the snapshot provisioning) so the judgment
 PR carries it — and the deterministic outcome writer (`record_outcomes`, the

@@ -477,14 +477,14 @@ def test_summarize_trigger_issues_filters_and_orders_oldest_first() -> None:
         # An older trigger must lead — the longest-stalled first.
         {
             "number": 377,
-            "title": "reconcile: 1 case(s)",
-            "labels": [{"name": "run:reconcile"}],
+            "title": "evaluate: 1 case(s)",
+            "labels": [{"name": "run:evaluate"}],
             "createdAt": "2026-07-01T14:22:42Z",
         },
     ]
     issues = ops.summarize_trigger_issues(raw)
     assert [(i.number, i.label) for i in issues] == [
-        (377, "run:reconcile"),
+        (377, "run:evaluate"),
         (387, "run:predict"),
     ]
 

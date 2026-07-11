@@ -41,10 +41,10 @@
     },
     "AgentFlags": {
       "additionalProperties": false,
-      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate/reconcile cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote survives the trigger issue's closure and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
+      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote survives the trigger issue's closure and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
       "properties": {
         "actor_id": {
-          "description": "The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id",
+          "description": "The predictor_id (predict) or evaluator_id (evaluate)",
           "title": "Actor Id",
           "type": "string"
         },
@@ -88,10 +88,10 @@
     },
     "AgentToolingFeedback": {
       "additionalProperties": false,
-      "description": "``tooling.json`` \u2014 a cell's self-report on the agent tooling it was given.\n\nUnlike :class:`AgentFlags` (exception-based \u2014 written only on a problem with the\n*data or task*), every predict/evaluate/reconcile cell is *invited* to write this\nshort, structured note about its *environment*: whether it used the ``fedcourts``\ncorpus-query CLI, which abilities actually helped, and what was missing. Rolled up\nacross runs on the run-ops dashboard, it tells maintainers whether the corpus\ntooling earns its keep and where to invest next. It is the agent's own account \u2014\nsubjective, advisory, and never a gate. The token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job commits it with the cell's output.",
+      "description": "``tooling.json`` \u2014 a cell's self-report on the agent tooling it was given.\n\nUnlike :class:`AgentFlags` (exception-based \u2014 written only on a problem with the\n*data or task*), every predict/evaluate cell is *invited* to write this\nshort, structured note about its *environment*: whether it used the ``fedcourts``\ncorpus-query CLI, which abilities actually helped, and what was missing. Rolled up\nacross runs on the run-ops dashboard, it tells maintainers whether the corpus\ntooling earns its keep and where to invest next. It is the agent's own account \u2014\nsubjective, advisory, and never a gate. The token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job commits it with the cell's output.",
       "properties": {
         "actor_id": {
-          "description": "The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id",
+          "description": "The predictor_id (predict) or evaluator_id (evaluate)",
           "title": "Actor Id",
           "type": "string"
         },
@@ -683,7 +683,7 @@
     },
     "OpenTriggerIssue": {
       "additionalProperties": false,
-      "description": "One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.\n\nTrigger issues (predict / evaluate / reconcile fan-outs) are transient by\ndesign: the run's ready PR closes them on merge, and an empty matrix closes\nthem with a note. One that stays open means its run stalled \u2014 failed\nwholesale, produced nothing, or was never picked up \u2014 so the dashboard lists\nthem with their age instead of letting them sit invisible.",
+      "description": "One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.\n\nTrigger issues (predict / evaluate fan-outs) are transient by\ndesign: the run's ready PR closes them on merge, and an empty matrix closes\nthem with a note. One that stays open means its run stalled \u2014 failed\nwholesale, produced nothing, or was never picked up \u2014 so the dashboard lists\nthem with their age instead of letting them sit invisible.",
       "properties": {
         "created_at": {
           "description": "ISO-8601 creation time (age derives from this)",
@@ -1131,8 +1131,7 @@
       "description": "Which agentic stage a usage record belongs to.",
       "enum": [
         "predictor",
-        "evaluator",
-        "reconciler"
+        "evaluator"
       ],
       "title": "UsageRole",
       "type": "string"

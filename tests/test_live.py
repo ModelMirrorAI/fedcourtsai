@@ -295,7 +295,7 @@ def test_ingest_live_payload_pending_then_decided(tmp_path: Path) -> None:
     )
     assert decided.changed is True
     assert decided.resolved == ["evt-petition-disposition"]
-    assert decided.reconcile_events == []
+    assert decided.unrecorded_events == []
     outcome_path = (
         CasePaths(data_root, "scotus", docket_id).event("evt-petition-disposition").outcome
     )
@@ -402,7 +402,7 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
         )
     assert len(discovery.onboarded) == 3
     assert {q["docket"] for q in queues.predict} == {9_025_000_003}
-    assert queues.evaluate == [] and queues.reconcile == []
+    assert queues.evaluate == [] and queues.unrecorded == []
     with corpus.connect(db) as conn:
         row = corpus.get_row(conn, "scotus/9025000003")
     assert row is not None and row.distributed_for_conference == date(2026, 9, 29)

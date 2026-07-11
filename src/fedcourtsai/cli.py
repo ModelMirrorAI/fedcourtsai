@@ -45,12 +45,10 @@ from .collect import (
     CollectPlan,
     PathJailError,
     PrPlan,
-    ReconcileCellStatus,
     assert_cleanup_within_jail,
     assert_within_jail,
     collect_plan,
     parse_name_status,
-    reconcile_collect_plan,
     render_stall_comment,
 )
 from .config import (
@@ -66,7 +64,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .leaderboard import build_leaderboard
-from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix, reconcile_matrix
+from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
 from .ops import (
     build_ops_report,
     render_data_health,
@@ -1109,7 +1107,7 @@ def _fetch_one_docket(court: str, docket: int) -> None:
     _ensure_corpus_layout(db)
     typer.echo(
         f"{result.case_id} changed={result.changed} snapshot={result.snapshot} "
-        f"resolved={len(result.resolved)} reconcile={len(result.reconcile)}"
+        f"resolved={len(result.resolved)} unrecorded={len(result.unrecorded)}"
     )
 
 
@@ -1670,7 +1668,7 @@ def provision_snapshot(
     """Materialize a case's latest corpus snapshot (and documents) for an agent run.
 
     Point-in-time snapshots are raw facts that live in the packed corpus, not
-    git. The predict/evaluate/reconcile workflows call this to read the most
+    git. The predict/evaluate workflows call this to read the most
     recent dated snapshot for the case out of the corpus — the ``dvc pull``-ed
     file, or the blob in place on the remote with ``--corpus-backend ranged`` —
     and write it where the agent reads it (a gitignored ``record/`` path, never
@@ -1952,9 +1950,13 @@ def pull_all(
     evaluate_out: Annotated[
         Path, typer.Option(help="Write the evaluate queue JSON here (newly resolved events).")
     ] = Path("evaluate-queue.json"),
-    reconcile_out: Annotated[
-        Path, typer.Option(help="Write the reconcile queue JSON here (decided but not readable).")
-    ] = Path("reconcile-queue.json"),
+    unrecorded_out: Annotated[
+        Path,
+        typer.Option(
+            help="Write the unrecorded-outcome queue JSON here (decided but not "
+            "deterministically recordable; surfaced on the run log)."
+        ),
+    ] = Path("unrecorded-queue.json"),
     limit: Annotated[
         int | None,
         typer.Option(
@@ -1974,8 +1976,9 @@ def pull_all(
     Each refresh also detects resolution of open events, writing ``outcome.json``
     deterministically. The command writes three queues for the workflow to act on:
     ``predict`` (changed cases with open events), ``evaluate`` (cases that gained
-    an ``outcome.json`` this run), and ``reconcile`` (cases that appear decided but
-    whose outcome an agent must confirm by hand).
+    an ``outcome.json`` this run), and ``unrecorded`` (cases that appear decided but
+    whose outcome could not be recorded deterministically — surfaced on the run
+    log for maintainer triage).
 
     The whole run is bounded by ``pull.max_run_minutes`` of wall clock: when the
     deadline (or the API budget, or the consecutive-transient-failure breaker)
@@ -2023,12 +2026,12 @@ def pull_all(
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
-    reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
+    unrecorded_out.write_text(json.dumps(queues.unrecorded) + "\n")
     refreshed = len(due) - len(queues.failed) - len(queues.deferred)
     typer.echo(
         f"Refreshed {refreshed}/{cap} case(s){_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.reconcile)} reconcile"
+        f"{len(queues.unrecorded)} unrecorded"
         + (
             f" ({len(queues.evaluate_skipped)} resolved case(s) had no prediction to score)"
             if queues.evaluate_skipped
@@ -2061,9 +2064,13 @@ def live_poll(
     evaluate_out: Annotated[
         Path, typer.Option(help="Write the evaluate queue JSON here (newly resolved events).")
     ] = Path("evaluate-queue.json"),
-    reconcile_out: Annotated[
-        Path, typer.Option(help="Write the reconcile queue JSON here (decided but not readable).")
-    ] = Path("reconcile-queue.json"),
+    unrecorded_out: Annotated[
+        Path,
+        typer.Option(
+            help="Write the unrecorded-outcome queue JSON here (decided but not "
+            "deterministically recordable; surfaced on the run log)."
+        ),
+    ] = Path("unrecorded-queue.json"),
     term: Annotated[
         int | None,
         typer.Option(
@@ -2110,13 +2117,13 @@ def live_poll(
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
-    reconcile_out.write_text(json.dumps(queues.reconcile) + "\n")
+    unrecorded_out.write_text(json.dumps(queues.unrecorded) + "\n")
     discovery_failed = f" ({len(discovery.failed)} stream error(s))" if discovery.failed else ""
     typer.echo(
         f"Live cycle (OT{probe_term:02d}): onboarded {len(discovery.onboarded)} new petition(s)"
         f"{discovery_failed}{_format_refresh_failures(queues.failed)}; "
         f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.reconcile)} reconcile"
+        f"{len(queues.unrecorded)} unrecorded"
         + (
             f" ({len(queues.evaluate_skipped)} resolved case(s) had no prediction to score)"
             if queues.evaluate_skipped
@@ -2305,7 +2312,7 @@ def _scope_filtered(
     passes every case through unchanged.
 
     A SCOTUS docket is still dropped when the shared exclusion reasoning
-    matches it: the reconcile's ``predict_excluded`` latch, or any reason from
+    matches it: the scope reconcile's ``predict_excluded`` latch, or any reason from
     ``corpus.out_of_scope_reason_full`` (the row rules — era, staleness, docket
     form, date consistency — plus the snapshot-aware bare opinion-import rule),
     with the reason echoed per case. These filters layer on top of the court
@@ -2446,38 +2453,6 @@ def evaluate_matrix_cmd(
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
-@app.command("reconcile-matrix")
-def reconcile_matrix_cmd(
-    run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
-    body_file: Annotated[
-        Path | None,
-        typer.Option(help="Issue body file; its ```json block (one case or an array) is parsed."),
-    ] = None,
-    court: Annotated[
-        str, typer.Option(help="Single-case court id (ignored with --body-file).")
-    ] = "",
-    docket: Annotated[
-        int | None, typer.Option(help="Single-case docket id (ignored with --body-file).")
-    ] = None,
-    event: Annotated[
-        list[str] | None,
-        typer.Option(help="Single-case event id(s); default: all open events."),
-    ] = None,
-) -> None:
-    """Emit the per-case ``run-reconcile`` GitHub Actions matrix as compact JSON.
-
-    A case with no listed ``events`` defaults to that case's open events — the
-    ones flagged decided-but-not-machine-readable that the agent must confirm.
-    """
-    settings = get_settings()
-    cases = _resolve_cases(
-        _requested_cases(body_file, court, docket, event),
-        lambda c, d: open_events(corpus.corpus_db_path(settings.corpus_root), c, d),
-    )
-    matrix = reconcile_matrix(cases, run_id)
-    typer.echo(json.dumps(matrix, separators=(",", ":")))
-
-
 @app.command("authorize-trigger")
 def authorize_trigger_cmd(
     sender_type: Annotated[
@@ -2542,7 +2517,7 @@ def assert_paths_cmd(
 ) -> None:
     """Enforce the data/ path jail; exit non-zero (with ::error::) on any violation.
 
-    An auto-merged predict/evaluate/reconcile PR may only *add* files under
+    An auto-merged predict/evaluate PR may only *add* files under
     ``data/``. The collect job runs this before it commits, and CI runs it as a
     required status check on the PR, so a change that touches code, a workflow, or
     an existing artifact cannot reach ``main`` without review.
@@ -2564,11 +2539,11 @@ def assert_cleanup_paths_cmd(
 ) -> None:
     """Enforce the cleanup jail; exit non-zero (with ::error::) on any violation.
 
-    A run-cleanup PR may only *delete* files, and only under a
-    ``data/cases/**/events/*/predictions/`` subtree. The cleanup job runs this before
-    it commits, and CI runs it as a required status check on the PR, so a sweep that
-    removed code, a workflow, an ``event.yaml`` / ``outcome.json``, or any
-    non-prediction artifact cannot reach ``main`` without review.
+    A cleanup-sweep PR may only *delete* files, and only under a
+    ``data/cases/**/events/*/predictions/`` subtree. A maintainer runs this before
+    committing a sweep, and CI runs it as a required status check on the PR, so a
+    sweep that removed code, a workflow, an ``event.yaml`` / ``outcome.json``, or
+    any non-prediction artifact cannot reach ``main`` without review.
     """
     changes = parse_name_status(name_status_file.read_text())
     try:
@@ -2600,8 +2575,8 @@ def cleanup_out_of_scope_predictions_cmd(
     the event definition and any ``outcome.json`` stay, only the out-of-scope
     predictions go. Prints a JSON summary
     ``{"prunable":[{case_id,reason,paths}],"removed":<bool>,"pr":<branch/title/commit/body|null>}``;
-    with ``--apply`` it also removes the directories. The ``pr`` block (rendered here, not
-    in the workflow) is what the run-cleanup job commits and opens as a reviewed PR. Gating
+    with ``--apply`` it also removes the directories. The ``pr`` block is the
+    reviewed, manually merged PR a maintainer opens with the sweep. Gating
     on the real corpus row only — a case with predictions but no corpus row is left alone.
     """
     settings = get_settings()
@@ -2772,7 +2747,7 @@ def collect_plan_cmd(
 
 @app.command("stall-comment")
 def stall_comment_cmd(
-    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate | reconcile.")],
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
     run_url: Annotated[str, typer.Option(help="The Actions run URL to link from the comment.")],
 ) -> None:
     """Print the trigger-issue comment for a run that produced no output at all.
@@ -2805,52 +2780,6 @@ def post_agent_feedback_cmd(
     """
     comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
     typer.echo(post_agent_feedback(comment, repo))
-
-
-def _reconcile_collect_plan_json(plan: CollectPlan) -> dict[str, object]:
-    # Reconcile skips are per case (no actor/event), so serialize court/docket only.
-    return {
-        "ready": _pr_plan_json(plan.ready),
-        "partial": _pr_plan_json(plan.partial),
-        "skipped": [{"court": c.court, "docket": c.docket} for c in plan.skipped],
-        "flags": plan.flags_markdown,
-        "feedback_comment": plan.feedback_comment,
-        "stalled": plan.stalled,
-    }
-
-
-@app.command("collect-reconcile-plan")
-def collect_reconcile_plan_cmd(
-    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    status_dir: Annotated[Path, typer.Option(help="Root the cell artifacts were downloaded into.")],
-    issue: Annotated[
-        int,
-        typer.Option(help="Triggering issue number; the ready PR closes it on merge (0 = none)."),
-    ] = 0,
-) -> None:
-    """Emit the per-run aggregate reconcile PR decision as compact JSON.
-
-    Reads every per-case ``status.json`` under ``status_dir``, then prints
-    ``{"ready": <pr|null>, "partial": <pr|null>, "skipped": [{court,docket}],
-    "flags": <md>, "feedback_comment": <md>}``. The ready ``commit_message`` /
-    ``title`` start with ``reconcile:`` so the squash-merge to ``main`` fires the
-    evaluate handoff, and the ready ``body`` closes ``--issue`` on merge unless a
-    draft remains. ``flags`` / ``feedback_comment`` carry the run's rolled-up agent
-    flags for the Actions summary and the long-lived agent-feedback issue, like
-    ``collect-plan``.
-    """
-    cells = []
-    for status_path in sorted(status_dir.glob("**/status.json")):
-        artifact_dir = str(status_path.parent.relative_to(status_dir))
-        cells.append(
-            ReconcileCellStatus.from_dict(
-                json.loads(status_path.read_text()), artifact_dir=artifact_dir
-            )
-        )
-    plan = reconcile_collect_plan(
-        run_id=run_id, cells=cells, issue=issue or None, flags=_load_flag_sets(status_dir, run_id)
-    )
-    typer.echo(json.dumps(_reconcile_collect_plan_json(plan), separators=(",", ":")))
 
 
 def main() -> None:

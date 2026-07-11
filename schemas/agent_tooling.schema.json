@@ -4,18 +4,17 @@
       "description": "Which agentic stage a usage record belongs to.",
       "enum": [
         "predictor",
-        "evaluator",
-        "reconciler"
+        "evaluator"
       ],
       "title": "UsageRole",
       "type": "string"
     }
   },
   "additionalProperties": false,
-  "description": "``tooling.json`` \u2014 a cell's self-report on the agent tooling it was given.\n\nUnlike :class:`AgentFlags` (exception-based \u2014 written only on a problem with the\n*data or task*), every predict/evaluate/reconcile cell is *invited* to write this\nshort, structured note about its *environment*: whether it used the ``fedcourts``\ncorpus-query CLI, which abilities actually helped, and what was missing. Rolled up\nacross runs on the run-ops dashboard, it tells maintainers whether the corpus\ntooling earns its keep and where to invest next. It is the agent's own account \u2014\nsubjective, advisory, and never a gate. The token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job commits it with the cell's output.",
+  "description": "``tooling.json`` \u2014 a cell's self-report on the agent tooling it was given.\n\nUnlike :class:`AgentFlags` (exception-based \u2014 written only on a problem with the\n*data or task*), every predict/evaluate cell is *invited* to write this\nshort, structured note about its *environment*: whether it used the ``fedcourts``\ncorpus-query CLI, which abilities actually helped, and what was missing. Rolled up\nacross runs on the run-ops dashboard, it tells maintainers whether the corpus\ntooling earns its keep and where to invest next. It is the agent's own account \u2014\nsubjective, advisory, and never a gate. The token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job commits it with the cell's output.",
   "properties": {
     "actor_id": {
-      "description": "The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id",
+      "description": "The predictor_id (predict) or evaluator_id (evaluate)",
       "title": "Actor Id",
       "type": "string"
     },

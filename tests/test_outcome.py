@@ -78,7 +78,7 @@ def test_appears_decided() -> None:
 def test_single_open_event_resolves_deterministically() -> None:
     row = from_api_docket(DECIDED_DOCKET)
     resolution = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
-    assert not resolution.reconciles
+    assert not resolution.unrecorded
     outcome = resolution.outcomes["evt-petition-review"]
     assert outcome.actual_disposition == Disposition.denied
     assert outcome.actual_granted == 0
@@ -101,7 +101,7 @@ def test_cert_dated_petition_resolves_at_the_petition_stage() -> None:
         }
     )
     resolution = detect_resolution(row, "scotus", 22451, ["evt-petition-disposition"])
-    assert not resolution.reconciles
+    assert not resolution.unrecorded
     outcome = resolution.outcomes["evt-petition-disposition"]
     assert outcome.actual_disposition == Disposition.granted
     assert outcome.actual_granted == 1
@@ -112,41 +112,41 @@ def test_undecided_docket_is_a_noop() -> None:
     row = from_api_docket({"id": 7, "court_id": "ca9", "date_filed": "2024-01-01"})
     resolution = detect_resolution(row, "ca9", 7, ["evt-petition-review"])
     assert not resolution.outcomes
-    assert not resolution.reconciles
+    assert not resolution.unrecorded
 
 
 def test_no_open_events_is_a_noop() -> None:
     row = from_api_docket(DECIDED_DOCKET)
     resolution = detect_resolution(row, "ca9", 64512345, [])
     assert not resolution.outcomes
-    assert not resolution.reconciles
+    assert not resolution.unrecorded
 
 
-def test_unreadable_disposition_routes_to_reconcile() -> None:
+def test_unreadable_disposition_lands_unrecorded() -> None:
     # "affirmed" normalizes to the `other` catch-all — decided, but not how.
     row = from_api_docket({**DECIDED_DOCKET, "disposition": "affirmed"})
     resolution = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
     assert not resolution.outcomes
-    (req,) = resolution.reconciles
+    (req,) = resolution.unrecorded
     assert req.event_id == "evt-petition-review"
     assert "not machine-readable" in req.reason
 
 
-def test_decided_without_date_routes_to_reconcile() -> None:
+def test_decided_without_date_lands_unrecorded() -> None:
     row = from_api_docket({"id": 64512345, "court_id": "ca9", "disposition": "Petition denied"})
     resolution = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
     assert not resolution.outcomes
-    (req,) = resolution.reconciles
+    (req,) = resolution.unrecorded
     assert "no decision date" in req.reason
 
 
-def test_multiple_open_events_route_to_reconcile() -> None:
+def test_multiple_open_events_land_unrecorded() -> None:
     # One case-level disposition cannot be attributed across several open events.
     row = from_api_docket(DECIDED_DOCKET)
     resolution = detect_resolution(row, "ca9", 64512345, ["evt-motion-a", "evt-motion-b"])
     assert not resolution.outcomes
-    assert {r.event_id for r in resolution.reconciles} == {"evt-motion-a", "evt-motion-b"}
-    assert all("cannot be attributed" in r.reason for r in resolution.reconciles)
+    assert {r.event_id for r in resolution.unrecorded} == {"evt-motion-a", "evt-motion-b"}
+    assert all("cannot be attributed" in r.reason for r in resolution.unrecorded)
 
 
 # --- ledger write --------------------------------------------------------------
@@ -189,7 +189,7 @@ def test_resolve_case_is_idempotent(tmp_path: Path) -> None:
     resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
     again = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
     assert not again.outcomes
-    assert not again.reconciles
+    assert not again.unrecorded
 
 
 def test_record_outcomes_refuses_an_orphaned_outcome(tmp_path: Path) -> None:

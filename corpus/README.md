@@ -119,7 +119,7 @@ off without rescanning the court.
 Each `pull` stores the full point-in-time docket JSON (docket + entries) it
 fetched — the raw fact a normalized `cases` row cannot fully capture. `pull`
 diffs the latest stored snapshot against the fresh fetch to decide whether a case
-*changed* (the `run:predict` trigger), and the predict/evaluate/reconcile
+*changed* (the `run:predict` trigger), and the predict/evaluate
 workflows provision a case's latest snapshot from here for the agent to predict
 from (`fedcourts provision-snapshot`).
 

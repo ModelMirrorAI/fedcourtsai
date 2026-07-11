@@ -1,11 +1,10 @@
 """Corpus-informed cleanup of committed derived artifacts under ``data/``.
 
-The pipeline's append-only writers (predict / evaluate / reconcile) only ever *add*
+The pipeline's append-only writers (predict / evaluate) only ever *add*
 artifacts; none removes one that later falls out of scope. This module is the
 counterpart: deterministic sweeps that decide — from the corpus, never a proxy —
-which already-merged artifacts to prune. They run in the ``run-cleanup`` workflow,
-where the corpus is ``dvc pull``'d and the result lands as a reviewed (not
-auto-merged) PR.
+which already-merged artifacts to prune. A maintainer runs them locally (the
+corpus ``dvc pull``'d) and lands the result as a reviewed, manually merged PR.
 
 The decision is a pure function of the corpus plus the committed tree, so it is
 testable offline and identical every run. The first rule prunes *predictions* for

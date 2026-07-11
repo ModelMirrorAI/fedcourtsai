@@ -33,7 +33,7 @@ from ..matrix import event_has_predictions
 from ..store import open_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
-from .outcome import ReconcileRequest, resolve_case, termination_signal
+from .outcome import UnrecordedOutcome, resolve_case, termination_signal
 
 
 @dataclass
@@ -44,9 +44,9 @@ class PullResult:
     # Predictors record it as ``input_snapshot``; the corpus is the store.
     snapshot: str
     # Outcome detection (`pull`'s third job): events resolved deterministically
-    # this refresh, and those that appear decided but need an agent to reconcile.
+    # this refresh, and those that appear decided but could not be recorded.
     resolved: list[str]
-    reconcile: list[ReconcileRequest]
+    unrecorded: list[UnrecordedOutcome]
     # Docket entries that read like a request but match more than one event kind,
     # so extraction did not guess an event for them (mirrors discovery). Collected
     # for triage; not queued.
@@ -86,7 +86,7 @@ def pull_case(
     upsert_to_corpus(corpus_db_path, [row], last_pulled=today)
 
     # Detect resolution of any open events: write outcome.json deterministically
-    # when the disposition is machine-readable, else flag for agent reconcile.
+    # when the disposition is machine-readable, else surface it unrecorded.
     # Runs *before* re-extraction: `default_event` marks a decided case's baseline
     # resolved (from its disposition), so resolution must see the event still open
     # to record its outcome before extraction latches it closed.
@@ -107,7 +107,7 @@ def pull_case(
         changed=changed,
         snapshot=today.isoformat(),
         resolved=sorted(resolution.outcomes),
-        reconcile=list(resolution.reconciles),
+        unrecorded=list(resolution.unrecorded),
         ambiguous=list(extraction.ambiguous),
         termination_signal=termination_signal(fresh),
     )
@@ -119,18 +119,18 @@ class PullQueues:
 
     Each entry is a JSON-serializable mapping shaped exactly as the ``run-pull``
     workflow consumes it (the ``jq`` fields in ``run-pull.yml``): ``predict`` and
-    ``evaluate`` entries carry ``court`` / ``docket`` / ``events``; ``reconcile``
-    adds the agent-facing ``reason``.
+    ``evaluate`` entries carry ``court`` / ``docket`` / ``events``; ``unrecorded``
+    adds the maintainer-facing ``reason`` the run log surfaces.
     """
 
     predict: list[dict[str, object]] = field(default_factory=list)
     # Changed cases with open events that were NOT queued forward because the
     # refreshed docket already looks decided (its latest entry reads terminal,
-    # or a reconcile was asked for its open events). A forward cell on a
+    # or its outcome could not be recorded deterministically). A forward cell on a
     # decided case is a mislabeled back-test — its "unrestricted retrieval"
     # would let any predictor read the outcome — so these are surfaced in the
     # run log for maintainer triage instead of silently mispredicted. A
-    # terminal-entry case without a reconcile ask keeps its events open and
+    # terminal-entry case with no recordable outcome keeps its events open and
     # will re-skip on later refreshes until a maintainer records its outcome
     # or retires it.
     predict_skipped_decided: list[dict[str, object]] = field(default_factory=list)
@@ -142,7 +142,7 @@ class PullQueues:
     # re-queues it automatically, and the recovery is a ledger scan (outcome +
     # predictions present, evaluations absent).
     evaluate_skipped: list[dict[str, object]] = field(default_factory=list)
-    reconcile: list[dict[str, object]] = field(default_factory=list)
+    unrecorded: list[dict[str, object]] = field(default_factory=list)
     # Cases whose refresh hit an unrecoverable REST error this run (e.g. a 404,
     # or retries exhausted). Recorded so a single bad docket degrades the run
     # gracefully instead of aborting the rotation; carries ``court`` / ``docket``
@@ -181,13 +181,15 @@ def _queue_predict(
     """Queue one changed case with open events forward — or divert it.
 
     A decided-looking docket never queues forward: either the fresh payload
-    carries a termination signal, or resolution already asked for a reconcile
+    carries a termination signal, or resolution left an unrecorded outcome
     (appears decided, not deterministically recordable). Both land on
     ``predict_skipped_decided`` with the reason, so the skip is triageable
     rather than silent.
     """
     decided_reason = result.termination_signal or (
-        "docket appears decided; reconcile asked for its open events" if result.reconcile else None
+        "docket appears decided; its outcome could not be recorded deterministically"
+        if result.unrecorded
+        else None
     )
     if decided_reason:
         queues.predict_skipped_decided.append(
@@ -208,26 +210,26 @@ def pull_cases(
     max_consecutive_transient_failures: int | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> PullQueues:
-    """Refresh each due case and sort it into the predict / evaluate / reconcile queues.
+    """Refresh each due case and sort it into the predict / evaluate / unrecorded queues.
 
     The per-case half of ``pull-all``: for every ``(court, docket)`` the rotation
     governor selected, refresh the docket (:func:`pull_case`, which also detects
     resolution), then route the result — a *changed* case with open events to
     ``predict`` unless the refreshed docket already looks decided (a termination
-    signal, or a reconcile ask for its open events), in which case it lands on
+    signal, or an unrecorded outcome for its open events), in which case it lands on
     ``predict_skipped_decided`` for triage instead of a mislabeled forward cell;
     a case that gained an ``outcome.json`` this run to ``evaluate``
     **when the ledger holds a prediction to score** (ground-truth recording is
     ungated; only the evaluator fan-out is), and a case that appears decided but
-    could not be recorded deterministically to ``reconcile``. Case selection
+    could not be recorded deterministically to ``unrecorded``. Case selection
     (discovery + rotation) stays with the caller, so this seam composes the
     same way the CLI's ``pull-all`` does.
 
     The prediction-scope gate is the primary cost-saver: under
     ``scope == scotus_docket`` an out-of-scope case never reaches the ``predict``
     or ``evaluate`` queue, so it never opens a ``run-predict`` / ``run-evaluate``
-    issue. ``reconcile`` stays ungated — it records ground truth for the corpus /
-    back-testing, a different purpose from prediction spend. ``scope == all``
+    issue. ``unrecorded`` stays ungated — it surfaces ground-truth gaps for the
+    corpus / back-testing, a different purpose from prediction spend. ``scope == all``
     (the default) enqueues exactly as before.
 
     Three guards stop the rotation early — recording why on ``stopped`` and the
@@ -302,13 +304,13 @@ def pull_cases(
                 queues.evaluate_skipped.append(
                     {"court": court, "docket": docket, "events": unscoreable}
                 )
-        if result.reconcile:
-            queues.reconcile.append(
+        if result.unrecorded:
+            queues.unrecorded.append(
                 {
                     "court": court,
                     "docket": docket,
-                    "events": [r.event_id for r in result.reconcile],
-                    "reason": result.reconcile[0].reason,
+                    "events": [r.event_id for r in result.unrecorded],
+                    "reason": result.unrecorded[0].reason,
                 }
             )
     return queues

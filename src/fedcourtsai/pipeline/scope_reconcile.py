@@ -1,7 +1,8 @@
 """The corpus-side scope reconcile for predict scope.
 
 The write counterpart of the read-only scope audit (``validate.run_scope_audit``).
-Where the matrix gate excludes out-of-scope cases at *read time* and run-cleanup
+Where the matrix gate excludes out-of-scope cases at *read time* and the
+maintainer-run cleanup sweep
 prunes their already-merged *git* predictions, this reconcile materializes the
 exclusion into the **corpus**: it latches ``predict_excluded`` on cases an
 exclusion predicate now matches, so ``store.open_events`` yields nothing for them

@@ -6,12 +6,9 @@ stage.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
-| `run:dev`       | `run-dev`        | issue labeled                       | Claude Code          |
 | `run:pull`      | `run-pull`       | daily schedules (pull + live + historical jobs), label, manual | script (no agent)    |
-| `run:reconcile` | `run-reconcile`  | issue labeled — the workflow is **disabled** (pull may still file these; nothing consumes them while the live channel settles reconcile's fate) | Claude Code |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
-| `run:cleanup`   | `run-cleanup`    | issue labeled, manual               | script (no agent)    |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
 | _(none)_        | `integration-corpus` | manual dispatch                 | script (no agent)    |
@@ -79,7 +76,7 @@ each as its own least-privilege job holding only the credentials its mode needs:
   when someone ran `dvc repro` locally. It reruns those stages' tested
   `fedcourts` commands and — only when an artifact actually changed (they are
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
-  by the tested `metrics-refresh-plan` command, mirroring `run-cleanup`: never a
+  by the tested `metrics-refresh-plan` command: never a
   direct commit to `main`, never auto-merged. This is the workflow's only
   write-capable job (it alone mints the dev App token). The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
@@ -114,27 +111,24 @@ daily ×1 → run-pull (historical job) → walk Terms newest-first, ingest deci
    daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ detect resolution → write outcome.json when the
-                                 │  disposition is machine-readable (git ledger)
+                                 │  disposition is machine-readable (git ledger);
+                                 │  else queue an unrecorded outcome, surfaced
+                                 │  per-case on the pull-log issue comment
                                  └─ create issues  ← APP TOKEN
                                     ├─ run:predict    (changed case with open events,
                                     │                  unless the docket already looks
                                     │                  decided — skipped + surfaced)
-                                    ├─ run:evaluate   (predicted event that gained
-                                    │                  an outcome)
-                                    └─ run:reconcile  (decided but not machine-readable
-                                                       → agent reconciles by hand)
+                                    └─ run:evaluate   (predicted event that gained
+                                                       an outcome)
    daily ×4 → run-pull (live job) → open live-log issue → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions (per-Term cursor)
                                  ├─ re-poll the pending cert watchlist (recent Terms first)
                                  ├─ detect resolution from the proceedings text
-                                 │  → write outcome.json (git ledger)
+                                 │  → write outcome.json (git ledger); else queue an
+                                 │    unrecorded outcome, surfaced per-case on the
+                                 │    live-log issue comment
                                  └─ create run:predict / run:evaluate issues  ← APP TOKEN
-                                    (no reconcile filing: ambiguous resolutions are
-                                     summarized on the log while run-reconcile is paused)
-       run:reconcile → plan → reconcile[matrix] (outcome.json per case, as an artifact)
-                                 └─ collect → one auto-merged PR per run
-                                       └─ on merge → run:evaluate  (per reconciled case)  ← APP TOKEN
        run:predict → plan (build matrix) → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft PR for partials)
        run:evaluate → plan → evaluate[matrix] (artifact per cell)
@@ -162,7 +156,7 @@ existing workflow is exactly as least-privilege as a new file — a new file add
 surface area without adding isolation. A task earns its own workflow only when it
 needs a different *trigger class* (the `run:*` issue-label cascade vs
 schedule/dispatch) or a different *risk class* (the agentic fan-outs, the corpus
-writers, destructive cleanup). Everything else — a new analysis, a new derived
+writers). Everything else — a new analysis, a new derived
 artifact, a new maintenance sweep — should land as a mode/job on `run-analytics`
 (or the closest existing surface), reusing the shared composite actions
 (`setup-python-env`, `corpus-readonly`, `corpus-ranged`, `configure-git-identity`).
@@ -182,7 +176,7 @@ pattern rather than rediscovering it:
   on most runs, so `data/` often does not exist; under `set -euo pipefail` the add
   fails the step before the no-op guard. Stage the always-present pointer
   unconditionally and guard the rest with `if [ -d data ]; then git add data/; fi`
-  (see `run-pull.yml`). The same shape lives in run-predict/evaluate/reconcile.
+  (see `run-pull.yml`). The same shape lives in run-predict/evaluate.
 - **Long-running jobs outlive their credentials.** A GitHub App installation token
   has a hard 1h life and an AWS OIDC session defaults to 1h. A loop that runs for
   hours (the historical Term walk) must re-mint the App token before it ages out
@@ -218,8 +212,8 @@ would otherwise close the trigger issue; the `plan` job closes it with a note
 instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
 in the first place; this is the backstop for a manually-filed or partial one.)
 
-How a cell's output becomes a PR is the same across **`run:predict`**,
-**`run:evaluate`**, and **`run:reconcile`**: each cell validates its own output and
+How a cell's output becomes a PR is the same across **`run:predict`** and
+**`run:evaluate`**: each cell validates its own output and
 uploads it (plus a status file) as an artifact rather than opening a PR, and a
 final **`collect`** job unions the run's artifacts into **one PR** — auto-merged
 once `gate` + `paths` are green, and closing the triggering issue on merge — with
@@ -229,7 +223,7 @@ The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in
 `collect` before the commit and again as the required `paths` check, so an
 auto-merged PR can only add artifacts under `data/` (see [security.md](security.md)).
 
-For `run:predict`, `run:evaluate`, and `run:reconcile`, `collect` also rolls up any
+For `run:predict` and `run:evaluate`, `collect` also rolls up any
 agent feedback (`flags.json`) the run surfaced and posts it three ways — the run PR
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
 single latched-issue pattern of `ops-dashboard` / `data-validation`) — so a note
@@ -264,47 +258,34 @@ multiplied by the registry and its events to produce one matrix cell per
 predictor/evaluator × case × event — which `run:predict` and `run:evaluate`
 collect into one PR for the run.
 
-## Reconcile: an agent finishes pull's outcome detection
+## Unrecorded outcomes: what pull's outcome detection leaves behind
 
 `run-pull` records `outcome.json` itself only when a decided docket is
 unambiguous (a machine-readable disposition, a decision date, and a single open
 event). Everything else — an unreadable/absent disposition, no decision date, or
-a case-level disposition that cannot be attributed across several open events — it
-hands to an agent by filing a **`run:reconcile`** issue (it does not guess). That
-label routes to `run-reconcile`, **not** back to the deterministic pull, so filing
-or relabeling one never re-runs a full refresh.
-
-`run-reconcile` mirrors `run-predict`/`run-evaluate`: `plan` parses the issue's
-` ```json ``` ` case block into a **per-case** matrix (`fedcourts
-reconcile-matrix`; one cell per case, because the agent must weigh a case's open
-events together to attribute the disposition), the agent reads the point-in-time
-snapshot and writes `outcome.json` for each event it can settle, and the `collect`
-job aggregates the run's cases into one auto-merged PR (whose `reconcile:` commit
-fires the evaluate handoff on merge). An event the agent cannot settle with
-confidence is left open with a note on the issue — recording nothing beats a guess.
-
-Closing the cascade gap: a reconciled `outcome.json` reaches the default branch
-only when its PR **merges**, so the handoff to evaluation is fired by the merge,
-not by detection. On a merged `reconcile/*` PR, `run-reconcile` opens a
-`run:evaluate` issue (App token) for exactly the events the PR settled — so a
-hand-reconciled outcome is scored just like a deterministically-detected one.
+a case-level disposition that cannot be attributed across several open events —
+becomes an **unrecorded outcome** (it does not guess): the case lands on the
+runner-local unrecorded queue (`unrecorded-queue.json`, the `UnrecordedOutcome`
+detection in the library) instead of the git ledger. No issue is filed for
+these. Both the pull and live jobs surface each one per-case on the day's
+pull-log / live-log issue comment ("court/docket — reason"), with the count on
+the Actions step summary, for maintainer triage — recording nothing beats a
+guess.
 
 ## Graceful degradation on limits
 
-Agent steps (dev, predict, evaluate, reconcile) are bounded by a step-level
+Agent steps (predict, evaluate) are bounded by a step-level
 `timeout-minutes` set below the job's, so a run that overruns trips the *step* —
 not the job. A step timeout (or a max-turns stop) fails only that step and leaves
 the runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
 
-What salvage looks like is uniform across **`run:predict`**, **`run:evaluate`**,
-and **`run:reconcile`**: each cell records its status and uploads its output
+What salvage looks like is uniform across **`run:predict`** and
+**`run:evaluate`**: each cell records its status and uploads its output
 (`if: !cancelled()`); the `collect` job then routes a cell that did not finish
 cleanly — or whose output failed schema validation — into the run's **draft** PR
 (never the auto-merging ready one), and a cell that produced nothing is warned
-about rather than committed. In `run-dev`, where the agent does its own
-git, a rescue step commits any leftover changes on the issue branch and opens a
-**draft** PR for a maintainer to finish. A run that finished cleanly is
+about rather than committed. A run that finished cleanly is
 unaffected: the draft path only triggers when the agent stopped early.
 
 ## Snapshot sequencing

@@ -541,7 +541,7 @@ def test_decided_looking_docket_skips_the_forward_predict_queue(tmp_path: Path) 
     assert skipped[0]["events"] == ["evt-appeal-disposition"]
 
 
-def test_reconcile_asked_docket_skips_the_forward_predict_queue(tmp_path: Path) -> None:
+def test_unrecorded_outcome_docket_skips_the_forward_predict_queue(tmp_path: Path) -> None:
     # Decided at case level but not deterministically recordable: resolution
     # queues a reconcile — the same refresh must not also queue forward cells
     # for the events the reconcile covers.
@@ -552,11 +552,11 @@ def test_reconcile_asked_docket_skips_the_forward_predict_queue(tmp_path: Path) 
     queues = pull_cases(
         cast(CourtListenerClient, client), db, tmp_path / "data", [("ca9", 64512345)]
     )
-    assert queues.reconcile and queues.predict == []
+    assert queues.unrecorded and queues.predict == []
     assert [(e["court"], e["docket"]) for e in queues.predict_skipped_decided] == [
         ("ca9", 64512345)
     ]
-    assert "reconcile" in str(queues.predict_skipped_decided[0]["reason"])
+    assert "could not be recorded" in str(queues.predict_skipped_decided[0]["reason"])
 
 
 def test_pending_docket_still_queues_forward_prediction(tmp_path: Path) -> None:

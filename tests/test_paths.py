@@ -53,11 +53,3 @@ def test_tooling_layout() -> None:
     assert ep.evaluation_tooling("codex-judge", "r1") == Path(
         "data/cases/ca9/123/events/evt-motion-stay/evaluations/codex-judge/r1/tooling.json"
     )
-
-
-def test_reconcile_layout_is_case_level() -> None:
-    # Reconcile fans out per case, so its flags/tooling live at the case root, above
-    # the per-event outcomes.
-    cp = CasePaths(Path("data"), "ca9", 123)
-    assert cp.reconcile_flags("r1") == Path("data/cases/ca9/123/reconcile/r1/flags.json")
-    assert cp.reconcile_tooling("r1") == Path("data/cases/ca9/123/reconcile/r1/tooling.json")

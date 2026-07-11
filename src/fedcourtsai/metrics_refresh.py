@@ -7,7 +7,7 @@ so they drifted stale on ``main`` between manual ``dvc repro`` runs. The
 ``run-analytics`` workflow's weekly ``metrics-refresh`` job closes that gap: it
 regenerates the artifacts with the same tested ``fedcourts`` commands the stages
 run, and — when anything changed — lands the result as a **reviewed** PR (never a
-direct commit to ``main``, never auto-merged), mirroring ``run-cleanup``.
+direct commit to ``main``, never auto-merged).
 
 This module is the tested half of that workflow: given the changed paths (``git
 diff --name-only -- metrics/``, plumbed by the workflow), it renders the branch and

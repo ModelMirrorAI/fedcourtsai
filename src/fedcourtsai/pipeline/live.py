@@ -29,7 +29,7 @@ newly distributed for a conference, or relisted to a new one — the cert-calend
 analogue of ``predict_on_change_only``; a newly resolved case queues
 ``evaluate`` when the ledger holds a prediction to score (the live sweeps
 resolve plenty of never-predicted petitions — nothing to score, no cells); an
-ambiguous resolution queues ``reconcile``.
+ambiguous resolution lands on ``unrecorded`` for the run log.
 """
 
 from __future__ import annotations
@@ -68,8 +68,8 @@ class LiveResult:
     case_id: str
     changed: bool
     resolved: list[str]
-    reconcile_events: list[str]
-    reconcile_reason: str | None = None
+    unrecorded_events: list[str]
+    unrecorded_reason: str | None = None
     # The conference this petition is distributed for after this poll.
     # The caller compares it against the pre-poll value: a transition (fresh
     # distribution or a relist's new date) is the predict trigger.
@@ -146,8 +146,8 @@ def ingest_live_payload(
         case_id=case_id,
         changed=changed,
         resolved=sorted(resolution.outcomes),
-        reconcile_events=[r.event_id for r in resolution.reconciles],
-        reconcile_reason=resolution.reconciles[0].reason if resolution.reconciles else None,
+        unrecorded_events=[r.event_id for r in resolution.unrecorded],
+        unrecorded_reason=resolution.unrecorded[0].reason if resolution.unrecorded else None,
         distributed=row.distributed_for_conference,
     )
 
@@ -265,7 +265,7 @@ def poll_live_cases(
     record is complete enough to predict. Ground-truth *recording* is ungated;
     the ``evaluate`` queue requires a committed prediction to score (drops are
     surfaced on ``evaluate_skipped``), and ambiguous resolutions route to
-    ``reconcile`` unconditionally. A petition whose docket JSON has vanished (404 on a
+    ``unrecorded`` unconditionally. A petition whose docket JSON has vanished (404 on a
     previously served number) is recorded on ``failed`` and its
     ``last_live_polled`` still advances via the row upsert path — it must not
     pin the rotation's front.
@@ -340,7 +340,7 @@ def _route_result(
     ``queue_predict`` is the caller's distribution-transition verdict — it
     gates only the predict handoff. The evaluate handoff requires a committed
     prediction (an unscoreable resolution lands on ``evaluate_skipped``);
-    reconcile signals always route.
+    unrecorded outcomes always route.
     """
     docket_id = int(result.case_id.rsplit("/", 1)[-1])
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
@@ -364,13 +364,13 @@ def _route_result(
             queues.evaluate_skipped.append(
                 {"court": "scotus", "docket": docket_id, "events": unscoreable}
             )
-    if result.reconcile_events:
-        queues.reconcile.append(
+    if result.unrecorded_events:
+        queues.unrecorded.append(
             {
                 "court": "scotus",
                 "docket": docket_id,
-                "events": result.reconcile_events,
-                "reason": result.reconcile_reason,
+                "events": result.unrecorded_events,
+                "reason": result.unrecorded_reason,
             }
         )
 
@@ -444,6 +444,6 @@ def live_poll_all(
     )
     queues.predict.extend(refreshed.predict)
     queues.evaluate.extend(refreshed.evaluate)
-    queues.reconcile.extend(refreshed.reconcile)
+    queues.unrecorded.extend(refreshed.unrecorded)
     queues.failed.extend(refreshed.failed)
     return queues, discovery

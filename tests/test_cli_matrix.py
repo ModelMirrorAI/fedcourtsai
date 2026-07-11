@@ -321,42 +321,6 @@ def test_evaluate_matrix_drops_out_of_scope_case(tmp_path: Path) -> None:
     assert "24001" in result.stderr
 
 
-def test_reconcile_matrix_batch_body_is_one_cell_per_case(tmp_path: Path) -> None:
-    body = tmp_path / "issue-body.md"
-    body.write_text(_BATCH_BODY)
-    result = runner.invoke(app, ["reconcile-matrix", "--run-id", "RID", "--body-file", str(body)])
-    assert result.exit_code == 0
-    cells = _cells(result.stdout)
-    # One cell per case (no registry dimension), engine fixed to claude-code.
-    assert len(cells) == 2
-    assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24001), ("scotus", 24002)}
-    assert {c["engine"] for c in cells} == {"claude-code"}
-    assert {c["events"] for c in cells} == {"evt-petition-cert"}
-
-
-def test_reconcile_matrix_single_case_flags_join_events(tmp_path: Path) -> None:
-    result = runner.invoke(
-        app,
-        [
-            "reconcile-matrix",
-            "--run-id",
-            "RID",
-            "--court",
-            "ca9",
-            "--docket",
-            "123",
-            "--event",
-            "evt-x",
-            "--event",
-            "evt-y",
-        ],
-    )
-    assert result.exit_code == 0
-    cells = _cells(result.stdout)
-    assert len(cells) == 1
-    assert cells[0]["events"] == "evt-x evt-y"
-
-
 def test_matrix_without_body_or_flags_errors() -> None:
     result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"])
     assert result.exit_code == 2

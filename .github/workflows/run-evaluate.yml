@@ -37,7 +37,7 @@ jobs:
       # claude-code-action re-checks the actor before it spends model tokens, but
       # this pre-flight step refuses *before* the downstream `evaluate` job (which
       # `needs: plan`) mints any token, assumes the S3 role, or reads the corpus —
-      # matching the deterministic writers (run-pull / run-reconcile).
+      # matching the deterministic writer (run-pull).
       # (The label name is already checked in the job `if:`.)
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:

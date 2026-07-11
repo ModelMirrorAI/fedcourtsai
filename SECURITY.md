@@ -28,7 +28,7 @@
   pull's quota and forces a rotation that touches pull.
 - **Agents get a least-privilege GitHub App token, never a static one.** So a
   headless agent can post progress/questions on the triggering issue/PR, the
-  Claude agent steps in `run:predict` / `run:evaluate` / `run:reconcile` receive
+  Claude agent steps in `run:predict` / `run:evaluate` receive
   a separate short-lived App installation token from
   `actions/create-github-app-token`, scoped `contents: read` + `issues` +
   `pull-requests: write` — **comment-only**. The Codex and Gemini cells get no
@@ -36,15 +36,8 @@
   CI anyway); their blocked-channel is `flags.json`, which the trusted `collect`
   job surfaces. The
   *workflow* (a distinct `contents: write` app-token) does the commit/PR, so a
-  prompt injection in docket text cannot push code with the agent's token. The
-  `run:dev` agent, which commits and opens its own PR, holds
-  `contents` + `pull-requests` + `workflows: write` — pipeline development includes
-  the workflow files themselves, and GitHub rejects a push that edits
-  `.github/workflows/` without the workflows scope. Its changes still land only
-  through a reviewed PR, and the `runner` environment is restricted to `main` (see
-  below), so a workflow the agent authors on its PR branch cannot reach any secret
-  before the PR is merged. Issue and docket text stay untrusted input (treated as
-  data, not instructions).
+  prompt injection in docket text cannot push code with the agent's token. Issue
+  and docket text stay untrusted input (treated as data, not instructions).
 - **No static cloud keys — OIDC for the DVC remote.** Workflows that touch the
   private S3 bucket behind the DVC remote assume a least-privilege IAM role via
   GitHub OIDC (`aws-actions/configure-aws-credentials`, SHA-pinned;
@@ -54,7 +47,7 @@
   **Two roles,
   split by access:** corpus writers (`run-pull` →
   `AWS_ROLE_TO_ASSUME`) get a **read-write** role; retrieval consumers
-  (`run-predict`, `run-evaluate`, `run-reconcile` →
+  (`run-predict`, `run-evaluate` →
   `AWS_ROLE_TO_ASSUME_READONLY`) get a **read-only** role, so a compromised
   consumer runner cannot tamper with the corpus. The write role is **append-only**
   (get/put/list, **no delete**) and the bucket keeps **versioning** on, so no run
@@ -97,21 +90,21 @@
   the trust boundary for the pipeline, and two layers enforce it on a public repo —
   where an issue *form* would otherwise apply its declared labels on creation for
   any submitter. (1) No issue form auto-applies a `run:*` label — operating the
-  pipeline (`pull` / `reconcile`) is not exposed as a public form at all,
+  pipeline (`pull`) is not exposed as a public form at all,
   so a maintainer applies the `run:*` label to an issue after triage. (2) Each
   issue-triggered privileged job re-checks, before it does any privileged work,
   that the triggering actor has **write access** (via the collaborators API,
   failing closed), so a label applied by anyone else is inert. This pre-flight
   check runs ahead of every privileged step in every `run:*` workflow — the
-  deterministic writers (`run-pull` / `run-reconcile`) and the agent
-  stages (`run-predict` / `run-evaluate` / `run-dev`) alike — so a non-write
+  deterministic writer (`run-pull`) and the agent
+  stages (`run-predict` / `run-evaluate`) alike — so a non-write
   trigger is refused before any token is minted, the S3 role is assumed, or the
   corpus is read; the agent actions re-check the actor again before spending model
   tokens. The fan-out workflows delegate the decision to the tested
   `authorize-trigger` command (so it sits just after an unprivileged checkout +
   env setup rather than literally first), while the deterministic writers keep it
   inline; either way nothing privileged runs ahead of it. The App-driven
-  handoffs `run-pull` files (the `run:predict` / `run:evaluate` / `run:reconcile`
+  handoffs `run-pull` files (the `run:predict` / `run:evaluate`
   issues, a Bot sender) are recognized and allowed — only a maintainer-installed
   App can apply a label that fires a workflow at all.
 - **Branch protection and the deployment boundary.** `main` carries two rulesets.
@@ -124,9 +117,8 @@
   branch deletion for everyone — both Apps included — so the predictions, outcomes,
   and evaluations under `data/` cannot be rewritten or dropped. Secrets and the S3 roles live in the `runner`
   environment, whose deployment branches are restricted to `main`: only workflows
-  already on `main` can read them, so a workflow authored on a PR branch (including
-  one `run:dev` adds with its workflows scope) runs without `runner` secrets or the
-  S3 role.
+  already on `main` can read them, so a workflow authored on a PR branch runs
+  without `runner` secrets or the S3 role.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions (`anthropics/claude-code-action`) include actor-permission checks and are
   the supported path for issue-triggered runs; matrix inputs are parsed from a

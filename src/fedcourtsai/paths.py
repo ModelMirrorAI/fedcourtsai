@@ -8,7 +8,7 @@ evaluation in one place and keeps git diffs local to the thing that changed.
 Raw facts (the docket, judges, case metadata, and the dated point-in-time
 snapshots) live in the packed corpus (`fedcourtsai.corpus`), not in git. The
 ``snapshot`` path under ``record/`` is a *provisioning* location only: the
-predict/evaluate/reconcile workflows materialize a case's latest corpus snapshot
+predict/evaluate workflows materialize a case's latest corpus snapshot
 there, read-only for one run (the tree is gitignored, never committed).
 
     data/cases/<court_id>/<docket_id>/
@@ -115,7 +115,7 @@ class CasePaths:
 
     def snapshot(self, day: str) -> Path:
         # Provisioning location for a run's point-in-time snapshot, materialized
-        # from the corpus by the predict/evaluate/reconcile workflow. Gitignored
+        # from the corpus by the predict/evaluate workflow. Gitignored
         # (`record/` is never committed) — the snapshot's home is the corpus.
         return self.record / "snapshots" / f"{day}.json"
 
@@ -146,17 +146,3 @@ class CasePaths:
 
     def event(self, event_id: str) -> EventPaths:
         return EventPaths(self.events_dir / event_id)
-
-    def reconcile_dir(self, run_id: str) -> Path:
-        # Reconcile fans out per case (it weighs a case's open events together), so
-        # its run-level artifacts live at the case root, above the per-event outcomes.
-        return self.base / "reconcile" / run_id
-
-    def reconcile_flags(self, run_id: str) -> Path:
-        # A reconcile cell's optional flags.json — e.g. an ambiguous disposition it
-        # could not settle — keyed by run at the case level.
-        return self.reconcile_dir(run_id) / "flags.json"
-
-    def reconcile_tooling(self, run_id: str) -> Path:
-        # A reconcile cell's optional tooling.json self-report, keyed by run.
-        return self.reconcile_dir(run_id) / "tooling.json"

@@ -52,7 +52,7 @@ the bulk of the codebase and it is fully testable offline. The
 predictors (`ConstantBacktester`, `PriorVoteBacktester`) run with no model and no
 network, so the scoring metric is real in a unit test.
 
-**The agentic stages** — `run:predict`, `run:evaluate`, `run:reconcile`, `run:dev` —
+**The agentic stages** — `run:predict` and `run:evaluate` —
 are the gap. They invoke a coding agent (`anthropics/claude-code-action` and the
 Codex equivalent) *inside the workflow*, so without a harness the only feedback on a
 change to a prompt, the snapshot provisioning, or a finalize step is "open a PR,
@@ -142,10 +142,10 @@ The more logic lives in YAML, the less of the pipeline is testable, because YAML
 runs in Actions. The standing principle is to push logic *out* of the workflows and
 into tested `fedcourts` commands, leaving the YAML as orchestration. The matrix
 builders follow this (`predict-matrix` / `evaluate-matrix` are library code with unit
-tests, not inline script), as do the predict/evaluate/reconcile decisions: the
+tests, not inline script), as do the predict/evaluate decisions: the
 trigger-authorization gate (`authorize-trigger`), whether a cell produced its own
 output (`finalize-produced`), the path jail (`assert-paths`), and the per-run
-ready/draft PR aggregation (`collect-plan` / `collect-reconcile-plan`). The YAML
+ready/draft PR aggregation (`collect-plan`). The YAML
 calls those and runs only the git/`gh` plumbing, so "test the workflow" reduces to
 "test the commands, then smoke-test the wiring."
 

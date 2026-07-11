@@ -33,7 +33,7 @@ class ModelRate:
 
 
 # Keyed by the model id the engine actually ran. The production models are
-# claude-fable-5 (predict/evaluate), claude-opus-4-8 (run-dev / run-reconcile),
+# claude-fable-5 (predict/evaluate), claude-opus-4-8 (earlier ledger records),
 # gpt-5.6-sol, and gemini-3.5-flash; the cheaper Claude tiers are listed
 # because the budget doc names them as competitor-model levers. Superseded
 # production models (gpt-5.5, gemini-3.1-pro-preview) keep their rates so a
@@ -53,8 +53,8 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 
 # The model each engine runs when a predictor/evaluator pins no explicit override
 # (registry ``model: null``). These are the predict/evaluate defaults the matrix
-# resolves into each cell (and record-usage falls back on); run-dev and
-# run-reconcile stay on claude-opus-4-8, pinned in their workflows.
+# resolves into each cell (and record-usage falls back on); the
+# claude-opus-4-8 rate stays so earlier ledger records still price.
 DEFAULT_MODELS: Final[dict[str, str]] = {
     "claude-code": "claude-fable-5",
     "codex": "gpt-5.6-sol",

@@ -87,7 +87,7 @@ def _outcome_for_resolved(row: corpus.CorpusRow, event_id: str) -> Outcome | Non
     outcome for an event transitioning open→resolved; the cascade instead replays
     an event the corpus already marks resolved, so it builds the same outcome from
     the stored row without that open-event gate. Returns ``None`` when the
-    disposition is not machine-readable or there is no decision date (the reconcile
+    disposition is not machine-readable or there is no decision date (the unrecorded
     path), matching detection's rule so a guess is never recorded.
     """
     if not (is_machine_readable(row.disposition) and row.date_decided is not None):

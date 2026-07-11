@@ -41,10 +41,10 @@ name: run-pull
 # corpus (pulled from / pushed back to the S3 remote). The new outcomes and the
 # small corpus pointer are committed DIRECTLY to main (they are CourtListener
 # facts, not agent output — see docs/data-pipeline.md). It then opens
-# a `run:predict` issue for each changed case with open events, a `run:evaluate`
-# issue for each case that gained an outcome, and a `run:reconcile` issue for
-# each case that appears decided but whose outcome an agent must confirm by hand
-# (resolved by run-reconcile.yml — a distinct label so it never re-fires pull).
+# a `run:predict` issue for each changed case with open events and a `run:evaluate`
+# issue for each case that gained an outcome; a case that appears decided but
+# whose outcome could not be recorded deterministically is surfaced on the
+# daily log for maintainer triage (no issue is filed for it).
 # The day's windows share one short-lived `pull-log` tracking issue: the first
 # window opens it, each posts its summary, and the final daily window closes it on
 # success (left open as a record if a window fails). All git/issue writes use the GitHub App token so the
@@ -246,7 +246,7 @@ jobs:
           uv run fedcourts pull-all \
             --out predict-queue.json \
             --evaluate-out evaluate-queue.json \
-            --reconcile-out reconcile-queue.json \
+            --unrecorded-out unrecorded-queue.json \
             --limit 50
 
       - name: Push the corpus blob to the DVC remote
@@ -345,42 +345,6 @@ jobs:
               --label "run:evaluate"
           fi
 
-      - name: Open run:reconcile issues for ambiguous outcomes
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          count=$(jq 'length' reconcile-queue.json)
-          echo "Queued $count case(s) for outcome reconcile."
-          # `run:reconcile` routes to run-reconcile.yml (an agent that records the
-          # outcome), NOT back to this deterministic pull — so filing one never
-          # re-runs a full refresh. Create it idempotently for a fresh repo's first run.
-          gh label create "run:reconcile" --repo "$REPO" --force \
-            --color d93f0b --description "Confirm a decided event's outcome.json from the docket (run-reconcile)"
-          # Dedupe against open reconcile issues so a still-unresolved case does not
-          # spawn a fresh issue every run.
-          open_titles=$(gh issue list --repo "$REPO" --state open --label "run:reconcile" \
-            --limit 200 --json title --jq '.[].title')
-          for i in $(seq 0 $((count - 1))); do
-            court=$(jq -r ".[$i].court" reconcile-queue.json)
-            docket=$(jq -r ".[$i].docket" reconcile-queue.json)
-            events=$(jq -c ".[$i].events" reconcile-queue.json)
-            reason=$(jq -r ".[$i].reason" reconcile-queue.json)
-            title="reconcile: ${court}/${docket}"
-            if grep -Fxq "$title" <<<"$open_titles"; then
-              echo "Skipping existing reconcile issue: $title"
-              continue
-            fi
-            block=$(jq -n --arg c "$court" --argjson d "$docket" --argjson e "$events" \
-              '{court: $c, docket: $d, events: $e}')
-            body=$(printf 'A refresh detected this case as decided, but its outcome could not be recorded deterministically:\n\n> %s\n\nConfirm the disposition from the docket and record `outcome.json` for each event below.\n\n```json\n%s\n```\n' \
-              "$reason" "$block")
-            gh issue create --repo "$REPO" \
-              --title "$title" \
-              --body "$body" \
-              --label "run:reconcile"
-          done
-
       - name: Summarize the run; close the log after the final daily window
         if: success() && steps.run-issue.outputs.number != ''
         env:
@@ -396,14 +360,22 @@ jobs:
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
           evaluate=$(jq 'length' evaluate-queue.json)
-          reconcile=$(jq 'length' reconcile-queue.json)
+          unrecorded=$(jq 'length' unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
             snap="Committed the refreshed corpus pointer + new outcomes to the default branch."
           else
             snap="No outcome or corpus changes this window."
           fi
-          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window (predict/evaluate batch into one issue each):\n- run:predict cases queued: **%s**\n- run:evaluate cases queued: **%s**\n- ambiguous outcomes flagged for reconcile: **%s**\n' \
-            "$snap" "$predict" "$evaluate" "$reconcile")
+          # Unrecorded outcomes are surfaced per case on the daily log (no issue
+          # is filed — nothing consumes one): decided-looking dockets whose
+          # outcome could not be recorded deterministically, for maintainer triage.
+          unrecorded_lines=$(jq -r \
+            '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' unrecorded-queue.json)
+          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window (predict/evaluate batch into one issue each):\n- run:predict cases queued: **%s**\n- run:evaluate cases queued: **%s**\n- outcomes left unrecorded (not deterministically recordable): **%s**\n' \
+            "$snap" "$predict" "$evaluate" "$unrecorded")
+          if [ "$unrecorded" -gt 0 ]; then
+            body=$(printf '%s\n%s\n' "$body" "$unrecorded_lines")
+          fi
           gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
           if [ "${IS_FINAL_WINDOW}" = "true" ]; then
             gh issue close "$ISSUE" --repo "$REPO" --reason completed
@@ -417,7 +389,7 @@ jobs:
             echo "|---------|------:|"
             echo "| run:predict cases queued | ${predict} |"
             echo "| run:evaluate cases queued | ${evaluate} |"
-            echo "| reconcile flagged | ${reconcile} |"
+            echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   live:
@@ -520,7 +492,7 @@ jobs:
           uv run fedcourts live-poll \
             --out predict-queue.json \
             --evaluate-out evaluate-queue.json \
-            --reconcile-out reconcile-queue.json
+            --unrecorded-out unrecorded-queue.json
 
       - name: Push the corpus blob to the DVC remote
         run: |
@@ -596,12 +568,10 @@ jobs:
               --label "run:evaluate"
           fi
 
-      # Deliberately NO reconcile-issue filing here, unlike `pull`: run-reconcile
-      # is paused while the pivot decides its fate, and live resolution is
-      # machine-readable by construction (the disposition orders ride in the
-      # proceedings text), so a non-empty reconcile queue signals a case shape
-      # worth manual triage — it is surfaced in the log/summary below instead of
-      # re-growing an issue pile no workflow consumes.
+      # Unrecorded outcomes are surfaced on the log/summary below, exactly as in
+      # `pull`: live resolution is machine-readable by construction (the
+      # disposition orders ride in the proceedings text), so a non-empty
+      # unrecorded queue signals a case shape worth manual triage.
 
       - name: Summarize the run; close the log after the final daily window
         if: success() && steps.run-issue.outputs.number != ''
@@ -615,14 +585,19 @@ jobs:
           set -euo pipefail
           predict=$(jq 'length' predict-queue.json)
           evaluate=$(jq 'length' evaluate-queue.json)
-          reconcile=$(jq 'length' reconcile-queue.json)
+          unrecorded=$(jq 'length' unrecorded-queue.json)
           if [ "${COMMITTED:-false}" = "true" ]; then
             snap="Committed the refreshed corpus pointer + new outcomes to the default branch."
           else
             snap="No outcome or corpus changes this window."
           fi
-          body=$(printf '### ✅ Live poll window complete\n\n%s\n\nHandoffs this window:\n- run:predict cases queued: **%s**\n- run:evaluate cases queued: **%s**\n- ambiguous resolutions (no issue filed; triage if persistent): **%s**\n' \
-            "$snap" "$predict" "$evaluate" "$reconcile")
+          unrecorded_lines=$(jq -r \
+            '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' unrecorded-queue.json)
+          body=$(printf '### ✅ Live poll window complete\n\n%s\n\nHandoffs this window:\n- run:predict cases queued: **%s**\n- run:evaluate cases queued: **%s**\n- outcomes left unrecorded (triage if persistent): **%s**\n' \
+            "$snap" "$predict" "$evaluate" "$unrecorded")
+          if [ "$unrecorded" -gt 0 ]; then
+            body=$(printf '%s\n%s\n' "$body" "$unrecorded_lines")
+          fi
           gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
           if [ "${IS_FINAL_WINDOW}" = "true" ]; then
             gh issue close "$ISSUE" --repo "$REPO" --reason completed
@@ -635,7 +610,7 @@ jobs:
             echo "|---------|------:|"
             echo "| run:predict cases queued | ${predict} |"
             echo "| run:evaluate cases queued | ${evaluate} |"
-            echo "| ambiguous resolutions (unfiled) | ${reconcile} |"
+            echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   historical:
