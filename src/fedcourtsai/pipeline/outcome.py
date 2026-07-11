@@ -28,9 +28,12 @@ The pure decision (:func:`detect_resolution`) is separated from the ledger write
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from .. import corpus, ids
 from ..paths import CasePaths
@@ -68,6 +71,43 @@ def appears_decided(row: CorpusRow) -> bool:
     longer pending.
     """
     return corpus.resolution_date(row) is not None or row.disposition is not None
+
+
+# Docket-entry descriptions that state the matter is over even when the docket
+# row carries no decision date or disposition — common on appellate dockets
+# CourtListener stopped indexing years ago (``date_terminated`` stays null):
+# the clerk's termination entry and the published-opinion entry.
+_TERMINAL_ENTRY_RE = re.compile(r"^opinion issued\b|\bcase termination\b", re.IGNORECASE)
+
+
+def termination_signal(docket: Mapping[str, Any]) -> str | None:
+    """A human-readable reason the fresh docket looks already decided, or ``None``.
+
+    Complements :func:`appears_decided`, which keys on the normalized row's
+    resolution date / disposition: a stale appellate docket often carries
+    neither, yet its **latest** entry ("Case termination for order and
+    judgment", "Opinion Issued") shows the matter is over. Only the last
+    described entry counts — pendency is event-level, and a filing *after* a
+    terminal entry (a stay-the-mandate motion, a rehearing petition) means the
+    docket is active again, so an earlier terminal entry must not starve the
+    later event. (A linked opinion cluster alone is deliberately not a signal
+    here, matching :func:`fedcourtsai.corpus.snapshot_links_opinion_cluster`'s
+    callers: a motions-panel opinion can publish on a still-pending appeal.)
+    Pure, over the fresh full-docket payload. Used to keep decided-looking
+    cases out of the forward-prediction queue — a forward cell on a decided
+    case is a mislabeled back-test with unrestricted retrieval, so any
+    predictor could trivially read the outcome.
+    """
+    last_description = ""
+    for entry in docket.get("docket_entries") or []:
+        for key in ("description", "short_description"):
+            description = str(entry.get(key) or "").strip()
+            if description:
+                last_description = description
+                break
+    if last_description and _TERMINAL_ENTRY_RE.search(last_description):
+        return f"latest docket entry reads as terminal: {last_description!r}"
+    return None
 
 
 @dataclass(frozen=True)

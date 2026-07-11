@@ -33,7 +33,7 @@ from ..matrix import event_has_predictions
 from ..store import open_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
-from .outcome import ReconcileRequest, resolve_case
+from .outcome import ReconcileRequest, resolve_case, termination_signal
 
 
 @dataclass
@@ -51,6 +51,11 @@ class PullResult:
     # so extraction did not guess an event for them (mirrors discovery). Collected
     # for triage; not queued.
     ambiguous: list[AmbiguousEntry] = field(default_factory=list)
+    # Why the fresh docket looks already decided despite its open events (a
+    # terminal docket entry or a linked opinion cluster), or None when it reads
+    # as genuinely pending. Keeps decided-looking cases out of the forward
+    # prediction queue.
+    termination_signal: str | None = None
 
 
 def pull_case(
@@ -104,6 +109,7 @@ def pull_case(
         resolved=sorted(resolution.outcomes),
         reconcile=list(resolution.reconciles),
         ambiguous=list(extraction.ambiguous),
+        termination_signal=termination_signal(fresh),
     )
 
 
@@ -118,6 +124,16 @@ class PullQueues:
     """
 
     predict: list[dict[str, object]] = field(default_factory=list)
+    # Changed cases with open events that were NOT queued forward because the
+    # refreshed docket already looks decided (its latest entry reads terminal,
+    # or a reconcile was asked for its open events). A forward cell on a
+    # decided case is a mislabeled back-test — its "unrestricted retrieval"
+    # would let any predictor read the outcome — so these are surfaced in the
+    # run log for maintainer triage instead of silently mispredicted. A
+    # terminal-entry case without a reconcile ask keeps its events open and
+    # will re-skip on later refreshes until a maintainer records its outcome
+    # or retires it.
+    predict_skipped_decided: list[dict[str, object]] = field(default_factory=list)
     evaluate: list[dict[str, object]] = field(default_factory=list)
     # Resolved events dropped from the evaluate queue because the ledger holds
     # no prediction to score. Surfaced (never silently discarded): resolution
@@ -158,6 +174,28 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
         )
 
 
+def _queue_predict(
+    queues: PullQueues, result: PullResult, court: str, docket: int, events: list[str]
+) -> None:
+    """Queue one changed case with open events forward — or divert it.
+
+    A decided-looking docket never queues forward: either the fresh payload
+    carries a termination signal, or resolution already asked for a reconcile
+    (appears decided, not deterministically recordable). Both land on
+    ``predict_skipped_decided`` with the reason, so the skip is triageable
+    rather than silent.
+    """
+    decided_reason = result.termination_signal or (
+        "docket appears decided; reconcile asked for its open events" if result.reconcile else None
+    )
+    if decided_reason:
+        queues.predict_skipped_decided.append(
+            {"court": court, "docket": docket, "events": events, "reason": decided_reason}
+        )
+    else:
+        queues.predict.append({"court": court, "docket": docket, "events": events})
+
+
 def pull_cases(
     client: CourtListenerClient,
     corpus_db_path: Path,
@@ -174,7 +212,10 @@ def pull_cases(
     The per-case half of ``pull-all``: for every ``(court, docket)`` the rotation
     governor selected, refresh the docket (:func:`pull_case`, which also detects
     resolution), then route the result — a *changed* case with open events to
-    ``predict``, a case that gained an ``outcome.json`` this run to ``evaluate``
+    ``predict`` unless the refreshed docket already looks decided (a termination
+    signal, or a reconcile ask for its open events), in which case it lands on
+    ``predict_skipped_decided`` for triage instead of a mislabeled forward cell;
+    a case that gained an ``outcome.json`` this run to ``evaluate``
     **when the ledger holds a prediction to score** (ground-truth recording is
     ungated; only the evaluator fan-out is), and a case that appears decided but
     could not be recorded deterministically to ``reconcile``. Case selection
@@ -243,7 +284,7 @@ def pull_cases(
         in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
         events = open_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:
-            queues.predict.append({"court": court, "docket": docket, "events": events})
+            _queue_predict(queues, result, court, docket, events)
         if in_scope and result.resolved:
             # Only events something actually predicted reach evaluation: an
             # outcome recorded for a never-predicted event has nothing to score,

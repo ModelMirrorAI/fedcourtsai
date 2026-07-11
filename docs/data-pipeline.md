@@ -601,7 +601,11 @@ for the real corpus the seed/pull workflows produce.
 - **Two jobs over the shared core** (since the July 2026 pivot):
   1. **Refresh** active known cases (`pull_case`), ingesting fresh facts into the
      corpus through the shared core and queuing `run:predict` for changed cases
-     with open events. This is targeted CourtListener *enrichment* — most
+     with open events — unless the refreshed docket already looks decided (its
+     *latest* entry reads terminal, like "Case termination …"/"Opinion Issued",
+     or a reconcile was asked for its open events), in which case the case is
+     skipped and surfaced in the run log: a forward cell on a decided case is
+     a mislabeled back-test. This is targeted CourtListener *enrichment* — most
      importantly the originating CoA dockets the `predict_eligible` latch flags;
      the supremecourt.gov live channel owns SCOTUS freshness.
   2. **Detect resolution** of tracked open events → write `outcome.json` to the
