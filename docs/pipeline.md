@@ -54,21 +54,6 @@ each as its own least-privilege job holding only the credentials its mode needs:
   judge / SCOTUS Term / disposition / originating circuit / decade era, with a
   cert-stage cut restricted to modern discretionary-cert dockets). Read-only: results go
   to the Actions step summary and run log, nothing else.
-- **`recoverability`** (dispatch) runs `fedcourts probe-recoverability` (REST
-  token only, no S3) to answer whether a sparse historical SCOTUS petition's
-  disposition is actually recoverable from CourtListener (an ingestion gap a
-  pull re-fetch can close) or genuinely absent upstream — the question that
-  decides whether such cases stay in scope. Read-only, like `corpus-stats`.
-- **`recoverability-sample`** (dispatch) is the same probe made self-targeting:
-  it draws a deterministic stratified sample of the resolved-but-dateless corpus
-  slice (SCOTUS modern-cert / ca4 / other circuits pooled) and probes it, sizing
-  what a REST re-fetch can recover per stratum (it sized the date backfill the
-  July 2026 pivot later decommissioned — kept as a zero-maintenance diagnostic).
-  The one mode holding *both* read-only credentials — the S3 role to
-  draw the sample from the corpus, the REST token to probe it — a deliberate
-  exception that adds no write capability; the machine report is kept as a run
-  artifact, the per-stratum rollup and the corpus's dated share go to the step
-  summary. Read-only, like its siblings.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/leaderboard.json` (input: the `data/`
   evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`

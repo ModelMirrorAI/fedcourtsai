@@ -475,7 +475,7 @@ def _live_resolution(
     """(disposition, cert_granted, cert_denied, terminated) from the proceedings.
 
     The disposition orders ride as plain proceedings text ("Petition DENIED."),
-    which the recoverability cert-order patterns match — 64/64 on the probe
+    which the shared cert-order patterns match — 64/64 on the reachability-probe
     sample (docs/live-sources-probe.md). The first matching entry, in docket
     order, is the cert-stage disposition and its entry date is the decision
     date: a grant dates ``date_cert_granted``, a denial ``date_cert_denied``,

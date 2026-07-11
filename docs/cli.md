@@ -75,16 +75,7 @@ Measurements a maintainer runs to answer a build question, writing nothing.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `probe-recoverability` | For sparse dockets, fetch the docket, its entries, and any linked opinion cluster from the CourtListener **REST API** and classify the disposition as **RECOVERABLE** (an ingestion gap a pull re-fetch can close — with the source: entry-order / cluster-disposition / citation / date_terminated), **ABSENT** (genuinely bare upstream), or **AMBIGUOUS**. Strictly read-only: touches no corpus, `data/`, DVC, or git. Emits the `ProbeReport` JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary to a file (e.g. the Actions step summary), `--report-out` also writes the JSON to a file (e.g. for a run artifact). Needs a REST token, so it is dispatched by the `run-analytics` workflow (recoverability / recoverability-sample modes). | `--dockets`, `--sample-dateless`, `--seed`, `--report-out`, `--summary-out` |
 | `probe-live-terms` | The live-sources reachability probe: for each October Term from `--max-term` back to `--min-term`, fetch a small sample of `supremecourt.gov` docket-JSON numbers and report availability, document-link coverage, schema stability, and whether the proceedings text carries machine-matchable disposition orders. Strictly read-only and budget-free — the supremecourt.gov channel, not the CourtListener client (no token, no governor; browser UA + ~1 req/s politeness built in). Emits per-Term/per-record JSON on stdout and the Markdown findings table on stderr. Findings + the Term-floor decision: [live-sources-probe.md](live-sources-probe.md). | `--max-term`, `--min-term`, `--numbers`, `--throttle`, `--report-out`, `--summary-out` |
-
-Targets come from exactly one of two flags. `--dockets` takes one or more
-`court/docket` pairs, repeated and/or comma-separated (e.g.
-`--dockets scotus/1000512,scotus/1000515`). `--sample-dateless N` instead draws a
-deterministic stratified random sample of N resolved-but-dateless corpus rows
-(strata: SCOTUS modern-cert, ca4, other circuits pooled; `--seed` fixes the draw)
-— it needs the corpus on disk (`dvc pull`), and the summary then adds a
-per-stratum verdict rollup plus the corpus's dated share at probe time.
 
 ## Metrics & reporting
 
