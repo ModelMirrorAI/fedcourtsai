@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272489",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The committed statpack lacks the prompt-described modern discretionary-cert base-rate section, so only its small, label-mixed resolved SCOTUS aggregate was available for directional calibration.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,230 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "1951454c43effb45",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "3ed65ea48951aa27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4651ba8e110ff335",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272489 -type f | head -50",
+      "result_digest": "1f1c4e8b27f3ce31",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "553a9d43e71b9522",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272489/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "980a4f6673ae13e9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272489/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "8559b8e2b645e8e8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "794c8875c04f9099",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272489/record/documents/documents.json\"}",
+      "result_digest": "7b695503e9736efa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "97c332779bee886d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272489/record/snapshots/2026-07-10.json\"}",
+      "result_digest": "0006d6a0237d0990",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f9bc6d521db7ef84",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272489/record/documents/questions-presented.txt\"}",
+      "result_digest": "84a28384d5617328",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "af2614374ed47f75",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272489/record/documents/petition.txt\"}",
+      "result_digest": "d3d8b777baf92cf2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c89a92c9b32241a7",
+      "query": "grep -n -A 30 \"Modern discretionary-cert\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "09e155c729f9b956",
+      "query": "uv run fedcourts paths --court scotus --docket 73272489 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "25120c8f10503a0d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5b1ca980b5eaa260",
+      "query": "grep -n \"^#\\|^##\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -30; echo ---; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "e55d7d40104710fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "3faa9842caa93fe1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "df4d743b21c21497",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "41c358c4c1340da0",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n 30,60p",
+      "result_digest": "3af6dbbef440d246",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a6ec7bd161c8517d",
+      "query": "uv run fedcourts query --court scotus --era 2020s --corpus-backend ranged --limit 10 2>query_stderr.txt | head -30; echo \"=== STDERR ===\"; cat query_stderr.txt",
+      "result_digest": "e58b65b389c62246",
+      "retrieved_doc_date": "2025-07-08",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "7fb742f90d5e0ca1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "07e530a8c3095a0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "c7addc0313bf752e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "871a72f677062390",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73272489\\\",\\n  \\\"confidence\\\": 0.97,\\n  \\\"created_at\\\": \\\"2026-07-10T23:53:55Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73272489/record/snapshots/2026-07-10.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.002,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"ru",
+      "result_digest": "84e62fc33cb6fe9c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "152b955d9a7d4bd7",
+      "query": "{\"content\": \"# Sanders v. City of Long Beach, No. 25-1235 \\u2014 cert petition disposition\\n\\n**Prediction: denied. P(granted) = 0.002.**\\n\\n## The case\\n\\nLeslie Sanders, proceeding pro se, sued the City of Long Beach over flood\\ndamage to his home on February 2, 2019, alleging premises liability, public\\nnuisance, negligence, and failure to warn of a dangerous condition at storm\\nwater \\\"Pump 13\\\" (Los Angeles County Superior Court No. 19STCV43406). After a\\nbench trial, Judge Kim found for th",
+      "result_digest": "09dcdb1aaca23f7c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "f652035eaadd2237",
+      "query": "{\"content\": \"# Retrieval log \\u2014 claude-baseline / 20260710T234542Z\\n\\nBeyond the provisioned inputs (snapshot `2026-07-10.json`, `petition.txt`,\\n`questions-presented.txt`, `documents.json`, event definition, context):\\n\\n## Corpus lookups\\n\\n- `uv run fedcourts query --court scotus --era 2020s --corpus-backend ranged --limit 10`\\n  \\u2014 stderr: `ranged corpus reads: 378 GET(s), 99090432 byte(s)`\\n  \\u2014 ten resolved 2020s SCOTUS priors used as a modern-disposition sample\\n  (nine denial",
+      "result_digest": "05a68d6fa44e5a2b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7ba04e3c330d4001",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73272489\\\",\\n  \\\"gaps\\\": [\\n    \\\"The committed metrics/statpack.md lacks the 'Modern discretionary-cert petitions by disposition' section the predict prompt tells cells to anchor on (also missing: the by-era cut); the scotus by-court row (296 resolved) was the only usable base rate.\\\",\\n    \\\"A query filter for petitioner type (pro se vs counseled) or case origin (state vs federal) would sharpen priors far more than e",
+      "result_digest": "85fda2952cea4b41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "905e79efec4a548d",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73272489\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": null,\\n      \\\"message\\\": \\\"The predict prompt directs cells to anchor modern cert base rates on the 'Modern discretionary-cert petitions by disposition' section of the committed metrics/statpack.md, but the current statpack has no such section (nor a by-era cut), and its SCOTUS by-Term table shows 0 resolved cases for every ",
+      "result_digest": "42d2c3c5e5584b35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "49d243bb562d225b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ef04ad4cdce1861",
+      "query": "gh issue comment 556 --body \"**claude-baseline / 20260710T234542Z** \u2014 scotus/73272489 (Sanders v. City of Long Beach, No. 25-1235), evt-petition-disposition: predicted **denied**, P(granted) = 0.002. Pro se, fact-bound state-court evidentiary grievances, no federal split, no BIO; distributed for the 9/28/2026 long conference. Note (also in flags.json): the committed statpack lacks the 'Modern discretionary-cert petitions by disposition' section the predict prompt references. All outputs written ",
+      "result_digest": "e10ba3b0d89a5717",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73272489",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

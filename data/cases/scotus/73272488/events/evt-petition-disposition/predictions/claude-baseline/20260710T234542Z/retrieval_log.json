@@ -1,0 +1,262 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "1951454c43effb45",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "3ed65ea48951aa27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ebacf294537d7e4c",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488 -type f | sort",
+      "result_digest": "0e97a77824e86c2c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a7076253e3415487",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "b63beda5968616fa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "97dd2c331efc9840",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "834a3b3ae1e069eb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488/record/documents/documents.json\"}",
+      "result_digest": "fd71c788073a533e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bf23670f854467e8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488/record/snapshots/2026-07-10.json\"}",
+      "result_digest": "433900d96ec93dfa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "be3e96962b20fa75",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488/record/documents/questions-presented.txt\"}",
+      "result_digest": "5d66a91c6fa753f7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c854f2c3729e3267",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "d18edaf3c504d310",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "07522268879b0541",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272488/record/documents/petition.txt\", \"limit\": 1200}",
+      "result_digest": "672480b36366f953",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "3faa9842caa93fe1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "07fcd9da2f33e910",
+      "query": "uv run fedcourts paths --court scotus --docket 73272488 --event evt-petition-disposition 2>&1",
+      "result_digest": "34ff6b3708e901dc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "15238c7a6e2b57ce",
+      "query": "echo \"DECIDED_BEFORE=${DECIDED_BEFORE:-<unset>}\" && uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "20162fa472f3d0cc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "86d2e8573a09384e",
+      "query": "uv run fedcourts query --court scotus --citation \"Jackson v. Virginia\" --citation \"In re Winship\" --limit 5 2>&1 | tail -20",
+      "result_digest": "9660aa6b599087d1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6cf47b804ba4fff",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 2>&1 | head -30",
+      "result_digest": "fdb77bf5ecf5bdab",
+      "retrieved_doc_date": "2025-07-08",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "e972329d41f4e51a",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-6344\", \"fields\": [\"docketNumber\", \"caseName\", \"dateFiled\", \"docket_id\", \"absolute_url\"], \"type\": \"d\"}",
+      "result_digest": "2a2ae5147ced726e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "a254eb425a3509ec",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-6344\", \"type\": \"d\"}",
+      "result_digest": "2a2ae5147ced726e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "7fb742f90d5e0ca1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "07e530a8c3095a0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "850e64cafa3765fd",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -path '*claude-baseline*' -name prediction.json | head -3",
+      "result_digest": "ed051a3f25217db1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e339849498f0d09e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/1033955/events/evt-petition-disposition/predictions/claude-baseline/20260703T204025Z/prediction.json\"}",
+      "result_digest": "8260827c155b336c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "e4a5eceb06cd73d0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "acfbb838ebc33010",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73272488\\\",\\n  \\\"confidence\\\": 0.55,\\n  \\\"created_at\\\": \\\"2026-07-10T23:50:55Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"granted\\\": 1,\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73272488/record/snapshots/2026-07-10.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.55,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"ru",
+      "result_digest": "9973b9fe863812ef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "17e7826030c1a299",
+      "query": "{\"content\": \"# Abrams v. United States, No. 25-1236 \\u2014 cert disposition\\n\\n**Prediction: granted, P(granted) = 0.55.**\\n\\n## The legal question\\n\\nThe petition presents a single, pure question of federal criminal procedure:\\nwhether a defendant's *general* motion for judgment of acquittal under Fed. R.\\nCrim. P. 29 preserves de novo appellate review of evidence-sufficiency\\nchallenges, or whether the defendant must articulate each specific deficiency\\nto avoid plain-error review. Below, the ",
+      "result_digest": "ff26be070394b72a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a3c3effdabe55200",
+      "query": "{\"content\": \"# Retrieval log \\u2014 claude-baseline / 20260710T234542Z\\n\\nMode: `forward` (retrieval unrestricted; no outcome exists to leak).\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"Jackson v. Virginia\\\" --citation \\\"In re Winship\\\" --limit 5`\\n   - stderr: `ranged corpus reads: 378 GET(s), 99090432 byte(s)`\\n   - Returned no rows (citation overlap found no resolved SCOTUS priors).\\n2. `uv run fedcourts query --court scotus --",
+      "result_digest": "af223143ceee017d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c99ab892cf35293d",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73272488\\\",\\n  \\\"gaps\\\": [\\n    \\\"Working CourtListener MCP server (every call failed with a server-side session-store error: REDIS_URL is not set)\\\",\\n    \\\"Statpack section for modern discretionary-cert dispositions (the section the predict prompt anchors on is absent from the committed metrics/statpack.md)\\\",\\n    \\\"A way to query the corpus for petitions sharing cert-stage features (call-for-response after waiver, ",
+      "result_digest": "f7b6c820f8120f5a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "cb21990ea39f7753",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73272488\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"The CourtListener MCP server was down for this cell: every call failed server-side with 'REDIS_URL is not set; cannot access session store'. The prediction proceeded on the provisioned snapshot, petition documents, statpack, and fedcourts query; the main loss was a live-stat",
+      "result_digest": "22f16104cdcf5974",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "49d243bb562d225b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1edc9e87dcf3f2e2",
+      "query": "gh issue comment 556 --body \"**predict cell done** \u2014 \\`scotus/73272488\\` / \\`evt-petition-disposition\\` / \\`claude-baseline\\` / \\`20260710T234542Z\\`\n\nPrediction: **granted**, P(granted) = 0.55 (Abrams v. United States, No. 25-1236 \u2014 Rule 29 general-motion preservation, 7\u20134 circuit split, CFR after waiver, SG acknowledged the split in Tovar). \\`fedcourts validate data\\` passes.\n\nTwo flags in \\`flags.json\\`: the CourtListener MCP server was down for this cell (session-store error on every call), a",
+      "result_digest": "367cbe3899b36bd9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73272488",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

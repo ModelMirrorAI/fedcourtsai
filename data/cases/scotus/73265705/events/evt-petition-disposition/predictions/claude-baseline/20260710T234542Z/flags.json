@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73265705",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP server was unusable for this cell: every tool call failed with 'REDIS_URL is not set; cannot access session store.' Prediction proceeded on the provisioned snapshot/documents, the committed statpack, and fedcourts query priors only; no CourtListener retrieval informed it.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": null,
+      "message": "The predict prompt directs predictors to the 'Modern discretionary-cert petitions by disposition' section of metrics/statpack.md, but the committed statpack has no such section (only overall, by-court, by-topic, by-originating-circuit, and by-Term tables, and the by-Term rows show 0 resolved cases for every recent Term). Modern cert base rates had to be approximated from the resolved scotus row and fedcourts query era sampling.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73271642",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": null,
+      "message": "CourtListener MCP server was unavailable for this cell: every tool call failed with a server-side 'REDIS_URL is not set; cannot access session store' error. The prediction proceeded on the provisioned inputs plus the committed statpack, per the degraded-upstream rule. If the error is config-side it likely affects every cell in this run.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": null,
+      "message": "The committed metrics/statpack.md has no 'Modern discretionary-cert petitions by disposition' section, though .github/prompts/predict.md tells cert predictors to anchor on it; only the blended overall/by-court cuts are present (SCOTUS: 296 resolved, granted 1.4%). Separately, citation-filtered `fedcourts query --court scotus` returned zero priors, so corpus retrieval contributed nothing for this modern cert cell.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

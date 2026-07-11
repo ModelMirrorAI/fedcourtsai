@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73272489",
+  "gaps": [
+    "The committed metrics/statpack.md lacks the 'Modern discretionary-cert petitions by disposition' section the predict prompt tells cells to anchor on (also missing: the by-era cut); the scotus by-court row (296 resolved) was the only usable base rate.",
+    "A query filter for petitioner type (pro se vs counseled) or case origin (state vs federal) would sharpen priors far more than era alone.",
+    "statpack SCOTUS by-Term rows show 0 resolved for every recent Term, so Term-level base rates are currently empty."
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt (the QP text was the decisive input)",
+    "fedcourts query --era 2020s (a same-week sample of resolved dispositions incl. a close pro se analog)",
+    "Fresh same-day snapshot with the full docket proceedings"
+  ],
+  "notes": "Skipped CourtListener MCP entirely: the snapshot was fetched today and the case is a straightforward low-probability pro se cert petition, so extra retrieval would not have moved the estimate.",
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

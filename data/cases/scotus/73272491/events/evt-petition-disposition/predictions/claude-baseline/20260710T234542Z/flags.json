@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73272491",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The configured CourtListener MCP server failed on every call with a server-side error ('REDIS_URL is not set; cannot access session store'), so no CourtListener retrieval informed this cell. The prediction proceeded on the provisioned inputs, the committed statpack, fedcourts query, and two engine web searches (forward mode). Worth fixing before the next fan-out.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The committed metrics/statpack.md has no 'Modern discretionary-cert petitions by disposition' section, although the predict prompt tells cert-petition cells to anchor on it; only the blended overall/by-court base rates (296 resolved SCOTUS cases, mostly historical 'other') are available. Also, fedcourts query (ranged backend) returned zero priors for citation-based SCOTUS lookups while transferring ~99 MB per call.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "documents.json marks petition.txt as truncated (221 pages listed; the text ends mid-appendix). The petition body and QP were complete, so the impact on this prediction is minimal. No brief-in-opposition existed at fetch time (response due 2026-07-15 after the Court's June 15 call for a response); a re-run after the BIO lands would be better informed.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272488",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The prediction prompt directs modern cert predictions to a modern discretionary-cert section, but that section is absent from the committed statpack and recent Terms have no resolved cases there. The ranged corpus query and CourtListener lookup also returned no data because their backends were unavailable, so historical calibration was limited.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}
