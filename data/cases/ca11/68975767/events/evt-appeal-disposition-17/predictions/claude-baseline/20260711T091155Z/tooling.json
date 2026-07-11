@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68975767",
+  "gaps": [
+    "No resolved ca11 trademark priors in the corpus, so topic-matched retrieval returned nothing",
+    "fedcourts query rows carry no caption/decided date for these ca11 priors, limiting their usefulness beyond the disposition label",
+    "A circuit-appeal statpack cut by case type / pro se status would fit appeal-disposition events better than the cert-focused cuts"
+  ],
+  "helpful": [
+    "metrics/statpack.md by-court base rates",
+    "Provisioned snapshot (rich docket text, incl. the district court's full endorsed order)",
+    "fedcourts query --court ca11 as a sanity check on disposition labeling"
+  ],
+  "notes": "CourtListener MCP was available but deliberately unused: the snapshot shows an opinion already issued in this case, so docket/opinion lookups risked retrieving the forbidden outcome. Corpus tooling plus the snapshot were sufficient.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "provisioned snapshot"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

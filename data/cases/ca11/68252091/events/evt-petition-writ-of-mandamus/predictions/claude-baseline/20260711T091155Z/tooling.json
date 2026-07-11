@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68252091",
+  "gaps": [
+    "CourtListener MCP server was down (REDIS_URL not set in its session store); a health check or fallback read-only REST path would keep cells from losing their main retrieval surface",
+    "fedcourts query has no keyword/kind filter, so a mandamus petition cannot be matched to mandamus priors — the ca11 cut returns generic historical merits cases",
+    "statpack has no per-event-kind cut (e.g. mandamus petitions by disposition) analogous to the modern discretionary-cert cut"
+  ],
+  "helpful": [
+    "metrics/statpack.md as a committed, always-available base-rate source",
+    "web search as a fallback when the MCP server is down"
+  ],
+  "notes": "Forward-mode pro se mandamus cell. The provisioned snapshot had only the two opening docket entries; with the MCP server down, one scoped web search on the underlying district case supplied the decisive context.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "WebSearch",
+    "courtlistener MCP (attempted, unavailable)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

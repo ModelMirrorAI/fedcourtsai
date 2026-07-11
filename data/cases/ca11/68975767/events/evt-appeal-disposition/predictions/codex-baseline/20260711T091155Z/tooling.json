@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68975767",
+  "gaps": [
+    "Working CourtListener MCP session storage",
+    "Working DNS access to the ranged corpus remote",
+    "Appeal-specific base rates with affirmance, reversal, and jurisdictional-dismissal labels",
+    "Provisioned pre-decision appellate briefs or jurisdictional response text"
+  ],
+  "helpful": [
+    "Provisioned docket snapshot",
+    "Committed corpus statpack",
+    "Repository appeal-label fixtures"
+  ],
+  "notes": "The MCP search and ranged corpus query were attempted but both failed before returning results. The forecast therefore relied on the provisioned record and weak statpack calibration.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "metrics/statpack.md",
+    "fedcourts query (attempted)",
+    "CourtListener MCP search (attempted)",
+    "repository label fixtures"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68252091",
+  "gaps": [
+    "A current docket or petition text sufficient to identify the relief requested",
+    "Working ranged-corpus and CourtListener MCP retrieval"
+  ],
+  "helpful": [
+    "Provisioned point-in-time docket snapshot",
+    "Committed corpus statpack"
+  ],
+  "notes": "The corpus query and CourtListener MCP search were invoked but returned no research results because their respective remote and session-store dependencies were unavailable.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (failed)",
+    "CourtListener MCP search (failed)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

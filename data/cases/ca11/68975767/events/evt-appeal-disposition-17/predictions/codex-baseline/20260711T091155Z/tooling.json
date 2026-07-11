@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68975767",
+  "gaps": [
+    "CourtListener MCP session storage was not configured",
+    "The ranged corpus remote was unreachable because DNS resolution failed",
+    "No appellate briefs or opinion text were provisioned"
+  ],
+  "helpful": [
+    "Provisioned docket snapshot",
+    "Committed corpus statpack"
+  ],
+  "notes": "Both live retrieval paths failed, so the prediction relies on the docket snapshot and the statpack. The corpus query was time-bounded to exclude this case.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query (failed)",
+    "CourtListener MCP search (failed)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68975767",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-motion-reconsideration-of-a-panel-order-entered",
+      "message": "The required snapshot contains a later docket entry explicitly revealing this event's disposition. I encountered it but excluded it from the forecast, which uses only information through the motion date.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-reconsideration-of-a-panel-order-entered",
+      "message": "record/context.json labels this cell forward even though the 2026-07-11 snapshot contains the event's 2024 disposition. The point-in-time mode and snapshot contents are inconsistent.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

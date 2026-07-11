@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68975767",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-motion-correct-in-dc-15",
+      "message": "The event was formed from docket entry 16, which is itself the court's response to the underlying motion (entry 15): 'No action will be taken on filing... appears intended for another court.' The provisioned baseline therefore already states the court's disposition-in-fact, leaving essentially no forward uncertainty for predictors — the residual question is only how the outcome labeler buckets a clerk-level 'no action' notation (I predicted 'other'). Consider forming motion events from the motion's own docket entry rather than from the responsive entry, and/or defining the label mapping for no-action notations.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,14 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68975767",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition-17",
+      "message": "Cell is marked forward-mode, but the provisioned snapshot's latest docket entry (2024-09-24, entry 26) is captioned 'Opinion Issued' and the docket links opinion cluster 10124517 — the appeal has almost certainly been decided (~22 months before this run), even though date_terminated is null and the event is unresolved. The likely cause is that the tracker keys resolution on date_terminated, which CourtListener has not populated. I did not retrieve the opinion or any outcome information and predicted from the pre-decision record only, but the mode label and available retrieval surface are inconsistent: treating this as forward (unrestricted retrieval) would let a predictor trivially read the disposition. Consider re-marking such cells as replay with a DECIDED_BEFORE clock, or forming the outcome from the linked cluster."
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}
