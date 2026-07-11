@@ -52,7 +52,7 @@ source.
 | `opinion_text`        | text            | full opinion text                            |
 | `summary`             | text            | short form for retrieval                     |
 | `last_pulled`         | date            | tracking state: when `pull` last refreshed it |
-| `predict_eligible`    | integer (0/1)   | prediction-scope latch (SCOTUS-touched); see below |
+| `predict_eligible`    | integer (0/1)   | derived mirror of the prediction scope (`court == scotus`); see below |
 | `originating_court`        | text       | lower court this docket came from (`appeal_from`) |
 | `originating_docket_number`| text       | docket number in the originating court (REST-only) |
 
@@ -70,14 +70,15 @@ slice of the unresolved set within the API budget (see
 [docs/data-pipeline.md](../docs/data-pipeline.md)). `embedding[]` (semantic
 retrieval) is a later upgrade and is not stored yet.
 
-`predict_eligible` is the **prediction-scope latch**: it turns on the first time a
-case interacts with SCOTUS and never clears, gating only the agentic
-predict/evaluate stages (ingestion stays full-coverage). A SCOTUS docket sets it on
-itself; it also propagates to the case's originating court-of-appeals docket via the
+`predict_eligible` is a **derived convenience mirror** of the prediction scope
+(`court == 'scotus'`): every scope seam reads the court predicate directly, so
+the column is queryable but never the source of truth — ingestion writes it by
+the same rule and the scope reconcile normalizes stale values. Only the agentic
+predict/evaluate stages are gated; ingestion stays full-coverage. The
 lower-court link — `originating_court` (CourtListener `appeal_from`) plus
-`originating_docket_number` (`originating_court_information.docket_number`, populated
-only on the REST path) — joined on court id + normalized docket number. See the
-prediction scope in [docs/data-pipeline.md](../docs/data-pipeline.md).
+`originating_docket_number` (`originating_court_information.docket_number`,
+populated only on the REST path) — is retrieval context, never a scope trigger.
+See the prediction scope in [docs/data-pipeline.md](../docs/data-pipeline.md).
 
 ## Predictable events (`events`)
 

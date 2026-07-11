@@ -1007,10 +1007,16 @@ class ScopeReconcileResult(_Strict):
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     applied: bool = Field(default=False, description="False on a dry run (no corpus write)")
     skipped: bool = Field(default=False, description="True when no corpus was present")
-    eligible_cases: int = Field(default=0, ge=0, description="Predict-eligible cases weighed")
+    eligible_cases: int = Field(default=0, ge=0, description="SCOTUS dockets weighed")
     excluded: int = Field(default=0, ge=0, description="Cases newly latched out of scope")
     released: int = Field(
         default=0, ge=0, description="Cases whose latch was cleared (back in scope)"
+    )
+    normalized: int = Field(
+        default=0,
+        ge=0,
+        description="Rows whose derived scope columns were converged to the court "
+        "predicate (hygiene, not a scope decision); 0 on a dry run",
     )
     sample_excluded: list[str] = Field(default_factory=list)
     sample_released: list[str] = Field(default_factory=list)

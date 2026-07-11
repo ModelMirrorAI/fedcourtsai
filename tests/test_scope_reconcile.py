@@ -10,16 +10,12 @@ from fedcourtsai.schemas import Disposition
 
 def _rows() -> list[corpus.CorpusRow]:
     return [
-        # eligible + out of scope (stale unresolvable) -> should be latched out
-        corpus.CorpusRow(
-            case_id="scotus/1", court="scotus", docket_number="01-7700", predict_eligible=True
-        ),
-        # eligible + in scope (recent Term) -> left alone
-        corpus.CorpusRow(
-            case_id="scotus/2", court="scotus", docket_number="24-101", predict_eligible=True
-        ),
-        # out of scope but NOT eligible -> outside the reconcile universe, untouched
-        corpus.CorpusRow(case_id="scotus/3", court="scotus", docket_number="93-7515"),
+        # SCOTUS + out of scope (stale unresolvable) -> should be latched out
+        corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="01-7700"),
+        # SCOTUS + in scope (recent Term) -> left alone
+        corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="24-101"),
+        # a court-of-appeals docket -> outside the reconcile universe, untouched
+        corpus.CorpusRow(case_id="ca9/3", court="ca9", docket_number="21-35466"),
     ]
 
 
@@ -36,7 +32,7 @@ def test_reconcile_dry_run_counts_without_writing(tmp_path: Path) -> None:
         corpus.upsert_rows(conn, _rows())
         result = reconcile_predict_scope(conn, apply=False)
     assert result.applied is False
-    assert result.eligible_cases == 2  # only the predict_eligible rows are weighed
+    assert result.eligible_cases == 2  # only the SCOTUS dockets are weighed
     assert (result.excluded, result.released) == (1, 0)
     assert result.sample_excluded == ["scotus/1"]
     assert _excluded(db, "scotus/1") is False  # dry run wrote nothing
@@ -50,7 +46,7 @@ def test_reconcile_apply_latches_out_of_scope_eligible_cases(tmp_path: Path) -> 
     assert result.applied is True and result.excluded == 1
     assert _excluded(db, "scotus/1") is True  # out-of-scope eligible case latched out
     assert _excluded(db, "scotus/2") is False  # in-scope case untouched
-    assert _excluded(db, "scotus/3") is False  # ineligible case outside the universe
+    assert _excluded(db, "ca9/3") is False  # non-SCOTUS case outside the universe
 
 
 def test_reconcile_is_idempotent_and_two_directional(tmp_path: Path) -> None:
@@ -69,7 +65,6 @@ def test_reconcile_is_idempotent_and_two_directional(tmp_path: Path) -> None:
                     case_id="scotus/1",
                     court="scotus",
                     docket_number="01-7700",
-                    predict_eligible=True,
                     disposition=Disposition.denied,
                     date_decided=date(2002, 1, 7),
                 )
@@ -151,3 +146,20 @@ def test_reconcile_preserved_across_reingest(tmp_path: Path) -> None:
             ],
         )
     assert _excluded(db, "scotus/1") is True  # latch survived the re-ingest
+
+
+def test_reconcile_apply_normalizes_stale_derived_columns(tmp_path: Path) -> None:
+    # A CoA row carrying a stale eligible flag (the earlier, broader rule) is
+    # converged by the apply path and the count is surfaced; a dry run reports 0.
+    db = corpus.corpus_db_path(tmp_path)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="ca9/9", court="ca9", predict_eligible=True)],
+        )
+        dry = reconcile_predict_scope(conn, apply=False)
+        assert dry.normalized == 0
+        applied = reconcile_predict_scope(conn, apply=True)
+        assert applied.normalized == 1
+        row = corpus.get_row(conn, "ca9/9")
+    assert row is not None and row.predict_eligible is False

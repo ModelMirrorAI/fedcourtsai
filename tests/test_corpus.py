@@ -179,17 +179,17 @@ def test_predict_eligible_roundtrips_and_defaults_false(tmp_path: Path) -> None:
     assert default is not None and default.predict_eligible is False
 
 
-def test_predict_eligible_latches_on_and_never_clears(tmp_path: Path) -> None:
-    # Once a case is in prediction scope, a later re-ingest (even one that would
-    # compute the flag False under a narrower rule) must not drop it back out.
+def test_predict_eligible_self_heals_on_reingest(tmp_path: Path) -> None:
+    # The column is a derived mirror of the court predicate, not a latch: a
+    # re-ingest carrying the correctly-computed value overwrites a stale one.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [_row(case_id="ca9/9", predict_eligible=True)])
+        corpus.upsert_rows(conn, [_row(case_id="ca9/9", predict_eligible=True)])  # stale
         corpus.upsert_rows(conn, [_row(case_id="ca9/9", topic="refreshed", predict_eligible=False)])
         fetched = corpus.get_row(conn, "ca9/9")
     assert fetched is not None
-    assert fetched.topic == "refreshed"  # other columns still overwrite
-    assert fetched.predict_eligible is True  # but the latch holds
+    assert fetched.topic == "refreshed"
+    assert fetched.predict_eligible is False  # the mirror self-heals
 
 
 def test_originating_link_columns_roundtrip(tmp_path: Path) -> None:
@@ -271,64 +271,28 @@ def test_normalize_docket_number(raw: str | None, expected: str | None) -> None:
     assert corpus.normalize_docket_number(raw) == expected
 
 
-def test_latch_originating_flips_tracked_coa_docket_eligible(tmp_path: Path) -> None:
-    # A SCOTUS docket linked to a *tracked* ca9 docket flips that docket eligible,
-    # joining on court id + normalized docket number (here a "No." label differs).
+def test_normalize_predict_eligible_converges_to_the_court_predicate(tmp_path: Path) -> None:
+    # Rows latched under an earlier, broader rule (a CoA docket flagged eligible)
+    # converge to the scope predicate; a mislabeled SCOTUS row converges too.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [_row(case_id="ca9/55", court="ca9", docket_number="21-35466")])
-        scotus = _row(
-            case_id="scotus/1",
-            court="scotus",
-            originating_court="ca9",
-            originating_docket_number="No. 21-35466",
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(case_id="ca9/55", court="ca9", predict_eligible=True),  # stale broad latch
+                _row(case_id="scotus/1", court="scotus", predict_eligible=True),  # already right
+                _row(case_id="ca1/2", court="ca1"),  # already right
+            ],
         )
-        assert corpus.latch_originating_eligible(conn, [scotus]) == 1
+        # A raw column write simulating a pre-predicate row the upsert latch kept.
+        conn.execute("UPDATE cases SET predict_eligible = 0 WHERE case_id = 'scotus/1'")
+        changed = corpus.normalize_predict_eligible(conn)
+        assert changed == 2  # the stale CoA latch cleared, the SCOTUS row set
+        assert corpus.normalize_predict_eligible(conn) == 0  # idempotent
         coa = corpus.get_row(conn, "ca9/55")
-    assert coa is not None and coa.predict_eligible is True
-
-
-def test_latch_originating_is_noop_for_unlinked_or_untracked(tmp_path: Path) -> None:
-    db = tmp_path / "corpus.db"
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [_row(case_id="ca9/55", court="ca9", docket_number="21-35466")])
-        # Unlinked SCOTUS row, a non-SCOTUS row, and a link to an untracked docket
-        # (wrong number) all leave the tracked CoA docket alone.
-        rows = [
-            _row(case_id="scotus/1", court="scotus"),
-            _row(
-                case_id="ca1/2",
-                court="ca1",
-                originating_court="ca9",
-                originating_docket_number="21-35466",
-            ),
-            _row(
-                case_id="scotus/3",
-                court="scotus",
-                originating_court="ca9",
-                originating_docket_number="99-00000",
-            ),
-        ]
-        assert corpus.latch_originating_eligible(conn, rows) == 0
-        coa = corpus.get_row(conn, "ca9/55")
+        scotus = corpus.get_row(conn, "scotus/1")
     assert coa is not None and coa.predict_eligible is False
-
-
-def test_latch_originating_is_idempotent_and_never_clears(tmp_path: Path) -> None:
-    db = tmp_path / "corpus.db"
-    scotus = _row(
-        case_id="scotus/1",
-        court="scotus",
-        originating_court="ca9",
-        originating_docket_number="21-35466",
-    )
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [_row(case_id="ca9/55", court="ca9", docket_number="21-35466")])
-        assert corpus.latch_originating_eligible(conn, [scotus]) == 1
-        # Second pass: already latched, so nothing is newly flipped, but it holds.
-        assert corpus.latch_originating_eligible(conn, [scotus]) == 0
-        coa = corpus.get_row(conn, "ca9/55")
-    assert coa is not None and coa.predict_eligible is True
+    assert scotus is not None and scotus.predict_eligible is True
 
 
 def test_is_historical_mandatory_detects_bare_scotus_docket() -> None:
@@ -372,7 +336,7 @@ def test_is_historical_mandatory_detects_labeled_bare_docket() -> None:
 
 def test_is_historical_mandatory_only_applies_to_scotus() -> None:
     # The regime is a Supreme Court concept; a bare-numbered lower-court docket is
-    # not swept up (and the gate only sees a case once it is SCOTUS-eligible anyway).
+    # not swept up (and the scope gate only weighs SCOTUS dockets anyway).
     row = corpus.CorpusRow(case_id="ca9/801", court="ca9", docket_number="801")
     assert corpus.is_historical_mandatory(row) is False
 

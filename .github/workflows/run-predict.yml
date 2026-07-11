@@ -60,10 +60,10 @@ jobs:
           uv run fedcourts authorize-trigger \
             --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
 
-      # The scope gate (predict.scope=scotus_touched) reads each case's latched
-      # predict_eligible flag from the DVC-backed corpus, so the corpus must be on
-      # disk before predict-matrix runs — without it the gate sees an empty
-      # database, drops every case, and the predict job is silently skipped. A
+      # The scope gate (predict.scope=scotus_docket) reads each case's corpus row
+      # (court + exclusion reasons) from the DVC-backed corpus, so the corpus must be on
+      # disk before predict-matrix runs — a missing database aborts the build
+      # loudly rather than emitting an empty matrix. A
       # missing pointer only warns (a pre-corpus repo has nothing to gate on).
       # Plan is a scan-shaped consumer, so it keeps the full pull; the cell jobs
       # below read the blob in place via the ranged backend instead.

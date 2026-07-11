@@ -3,12 +3,10 @@ name: run-pull
 # Refresh tracked dockets — three writer jobs on one surface, at most one per run:
 #
 # - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label):
-#   targeted CourtListener *enrichment* for the SCOTUS-touched set — most
-#   importantly the originating CoA dockets the predict_eligible latch flags —
+#   targeted CourtListener *enrichment* for the tracked set —
 #   not the primary freshness mechanism. CourtListener discovery is off (`pull.
 #   discover_new_filings: false`): the live channel owns SCOTUS onboarding, and
-#   circuit discovery onboarded cases the SCOTUS-touch gate would not predict
-#   for years.
+#   circuit discovery onboarded cases outside the prediction scope.
 # - `live` (the `47 *` crons or dispatch mode=live): the SCOTUS live channel
 #   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and

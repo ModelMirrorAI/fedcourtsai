@@ -23,17 +23,16 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   agentic stages. The whole
   corpus is assembled precisely so predict/evaluate can **query the full history**
   for retrieval and back-testing, even for cases they never predict.
-- **Prediction scope — the SCOTUS-interaction gate (pilot).** The agentic
+- **Prediction scope — SCOTUS dockets only.** The agentic
   predict/evaluate stages cost one to two orders of magnitude more than ingestion
-  (see [budget.md](budget.md)), so in the pilot they run on a deliberate subset: a
-  case becomes **in-scope for prediction the first time it interacts with the Supreme
-  Court** — a petition for certiorari is the canonical trigger — and **stays in-scope
-  for the remainder of its lifecycle**. So a gated case's later merits events, and any
-  remand activity back in the courts of appeals, are predicted, while the ~42K/yr
-  appeals cases that never reach SCOTUS are ingested but not predicted. The gate
-  latches once and never clears; widening it beyond SCOTUS-touched cases is a later,
+  (see [budget.md](budget.md)), so they run on a deliberate subset: **only SCOTUS
+  dockets** (`court == "scotus"`, the immutable row property every scope seam
+  reads directly). A case's originating court-of-appeals docket — including
+  remand activity after a grant — is ingested for context and retrieval but not
+  predicted, as are the ~42K/yr appeals cases that never reach SCOTUS. Widening
+  the scope is a later,
   cost-data-driven decision ([milestones.md](milestones.md)). One narrowing rides on
-  top of the latch: a **pre-1925 mandatory-jurisdiction matter** (detected by its
+  top of the court predicate: a **pre-1925 mandatory-jurisdiction matter** (detected by its
   bare, non-Term-prefixed docket number, e.g. `801`) is dropped from the
   predict/evaluate set — its `evt-petition-disposition` carries a merits, not a
   discretionary-cert, meaning, so the modern event model does not fit it
@@ -52,17 +51,15 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   any case that later gains a real disposition.
 
   Because the corpus keys a case by `<court>/<docket>`, the *same real-world case's*
-  SCOTUS docket and originating court-of-appeals docket are **separate rows**. Both
-  belong in scope, so when a SCOTUS docket is ingested carrying a lower-court link
-  (CourtListener `appeal_from` + `originating_court_information.docket_number`, stored
-  as the `originating_court` / `originating_docket_number` corpus columns), the
-  ingestion seam latches the matching *tracked* CoA docket eligible too — joining on
-  court id + normalized docket-number string. The REST (pull) path carries that docket
+  SCOTUS docket and originating court-of-appeals docket are **separate rows**. Only
+  the SCOTUS row is predicted; the lower-court link a SCOTUS docket carries
+  (CourtListener `appeal_from` + `originating_court_information.docket_number`,
+  stored as the `originating_court` / `originating_docket_number` corpus columns)
+  is retrieval context — it lets a predictor pull the originating docket's
+  history — never a scope trigger. The REST (pull) path carries that docket
   number; a bulk-shaped path does not (CourtListener publishes no
-  originating-court-information bulk table), so it fills only the originating court and
-  the precise latch is pull-driven. The match is a conservative exact one — an
-  unlinked or untracked SCOTUS docket is a harmless no-op — and, like the SCOTUS latch
-  itself, forward-only.
+  originating-court-information bulk table), so it fills only the originating
+  court.
 
 ## The binding constraint: the CourtListener API budget
 
@@ -184,15 +181,14 @@ REST drip could not recover at any budget. What changed:
   primarily for the statpack's per-Term base rates, secondarily the cert
   back-test set. See [live-sources.md](live-sources.md).
 - **Pull is re-aimed as targeted enrichment.** The live channel owns SCOTUS
-  freshness; pull's REST budget goes to keeping the SCOTUS-touched set's
-  CourtListener records current — most importantly the originating CoA dockets
-  the `predict_eligible` latch flags — rather than rotating the whole active
+  freshness; pull's REST budget goes to keeping the tracked set's
+  CourtListener records current rather than rotating the whole active
   set stalest-first as the primary freshness mechanism.
 - **`discover_new_filings` is off as of the live channel's adoption** (the
   decision recorded at the pivot): the live channel's frontier
   probing onboards newly filed SCOTUS petitions — fresher and budget-free —
-  and circuit discovery onboarded cases the SCOTUS-touch gate won't predict
-  for years. Its budget slice returned to the enrichment rotation.
+  and circuit discovery onboarded cases outside the prediction scope. Its
+  budget slice returned to the enrichment rotation.
 - **`run-reconcile` is paused** (workflow disabled) while the refactor decides
   its fate: with stub upstream records every reconcile agent run failed, and
   the live channel's proceedings-text resolution makes most resolutions
@@ -567,8 +563,8 @@ for the real corpus the run-pull writer jobs produce.
   each) with **oldest-`last_pulled`-first rotation** and **skip closed/resolved**
   cases, sized so each window stays under the active CourtListener tier's hourly
   ceiling and the day's windows under its daily one. A slice of each run
-  (`eligible_refresh_reserve`) is reserved for the stalest **predict-eligible**
-  cases, so the SCOTUS-touched pilot set rotates ahead of the much larger active
+  (`eligible_refresh_reserve`) is reserved for the stalest **SCOTUS dockets**
+  (the prediction scope), so the in-scope set rotates ahead of the much larger active
   set and new docket activity is caught before a case resolves. As the active set
   grows past one run's capacity, each case is simply
   refreshed every few days. The rotation key `last_pulled` is **per-case tracking
@@ -581,9 +577,8 @@ for the real corpus the run-pull writer jobs produce.
      *latest* entry reads terminal, like "Case termination …"/"Opinion Issued",
      or a reconcile was asked for its open events), in which case the case is
      skipped and surfaced in the run log: a forward cell on a decided case is
-     a mislabeled back-test. This is targeted CourtListener *enrichment* — most
-     importantly the originating CoA dockets the `predict_eligible` latch flags;
-     the supremecourt.gov live channel owns SCOTUS freshness.
+     a mislabeled back-test. This is targeted CourtListener *enrichment* of the
+     tracked set; the supremecourt.gov live channel owns SCOTUS freshness.
   2. **Detect resolution** of tracked open events → write `outcome.json` to the
      git ledger deterministically when the disposition is machine-readable (a
      concrete disposition, a decision date, and a single open event), and queue
@@ -599,7 +594,7 @@ for the real corpus the run-pull writer jobs produce.
 - **CourtListener discovery is off** (`pull.discover_new_filings: false`):
   the live channel's frontier probing onboards
   newly filed SCOTUS petitions, and circuit discovery onboarded cases the
-  SCOTUS-touch gate would not predict for years. The watermark machinery below
+  prediction scope would never cover. The watermark machinery below
   remains implemented but dormant, and reactivates by flipping the flag.
 
 ## Event definition — deterministic, corpus-driven
@@ -667,7 +662,7 @@ channel's**: the run-pull `live` job polls supremecourt.gov four times a day —
 frontier probing onboards new petitions within a cycle, the watchlist refresh
 catches distributions and resolutions within days of the conference. Pull's
 four CourtListener windows spend the API budget on enrichment of the
-SCOTUS-touched set. The result is that the *prediction-relevant* slice — every
+in-scope SCOTUS set. The result is that the *prediction-relevant* slice — every
 pending petition and its originating docket — is complete to within one live
 cycle, while circuit breadth advances only as enrichment reaches it.
 

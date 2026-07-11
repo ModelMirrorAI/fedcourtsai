@@ -204,8 +204,9 @@ logic-in-tested-Python convention above).
 `plan` parses the issue body's ` ```json ``` ` case block and runs
 `fedcourts predict-matrix` / `evaluate-matrix`, which expands the **registry ×
 cases × events** into a GitHub Actions matrix. When prediction scope is gated
-(`predict.scope=scotus_touched`) the builder reads each case's latched
-`predict_eligible` flag, so `plan` first `dvc pull`s the corpus; with the gate on
+(`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
+SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
+`dvc pull`s the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix. Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the

@@ -262,17 +262,14 @@ def test_originating_link_extracted_from_api_and_bulk() -> None:
     assert bare.originating_court is None and bare.originating_docket_number is None
 
 
-def test_upsert_latches_originating_coa_docket(tmp_path: Path) -> None:
-    # End-to-end through the ingestion seam: a SCOTUS docket linked to a tracked
-    # ca9 docket flips that CoA docket eligible; an untracked link is a no-op.
+def test_upsert_never_pulls_a_coa_docket_into_scope(tmp_path: Path) -> None:
+    # The scope rule is the row's own court: ingesting a SCOTUS docket that links
+    # back to a tracked ca9 docket leaves that CoA docket out of scope (it is
+    # ingested for context and retrieval, never predicted).
     db = corpus.corpus_db_path(tmp_path)
     upsert_to_corpus(
         db, [from_bulk_row({"id": "55", "court_id": "ca9", "docket_number": "21-35466"})]
     )
-    with corpus.connect(db) as conn:
-        before = corpus.get_row(conn, "ca9/55")
-    assert before is not None and before.predict_eligible is False
-
     upsert_to_corpus(
         db,
         [
@@ -283,21 +280,16 @@ def test_upsert_latches_originating_coa_docket(tmp_path: Path) -> None:
                     "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
                     "originating_court_information": {"docket_number": "21-35466"},
                 }
-            ),
-            # Links to a docket number no tracked ca9 case carries → no-op.
-            from_api_docket(
-                {
-                    "id": 2,
-                    "court_id": "scotus",
-                    "appeal_from": "https://www.courtlistener.com/api/rest/v4/courts/ca9/",
-                    "originating_court_information": {"docket_number": "99-00000"},
-                }
-            ),
+            )
         ],
     )
     with corpus.connect(db) as conn:
         coa = corpus.get_row(conn, "ca9/55")
-    assert coa is not None and coa.predict_eligible is True
+        scotus = corpus.get_row(conn, "scotus/1")
+    assert coa is not None and coa.predict_eligible is False
+    assert scotus is not None and scotus.predict_eligible is True
+    # The link itself is still recorded — retrieval context, not scope.
+    assert scotus.originating_docket_number == "21-35466"
 
 
 def test_to_corpus_row_projects_onto_store_schema() -> None:

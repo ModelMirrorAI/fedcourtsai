@@ -52,7 +52,7 @@ def cases_due_for_pull(
     oldest-``last_pulled``-first order (skipping closed/resolved cases by
     default), so a run provably touches no more than ``limit`` dockets and a
     large active set rotates over successive days. ``eligible_reserve`` reserves
-    up to that many slots for the stalest ``predict_eligible`` cases so the pilot
+    up to that many slots for the stalest SCOTUS dockets so the in-scope
     set rotates ahead of the general active set (see
     :func:`fedcourtsai.corpus.rotation_for_pull`). Empty if the corpus does not
     exist yet (reading must not create it).

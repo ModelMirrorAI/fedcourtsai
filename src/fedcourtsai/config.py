@@ -77,10 +77,10 @@ class PullConfig(BaseModel):
     max_cases_per_run: int = Field(default=15, ge=0)
     # Don't spend budget re-fetching closed / resolved cases.
     skip_closed: bool = True
-    # Reserve up to this many of each run's slots for the stalest predict-eligible
-    # cases, so the SCOTUS-touched pilot set rotates ahead of the much larger
-    # general active set. Unused reserve slots fall through to the normal
-    # stalest-first rotation, so it never wastes budget; 0 disables the bias.
+    # Reserve up to this many of each run's slots for the stalest SCOTUS
+    # dockets (the prediction scope), so the in-scope set rotates ahead of the
+    # much larger general active set. Unused reserve slots fall through to the
+    # normal stalest-first rotation, so it never wastes budget; 0 disables the bias.
     eligible_refresh_reserve: int = Field(default=0, ge=0)
     # Discover newly-filed dockets in the tracked courts since the last run.
     discover_new_filings: bool = True
@@ -232,9 +232,10 @@ class PredictScope(StrEnum):
     expensive predict/evaluate stages (see ``docs/data-pipeline.md``).
     """
 
-    # Only cases that have interacted with SCOTUS (the latched `predict_eligible`
-    # flag) are in-scope — the pilot cost gate.
-    scotus_touched = "scotus_touched"
+    # Only SCOTUS dockets (`court == "scotus"`) are in-scope — the cost gate.
+    # Originating court-of-appeals dockets are ingested for context and
+    # retrieval but not predicted.
+    scotus_docket = "scotus_docket"
     # No gate: every changed case with open events is in-scope (dev / back-testing).
     all = "all"
 
@@ -248,8 +249,8 @@ class PredictConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    # Which cases the agentic stages run on; `scotus_touched` is the pilot default.
-    scope: PredictScope = PredictScope.scotus_touched
+    # Which cases the agentic stages run on; `scotus_docket` is the default.
+    scope: PredictScope = PredictScope.scotus_docket
 
 
 def load_predict_config(config_root: Path) -> PredictConfig:

@@ -151,7 +151,7 @@ def _originating_docket_number(record: Mapping[str, Any]) -> str | None:
     The REST docket nests it under ``originating_court_information.docket_number``.
     CourtListener does not export the originating-court-information table in bulk,
     so a bulk-shaped row leaves this blank — only the originating *court* is
-    recoverable there — and the precise lower-court latch is REST (pull) driven.
+    recoverable there — and the precise lower-court link is REST (pull) driven.
     """
     info = record.get("originating_court_information")
     if isinstance(info, Mapping):
@@ -576,21 +576,15 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
 
 
 def is_predict_eligible(row: CorpusRow) -> bool:
-    """Whether a freshly-ingested case enters the prediction-scope gate.
+    """Whether a freshly-ingested case is in the prediction scope.
 
-    The *rule* behind the latching ``predict_eligible`` flag: a case is in-scope
-    for the agentic predict/evaluate stages once it has interacted with the
-    Supreme Court (``docs/data-pipeline.md``). A SCOTUS docket
-    (``court == "scotus"``) is in-scope — its whole lifecycle is at SCOTUS, so this
-    satisfies "stays in-scope for its lifecycle". Set identically on every
-    ingestion path because all project through :func:`to_corpus_row`.
-
-    The *other* half of the rule — pulling the same case's originating
-    court-of-appeals docket into scope — is not decidable from a single row (it
-    needs the lower-court link resolved against the *other* docket's corpus row),
-    so it lives in :func:`fedcourtsai.corpus.latch_originating_eligible`, invoked
-    after the upsert. Because the flag is persisted and latching, that is a purely
-    additive change — never a filter change.
+    The rule behind the derived ``predict_eligible`` convenience column, and
+    exactly the scope predicate: only a SCOTUS docket (``court == "scotus"``)
+    is in-scope for the agentic predict/evaluate stages
+    (``docs/data-pipeline.md``). Set identically on every ingestion path
+    because all project through :func:`to_corpus_row`. Every scope seam reads
+    the court predicate directly — the column is a queryable mirror, never the
+    source of truth.
     """
     return row.court == "scotus"
 
@@ -666,16 +660,10 @@ def upsert_to_corpus(
     rather than duplicating it. ``last_pulled`` / ``last_live_polled`` stamp the writing
     channel's refresh date onto every row in the batch, advancing that channel's
     rotation key (each preserves the other channel's prior stamp).
-
-    After the upsert, any SCOTUS row in the batch carrying a lower-court link
-    latches its originating tracked court-of-appeals docket eligible (the second
-    half of the prediction-scope rule); an unlinked or untracked one is a no-op.
     """
     store_rows = [
         to_corpus_row(row, last_pulled=last_pulled, last_live_polled=last_live_polled)
         for row in merge_rows(rows)
     ]
     with corpus.connect(db_path) as conn:
-        written = corpus.upsert_rows(conn, store_rows)
-        corpus.latch_originating_eligible(conn, store_rows)
-        return written
+        return corpus.upsert_rows(conn, store_rows)

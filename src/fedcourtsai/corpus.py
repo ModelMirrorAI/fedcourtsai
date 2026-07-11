@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -221,9 +221,11 @@ class CorpusRow(BaseModel):
     )
     predict_eligible: bool = Field(
         default=False,
-        description="Prediction-scope latch: True once the case has interacted with "
-        "SCOTUS, gating the agentic predict/evaluate stages. Set by the ingestion "
-        "rule and never cleared by a later re-ingest; ingestion coverage is unaffected.",
+        description="Derived convenience mirror of the prediction scope "
+        "(court == 'scotus'). Every scope seam reads the court predicate "
+        "directly; ingestion writes this column by the same rule and the scope "
+        "reconcile normalizes stale values, so it is queryable but never the "
+        "source of truth.",
     )
     predict_excluded: bool = Field(
         default=False,
@@ -662,22 +664,20 @@ def _from_record(record: RecordRow) -> CorpusRow:
 def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
-    Most columns take the incoming value (``excluded``). Three are special:
+    Most columns take the incoming value (``excluded``). Two are special:
     ``last_pulled`` only ever advances — a write without a fresh stamp (e.g. a
-    historical-walk re-ingest) keeps the timestamp a prior pull recorded;
-    ``predict_eligible`` only ever latches on, so once a case is in prediction
-    scope a later re-ingest (under a narrower rule) cannot drop it back out; and
+    historical-walk re-ingest) keeps the timestamp a prior pull recorded; and
     ``predict_excluded`` is owned by the scope reconcile (not an ingestion fact),
     so an upsert keeps the stored value rather than resetting it to the model
-    default.
+    default. ``predict_eligible`` deliberately takes the incoming value: it is a
+    derived mirror of the court predicate, so a re-ingest self-heals a stale
+    value rather than latching it.
     """
     if column in ("last_pulled", "last_live_polled", "distributed_for_conference"):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
         # conference parse) must not wipe what another channel stamped.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
-    if column == "predict_eligible":
-        return f"{column}=MAX(excluded.{column}, cases.{column})"
     if column == "predict_excluded":
         # The scope reconcile owns this flag (it is not an ingestion fact and is not
         # monotonic), so a re-ingest must never clobber it — keep the stored value.
@@ -702,45 +702,26 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     return len(rows)
 
 
-def latch_originating_eligible(conn: sqlite3.Connection, rows: Iterable[CorpusRow]) -> int:
-    """Latch ``predict_eligible`` on the tracked originating docket of each SCOTUS row.
+def normalize_predict_eligible(conn: sqlite3.Connection) -> int:
+    """Converge the derived scope columns to the scope predicate.
 
-    The second half of the prediction-scope rule: once a case interacts with the
-    Supreme Court its originating court-of-appeals docket — where post-cert and
-    remand activity lands — is also in scope (``docs/data-pipeline.md``). For every
-    SCOTUS row in ``rows`` carrying a lower-court link (``originating_court`` +
-    ``originating_docket_number``), set the latch on the corpus docket matching
-    ``(court, normalized docket_number)``. Matching is grouped per originating court
-    so at most one indexed scan per court runs, regardless of how many SCOTUS rows
-    share it.
-
-    Forward-only and idempotent, exactly like the ingestion latch: an unlinked
-    SCOTUS row, or one whose originating docket is not tracked, is a no-op; an
-    already-eligible docket is left alone (``predict_eligible = 0`` guards the
-    write); and the flag is only ever set, never cleared. Returns the number of
-    dockets newly latched this call.
+    ``predict_eligible`` is a convenience mirror of ``court == 'scotus'`` (the
+    prediction scope); every scope seam reads the court predicate directly, so
+    correctness never depends on this. A non-SCOTUS row also sheds any stale
+    ``predict_excluded`` latch — outside the reconcile's universe nothing would
+    ever release it, and under ``scope=all`` a stale latch silently empties the
+    case's open events. Run by the scope reconcile so rows written under an
+    earlier, broader rule read consistently. Idempotent; returns rows changed.
     """
-    by_court: dict[str, set[str]] = {}
-    for row in rows:
-        if row.court != "scotus":
-            continue
-        norm = normalize_docket_number(row.originating_docket_number)
-        if row.originating_court and norm is not None:
-            by_court.setdefault(row.originating_court, set()).add(norm)
-    if not by_court:
-        return 0
-    latched = 0
     with conn:
-        for court, norms in sorted(by_court.items()):
-            placeholders = ", ".join("?" for _ in norms)
-            cur = conn.execute(
-                "UPDATE cases SET predict_eligible = 1 "
-                f"WHERE court = ? AND predict_eligible = 0 AND norm_dn(docket_number) IN "
-                f"({placeholders})",
-                (court, *sorted(norms)),
-            )
-            latched += cur.rowcount
-    return latched
+        changed = conn.execute(
+            "UPDATE cases SET predict_eligible = (court = 'scotus') "
+            "WHERE predict_eligible != (court = 'scotus')"
+        ).rowcount
+        changed += conn.execute(
+            "UPDATE cases SET predict_excluded = 0 WHERE court != 'scotus' AND predict_excluded = 1"
+        ).rowcount
+        return changed
 
 
 def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -> str | None:
@@ -749,7 +730,7 @@ def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -
     The identity-reconciliation join for the live channel: the corpus
     keys on docket ids, which a supremecourt.gov record does not carry, so both
     channels reconcile on the normalized docket-number string (the same
-    ``norm_dn`` rule the lower-court latch uses) before minting a row — a live
+    ``norm_dn`` rule the lower-court link join uses) before minting a row — a live
     poll enriches the CourtListener-keyed row when one exists, and CourtListener
     discovery enriches the live-keyed row when the live channel saw the petition
     first. Should two rows ever match (a pre-guard historical duplicate), the
@@ -791,7 +772,7 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
     typically have every activity date null).
 
     Non-SCOTUS rows are never historical-mandatory here — the regime is a Supreme
-    Court concept, and the gate only ever sees a case once it is SCOTUS-eligible.
+    Court concept, and the scope gate only ever weighs SCOTUS dockets.
 
     The bare-number test is applied to the *normalized* docket: a great
     many historical SCOTUS dockets carry a ``No.`` label (``"No. 123"``), which a raw
@@ -1283,7 +1264,6 @@ def iter_rows(
     court: str | None = None,
     disposition: Disposition | None = None,
     resolved: bool | None = None,
-    predict_eligible: bool | None = None,
 ) -> Iterator[CorpusRow]:
     """Yield rows in ``case_id`` order, optionally filtered by court / disposition.
 
@@ -1291,9 +1271,7 @@ def iter_rows(
     querying (by judge, topic, citation, or semantic similarity) is layered on
     top of this same store. ``resolved`` keeps only rows carrying (``True``) or
     lacking (``False``) a realized disposition — pushed into SQL so a consumer of
-    the small resolved slice never pays a full-corpus scan. ``predict_eligible``
-    scopes to the prediction universe (the scope reconcile only weighs cases that
-    could actually be predicted).
+    the small resolved slice never pays a full-corpus scan.
     """
     clauses: list[str] = []
     params: list[object] = []
@@ -1305,9 +1283,6 @@ def iter_rows(
         params.append(Disposition(disposition).value)
     if resolved is not None:
         clauses.append("disposition IS NOT NULL" if resolved else "disposition IS NULL")
-    if predict_eligible is not None:
-        clauses.append("predict_eligible = ?")
-        params.append(int(predict_eligible))
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     cur = conn.execute(f"SELECT * FROM cases{where} ORDER BY case_id", params)
     for record in cur:
@@ -1454,22 +1429,22 @@ def _rotation_rows(
     *,
     limit: int,
     skip_closed: bool,
-    only_eligible: bool = False,
+    only_scotus: bool = False,
 ) -> list[CorpusRow]:
     """Stalest-first active cases: never-pulled first, then oldest ``last_pulled``.
 
     The shared query behind :func:`rotation_for_pull`. ``skip_closed`` drops cases
     carrying a realized ``disposition`` / ``date_decided`` (their outcome is known);
-    ``only_eligible`` further restricts to ``predict_eligible`` cases. ``case_id``
-    breaks ties so the order is deterministic.
+    ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope).
+    ``case_id`` breaks ties so the order is deterministic.
     """
     if limit <= 0:
         return []
     clauses: list[str] = []
     if skip_closed:
         clauses.append("disposition IS NULL AND date_decided IS NULL")
-    if only_eligible:
-        clauses.append("predict_eligible = 1")
+    if only_scotus:
+        clauses.append("court = 'scotus'")
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     cur = conn.execute(
         f"SELECT * FROM cases{where} "
@@ -1500,11 +1475,11 @@ def rotation_for_pull(
     so no budget is spent re-fetching a docket whose outcome is already known.
 
     ``eligible_reserve`` reserves up to that many of the ``limit`` slots for the
-    stalest **``predict_eligible``** cases (the SCOTUS-touched pilot set), filled
+    stalest **SCOTUS dockets** (the prediction scope), filled
     first; the remainder fall to the normal stalest-first rotation over the whole
-    active set. This keeps the small predict-eligible pool rotating fast enough to
+    active set. This keeps the in-scope pool rotating fast enough to
     catch new docket activity before a case resolves, instead of waiting its turn
-    behind the much larger active set. Reserve slots the eligible pool cannot fill
+    behind the much larger active set. Reserve slots the SCOTUS pool cannot fill
     fall through to the general rotation, so the reserve never wastes budget; a
     case picked by the reserve is not picked again by the general fill.
     """
@@ -1514,7 +1489,7 @@ def rotation_for_pull(
     picked: list[CorpusRow] = []
     seen: set[str] = set()
     if reserve > 0:
-        for row in _rotation_rows(conn, limit=reserve, skip_closed=skip_closed, only_eligible=True):
+        for row in _rotation_rows(conn, limit=reserve, skip_closed=skip_closed, only_scotus=True):
             picked.append(row)
             seen.add(row.case_id)
     remaining = limit - len(picked)

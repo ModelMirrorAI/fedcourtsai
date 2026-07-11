@@ -29,8 +29,9 @@ edit files — the calling agent applies fixes.
 - **Correctness first.** Trace the changed code paths end-to-end: boundary
   conditions, error/degradation paths (this repo's rule: a degraded upstream
   degrades a run, never hangs or crashes it), idempotency of anything a
-  workflow may re-run, and latch semantics (columns like `predict_eligible`,
-  `last_pulled`, `distributed_for_conference` only ever fill or advance —
+  workflow may re-run, and latch semantics (columns like
+  `last_pulled`, `distributed_for_conference` only ever fill or advance;
+  `predict_eligible` is a derived mirror a re-ingest overwrites —
   check `_update_clause` when a corpus column is added).
 - **The seams stay honest.** Ingestion is channel-agnostic (new upstream fields
   map in the shared normalizer, never channel side-tables); derived judgments

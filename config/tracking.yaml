@@ -5,9 +5,8 @@
 
 # pull = targeted CourtListener enrichment from the rate-limited REST API. Owns
 # the API budget. The supremecourt.gov live channel owns SCOTUS freshness;
-# pull's budget goes to keeping the SCOTUS-touched set's CourtListener records
-# current — most importantly the originating CoA dockets the predict_eligible
-# latch flags.
+# pull's budget goes to keeping the tracked set's CourtListener records
+# current.
 # The per-request rate limits the client throttles to are NOT set here: they live
 # in the runner env (FEDCOURTS_COURTLISTENER_RPM/_RPH/_RPD, wired from repo
 # variables to the active Free Law Project tier — see docs/budget.md). The caps
@@ -21,17 +20,17 @@ pull:
   rotation: oldest_last_pulled_first
   # Don't spend budget re-fetching closed / resolved cases.
   skip_closed: true
-  # Reserve up to this many of each run's slots for the stalest predict-eligible
-  # (SCOTUS-touched) cases, so the pilot set rotates ahead of the much larger
+  # Reserve up to this many of each run's slots for the stalest SCOTUS dockets
+  # (the prediction scope), so the in-scope set rotates ahead of the much larger
   # general active set and new docket activity is caught before a case resolves.
   # Unused slots fall through to the normal rotation, so it never wastes budget —
-  # a large reserve is safe: it only bites when the eligible-open pool is big
-  # enough to fill it, which is exactly when the pilot should get priority.
+  # a large reserve is safe: it only bites when the SCOTUS-open pool is big
+  # enough to fill it, which is exactly when prediction should get priority.
   eligible_refresh_reserve: 20
   # Discover newly-filed dockets in the tracked courts since the last run.
   # OFF: the live channel's frontier probing onboards newly filed SCOTUS
   # petitions (fresher, budget-free), and circuit discovery onboarded cases
-  # the SCOTUS-touch gate won't predict for years. Its budget slice returns to
+  # outside the prediction scope. Its budget slice returns to
   # the enrichment rotation. Flip back on if the live channel is ever paused.
   discover_new_filings: false
   # Hard cap on new dockets onboarded per discovery run (its own slice of the
@@ -130,11 +129,12 @@ predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The
   # pilot slice"). Restricts only the agentic predict/evaluate stages; ingestion
   # stays full-coverage. Read at the pull-queue and matrix seams.
-  #   scotus_touched — only cases that have interacted with SCOTUS (the latching
-  #                    predict_eligible flag); the pilot cost gate.
-  #   all            — no gate: every changed case with open events is in-scope;
-  #                    keep for dev / unrestricted back-testing.
-  scope: scotus_touched
+  #   scotus_docket — only SCOTUS dockets (court == scotus); the cost gate.
+  #                   Originating court-of-appeals dockets are ingested for
+  #                   context and retrieval but not predicted.
+  #   all           — no gate: every changed case with open events is in-scope;
+  #                   keep for dev / unrestricted back-testing.
+  scope: scotus_docket
   # Hard cap on concurrent predictor matrix jobs. The enforced value is the
   # `strategy.max-parallel` literal in run-predict/run-evaluate/run-reconcile;
   # keep this in step with it (nothing reads this key today — it documents intent).

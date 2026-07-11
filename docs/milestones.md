@@ -41,8 +41,8 @@ the realized grants/denies evaluate those predictions. The deliverable is a blog
 post / short article: *"We predicted the long conference — here's how we did,"*
 with the calibration numbers attached. It is small, datable, and end-to-end —
 exactly the right shape for a first pilot. It also defines the pilot's scope
-cleanly: the cert petitions on that conference list are themselves SCOTUS
-interactions, so predicting them is the entry point of the SCOTUS-interaction gate
+cleanly: the cert petitions on that conference list are SCOTUS dockets, so
+predicting them is exactly the SCOTUS-docket gate
 the budget sizes — no separate sampling rule to pick.
 
 Everything in the next three months is sequenced to make that release possible.
@@ -71,11 +71,9 @@ Everything in the next three months is sequenced to make that release possible.
 - **Historical coverage sufficient for the task**: the bulk-era load plus
   the daily historical Term walker growing per-Term coverage through the live
   channel (a bulk-shaped source would re-enter through the shared normalizer).
-- **Prediction scope gated and live.** Per the budget, predict a deliberate slice:
-  a case becomes in-scope the first time it **interacts with the Supreme Court** (a
-  cert petition is the trigger) and stays in-scope for the rest of its lifecycle —
-  rather than saturating every event. This needs the gate itself to exist: a
-  case-level predict-eligibility latch that the predict fan-out filters on, while
+- **Prediction scope gated and live.** Per the budget, predict a deliberate
+  slice: **SCOTUS dockets only** — the predict fan-out filters on the corpus
+  row's court, while
   ingestion stays full-coverage. See *The pilot slice* in [budget.md](budget.md).
 - **Cert-grant predictions issued** for the petitions on the long-conference list,
   by the competing predictors, *before* the conference.
@@ -103,7 +101,8 @@ Everything in the next three months is sequenced to make that release possible.
   across the full merits docket as the term's ~60–70 decisions land — the richest
   evaluation moment of the year — published as a retrospective accuracy report.
 - **Scope decision — widen the gate?** With a year of cost data, decide whether to
-  predict past the SCOTUS-interaction gate — e.g. a rotating sample of appeals that
+  predict past the SCOTUS-docket gate — e.g. the originating courts-of-appeals
+  dockets, or a rotating sample of appeals that
   never reach SCOTUS — using the budget's levers, or to hold the gate as the durable
   scope.
 - **Back-testing live.** Replay current predictors against historical resolved

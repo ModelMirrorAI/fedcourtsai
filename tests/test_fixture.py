@@ -60,13 +60,13 @@ def test_fixture_spans_courts_with_mixed_resolution(tmp_path: Path) -> None:
             assert event.resolved == (row.disposition is not None)
 
 
-def test_fixture_latches_originating_court_eligible(tmp_path: Path) -> None:
-    """The build runs the real eligibility latch: a SCOTUS link pulls its CoA docket in."""
+def test_fixture_sets_the_scope_column_by_court(tmp_path: Path) -> None:
+    """The build sets the derived scope column by the real rule: SCOTUS only."""
     db = fixture.build_fixture_corpus(tmp_path / "corpus.db")
     with corpus.connect(db) as conn:
-        # ca9/102 is in scope only because scotus/304 links back to it.
-        assert corpus.get_row(conn, "ca9/102").predict_eligible is True  # type: ignore[union-attr]
-        # An unlinked court-of-appeals docket stays out of scope.
+        assert corpus.get_row(conn, "scotus/304").predict_eligible is True  # type: ignore[union-attr]
+        # Court-of-appeals dockets — linked to SCOTUS or not — stay out of scope.
+        assert corpus.get_row(conn, "ca9/102").predict_eligible is False  # type: ignore[union-attr]
         assert corpus.get_row(conn, "ca9/101").predict_eligible is False  # type: ignore[union-attr]
 
 

@@ -166,9 +166,6 @@ def discover_cases(
 
             store_rows = [to_corpus_row(r) for r in rows]
             corpus.upsert_rows(conn, store_rows)
-            # A discovered SCOTUS docket latches its originating tracked CoA docket
-            # eligible (the second half of the prediction-scope rule).
-            corpus.latch_originating_eligible(conn, store_rows)
             for docket, row in zip(dockets, rows, strict=True):
                 extraction = extract_events(docket)
                 # Events follow the reconciled identity: a docket re-keyed onto a
