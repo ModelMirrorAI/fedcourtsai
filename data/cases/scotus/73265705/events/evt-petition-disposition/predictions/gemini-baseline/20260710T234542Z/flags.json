@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/73265705",
+  "run_id": "20260710T234542Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The committed metrics/statpack.md lacks the 'by era' and 'Modern discretionary-cert petitions by disposition' sections that .github/prompts/predict.md instructs predictors to anchor on. The prompt and the statpack artifact are currently out of step.",
+      "event_id": "evt-petition-disposition"
+    }
+  ],
+  "schema_version": "1.0"
+}

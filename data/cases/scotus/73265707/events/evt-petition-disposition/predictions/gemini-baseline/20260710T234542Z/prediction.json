@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73265707",
+  "confidence": 0.99,
+  "created_at": "2026-07-11T00:10:17Z",
+  "engine": "gemini",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "data/cases/scotus/73265707/record/snapshots/2026-07-10.json",
+  "model": "gemini-3.5-flash",
+  "predicted_disposition": "dismissed",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.0001,
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73272488",
+  "gaps": [
+    "Working CourtListener MCP server (every call failed with a server-side session-store error: REDIS_URL is not set)",
+    "Statpack section for modern discretionary-cert dispositions (the section the predict prompt anchors on is absent from the committed metrics/statpack.md)",
+    "A way to query the corpus for petitions sharing cert-stage features (call-for-response after waiver, petition-stage amici) to ground the grant uplift empirically",
+    "Provisioned text or status for companion petitions the petition itself cites (here Tovar v. United States, No. 25-6344)"
+  ],
+  "helpful": [
+    "Provisioned questions-presented.txt and petition.txt (the split map and vehicle section carried most of the analysis)",
+    "Docket snapshot with full proceedings list (the waiver -> call-for-response -> extension sequence is the strongest signal in the cell)",
+    "metrics/statpack.md base rates",
+    "fedcourts query recent-era priors as a sanity check on the deny-heavy base rate"
+  ],
+  "notes": "Forward-mode cell. The two provisioned documents plus the docket snapshot were sufficient for a confident analysis; the MCP outage mainly cost a check on the companion Tovar petition's live status.",
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP (attempted; server error on every call)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

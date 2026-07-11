@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73272489",
+  "gaps": [
+    "mcp_courtlistener_search (failed with Redis error)",
+    "fedcourts query (missing local DB / DVC env)"
+  ],
+  "helpful": [
+    "google_web_search",
+    "mcp_courtlistener_get_endpoint_item"
+  ],
+  "notes": "Google web search was extremely helpful in sourcing the exact state trial court case name, appellate history, and current SCOTUS docket status. The CourtListener REST endpoint lookup worked perfectly, though the CourtListener search tool itself was broken due to server-side Redis session configuration.",
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "mcp_courtlistener_get_endpoint_item",
+    "google_web_search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

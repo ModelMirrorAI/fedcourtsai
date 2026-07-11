@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272489",
+  "gaps": [
+    "Reachable ranged corpus backend",
+    "Working CourtListener MCP session store",
+    "Modern discretionary-cert base-rate section in the committed statpack"
+  ],
+  "helpful": [
+    "Provisioned docket snapshot",
+    "Provisioned questions presented and full petition text",
+    "Committed statpack for directional base-rate context"
+  ],
+  "notes": "The corpus query and CourtListener search were attempted but returned no research results because their backends were unavailable. The complete provisioned petition was sufficient for this prediction.",
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "metrics/statpack.md",
+    "fedcourts query",
+    "CourtListener MCP search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

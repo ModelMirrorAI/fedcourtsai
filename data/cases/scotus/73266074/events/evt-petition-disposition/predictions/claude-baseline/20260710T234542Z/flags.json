@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73266074",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": null,
+      "message": "The configured CourtListener MCP server failed on every call with a server-side configuration error ('REDIS_URL is not set; cannot access session store'), so this forward-mode cell had no CourtListener retrieval despite unrestricted mode. The prediction rests on the provisioned snapshot/documents, the statpack, and fedcourts query priors. Worth checking the MCP server provisioning before the next predict run.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": null,
+      "message": "The predict prompt tells cert predictors to anchor on the 'Modern discretionary-cert petitions by disposition' section of metrics/statpack.md, but the committed statpack has no such section (only overall/by-court/by-topic/by-circuit/by-Term tables, all blended with merits-era labels). Either the statpack needs regenerating or the prompt reference is stale.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260710T234542Z",
+  "schema_version": "1.0"
+}

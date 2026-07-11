@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73266074",
+  "run_id": "20260710T234542Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "google_web_search"
+  ],
+  "helpful": [
+    "google_web_search",
+    "questions-presented.txt",
+    "snapshots/2026-07-10.json"
+  ],
+  "gaps": [
+    "The committed metrics/statpack.md lacks the 'Modern discretionary-cert petitions by disposition' section.",
+    "The ranged corpus backend was unavailable because the DVC remote URL is missing from the environment."
+  ],
+  "notes": "Used a general web search to analyze lower court conflicts and the Hastings case background while strictly avoiding retrieving the case's final outcome to comply with the timing leak doctrine."
+}
