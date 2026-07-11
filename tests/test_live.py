@@ -13,7 +13,12 @@ from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.config import LiveConfig, load_live_config
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.ingest import CorpusSource, from_live_docket, to_corpus_row
+from fedcourtsai.pipeline.ingest import (
+    CorpusSource,
+    backfill_live_signals,
+    from_live_docket,
+    to_corpus_row,
+)
 from fedcourtsai.pipeline.live import (
     discover_live,
     ingest_live_payload,
@@ -645,3 +650,169 @@ def test_resolution_without_predictions_queues_no_evaluate(tmp_path: Path) -> No
     # The outcome + event.yaml pair still lands (ground truth is never gated).
     paths = CasePaths(data_root, "scotus", 9_025_000_001).event("evt-petition-disposition")
     assert paths.outcome.exists() and paths.event_file.exists()
+
+
+# --- live-parsed signals: distributions, CVSG, lower-court name, weights ----------
+
+_DISTRIBUTED_SEP = {"Date": "Sep 15 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+_DISTRIBUTED_OCT = {"Date": "Oct 01 2026", "Text": "DISTRIBUTED for Conference of 10/10/2026."}
+_CVSG_ENTRY = {
+    "Date": "Jan 12 2026",
+    "Text": "The Solicitor General is invited to file a brief in this case expressing "
+    "the views of the United States.",
+}
+
+
+def test_from_live_docket_parses_distributions_cvsg_and_lower_court_name() -> None:
+    filing = _payload()["ProceedingsandOrder"][0]
+    row = from_live_docket(
+        _payload(
+            proceedings=[
+                filing,
+                _CVSG_ENTRY,
+                _DISTRIBUTED_SEP,
+                _DISTRIBUTED_SEP,  # upstream re-serve: same conference, not double-counted
+                _DISTRIBUTED_OCT,  # the relist
+            ]
+        ),
+        live_docket_id(25, 100),
+    )
+    assert row.distribution_count == 2
+    assert row.cvsg_date == date(2026, 1, 12)
+    assert row.originating_court_name == ("United States Court of Appeals for the Ninth Circuit")
+    # A never-distributed petition asserts observed-zero, never unknown.
+    bare = from_live_docket(_payload(), live_docket_id(25, 101))
+    assert bare.distribution_count == 0
+    assert bare.cvsg_date is None
+
+
+def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    result = ingest_live_payload(
+        db, tmp_path / "data", _payload(), live_docket_id(25, 100), today=date(2026, 7, 10)
+    )
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, result.case_id)
+    assert stored is not None
+    assert stored.sample_weight == 1  # the poller includes every row it touches
+    assert stored.distribution_count == 0  # parsed, never distributed
+
+
+def test_walker_weight_never_regresses_a_poller_row(tmp_path: Path) -> None:
+    # The poller landed the row with certainty (weight 1); the walker later
+    # re-serves its sampled serial with weight N — the min-latch keeps 1.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    docket_id = live_docket_id(25, 100)
+    ingest_live_payload(db, tmp_path / "data", _payload(), docket_id, today=date(2026, 7, 9))
+    ingest_live_payload(
+        db, tmp_path / "data", _payload(), docket_id, today=date(2026, 7, 10), sample_weight=10
+    )
+    with corpus.connect(db) as conn:
+        stored = corpus.get_row(conn, "scotus/9025000100")
+    assert stored is not None and stored.sample_weight == 1
+
+
+def test_discover_live_stamps_the_frontier_on_a_miss_exit(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"25-1": _payload("25-1"), "25-2": _payload("25-2")}
+    # Capped run: frontier not observed, no stamp.
+    with _frontier_client(served) as client:
+        discover_live(client, db, tmp_path / "data", 25, max_new=1, today=date(2026, 7, 10))
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 25, "paid") == 1
+        assert corpus.get_live_frontier(conn, 25, "paid") is None
+    # Uncapped run walks to the misses and stamps the frontier at the cursor.
+    with _frontier_client(served) as client:
+        discover_live(client, db, tmp_path / "data", 25, max_new=10, today=date(2026, 7, 11))
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 25, "paid") == 2
+        assert corpus.get_live_frontier(conn, 25, "paid") == 2
+        assert corpus.get_live_frontier(conn, 25, "ifp") is None  # nothing ever served
+
+
+# --- the pre-capture backfill ------------------------------------------------------
+
+
+def _strip_capture(db: Path, case_id: str) -> None:
+    """Simulate a row written before the signal columns existed."""
+    with corpus.connect(db) as conn, conn:
+        conn.execute(
+            "UPDATE cases SET distribution_count = NULL, cvsg_date = NULL, "
+            "originating_court_name = NULL, sample_weight = NULL WHERE case_id = ?",
+            (case_id,),
+        )
+
+
+def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    today = date(2026, 7, 10)
+    filing = _payload()["ProceedingsandOrder"][0]
+
+    # A: walker-sampled denial (serial on the grid, cursor covers it) -> weight 10,
+    # signals re-parsed from its stored live snapshot even under a newer REST one.
+    a = ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-100", proceedings=[filing, _CVSG_ENTRY, _DISTRIBUTED_SEP, _DENIED_ENTRY]),
+        live_docket_id(25, 100),
+        today=today,
+    )
+    # B: denied off the sample grid -> weight 1.
+    b = ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-101", proceedings=[filing, _DENIED_ENTRY]),
+        live_docket_id(25, 101),
+        today=today,
+    )
+    # C: denied on the grid but no historical cursor for its stream -> weight 1.
+    c = ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-5010", proceedings=[filing, _DENIED_ENTRY]),
+        live_docket_id(25, 5010),
+        today=today,
+    )
+    # D: granted -> weight 1 regardless of serial.
+    d = ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-120", proceedings=[filing, _GRANTED_ENTRY]),
+        live_docket_id(25, 120),
+        today=today,
+    )
+    for result in (a, b, c, d):
+        _strip_capture(db, result.case_id)
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 25, "historical-paid", 150)
+        # A newer REST-shaped snapshot on A must not blind the re-parse.
+        corpus.upsert_snapshot(conn, a.case_id, date(2026, 7, 20), {"id": 1, "court": "scotus"})
+        # E: a live-slice row with no live-shaped snapshot at all (a 404-stamped
+        # poll): weight still fills, signals stay NULL for a later look.
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id="scotus/74110000", court="scotus")])
+        conn.execute(
+            "UPDATE cases SET last_live_polled = '2026-07-10' WHERE case_id = 'scotus/74110000'"
+        )
+        conn.commit()
+
+    assert backfill_live_signals(db, denial_sample_every=10) == (4, 5)
+    with corpus.connect(db) as conn:
+        row_a = corpus.get_row(conn, a.case_id)
+        row_b = corpus.get_row(conn, b.case_id)
+        row_c = corpus.get_row(conn, c.case_id)
+        row_d = corpus.get_row(conn, d.case_id)
+        row_e = corpus.get_row(conn, "scotus/74110000")
+    assert row_a is not None and row_a.sample_weight == 10
+    assert row_a.distribution_count == 1 and row_a.cvsg_date == date(2026, 1, 12)
+    assert row_a.originating_court_name is not None
+    assert row_b is not None and row_b.sample_weight == 1
+    assert row_c is not None and row_c.sample_weight == 1
+    assert row_d is not None and row_d.sample_weight == 1
+    assert row_e is not None and row_e.sample_weight == 1
+    assert row_e.distribution_count is None  # no live snapshot to parse
+
+    # Idempotent: everything resolvable was resolved; the second run is a no-op.
+    assert backfill_live_signals(db, denial_sample_every=10) == (0, 0)

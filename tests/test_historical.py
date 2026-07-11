@@ -18,8 +18,9 @@ from fedcourtsai.pipeline.historical import (
     load_terms,
     render_markdown,
 )
+from fedcourtsai.pipeline.live import ingest_live_payload
 from fedcourtsai.schemas import EventKind
-from fedcourtsai.supremecourt import SupremeCourtClient
+from fedcourtsai.supremecourt import SupremeCourtClient, live_docket_id
 from tests.conftest import seed_prediction
 from tests.test_documents import _pdf
 from tests.test_live import _DENIED_ENTRY, _GRANTED_ENTRY, _client, _payload
@@ -504,3 +505,70 @@ def test_render_markdown_carries_counts_and_stream_table() -> None:
     assert "walk complete" in body
     assert "**10** serial(s)" in body
     assert "| 22 | historical-paid | 8 | ✅ |" in body
+
+
+# --- sample weights + the persisted frontier ----------------------------------------
+
+
+def test_walker_stamps_weights_and_the_frontier(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {
+        "22-2": _decided("22-2", _GRANTED_ENTRY),  # kept with certainty -> weight 1
+        "22-3": _decided("22-3", _DENIED_ENTRY),  # 3 % 3 == 0 -> sampled -> weight 3
+    }
+    with _serving_client(served) as client:
+        report = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    assert report.complete is True
+    with corpus.connect(db) as conn:
+        granted = corpus.get_row(conn, "scotus/9022000002")
+        denied = corpus.get_row(conn, "scotus/9022000003")
+        # A completed walk persists where the end was observed, per stream.
+        assert corpus.get_live_frontier(conn, 22, "historical-paid") == corpus.get_live_cursor(
+            conn, 22, "historical-paid"
+        )
+    assert granted is not None and granted.sample_weight == 1
+    assert denied is not None and denied.sample_weight == 3
+
+
+def test_capped_walk_leaves_no_frontier_stamp(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    served = {"22-1": _decided("22-1", _GRANTED_ENTRY), "22-2": _decided("22-2", _GRANTED_ENTRY)}
+    with _serving_client(served) as client:
+        report = load_terms(
+            client,
+            db,
+            tmp_path / "data",
+            _config(max_probes_per_run=1),
+            today=date(2026, 7, 10),
+        )
+    assert report.stopped == "probe-cap"
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 1
+        assert corpus.get_live_frontier(conn, 22, "historical-paid") is None
+
+
+def test_load_terms_backfills_precapture_live_rows(tmp_path: Path) -> None:
+    # A pre-capture live row (NULL weight and signals) is healed by the walk's
+    # start-of-run backfill before any probing happens.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    stale = ingest_live_payload(
+        db,
+        data_root,
+        _decided("22-3", _DENIED_ENTRY),
+        live_docket_id(22, 3),
+        today=date(2026, 7, 1),
+    )
+    with corpus.connect(db) as conn, conn:
+        conn.execute(
+            "UPDATE cases SET sample_weight = NULL, distribution_count = NULL WHERE case_id = ?",
+            (stale.case_id,),
+        )
+        corpus.set_live_cursor(conn, 22, "historical-paid", 3)
+    with _serving_client({}) as client:
+        load_terms(client, db, data_root, _config(), today=date(2026, 7, 10))
+    with corpus.connect(db) as conn:
+        healed = corpus.get_row(conn, stale.case_id)
+    assert healed is not None
+    assert healed.sample_weight == 3  # denied, on the grid, cursor-covered
+    assert healed.distribution_count == 0  # re-parsed from the stored snapshot

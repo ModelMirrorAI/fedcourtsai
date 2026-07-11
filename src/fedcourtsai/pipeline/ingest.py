@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus, ids
 from ..schemas import Disposition, EventKind
+from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 from .cert_signals import match_disposition_signal
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
@@ -79,6 +80,24 @@ class CorpusRow(BaseModel):
         description="The SCOTUS conference this petition is currently distributed for "
         "(the latest 'DISTRIBUTED for Conference of …' proceedings entry; a "
         "re-distribution updates it). Live-channel only; None elsewhere.",
+    )
+    distribution_count: int | None = Field(
+        default=None,
+        description="Distinct conferences this petition has been distributed for "
+        "(0 = live-parsed, never distributed; relists = count - 1, floored at 0). "
+        "Live-channel only; None elsewhere — the storage max-latch keeps the "
+        "highest count ever parsed.",
+    )
+    cvsg_date: date | None = Field(
+        default=None,
+        description="Date the Court called for the views of the Solicitor General, "
+        "from the live proceedings. Live-channel only; None elsewhere.",
+    )
+    originating_court_name: str | None = Field(
+        default=None,
+        description="Raw lower-court name (`LowerCourt`) the live docket JSON "
+        "carries — identifies state courts and other tribunals the tracked-court "
+        "id mapping leaves out of `originating_court`. Live-channel only.",
     )
     nature_of_suit: str | None = Field(default=None, description="Nature/topic of the matter")
     judges: list[str] = Field(default_factory=list)
@@ -331,6 +350,9 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         date_cert_denied=date_cert_denied,
         disposition=disposition,
         distributed_for_conference=_date(record.get("distributed_for_conference")),
+        distribution_count=_as_count(record.get("distribution_count")),
+        cvsg_date=_date(record.get("cvsg_date")),
+        originating_court_name=_clean(record.get("originating_court_name")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
         judges=_judges(record, extra=[m.name for m in panel]),
         panel=panel,
@@ -413,6 +435,52 @@ def _live_conference_date(entries: list[dict[str, Any]]) -> date | None:
         if parsed is not None:
             conference = parsed
     return conference
+
+
+def _live_distribution_count(entries: list[dict[str, Any]]) -> int:
+    """How many distinct conferences the proceedings distribute this petition for.
+
+    Distinct **parsed conference dates**, not raw entry matches, so a duplicated
+    entry (upstream re-serves happen) never inflates the count; an unparseable
+    date degrades to "not counted", matching :func:`_live_conference_date`.
+    Relists derive downstream as ``max(0, count - 1)``.
+    """
+    conferences: set[date] = set()
+    for entry in entries:
+        match = _LIVE_DISTRIBUTED_RE.search(str(entry.get("description") or ""))
+        if match is None:
+            continue
+        try:
+            parsed = _date(match.group(1).strip(" ."))
+        except (ValueError, OverflowError):
+            continue
+        if parsed is not None:
+            conferences.add(parsed)
+    return len(conferences)
+
+
+# A CVSG rides in the proceedings as an invitation entry — canonically "The
+# Solicitor General is invited to file a brief in this case expressing the
+# views of the United States." — with minor wording drift across eras, so the
+# anchor is the stable head of the phrase only.
+_LIVE_CVSG_RE = re.compile(r"Solicitor\s+General\s+is\s+invited\s+to\s+file", re.I)
+
+
+def _live_cvsg_date(entries: list[dict[str, Any]]) -> date | None:
+    """The date the Court called for the views of the Solicitor General, or ``None``.
+
+    The first matching **dated** entry wins — a CVSG happens at most once per
+    petition in practice, and the invitation date (not the SG's later filing)
+    is the signal. A matching entry whose date failed to parse is passed over
+    (an undated CVSG would be indistinguishable from none), which live dockets
+    never exhibit — every proceedings entry is dated.
+    """
+    for entry in entries:
+        if _LIVE_CVSG_RE.search(str(entry.get("description") or "")):
+            raw = entry.get("date_filed")
+            if isinstance(raw, str) and raw:
+                return date.fromisoformat(raw)
+    return None
 
 
 def _live_title(raw: Any) -> str | None:
@@ -508,6 +576,7 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
     """
     entries = _live_entries(payload)
     conference = _live_conference_date(entries)
+    cvsg = _live_cvsg_date(entries)
     disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
@@ -525,6 +594,9 @@ def map_live_docket(payload: Mapping[str, Any], docket_id: int) -> dict[str, Any
         "date_cert_denied": cert_denied.isoformat() if cert_denied else None,
         "date_terminated": terminated.isoformat() if terminated else None,
         "distributed_for_conference": conference.isoformat() if conference else None,
+        "distribution_count": _live_distribution_count(entries),
+        "cvsg_date": cvsg.isoformat() if cvsg else None,
+        "originating_court_name": lower_court,
         "disposition": disposition,
         "parties": parties,
         "attorneys": attorneys,
@@ -605,7 +677,11 @@ def merge_rows(rows: Iterable[CorpusRow]) -> list[CorpusRow]:
 
 
 def to_corpus_row(
-    row: CorpusRow, *, last_pulled: date | None = None, last_live_polled: date | None = None
+    row: CorpusRow,
+    *,
+    last_pulled: date | None = None,
+    last_live_polled: date | None = None,
+    sample_weight: int | None = None,
 ) -> corpus.CorpusRow:
     """Project a normalized ingestion row onto the packed-corpus storage row.
 
@@ -617,6 +693,10 @@ def to_corpus_row(
     docket facts), so they are supplied by the caller: ``pull`` stamps the REST
     refresh date, the live poller stamps its own, and every other writer leaves
     both ``None`` (the upsert preserves any timestamp a prior stamp set).
+    ``sample_weight`` is likewise walk-construction state — how the writing
+    channel came to include this row (see the storage field's docstring) — not
+    a payload fact; a writer with nothing to assert leaves it ``None`` and the
+    upsert's min-latch preserves the stored value.
     """
     return corpus.CorpusRow(
         case_id=row.case_id,
@@ -643,6 +723,10 @@ def to_corpus_row(
         predict_eligible=is_predict_eligible(row),
         originating_court=row.originating_court,
         originating_docket_number=row.originating_docket_number,
+        distribution_count=row.distribution_count,
+        cvsg_date=row.cvsg_date,
+        originating_court_name=row.originating_court_name,
+        sample_weight=sample_weight,
     )
 
 
@@ -652,6 +736,7 @@ def upsert_to_corpus(
     *,
     last_pulled: date | None = None,
     last_live_polled: date | None = None,
+    sample_weight: int | None = None,
 ) -> int:
     """Upsert normalized rows into the packed SQLite corpus at ``db_path``.
 
@@ -660,10 +745,99 @@ def upsert_to_corpus(
     rather than duplicating it. ``last_pulled`` / ``last_live_polled`` stamp the writing
     channel's refresh date onto every row in the batch, advancing that channel's
     rotation key (each preserves the other channel's prior stamp).
+    ``sample_weight`` asserts how the writing channel included the batch's rows
+    (min-latched; ``None`` preserves any stored weight).
     """
     store_rows = [
-        to_corpus_row(row, last_pulled=last_pulled, last_live_polled=last_live_polled)
+        to_corpus_row(
+            row,
+            last_pulled=last_pulled,
+            last_live_polled=last_live_polled,
+            sample_weight=sample_weight,
+        )
         for row in merge_rows(rows)
     ]
     with corpus.connect(db_path) as conn:
         return corpus.upsert_rows(conn, store_rows)
+
+
+def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[int, int]:
+    """Back-fill live-parsed signals and sample weights onto pre-capture rows.
+
+    Rows the live channel wrote before the signal columns existed carry
+    ``NULL`` where a freshly-ingested row would carry a value. Both gaps are
+    recoverable from the corpus alone, deterministically, so this runs at a
+    corpus-writer entrypoint (the historical walker's start — the daily job
+    that sees every pre-capture row; active poller rows also self-heal on
+    re-poll) rather than as a one-shot script — correct even if the corpus
+    blob is ever rolled back:
+
+    - **Signals** (``distribution_count``, ``cvsg_date``,
+      ``originating_court_name``): re-parsed from the newest stored live-shaped
+      snapshot — the same payload the original ingest read — via the same
+      parsers. A live-slice row with no live-shaped snapshot (a 404-stamped
+      poll that never stored one) stays ``NULL`` and is re-examined next run;
+      that residue is a handful of rows, so the rescan stays cheap.
+    - **Weights** (``sample_weight``): a denial the historical walker provably
+      kept by its serial sample — the serial parses, lands on the sample grid
+      (``serial % denial_sample_every == 0``), and sits at or below the
+      walker's cursor for its (Term, stream) — back-fills to
+      ``denial_sample_every``; everything else live-written is weight 1.
+      One documented residual: a poller-resolved denial inside a walker-covered
+      range back-fills to the sampled weight rather than 1 (the rule cannot
+      tell the channels apart after the fact) — bounded to the Terms both
+      channels cover, and conservative (it over-weights denials). Weights land
+      exactly at ingest time going forward.
+
+    Idempotent and self-limiting: both predicates match nothing at steady
+    state. Returns ``(signal_rows, weight_rows)`` back-filled.
+    """
+    signal_rows = 0
+    weight_rows = 0
+    with corpus.connect(db_path) as conn, conn:
+        pending = conn.execute(
+            f"SELECT case_id FROM cases WHERE {corpus.LIVE_SLICE_SQL} "
+            "AND distribution_count IS NULL ORDER BY case_id"
+        ).fetchall()
+        for record in pending:
+            case_id = str(record["case_id"])
+            snapshot = corpus.latest_live_snapshot(conn, case_id)
+            if snapshot is None:
+                continue
+            payload = snapshot[1]
+            entries = _live_entries(payload)
+            lower_court = _clean(payload.get("LowerCourt"))
+            cvsg = _live_cvsg_date(entries)
+            conn.execute(
+                "UPDATE cases SET distribution_count = ?, "
+                "cvsg_date = COALESCE(cvsg_date, ?), "
+                "originating_court_name = COALESCE(originating_court_name, ?) "
+                "WHERE case_id = ?",
+                (
+                    _live_distribution_count(entries),
+                    cvsg.isoformat() if cvsg else None,
+                    lower_court,
+                    case_id,
+                ),
+            )
+            signal_rows += 1
+        unweighted = conn.execute(
+            f"SELECT case_id, docket_number, disposition FROM cases "
+            f"WHERE {corpus.LIVE_SLICE_SQL} AND sample_weight IS NULL ORDER BY case_id"
+        ).fetchall()
+        for record in unweighted:
+            weight = 1
+            if record["disposition"] == Disposition.denied.value:
+                parsed = parse_scotus_docket_number(record["docket_number"])
+                if parsed is not None and parsed[1] % denial_sample_every == 0:
+                    term, serial = parsed
+                    stream = "historical-ifp" if serial >= IFP_SERIAL_BASE else "historical-paid"
+                    cursor = corpus.get_live_cursor(conn, term, stream)
+                    if cursor is not None and cursor >= serial:
+                        weight = denial_sample_every
+            conn.execute(
+                "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
+                (weight, str(record["case_id"])),
+            )
+            weight_rows += 1
+    return signal_rows, weight_rows

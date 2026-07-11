@@ -119,6 +119,21 @@ fresh distribution or a relist's new date — the cert-calendar analogue of
 `fedcourts conference-set` (grouped by conference date; the September
 long-conference set is its largest bucket).
 
+The same proceedings parse lands two more cert signals as corpus columns, the
+raw material for relist and CVSG base-rate cuts: `distribution_count`
+(distinct conferences distributed for; relists = count − 1, floored at 0 —
+an upper bound on true relists, since a reschedule before first consideration
+also adds a distribution entry — and 0 asserts *parsed, never distributed*
+while NULL means *never live-parsed*) and `cvsg_date` (the "Solicitor General
+is invited to file" invitation entry's date). The raw `LowerCourt` string is
+kept as `originating_court_name` so state courts and other tribunals outside
+the tracked-court id mapping stay identifiable. All three are live-channel
+facts: non-live writers preserve stored values (`distribution_count`
+max-latches — proceedings are append-only, so the count only grows), and rows
+written before the columns existed are back-filled from their stored live
+snapshots at the historical walker's start (`backfill_live_signals` —
+deterministic, idempotent, correct across corpus-blob rollbacks).
+
 ## Documents: from metadata to content
 
 The document PDFs linked from each docket are the step-change in input quality
@@ -163,7 +178,20 @@ a Term is overwhelmingly denials, so every decided petition is ingested except
 denials, which are kept when their serial is a multiple of the configured
 sampling interval — deterministic per serial, so resumed runs keep the same
 sample, and the committed `historical:` config section documents the set's
-construction. Each kept petition lands through `ingest_live_payload` already
+construction. Every row records its **inverse inclusion probability** as
+`sample_weight` (1 for anything kept with certainty — grants, dismissals,
+forward-poller rows — and the sampling interval for a kept denial),
+min-latched so a weight can only ever be learned toward certainty; a weighted
+aggregate multiplies by it so the denial sampling cannot bias a base rate.
+Weights land exactly at ingest time; the backfill for pre-capture rows
+recovers them by rule (denied + serial on the sample grid + walker cursor
+covers the serial), whose one residual — a pre-capture poller-resolved denial
+inside a walker-covered range reads as sampled — is bounded and conservative.
+When a stream's end is observed (consecutive 404s), the walk persists
+`frontier_serial` beside the cursor — `frontier_serial = last_serial` is the
+per-Term **walk complete** signal, and the cursors alone give an exact filings
+census per Term and fee class (paid serials from 1, IFP from 5001) even for the
+serials the sample never ingested. Each kept petition lands through `ingest_live_payload` already
 **resolved** (machine-read label, dated raw-JSON snapshot, its cert event
 latched closed) with filed documents provisioned for OT2021+ (the links'
 retention window), so it provisions replay cells like any other case. Decided

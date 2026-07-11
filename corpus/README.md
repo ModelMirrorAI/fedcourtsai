@@ -53,8 +53,17 @@ source.
 | `summary`             | text            | short form for retrieval                     |
 | `last_pulled`         | date            | tracking state: when `pull` last refreshed it |
 | `predict_eligible`    | integer (0/1)   | derived mirror of the prediction scope (`court == scotus`); see below |
+| `predict_excluded`    | integer (0/1)   | out-of-scope latch, owned by the scope reconcile |
 | `originating_court`        | text       | lower court this docket came from (`appeal_from`) |
 | `originating_docket_number`| text       | docket number in the originating court (REST-only) |
+| `date_cert_granted`   | date            | petition-stage cert grant date (SCOTUS)       |
+| `date_cert_denied`    | date            | petition-stage cert denial date (SCOTUS)      |
+| `last_live_polled`    | date            | tracking state: when the live channel last polled it |
+| `distributed_for_conference` | date     | the conference this petition is currently distributed for (live-parsed) |
+| `distribution_count`  | integer         | distinct conferences distributed for (relists = count − 1, floored at 0); null = never live-parsed, 0 = parsed, never distributed |
+| `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
+| `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
+| `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty; the sampling interval for a walker-kept denial); null = no channel asserted a weight |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on (overlap with a `PriorQuery`), while `panel`
@@ -69,6 +78,24 @@ on every refresh and the budget governor rotates the oldest-`last_pulled`-first
 slice of the unresolved set within the API budget (see
 [docs/data-pipeline.md](../docs/data-pipeline.md)). `embedding[]` (semantic
 retrieval) is a later upgrade and is not stored yet.
+
+The live-parsed signal family (`distributed_for_conference`,
+`distribution_count`, `cvsg_date`, `originating_court_name`) is supplied only by
+the supremecourt.gov channel; every other writer preserves the stored values
+(fill-in latches, except `distribution_count`, which max-latches — proceedings
+are append-only, so the count only grows and a degraded parse's confident 0
+cannot wipe a stored value). `distribution_count` doubles as the family's
+parse-coverage sentinel: null means the proceedings were never live-parsed,
+0 asserts *parsed and never distributed*. `sample_weight` is min-latched — an
+inclusion probability is only ever learned toward certainty (weight 1) — so a
+weighted aggregate can multiply by it and count a walker-sampled denial at
+full strength. Null means no channel asserted a weight: permanent on rows the
+live channel never wrote, pre-capture within the live slice. The historical
+walker's start heals pre-capture live rows deterministically
+(`fedcourtsai.pipeline.ingest.backfill_live_signals`): the three signals are
+re-parsed from the stored live snapshots; weights are recovered by rule from
+the row and the walk cursors (denied + serial on the sample grid + cursor
+covers the serial ⇒ the sampling interval, else 1).
 
 `predict_eligible` is a **derived convenience mirror** of the prediction scope
 (`court == 'scotus'`): every scope seam reads the court predicate directly, so
@@ -111,7 +138,12 @@ off without rescanning the court. Dormant in production
 (`pull.discover_new_filings` is off — the live channel onboards SCOTUS
 filings); the live channel's and the historical walker's per-(Term, stream)
 cursors (one shared `live_discovery_cursors` table, disjoint stream names)
-follow the same only-moves-forward semantics.
+follow the same only-moves-forward semantics. Beside each cursor's
+`last_serial` sits a nullable `frontier_serial` — where the stream's end
+(consecutive 404s) was last observed. `frontier_serial = last_serial` reads as
+*walk complete at the current cursor*; the cursor pair also yields an exact
+per-Term filings census by fee class (paid serials number from 1, IFP from
+5001) without ingesting every serial.
 
 | Column       | Type      | Notes                                          |
 |--------------|-----------|------------------------------------------------|
