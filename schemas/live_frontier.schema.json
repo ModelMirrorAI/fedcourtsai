@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "ConferenceBucket": {
+      "additionalProperties": false,
+      "description": "One conference date's slice of the live cert watchlist.",
+      "properties": {
+        "conference": {
+          "format": "date",
+          "title": "Conference",
+          "type": "string"
+        },
+        "petitions": {
+          "minimum": 0,
+          "title": "Petitions",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "conference",
+        "petitions"
+      ],
+      "title": "ConferenceBucket",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``live-frontier.json`` \u2014 the live cert watchlist's readiness snapshot.\n\nProduced where the corpus is already pulled (``fedcourts live-frontier``,\npublished by the corpus-writer path like the validation verdict) and\nrendered corpus-free by ``run-ops``: watchlist size, the distribution\ncalendar, and how many watchlist petitions carry provisioned filed-document\ntext. ``next_conference`` is relative to the supplied as-of date.",
+  "properties": {
+    "conferences": {
+      "items": {
+        "$ref": "#/$defs/ConferenceBucket"
+      },
+      "title": "Conferences",
+      "type": "array"
+    },
+    "documents_provisioned": {
+      "default": 0,
+      "description": "Watchlist petitions with >= 1 stored filed document",
+      "minimum": 0,
+      "title": "Documents Provisioned",
+      "type": "integer"
+    },
+    "generated_on": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "As-of date supplied by the caller",
+      "title": "Generated On"
+    },
+    "next_conference": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Earliest conference on/after the as-of date, when any",
+      "title": "Next Conference"
+    },
+    "next_conference_petitions": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Conference Petitions"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skipped": {
+      "default": false,
+      "description": "True when no corpus was present; nothing was read",
+      "title": "Skipped",
+      "type": "boolean"
+    },
+    "watchlist": {
+      "default": 0,
+      "description": "Pending petitions distributed for a conference",
+      "minimum": 0,
+      "title": "Watchlist",
+      "type": "integer"
+    }
+  },
+  "title": "LiveFrontier",
+  "type": "object"
+}

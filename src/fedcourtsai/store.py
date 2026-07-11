@@ -162,6 +162,26 @@ def iter_stratified_evaluations(data_root: Path) -> list[tuple[Evaluation, Strat
     return cells
 
 
+def ledger_cell_counts(data_root: Path) -> tuple[int, int, int]:
+    """``(prediction cells, events predicted, predicted events resolved)``.
+
+    The pipeline-funnel counts the ops substance section leads with, read
+    straight off the committed ledger tree: every ``prediction.json`` is one
+    cell; the distinct event directories those cells live under are the
+    predicted events; a predicted event counts resolved once its
+    ``outcome.json`` has landed beside them. Returns zeros when the ledger does
+    not exist yet (reading must not create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return (0, 0, 0)
+    prediction_files = sorted(cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json"))
+    # prediction path: <event_dir>/predictions/<predictor>/<run>/prediction.json
+    event_dirs = {path.parents[3] for path in prediction_files}
+    resolved = sum(1 for event_dir in event_dirs if (event_dir / "outcome.json").exists())
+    return (len(prediction_files), len(event_dirs), resolved)
+
+
 def iter_usage(data_root: Path) -> list[ModelUsage]:
     """Every ``usage.json`` in the derived ledger, in stable path order.
 

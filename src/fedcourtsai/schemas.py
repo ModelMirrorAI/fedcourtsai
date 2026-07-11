@@ -1150,8 +1150,131 @@ class OpenTriggerIssue(_Strict):
     created_at: str = Field(description="ISO-8601 creation time (age derives from this)")
 
 
+class SubstanceCells(_Strict):
+    """Scored-cell counts across the pipeline funnel, forward vs replay.
+
+    The funnel: prediction cells committed → events with at least one prediction
+    → predicted events whose ground truth landed → evaluations, split by the
+    pre-registration stratum (the leaderboard's forward/retrospective doctrine —
+    never blended). ``*_delta`` fields carry the change against the prior
+    ops-metrics snapshot when a comparable one was supplied, else null.
+    """
+
+    predictions: int = Field(ge=0, description="prediction.json cells committed under data/")
+    events_predicted: int = Field(ge=0, description="Distinct events with >= 1 prediction")
+    predicted_resolved: int = Field(
+        ge=0, description="Predicted events whose outcome.json has landed"
+    )
+    evaluations_forward: int = Field(ge=0, description="Scored cells in the forward stratum")
+    evaluations_retrospective: int = Field(
+        ge=0, description="Scored cells in the retrospective (replay) stratum"
+    )
+    predictions_delta: int | None = Field(
+        default=None, description="Change vs the prior snapshot, when comparable"
+    )
+    predicted_resolved_delta: int | None = None
+    evaluations_forward_delta: int | None = None
+    evaluations_retrospective_delta: int | None = None
+
+
+class SubstanceCalibration(_Strict):
+    """Calibration on the scored replay sample, anchored to the deny base rate.
+
+    Replay (retrospective) cells only — the iteration-signal stratum. ``sample``
+    is printed beside every number so a small-N figure cannot masquerade as
+    signal. ``lift_over_always_deny`` is replay accuracy minus the modern-cert
+    denial base rate (the accuracy an always-deny predictor would score); null
+    until both halves exist.
+    """
+
+    sample: int = Field(ge=0, description="Scored replay evaluations")
+    mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
+    accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    deny_base_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Denied share of resolved modern discretionary-cert petitions "
+        "(from the committed statpack), when its section is present",
+    )
+    base_rate_cases: int | None = Field(
+        default=None, ge=0, description="Resolved cases behind the base rate"
+    )
+    lift_over_always_deny: float | None = Field(
+        default=None, description="accuracy - deny_base_rate; null until both exist"
+    )
+
+
+class PredictorScoreRow(_Strict):
+    """One predictor's evaluation-score distribution (the at-a-glance view).
+
+    ``median`` / ``p25`` / ``p75`` summarize the cross-evaluator
+    ``reasoning_quality`` grades; ``accuracy`` is the share of correct calls.
+    All strata pooled — the leaderboard remains the stratified reference.
+    """
+
+    predictor_id: str
+    evaluations: int = Field(ge=0)
+    accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    median: float | None = Field(default=None, ge=0.0, le=1.0)
+    p25: float | None = Field(default=None, ge=0.0, le=1.0)
+    p75: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class ConferenceBucket(_Strict):
+    """One conference date's slice of the live cert watchlist."""
+
+    conference: date
+    petitions: int = Field(ge=0)
+
+
+class LiveFrontier(_Strict):
+    """``live-frontier.json`` — the live cert watchlist's readiness snapshot.
+
+    Produced where the corpus is already pulled (``fedcourts live-frontier``,
+    published by the corpus-writer path like the validation verdict) and
+    rendered corpus-free by ``run-ops``: watchlist size, the distribution
+    calendar, and how many watchlist petitions carry provisioned filed-document
+    text. ``next_conference`` is relative to the supplied as-of date.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    skipped: bool = Field(
+        default=False, description="True when no corpus was present; nothing was read"
+    )
+    generated_on: date | None = Field(default=None, description="As-of date supplied by the caller")
+    watchlist: int = Field(
+        ge=0, default=0, description="Pending petitions distributed for a conference"
+    )
+    next_conference: date | None = Field(
+        default=None, description="Earliest conference on/after the as-of date, when any"
+    )
+    next_conference_petitions: int | None = Field(default=None, ge=0)
+    conferences: list[ConferenceBucket] = Field(default_factory=list)
+    documents_provisioned: int = Field(
+        ge=0, default=0, description="Watchlist petitions with >= 1 stored filed document"
+    )
+
+
+class SubstanceDigest(_Strict):
+    """The dashboard's substantive-results section: is the machine producing?
+
+    Complements run-health (is the machine running): scored-cell counts by
+    stratum, replay calibration vs the deny base rate, per-predictor score
+    distributions, and live-frontier readiness. Every input is a committed or
+    published artifact, keeping run-ops a read-only presenter.
+    """
+
+    cells: SubstanceCells
+    calibration: SubstanceCalibration
+    predictor_scores: list[PredictorScoreRow] = Field(default_factory=list)
+    live_frontier: LiveFrontier | None = Field(
+        default=None, description="Published watchlist readiness, when available"
+    )
+
+
 class OpsReport(_Strict):
-    """``metrics/ops.json`` — an operational snapshot: health, spend, cost.
+    """``metrics/ops.json`` — an operational snapshot: health, substance, spend, cost.
 
     A read-only roll-up of authoritative sources (the Actions run history, the
     usage ledger), so no pipeline run writes an ops record. Unlike the
@@ -1165,7 +1288,8 @@ class OpsReport(_Strict):
     above. ``flags`` is the open-agent-flags digest scanned from ``data/`` and
     ``tooling`` the agent tooling-feedback digest scanned the same way; both are null
     on a report built before the field existed (so an older snapshot read back as
-    ``previous`` still validates).
+    a prior still validates). ``substance`` is the substantive-results section —
+    null on older snapshots the same way.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -1173,6 +1297,11 @@ class OpsReport(_Strict):
     health: list[WorkflowHealth] = Field(default_factory=list)
     spend: SpendSummary
     cost: CostEstimate
+    substance: SubstanceDigest | None = Field(
+        default=None,
+        description="Substantive results (scored cells, calibration, readiness); "
+        "null on a report built before the field existed",
+    )
     data_health: DataHealth | None = Field(
         default=None, description="Data-validation verdict (schema + corpus), when available"
     )
@@ -1186,10 +1315,6 @@ class OpsReport(_Strict):
     )
     tooling: ToolingDigest | None = Field(
         default=None, description="Agent tooling self-reports scanned from tooling.json under data/"
-    )
-    scope_audit: CorpusScopeAudit | None = Field(
-        default=None,
-        description="Census of open events the predict scope excludes, when available",
     )
     open_triggers: list[OpenTriggerIssue] | None = Field(
         default=None,
@@ -1291,6 +1416,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
+    "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
     "agent_flags": AgentFlags,

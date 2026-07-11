@@ -701,8 +701,11 @@ shaped like the other reports. Because `run-ops` is a corpus-free presenter
 (see [pipeline.md](pipeline.md)), the verdict
 is **produced where the corpus is already pulled**: the corpus-writer path
 (`run-pull`'s pull and historical jobs) runs the check as a
-non-blocking trailing step and publishes the verdict, and `run-ops` then renders a
-**data-health** section from it and, on failure, opens or updates a single
+non-blocking trailing step and publishes the verdict — alongside the
+live-frontier readiness snapshot (`fedcourts live-frontier`), which rides the
+same publish — and `run-ops` then renders a
+**data-health** section from the verdict (and the substance section's watchlist
+view from the snapshot) and, on failure, opens or updates a single
 long-lived issue — loud, but never blocking the pipeline. The git-only referential
 checks fold into `fedcourts validate` so they also run at PR time: a judgment whose
 event has no `event.yaml` in the git tree, or whose declared ids disagree with its

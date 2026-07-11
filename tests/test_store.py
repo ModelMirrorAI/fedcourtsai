@@ -10,6 +10,7 @@ from fedcourtsai.schemas import (
     Disposition,
     EventKind,
     FlagCategory,
+    Outcome,
     UsageRole,
 )
 from fedcourtsai.store import (
@@ -17,9 +18,11 @@ from fedcourtsai.store import (
     iter_flags,
     iter_tooling,
     iter_tracked_cases,
+    ledger_cell_counts,
     open_events,
     resolved_events,
 )
+from tests.conftest import seed_prediction
 
 
 def _event(event_id: str, *, resolved: bool) -> corpus.CorpusEvent:
@@ -226,3 +229,26 @@ def test_iter_tooling_spans_all_three_stages(tmp_path: Path) -> None:
 
 def test_iter_tooling_missing_ledger_is_empty(tmp_path: Path) -> None:
     assert iter_tooling(tmp_path) == []  # no data/cases yet -> nothing, no creation
+
+
+def test_ledger_cell_counts_walks_the_funnel(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    # Two predictions on one event (its outcome landed), one on another (pending).
+    seed_prediction(data_root, "scotus", 1, "evt-petition-disposition", predictor_id="a")
+    seed_prediction(data_root, "scotus", 1, "evt-petition-disposition", predictor_id="b")
+    seed_prediction(data_root, "scotus", 2, "evt-petition-disposition", predictor_id="a")
+    event_dir = data_root / "cases/scotus/1/events/evt-petition-disposition"
+    outcome = Outcome(
+        case_id="scotus/1",
+        event_id="evt-petition-disposition",
+        resolved_at=date(2026, 7, 1),
+        actual_disposition=Disposition.denied,
+        actual_granted=0,
+    )
+    (event_dir / "outcome.json").write_text(outcome.model_dump_json())
+
+    assert ledger_cell_counts(data_root) == (3, 2, 1)
+
+
+def test_ledger_cell_counts_empty_ledger_is_zero(tmp_path: Path) -> None:
+    assert ledger_cell_counts(tmp_path / "data") == (0, 0, 0)

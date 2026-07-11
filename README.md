@@ -44,8 +44,10 @@ request.
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex + Gemini |
 
-Plus `run-ops`, a read-only daily health & cost dashboard that has no `run:*`
-label — it runs on a schedule (or manual dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
+Plus `run-ops`, a read-only daily dashboard — run health, substantive results
+(scored cells, calibration, live-frontier readiness), spend — with a weekly
+maintainer digest, and no `run:*` label: it runs on a schedule (or manual
+dispatch). See [`docs/pipeline.md`](docs/pipeline.md).
 
 ```mermaid
 flowchart TD
