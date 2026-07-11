@@ -187,6 +187,8 @@ def test_record_usage_reads_gemini_telemetry_file(_data_root: Path, tmp_path: Pa
     log.write_text(
         json.dumps(
             {
+                # Deliberately NOT the engine default: proves record-usage
+                # ignores the telemetry's model field and applies the default.
                 "name": "gemini_cli.api_response",
                 "model": "gemini-3.5-flash",
                 "input_token_count": 90_000,
@@ -221,7 +223,7 @@ def test_record_usage_reads_gemini_telemetry_file(_data_root: Path, tmp_path: Pa
     assert result.exit_code == 0, result.output
     usage = iter_usage(_data_root)[0]
     assert usage.engine == "gemini"
-    assert usage.model == "gemini-3.5-flash"  # engine default applied
+    assert usage.model == "gemini-3.1-pro-preview"  # engine default applied
     assert usage.input_tokens == 70_000  # 90k - 20k cached
     assert usage.cache_read_input_tokens == 20_000
     assert usage.output_tokens == 5_000  # 4k + 1k thoughts

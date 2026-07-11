@@ -34,12 +34,13 @@ class ModelRate:
 
 # Keyed by the model id the engine actually ran. The production models are
 # claude-fable-5 (predict/evaluate), claude-opus-4-8 (earlier ledger records),
-# gpt-5.6-sol, and gemini-3.5-flash; the cheaper Claude tiers are listed
-# because the budget doc names them as competitor-model levers. Superseded
-# production models (gpt-5.5, gemini-3.1-pro-preview) keep their rates so a
-# re-recorded old cell (record-usage with an explicit --model) still prices;
-# the Gemini Pro rate is the standard <=200k-context tier (it steps up
-# beyond that).
+# gpt-5.6-sol, and gemini-3.1-pro-preview (the Pro tier is the like-for-like
+# comparator against the other engines' frontier defaults); the cheaper Claude
+# tiers are listed because the budget doc names them as competitor-model
+# levers. Superseded production models (gpt-5.5, gemini-3.5-flash) keep their
+# rates so a re-recorded old cell (record-usage with an explicit --model)
+# still prices; the Gemini Pro rate is the standard <=200k-context tier (it
+# steps up beyond that).
 MODEL_RATES: Final[dict[str, ModelRate]] = {
     "claude-fable-5": ModelRate(10.0, 50.0),
     "claude-opus-4-8": ModelRate(5.0, 25.0),
@@ -58,7 +59,7 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 DEFAULT_MODELS: Final[dict[str, str]] = {
     "claude-code": "claude-fable-5",
     "codex": "gpt-5.6-sol",
-    "gemini": "gemini-3.5-flash",
+    "gemini": "gemini-3.1-pro-preview",
 }
 
 

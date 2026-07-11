@@ -19,9 +19,11 @@ def test_default_models_have_rates() -> None:
 
 
 def test_gemini_default_model_and_rate() -> None:
-    assert DEFAULT_MODELS["gemini"] == "gemini-3.5-flash"
-    rate = MODEL_RATES["gemini-3.5-flash"]
-    assert (rate.input_per_mtok, rate.output_per_mtok) == (1.5, 9.0)
+    # The Pro tier is the like-for-like comparator against the other engines'
+    # frontier defaults; the rate is the standard <=200k-context tier.
+    assert DEFAULT_MODELS["gemini"] == "gemini-3.1-pro-preview"
+    rate = MODEL_RATES["gemini-3.1-pro-preview"]
+    assert (rate.input_per_mtok, rate.output_per_mtok) == (2.0, 12.0)
 
 
 def test_codex_default_model_and_rate() -> None:
@@ -35,7 +37,7 @@ def test_superseded_production_models_stay_priceable() -> None:
     # re-recorded old cell (explicit --model) needs the superseded production
     # models to keep their entries.
     assert "gpt-5.5" in MODEL_RATES
-    assert "gemini-3.1-pro-preview" in MODEL_RATES
+    assert "gemini-3.5-flash" in MODEL_RATES
 
 
 def test_claude_default_model_and_rate() -> None:
