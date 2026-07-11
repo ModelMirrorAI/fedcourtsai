@@ -30,7 +30,7 @@ direct automation at a pay-per-token API key. So the subscription is the right
 tool for **development and low-volume piloting**, while sustained pipeline
 inference is an **API-metered** cost. The pipeline reflects both modes: interactive
 development uses the Max subscription, and every automated stage (`run:predict`,
-`run:evaluate`, `run:reconcile`, `run:dev`) authenticates to Claude via the
+`run:evaluate`) authenticates to Claude via the
 Anthropic **API key**.
 
 ## Cost drivers
@@ -44,7 +44,6 @@ Three engines run the agentic stages, routed per registry entry
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
 | **Claude Code** (`claude-fable-5`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x). API: **$10 in / $50 out** |
-| **Claude Code** (`claude-opus-4-8`) | all `run:dev`, `run:reconcile` | Anthropic API (workflows) | **$5 in / $25 out** |
 | **Codex** (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
 | **Gemini** (`gemini-3.5-flash`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | **$1.50 in / $9 out** |
 
@@ -290,7 +289,7 @@ DVC keeps historical versions, so budget for a small multiple:
 
 - **Storage:** ~10–100 GB → **≈ $0.25–2.50/mo.**
 - **Ingress (`dvc push`):** free, at any scale.
-- **Cell reads (ranged):** a predict/evaluate/reconcile cell no longer pulls the
+- **Cell reads (ranged):** a predict/evaluate cell never pulls the
   blob; it makes indexed point queries over HTTP range requests. Measured
   against the real corpus: a snapshot provisioning ≈ 5 GETs / ~1.3 MB; a
   filtered priors retrieval is MB-scale (tens of MB for a broad filter). Budget
@@ -305,7 +304,8 @@ DVC keeps historical versions, so budget for a small multiple:
   consumers still move whole blobs — the corpus-writer jobs (`run-pull`,
   **eight windows a day** across its pull + live jobs ⇒ ~240 pulls/mo on their
   own), the plan jobs each triggered run, then
-  analytics/cleanup and an occasional deliberate Codespaces exploration or
+  analytics and an occasional deliberate Codespaces exploration (a maintainer's
+  local cleanup sweep included) or
   integration check. Order **~250–300 full pulls/mo × blob size**: at today's
   ~0.8 GB blob that is ~100–170 GB/mo, **at or above the free tier** ⇒
   ≈ **$0–10/mo**. This term scales linearly with the blob: at a 10 GB blob the

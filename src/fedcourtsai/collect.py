@@ -1,6 +1,6 @@
 """Path-jail guardrail and per-run PR aggregation for the matrix stages.
 
-The predict/evaluate/reconcile stages fan out one matrix cell per
+The predict/evaluate stages fan out one matrix cell per
 predictor/evaluator x case x event and used to open one PR per cell — dozens a
 day, each merged by hand. They now aggregate: every cell uploads its ``data/``
 output as a build artifact, and a single ``collect`` job unions them into **one
@@ -32,7 +32,7 @@ from .schemas import AgentFlags, FlagSeverity
 
 DATA_JAIL = "data/"
 
-# A run-cleanup PR may only delete files under a case event's predictions subtree:
+# A cleanup-sweep PR may only delete files under a case event's predictions subtree:
 # data/cases/<court>/<docket>/events/<event>/predictions/<...>. The trailing slash
 # means the event.yaml / outcome.json one level up never match.
 _PREDICTIONS_JAIL = re.compile(r"^data/cases/[^/]+/[^/]+/events/[^/]+/predictions/")
@@ -83,7 +83,7 @@ def parse_name_status(text: str) -> list[PathChange]:
 def assert_within_jail(changes: Iterable[PathChange], *, run_id: str | None = None) -> None:
     """Raise :class:`PathJailError` unless every change is an *addition* under ``data/``.
 
-    Auto-merged predict/evaluate/reconcile PRs are append-only by construction:
+    Auto-merged predict/evaluate PRs are append-only by construction:
     each writes a fresh ``<...>/<run_id>/`` directory and never touches code,
     workflows, config, or an existing artifact. This enforces exactly that — any
     path outside ``data/``, and any status other than add (modify, delete,
@@ -108,7 +108,7 @@ def assert_within_jail(changes: Iterable[PathChange], *, run_id: str | None = No
 def assert_cleanup_within_jail(changes: Iterable[PathChange]) -> None:
     """Raise :class:`PathJailError` unless every change *deletes* a prediction file.
 
-    The run-cleanup sweep is the mirror of the append-only writers: it only ever
+    The cleanup sweep is the mirror of the append-only writers: it only ever
     removes already-merged predictions for out-of-scope cases, never adds or edits.
     So every change must be a delete (status ``D``) of a file under a
     ``data/cases/<court>/<docket>/events/<event>/predictions/`` subtree — anything
@@ -181,56 +181,6 @@ class CellStatus:
 
 
 @dataclass(frozen=True)
-class ReconcileCellStatus:
-    """One reconcile cell's outcome — a cell is one *case* settling >=0 events.
-
-    Reconcile fans out per case (it must weigh a case's open events together), so a
-    cell has no single event/actor: ``settled`` is the event ids whose
-    ``outcome.json`` the agent recorded this run. ``produced`` is "settled
-    anything".
-    """
-
-    court: str
-    docket: int
-    run_id: str
-    settled: tuple[str, ...]
-    validated: bool
-    agent_ok: bool
-    artifact_dir: str
-
-    @property
-    def produced(self) -> bool:
-        return bool(self.settled)
-
-    @property
-    def ready(self) -> bool:
-        return self.produced and self.validated and self.agent_ok
-
-    @property
-    def _reason(self) -> str:
-        if not self.produced:
-            return "nothing settled"
-        if not self.agent_ok:
-            return "agent stopped early"
-        if not self.validated:
-            return "failed validation"
-        return "ready"
-
-    @classmethod
-    def from_dict(cls, data: dict[str, object], *, artifact_dir: str) -> ReconcileCellStatus:
-        settled = data.get("settled", [])
-        return cls(
-            court=str(data["court"]),
-            docket=int(str(data["docket"])),
-            run_id=str(data["run_id"]),
-            settled=tuple(str(e) for e in settled) if isinstance(settled, list) else (),
-            validated=bool(data["validated"]),
-            agent_ok=bool(data["agent_ok"]),
-            artifact_dir=artifact_dir,
-        )
-
-
-@dataclass(frozen=True)
 class PrPlan:
     """One PR the collect job should open: ready or partial."""
 
@@ -259,15 +209,15 @@ class CollectPlan:
 
     ``stalled`` is the infrastructure-failure signal: no cell produced output
     **and** no agent finished cleanly — the cells died before (or while) their
-    agents ran, as opposed to agents that ran and legitimately produced nothing
-    (a reconcile that could not settle any event). The collect job posts the
+    agents ran, as opposed to agents that ran and legitimately produced nothing.
+    The collect job posts the
     stall comment on the trigger issue only when this is true, so a genuine
     "nothing to do" run stays quiet.
     """
 
     ready: PrPlan | None
     partial: PrPlan | None
-    skipped: tuple[CellStatus | ReconcileCellStatus, ...] = ()
+    skipped: tuple[CellStatus, ...] = ()
     flags_markdown: str = ""
     feedback_comment: str = ""
     stalled: bool = False
@@ -499,90 +449,3 @@ def _append_flags(
     if partial is not None:
         return ready, replace(partial, body=f"{partial.body}\n\n{flags_md}")
     return ready, partial
-
-
-def _reconcile_table(cells: Sequence[ReconcileCellStatus], *, with_reason: bool) -> str:
-    header = "| case | settled events |" + (" reason |" if with_reason else "")
-    rule = "|---|---|" + ("---|" if with_reason else "")
-    rows = []
-    for c in cells:
-        events = ", ".join(f"`{e}`" for e in c.settled) or "—"
-        row = f"| `{c.court}/{c.docket}` | {events} |"
-        if with_reason:
-            row += f" {c._reason} |"
-        rows.append(row)
-    return "\n".join([header, rule, *rows])
-
-
-def reconcile_collect_plan(
-    *,
-    run_id: str,
-    cells: Sequence[ReconcileCellStatus],
-    issue: int | None = None,
-    flags: Sequence[AgentFlags] = (),
-) -> CollectPlan:
-    """Partition a reconcile run's per-case cells into one ready PR + one draft PR.
-
-    Same ready/salvage/skipped split as :func:`collect_plan`, but per case: a cell
-    is **ready** when it settled >=1 event, validated, and the agent finished;
-    **salvageable** when it settled output but stopped early or failed validation
-    (→ draft); **skipped** when it settled nothing (→ warning only). The ready PR's
-    title and commit subject start with ``reconcile:`` so the squash-merge to
-    ``main`` fires run-reconcile's evaluate handoff, and it closes the trigger
-    issue on merge unless a salvage draft remains.
-
-    ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags` — the
-    same durable channel predict/evaluate use (e.g. an ambiguous disposition the
-    reconcile agent could not settle). Their roll-up rides whichever PR opens and is
-    returned as ``flags_markdown`` / ``feedback_comment`` so the workflow surfaces it
-    in the Actions summary and the long-lived agent-feedback issue even when a fully
-    blocked run opens no PR.
-    """
-    ready = [c for c in cells if c.ready]
-    salvage = [c for c in cells if c.produced and not c.ready]
-    skipped = tuple(c for c in cells if not c.produced)
-
-    ready_plan: PrPlan | None = None
-    if ready:
-        note = (
-            f"\n\n{len(salvage)} case(s) need review; see the companion draft PR."
-            if salvage
-            else ""
-        )
-        closes = f"\n\nCloses #{issue}" if issue is not None and not salvage else ""
-        ready_plan = PrPlan(
-            branch=f"reconcile/run-{run_id}",
-            commit_message=f"reconcile: {len(ready)} case(s) (run {run_id})",
-            title=f"reconcile: {len(ready)} case(s) (run {run_id})",
-            body=(
-                f"Reconciled ground truth for run `{run_id}`."
-                f"\n\n{_reconcile_table(ready, with_reason=False)}"
-                "\n\nWhen this merges, `run-reconcile` opens a `run:evaluate` issue "
-                "for the settled events."
-                f"{note}{closes}"
-            ),
-            draft=False,
-            artifact_dirs=tuple(c.artifact_dir for c in ready),
-        )
-
-    partial_plan: PrPlan | None = None
-    if salvage:
-        partial_plan = PrPlan(
-            branch=f"reconcile/run-{run_id}-partial",
-            commit_message=f"reconcile: {len(salvage)} partial case(s) (run {run_id})",
-            title=f"reconcile: {len(salvage)} partial case(s) (run {run_id})",
-            body=f"{_PARTIAL_WARNING}\n\n{_reconcile_table(salvage, with_reason=True)}",
-            draft=True,
-            artifact_dirs=tuple(c.artifact_dir for c in salvage),
-        )
-
-    flags_md = render_flags(flags)
-    ready_plan, partial_plan = _append_flags(ready_plan, partial_plan, flags_md)
-    return CollectPlan(
-        ready=ready_plan,
-        partial=partial_plan,
-        skipped=skipped,
-        flags_markdown=flags_md,
-        feedback_comment=render_feedback_comment(FinalizeRole.reconcile, run_id, flags_md),
-        stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
-    )

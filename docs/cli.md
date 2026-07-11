@@ -31,8 +31,8 @@ real corpus.
 | `pull` | Onboard or refresh one docket from the REST API and report whether it changed (the first pull onboards). | `--court`, `--docket` |
 | `historical-terms` | Load one capped chunk of the historical per-Term set through the live channel: walk the configured October Terms' docket serials sequentially (persisted per-(Term, stream) cursors, so runs resume) and ingest every decided petition except denials, which are systematically sampled per `historical:` in `config/tracking.yaml` — the committed sampling frame. Ingested petitions land already resolved (label, snapshot, events, OT2021+ documents) and feed the statpack's per-Term base rates and replay/evaluation only; **writes no handoff queues**. The `run-pull` workflow's `historical` job loops it. | `--report`, `--totals`, `--max-probes`, `--summary-out` |
 | `discover` | Onboard newly-filed dockets in the tracked courts, advancing each court's watermark (dormant in production: `pull.discover_new_filings` is off — the live channel onboards SCOTUS filings). | `--since`, `--limit` |
-| `pull-all` | Refresh the stalest tracked cases within the API budget; write the predict/evaluate/reconcile handoff queues. | `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
-| `live-poll` | One SCOTUS live-channel cycle: probe the Term's docket-number frontier for new petitions (persisted per-Term cursor), re-poll the pending watchlist (distributed petitions first, nearest conference first), detect resolution from the proceedings text, and write the same three handoff queues as `pull-all` — with predict queued on **distribution transitions** (fresh distribution or relist), the cert-calendar predict trigger. | `--term`, `--limit`, `--out`, `--evaluate-out`, `--reconcile-out` |
+| `pull-all` | Refresh the stalest tracked cases within the API budget; write the predict/evaluate handoff queues plus the unrecorded-outcome queue (decided but not deterministically recordable, surfaced on the run log). | `--limit`, `--out`, `--evaluate-out`, `--unrecorded-out` |
+| `live-poll` | One SCOTUS live-channel cycle: probe the Term's docket-number frontier for new petitions (persisted per-Term cursor), re-poll the pending watchlist (distributed petitions first, nearest conference first), detect resolution from the proceedings text, and write the same three queues as `pull-all` — with predict queued on **distribution transitions** (fresh distribution or relist), the cert-calendar predict trigger. | `--term`, `--limit`, `--out`, `--evaluate-out`, `--unrecorded-out` |
 | `make-fixture-corpus` | Build a tiny deterministic synthetic corpus (cases/events/snapshots across several courts) so the read commands work offline, no remote. | `--out` |
 
 `--limit` / `--max-probes` may only *lower* the per-run cap from
@@ -109,14 +109,12 @@ Helpers the workflows and agents use to fan out and stay in contract.
 |---------|---------|-----------|
 | `predict-matrix` | Emit the predictor × case × event GitHub Actions matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
 | `evaluate-matrix` | Emit the evaluator × case × event matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
-| `reconcile-matrix` | Emit the per-case `run-reconcile` matrix as compact JSON. | `--run-id`, `--body-file`, `--court`, `--docket`, `--event` |
 | `authorize-trigger` | Authorize a `run:*` label trigger (Bot handoff or write collaborator), or refuse and exit non-zero. The fan-out workflows call it before any privileged step. | `--sender-type`, `--actor`, `--repo` |
 | `mcp-config` | Emit one engine's MCP client config (Claude `--mcp-config` JSON, Codex `config.toml` tables, Gemini `settings.json`) from the versioned tool manifest (`mcp_servers:` in the actor registry). Run it in a step whose env holds the tokens the manifest names — they are injected into the emitted, gitignored file. | `--engine`, `--role`, `--actor`, `--base-settings` |
 | `record-retrieval` | Record the cell's tool-call transcript to `retrieval_log.json` — harvested from the engine's own log (the same sources `record-usage` reads), never the agent's word — with the pinned tool manifest snapshotted alongside. An empty transcript still records: "retrieved nothing" is evidence for the evaluators' leakage grading. | `--court`, `--docket`, `--event`, `--run-id`, `--engine`, `--role`, `--actor`, `--mode`, `--claude-execution-file`, `--codex-sessions-dir`, `--gemini-telemetry-file` |
 | `finalize-produced` | Print `true`/`false` for whether the agent wrote its own judgment artifact (prediction/evaluation), so a cell with only the pre-materialized event scaffold is reported as producing nothing. | `--role`, `--court`, `--docket`, `--event`, `--actor`, `--run-id` |
 | `assert-paths` | Enforce the append-only `data/` path jail on a change set (`git diff --name-status`): exit non-zero on any path outside `data/` or any non-addition. The collect jobs and the required CI `paths` check both call it. | `--name-status-file`, `--run-id` |
 | `collect-plan` | Emit the per-run aggregate PR decision for predict/evaluate — one ready PR (auto-merged, closing the trigger issue) plus a draft for salvageable partials — as compact JSON. | `--role`, `--run-id`, `--status-dir`, `--issue` |
-| `collect-reconcile-plan` | Emit the per-run aggregate reconcile PR decision (per case) as compact JSON; the ready PR's `reconcile:` commit fires the evaluate handoff on merge. | `--run-id`, `--status-dir`, `--issue` |
 | `post-agent-feedback` | Latch a predict/evaluate run's agent-flag roll-up (`collect-plan`'s `feedback_comment`) onto the single long-lived `agent-feedback` issue: find-or-create, post once (marker-deduped). The collect job calls it with the ambient `GITHUB_TOKEN`. | `--body-file`, `--repo` |
 | `stall-comment` | Print the trigger-issue comment for a run that **produced no output** (every cell died before or while its agent ran). The collect jobs post it with the ambient `GITHUB_TOKEN` so a wholesale failure is loud on the issue instead of silently orphaning it; `collect-plan`'s `stalled` field (no cell produced *and* no agent finished cleanly) decides when. | `--role`, `--run-url` |
 | `metrics-refresh-plan` | Emit the review-PR plan for a metrics refresh (`run-analytics`, metrics-refresh job): given `git diff --name-only -- metrics/` output, print `{"changed":[…],"pr":<branch/title/commit/body\|null>}` with per-artifact headlines read from the regenerated files. `pr` is null when nothing changed, so a no-op refresh opens no PR. | `--changed-file`, `--run-id` |
@@ -127,14 +125,15 @@ Helpers the workflows and agents use to fan out and stay in contract.
 ## Maintenance — corpus-informed cleanup
 
 Deterministic sweeps that prune already-merged derived artifacts the append-only
-writers can never remove. They need the corpus, so they run in `run-cleanup`
-(`dvc pull`'d) and land as a **reviewed** (not auto-merged) PR.
+writers can never remove. They need the corpus, so a maintainer runs them
+locally over a pulled corpus (`dvc pull`) and lands the result as a **reviewed**
+(not auto-merged, manually merged) PR on a `cleanup/*` branch.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
 | `cleanup-out-of-scope-predictions` | Prune committed predictions for cases now out of predict scope, gated on the real corpus row via the same shared exclusion reasoning `predict-matrix` drops on (`corpus.out_of_scope_reason_full`). The event definition and any `outcome.json` stay; only the predictions go. Prints `{"prunable":[…],"removed":<bool>}`; dry-run by default. | `--apply` |
 | `reconcile-scope` | The **corpus**-side counterpart: over the SCOTUS dockets, latch `predict_excluded` on those the shared exclusion reasoning now matches (the row rules plus the snapshot-aware bare opinion-import rule) and clear it on those back in scope, so `open-events` drops them at the source. Run where the corpus is pulled (the run-pull historical job), `dvc push` after; prints a `ScopeReconcileResult`. Dry-run by default. | `--apply` |
-| `assert-cleanup-paths` | Enforce the **cleanup jail** on a change set (`git diff --name-status`): exit non-zero unless every change is a *delete* under a `data/cases/**/events/*/predictions/` subtree. The cleanup job and the required CI check both call it — the destructive counterpart to `assert-paths`. | `--name-status-file` |
+| `assert-cleanup-paths` | Enforce the **cleanup jail** on a change set (`git diff --name-status`): exit non-zero unless every change is a *delete* under a `data/cases/**/events/*/predictions/` subtree. The maintainer's sweep and the required CI check (`cleanup-paths`, on `cleanup/*` branches) both call it — the destructive counterpart to `assert-paths`. | `--name-status-file` |
 
 ## Local iteration — the full cascade off Actions
 

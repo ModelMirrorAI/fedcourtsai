@@ -1,5 +1,5 @@
-# Public forms: bug reports and feature/ideas. Data-production runs (pull /
-# reconcile) are NOT public forms — a maintainer triggers them by applying a
+# Public forms: bug reports and feature/ideas. Data-production runs (pull)
+# are NOT public forms — a maintainer triggers them by applying a
 # `run:*` label to an issue, which is the pipeline's trust boundary. Blank issues
 # stay enabled so maintainers can file dev/backlog/ops issues and label them.
 blank_issues_enabled: true

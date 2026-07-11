@@ -76,7 +76,6 @@ class UsageRole(StrEnum):
 
     predictor = "predictor"
     evaluator = "evaluator"
-    reconciler = "reconciler"
 
 
 class FlagCategory(StrEnum):
@@ -304,7 +303,7 @@ class AgentFlag(_Strict):
 class AgentFlags(_Strict):
     """``flags.json`` — a cell's durable, structured feedback for maintainer triage.
 
-    A predict/evaluate/reconcile cell writes this *only when it has something to
+    A predict/evaluate cell writes this *only when it has something to
     surface* — a data-quality problem, a scope question, an ambiguous event, or the
     reason it was blocked. It rides the cell's artifact to the ``collect`` job, which
     rolls every cell's flags into the run PR body (and the Actions summary), so a
@@ -317,9 +316,7 @@ class AgentFlags(_Strict):
     case_id: str
     run_id: str
     role: UsageRole = Field(description="Which stage raised the flags")
-    actor_id: str = Field(
-        description="The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id"
-    )
+    actor_id: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate)")
     flags: list[AgentFlag] = Field(
         min_length=1, description="The notes; write the file only when there is at least one"
     )
@@ -329,7 +326,7 @@ class AgentToolingFeedback(_Strict):
     """``tooling.json`` — a cell's self-report on the agent tooling it was given.
 
     Unlike :class:`AgentFlags` (exception-based — written only on a problem with the
-    *data or task*), every predict/evaluate/reconcile cell is *invited* to write this
+    *data or task*), every predict/evaluate cell is *invited* to write this
     short, structured note about its *environment*: whether it used the ``fedcourts``
     corpus-query CLI, which abilities actually helped, and what was missing. Rolled up
     across runs on the run-ops dashboard, it tells maintainers whether the corpus
@@ -342,9 +339,7 @@ class AgentToolingFeedback(_Strict):
     case_id: str
     run_id: str
     role: UsageRole = Field(description="Which stage produced the report")
-    actor_id: str = Field(
-        description="The predictor_id (predict), evaluator_id (evaluate), or reconcile agent id"
-    )
+    actor_id: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate)")
     used_corpus_query: bool = Field(
         description="Whether the cell used the fedcourts corpus-query CLI (query/open-events/etc.)"
     )
@@ -1143,7 +1138,7 @@ class ToolingDigest(_Strict):
 class OpenTriggerIssue(_Strict):
     """One still-open ``run:*`` trigger issue, surfaced on the ops dashboard.
 
-    Trigger issues (predict / evaluate / reconcile fan-outs) are transient by
+    Trigger issues (predict / evaluate fan-outs) are transient by
     design: the run's ready PR closes them on merge, and an empty matrix closes
     them with a note. One that stays open means its run stalled — failed
     wholesale, produced nothing, or was never picked up — so the dashboard lists

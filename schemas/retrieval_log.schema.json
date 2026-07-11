@@ -96,8 +96,7 @@
       "description": "Which agentic stage a usage record belongs to.",
       "enum": [
         "predictor",
-        "evaluator",
-        "reconciler"
+        "evaluator"
       ],
       "title": "UsageRole",
       "type": "string"

@@ -129,8 +129,8 @@ class HistoricalReport(BaseModel):
     walker never files."""
     documents: int = 0
     """Filed documents provisioned for OT``document_floor_term``+ ingests."""
-    reconcile_flagged: int = 0
-    """Ingested petitions whose resolution needed a reconcile signal — should
+    unrecorded_flagged: int = 0
+    """Ingested petitions whose resolution left an unrecorded outcome — should
     be zero (the disposition matched before ingest); surfaced for triage."""
     failed: list[dict[str, object]] = Field(default_factory=list)
     """(term, stream, serial, reason) for streams stopped by upstream errors;
@@ -278,7 +278,7 @@ class _Walk:
             report.ingested_denied += 1
         else:
             report.ingested_other += 1
-        report.reconcile_flagged += len(result.reconcile_events)
+        report.unrecorded_flagged += len(result.unrecorded_events)
         if term >= self.config.document_floor_term:
             try:
                 report.documents += provision_documents(
@@ -368,7 +368,7 @@ def fold_totals(totals: HistoricalReport | None, latest: HistoricalReport) -> Hi
         skipped_undecided=totals.skipped_undecided + latest.skipped_undecided,
         left_to_watchlist=totals.left_to_watchlist + latest.left_to_watchlist,
         documents=totals.documents + latest.documents,
-        reconcile_flagged=totals.reconcile_flagged + latest.reconcile_flagged,
+        unrecorded_flagged=totals.unrecorded_flagged + latest.unrecorded_flagged,
         failed=[*totals.failed, *latest.failed],
         complete=latest.complete,
         stopped=latest.stopped,
@@ -404,6 +404,10 @@ def render_markdown(report: HistoricalReport) -> str:
         ]
     if report.failed:
         lines += ["", f"⚠️ {len(report.failed)} stream error(s); those cursors will retry."]
-    if report.reconcile_flagged:
-        lines += ["", f"⚠️ {report.reconcile_flagged} ingested petition(s) flagged reconcile."]
+    if report.unrecorded_flagged:
+        lines += [
+            "",
+            f"⚠️ {report.unrecorded_flagged} ingested petition(s) landed with an "
+            "unrecorded outcome.",
+        ]
     return "\n".join(lines)

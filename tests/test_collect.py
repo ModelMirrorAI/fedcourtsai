@@ -12,13 +12,11 @@ import pytest
 from fedcourtsai.collect import (
     CellStatus,
     PathJailError,
-    ReconcileCellStatus,
     assert_cleanup_within_jail,
     assert_within_jail,
     collect_plan,
     feedback_marker,
     parse_name_status,
-    reconcile_collect_plan,
     render_feedback_comment,
     render_flags,
     render_stall_comment,
@@ -246,15 +244,6 @@ def test_skipped_only_cells_do_not_block_issue_close() -> None:
     assert "Closes #42" in plan.ready.body
 
 
-def test_collect_plan_rejects_reconcile_role() -> None:
-    # The judgment collect_plan is predict/evaluate only; reconcile has its own.
-    with pytest.raises(ValueError, match="predict/evaluate"):
-        collect_plan(FinalizeRole.reconcile, run_id="R", cells=[])
-
-
-# --- agent flags -----------------------------------------------------------
-
-
 def test_render_flags_empty_is_blank() -> None:
     assert render_flags([]) == ""  # a run with no flag files renders nothing
 
@@ -373,62 +362,7 @@ def test_collect_plan_without_flags_leaves_body_clean() -> None:
     assert plan.ready is not None and "Agent flags" not in plan.ready.body
 
 
-# --- reconcile collect plan (per-case) -------------------------------------
-
-
-def _rcell(
-    docket: int,
-    *,
-    settled: tuple[str, ...] = ("evt-petition-disposition",),
-    validated: bool = True,
-    agent_ok: bool = True,
-) -> ReconcileCellStatus:
-    return ReconcileCellStatus(
-        court="scotus",
-        docket=docket,
-        run_id="R",
-        settled=settled,
-        validated=validated,
-        agent_ok=agent_ok,
-        artifact_dir=f"reconcile-scotus-{docket}",
-    )
-
-
-def test_reconcile_ready_pr_starts_with_reconcile_for_the_handoff() -> None:
-    # The squash-merge subject must start with `reconcile:` so run-reconcile's
-    # push-triggered handoff picks it up and opens run:evaluate.
-    plan = reconcile_collect_plan(run_id="R", cells=[_rcell(1), _rcell(2)], issue=7)
-    assert plan.ready is not None
-    assert plan.ready.commit_message.startswith("reconcile:")
-    assert plan.ready.title.startswith("reconcile:")
-    assert "2 case(s)" in plan.ready.title
-    assert plan.ready.artifact_dirs == ("reconcile-scotus-1", "reconcile-scotus-2")
-    assert "run:evaluate" in plan.ready.body  # handoff note for reviewers
-    assert "Closes #7" in plan.ready.body
-    assert plan.partial is None
-
-
-def test_reconcile_case_that_settled_nothing_is_skipped_not_drafted() -> None:
-    plan = reconcile_collect_plan(
-        run_id="R",
-        cells=[_rcell(1), _rcell(2, settled=()), _rcell(3, validated=False)],
-        issue=7,
-    )
-    assert plan.ready is not None and plan.ready.artifact_dirs == ("reconcile-scotus-1",)
-    # docket 3 settled output but failed validation -> draft; docket 2 settled
-    # nothing -> skipped (warned, never committed).
-    assert plan.partial is not None and plan.partial.artifact_dirs == ("reconcile-scotus-3",)
-    assert tuple(c.docket for c in plan.skipped) == (2,)
-    # A pending draft keeps the trigger issue open.
-    assert "Closes #7" not in plan.ready.body
-
-
-def test_reconcile_no_cells_opens_nothing() -> None:
-    plan = reconcile_collect_plan(run_id="R", cells=[])
-    assert plan.ready is None and plan.partial is None and plan.skipped == ()
-
-
-# --- stall detection ------------------------------------------------------------
+# --- stall detection (the infrastructure-failure signal) ---------------------
 
 
 def test_stalled_when_every_cell_died_before_its_agent() -> None:
@@ -447,9 +381,16 @@ def test_stalled_when_every_cell_died_before_its_agent() -> None:
 
 
 def test_not_stalled_when_an_agent_finished_cleanly_without_output() -> None:
-    # An agent that ran to completion and produced nothing is a content outcome
-    # (reconcile "could not settle" being the canonical case), not a stall.
-    plan = reconcile_collect_plan(run_id="R", cells=[_rcell(1, settled=()), _rcell(2, settled=())])
+    # An agent that ran to completion and produced nothing is a content outcome,
+    # not a stall.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[
+            _cell("claude-baseline", produced=False, agent_ok=True),
+            _cell("codex-baseline", produced=False, agent_ok=True),
+        ],
+    )
     assert plan.stalled is False
 
 
@@ -473,41 +414,3 @@ def test_render_stall_comment_names_the_role_and_retry_path() -> None:
     assert "produced no output" in comment
     assert "https://github.com/o/r/actions/runs/1" in comment
     assert "`run:predict`" in comment  # the re-fire instruction names the label
-
-
-def test_reconcile_rolls_up_flags_into_body_and_feedback() -> None:
-    # Reconcile uses the same durable channel as predict/evaluate: an
-    # ambiguous event the agent could not settle rides the PR body and is wrapped for
-    # the long-lived agent-feedback issue, keyed on the reconcile role.
-    plan = reconcile_collect_plan(
-        run_id="R",
-        cells=[_rcell(1)],
-        flags=[
-            _flagset(
-                "codex",
-                AgentFlag(category=FlagCategory.ambiguous_event, message="cannot attribute"),
-            )
-        ],
-    )
-    assert "🚩 Agent flags" in plan.flags_markdown
-    assert plan.ready is not None and "🚩 Agent flags" in plan.ready.body
-    assert plan.feedback_comment.startswith(feedback_marker(FinalizeRole.reconcile, "R"))
-    assert "reconcile · run `R`" in plan.feedback_comment
-
-
-def test_reconcile_flags_survive_when_no_pr_opens() -> None:
-    # Every case blocked (settled nothing) -> no PR, but the flag still travels.
-    plan = reconcile_collect_plan(
-        run_id="R",
-        cells=[_rcell(1, settled=())],
-        flags=[_flagset("codex", AgentFlag(category=FlagCategory.blocked, message="stuck"))],
-    )
-    assert plan.ready is None and plan.partial is None
-    assert "🚩 Agent flags" in plan.flags_markdown
-    assert plan.feedback_comment.startswith(feedback_marker(FinalizeRole.reconcile, "R"))
-
-
-def test_reconcile_without_flags_leaves_body_and_feedback_clean() -> None:
-    plan = reconcile_collect_plan(run_id="R", cells=[_rcell(1)])
-    assert plan.flags_markdown == "" and plan.feedback_comment == ""
-    assert plan.ready is not None and "🚩 Agent flags" not in plan.ready.body

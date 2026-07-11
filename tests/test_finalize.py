@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from fedcourtsai.finalize import FinalizeRole, agent_produced_output
 from fedcourtsai.paths import CasePaths
 
@@ -51,8 +49,3 @@ def test_evaluate_output_present_only_when_evaluation_written(tmp_path: Path) ->
     evaluation.parent.mkdir(parents=True)
     evaluation.write_text("{}")
     assert _produced(FinalizeRole.evaluate, tmp_path, "claude-judge")
-
-
-def test_agent_produced_output_rejects_reconcile(tmp_path: Path) -> None:
-    with pytest.raises(ValueError):
-        _produced(FinalizeRole.reconcile, tmp_path, "x")

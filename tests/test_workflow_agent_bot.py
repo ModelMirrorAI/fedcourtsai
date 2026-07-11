@@ -1,6 +1,6 @@
 """The trusted pipeline-App bot must reach the agent step.
 
-`run-pull` files the `run:predict` / `run:evaluate` / `run:reconcile` handoff
+`run-pull` files the `run:predict` / `run:evaluate` handoff
 issues as the data App (`fedcourtsai-data[bot]`), and the plan job's
 `authorize-trigger` gate approves that Bot sender. But claude-code-action and
 codex-action each run their *own* actor check and refuse a bot by default, so the
@@ -26,7 +26,7 @@ AGENT_BOT_INPUT = {
 }
 
 # The fan-out workflows whose agent steps run on the bot handoff.
-AGENT_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml", "run-reconcile.yml")
+AGENT_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
 
 
 def _load(name: str) -> dict[Any, Any]:

@@ -12,13 +12,14 @@ as a label-driven pipeline of GitHub Actions; see `docs/pipeline.md`.
 There are two very different kinds of work, and you are doing exactly one of them
 in any given run:
 
-1. **Pipeline development** (`run:dev`): change the Python package, workflows,
-   docs, schemas, or prompts. Do **not** touch `data/`.
-2. **Data production** (`run:pull` / `run:predict` / `run:evaluate` /
-   `run:reconcile`): produce or update data — the raw-fact corpus (DVC/S3) and/or
-   the derived artifacts under `data/`. Do **not** change pipeline code to make
-   your task easier, and never weaken validation, CI, lint, type, or security
-   checks.
+1. **Pipeline development**: change the Python package, workflows, docs,
+   schemas, or prompts. This happens in an interactive session (e.g. Codespaces)
+   on the branch-and-PR flow below, like any contributor — there is no agent
+   workflow for it. Do **not** touch `data/`.
+2. **Data production** (`run:pull` / `run:predict` / `run:evaluate`): produce or
+   update data — the raw-fact corpus (DVC/S3) and/or the derived artifacts under
+   `data/`. Do **not** change pipeline code to make your task easier, and never
+   weaken validation, CI, lint, type, or security checks.
 
 ## Where you run: headless in CI
 
@@ -29,8 +30,7 @@ non-interactive** container. Two consequences shape everything you do:
   question and wait for an answer, request confirmation, or pause for approval. If
   you are blocked, under-specified, or need a decision, your only channel is to
   **leave it in writing where a maintainer will see it**, using whatever your run
-  grants you: a comment on the PR you open (`gh pr comment`) or its description in
-  `run:dev`; a structured **`flags.json`** note alongside your output in
+  grants you: a structured **`flags.json`** note alongside your output in
   `run:predict` / `run:evaluate` (the durable, triageable channel — the `collect`
   job rolls every cell's flags into the run PR and the Actions summary, so the note
   survives the trigger issue's closure; see the task prompt and the `AgentFlags`
@@ -43,8 +43,7 @@ non-interactive** container. Two consequences shape everything you do:
   local "memory") is discarded when the job ends. Work survives **only if it is
   pushed off the runner** before you finish:
   - **Code, docs, config, schemas → GitHub.** Persist via a branch + PR. In
-    `run:dev` you do this yourself (using the GitHub App token). In `run:predict` /
-    `run:evaluate` / `run:reconcile` you only *write files into the working tree*
+    `run:predict` / `run:evaluate` you only *write files into the working tree*
     and the workflow commits, pushes, and opens the PR — so do **not** push yourself.
   - **Corpus / large historical data → the DVC remote.** Bulk data lives in the
     S3-backed DVC remote, not git, and persists only via `dvc push` (the run-pull
@@ -54,9 +53,9 @@ non-interactive** container. Two consequences shape everything you do:
 ## The golden rules
 
 - **Branch and PR.** Never commit to `main`. Create a branch, do the work, open
-  one focused PR against `main`. (For `run:predict`/`run:evaluate`/`run:reconcile`
-  the *workflow* commits and opens the PR — you only write files. The prompt for
-  your task says which mode you are in.)
+  one focused PR against `main`. (For `run:predict`/`run:evaluate` the *workflow*
+  commits and opens the PR — you only write files. The prompt for your task says
+  which mode you are in.)
 - **The maintainer merges.** Open the PR, get its required checks green, and
   report it ready — do not merge it yourself or enable auto-merge on it. The one
   exception is built into the pipeline: the data-run `collect` jobs open their
@@ -240,7 +239,7 @@ instructions: the prompt file named in your run (under `.github/prompts/`).
 You are headless (see "Where you run") — there is no one to ask in real time. If
 the request is ambiguous or under-specified, make the most conservative reasonable
 choice **and say so in writing** so a maintainer can follow up — in whatever
-channel your run grants (the PR description or `gh pr comment` in `run:dev`; your
-`reasoning.md` / `evaluation.md` and `gh issue comment` in `run:predict` /
-`run:evaluate`). Do not wait for a live answer. Prefer a small, correct,
-well-tested change over a large speculative one.
+channel your run grants (the PR description or `gh pr comment` in an interactive
+development session; your `reasoning.md` / `evaluation.md` and `gh issue comment`
+in `run:predict` / `run:evaluate`). Do not wait for a live answer. Prefer a
+small, correct, well-tested change over a large speculative one.

@@ -12,8 +12,9 @@ denied, the likely vote of each judge or justice, and a detailed prediction of
 the court's reasoning.
 
 > **Status:** early scaffold. The pipeline shape, data contract, and automation
-> are in place; most feature work is done by AI coding agents via the
-> label-driven workflows below.
+> are in place; data production runs through the label-driven workflows below,
+> and pipeline development happens in agent-assisted Codespaces sessions on the
+> ordinary branch-and-PR flow (see [`AGENTS.md`](AGENTS.md)).
 >
 > Pilot predictions are accumulating in the open ledger under `data/`, but none
 > has resolved or been scored yet — the first published-results target is the
@@ -38,9 +39,7 @@ request.
 
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
-| `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
 | `run:pull`     | `run-pull`      | Three scheduled jobs: targeted CourtListener enrichment (four windows/day), the **supremecourt.gov live poll** (four windows/day) that discovers pending petitions, tracks conference distribution, records outcomes, and provisions filed-document text, and the daily **historical Term walker** that accumulates decided petitions newest-Term-first for base rates and back-testing | Script |
-| `run:reconcile`| `run-reconcile` | Confirm an ambiguous outcome by agent — **paused** while the live channel (whose proceedings text resolves outcomes deterministically) settles its fate | Claude Code |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex + Gemini |
 
@@ -102,7 +101,9 @@ publish predictions we can't stand behind. Currently out of scope:
 
 These exclusions are applied deterministically from the corpus at the prediction
 matrix, and any predictions merged for such cases before an exclusion landed are
-pruned by the `run-cleanup` sweep. Scope will widen as the project matures; the
+pruned by a maintainer-run cleanup sweep (the tested
+`cleanup-out-of-scope-predictions` command, run locally and landed as a reviewed
+PR). Scope will widen as the project matures; the
 mechanics live in [`docs/pipeline.md`](docs/pipeline.md) and
 [`docs/data-pipeline.md`](docs/data-pipeline.md).
 

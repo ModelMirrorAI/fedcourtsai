@@ -68,7 +68,7 @@ jobs:
           # PR closes it on merge; an empty matrix closes it with a note). One gh
           # call per trigger label, merged; the tested `summarize_trigger_issues`
           # does the filtering/ordering.
-          for label in run:predict run:evaluate run:reconcile; do
+          for label in run:predict run:evaluate; do
             gh issue list --repo "$REPO" --label "$label" --state open --limit 100 \
               --json number,title,labels,createdAt
           done | jq -s 'add | unique_by(.number)' > trigger-issues.json

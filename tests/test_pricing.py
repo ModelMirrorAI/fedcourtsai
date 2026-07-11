@@ -39,8 +39,8 @@ def test_superseded_production_models_stay_priceable() -> None:
 
 
 def test_claude_default_model_and_rate() -> None:
-    # Predict/evaluate default to Fable 5; run-dev / run-reconcile stay pinned to
-    # claude-opus-4-8 in their workflows, so its rate must stay priceable too.
+    # Predict/evaluate default to Fable 5; claude-opus-4-8's rate must stay
+    # priceable too so earlier ledger records still price.
     assert DEFAULT_MODELS["claude-code"] == "claude-fable-5"
     rate = MODEL_RATES["claude-fable-5"]
     assert (rate.input_per_mtok, rate.output_per_mtok) == (10.0, 50.0)

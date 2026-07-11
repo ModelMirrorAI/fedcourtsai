@@ -27,7 +27,7 @@ agent-driven run actually flows.
 
 - **Found a bug or have an idea?** Use the *Bug report* or *Feature / idea* form on
   the [new-issue page](../../issues/new/choose).
-- **Want a data run** (refresh a case, reconcile an outcome, etc.)? Open a regular
+- **Want a data run** (e.g. refresh a case)? Open a regular
   issue describing it. Triggering the run is maintainer-only — a maintainer applies
   the `run:*` label, the trust boundary for anything that spends compute or writes
   the corpus.

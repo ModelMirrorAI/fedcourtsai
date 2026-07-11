@@ -19,12 +19,11 @@ to one docket entry with a closed ``kind`` enum
   the petition, at SCOTUS) — so a docket with no machine-readable entries still
   carries the one thing always worth predicting.
 
-**Deterministic first, agent only if ambiguous.** An entry the classifier cannot
+**Deterministic first, triage if ambiguous.** An entry the classifier cannot
 confidently place (it reads like a request but matches more than one ``kind``) is
 *not* guessed; it is returned in :attr:`EventExtraction.ambiguous` for a caller
-to escalate to an agent reconcile issue — the same deterministic-first / agent-
-fallback split the resolution-detection stage uses. The default path runs no
-agent.
+to surface for maintainer triage — the same deterministic-first / surface-the-rest
+split the resolution-detection stage uses. No agent runs.
 """
 
 from __future__ import annotations
@@ -101,7 +100,7 @@ class DocketEntry:
 class AmbiguousEntry:
     """A docket entry the deterministic classifier could not place confidently.
 
-    Surfaced (not guessed) so a caller can escalate it to an agent reconcile
+    Surfaced (not guessed) so a caller can surface it for maintainer triage
     issue; carries enough context for that issue to be actionable.
     """
 

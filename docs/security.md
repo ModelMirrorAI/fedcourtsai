@@ -23,8 +23,8 @@ agent is merely instructed to follow:
   client id is the `DATA_APP_CLIENT_ID` variable and its private key the
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
-- **dev App** — used by `run-dev` and the agent workflows `run-predict` /
-  `run-evaluate` / `run-reconcile`. Its client id is the `DEV_APP_CLIENT_ID`
+- **dev App** — used by the agent workflows `run-predict` /
+  `run-evaluate`. Its client id is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   reviewed PR.
@@ -35,8 +35,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues |
-| `run-predict`, `run-evaluate`, `run-reconcile` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
-| `run-dev` | dev | contents, pull-requests, **workflows** | develops the pipeline, including the workflow files |
+| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
@@ -44,8 +43,9 @@ the App level the union of what its workflows mint:
 - **data App**: Contents and Issues — *read and write*. (No workflow mints a
   Pull-requests scope from it any more; dropping that grant at the App level is
   a safe tightening.)
-- **dev App**: Contents, Issues, Pull requests, and **Workflows** — all *read and
-  write*.
+- **dev App**: Contents, Issues, and Pull requests — all *read and write*. (No
+  workflow mints a Workflows scope from it any more; dropping that grant at the
+  App level is a safe tightening.)
 
 After changing an App permission, **re-approve the installation** on the repo — a
 new permission stays pending until an owner accepts it, and the minted token is
@@ -71,7 +71,7 @@ branch:
   to `1` if a second reviewer exists.
   - Required checks are `gate` and `paths`. **Not** `zizmor` — it is path-filtered
     to `.github/**`, so requiring it would hang any PR that does not touch workflows.
-  - `paths` is the **auto-merge path jail**. The predict/evaluate/reconcile
+  - `paths` is the **auto-merge path jail**. The predict/evaluate
     collect jobs open one PR per run that auto-merges when green, opened with the
     **dev App** token — which is *absent* from this bypass list, so its auto-merge
     is bound by these required checks rather than skipping them. `paths` enforces
@@ -81,13 +81,15 @@ branch:
     every non-`*/run-*` branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
     the guarantee independently of the workflow that produced the branch.
-  - `cleanup-paths` is the destructive counterpart for `run-cleanup`. That sweep
-    *deletes* out-of-scope predictions, so it is the one branch the append-only
-    `paths` jail cannot cover; `cleanup-paths` instead requires every change on a
-    `cleanup/*` branch to be a **delete** under a `data/cases/**/events/*/predictions/`
-    subtree (the tested `fedcourts assert-cleanup-paths`). A `run-cleanup` PR is
-    **never auto-merged** — a maintainer reviews it — so this is review-time
-    defense-in-depth, also run producer-side in the sweep. No-op on other branches.
+  - `cleanup-paths` is the destructive counterpart for the cleanup sweep. That
+    sweep *deletes* out-of-scope predictions (the tested `fedcourts
+    cleanup-out-of-scope-predictions`, run locally by a maintainer), so it is the
+    one branch the append-only `paths` jail cannot cover; `cleanup-paths` instead
+    requires every change on a `cleanup/*` branch to be a **delete** under a
+    `data/cases/**/events/*/predictions/` subtree (the tested `fedcourts
+    assert-cleanup-paths`). A cleanup PR is **never auto-merged** — a maintainer
+    reviews and merges it — so this is review-time defense-in-depth. No-op on
+    other branches.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
   bypass — neither App.** This is what guarantees the predictions, outcomes,
   and evaluations under `data/` cannot be rewritten or dropped, even by a
@@ -100,8 +102,8 @@ branch:
 
 ## Repository merge settings
 
-Settings → General → Pull Requests. The predict `collect` job (and, as they are
-converted, evaluate/reconcile) opens one PR per run and asks GitHub to merge it
+Settings → General → Pull Requests. The predict and evaluate `collect` jobs each
+open one PR per run and ask GitHub to merge it
 when the required checks pass; these settings are what let that happen and keep
 the branch list clean. To reproduce the repo (or use it as a template), set:
 
@@ -151,18 +153,14 @@ role, never committed). Every job that needs any of them declares
 `environment: runner`.
 
 **Deployment branches are restricted to `main`.** A job can read the environment's
-secrets only when it runs from `main`, so a workflow authored on a PR branch —
-including one `run-dev` adds with its workflows scope — runs **without** the App
-key, agent tokens, or S3 role. This is the control that makes `run-dev`'s
-`workflows: write` safe: a malicious or prompt-injected workflow added in a PR
-cannot exfiltrate secrets on its own PR run; the change reaches the privileged
-context only after it is merged to `main`, which required review.
+secrets only when it runs from `main`, so a workflow authored on a PR branch runs
+**without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
+workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
+reaches the privileged context only after it is merged to `main`, which required
+review.
 
 Every `runner` job already runs from a `main` ref for its trigger — `schedule`,
-`workflow_dispatch`, `issues`, and the `run-reconcile` handoff's `push` to `main`
-— so the restriction breaks nothing. (The handoff fires on the push that lands the
-reconciled `outcome.json` on `main`, precisely so its ref is `main` rather than a
-`pull_request` merge ref.)
+`workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
 ## S3 / the DVC remote
 
@@ -179,17 +177,17 @@ Two IAM roles, assumed via GitHub OIDC (no static keys); see
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
   *consumer* job — `GetObject` / `ListBucket` only, so a compromised consumer
   runner cannot write or poison the corpus). Consumers reach it through two
-  composites: `corpus-ranged` for the predict/evaluate/reconcile **cell** jobs
+  composites: `corpus-ranged` for the predict/evaluate **cell** jobs
   (role + backend env only; the cell queries the blob in place, no pull) and
   `corpus-readonly` for the scan-heavy full-pull consumers (the plan jobs,
-  `run-analytics`, `run-cleanup`, the metrics refresh).
+  `run-analytics`, the metrics refresh).
 
 Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-
 environment jobs can assume them.
 
 **Cells hold read-only credentials while processing adversarial docket text.**
-A predict/evaluate/reconcile cell runs an agent over third-party snapshot text
+A predict/evaluate cell runs an agent over third-party snapshot text
 with the read-only role's credentials in its environment — prompt injection in
 a docket must be assumed. The blast radius is bounded and acceptable: the role
 can only read public court data back out of the bucket and spend egress; it

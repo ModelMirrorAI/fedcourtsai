@@ -5,7 +5,7 @@ description: >-
   immutable corpus blob in place on the DVC remote via HTTP range requests — no
   `dvc remote add`, no full-blob pull, per-query egress in KBs. The slim
   cell-job successor to `corpus-readonly`, which scan-heavy consumers (the plan
-  jobs, analytics, cleanup, the metrics refresh) keep for their full pulls. The
+  jobs, analytics, the metrics refresh) keep for their full pulls. The
   calling job must grant `id-token: write` and run in the `runner` environment
   so the role and remote variables are available to pass in.
 

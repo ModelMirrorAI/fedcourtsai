@@ -17,10 +17,8 @@ WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 # matrix job `needs:`; for the rest the entry job is the privileged job itself.
 RUN_LABELS = {
     "run-pull.yml": ("run:pull", "pull"),
-    "run-reconcile.yml": ("run:reconcile", "plan"),
     "run-predict.yml": ("run:predict", "plan"),
     "run-evaluate.yml": ("run:evaluate", "plan"),
-    "run-dev.yml": ("run:dev", "dev"),
 }
 
 # Step markers that mean "privileged work has started": minting an App token,
@@ -46,8 +44,8 @@ def _steps(job: dict[str, Any]) -> list[dict[str, Any]]:
 def _is_authorize_step(step: dict[str, Any]) -> bool:
     """The fail-closed actor gate, in either supported form.
 
-    The fan-out workflows (predict/evaluate/reconcile) delegate the decision to the
-    tested ``authorize-trigger`` command; the deterministic writers (pull/seed/dev)
+    The fan-out workflows (predict/evaluate) delegate the decision to the
+    tested ``authorize-trigger`` command; the deterministic writer (pull)
     still carry the inline collaborators-API check. Recognize both — the security
     *shape* (a gate before any privileged step) is what this file locks in; the
     decision logic itself is unit-tested in ``test_authz.py``.
@@ -98,7 +96,7 @@ def test_entry_job_authorizes_before_any_privileged_step() -> None:
 
 def _reachable_on_issue_label(job: dict[str, Any]) -> bool:
     """A job is on the label-trigger path unless its `if` pins the run to some other
-    event (e.g. the reconcile `handoff` job, gated to `push` and so guarded by branch
+    event (a job gated to `push` and so guarded by branch
     protection, not the label boundary)."""
     cond = str(job.get("if", ""))
     return not ("github.event_name ==" in cond and "'issues'" not in cond)

@@ -136,7 +136,7 @@ predict:
   #                   keep for dev / unrestricted back-testing.
   scope: scotus_docket
   # Hard cap on concurrent predictor matrix jobs. The enforced value is the
-  # `strategy.max-parallel` literal in run-predict/run-evaluate/run-reconcile;
+  # `strategy.max-parallel` literal in run-predict/run-evaluate;
   # keep this in step with it (nothing reads this key today — it documents intent).
   max_parallel: 6
   # Skip events already resolved (an outcome.json exists).

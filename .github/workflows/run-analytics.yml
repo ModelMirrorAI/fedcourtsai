@@ -254,7 +254,7 @@ jobs:
   #
   # This job reruns the same tested `fedcourts` commands the stages run (calling
   # them directly avoids `dvc repro` leaving an untracked dvc.lock), and — only
-  # when something changed — opens a **reviewed** PR, mirroring run-cleanup:
+  # when something changed — opens a **reviewed** PR:
   # never a direct commit to main, never auto-merged. Byte-stable artifacts mean
   # a no-op refresh diffs empty and opens nothing. The branch is fixed
   # (`metrics/refresh`, rendered by the tested `metrics-refresh-plan` command):
@@ -332,7 +332,7 @@ jobs:
 
       # The branch name and PR prose come from the tested `metrics-refresh-plan`
       # (null pr = nothing changed); this step only runs git and gh, mirroring
-      # run-cleanup. The fixed branch is force-pushed so an unmerged refresh PR
+      # a direct commit. The fixed branch is force-pushed so an unmerged refresh PR
       # updates in place rather than stacking.
       - name: Open or update the review PR
         env:

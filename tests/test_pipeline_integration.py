@@ -158,7 +158,7 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     for entry in queues.predict + queues.evaluate:
         assert set(entry) >= {"court", "docket", "events"}
         assert isinstance(entry["events"], list) and entry["events"]
-    for entry in queues.reconcile:
+    for entry in queues.unrecorded:
         assert set(entry) >= {"court", "docket", "events", "reason"}
 
     # Deterministic-first: ca9/1 gained an outcome and is queued for evaluate, not predict.
@@ -168,7 +168,7 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     assert ("ca9", 1) not in {(e["court"], e["docket"]) for e in queues.predict}
 
     # Agent-fallback: ca9/2 routes to reconcile and writes NO outcome on a guess.
-    (recon,) = queues.reconcile
+    (recon,) = queues.unrecorded
     assert (recon["court"], recon["docket"]) == ("ca9", 2)
     assert "not machine-readable" in cast(str, recon["reason"])
     assert not CasePaths(data_root, "ca9", 2).event(_EVENT_ID).outcome.exists()

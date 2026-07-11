@@ -600,7 +600,7 @@ def _fmt_duration(seconds: int | None) -> str:
 # The run:* labels whose trigger issues are transient by design: the run's ready
 # PR closes them on merge, and an empty matrix closes them with a note. (run:pull
 # issues are long-lived logs, so they are not stall signals.)
-TRIGGER_LABELS: tuple[str, ...] = ("run:predict", "run:evaluate", "run:reconcile")
+TRIGGER_LABELS: tuple[str, ...] = ("run:predict", "run:evaluate")
 
 
 def summarize_trigger_issues(raw: Iterable[Mapping[str, object]]) -> list[OpenTriggerIssue]:

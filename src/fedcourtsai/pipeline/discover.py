@@ -8,7 +8,7 @@ corpus, runs the deterministic event-definition stage
 (:mod:`fedcourtsai.pipeline.events`) to record its predictable event
 definition(s) as corpus rows, and advances the watermark — all *raw facts*, none
 of it per-case git files. Entries the extractor cannot confidently classify are
-collected on the result so the caller can open an agent reconcile issue.
+collected on the result so the caller can surface them for triage.
 
 Two budget guards keep a run inside the CourtListener API ceiling: a hard cap on
 new dockets per run (``max_new``), and ascending ``date_filed`` ordering so a run
