@@ -1,0 +1,21 @@
+{
+  "case_id": "ca1/30929",
+  "run_id": "20260711T043934Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "mcp_courtlistener_get_endpoint_item",
+    "google_web_search"
+  ],
+  "helpful": [
+    "mcp_courtlistener_get_endpoint_item",
+    "google_web_search"
+  ],
+  "gaps": [
+    "ranged-corpus-backend was not configured with DVC URL in environment"
+  ],
+  "notes": "MCP and Google Search were extremely helpful to trace the litigation of 19-2084 and confirm the applicability and timeline of the PROMESA automatic stay.",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,110 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "c60f3aac81ed101b",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,260p' AGENTS.md && sed -n '1,320p' .github/prompts/predict.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_digest": "d9faa67d5fc35f16",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:43:31.568Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "faa49b9df12e5df9",
+      "query": "const r = await tools.exec_command({\"cmd\":\"wc -l .github/prompts/predict.md AGENTS.md && sed -n '1,260p' schemas/prediction.schema.json && sed -n '1,240p' schemas/agent_tooling.schema.json && sed -n '1,220p' schemas/agent_flags.schema.json && uv run fedcourts paths --court ca10 --docket 69641076 --event evt-appeal-disposition\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":30000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_digest": "6493ea843c4cb3de",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:43:35.714Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "bb8d5d543f50f91b",
+      "query": "const r = await tools.exec_command({\"cmd\":\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts paths --court ca10 --docket 69641076 --event evt-appeal-disposition && rg --files data/cases/ca10/69641076 . | rg '(^|/)(record|evt-appeal-disposition|69641076)(/|$)' | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":30000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "4e443cff437949b3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:43:40.394Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "82b33a090c2a23e2",
+      "query": "const r = await tools.exec_command({\"cmd\":\"rg -n \\\"record/context\\\\.json|record/documents|latest snapshot|provision.*record|CELL.*DIR|RECORD.*DIR\\\" .github src tests docs | head -n 240 && find . /tmp -path '*/record/context.json' -o -path '*69641076*' 2>/dev/null | sort | head -n 240\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "47fa15b8892a28da",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:43:45.118Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "b96b716b4f69632b",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,240p' data/cases/ca10/69641076/events/evt-appeal-disposition/event.yaml && wc -c data/cases/ca10/69641076/record/snapshots/2026-07-11.json && jq . data/cases/ca10/69641076/record/snapshots/2026-07-11.json && find data/cases/ca10/69641076/record/documents -maxdepth 1 -type f -print 2>/dev/null | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_digest": "95573a5e60b08c37",
+      "retrieved_doc_date": "2025-02-14",
+      "timestamp": "2026-07-11T04:43:48.921Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "5a6edafe59103a1a",
+      "query": "const r = await tools.exec_command({\"cmd\":\"if [ -d data/cases/ca10/69641076/record/documents ]; then find data/cases/ca10/69641076/record/documents -maxdepth 1 -type f -print -exec sh -c 'wc -c \\\"$1\\\"; sed -n \\\"1,240p\\\" \\\"$1\\\"' _ {} \\\\;; else echo 'No provisioned documents directory.'; fi\\njq . data/cases/ca10/69641076/record/context.json\\nif [ -n \\\"${DECIDED_BEFORE:-}\\\" ]; then printf 'DECIDED_BEFORE is set: %s\\\\n' \\\"$DECIDED_BEFORE\\\"; else echo 'DECIDED_BEFORE is not set'; fi\",\"workdir\":\"/home",
+      "result_digest": "f73808cb4610ec72",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:43:52.308Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "bbaf5dbc703a491e",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,180p' docs/cli.md && rg -n \\\"Appeal|appeal|disposition|ca10|Tenth|overall\\\" metrics/statpack.md | head -n 160 && UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts query --help\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":30000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "e10316e7e7f9ad0e",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:44:01.708Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "cd7136b81589f70a",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,95p' metrics/statpack.md && sed -n '1,90p' metrics/statpack.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "0d8e72b723e693cd",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:44:05.064Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "9a6312a40afe0869",
+      "query": "const r = await tools.exec_command({\"cmd\":\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts query --court ca10 --era 2010s --limit 10 --corpus-backend ranged\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":30000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "f7fc92de25f03ac4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:44:14.191Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "fea1e22081f87075",
+      "query": "const r = await tools.exec_command({\"cmd\":\"date -u +'%Y-%m-%dT%H:%M:%SZ' && mkdir -p data/cases/ca10/69641076/events/evt-appeal-disposition/predictions/codex-baseline/20260711T043934Z && git status --short -- data/cases/ca10/69641076/events/evt-appeal-disposition\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":2000});\ntext(r.output);",
+      "result_digest": "d175c5662948fe14",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:44:46.281Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "6008d4e795dde1cd",
+      "query": "const patch = \"*** Begin Patch\\n*** Add File: data/cases/ca10/69641076/events/evt-appeal-disposition/predictions/codex-baseline/20260711T043934Z/prediction.json\\n+{\\n+  \\\"case_id\\\": \\\"ca10/69641076\\\",\\n+  \\\"confidence\\\": 0.25,\\n+  \\\"created_at\\\": \\\"2026-07-11T04:44:46Z\\\",\\n+  \\\"engine\\\": \\\"codex\\\",\\n+  \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n+  \\\"granted\\\": 0,\\n+  \\\"input_snapshot\\\": \\\"data/cases/ca10/69641076/record/snapshots/2026-07-11.json\\\",\\n+  \\\"model\\\": \\\"gpt-5.6-sol\\\",\\n+  \\\"predicted",
+      "result_digest": "d43c9d7e0988e1da",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:45:08.387Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "45ee4511891a10ed",
+      "query": "const r = await tools.exec_command({\"cmd\":\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts validate data && find data/cases/ca10/69641076/events/evt-appeal-disposition/predictions/codex-baseline/20260711T043934Z -maxdepth 1 -type f -printf '%f\\\\n' | sort && for f in data/cases/ca10/69641076/events/evt-appeal-disposition/predictions/codex-baseline/20260711T043934Z/*.json; do jq -e . \\\"$f\\\" >/dev/null; done && git status --short -- data/cases/ca10/69641076/events/evt-appeal-disposition/predictions/cod",
+      "result_digest": "e8fbee80ceef10c5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-11T04:45:12.495Z",
+      "tool": "exec"
+    }
+  ],
+  "case_id": "ca10/69641076",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0"
+}

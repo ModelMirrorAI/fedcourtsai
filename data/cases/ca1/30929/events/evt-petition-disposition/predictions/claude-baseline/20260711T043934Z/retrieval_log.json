@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "1951454c43effb45",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "3ed65ea48951aa27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6929163877b34feb",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1 -type f | head -50; echo ---; env | grep -E 'COURT_ID|DOCKET_ID|EVENT_ID|PREDICTOR_ID|RUN_ID|MODEL_ID|DECIDED_BEFORE' || true",
+      "result_digest": "3cd87f9f1f9647c7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "80193c77f041bcf1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1/30929/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7fa00f08a4c5758c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1/30929/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "150bb67170600957",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "411f1d38ae66e4b3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1/30929/record/snapshots/2026-07-11.json\"}",
+      "result_digest": "1fca503e52b6f063",
+      "retrieved_doc_date": "2019-11-01",
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f9dc030bdc62dba7",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ 2>/dev/null; grep -rl \"evt-petition-disposition\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases --include=event.yaml | head -20",
+      "result_digest": "af9d57cc924e91bb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "963ed3e0ed0be863",
+      "query": "uv run fedcourts paths --court ca1 --docket 30929 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "06f01c20dceaa6a0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d276c33dfadadd3d",
+      "query": "grep -n -A 15 \"Modern discretionary-cert\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40; echo ====; grep -n -B2 -A 12 \"ca1\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "4bcc6fc48a6dba15",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4cf72d61316c09bf",
+      "query": "head -60 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "b00865ba7701a75b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cf5328cab9045b4f",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "df4d743b21c21497",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f82671f09038b075",
+      "query": "uv run fedcourts query --court ca1 --corpus-backend ranged --limit 8 2>ranged1.err | head -20; echo '--- stderr:'; cat ranged1.err",
+      "result_digest": "57403145b0438739",
+      "retrieved_doc_date": "2020-12-09",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d16fc5f28d5616a9",
+      "query": "grep -rn \"petition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include='*.py' -l | head; echo ---; grep -rn \"show cause\\|show_cause\\|petition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/events.py 2>/dev/null | head -30",
+      "result_digest": "182e985871cdcb90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "70fa06d6f2054e91",
+      "query": "grep -n \"petition\\|show cause\\|ORDER entered\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/events.py | head -30",
+      "result_digest": "f4769c908b3a4906",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "05b576c12849581e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/events.py\", \"limit\": 130, \"offset\": 160}",
+      "result_digest": "0aff79f42635f601",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9d4439b0fb3fa05a",
+      "query": "grep -rn \"disposing\\|_DISPOSITION\\|classify\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/events.py | head; echo ===; grep -rln \"outcome\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/*.py",
+      "result_digest": "6b8d4a30f7551d7f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "881a765566d5e973",
+      "query": "sed -n 1,120p /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/outcome.py",
+      "result_digest": "75e80fc8cba94f90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "47a635295cd74171",
+      "query": "grep -n \"disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py | head -20; echo ===; grep -rn \"def normalize_disposition\\|_DISPOSITION_MAP\\|affirmed\\|dismissed\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/corpus.py /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py 2>/dev/null | head -30",
+      "result_digest": "06e07e723e372117",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "955852692bdc8306",
+      "query": "sed -n 288,315p /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py",
+      "result_digest": "c26f205bffc0103f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "4e3a479020cd7a3f",
+      "query": "{\"court\": \"prd\", \"docket_number\": \"3:18-cv-01993\", \"entry_date_filed_before\": \"2020-03-24\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"assignedTo\", \"cause\", \"suitNature\", \"docket_id\", \"recap_documents\"], \"num_results\": 5, \"type\": \"r\"}",
+      "result_digest": "2a2ae5147ced726e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "859bee75108ee793",
+      "query": "{\"court\": \"prd\", \"docket_number\": \"3:18-cv-01993\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"assignedTo\", \"cause\", \"suitNature\"], \"num_results\": 3, \"type\": \"d\"}",
+      "result_digest": "2a2ae5147ced726e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "6b6aa3e6f4bc0576",
+      "query": "uv run fedcourts query --court ca1 --topic \"3440 Other Civil Rights\" --corpus-backend ranged --limit 10 2>ranged2.err | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print(r['case_id'], r.get('docket_number'), r.get('date_filed'), r.get('date_decided'), r.get('disposition'), (r.get('topic') or ''))\n\"; echo '--- stderr:'; cat ranged2.err",
+      "result_digest": "66903730d4f83029",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f57bb906b23a03d8",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "9e5f19b7fc8601af",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "069a530bf137bea1",
+      "query": "f=$(find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -name prediction.json | head -1); echo \"$f\"; cat \"$f\"",
+      "result_digest": "7280477a9403f273",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3edac24e0c23c7b5",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"ca1/30929\\\",\\n  \\\"confidence\\\": 0.6,\\n  \\\"created_at\\\": \\\"2026-07-11T04:45:38Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/ca1/30929/record/snapshots/2026-07-11.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.02,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run_id\\\": \\\"20260",
+      "result_digest": "70c0083a99faf4a8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a1f64d28040ab344",
+      "query": "{\"content\": \"# ca1/30929 \\u2014 evt-petition-disposition (claude-baseline, 20260711T043934Z)\\n\\n## What this event actually is\\n\\nThe event is pinned to docket entry 124191269 (2020-03-24) in *Ortiz-Romero v.\\nGov't Development Bank of PR*, No. 19-2084 (1st Cir.). That entry is not a\\nparty's petition: it is the court's **sua sponte order to show cause** whether\\nthe PROMESA Title III automatic stay applies to the appeal, in light of the\\nCommonwealth of Puerto Rico's May 3, 2017 Title III petit",
+      "result_digest": "eab3e20db56f6d16",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "94246fe210ca0bec",
+      "query": "{\"content\": \"# Retrieval log \\u2014 ca1/30929 evt-petition-disposition (claude-baseline, 20260711T043934Z)\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\n1. `uv run fedcourts query --court ca1 --corpus-backend ranged --limit 8`\\n   - `ranged corpus reads: 27 GET(s), 7077888 byte(s)`\\n   - Returned 8 resolved ca1 priors, all disposition `other`; attached opinion\\n     text/summaries were mismatched (unrelated historical state-court material),\\n     so only the disposition labels were usabl",
+      "result_digest": "10afbb1ffccfe1ce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "efe308772ac05915",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca1/30929\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"ambiguous-event\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"The pinned docket entry (124191269) is the court's sua sponte order to show cause whether the PROMESA Title III automatic stay applies to the appeal. The word 'petition' in it refers to the Commonwealth of Puerto Rico's Title III bankruptcy petition, not a party's request for r",
+      "result_digest": "68c8888b5521c91c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "60ef5f9ba6bbafed",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca1/30929\\\",\\n  \\\"gaps\\\": [\\n    \\\"A working CourtListener MCP server (every call failed server-side with 'REDIS_URL is not set'); the originating district-court record would have materially sharpened this prediction\\\",\\n    \\\"Statpack cuts for circuit-court entry-pinned events by event kind (petition/motion/order), not just case-level dispositions by court\\\",\\n    \\\"A provisioned copy of, or pointer into, the originating dis",
+      "result_digest": "baa81854b1a0d61f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e3aec677db63d22a",
+      "query": "rm -f ranged1.err ranged2.err && uv run fedcourts validate data && git status --short data/cases/ca1/30929",
+      "result_digest": "b8d02a13b1033ee6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e4e2ec6371d129a1",
+      "query": "gh issue comment 559 --body \"claude-baseline \u00b7 ca1/30929 \u00b7 evt-petition-disposition \u00b7 run 20260711T043934Z: prediction written (granted=0, P(granted)=0.02, predicted_disposition=other, confidence=0.6). Note: the pinned entry is CA1's sua sponte PROMESA-stay show-cause order \u2014 the 'petition' it mentions is the Commonwealth's Title III petition, so this event is an extraction artifact (flagged ambiguous-event). Also flagged: stale forward-mode record (docket unchanged since 2020/blocked on CL sinc",
+      "result_digest": "864d3f03be41a81f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "ca1/30929",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0"
+}

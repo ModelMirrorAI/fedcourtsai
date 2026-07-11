@@ -1,0 +1,18 @@
+case_id: ca1/30929
+decision_target: disposition
+description: "ORDER entered: This is an appeal from a judgment of the district court.\
+  \ On May 3, 2017, the Commonwealth of Puerto Rico filed a petition under Title III\
+  \ of PROMESA, 48 U.S.C. \xC2\xA7\xC2\xA7 2161, et seq., for adjustment of its debts.\
+  \ Under section 2161(a), the bankruptcy stay provisions are incorporated into PROMESA.\
+  \ In light of the Commonwealth's PROMESA filing, we direct the parties to show cause\
+  \ within fourteen days of the date of this order whether the automatic stay applies\
+  \ to all or any part of this appeal. The parties are directed to state with specificity\
+  \ the reasoning behind their conclusion one way or the other. [19-2084] (AL) [Entered:\
+  \ 03/24/2020 02:33 PM]"
+docket_entry_id: 124191269
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-03-24'
+resolved: false
+schema_version: '1.0'
+title: Ortiz-Romero v. Gov't Development Bank of PR

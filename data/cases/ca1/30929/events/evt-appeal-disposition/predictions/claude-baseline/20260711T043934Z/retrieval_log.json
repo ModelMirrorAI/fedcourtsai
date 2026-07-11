@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "1951454c43effb45",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "3ed65ea48951aa27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c2b8fecbe9b30add",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1 -type f | head -50",
+      "result_digest": "750f0c475124ae49",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "126c108f979d645d",
+      "query": "uv run fedcourts paths --court ca1 --docket 30929 --event evt-appeal-disposition 2>&1",
+      "result_digest": "f8daa9d994cf9fa9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "80193c77f041bcf1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1/30929/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "65eb4e61966b3d9c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1/30929/events/evt-appeal-disposition/event.yaml\"}",
+      "result_digest": "73821b96d4282ede",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "411f1d38ae66e4b3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca1/30929/record/snapshots/2026-07-11.json\"}",
+      "result_digest": "1fca503e52b6f063",
+      "retrieved_doc_date": "2019-11-01",
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "52eaa25420c3ad32",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/schemas/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "f7b0b26726846351",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "3faa9842caa93fe1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "91ec3592bde2606d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f82302905db5ee3a",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -name outcome.json -path '*evt-appeal-disposition*' | head; echo ---; find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -name outcome.json | wc -l",
+      "result_digest": "f60f8c7e6458cddc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "20ba9528529a079d",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -name outcome.json | head -8 | xargs -I{} sh -c 'echo \"== {}\"; cat {}'",
+      "result_digest": "1cbed5ac6a03598d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8979d40680be6ac7",
+      "query": "grep -rn \"affirmed\\|reversed\\|vacated\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include='*.py' -i | grep -i \"disposition\\|outcome\\|label\\|map\" | head -20",
+      "result_digest": "cd152d7f569d4c57",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cc7f59dbbbf676c2",
+      "query": "uv run fedcourts query --court ca1 --topic \"3440 Other Civil Rights\" --corpus-backend ranged --limit 8 2>ranged.err; echo \"--- stderr:\"; cat ranged.err",
+      "result_digest": "1ed7481450e58153",
+      "retrieved_doc_date": "2019-06-27",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9a8eb2bec70e260a",
+      "query": "sed -n '760,830p' /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/corpus.py; echo ====; sed -n '930,980p' /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/corpus.py",
+      "result_digest": "b22b1daf67d43dbc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "37c11eb1d05e16c8",
+      "query": "grep -rn \"evt-appeal-disposition\\|appeal\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include='*.py' -l | head; echo ===; grep -rn \"def.*disposition\\|_DISPOSITION\\|disposition_from\\|classify\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include='*.py' | grep -vi scotus | head -20",
+      "result_digest": "9c1c51e3bc5e483c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6bb2ef66cbbe773d",
+      "query": "grep -rn \"normalize_disposition\\|_DISPOSITION_MAP\\|affirm\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include='*.py' | head -20",
+      "result_digest": "75b63ae4dad946cc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0112c115dbc55625",
+      "query": "sed -n '255,340p' /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py",
+      "result_digest": "f4c0f9c40a902b8d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fea59b29f2ac81a4",
+      "query": "grep -rn \"actual_granted\\|actual_disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include='*.py' | grep -v test | head -15",
+      "result_digest": "852ebc6119be0e1e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5dd382adfc271ad1",
+      "query": "sed -n '40,60p' /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/outcome.py",
+      "result_digest": "6cfb7b5e7866613c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3522afe0537242d7",
+      "query": "uv run fedcourts query --court ca1 --era 2010s --limit 6 --corpus-backend ranged 2>ranged2.err | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print(r['case_id'], r['docket_number'], r['date_filed'], r['date_decided'], r['disposition'], (r.get('topic') or '')[:40], (r.get('case_name') or '')[:60])\n\"; echo \"--- stderr:\"; cat ranged2.err",
+      "result_digest": "573e12d640e10b60",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0c26933b2146bcc4",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "5b88b6b081a47f37",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9804fd2bf6bc3d3d",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"ca1/30929\\\",\\n  \\\"confidence\\\": 0.6,\\n  \\\"created_at\\\": \\\"2026-07-11T04:44:36Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/ca1/30929/record/snapshots/2026-07-11.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"other\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.02,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run_id\\\": \\\"2026071",
+      "result_digest": "029d29c9c99f93f5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ad09c1de46c8b71c",
+      "query": "{\"content\": \"# Ortiz-Romero v. Gov't Development Bank of PR \\u2014 appeal disposition (ca1/30929, No. 19-2084)\\n\\n## The question\\n\\nWill the First Circuit grant relief to the appellant \\u2014 i.e., disturb the\\ndistrict court's judgment \\u2014 and under which disposition label will the appeal\\nresolve?\\n\\n## The record (from the provisioned snapshot, `2026-07-11.json`)\\n\\n- Civil, private, **civil-rights** appeal (nature of suit 3440 Other Civil\\n  Rights) from the District of Puerto Rico (3:18",
+      "result_digest": "6353bc3c8df9cb6f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "07a61510fee9ea15",
+      "query": "{\"content\": \"# Retrieval log \\u2014 ca1/30929 evt-appeal-disposition (claude-baseline, 20260711T043934Z)\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\n1. `uv run fedcourts query --court ca1 --topic \\\"3440 Other Civil Rights\\\" --corpus-backend ranged --limit 8`\\n   - stderr: `ranged corpus reads: 258 GET(s), 67633152 byte(s)`\\n   - Returned one prior (ca1/4680, \\\"18-1898\\\", disposition `other`), whose\\n     attached summary text is plainly from an early-1900s Missouri state\\n     case \\u2",
+      "result_digest": "7e6f00ab19d21a72",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c92b5700c8bac6ca",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca1/30929\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n      \\\"message\\\": \\\"Forward-mode cell on a stale record: the snapshot is dated 2026-07-11 but its docket data was last refreshed from CourtListener on 2020-03-25 (the docket has been blocked from indexing since 2021-04-18, date_terminated null). A CA1 appeal docketed 2019-11-01 is almost certainly alre",
+      "result_digest": "a9b4cd52893afb73",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "04c05111b4d9853b",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca1/30929\\\",\\n  \\\"gaps\\\": [\\n    \\\"A snapshot freshness field (last-upstream-refresh date) surfaced in record/context.json, so a predictor can tell a genuinely pending forward case from a stale-corpus one without risking an outcome-revealing live fetch\\\",\\n    \\\"Statpack cut by event kind (evt-appeal-disposition vs cert petitions) and by originating district, not just by court\\\",\\n    \\\"fedcourts query relevance for circuit a",
+      "result_digest": "f3fe0da3e665848e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fa9101fc7ed9ae20",
+      "query": "rm -f ranged.err ranged2.err && uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "14780632ce028658",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "edce53853f8a2718",
+      "query": "gh issue comment 559 --body \"claude-baseline \u00b7 ca1/30929 \u00b7 evt-appeal-disposition \u00b7 run 20260711T043934Z: prediction written \u2014 disposition **other** (likely merits affirmance; \\`affirmed\\`/\\`reversed\\` both normalize to \\`other\\`), P(granted)=0.02, granted=0. Note in flags.json: forward-mode cell but the snapshot's docket data is stale (last upstream refresh 2020-03-25 on a 2019 appeal), so I skipped all live CourtListener reads of this docket to avoid retrieving the realized outcome; also flagg",
+      "result_digest": "15117646735ecad5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "ca1/30929",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0"
+}

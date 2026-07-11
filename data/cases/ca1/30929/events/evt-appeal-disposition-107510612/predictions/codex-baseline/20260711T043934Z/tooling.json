@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca1/30929",
+  "gaps": [
+    "Reliable access to the configured CourtListener session store",
+    "Reliable DNS access to the ranged corpus remote",
+    "Provisioned district-court judgment and appellate briefs"
+  ],
+  "helpful": [
+    "Provisioned point-in-time docket snapshot",
+    "Committed court-level disposition statpack"
+  ],
+  "notes": "Both external retrieval paths failed before returning evidence, so the prediction rests on the provisioned snapshot and committed base rates.",
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "CourtListener MCP (attempted)",
+    "fedcourts query (attempted)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca1/30929",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-appeal-disposition-107510612",
+      "message": "A local filename search intended to locate pre-decision material displayed the path of a later Supreme Court event involving the same named parties. I did not open that event or use its existence in the prediction, but it is outcome-adjacent subsequent history and is disclosed so evaluators can discount the cell if appropriate.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition-107510612",
+      "message": "The provisioned snapshot contains no district-court judgment, merits briefing, or stay submissions, while both CourtListener and ranged-corpus retrieval failed before returning results. The prediction is consequently driven primarily by the First Circuit base rate.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0"
+}

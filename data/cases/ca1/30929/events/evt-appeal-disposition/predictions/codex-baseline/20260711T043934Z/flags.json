@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca1/30929",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition",
+      "message": "The snapshot is marked blocked and contains only four appellate entries through March 2020 for an appeal opened in 2019. It lacks the judgment reasoning, merits briefs, show-cause responses, and later docket activity, so the prediction is necessarily base-rate driven.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0"
+}
