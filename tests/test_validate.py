@@ -100,7 +100,7 @@ def _seed_scope_corpus(db: Path) -> None:
                     docket_number="01-7700",
                     citations=["537 U.S. 1"],
                 ),
-                # Stale-unresolvable, bare — no recoverability signal.
+                # Stale-unresolvable, bare — no disposition signal.
                 corpus.CorpusRow(case_id="scotus/1004289", court="scotus", docket_number="93-7515"),
                 # Historical-mandatory, bare.
                 corpus.CorpusRow(case_id="scotus/1001931", court="scotus", docket_number="801"),

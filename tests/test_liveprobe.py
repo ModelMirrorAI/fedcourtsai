@@ -46,7 +46,7 @@ def test_classify_record_reads_links_and_disposition() -> None:
     assert probe.proceedings == 3
     assert probe.entries_with_links == 1
     assert probe.documents == 2
-    # The plain-text denial order matches recoverability's cert-order signals —
+    # The plain-text denial order matches the shared cert-order signals —
     # the fact that makes ingest-time resolution viable on this channel.
     assert probe.disposition_label == "cert denied"
     assert "ProceedingsandOrder" in probe.keys

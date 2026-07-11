@@ -79,14 +79,6 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
 from .pipeline.pull import pull_case, pull_cases
-from .pipeline.recoverability import (
-    dated_share_snapshot,
-    parse_docket_pairs,
-    probe_dockets,
-    probe_sample,
-    render_summary,
-    sample_dateless_targets,
-)
 from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
@@ -1124,91 +1116,6 @@ def pull(
     should run). The first pull of a docket onboards it.
     """
     _fetch_one_docket(court, docket)
-
-
-@app.command("probe-recoverability")
-def probe_recoverability(
-    dockets: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--dockets",
-            help="court/docket pair(s) to probe; repeatable and/or comma-separated, "
-            "e.g. --dockets scotus/1000512,scotus/1000515.",
-        ),
-    ] = None,
-    sample_dateless: Annotated[
-        int,
-        typer.Option(
-            help="Instead of --dockets: probe a stratified random sample of this many "
-            "resolved-but-dateless corpus rows (SCOTUS modern-cert / ca4 / other "
-            "circuits). Needs the corpus on disk. Each docket costs ~2-3 REST requests.",
-        ),
-    ] = 0,
-    seed: Annotated[
-        int,
-        typer.Option(help="PRNG seed for --sample-dateless; same corpus + seed = same draw."),
-    ] = 0,
-    report_out: Annotated[
-        Path | None,
-        typer.Option(
-            help="Also write the machine ProbeReport JSON here (e.g. for an Actions "
-            "artifact); it always goes to stdout regardless.",
-        ),
-    ] = None,
-    summary_out: Annotated[
-        Path | None,
-        typer.Option(
-            help="Append the Markdown summary here (e.g. $GITHUB_STEP_SUMMARY); "
-            "the machine JSON always goes to stdout.",
-        ),
-    ] = None,
-) -> None:
-    """Probe whether sparse dockets' dispositions are recoverable from CourtListener.
-
-    Strictly **read-only**: for each ``court/docket`` it fetches the docket, its
-    entries, and any linked opinion cluster via the REST API and classifies the
-    disposition as RECOVERABLE (an ingestion gap a pull re-fetch can close),
-    ABSENT (genuinely bare upstream), or AMBIGUOUS. Writes nothing — no corpus,
-    ``data/``, DVC, or git (``--report-out`` writes only the report file named).
-    Targets come from ``--dockets`` (ad-hoc pairs) or ``--sample-dateless N`` (a
-    deterministic stratified sample of the resolved-but-dateless slice, sizing what
-    a REST re-fetch can recover per stratum; the summary then carries a per-stratum
-    rollup and the corpus's dated share at probe time). Emits the machine
-    ``ProbeReport`` JSON on stdout and a short human summary on stderr;
-    ``--summary-out`` also appends the Markdown summary to a file. Needs the
-    CourtListener REST token in the environment (it is dispatched by the diagnostic
-    workflow, which holds it). See ``docs/cli.md``.
-    """
-    if bool(dockets) == (sample_dateless > 0):
-        typer.echo("give exactly one of --dockets or --sample-dateless", err=True)
-        raise typer.Exit(code=2)
-    dated_share: tuple[int, int] | None = None
-    if dockets:
-        try:
-            pairs = parse_docket_pairs(dockets)
-        except ValueError as exc:
-            typer.echo(f"bad --dockets value: {exc}", err=True)
-            raise typer.Exit(code=2) from exc
-        with _client() as client:
-            report = probe_dockets(client, pairs)
-    else:
-        db_path = corpus.corpus_db_path(get_settings().corpus_root)
-        if not db_path.exists():
-            typer.echo(f"--sample-dateless needs the corpus at {db_path}", err=True)
-            raise typer.Exit(code=2)
-        with corpus.connect_readonly(db_path) as conn:
-            targets = sample_dateless_targets(conn, total=sample_dateless, seed=seed)
-            dated_share = dated_share_snapshot(conn)
-        with _client() as client:
-            report = probe_sample(client, targets)
-    summary = render_summary(report, dated_share=dated_share)
-    typer.echo(report.model_dump_json(indent=2))
-    typer.echo(summary, err=True)
-    if report_out is not None:
-        write_raw_json(report_out, report.model_dump(mode="json"))
-    if summary_out is not None:
-        with summary_out.open("a", encoding="utf-8") as fh:
-            fh.write(summary)
 
 
 @app.command("probe-live-terms")

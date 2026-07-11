@@ -928,8 +928,8 @@ def is_stale_unresolvable(row: CorpusRow) -> bool:
 def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
     """Whether a still-open SCOTUS row's disposition lives only in an opinion.
 
-    The recoverability probe (`run-analytics`, recoverability mode) found these historical
-    ``evt-petition-disposition`` cases carry a **linked published opinion** (a reporter
+    Some historical ``evt-petition-disposition`` cases (observed on the
+    bulk-era import) carry a **linked published opinion** (a reporter
     citation / non-zero ``citation_count`` / ``opinion_text``) but **no machine-readable
     disposition** on either the docket or the cluster and no docket entries. The outcome
     exists only in the opinion *text* — recoverable by parsing it, not by a structured

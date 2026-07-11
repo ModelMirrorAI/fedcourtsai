@@ -396,7 +396,7 @@ def test_is_stale_unresolvable_ignores_unparseable_and_non_scotus() -> None:
 
 
 def test_is_published_opinion_unresolvable_detects_opinion_only_disposition() -> None:
-    # The shape the recoverability probe found — a still-open SCOTUS docket
+    # The observed upstream shape — a still-open SCOTUS docket
     # (no disposition, no decision date) whose only outcome signal is a linked published
     # opinion (a reporter citation). The disposition lives in the opinion text, not a
     # structured field, so the cert model cannot score it. Each recoverable signal

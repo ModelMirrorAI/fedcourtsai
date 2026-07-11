@@ -2,9 +2,9 @@
 
 The one deterministic instrument that reads a concrete cert disposition out of
 free order-list language ("Petition DENIED.", "GVR'd", "certiorari granted"),
-shared by every consumer that needs it — the recoverability probe
-(:mod:`.recoverability`), the live channel's ingest-time resolution
-(:mod:`.ingest`), and the live reachability probe (:mod:`.liveprobe`).
+shared by every consumer that needs it — the live channel's ingest-time
+resolution (:mod:`.ingest`) and the live reachability probe
+(:mod:`.liveprobe`).
 A leaf module on purpose: it depends only on the shared schema, so the
 consumers can never form an import cycle around it.
 """
