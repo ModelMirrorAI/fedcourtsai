@@ -110,6 +110,20 @@ def test_group_by_originating_court_keeps_unlinked_visible(fixture_corpus: Fixtu
     assert _shares(ca9) == {"denied": 1.0}
 
 
+def test_group_by_cert_signal_dimensions(fixture_corpus: FixtureCorpus) -> None:
+    # The statpack's cert-signal cuts ride the same `_KEY_FNS` table, so
+    # `fedcourts stats --group-by` gets them for free. Unweighted here — the
+    # report is a raw-count view; weighting is the statpack's concern.
+    relists = _report(fixture_corpus, court="scotus", group_by=GroupBy.relist_bucket)
+    # scotus/304 had two distributions (one relist); scotus/305 one (zero).
+    assert {(b.key, b.cases) for b in relists.buckets} == {("0", 1), ("1", 1)}
+    cvsg = _report(fixture_corpus, court="scotus", group_by=GroupBy.cvsg)
+    assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 1)}
+    fee = _report(fixture_corpus, court="scotus", group_by=GroupBy.fee_class)
+    # Both fixture petitions are paid-stream serials (845 and 12 < 5001).
+    assert [(b.key, b.cases) for b in fee.buckets] == [("paid", 2)]
+
+
 def test_filter_term_is_scotus_only(fixture_corpus: FixtureCorpus) -> None:
     report = _report(fixture_corpus, term=2022)
     # Only scotus/304 ("22-845") is Term 2022. The ca9 dockets ("22-15001",

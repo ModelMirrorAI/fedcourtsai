@@ -859,7 +859,7 @@
             }
           ],
           "default": null,
-          "description": "Resolved cases behind the base rate",
+          "description": "Estimated resolved petitions behind the base rate (weighted)",
           "title": "Base Rate Cases"
         },
         "deny_base_rate": {
@@ -874,7 +874,7 @@
             }
           ],
           "default": null,
-          "description": "Denied share of resolved modern discretionary-cert petitions (from the committed statpack), when its section is present",
+          "description": "Denied share of resolved modern discretionary-cert petitions (from the committed statpack's live-slice, denial-reweighted section), when present",
           "title": "Deny Base Rate"
         },
         "lift_over_always_deny": {

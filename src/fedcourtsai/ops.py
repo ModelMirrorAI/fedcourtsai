@@ -130,9 +130,13 @@ def _deny_base_rate(statpack: StatPack | None) -> tuple[float | None, int | None
     """``(denied share, resolved cases)`` from the statpack's modern-cert section.
 
     The calibration anchor: the disposition breakdown restricted to modern
-    Term-prefixed discretionary-cert dockets. ``(None, None)`` when the statpack
-    or its cert-stage disposition section is absent — the render shows an
-    explicit absence rather than anchoring against the wrong population.
+    Term-prefixed discretionary-cert dockets — matched by its **shape**
+    (``cert_stage`` + disposition grouping), never its title, and computed
+    upstream over the live/historical slice with denial-reweighted counts, so
+    both numbers are estimates of the true population rather than raw ingested
+    rows. ``(None, None)`` when the statpack or its cert-stage disposition
+    section is absent — the render shows an explicit absence rather than
+    anchoring against the wrong population.
     """
     if statpack is None:
         return (None, None)
@@ -271,7 +275,8 @@ def render_substance(digest: SubstanceDigest) -> str:
         lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
         lines.append(
             f"Always-deny base rate **{cal.deny_base_rate:.0%}** "
-            f"(over {cal.base_rate_cases:,} resolved modern-cert petitions) · "
+            f"(est. over {cal.base_rate_cases:,} resolved modern-cert petitions, "
+            "live/historical slice, denial-reweighted) · "
             f"lift **{lift}**"
         )
 

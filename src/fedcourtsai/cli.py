@@ -561,11 +561,16 @@ def statpack(
 ) -> None:
     """Roll the corpus into a base-rate statpack at ``metrics/statpack.{json,md}``.
 
-    An independent published artifact — headline counts plus curated disposition
-    base-rate breakdowns (by court, and SCOTUS petitions by Term and topic).
-    Deterministic and offline: a pure function of the corpus, so reruns reproduce both
-    files byte for byte. Writes the empty zero-count pack when the corpus is absent (run
-    after `dvc pull`). Git-tracked as a DVC metric alongside `leaderboard` / `backtest`.
+    An independent published artifact, two populations side by side: the
+    full-corpus overview (cases by court, SCOTUS by era — bulk import included,
+    labeled so) and the live/historical-slice cert statistics the predict and
+    evaluate prompts anchor on — denial-reweighted disposition base rates, cuts
+    by originating circuit / relist count / CVSG status, and per-Term detail
+    with a cursor-derived filings census, per-fee-class estimates, and
+    walk-complete flags. Deterministic and offline: a pure function of the
+    corpus, so reruns reproduce both files byte for byte. Writes the empty
+    zero-count pack when the corpus is absent (run after `dvc pull`).
+    Git-tracked as a DVC metric alongside `leaderboard` / `backtest`.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
