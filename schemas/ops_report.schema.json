@@ -193,169 +193,6 @@
       "title": "AgentToolingFeedback",
       "type": "object"
     },
-    "BackfillCourt": {
-      "additionalProperties": false,
-      "description": "Per-court backfill progress, projected from the seed cursor.",
-      "properties": {
-        "complete": {
-          "default": false,
-          "title": "Complete",
-          "type": "boolean"
-        },
-        "court": {
-          "title": "Court",
-          "type": "string"
-        },
-        "offset": {
-          "description": "Cases loaded for this court",
-          "minimum": 0,
-          "title": "Offset",
-          "type": "integer"
-        },
-        "percent": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "offset / total, or 100 when complete",
-          "title": "Percent"
-        },
-        "total": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Cases in the snapshot, once known",
-          "title": "Total"
-        }
-      },
-      "required": [
-        "court",
-        "offset"
-      ],
-      "title": "BackfillCourt",
-      "type": "object"
-    },
-    "BackfillProgress": {
-      "additionalProperties": false,
-      "description": "Whole-backfill progress across the tracked courts.",
-      "properties": {
-        "cases_loaded": {
-          "description": "Total cases loaded so far (sum of offsets)",
-          "minimum": 0,
-          "title": "Cases Loaded",
-          "type": "integer"
-        },
-        "cases_per_day": {
-          "anyOf": [
-            {
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Load rate since the previous snapshot, when one is available",
-          "title": "Cases Per Day"
-        },
-        "cases_total": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Total cases to load, only when every court's total is known",
-          "title": "Cases Total"
-        },
-        "courts_complete": {
-          "description": "Courts whose backfill is finished",
-          "minimum": 0,
-          "title": "Courts Complete",
-          "type": "integer"
-        },
-        "courts_total": {
-          "description": "Tracked courts",
-          "minimum": 0,
-          "title": "Courts Total",
-          "type": "integer"
-        },
-        "entries": {
-          "items": {
-            "$ref": "#/$defs/BackfillCourt"
-          },
-          "title": "Entries",
-          "type": "array"
-        },
-        "eta_date": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Projected completion date (ISO), when the rate and total are both known",
-          "title": "Eta Date"
-        },
-        "percent": {
-          "anyOf": [
-            {
-              "maximum": 100.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Overall %, only when cases_total is known",
-          "title": "Percent"
-        },
-        "snapshot": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Bulk snapshot id being loaded",
-          "title": "Snapshot"
-        }
-      },
-      "required": [
-        "courts_total",
-        "courts_complete",
-        "cases_loaded"
-      ],
-      "title": "BackfillProgress",
-      "type": "object"
-    },
     "CorpusCheck": {
       "additionalProperties": false,
       "description": "One named corpus-integrity or referential check and its result.\n\n``checked`` is how many items the check examined (rows, snapshots, or ledger\nartifacts) and ``failures`` how many violated the invariant; ``problems`` is a\nbounded sample of the specific violations (the full count is ``failures``, so a\ntruncated sample never hides that there were more). ``detail`` is a one-line\nhuman summary, e.g. the row count compared against the baseline.",
@@ -407,7 +244,7 @@
     },
     "CorpusScopeAudit": {
       "additionalProperties": false,
-      "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes.\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale\nunresolvable old SCOTUS petitions). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the seed-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
+      "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes.\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale\nunresolvable old SCOTUS petitions). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the corpus-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
       "properties": {
         "corpus_rows": {
           "default": 0,
@@ -465,7 +302,7 @@
     },
     "CorpusValidation": {
       "additionalProperties": false,
-      "description": "``validate-corpus`` verdict: corpus integrity + cross-store referential checks.\n\nThe producer half of data validation: a deterministic correctness verdict over\nthe packed corpus and the git ledger under ``data/`` \u2014 the complement to\n``validate``, which only checks each ledger artifact against its schema. ``ok``\nis the conjunction of every check; ``skipped`` is set (with ``ok`` true and no\nchecks) when the corpus is absent, so the command is safe to call before a\n``dvc pull``. A pure function of its inputs \u2014 corpus, ledger, seed cursor, the\nsupplied baseline, and the as-of date \u2014 so it carries no timestamp and the same\ninputs always serialize identically. Surfaced (and escalated) by a separate\nwiring layer, not committed; a failed verdict is loud-not-fatal by contract.",
+      "description": "``validate-corpus`` verdict: corpus integrity + cross-store referential checks.\n\nThe producer half of data validation: a deterministic correctness verdict over\nthe packed corpus and the git ledger under ``data/`` \u2014 the complement to\n``validate``, which only checks each ledger artifact against its schema. ``ok``\nis the conjunction of every check; ``skipped`` is set (with ``ok`` true and no\nchecks) when the corpus is absent, so the command is safe to call before a\n``dvc pull``. A pure function of its inputs \u2014 corpus, ledger, the\nsupplied baseline, and the as-of date \u2014 so it carries no timestamp and the same\ninputs always serialize identically. Surfaced (and escalated) by a separate\nwiring layer, not committed; a failed verdict is loud-not-fatal by contract.",
       "properties": {
         "checks": {
           "items": {
@@ -1163,11 +1000,8 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, backfill, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the seed\ncursor, the usage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove. ``flags`` is the open-agent-flags digest scanned from ``data/`` and\n``tooling`` the agent tooling-feedback digest scanned the same way; both are null\non a report built before the field existed (so an older snapshot read back as\n``previous`` still validates).",
+  "description": "``metrics/ops.json`` \u2014 an operational snapshot: health, spend, cost.\n\nA read-only roll-up of authoritative sources (the Actions run history, the\nusage ledger), so no pipeline run writes an ops record. Unlike the\ndeterministic leaderboard / back-test roll-ups this is a **point-in-time** view \u2014\nit carries ``generated_at`` and run durations, so it is not byte-stable and is\nsurfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``\nbranch) rather than committed to the default branch.\n\n``data_health`` carries the data-validation verdict the dashboard also presents \u2014\nnull until the wiring supplies it, kept separate from the run-health analytics\nabove. ``flags`` is the open-agent-flags digest scanned from ``data/`` and\n``tooling`` the agent tooling-feedback digest scanned the same way; both are null\non a report built before the field existed (so an older snapshot read back as\n``previous`` still validates).",
   "properties": {
-    "backfill": {
-      "$ref": "#/$defs/BackfillProgress"
-    },
     "cost": {
       "$ref": "#/$defs/CostEstimate"
     },
@@ -1271,7 +1105,6 @@
   },
   "required": [
     "generated_at",
-    "backfill",
     "spend",
     "cost"
   ],

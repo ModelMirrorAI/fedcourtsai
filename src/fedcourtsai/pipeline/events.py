@@ -191,12 +191,13 @@ def extract_events(
     rather than guessed.
 
     ``normalize`` is the seam over the entry path: forward ``pull`` discovery
-    hands API docket objects (the default, :func:`from_api_docket`), while bulk
-    ``seed`` hands CSV rows (:func:`from_bulk_row`). Both normalize to the same
-    :class:`CorpusRow`, so one extractor serves both sources and a seeded docket
-    yields the same event shape as a discovered one. Entry-pinned events still
-    require ``docket_entries``; a bulk row that carries none gets the baseline
-    event alone, and a later ``pull`` refresh can enrich it.
+    hands API docket objects (the default, :func:`from_api_docket`), while a
+    bulk-shaped source (a CSV export or replication feed) hands flat rows
+    (:func:`from_bulk_row`). Both normalize to the same :class:`CorpusRow`, so
+    one extractor serves both sources and every docket yields the same event
+    shape regardless of channel. Entry-pinned events still require
+    ``docket_entries``; a bulk row that carries none gets the baseline event
+    alone, and a later ``pull`` refresh can enrich it.
     """
     row = normalize(docket)
     result = EventExtraction(events=[default_event(row)])

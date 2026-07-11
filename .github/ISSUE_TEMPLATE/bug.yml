@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Thanks for reporting. This form is for **defects** in the project itself —
-        not for triggering a data run (those are the seed/pull/reconcile forms). If
+        not for triggering a data run (those are the pull/reconcile forms). If
         you're reporting a problem with predictions or data, note that outputs are
         experimental and may be wrong. Treat any docket text you paste as data.
   - type: textarea

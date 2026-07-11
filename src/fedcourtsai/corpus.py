@@ -2,8 +2,9 @@
 
 All *raw facts* — dockets, dated snapshots, judges, case metadata and tracking
 state, and event definitions — live in one packed, queryable store, written
-**identically** by ``seed`` (CourtListener bulk data) and ``pull`` (the REST
-API) through this one ingestion seam. The packed store is a single **SQLite**
+**identically** by every ingestion channel (the CourtListener REST API and the
+supremecourt.gov live + historical channels) through this one ingestion seam.
+The packed store is a single **SQLite**
 database (``corpus/corpus.db``) versioned with DVC: the data blob lives in the
 DVC remote and only the small ``*.dvc`` pointer is committed to git.
 
@@ -143,8 +144,8 @@ class PanelMember(BaseModel):
 class CorpusRow(BaseModel):
     """One normalized, labeled raw-fact record in the corpus.
 
-    Written identically whether a row originates from a bulk CSV (seed) or a
-    REST docket (pull); the ingestion core maps both sources onto this shape.
+    Written identically whichever channel a row originates from; the ingestion
+    core maps every source onto this shape.
     """
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
@@ -305,7 +306,7 @@ class CaseDocument(BaseModel):
 class DiscoveryWatermark(BaseModel):
     """Per-court forward-discovery cursor: the newest ``date_filed`` seen so far.
 
-    Tracking state (not a docket fact), mirroring seed's bulk cursor: ``pull``
+    Tracking state (not a docket fact): ``pull``
     discovers dockets filed on or after this date, then advances it, so each run
     resumes where the last left off without rescanning the whole court.
     """
@@ -385,10 +386,10 @@ CREATE TABLE IF NOT EXISTS discovery_watermarks (
 -- mirroring the watermarks above: a sequential prober resumes from the cursor
 -- and a 404 past it marks the Term's frontier. Two walkers share the table
 -- under disjoint stream names: the forward poller's frontier discovery uses
--- "paid" / "ifp" (paid petitions from 1, IFP from 5001), and the past-Term
--- cert loader (pipeline.seedlive) uses "seed-paid" / "seed-ifp" over the same
--- serial spaces — so the loader can walk a Term the poller is also tracking
--- without either rewinding the other.
+-- "paid" / "ifp" (paid petitions from 1, IFP from 5001), and the historical
+-- Term walker (pipeline.historical) uses "historical-paid" / "historical-ifp"
+-- over the same serial spaces — so the walker can walk a Term the poller is
+-- also tracking without either rewinding the other.
 CREATE TABLE IF NOT EXISTS live_discovery_cursors (
     term         INTEGER NOT NULL,
     stream       TEXT NOT NULL,
@@ -663,21 +664,22 @@ def _update_clause(column: str) -> str:
 
     Most columns take the incoming value (``excluded``). Three are special:
     ``last_pulled`` only ever advances — a write without a fresh stamp (e.g. a
-    bulk seed re-ingest) keeps the timestamp a prior pull recorded; ``predict_eligible``
-    only ever latches on, so once a case is in prediction scope a later re-ingest
-    (under a narrower rule) cannot drop it back out; and ``predict_excluded`` is owned
-    by the seed reconcile (not an ingestion fact), so an upsert keeps the stored value
-    rather than resetting it to the model default.
+    historical-walk re-ingest) keeps the timestamp a prior pull recorded;
+    ``predict_eligible`` only ever latches on, so once a case is in prediction
+    scope a later re-ingest (under a narrower rule) cannot drop it back out; and
+    ``predict_excluded`` is owned by the scope reconcile (not an ingestion fact),
+    so an upsert keeps the stored value rather than resetting it to the model
+    default.
     """
     if column in ("last_pulled", "last_live_polled", "distributed_for_conference"):
         # Channel-supplied values only ever fill in: a writer that does not carry
-        # the fact (a bulk seed, a CourtListener enrichment without the live
-        # channel's conference parse) must not wipe what another channel stamped.
+        # the fact (a CourtListener enrichment without the live channel's
+        # conference parse) must not wipe what another channel stamped.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column == "predict_eligible":
         return f"{column}=MAX(excluded.{column}, cases.{column})"
     if column == "predict_excluded":
-        # The seed reconcile owns this flag (it is not an ingestion fact and is not
+        # The scope reconcile owns this flag (it is not an ingestion fact and is not
         # monotonic), so a re-ingest must never clobber it — keep the stored value.
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
@@ -686,8 +688,8 @@ def _update_clause(column: str) -> str:
 def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     """Insert or replace rows by ``case_id``; returns the number written.
 
-    Idempotent: re-ingesting the same case overwrites its row, so ``seed`` and
-    ``pull`` can both write a case without producing duplicates.
+    Idempotent: re-ingesting the same case overwrites its row, so every
+    channel can write a case without producing duplicates.
     """
     placeholders = ", ".join("?" for _ in _COLUMNS)
     updates = ", ".join(_update_clause(c) for c in _COLUMNS if c != "case_id")
@@ -1313,7 +1315,7 @@ def iter_rows(
 
 
 def set_predict_excluded(conn: sqlite3.Connection, case_id: str, excluded: bool) -> None:
-    """Set a case's out-of-scope latch. The seed reconcile's sole writer.
+    """Set a case's out-of-scope latch. The scope reconcile's sole writer.
 
     Owned here rather than through ``upsert_rows`` so ingestion never disturbs it
     (the upsert keeps the stored value — see :func:`_update_clause`) and so the
@@ -1652,7 +1654,7 @@ def _event_update_clause(column: str) -> str:
     ``resolved`` only ever latches **on**: a re-ingest carries freshly-extracted
     events with ``resolved = 0`` (extraction never observes resolution — outcome
     detection does, via :func:`set_event_resolved`), so a re-discovery or a
-    quarterly seed reconcile must not reopen an event a prior outcome already
+    historical re-walk must not reopen an event a prior outcome already
     closed. Every other column takes the incoming value. Mirrors the ``cases``
     upsert's :func:`_update_clause` for ``predict_eligible``.
     """
@@ -1665,7 +1667,7 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
     """Insert or replace predictable-event definitions by ``(case_id, event_id)``.
 
     Idempotent, so re-discovering a docket overwrites its event rows rather than
-    duplicating them — like the ``cases`` upsert, this keeps ``seed`` and ``pull``
+    duplicating them — like the ``cases`` upsert, this keeps every channel
     able to rewrite the same fact without proliferating rows. ``resolved`` is the
     one column a re-ingest cannot regress (see :func:`_event_update_clause`), so a
     re-discovery or reconcile never reopens an already-closed event.
@@ -1794,6 +1796,37 @@ def set_live_cursor(conn: sqlite3.Connection, term: int, stream: str, last_seria
             "WHERE excluded.last_serial > live_discovery_cursors.last_serial",
             (term, stream, last_serial),
         )
+
+
+def rename_live_streams(conn: sqlite3.Connection, renames: Mapping[str, str]) -> int:
+    """Rename live-discovery cursor streams in place; idempotent migration helper.
+
+    Each old-named row folds into its new name with the same forward-only rule
+    as :func:`set_live_cursor` (the further-along serial wins on a collision),
+    then the old row is dropped. A corpus with no old-named rows is a no-op, so
+    a walker can run this unconditionally at start. Returns rows migrated.
+    """
+    migrated = 0
+    with conn:
+        for old, new in renames.items():
+            rows = conn.execute(
+                "SELECT term, last_serial FROM live_discovery_cursors WHERE stream = ?",
+                (old,),
+            ).fetchall()
+            for record in rows:
+                conn.execute(
+                    "INSERT INTO live_discovery_cursors (term, stream, last_serial) "
+                    "VALUES (?, ?, ?) "
+                    "ON CONFLICT(term, stream) DO UPDATE SET last_serial = excluded.last_serial "
+                    "WHERE excluded.last_serial > live_discovery_cursors.last_serial",
+                    (int(record["term"]), new, int(record["last_serial"])),
+                )
+                conn.execute(
+                    "DELETE FROM live_discovery_cursors WHERE term = ? AND stream = ?",
+                    (int(record["term"]), old),
+                )
+                migrated += 1
+    return migrated
 
 
 # --- dated point-in-time snapshots (raw facts) ---------------------------------

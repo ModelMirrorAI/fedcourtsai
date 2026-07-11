@@ -7,8 +7,7 @@ stage.
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
 | `run:dev`       | `run-dev`        | issue labeled                       | Claude Code          |
-| `run:seed`      | `run-seed`       | weekly schedule + manual (live-terms loader, the default mode); tracking issue / dispatch mode=bulk (frozen bulk backfill) | script (no agent)    |
-| `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual | script (no agent)    |
+| `run:pull`      | `run-pull`       | daily schedules (pull + live + historical jobs), label, manual | script (no agent)    |
 | `run:reconcile` | `run-reconcile`  | issue labeled — the workflow is **disabled** (pull may still file these; nothing consumes them while the live channel settles reconcile's fate) | Claude Code |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
@@ -18,16 +17,15 @@ stage.
 | _(none)_        | `integration-corpus` | manual dispatch                 | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
-operational analytics — pipeline health (the Actions run history), backfill
-progress + rate/ETA (the seed cursor vs the previous snapshot), spend (the
+operational analytics — pipeline health (the Actions run history), spend (the
 `usage.json` ledger + Actions minutes from run durations), open agent flags
 (the committed `flags.json` files, so agent-surfaced feedback is visible beyond
 the run PR that produced it), and **open trigger issues** (still-open `run:*`
 fan-out triggers = stalled runs, oldest first, so an orphaned issue never sits
 invisible) — rendered by `fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
 dashboard" issue and appends each JSON snapshot to a dedicated **`ops-metrics`
-branch** (an orphan time-series that never merges to `main`, so the default branch
-stays clean and the prior snapshot is available for the rate/ETA). It triggers
+branch** (an orphan time-series that never merges to `main`, so the default
+branch stays clean and the history is inspectable). It triggers
 nothing and touches neither `main` nor the corpus.
 
 It is also the **presenter** of the data-validation verdict (see *Data
@@ -51,7 +49,7 @@ each as its own least-privilege job holding only the credentials its mode needs:
 - **`recoverability`** (dispatch) runs `fedcourts probe-recoverability` (REST
   token only, no S3) to answer whether a sparse historical SCOTUS petition's
   disposition is actually recoverable from CourtListener (an ingestion gap a
-  seed/pull backfill can close) or genuinely absent upstream — the question that
+  pull re-fetch can close) or genuinely absent upstream — the question that
   decides whether such cases stay in scope. Read-only, like `corpus-stats`.
 - **`recoverability-sample`** (dispatch) is the same probe made self-targeting:
   it draws a deterministic stratified sample of the resolved-but-dateless corpus
@@ -83,27 +81,25 @@ read set plus an optional stub `local-cascade` cell — dispatched around change
 to corpus access or the corpus-consuming workflows and before releases. See
 *Infra-bound integration* in [testing.md](testing.md).
 
-**seed**'s weekly schedule runs the **past-Term cert loader** (supremecourt.gov,
-budget-free), growing the back-test set; the frozen **bulk** backfill stays
-reachable via the `run:seed` label or dispatch mode=bulk. **pull** does targeted
-CourtListener enrichment from the rate-limited **REST API** (it owns that
-budget; the live job owns SCOTUS freshness for free). Both seed jobs
-also run the **predict-scope reconcile** (`fedcourts reconcile-scope`) — the
-weekly loader carries the sweep's cadence now: it latches
-out-of-scope cases (the shared exclusion rules — era, staleness, docket form, date
-consistency, and the snapshot-aware bare opinion-import profile) in the corpus so
-they leave the predictable set at the source, then `dvc push`es the pointer like
-any other corpus write. The
+**run-pull**'s `historical` job (daily) runs the **historical Term walker**
+(supremecourt.gov, budget-free), accumulating resolved outcomes
+reverse-chronologically by Term for the statpack's per-Term base rates and the
+cert back-test set. The **pull** job does targeted CourtListener enrichment
+from the rate-limited **REST API** (it owns that budget; the live job owns
+SCOTUS freshness for free). The historical job also runs the **predict-scope
+reconcile** (`fedcourts reconcile-scope`) — it carries the sweep's daily
+cadence: it latches out-of-scope cases (the shared exclusion rules — era,
+staleness, docket form, date consistency, and the snapshot-aware bare
+opinion-import profile) in the corpus so they leave the predictable set at the
+source, then `dvc push`es the pointer like any other corpus write. The
 full design — sources, budget boundary, the corpus/ledger storage split, and the
 historical corpus — is in [data-pipeline.md](data-pipeline.md).
 
 ## Cascade
 
 ```
-run:seed schedule (weekly) → seed-live-terms → walk decided Terms, ingest grants + sampled denials
+daily ×1 → run-pull (historical job) → walk Terms newest-first, ingest decided petitions (denials sampled)
                               └─ checkpointed: dvc push + pointer commit per chunk
-   run:seed label / dispatch mode=bulk → frozen bulk backfill chunk → commit + progress comment
-                              └─ when complete: completion PR (flips `completed`) → closes tracker
    daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ detect resolution → write outcome.json when the
@@ -164,10 +160,10 @@ pattern rather than rediscovering it:
 
 - **Concurrency is evaluated before the job `if`.** An `issues: labeled` event
   fans out to *every* workflow that listens for it, and the job-level label filter
-  runs only after the concurrency group is assigned. A corpus writer (seed, pull)
+  runs only after the concurrency group is assigned. A corpus writer job (pull, live, historical)
   must therefore join the shared `corpus-write` group **only** when its own label
   matched — otherwise an unrelated label cancels a real writer. See the
-  `concurrency:` expression in `run-seed.yml` / `run-pull.yml`. To dispatch one of
+  `concurrency:` expression in `run-pull.yml`. To dispatch one of
   these reliably, prefer `workflow_dispatch` over labeling.
 - **`git add data/` aborts when `data/` is absent.** No `outcome.json` is written
   on most runs, so `data/` often does not exist; under `set -euo pipefail` the add
@@ -176,12 +172,13 @@ pattern rather than rediscovering it:
   (see `run-pull.yml`). The same shape lives in run-predict/evaluate/reconcile.
 - **Long-running jobs outlive their credentials.** A GitHub App installation token
   has a hard 1h life and an AWS OIDC session defaults to 1h. A loop that runs for
-  hours (seed backfill) must re-mint the App token before it ages out and raise
-  `role-duration-seconds` to cover the run; see the self-refreshing token helper
-  and the `configure-aws-credentials` step in `run-seed.yml`.
+  hours (the historical Term walk) must re-mint the App token before it ages out
+  and raise `role-duration-seconds` to cover the run; see the self-refreshing
+  token helper and the `configure-aws-credentials` step in `run-pull.yml`'s
+  historical job.
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
-  expensive shared state (e.g. the bulk-data staging DB, ~38 min) once per job and
-  reuse it across chunks via a `staging_path` rather than per chunk.
+  expensive shared state once per job and reuse it across a loop's chunks rather
+  than per chunk.
 
 Validate any `.github/` change locally with the linters CI enforces (see the
 local gate in [AGENTS.md](../AGENTS.md)), and run the **`workflow-reviewer`**

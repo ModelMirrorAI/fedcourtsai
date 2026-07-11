@@ -18,11 +18,10 @@ Two layers of checks:
   snapshot, or whitespace-variant id is duplicated.
 * **referential integrity** — the cross-store checks nothing else does: every
   ``outcome``/``prediction``/``evaluation`` under ``data/`` references a case and
-  event that exist in the corpus (no orphan judgments); every evaluation targets a
-  predictor that actually produced a prediction for that event; and the seed
-  cursor reconciles against the corpus' per-court row counts.
+  event that exist in the corpus (no orphan judgments); and every evaluation
+  targets a predictor that actually produced a prediction for that event.
 
-The verdict is a pure function of its inputs (corpus, ledger, cursor, baseline,
+The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
 offline. Each check is a small function returning one :class:`CorpusCheck`. The
 git-only referential subset (:func:`run_ledger_referential_checks`) needs no corpus
@@ -54,7 +53,6 @@ from .schemas import (
     ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
-    SeedProgress,
 )
 
 # Bounded sample of matched case ids per exclusion, so the scope audit stays small.
@@ -82,7 +80,6 @@ CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
 CHECK_EVALUATION_TARGETS = "evaluation_targets_prediction"
-CHECK_SEED_CURSOR = "seed_cursor_reconciles"
 
 
 def _check(name: str, problems: list[str], *, checked: int, detail: str = "") -> CorpusCheck:
@@ -368,27 +365,6 @@ def check_no_duplicates(conn: sqlite3.Connection) -> CorpusCheck:
     return _check(CHECK_NO_DUPLICATES, problems, checked=checked)
 
 
-def check_seed_cursor(conn: sqlite3.Connection, cursor: SeedProgress | None) -> CorpusCheck:
-    """The seed cursor must reconcile against the corpus' per-court row counts.
-
-    The cursor records how many bulk rows were loaded per court; the relationship
-    to corpus cases is loose (dedup shrinks it, forward discovery grows it), so the
-    conservative invariant is one-directional: a court the cursor says it loaded
-    rows for (``offset > 0``) must have at least one case in the corpus. A court
-    booked as loaded yet absent from the corpus is a genuine desync (data loss or a
-    cursor written against a different store); a count mismatch alone is not.
-    """
-    if cursor is None:
-        return _check(CHECK_SEED_CURSOR, [], checked=0, detail="no seed cursor supplied")
-    loaded = {court: prog for court, prog in cursor.courts.items() if prog.offset > 0}
-    problems = [
-        f"cursor loaded {loaded[court].offset} row(s) for {court} but the corpus has none"
-        for court in sorted(loaded)
-        if conn.execute("SELECT 1 FROM cases WHERE court = ? LIMIT 1", (court,)).fetchone() is None
-    ]
-    return _check(CHECK_SEED_CURSOR, problems, checked=len(loaded))
-
-
 # --- referential integrity (layer C, git ledger vs corpus) ---------------------
 
 
@@ -563,7 +539,6 @@ def _run_checks(
     conn: sqlite3.Connection,
     *,
     data_root: Path,
-    seed_cursor: SeedProgress | None,
     today: date,
     baseline_count: int | None,
     tracked_courts: list[str] | None,
@@ -579,7 +554,6 @@ def _run_checks(
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
         check_evaluation_targets(data_root),
-        check_seed_cursor(conn, seed_cursor),
     ]
     return CorpusValidation(
         ok=all(c.passed for c in checks),
@@ -594,7 +568,6 @@ def run_corpus_validation(
     *,
     corpus_db_path: Path,
     data_root: Path,
-    seed_cursor: SeedProgress | None,
     today: date,
     baseline_count: int | None = None,
     tracked_courts: list[str] | None = None,
@@ -614,7 +587,6 @@ def run_corpus_validation(
             return _run_checks(
                 conn,
                 data_root=data_root,
-                seed_cursor=seed_cursor,
                 today=today,
                 baseline_count=baseline_count,
                 tracked_courts=tracked_courts,

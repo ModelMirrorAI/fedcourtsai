@@ -30,7 +30,7 @@ jobs:
       # Fail closed otherwise. claude-code-action re-checks the actor before it
       # spends model tokens, but this pre-flight step refuses *before* the dev App
       # token (contents + pull-requests + workflows: write) is minted — matching the
-      # deterministic writers (run-pull / run-seed / run-reconcile).
+      # deterministic writers (run-pull / run-reconcile).
       # (The label name is already checked in the job `if:`.)
       - name: Authorize the trigger (label from the pipeline App or a maintainer)
         env:

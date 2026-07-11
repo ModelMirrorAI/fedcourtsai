@@ -8,7 +8,7 @@ hard-coded facts instead, so the local read loop and the offline tests run with
 no remote, no token, and no network.
 
 The fixture is a faithful miniature of a real corpus, not a mock: it populates
-the same three stores ``seed`` / ``pull`` write — normalized ``cases`` rows,
+the same three stores the ingestion channels write — normalized ``cases`` rows,
 predictable ``events``, and dated ``snapshots`` — kept mutually consistent (each
 snapshot's docket JSON matches its row), across more than one court, with a mix
 of resolved and open cases. It is built directly through the corpus write APIs

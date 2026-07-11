@@ -2,8 +2,9 @@
 
 All *raw facts* live here in one packed, queryable store: dockets, dated
 snapshots, judges, case metadata and tracking state, and event definitions.
-There is **one** corpus for the whole pipeline, written identically by `seed`
-(CourtListener bulk data) and `pull` (the REST API) through the shared ingestion
+There is **one** corpus for the whole pipeline, written identically by every
+ingestion channel (the CourtListener REST API and the supremecourt.gov live +
+historical channels) through the shared ingestion
 seam in [`fedcourtsai.corpus`](../src/fedcourtsai/corpus.py). Derived judgments
 (outcomes, predictions, evaluations, reasoning) do **not** live here — they are
 the git ledger under [`data/`](../data). See
@@ -16,8 +17,8 @@ The packed store is a single **SQLite** database, `corpus/corpus.db`, versioned
 with **DVC**: the blob lives in the DVC remote (a private S3 bucket) and only the
 small `corpus.db.dvc` pointer is committed to git. The blob and its sidecar
 files are gitignored (see `.gitignore`); the pointer is created on first ingest
-(`dvc add corpus/corpus.db`) by the seed/pull workflows and updated as the corpus
-grows.
+(`dvc add corpus/corpus.db`) by the run-pull writer jobs and updated as the
+corpus grows.
 
 SQLite (over Parquet shards) keeps the corpus a single artifact — one DVC
 pointer rather than a sharded tree — queryable with plain SQL for retrieval and
@@ -102,7 +103,7 @@ classifying its docket entries; see
 
 ## Forward-discovery watermark (`discovery_watermarks`)
 
-Per-court **tracking state** mirroring seed's bulk cursor: the newest
+Per-court **tracking state**: the newest
 `date_filed` `pull` has discovered for a court. Discovery fetches dockets filed
 on or after this date, then advances it, so each run resumes where the last left
 off without rescanning the court.

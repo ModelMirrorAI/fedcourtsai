@@ -1,4 +1,4 @@
-"""``run-pull`` forward discovery: pick up cases filed after the seed backfill.
+"""``run-pull`` forward discovery: pick up newly filed cases.
 
 The forward-frontier counterpart to ``pull_case`` (which *refreshes* known
 dockets). For each tracked court it asks the CourtListener REST API for dockets
@@ -111,7 +111,7 @@ def discover_cases(
     normalized corpus row, records its default predictable event, and advances
     the court's watermark to the newest ``date_filed`` it onboarded. A court with
     no watermark yet starts from ``default_since`` — normally the snapshot date
-    seed handed off, or ``--since`` for a never-seeded court (``today`` is only the
+    stored, or ``--since`` for a court with no watermark (``today`` is only the
     last resort). A court that finds nothing still records the date it searched
     from, so it resumes there rather than resetting to ``default_since`` next run.
 

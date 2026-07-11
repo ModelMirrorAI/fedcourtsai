@@ -14,7 +14,7 @@ in any given run:
 
 1. **Pipeline development** (`run:dev`): change the Python package, workflows,
    docs, schemas, or prompts. Do **not** touch `data/`.
-2. **Data production** (`run:seed` / `run:pull` / `run:predict` / `run:evaluate` /
+2. **Data production** (`run:pull` / `run:predict` / `run:evaluate` /
    `run:reconcile`): produce or update data — the raw-fact corpus (DVC/S3) and/or
    the derived artifacts under `data/`. Do **not** change pipeline code to make
    your task easier, and never weaken validation, CI, lint, type, or security
@@ -47,7 +47,7 @@ non-interactive** container. Two consequences shape everything you do:
     `run:evaluate` / `run:reconcile` you only *write files into the working tree*
     and the workflow commits, pushes, and opens the PR — so do **not** push yourself.
   - **Corpus / large historical data → the DVC remote.** Bulk data lives in the
-    S3-backed DVC remote, not git, and persists only via `dvc push` (the seed/pull
+    S3-backed DVC remote, not git, and persists only via `dvc push` (the run-pull
     workflows own this). A data file left in the working tree but never pushed to
     the remote is lost with the runner. See `docs/data-pipeline.md`.
 
@@ -222,7 +222,7 @@ and flag where self-review is a poor substitute.
 
 Two stores, split by kind. **Raw facts** — dockets, snapshots, judges, case and
 tracking metadata, event definitions — live in a packed **corpus** (SQLite under
-DVC), written identically by `seed` and `pull`. **Derived artifacts**
+DVC), written identically by every ingestion channel. **Derived artifacts**
 live in git under `data/`, keyed by case and event:
 
 ```

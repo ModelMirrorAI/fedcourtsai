@@ -12,11 +12,11 @@ Case data comes from two upstream providers, through three channels:
 
 - **[CourtListener](https://www.courtlistener.com/)**, a project of the
   [Free Law Project](https://free.law/): the **REST API** (targeted enrichment —
-  `pull`) and the free **quarterly bulk-data exports** on public S3 (the frozen
-  historical backfill — bulk `seed`).
+  `pull`; the free quarterly bulk-data exports loaded the corpus's bulk-era
+  breadth).
 - **supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
   Court itself — the live SCOTUS channel that owns SCOTUS freshness and loads
-  the past-Term cert set. These are public records with no third-party license
+  the historical Term set. These are public records with no third-party license
   attached (the CourtListener terms below cover Free Law Project's curation,
   not these records). Design in [live-sources.md](live-sources.md); the
   ingested facts land in the same access-gated corpus under the same
@@ -60,9 +60,7 @@ facts — not a redistribution of the bulk corpus.
 
 The automated consumer stays within CourtListener's published API limits by design:
 
-- **Bulk `seed` spends no API budget** — it reads the public bulk exports, which sit
-  outside the throttle entirely.
-- **The supremecourt.gov channel spends no API budget either** — the Court's
+- **The supremecourt.gov channels spend no API budget** — the Court's
   site has no metered API; the client is simply polite (browser user-agent,
   ~1 request/second, backoff on errors).
 - **`pull` owns the CourtListener API budget**, throttled in-process

@@ -4,11 +4,9 @@ from fedcourtsai.config import (
     PredictConfig,
     PredictScope,
     PullConfig,
-    SeedConfig,
     load_courts,
     load_predict_config,
     load_pull_config,
-    load_seed_config,
 )
 
 
@@ -91,7 +89,7 @@ def test_load_pull_config_defaults_when_file_missing(tmp_path: Path) -> None:
 
 
 def test_load_pull_config_defaults_when_section_absent(tmp_path: Path) -> None:
-    _write_tracking(tmp_path, "seed:\n  source: bulk\n")
+    _write_tracking(tmp_path, "live:\n  max_cases_per_run: 30\n")
     assert load_pull_config(tmp_path) == PullConfig()
 
 
@@ -111,19 +109,3 @@ def test_load_predict_config_defaults_to_scotus_touched(tmp_path: Path) -> None:
 def test_repo_tracking_yaml_carries_default_scope() -> None:
     # The committed config pins the documented default the workflows read.
     assert load_predict_config(Path("config")).scope == PredictScope.scotus_touched
-
-
-def test_load_seed_config_reads_backfill_keys(tmp_path: Path) -> None:
-    _write_tracking(
-        tmp_path,
-        "seed:\n  source: bulk\n  max_cases_per_run: 2000\n  cursor: config/seed-progress.yaml\n",
-    )
-    cfg = load_seed_config(tmp_path)
-    assert cfg.max_cases_per_run == 2000
-    assert cfg.cursor == Path("config/seed-progress.yaml")
-
-
-def test_load_seed_config_defaults_when_missing(tmp_path: Path) -> None:
-    cfg = load_seed_config(tmp_path / "absent")
-    assert cfg == SeedConfig()
-    assert cfg.max_cases_per_run == 2000

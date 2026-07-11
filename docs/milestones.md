@@ -51,10 +51,9 @@ Everything in the next three months is sequenced to make that release possible.
 
 ### Phase 0 — Foundations (before the first cert release)
 
-- **Seed backfill running.** The `run:seed` tracking issue is open and the daily
-  bulk backfill is loading all fourteen courts against its cursor (free bulk data,
-  no API budget). This is the long pole; start it first so it completes well
-  before the cert release.
+- **Historical Term walking running.** The `run-pull` historical job walks
+  decided October Terms newest-first over supremecourt.gov (no API budget),
+  filling the statpack's per-Term base rates and the cert back-test set.
 - **Freshness running daily.** Done, and better than planned: the
   supremecourt.gov live channel owns SCOTUS freshness budget-free (discovery,
   conference watchlist, outcomes, documents), while pull's daily CourtListener
@@ -69,9 +68,9 @@ Everything in the next three months is sequenced to make that release possible.
 
 ### Phase 1 — Long-conference cert release (OT2026 long conference, late Sept 2026)
 
-- **Historical coverage sufficient for the task**: the frozen bulk load plus
-  the weekly past-Term cert loader growing the back-test set through the live
-  channel (bulk reconciliation returns only if the replica timeline slips).
+- **Historical coverage sufficient for the task**: the bulk-era load plus
+  the daily historical Term walker growing per-Term coverage through the live
+  channel (a bulk-shaped source would re-enter through the shared normalizer).
 - **Prediction scope gated and live.** Per the budget, predict a deliberate slice:
   a case becomes in-scope the first time it **interacts with the Supreme Court** (a
   cert petition is the trigger) and stays in-scope for the rest of its lifecycle —
@@ -91,9 +90,8 @@ Everything in the next three months is sequenced to make that release possible.
   the events resolved so far — Brier score, accuracy, vote accuracy, reasoning
   quality. A mid-term "how the predictors are doing" update can ride the
   Oct–Dec argument-and-grant cadence.
-- **Corpus completeness spot-checked** against a fresh upstream sample (a
-  scheduled bulk reconciliation exists only in the frozen bulk mode; the live
-  channel keeps the prediction-relevant slice current continuously).
+- **Corpus completeness spot-checked** against a fresh upstream sample (the
+  live channel keeps the prediction-relevant slice current continuously).
 - **Data validation live.** Done — the `validate-corpus` verdict (schema
   conformance, corpus integrity, cross-store referential checks) runs on the
   corpus-writer path and surfaces on the ops dashboard as data-health, with
@@ -124,7 +122,7 @@ back-testing gives a cheap way to screen candidates before they spend live budge
 
 **Infrastructure step, funding-gated: the CourtListener database replica.** Once
 the project has the support to pay for Free Law Project's replication agreement
-and host a Postgres replica, the seed/pull upstreams consolidate onto it — full
+and host a Postgres replica, the ingestion upstreams consolidate onto it — full
 field coverage, continuously current, no request caps (see *The planned
 end-state* in [data-pipeline.md](data-pipeline.md)). The corpus boundary and
 everything downstream of ingestion are unchanged by design; the interim

@@ -5,8 +5,8 @@ The project's state lives in two stores, split by **kind of data**:
 - **The corpus** — all *raw facts*: dockets, point-in-time snapshots, judges,
   case metadata and tracking state, and event definitions. A packed, queryable
   store — a single **SQLite** database (`corpus/corpus.db`) — versioned with
-  **DVC** (the blob in the DVC remote, a pointer + load cursor in git). Both
-  `seed` and `pull` write it, in one shared format through one shared ingestion
+  **DVC** (the blob in the DVC remote, its pointer in git). Every ingestion
+  channel writes it, in one shared format through one shared ingestion
   core (`fedcourtsai.corpus`).
 - **The ledger** — the small, *derived* artifacts under `data/`: outcomes,
   predictions, and evaluations, plus the reasoning that explains them. Plain git,
@@ -129,9 +129,9 @@ cheap trade, served by a `fedcourts leaderboard` command.
 The historical backlog (all of SCOTUS + the 13 circuits) and the fresh facts
 `pull` fetches are far too large to hold as per-case files — millions of YAML
 files would choke `git` even under LFS. They land instead in one packed,
-normalized, **labeled** corpus, written identically by every channel — bulk
-`seed` (CourtListener CSV), `pull` (the REST API), and the supremecourt.gov
-live channel (docket JSON) — through one shared normalizer. Each row carries
+normalized, **labeled** corpus, written identically by every channel —
+`pull` (the CourtListener REST API) and the supremecourt.gov
+live + historical channels (docket JSON) — through one shared normalizer. Each row carries
 the realized `disposition`, so the corpus doubles as a back-testing set and a
 retrieval source for prediction context. Beside the rows sit the dated
 point-in-time snapshots, the predictable-event definitions, per-Term discovery
@@ -144,4 +144,4 @@ its own normalized schema (`CorpusRow` in `fedcourtsai.corpus`). The packed stor
 is a SQLite DB under DVC, but the format is internal — the references the ledger
 relies on (ids, dispositions) stay stable regardless. See
 [data-pipeline.md](data-pipeline.md) and [corpus/README.md](../corpus/README.md)
-for the corpus schema and how seed and pull produce it.
+for the corpus schema and how the ingestion channels produce it.

@@ -1,4 +1,4 @@
-"""The seed-side corpus reconcile for predict scope.
+"""The corpus-side scope reconcile for predict scope.
 
 The write counterpart of the read-only scope audit (``validate.run_scope_audit``).
 Where the matrix gate excludes out-of-scope cases at *read time* and run-cleanup
@@ -13,7 +13,8 @@ evaluator ``corpus.out_of_scope_reason_full``, which spans the row-only rules an
 the snapshot-aware bare opinion-import rule) and **two-directional** — the latch
 is not monotonic, unlike ``predict_eligible`` — so re-running it converges. Scoped
 to the predict-eligible universe: a case that could never be predicted needs no
-latch. ``run-seed`` owns running it where the corpus is pulled, with ``dvc push``.
+latch. ``run-pull``'s historical job owns running it where the corpus is
+pulled, with ``dvc push``.
 """
 
 from __future__ import annotations

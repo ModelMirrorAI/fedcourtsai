@@ -1,6 +1,6 @@
 """Thin, typed client for the CourtListener REST API v4.
 
-Used by the deterministic ``run-seed`` / ``run-pull`` scripts. Agents that need
+Used by the deterministic ``run-pull`` scripts. Agents that need
 richer, exploratory access use the official CourtListener MCP server instead
 (see ``.mcp.json``); this client exists so the routine docket fetching is
 reproducible and does not require an agent in the loop.

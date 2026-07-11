@@ -1,9 +1,9 @@
-"""Operational analytics roll-up: pipeline health, backfill progress, spend.
+"""Operational analytics roll-up: pipeline health, spend, data health.
 
 A *read-only* snapshot of authoritative sources — the GitHub Actions run history,
-the seed cursor, the recorded usage ledger, and the committed ``flags.json`` files
-agents leave under ``data/`` — so no pipeline run has to write an ops record (which
-would reintroduce the concurrent-writer problem the corpus already manages).
+the recorded usage ledger, and the committed ``flags.json`` files agents leave
+under ``data/`` — so no pipeline run has to write an ops record (which would
+reintroduce the concurrent-writer problem the corpus already manages).
 ``fedcourts ops-report`` renders this to Markdown (the run-ops dashboard issue) and
 optionally to JSON.
 
@@ -15,14 +15,12 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from .collect import flags_table
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
-    BackfillCourt,
-    BackfillProgress,
     CorpusScopeAudit,
     CostEstimate,
     DataHealth,
@@ -33,7 +31,6 @@ from .schemas import (
     ModelUsage,
     OpenTriggerIssue,
     OpsReport,
-    SeedProgress,
     SpendSummary,
     ToolingCount,
     ToolingDigest,
@@ -112,57 +109,6 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
             )
         )
     return health
-
-
-def summarize_backfill(progress: SeedProgress, courts: Sequence[str]) -> BackfillProgress:
-    """Project the seed cursor into whole-backfill progress across the tracked courts.
-
-    Per-court ``percent`` is shown wherever the court's total is known (or it is
-    complete); the overall ``percent`` / ``cases_total`` are reported only when
-    *every* court's total is known, so a partial total never reads as the whole.
-    """
-    entries: list[BackfillCourt] = []
-    cases_loaded = 0
-    known_totals: list[int] = []
-    every_total_known = True
-    courts_complete = 0
-
-    for court in courts:
-        cp = progress.courts.get(court)
-        offset = cp.offset if cp else 0
-        total = cp.total if cp else None
-        complete = cp.complete if cp else False
-        cases_loaded += offset
-        if complete:
-            courts_complete += 1
-
-        if total:
-            percent: float | None = round(100.0 * offset / total, 1)
-            known_totals.append(total)
-        elif complete:
-            percent = 100.0
-            known_totals.append(offset)  # a complete court's offset is its total
-        else:
-            percent = None
-            every_total_known = False
-
-        entries.append(
-            BackfillCourt(
-                court=court, offset=offset, total=total, percent=percent, complete=complete
-            )
-        )
-
-    cases_total = sum(known_totals) if every_total_known else None
-    overall = round(100.0 * cases_loaded / cases_total, 1) if cases_total else None
-    return BackfillProgress(
-        snapshot=progress.snapshot,
-        courts_total=len(courts),
-        courts_complete=courts_complete,
-        cases_loaded=cases_loaded,
-        cases_total=cases_total,
-        percent=overall,
-        entries=entries,
-    )
 
 
 def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
@@ -307,40 +253,6 @@ def _parse_iso(value: str) -> datetime | None:
         return None
 
 
-def _days_between(earlier: str, later: str) -> float | None:
-    """Fractional days from ``earlier`` to ``later`` (ISO-8601), or None if unparseable."""
-    start, end = _parse_iso(earlier), _parse_iso(later)
-    if start is None or end is None:
-        return None
-    return (end - start).total_seconds() / 86400.0
-
-
-def project_backfill(
-    backfill: BackfillProgress, previous: OpsReport | None, generated_at: str
-) -> BackfillProgress:
-    """Add the load rate + projected completion date from the previous snapshot.
-
-    Returns ``backfill`` unchanged when there is no comparable prior snapshot or no
-    forward progress. The ETA needs both a positive rate and a known ``cases_total``.
-    """
-    if previous is None:
-        return backfill
-    days = _days_between(previous.generated_at, generated_at)
-    if days is None or days <= 0:
-        return backfill
-    rate = (backfill.cases_loaded - previous.backfill.cases_loaded) / days
-    if rate <= 0:
-        return backfill.model_copy(update={"cases_per_day": round(rate, 1)})
-
-    eta_date: str | None = None
-    if backfill.cases_total is not None:
-        remaining = max(0, backfill.cases_total - backfill.cases_loaded)
-        now = _parse_iso(generated_at)
-        if now is not None:
-            eta_date = (now + timedelta(days=remaining / rate)).date().isoformat()
-    return backfill.model_copy(update={"cases_per_day": round(rate, 1), "eta_date": eta_date})
-
-
 def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> CostEstimate:
     """Rough monthly cost run-rate from run durations + recorded spend + fixed infra.
 
@@ -379,35 +291,29 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
     *,
     generated_at: str,
     runs: Iterable[Mapping[str, object]],
-    progress: SeedProgress,
-    courts: Sequence[str],
     usage: Iterable[ModelUsage],
     flags: Iterable[AgentFlags] = (),
     tooling: Iterable[AgentToolingFeedback] = (),
     evaluations: Iterable[Evaluation] = (),
-    previous: OpsReport | None = None,
     data_health: DataHealth | None = None,
     scope_audit: CorpusScopeAudit | None = None,
     open_triggers: list[OpenTriggerIssue] | None = None,
 ) -> OpsReport:
     """Assemble the full operational snapshot. ``generated_at`` is passed in (no clock).
 
-    ``previous`` (the prior snapshot, e.g. from the ``ops-metrics`` branch) drives the
-    backfill rate + ETA; without it those fields stay null. ``data_health`` is the
-    data-validation verdict the dashboard presents alongside run health; it is
-    surfaced as supplied (the wiring layer owns producing it), null when absent.
-    ``scope_audit`` is the predict-scope census (``corpus-scope-audit``), surfaced the
-    same way. ``flags`` is the committed ``flags.json`` ledger the dashboard rolls into
-    its open-flags digest and ``tooling`` the committed ``tooling.json`` self-reports it
-    rolls into the tooling-feedback digest (each empty when none are committed).
+    ``data_health`` is the data-validation verdict the dashboard presents alongside
+    run health; it is surfaced as supplied (the wiring layer owns producing it),
+    null when absent. ``scope_audit`` is the predict-scope census
+    (``corpus-scope-audit``), surfaced the same way. ``flags`` is the committed
+    ``flags.json`` ledger the dashboard rolls into its open-flags digest and
+    ``tooling`` the committed ``tooling.json`` self-reports it rolls into the
+    tooling-feedback digest (each empty when none are committed).
     """
     run_list = list(runs)
     spend = summarize_spend(usage)
-    backfill = project_backfill(summarize_backfill(progress, courts), previous, generated_at)
     return OpsReport(
         generated_at=generated_at,
         health=summarize_health(run_list),
-        backfill=backfill,
         spend=spend,
         cost=estimate_cost(run_list, spend),
         data_health=data_health,
@@ -428,7 +334,7 @@ def _fmt_duration(seconds: int | None) -> str:
 
 # The run:* labels whose trigger issues are transient by design: the run's ready
 # PR closes them on merge, and an empty matrix closes them with a note. (run:pull
-# and run:seed issues are long-lived logs/trackers, so they are not stall signals.)
+# issues are long-lived logs, so they are not stall signals.)
 TRIGGER_LABELS: tuple[str, ...] = ("run:predict", "run:evaluate", "run:reconcile")
 
 
@@ -568,7 +474,7 @@ def render_data_health(health: DataHealth) -> str:
 def render_scope_audit(audit: CorpusScopeAudit) -> str:
     """Render the predict-scope census: open events the scope excludes, by reason.
 
-    The dashboard window onto the seed scope reconcile: how many still-open
+    The dashboard window onto the corpus scope reconcile: how many still-open
     SCOTUS events the corpus carries that the predict scope drops, split into a
     ``recoverable`` subset (a disposition signal — re-ingestible) and the bare rest.
     """
@@ -586,7 +492,7 @@ def render_scope_audit(audit: CorpusScopeAudit) -> str:
     lines += [
         f"**{excluded:,}** of {audit.scotus_open_events:,} open SCOTUS event(s) are out of "
         f"scope — **{recoverable:,}** carry a disposition signal (re-ingestible), the rest are "
-        "bare. Candidates for the seed-side corpus reconcile.",
+        "bare. Candidates for the corpus-side scope reconcile.",
         "",
         "| reason | cases | open events | recoverable |",
         "|--------|------:|------------:|------------:|",
@@ -727,31 +633,6 @@ def render_markdown(report: OpsReport) -> str:
             )
     else:
         lines.append("_No runs in the window._")
-
-    bf = report.backfill
-    overall = "—" if bf.percent is None else f"{bf.percent}%"
-    total = "?" if bf.cases_total is None else f"{bf.cases_total:,}"
-    pace = ""
-    if bf.cases_per_day is not None:
-        pace = f" · **{bf.cases_per_day:,.0f}**/day"
-        if bf.eta_date is not None:
-            pace += f" · ETA **{bf.eta_date}**"
-    lines += [
-        "",
-        "## Backfill progress",
-        f"Snapshot `{bf.snapshot or '—'}` · "
-        f"courts complete **{bf.courts_complete}/{bf.courts_total}** · "
-        f"cases **{bf.cases_loaded:,}/{total}** ({overall}){pace}",
-        "",
-        "| Court | Loaded | Total | % | Done |",
-        "|-------|-------:|------:|--:|:----:|",
-    ]
-    for c in bf.entries:
-        ctotal = "?" if c.total is None else f"{c.total:,}"
-        pct = "?" if c.percent is None else f"{c.percent}%"
-        lines.append(
-            f"| {c.court} | {c.offset:,} | {ctotal} | {pct} | {'✅' if c.complete else ''} |"
-        )
 
     s = report.spend
     lines += [

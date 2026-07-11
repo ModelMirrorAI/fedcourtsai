@@ -45,7 +45,7 @@
   environment. No long-lived AWS key reaches a workflow (the one static
   credential in the system is the contributor path's read-only key below).
   **Two roles,
-  split by access:** corpus writers (`run-seed`, `run-pull` →
+  split by access:** corpus writers (`run-pull` →
   `AWS_ROLE_TO_ASSUME`) get a **read-write** role; retrieval consumers
   (`run-predict`, `run-evaluate`, `run-reconcile` →
   `AWS_ROLE_TO_ASSUME_READONLY`) get a **read-only** role, so a compromised
@@ -90,13 +90,13 @@
   the trust boundary for the pipeline, and two layers enforce it on a public repo —
   where an issue *form* would otherwise apply its declared labels on creation for
   any submitter. (1) No issue form auto-applies a `run:*` label — operating the
-  pipeline (`pull` / `seed` / `reconcile`) is not exposed as a public form at all,
+  pipeline (`pull` / `reconcile`) is not exposed as a public form at all,
   so a maintainer applies the `run:*` label to an issue after triage. (2) Each
   issue-triggered privileged job re-checks, before it does any privileged work,
   that the triggering actor has **write access** (via the collaborators API,
   failing closed), so a label applied by anyone else is inert. This pre-flight
   check runs ahead of every privileged step in every `run:*` workflow — the
-  deterministic writers (`run-pull` / `run-seed` / `run-reconcile`) and the agent
+  deterministic writers (`run-pull` / `run-reconcile`) and the agent
   stages (`run-predict` / `run-evaluate` / `run-dev`) alike — so a non-write
   trigger is refused before any token is minted, the S3 role is assumed, or the
   corpus is read; the agent actions re-check the actor again before spending model
@@ -109,7 +109,7 @@
   App can apply a label that fires a workflow at all.
 - **Branch protection and the deployment boundary.** `main` carries two rulesets.
   One requires a reviewed PR plus the `gate` check to merge; the **data App** is a
-  bypass actor on it, so the deterministic `run-seed` / `run-pull` writers can push
+  bypass actor on it, so the deterministic `run-pull` writers can push
   corpus facts straight to `main` while agent code changes go through review. The
   agent workflows authenticate as a separate **dev App** that is *not* a bypass
   actor, so "data writes direct, everything agentic via a reviewed PR" is enforced

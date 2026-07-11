@@ -1,8 +1,8 @@
 # Budget
 
-Projected costs to **seed** the corpus with all historical Supreme Court and
-courts-of-appeals cases, keep it current with daily **pull**, and run
-**predict**/**evaluate** regularly across all fourteen courts. This is a
+Projected costs to load the corpus's historical Supreme Court mass, keep it
+current with daily **pull** and **live** windows, and run
+**predict**/**evaluate** regularly. This is a
 forecast, not a spending cap: it sizes each cost driver so scope and cadence can
 be chosen with the bill in view. For how the phases work, see
 [data-pipeline.md](data-pipeline.md) and [pipeline.md](pipeline.md).
@@ -154,8 +154,8 @@ in-scope for predict/evaluate the first time it interacts with the Supreme Court
 petition for certiorari is the canonical trigger — and stays in-scope for the rest of
 its lifecycle, so a granted case's merits events and any remand activity back in the
 courts of appeals are covered, while the ~42K/yr appeals cases that never reach
-SCOTUS are not. Ingestion is unchanged: seed and pull still assemble all fourteen
-courts (deterministic, ~$0 model spend) so the full history stays queryable for
+SCOTUS are not. Ingestion is unchanged: the ingestion channels still assemble all
+fourteen courts (deterministic, ~$0 model spend) so the full history stays queryable for
 retrieval and back-testing — only the agentic stages are gated. See the prediction
 scope in [data-pipeline.md](data-pipeline.md).
 
@@ -183,9 +183,8 @@ above is where it grows next, still an order of magnitude under full scope.
 
 ### 2. CourtListener API (membership for pull throughput)
 
-**Seed** reads CourtListener's free quarterly **bulk** snapshots (public S3,
-`--no-sign-request`) — **$0**, no rate limit. The historical mass costs nothing
-in API terms.
+**Historical** loading walks the supremecourt.gov docket JSON — **$0**, no
+rate limit. The historical SCOTUS mass costs nothing in API terms.
 
 **Pull** spends the rate-limited REST budget. Since May 2026 the free default is
 **5/min · 50/hr · 125/day** (~30–40 dockets/day at ~3 requests each), and higher
@@ -242,10 +241,10 @@ wall-clock (jobs cap at 60 min). The repo is **public**, and on a public repo
 ([Actions pricing](https://docs.github.com/en/billing/reference/actions-runner-pricing)).
 The realistic runner-minute footprint, free at every level:
 
-- **Loading spikes:** a `run:seed` loop (the weekly past-Term cert loader, or a
-  dispatched bulk backfill) runs to a ~4.5h budget — order **~1–2K
-  runner-min/month** at the weekly cadence.
-- **Steady pilot:** `run-pull`'s eight daily windows (four CourtListener
+- **Historical walking:** `run-pull`'s daily historical job runs to a ~1h50m
+  budget — order **~2–3K runner-min/month** at the daily cadence, dropping to
+  near zero once every configured Term's frontier is reached.
+- **Steady pilot:** `run-pull`'s eight daily forward windows (four CourtListener
   enrichment + four supremecourt.gov live polls) are deterministic and light
   (**~1.5K min/month**); gated predict/evaluate add roughly **~2–4K min/month**
   depending on SCOTUS activity.

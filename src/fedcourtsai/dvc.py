@@ -14,7 +14,7 @@ is that the committed DVC bookkeeping is internally coherent:
 
 ``fedcourts dvc-status`` runs these checks. The online side — ``dvc status``
 against the remote, ``dvc pull``/``push`` — belongs to the data workflows
-(``run-seed`` / ``run-pull``), which hold the remote credentials.
+(``run-pull``'s writer jobs), which hold the remote credentials.
 """
 
 from __future__ import annotations

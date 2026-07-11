@@ -56,11 +56,10 @@ from .config import (
     PredictScope,
     get_settings,
     load_courts,
+    load_historical_config,
     load_live_config,
     load_predict_config,
     load_pull_config,
-    load_seed_config,
-    load_seed_live_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
@@ -74,7 +73,7 @@ from .ops import (
     summarize_trigger_issues,
 )
 from .paths import CasePaths
-from .pipeline import liveprobe, seedlive
+from .pipeline import historical, liveprobe
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
@@ -87,16 +86,8 @@ from .pipeline.recoverability import (
     render_summary,
     sample_dateless_targets,
 )
-from .pipeline.refresh import full_refresh as run_full_refresh
 from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.scope_reconcile import reconcile_predict_scope
-from .pipeline.seed import (
-    CourtListenerBulkSource,
-    backfill,
-    load_cursor,
-    resolve_dockets_source,
-    sibling_bulk_url,
-)
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
     enabled_predictors,
@@ -115,7 +106,6 @@ from .schemas import (
     Engine,
     GroupBy,
     ModelUsage,
-    OpsReport,
     PredictableEvent,
     RetrievalCall,
     RetrievalLog,
@@ -251,12 +241,10 @@ def validate_corpus_cmd(
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    cursor = load_cursor(load_seed_config(settings.config_root).cursor)
     as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
     verdict = run_corpus_validation(
         corpus_db_path=db_path,
         data_root=settings.data_root,
-        seed_cursor=cursor,
         today=as_of,
         baseline_count=baseline_count,
         tracked_courts=load_courts(settings.config_root),
@@ -339,7 +327,7 @@ def reconcile_scope_cmd(
     (`corpus.out_of_scope_reason_full` — the row rules plus the snapshot-aware bare
     opinion-import rule) and clears it on those back in scope — so `open-events` (and
     thus the predict/queueing paths) drop excluded cases at the source. Dry-run by
-    default; `--apply` writes (the seed run then `dvc push`es the corpus). Prints a
+    default; `--apply` writes (the historical job then `dvc push`es the corpus). Prints a
     `ScopeReconcileResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -512,7 +500,7 @@ def cert_backtest_cmd(
     every enabled predictor over redacted snapshots in a scratch tree, each
     through its own configured engine under ``auto`` (this spends tokens on a
     real engine). Petitions the corpus cannot replay (no held snapshot or
-    petition event — partial coverage is the norm while the date backfill
+    petition event — partial coverage is the norm while the historical walk
     drains) are dropped up front and named, so every backtester in one report is
     scored over the same set. Out of band by design: it never writes the
     ``data/`` ledger, and the report is labeled retrospective (the outcomes
@@ -847,13 +835,6 @@ def ops_report(
         Path | None,
         typer.Option("--json", help="Also write the OpsReport JSON artifact here."),
     ] = None,
-    previous: Annotated[
-        Path | None,
-        typer.Option(
-            help="Prior OpsReport JSON (e.g. from the ops-metrics branch) for the "
-            "backfill rate + ETA. Ignored if missing or unreadable."
-        ),
-    ] = None,
     generated_at: Annotated[
         str, typer.Option(help="ISO timestamp stamped on the report; defaults to now (UTC).")
     ] = "",
@@ -883,13 +864,12 @@ def ops_report(
         ),
     ] = None,
 ) -> None:
-    """Roll pipeline health, backfill, spend, and data health into an ops snapshot.
+    """Roll pipeline health, spend, and data health into an ops snapshot.
 
     A read-only view of authoritative sources — the GitHub Actions run history
-    (``--runs``), the seed cursor (``config/seed-progress.yaml``), the recorded
-    ``usage.json`` ledger under ``data/``, and the committed ``flags.json`` files
-    agents leave there (rolled into the **open agent flags** section). Also presents
-    the **data-health** verdict:
+    (``--runs``), the recorded ``usage.json`` ledger under ``data/``, and the
+    committed ``flags.json`` files agents leave there (rolled into the **open
+    agent flags** section). Also presents the **data-health** verdict:
     it runs the git-only ``validate`` over ``data/`` itself and folds in the latest
     corpus verdict from ``--corpus-validation`` (produced where the corpus is already
     pulled). Prints the dashboard Markdown to stdout (the run-ops issue body / step
@@ -898,18 +878,7 @@ def ops_report(
     not committed.
     """
     settings = get_settings()
-    seed_cfg = load_seed_config(settings.config_root)
-    courts = load_courts(settings.config_root)
-    progress = load_cursor(seed_cfg.cursor)
     run_rows = json.loads(runs.read_text()) if runs is not None else []
-    # The prior snapshot is best-effort: a missing/unreadable file just drops the
-    # rate + ETA rather than failing the report.
-    prior: OpsReport | None = None
-    if previous is not None and previous.exists():
-        try:
-            prior = OpsReport.model_validate_json(previous.read_text())
-        except ValueError:
-            prior = None
     # Data health: the git-only ledger schema check always runs here (no corpus
     # needed), and the corpus verdict is read back from the producer path if present
     # (best-effort: a missing/unreadable verdict just leaves that half null).
@@ -945,13 +914,10 @@ def ops_report(
     report = build_ops_report(
         generated_at=when,
         runs=run_rows,
-        progress=progress,
-        courts=courts,
         usage=iter_usage(settings.data_root),
         flags=iter_flags(settings.data_root),
         tooling=iter_tooling(settings.data_root),
         evaluations=[e for e, _ in iter_stratified_evaluations(settings.data_root)],
-        previous=prior,
         data_health=data_health,
         scope_audit=scope_verdict,
         open_triggers=open_triggers,
@@ -1099,32 +1065,16 @@ def _fetch_one_docket(court: str, docket: int) -> None:
 
 
 @app.command()
-def seed(
-    court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
-    docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
-) -> None:
-    """Onboard one docket from the CourtListener REST API into the corpus.
-
-    Deterministic single-docket ingestion of raw facts: fetches the docket and
-    upserts its normalized row into the corpus through the shared ingestion core.
-    ``pull`` refreshes an already-onboarded docket. The historical mass is loaded
-    separately by the bulk-data backfill (``seed-backfill`` / the ``run-seed``
-    workflow); see ``docs/data-pipeline.md``.
-    """
-    _fetch_one_docket(court, docket)
-
-
-@app.command()
 def pull(
     court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
     docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
 ) -> None:
-    """Refresh one docket from the CourtListener REST API and report changes.
+    """Onboard or refresh one docket from the CourtListener REST API.
 
-    The forward-freshness counterpart to ``seed``: re-fetches the docket,
-    re-ingests it into the corpus through the shared core, and reports whether it
-    changed since the last pull (the signal that downstream ``run-predict``
-    should run).
+    Deterministic single-docket ingestion of raw facts: fetches the docket,
+    re-ingests it into the corpus through the shared core, and reports whether
+    it changed since the last pull (the signal that downstream ``run-predict``
+    should run). The first pull of a docket onboards it.
     """
     _fetch_one_docket(court, docket)
 
@@ -1170,12 +1120,12 @@ def probe_recoverability(
 
     Strictly **read-only**: for each ``court/docket`` it fetches the docket, its
     entries, and any linked opinion cluster via the REST API and classifies the
-    disposition as RECOVERABLE (an ingestion gap a seed/pull backfill can close),
+    disposition as RECOVERABLE (an ingestion gap a pull re-fetch can close),
     ABSENT (genuinely bare upstream), or AMBIGUOUS. Writes nothing — no corpus,
     ``data/``, DVC, or git (``--report-out`` writes only the report file named).
     Targets come from ``--dockets`` (ad-hoc pairs) or ``--sample-dateless N`` (a
     deterministic stratified sample of the resolved-but-dateless slice, sizing what
-    a date backfill can recover per stratum; the summary then carries a per-stratum
+    a REST re-fetch can recover per stratum; the summary then carries a per-stratum
     rollup and the corpus's dated share at probe time). Emits the machine
     ``ProbeReport`` JSON on stdout and a short human summary on stderr;
     ``--summary-out`` also appends the Markdown summary to a file. Needs the
@@ -1276,100 +1226,8 @@ def probe_live_terms(
             fh.write(table + "\n")
 
 
-@app.command("seed-backfill")
-def seed_backfill(
-    max_cases: Annotated[
-        int | None,
-        typer.Option(
-            help="Optional lower cap on cases to load this run; cannot exceed "
-            "seed.max_cases_per_run."
-        ),
-    ] = None,
-    report: Annotated[
-        Path | None,
-        typer.Option(help="Write progress JSON here for the tracking-issue comment."),
-    ] = None,
-    staging_path: Annotated[
-        Path | None,
-        typer.Option(
-            help="Persist the staged snapshot here and reuse it on the next run. "
-            "Lets a workflow loop many chunks without re-downloading/re-staging the "
-            "GB-scale bulk files each time (the build is skipped when the snapshot id "
-            "matches). Omit for a throwaway temp staging DB."
-        ),
-    ] = None,
-) -> None:
-    """Load the next chunk of CourtListener bulk data into the corpus (no agent).
-
-    The deterministic historical backfill: reads the committed cursor
-    (``config/seed-progress.yaml``), streams the next slice of the public bulk
-    snapshot for the tracked courts (``config/tracking.yaml``), normalizes each
-    row through the shared ingestion core into the packed corpus, and advances the
-    cursor — all without spending the CourtListener REST budget. ``--max-cases``
-    may only lower the per-run cap, never raise it. Idempotent: re-running after
-    completion loads zero rows.
-
-    ``--staging-path`` makes the heavy stage-once phase reusable: a workflow that
-    loops ``seed-backfill`` over a persistent path pays the ~tens-of-minutes
-    download+stage once per job, then each subsequent chunk is a cheap served read.
-    """
-    settings = get_settings()
-    seed_cfg = load_seed_config(settings.config_root)
-    courts = load_courts(settings.config_root)
-    cap = (
-        seed_cfg.max_cases_per_run
-        if max_cases is None
-        else min(max_cases, seed_cfg.max_cases_per_run)
-    )
-    if not settings.courtlistener_bulk_url:
-        typer.echo(
-            "No bulk snapshot URL configured; seed-backfill has no source to load and is a no-op.",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    snapshot_id, dockets_url = resolve_dockets_source(
-        settings.courtlistener_bulk_url,
-        timeout=settings.request_timeout,
-    )
-    # The dockets file is the case spine; sibling bulk files enrich each row via the
-    # staged join — opinion-clusters (disposition/summary/judges/precedential-status/
-    # citation-count + the people-resolved panel), and the parties / attorneys name
-    # lists. A non-standard pinned dockets URL has no derivable siblings, so the
-    # spine still loads and those fields stay blank.
-    source = CourtListenerBulkSource(
-        snapshot_id,
-        dockets_url=dockets_url,
-        courts=courts,
-        clusters_url=sibling_bulk_url(dockets_url, "opinion-clusters"),
-        parties_url=sibling_bulk_url(dockets_url, "parties"),
-        attorneys_url=sibling_bulk_url(dockets_url, "attorneys"),
-        people_url=sibling_bulk_url(dockets_url, "people-db-people"),
-        timeout=settings.request_timeout,
-        staging_path=staging_path,
-    )
-    try:
-        rep = backfill(
-            source,
-            cursor_path=seed_cfg.cursor,
-            courts=courts,
-            corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
-            max_cases=cap,
-        )
-    finally:
-        source.cleanup()
-
-    _ensure_corpus_layout(corpus.corpus_db_path(settings.corpus_root))
-    if report is not None:
-        write_raw_json(report, rep.model_dump(mode="json"))
-    typer.echo(
-        f"seed-backfill snapshot={rep.snapshot} loaded_this_run={rep.loaded_this_run} "
-        f"complete={rep.complete}"
-    )
-
-
-@app.command("seed-live-terms")
-def seed_live_terms(
+@app.command("historical-terms")
+def historical_terms(
     report: Annotated[
         Path | None,
         typer.Option(help="Write this invocation's JSON report here for the workflow's loop."),
@@ -1378,7 +1236,7 @@ def seed_live_terms(
         Path | None,
         typer.Option(
             help="Fold this invocation's counts into the cumulative JSON report at "
-            "this path (created if absent) — the run-seed loop's whole-run totals, "
+            "this path (created if absent) — the historical loop's whole-run totals, "
             "which its single progress comment renders."
         ),
     ] = None,
@@ -1386,7 +1244,7 @@ def seed_live_terms(
         int | None,
         typer.Option(
             help="Optional lower cap on docket-JSON probes this invocation; cannot "
-            "exceed seed_live.max_probes_per_run."
+            "exceed historical.max_probes_per_run."
         ),
     ] = None,
     summary_out: Annotated[
@@ -1394,28 +1252,28 @@ def seed_live_terms(
         typer.Option(help="Append the Markdown progress table here (e.g. $GITHUB_STEP_SUMMARY)."),
     ] = None,
 ) -> None:
-    """Load one capped chunk of the past-Term cert back-test set (no agent).
+    """Load one capped chunk of the historical per-Term set (no agent).
 
-    The back-test half of the live channel (docs/live-sources.md): walks the
-    configured decided October Terms' docket serials sequentially over the
+    The historical half of the live channel (docs/live-sources.md): walks the
+    configured October Terms' docket serials sequentially over the
     supremecourt.gov docket JSON — resuming from the persisted per-(Term, stream)
     cursors — and ingests **every decided petition except denials, which are
     systematically sampled** (all grants/GVRs kept; a denial kept when its
-    serial is a multiple of ``seed_live.denial_sample_every``). Ingested
+    serial is a multiple of ``historical.denial_sample_every``). Ingested
     petitions land through the shared live path: identity reconciled by docket
     number, raw JSON snapshotted, the resolved row + ``outcome.json`` recorded,
     and filed documents provisioned for OT``document_floor_term``+ — so they
-    feed replay/evaluation only. **Writes no handoff queues**: these are
-    decided historical matters and must never queue forward prediction. The
-    ``run-seed`` workflow's ``live-terms`` mode loops this command, committing
-    the corpus after each chunk.
+    feed the statpack's per-Term base rates and replay/evaluation only.
+    **Writes no handoff queues**: these are decided historical matters and must
+    never queue forward prediction. The ``run-pull`` workflow's ``historical``
+    job loops this command, committing the corpus after each chunk.
     """
     settings = get_settings()
-    cfg = load_seed_live_config(settings.config_root)
+    cfg = load_historical_config(settings.config_root)
     cap = cfg.max_probes_per_run if max_probes is None else min(max_probes, cfg.max_probes_per_run)
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
-        rep = seedlive.load_terms(
+        rep = historical.load_terms(
             client,
             db,
             settings.data_root,
@@ -1427,70 +1285,20 @@ def seed_live_terms(
         write_raw_json(report, rep.model_dump(mode="json"))
     if totals is not None:
         prior = (
-            seedlive.SeedLiveReport.model_validate_json(totals.read_text())
+            historical.HistoricalReport.model_validate_json(totals.read_text())
             if totals.exists()
             else None
         )
-        write_raw_json(totals, seedlive.fold_totals(prior, rep).model_dump(mode="json"))
+        write_raw_json(totals, historical.fold_totals(prior, rep).model_dump(mode="json"))
     if summary_out is not None:
         with summary_out.open("a", encoding="utf-8") as fh:
-            fh.write(seedlive.render_markdown(rep) + "\n")
+            fh.write(historical.render_markdown(rep) + "\n")
     ingested = rep.ingested_granted + rep.ingested_denied + rep.ingested_other
     typer.echo(
-        f"seed-live-terms probed={rep.probed} served={rep.served} ingested={ingested} "
+        f"historical-terms probed={rep.probed} served={rep.served} ingested={ingested} "
         f"(granted={rep.ingested_granted} denied={rep.ingested_denied} other={rep.ingested_other}) "
         f"skipped_denials={rep.skipped_denials} documents={rep.documents} "
         f"stopped={rep.stopped} complete={rep.complete}"
-    )
-
-
-@app.command("full-refresh")
-def full_refresh_cmd(
-    dry_run: Annotated[
-        bool,
-        typer.Option(help="Report what would be reset without writing anything."),
-    ] = False,
-    report: Annotated[
-        Path | None,
-        typer.Option(help="Write the RefreshReport JSON here for the run summary."),
-    ] = None,
-) -> None:
-    """Reset the pipeline's forward state for a clean rebuild (no agent, no data loss).
-
-    The operator escape hatch for a structural change to how data is produced — a
-    new corpus column, a corrected normalization, a data-validity fix best solved
-    by rebuilding from source. Resets the seed cursor (``config/seed-progress.yaml``)
-    so the next ``seed-backfill`` re-loads every court from the top, clears each
-    case's ``last_pulled`` so ``pull`` re-pulls the active set, and resets each
-    court's discovery watermark to the snapshot frontier so discovery re-walks the
-    post-snapshot range — re-ingesting cases that resolved after the snapshot, which
-    ``pull`` alone would skip. Re-ingestion never reopens a resolved event.
-
-    History is preserved, not dropped: corpus case/event/snapshot rows and the git
-    ledger under ``data/`` stay in place (recoverable via the content-addressed DVC
-    blob under a no-delete remote and git history of the pointer / ledger).
-    ``--dry-run`` reports the blast radius without writing. Run inside the run-seed
-    workflow (it holds the corpus-write lock and pushes the reset corpus blob); see
-    ``docs/data-pipeline.md``.
-    """
-    settings = get_settings()
-    seed_cfg = load_seed_config(settings.config_root)
-    rep = run_full_refresh(
-        cursor_path=seed_cfg.cursor,
-        corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
-        dry_run=dry_run,
-    )
-    if not dry_run:
-        _ensure_corpus_layout(corpus.corpus_db_path(settings.corpus_root))
-    if report is not None:
-        write_raw_json(report, rep.model_dump(mode="json"))
-    verb = "would reset" if dry_run else "reset"
-    since = f" to re-discover from {rep.rediscover_since}" if rep.rediscover_since else ""
-    note = "" if rep.corpus_present else " (no corpus present — run after `dvc pull`)"
-    typer.echo(
-        f"full-refresh: {verb} {rep.courts_reset} court(s) for re-seed; cleared "
-        f"last_pulled on {rep.cases_unpulled} case(s) and reset {rep.watermarks_reset} "
-        f"discovery watermark(s){since}{note}"
     )
 
 
@@ -2316,8 +2124,8 @@ def discover(
         typer.Option(
             help="ISO date to start a never-discovered court from (default: today). "
             "Courts with a stored watermark resume from it regardless. Normally a "
-            "court is seeded first (seed hands off the snapshot date as its initial "
-            "watermark), so pass --since only for a never-seeded court; the today "
+            "court already carries a stored watermark, so pass --since only for a "
+            "court that has none; the today "
             "default is a last resort that discovers nothing useful on its own."
         ),
     ] = "",

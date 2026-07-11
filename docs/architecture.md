@@ -1,7 +1,7 @@
 # Architecture
 
 fedcourtsai is a **label-driven pipeline** of GitHub Actions over two stores — a
-**packed raw-fact corpus** (DVC/S3, written identically by seed and pull) and a
+**packed raw-fact corpus** (DVC/S3, written identically by every ingestion channel) and a
 **git-versioned ledger** of derived outcomes, predictions, and evaluations — with
 **multiple competing coding agents** producing the predictions and evaluations.
 
@@ -23,8 +23,8 @@ fedcourtsai is a **label-driven pipeline** of GitHub Actions over two stores —
     manifest, and the harness-side tool-call transcript capture
     (`retrieval_log.json`) that grounds the evaluators' leakage grading.
   - `pipeline/` — ingestion and contract helpers: the shared normalizer
-    (`ingest.py`), pull, the live poller (`live.py`), the past-Term loader
-    (`seedlive.py`), document fetch/extraction (`documents.py`), event
+    (`ingest.py`), pull, the live poller (`live.py`), the historical Term walker
+    (`historical.py`), document fetch/extraction (`documents.py`), event
     definition, resolution detection, and the predict/evaluate seams.
   - `cli.py` — `fedcourts`, the entry point used by scripts and workflows.
 - **Workflows (`.github/workflows/`)** — orchestration; see `pipeline.md`.
@@ -46,7 +46,7 @@ fedcourtsai is a **label-driven pipeline** of GitHub Actions over two stores —
 - **Files in git** for the derived ledger give free history, diffing, review, and
   rollback, and let agents load everything concluded about one event from one
   directory. Bulk raw facts would choke git, so they live in a packed corpus
-  instead — one format shared by seed and pull.
+  instead — one format shared by every ingestion channel.
 
 ## Future: automated predictor research
 
