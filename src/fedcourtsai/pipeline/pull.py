@@ -13,7 +13,7 @@ the corpus, never in per-case git files: the snapshot backs change detection and
 is what predictors/evaluators are provisioned from. Each refresh also re-extracts
 the docket's predictable events, so a filing that appears after onboarding (a
 stay / emergency motion) becomes trackable, not just the events present at
-discovery. Both ``seed`` and ``pull`` drive this function.
+discovery. ``pull`` drives this function for onboarding and refresh alike.
 """
 
 from __future__ import annotations
@@ -164,7 +164,7 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
     row rules plus the snapshot-aware bare opinion-import rule). Checking it here,
     at queue time, means pull never opens a ``run-predict`` issue for a case the
     gate would only drop — so a batch of nothing-but-out-of-scope cases never
-    files an empty run (the live evaluation also covers cases the seed reconcile
+    files an empty run (the live evaluation also covers cases the scope reconcile
     has not yet latched ``predict_excluded``).
     """
     with corpus.connect(corpus_db_path) as conn:

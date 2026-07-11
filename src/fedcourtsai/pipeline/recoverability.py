@@ -3,10 +3,10 @@
 A diagnostic, **not** a data-production path: it fetches a docket (and its linked
 opinion cluster) from the CourtListener REST API and decides whether the
 disposition the pipeline needs is *actually recoverable from CourtListener* — an
-ingestion gap a seed/pull backfill can close — or *genuinely absent* upstream, so
+ingestion gap a pull re-fetch can close — or *genuinely absent* upstream, so
 the case belongs out of scope.
 
-The motivating gap (see ``pipeline/seed.py``): bulk seed ingests no docket entries
+The motivating gap: the bulk-era load ingested no docket entries
 and fills ``disposition`` only via the ``opinion_clusters`` LEFT JOIN, so a cert
 **denial** — whose order lives in a docket entry, with no opinion cluster — lands
 with ``disposition = NULL`` and a null decision date. This probe reads what a live
@@ -374,7 +374,7 @@ class SampleTarget(NamedTuple):
 # The strata the dateless-resolved sample is drawn from, in allocation order:
 # the SCOTUS modern-cert slice (highest back-test value: it feeds the cert
 # back-test set), the dominant circuit slice, and everything else pooled. The
-# per-stratum read sizes what a date backfill can actually recover, and from
+# per-stratum read sizes what a REST re-fetch can actually recover, and from
 # which source, before the pull budget is spent on the drip.
 SAMPLE_STRATA: tuple[str, ...] = ("scotus-modern-cert", "ca4", "other-circuits")
 

@@ -99,7 +99,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes.\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale\nunresolvable old SCOTUS petitions). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the seed-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
+  "description": "``corpus-scope-audit`` verdict: open events the predict scope excludes.\n\nA read-only census of the corpus's still-**open** events whose case an exclusion\npredicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale\nunresolvable old SCOTUS petitions). These sit open in the corpus forever\nbecause nothing resolves them, so they are the candidates for the corpus-side\ncorpus reconcile (resolve if recoverable, else latch out of scope). The\n``recoverable`` split is what tells those two paths apart. ``skipped`` is set\n(with empty exclusions) when the corpus is absent, so it is safe before a\n``dvc pull``. A pure function of the corpus, so it carries no timestamp.",
   "properties": {
     "corpus_rows": {
       "default": 0,

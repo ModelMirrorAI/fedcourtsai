@@ -669,45 +669,6 @@ class WorkflowHealth(_Strict):
     )
 
 
-class BackfillCourt(_Strict):
-    """Per-court backfill progress, projected from the seed cursor."""
-
-    court: str
-    offset: int = Field(ge=0, description="Cases loaded for this court")
-    total: int | None = Field(default=None, ge=0, description="Cases in the snapshot, once known")
-    percent: float | None = Field(
-        default=None, ge=0.0, le=100.0, description="offset / total, or 100 when complete"
-    )
-    complete: bool = False
-
-
-class BackfillProgress(_Strict):
-    """Whole-backfill progress across the tracked courts."""
-
-    snapshot: str | None = Field(default=None, description="Bulk snapshot id being loaded")
-    courts_total: int = Field(ge=0, description="Tracked courts")
-    courts_complete: int = Field(ge=0, description="Courts whose backfill is finished")
-    cases_loaded: int = Field(ge=0, description="Total cases loaded so far (sum of offsets)")
-    cases_total: int | None = Field(
-        default=None,
-        ge=0,
-        description="Total cases to load, only when every court's total is known",
-    )
-    percent: float | None = Field(
-        default=None, ge=0.0, le=100.0, description="Overall %, only when cases_total is known"
-    )
-    cases_per_day: float | None = Field(
-        default=None,
-        ge=0.0,
-        description="Load rate since the previous snapshot, when one is available",
-    )
-    eta_date: str | None = Field(
-        default=None,
-        description="Projected completion date (ISO), when the rate and total are both known",
-    )
-    entries: list[BackfillCourt] = Field(default_factory=list)
-
-
 class SpendSummary(_Strict):
     """Model spend rolled up from the recorded ``usage.json`` ledger."""
 
@@ -772,7 +733,7 @@ class CorpusValidation(_Strict):
     ``validate``, which only checks each ledger artifact against its schema. ``ok``
     is the conjunction of every check; ``skipped`` is set (with ``ok`` true and no
     checks) when the corpus is absent, so the command is safe to call before a
-    ``dvc pull``. A pure function of its inputs — corpus, ledger, seed cursor, the
+    ``dvc pull``. A pure function of its inputs — corpus, ledger, the
     supplied baseline, and the as-of date — so it carries no timestamp and the same
     inputs always serialize identically. Surfaced (and escalated) by a separate
     wiring layer, not committed; a failed verdict is loud-not-fatal by contract.
@@ -843,7 +804,7 @@ class CorpusScopeAudit(_Strict):
     A read-only census of the corpus's still-**open** events whose case an exclusion
     predicate drops at the matrix gate (pre-1925 mandatory jurisdiction, stale
     unresolvable old SCOTUS petitions). These sit open in the corpus forever
-    because nothing resolves them, so they are the candidates for the seed-side
+    because nothing resolves them, so they are the candidates for the corpus-side
     corpus reconcile (resolve if recoverable, else latch out of scope). The
     ``recoverable`` split is what tells those two paths apart. ``skipped`` is set
     (with empty exclusions) when the corpus is absent, so it is safe before a
@@ -1036,7 +997,7 @@ class StatPack(_Strict):
 
 
 class ScopeReconcileResult(_Strict):
-    """``reconcile-scope`` result: what the seed scope reconcile changed.
+    """``reconcile-scope`` result: what the corpus scope reconcile changed.
 
     The write counterpart of :class:`CorpusScopeAudit`: it sets the ``predict_excluded``
     latch on cases an exclusion predicate now matches and clears it on cases that have
@@ -1190,10 +1151,10 @@ class OpenTriggerIssue(_Strict):
 
 
 class OpsReport(_Strict):
-    """``metrics/ops.json`` — an operational snapshot: health, backfill, spend, cost.
+    """``metrics/ops.json`` — an operational snapshot: health, spend, cost.
 
-    A read-only roll-up of authoritative sources (the Actions run history, the seed
-    cursor, the usage ledger), so no pipeline run writes an ops record. Unlike the
+    A read-only roll-up of authoritative sources (the Actions run history, the
+    usage ledger), so no pipeline run writes an ops record. Unlike the
     deterministic leaderboard / back-test roll-ups this is a **point-in-time** view —
     it carries ``generated_at`` and run durations, so it is not byte-stable and is
     surfaced via the run-ops dashboard issue (and persisted to the ``ops-metrics``
@@ -1210,7 +1171,6 @@ class OpsReport(_Strict):
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     generated_at: str = Field(description="ISO-8601 UTC time the report was built")
     health: list[WorkflowHealth] = Field(default_factory=list)
-    backfill: BackfillProgress
     spend: SpendSummary
     cost: CostEstimate
     data_health: DataHealth | None = Field(
@@ -1235,43 +1195,6 @@ class OpsReport(_Strict):
         default=None,
         description="Still-open run:* trigger issues (stalled fan-outs), oldest first; "
         "null on a report built before the field existed or without the issue feed",
-    )
-
-
-class CourtProgress(_Strict):
-    """Per-court entry in the seed cursor — how far the backfill has loaded."""
-
-    offset: int = Field(default=0, ge=0, description="Rows consumed from this court's bulk stream")
-    total: int | None = Field(
-        default=None, ge=0, description="Rows for this court in the snapshot, once the stream ends"
-    )
-    complete: bool = False
-
-
-class SeedProgress(_Strict):
-    """``config/seed-progress.yaml`` — the resumable seed-backfill cursor.
-
-    Git-tracked so the historical backfill is rebuildable after a fresh clone and
-    a maintainer can read progress in a diff. ``seed-backfill`` reads it at the
-    start of each run and writes the bumped cursor at the end.
-    """
-
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
-    snapshot: str | None = Field(
-        default=None,
-        description="Bulk snapshot id currently being loaded, e.g. `2026-03-31` (an "
-        "auto-resolved file date) or `2026-Q2` (a manually pinned quarter)",
-    )
-    courts: dict[str, CourtProgress] = Field(default_factory=dict)
-    completed: bool = Field(
-        default=False,
-        description=(
-            "Human sign-off that this snapshot's backfill is finished. The backfill "
-            "never sets it; run-seed opens a completion PR that flips it true, and "
-            "merging that PR (which closes the tracking issue) is the acknowledgement. "
-            "Distinct from the per-court `complete` flags, which the backfill sets "
-            "automatically as each court's stream is exhausted."
-        ),
     )
 
 
@@ -1344,7 +1267,6 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "prediction.json": Prediction,
     "outcome.json": Outcome,
     "evaluation.json": Evaluation,
-    "seed-progress.yaml": SeedProgress,
     "leaderboard.json": Leaderboard,
     "backtest.json": Backtest,
     "usage.json": ModelUsage,
@@ -1362,7 +1284,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluation": Evaluation,
     "predictor_config": PredictorConfig,
     "evaluator_config": EvaluatorConfig,
-    "seed_progress": SeedProgress,
     "leaderboard": Leaderboard,
     "backtest": Backtest,
     "cert_backtest": CertBacktest,

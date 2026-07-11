@@ -19,7 +19,7 @@ roles. The split is what makes "data writes land directly, everything agentic
 lands via a reviewed PR" an *identity*-enforced invariant rather than a policy the
 agent is merely instructed to follow:
 
-- **data App** — used by the deterministic writers `run-seed` / `run-pull`. Its
+- **data App** — used by the deterministic writer `run-pull`. Its
   client id is the `DATA_APP_CLIENT_ID` variable and its private key the
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
@@ -34,14 +34,16 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
-| `run-seed`, `run-pull` | data | contents, issues, pull-requests | commit facts to `main`; open handoff issues |
+| `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues |
 | `run-predict`, `run-evaluate`, `run-reconcile` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-dev` | dev | contents, pull-requests, **workflows** | develops the pipeline, including the workflow files |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
 
-- **data App**: Contents, Issues, Pull requests — all *read and write*.
+- **data App**: Contents and Issues — *read and write*. (No workflow mints a
+  Pull-requests scope from it any more; dropping that grant at the App level is
+  a safe tightening.)
 - **dev App**: Contents, Issues, Pull requests, and **Workflows** — all *read and
   write*.
 
@@ -60,8 +62,8 @@ bypass list applies to the whole ruleset); a third protects the `ops-metrics`
 branch:
 
 - **`main: require PR`** — requires a pull request plus the `gate` status check to
-  merge. **Bypass: the data App only**, so the deterministic `run-seed` /
-  `run-pull` writers push corpus facts (the corpus blob — rows and point-in-time
+  merge. **Bypass: the data App only**, so the deterministic
+  `run-pull` writer jobs push corpus facts (the corpus blob — rows and point-in-time
   snapshots — to the DVC remote; its pointer and deterministic `outcome.json` to
   `main`) while all agent code changes — including anything the dev App holds —
   go through a reviewed PR. The dev App is deliberately **absent** from this
@@ -167,11 +169,11 @@ reconciled `outcome.json` on `main`, precisely so its ref is `main` rather than 
 Two IAM roles, assumed via GitHub OIDC (no static keys); see
 [data-pipeline.md](data-pipeline.md) for the per-workflow access table.
 
-- **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-seed` / `run-pull`) —
+- **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`) —
   **append-only**: `s3:GetObject` / `PutObject` / `ListBucket`, and an explicit
   `Deny` on every delete plus `DeleteBucket` / `PutBucketVersioning`. Content-
   addressed `dvc push` only ever adds objects, and no run garbage-collects the
-  remote (`run-seed`'s `dvc gc --workspace` prunes only its local runner cache,
+  remote (the historical job's `dvc gc --workspace` prunes only its local runner cache,
   never `--cloud`), so the writers never need delete; this means no run can wipe
   corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus

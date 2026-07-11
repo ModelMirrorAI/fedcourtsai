@@ -1,28 +1,13 @@
-# Global tracking settings for the seed (backfill), pull (refresh), and predict
-# fan-out. See docs/data-pipeline.md for the full design. These keys are the
-# contract the seed/pull workflows read; treat them as the single place to tune
+# Global tracking settings for the pull (refresh), live, historical, and predict
+# channels. See docs/data-pipeline.md for the full design. These keys are the
+# contract the run-pull workflow reads; treat them as the single place to tune
 # scope and the CourtListener API budget.
 
-# seed = historical backfill from CourtListener BULK data (no API budget).
-# Runs daily until the backlog is loaded, then quarterly reconciliation.
-seed:
-  # Source: CourtListener quarterly bulk-data snapshots (public S3).
-  source: bulk
-  # Cases per `seed-backfill` invocation = the run-seed loop's checkpoint chunk.
-  # The workflow stages the snapshot once, then loops this many cases at a time
-  # (committing + pushing the corpus after each) until the backlog is done or its
-  # wall-clock budget runs out — so this trades crash-loss / push-frequency, not
-  # the total loaded per run. No API budget (bulk data).
-  max_cases_per_run: 10000
-  # Committed cursor tracking per-court backfill progress (resumable rebuild).
-  cursor: config/seed-progress.yaml
-
 # pull = targeted CourtListener enrichment from the rate-limited REST API. Owns
-# the API budget. Since the live-sources pivot (July 2026) the
-# supremecourt.gov channel owns SCOTUS freshness; pull's budget goes to keeping
-# the SCOTUS-touched set's CourtListener records current — most importantly the
-# originating CoA dockets the predict_eligible latch flags — not to draining
-# bulk-era gaps (the date backfill was decommissioned in that pivot).
+# the API budget. The supremecourt.gov live channel owns SCOTUS freshness;
+# pull's budget goes to keeping the SCOTUS-touched set's CourtListener records
+# current — most importantly the originating CoA dockets the predict_eligible
+# latch flags.
 # The per-request rate limits the client throttles to are NOT set here: they live
 # in the runner env (FEDCOURTS_COURTLISTENER_RPM/_RPH/_RPD, wired from repo
 # variables to the active Free Law Project tier — see docs/budget.md). The caps
@@ -44,11 +29,10 @@ pull:
   # enough to fill it, which is exactly when the pilot should get priority.
   eligible_refresh_reserve: 20
   # Discover newly-filed dockets in the tracked courts since the last run.
-  # OFF as of the July 2026 pivot: the live channel's frontier probing now
-  # onboards newly filed SCOTUS petitions (fresher, budget-free), and circuit
-  # discovery onboarded cases the
-  # SCOTUS-touch gate won't predict for years. Its budget slice returns to the
-  # enrichment rotation. Flip back on if the live channel is ever paused.
+  # OFF: the live channel's frontier probing onboards newly filed SCOTUS
+  # petitions (fresher, budget-free), and circuit discovery onboarded cases
+  # the SCOTUS-touch gate won't predict for years. Its budget slice returns to
+  # the enrichment rotation. Flip back on if the live channel is ever paused.
   discover_new_filings: false
   # Hard cap on new dockets onboarded per discovery run (its own slice of the
   # budget, separate from max_cases_per_run above).
@@ -70,8 +54,8 @@ pull:
   predict_on_change_only: true
 
 # live = the SCOTUS live channel: supremecourt.gov per-docket JSON. Owns
-# SCOTUS freshness since the July 2026 pivot. No API budget — these caps bound
-# per-cycle wall clock and upstream politeness (~1 req/s), not spend.
+# SCOTUS freshness. No API budget — these caps bound per-cycle wall clock and
+# upstream politeness (~1 req/s), not spend.
 live:
   # Pending petitions re-polled per cycle (recent Terms first, then stalest).
   max_cases_per_run: 30
@@ -96,24 +80,32 @@ live:
   # pull.predict_on_change_only. It replaced the interim predict_on_refresh
   # spend guard; max_cases_per_run above still bounds worst-case daily volume.
 
-# seed_live = the past-Term cert loader (run-seed's live-terms mode): builds
-# the cert back-test set by walking decided October Terms over the
-# supremecourt.gov docket JSON — the same client/ingest path as `live:` above,
-# so no API budget. This section IS the back-test set's sampling frame; it is
-# committed so the set's construction stays documented and reproducible.
-seed_live:
-  # Two-digit October Terms to walk, in walk order (newest decided Term first).
-  # Floor OT2017, the reachability probe's full-JSON floor
-  # (docs/live-sources-probe.md); the current in-session Term belongs to the
-  # forward poller (`live:`), not this loader.
-  terms: [24, 23, 22, 21, 20, 19, 18, 17]
+# historical = the historical Term walker (run-pull's historical job):
+# accumulates resolved outcomes reverse-chronologically by Term — primarily
+# for the statpack's per-Term base rates, secondarily the cert back-test set —
+# by walking October Terms over the supremecourt.gov docket JSON: the same
+# client/ingest path as `live:` above, so no API budget. This section IS the
+# set's sampling frame; it is committed so the set's construction stays
+# documented and reproducible.
+historical:
+  # Two-digit October Terms to walk, newest first. Floor OT2017, the
+  # reachability probe's full-JSON floor (docs/live-sources-probe.md). OT2025
+  # is walkable alongside the forward poller (`live:`): the walker ingests
+  # only decided petitions, skips pending ones, and leaves a decided petition
+  # whose existing case carries an open PREDICTED event to the watchlist (its
+  # re-poll queues the evaluate handoff the walker never files); the two
+  # walkers' cursors are disjoint, so neither rewinds the other. Note the
+  # sampling frame below applies to what the WALKER ingests — a Term the
+  # forward poller also onboarded (OT2025+) carries poller-full coverage on
+  # top of the walker's sample, so per-Term composition is not uniform there.
+  terms: [25, 24, 23, 22, 21, 20, 19, 18, 17]
   # The denial sample: a Term is overwhelmingly denials, so every decided
   # petition is ingested EXCEPT denials, which are kept when their docket
   # serial is a multiple of this (10 = a systematic ~10% slice, uniform over
   # each Term's filing sequence and deterministic per serial, so a resumed run
   # keeps the identical sample). 1 keeps every denial.
   denial_sample_every: 10
-  # Docket-JSON probes per `seed-live-terms` invocation = the run-seed loop's
+  # Docket-JSON probes per `historical-terms` invocation = the workflow loop's
   # checkpoint chunk (~10 min at the polite ~1 req/s; ingested petitions'
   # document fetches ride on top). Trades crash-loss / corpus-push frequency,
   # not the total loaded per run — that is the workflow loop's wall clock.
@@ -137,7 +129,7 @@ seed_live:
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The
   # pilot slice"). Restricts only the agentic predict/evaluate stages; ingestion
-  # (seed/pull) stays full-coverage. Read at the pull-queue and matrix seams.
+  # stays full-coverage. Read at the pull-queue and matrix seams.
   #   scotus_touched — only cases that have interacted with SCOTUS (the latching
   #                    predict_eligible flag); the pilot cost gate.
   #   all            — no gate: every changed case with open events is in-scope;
@@ -156,8 +148,8 @@ evaluate:
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
-  # court id. seed backfills history for these; pull keeps them current. District
-  # courts are intentionally out of scope for now.
+  # court id. pull keeps these current. District courts are intentionally out
+  # of scope for now.
   - scotus
   - ca1
   - ca2

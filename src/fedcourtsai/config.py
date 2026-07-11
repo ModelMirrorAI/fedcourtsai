@@ -29,11 +29,6 @@ class Settings(BaseSettings):
     replay_root: Path | None = None
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
-    # Seed reads CourtListener's *public bulk-data* CSV (no API token). Point this
-    # at the bulk-data **base** directory and the backfill auto-discovers the latest
-    # snapshot from the bucket listing; an explicit `.csv.bz2` file URL is honored as
-    # a manual pin. Injected from the runner env; absent, `seed-backfill` no-ops.
-    courtlistener_bulk_url: str | None = None
     request_timeout: float = 30.0
     # CourtListener per-token rate limits (issue #1); override via FEDCOURTS_* env.
     courtlistener_rpm: int = 5
@@ -157,27 +152,29 @@ def load_live_config(config_root: Path) -> LiveConfig:
     return LiveConfig.model_validate((data or {}).get("live", {}))
 
 
-class SeedLiveConfig(BaseModel):
-    """The ``seed_live:`` section of ``tracking.yaml`` — the past-Term cert loader.
+class HistoricalConfig(BaseModel):
+    """The ``historical:`` section of ``tracking.yaml`` — the historical Term walker.
 
-    Drives ``fedcourts seed-live-terms`` (the run-seed live-terms mode): a
-    sequential walk of decided past Terms over the supremecourt.gov docket JSON
-    that builds the cert back-test set. The sampling frame lives here so the
-    set's construction is documented and reproducible: **every decided petition
-    is ingested except denials, which are systematically sampled** — a denial
-    is kept when its docket serial is a multiple of ``denial_sample_every``
-    (deterministic per serial, so a resumed run keeps the same sample). No API
-    budget: the caps bound per-invocation wall clock and upstream politeness.
+    Drives ``fedcourts historical-terms`` (the run-pull historical job): a
+    sequential reverse-chronological walk of past Terms over the
+    supremecourt.gov docket JSON that accumulates resolved outcomes for the
+    statpack's per-Term base rates and the cert back-test set. The sampling
+    frame lives here so the set's construction is documented and reproducible:
+    **every decided petition is ingested except denials, which are
+    systematically sampled** — a denial is kept when its docket serial is a
+    multiple of ``denial_sample_every`` (deterministic per serial, so a resumed
+    run keeps the same sample). No API budget: the caps bound per-invocation
+    wall clock and upstream politeness.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    # Two-digit October Terms to walk, in walk order. Floor OT2017 — the
+    # Two-digit October Terms to walk, newest first. Floor OT2017 — the
     # reachability probe's full-JSON floor (docs/live-sources-probe.md).
-    terms: list[int] = Field(default=[24, 23, 22, 21, 20, 19, 18, 17])
+    terms: list[int] = Field(default=[25, 24, 23, 22, 21, 20, 19, 18, 17])
     # Keep a denial when serial % denial_sample_every == 0 (1 keeps every denial).
     denial_sample_every: int = Field(default=10, ge=1)
-    # Docket-JSON probes per invocation = the run-seed loop's checkpoint chunk
+    # Docket-JSON probes per invocation = the historical loop's checkpoint chunk
     # (~10 min at the polite 1 req/s; document fetches ride on top).
     max_probes_per_run: int = Field(default=600, ge=0)
     # Per-invocation wall-clock backstop, minutes, checked between serials.
@@ -204,23 +201,23 @@ class SeedLiveConfig(BaseModel):
         return terms
 
 
-def load_seed_live_config(config_root: Path) -> SeedLiveConfig:
-    """Read the past-Term loader's settings from ``config_root/tracking.yaml``.
+def load_historical_config(config_root: Path) -> HistoricalConfig:
+    """Read the Term walker's settings from ``config_root/tracking.yaml``.
 
-    Falls back to defaults if the file or its ``seed_live`` section is absent,
+    Falls back to defaults if the file or its ``historical`` section is absent,
     mirroring :func:`load_live_config`.
     """
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
-    return SeedLiveConfig.model_validate((data or {}).get("seed_live", {}))
+    return HistoricalConfig.model_validate((data or {}).get("historical", {}))
 
 
 def load_courts(config_root: Path) -> list[str]:
     """The tracked courts from ``config_root/tracking.yaml`` (``courts:``).
 
-    The scope ``seed`` backfills and ``pull`` keeps current. Returns an empty
-    list if the file or its ``courts`` key is absent, so callers degrade to a
-    no-op rather than crashing on missing config.
+    The scope ``pull`` keeps current. Returns an empty list if the file or its
+    ``courts`` key is absent, so callers degrade to a no-op rather than
+    crashing on missing config.
     """
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
@@ -231,7 +228,7 @@ def load_courts(config_root: Path) -> list[str]:
 class PredictScope(StrEnum):
     """The prediction-scope gate the agentic predict/evaluate fan-out honors.
 
-    Ingestion (seed/pull) is always full-coverage; this restricts only the
+    Ingestion is always full-coverage; this restricts only the
     expensive predict/evaluate stages (see ``docs/data-pipeline.md``).
     """
 
@@ -265,35 +262,3 @@ def load_predict_config(config_root: Path) -> PredictConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return PredictConfig.model_validate((data or {}).get("predict", {}))
-
-
-class SeedConfig(BaseModel):
-    """The ``seed`` section of ``config/tracking.yaml`` — the bulk-backfill knobs.
-
-    Seed spends no API budget; ``max_cases_per_run`` caps how many cases a single
-    ``seed-backfill`` invocation loads. The run-seed workflow loops the command
-    over one staged snapshot, committing after each pass, so this is the
-    **per-checkpoint chunk size** — how much progress a crash can lose and how
-    often the corpus blob is pushed — not the ceiling on a whole scheduled run
-    (that is the workflow's wall-clock budget). Only the keys the backfill command
-    needs are modeled (extra keys, like ``source``, are ignored).
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    # Cases loaded per `seed-backfill` invocation = the workflow loop's checkpoint
-    # chunk (`--max-cases` may only lower it for a one-off run).
-    max_cases_per_run: int = Field(default=2000, ge=0)
-    # Committed cursor recording per-court backfill progress (resumable rebuild).
-    cursor: Path = Path("config/seed-progress.yaml")
-
-
-def load_seed_config(config_root: Path) -> SeedConfig:
-    """Read the backfill settings from ``config_root/tracking.yaml``.
-
-    Falls back to defaults if the file or its ``seed`` section is absent, so the
-    backfill stays conservative rather than failing when config is missing.
-    """
-    path = config_root / TRACKING_FILENAME
-    data = yaml.safe_load(path.read_text()) if path.exists() else {}
-    return SeedConfig.model_validate((data or {}).get("seed", {}))

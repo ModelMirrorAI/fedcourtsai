@@ -1,23 +1,39 @@
 name: run-pull
 
-# Refresh tracked dockets — two writer jobs on one surface, at most one per run:
+# Refresh tracked dockets — three writer jobs on one surface, at most one per run:
 #
-# - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label): since
-#   the July 2026 pivot (docs/data-pipeline.md "Pivot"), targeted
-#   CourtListener *enrichment* for the SCOTUS-touched set — most importantly the
-#   originating CoA dockets the predict_eligible latch flags — not the primary
-#   freshness mechanism. CourtListener discovery is now off (`pull.
-#   discover_new_filings: false`, the decision recorded at the pivot): the live
-#   channel owns SCOTUS onboarding, and circuit discovery onboarded cases the
-#   SCOTUS-touch gate would not predict for years.
+# - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label):
+#   targeted CourtListener *enrichment* for the SCOTUS-touched set — most
+#   importantly the originating CoA dockets the predict_eligible latch flags —
+#   not the primary freshness mechanism. CourtListener discovery is off (`pull.
+#   discover_new_filings: false`): the live channel owns SCOTUS onboarding, and
+#   circuit discovery onboarded cases the SCOTUS-touch gate would not predict
+#   for years.
 # - `live` (the `47 *` crons or dispatch mode=live): the SCOTUS live channel
 #   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
 #   re-polls the pending watchlist. No CourtListener token, no API budget; the
 #   same corpus-writer plumbing (DVC push, pointer commit, queue handoffs).
+# - `historical` (the `31 2` cron or dispatch mode=historical): the historical
+#   Term walker (docs/live-sources.md) — LOOPS `fedcourts historical-terms`,
+#   which walks the configured October Terms' docket serials newest-first over
+#   the supremecourt.gov docket JSON (no token, no API budget) from persisted
+#   per-(Term, stream) cursors and ingests the sampled decided set: every
+#   decided petition except denials, which are systematically sampled
+#   (`historical:` in config/tracking.yaml IS the committed sampling frame).
+#   Primarily statpack coverage (per-Term base rates), secondarily the cert
+#   back-test set. Ingested petitions land already resolved and feed
+#   replay/evaluation only — this job files NO predict/evaluate handoffs, ever.
 #
-# Each scheduled run fires exactly one of the two (the cron minute is the mode
-# switch), so the shared corpus-write lock serializes writers as before.
+# Each scheduled run fires exactly one of the three (the cron minute is the mode
+# switch), so the shared corpus-write lock serializes writers. Live/forward work
+# keeps structural priority: the historical job's daily 02:31 slot and wall-clock
+# budget sit entirely between the 01:17 pull and 04:47 live windows, so it frees
+# the lock before forward work needs it — no in-run budget split required (the
+# walker spends zero CourtListener budget). Note GitHub keeps only the latest
+# *pending* run per concurrency group: a long dispatch-mode historical run can
+# cause a queued scheduled window to be superseded by the next one — the next
+# window's rotation picks up where it left off.
 # Spreading the refresh over several windows lifts daily throughput toward the
 # CourtListener tier's daily ceiling while each window stays under the hourly one.
 # Deterministic (no agent): re-fetches tracked dockets
@@ -42,13 +58,18 @@ on:
     # jobs). Spreading the work keeps each run under the hourly CourtListener
     # ceiling while the day's total approaches the daily one. Separate lines
     # (not a comma-list) so `github.event.schedule` identifies the final daily
-    # window, which is the one that closes the shared pull-log issue. The `17`
-    # minute is also the job selector: `17 *` crons run `pull`, `47 *` run `live`.
+    # window, which is the one that closes the shared pull-log issue. The
+    # minute is also the job selector: `17 *` crons run `pull`, `47 *` run
+    # `live`, and `31 2` runs `historical`.
     - cron: "17 1 * * *"
     - cron: "17 7 * * *"
     - cron: "17 13 * * *"
     - cron: "17 19 * * *"
-    # Four live windows/day, interleaved between the pull windows so the two
+    # One historical window/day, in the dead zone between the 01:17 pull and
+    # 04:47 live windows; its wall-clock budget ends before the live window so
+    # the shared lock is free when forward work arrives.
+    - cron: "31 2 * * *"
+    # Four live windows/day, interleaved between the pull windows so the
     # corpus writers rarely even queue on the shared lock. Budget-free
     # (supremecourt.gov), so cadence is a freshness/politeness choice — the
     # conference watchlist will retune it around the cert calendar.
@@ -61,29 +82,30 @@ on:
       mode:
         description: "Which refresh to run"
         type: choice
-        options: [pull, live]
+        options: [pull, live, historical]
         default: pull
   issues:
     types: [labeled]
 
 permissions: {}
 
-# Shared with run-seed: both workflows write the single corpus.db pointer, so they
-# run under ONE lock to serialize corpus writers and prevent lost updates.
+# All three jobs write the single corpus.db pointer, so they run under ONE lock
+# to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
 # Only a run that will actually write the corpus joins the shared group: every
-# `issues: labeled` event spawns a run of BOTH this workflow and run-seed (the
-# label filter is the job-level `if`, evaluated after concurrency), so a run that
-# the `if` will skip is given a unique throwaway group — otherwise it could cancel
-# an in-flight seed/pull as the group's pending slot before ever being skipped.
+# `issues: labeled` event spawns a run of this workflow (the label filter is the
+# job-level `if`, evaluated after concurrency), so a run that the `if` will skip
+# is given a unique throwaway group — otherwise it could cancel an in-flight
+# writer as the group's pending slot before ever being skipped.
 concurrency:
   group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:pull') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
   pull:
-    # One writer job per run: the cron minute (17 = pull, 47 = live) or the
-    # dispatch `mode` input selects the job; a `run:pull` label always means pull.
+    # One writer job per run: the cron minute (17 = pull, 31 = historical,
+    # 47 = live) or the dispatch `mode` input selects the job; a `run:pull`
+    # label always means pull.
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull') ||
@@ -92,8 +114,8 @@ jobs:
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + DVC S3 transfer) finishes well inside this; the cap
     # releases the shared corpus-write lock far sooner than GitHub's 6h default if
-    # a network step hangs. Below run-seed's quarterly budget, since pull does much
-    # less work.
+    # a network step hangs. Below the historical job's budget, since pull does
+    # much less work.
     timeout-minutes: 45
     environment: runner
     permissions:
@@ -617,3 +639,298 @@ jobs:
             echo "| run:evaluate cases queued | ${evaluate} |"
             echo "| ambiguous resolutions (unfiled) | ${reconcile} |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  historical:
+    # The historical Term walker (docs/live-sources.md): walks October Terms'
+    # docket serials newest-first over the supremecourt.gov docket JSON and
+    # ingests the sampled decided set — every decided petition except denials,
+    # which are systematically sampled per config/tracking.yaml's committed
+    # `historical:` frame. No CourtListener token, no API budget; the same
+    # corpus-writer plumbing as the other jobs (checkpointed loop, DVC push,
+    # pointer commit). Deliberately files NO predict/evaluate handoffs: every
+    # ingested petition is decided history, landed already resolved.
+    # Schedule/dispatch only: there is no trigger label for this job, so
+    # nothing an outside actor can file fires it and no issue-form
+    # authorization gate is needed.
+    if: >-
+      (github.event_name == 'schedule' && startsWith(github.event.schedule, '31 ')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'historical')
+    runs-on: ubuntu-latest
+    # Headroom for the checkpointed walk (LOOP_BUDGET_SECONDS + the fixed setup
+    # and post-loop steps). Deliberately ends before the 04:47 live window so a
+    # hung network step cannot hold the shared corpus-write lock into forward
+    # work's slot.
+    timeout-minutes: 125
+    environment: runner
+    # The ambient GITHUB_TOKEN is never used here (checkout, the corpus push,
+    # and every gh call run on App tokens) — so it carries no write at all.
+    permissions:
+      contents: read
+      id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Same read-write (append-only) role as the other jobs: the walker adds
+      # snapshots, rows, and documents to the corpus blob but can never wipe
+      # remote objects. The loop pushes for up to ~2h, so the session must
+      # outlast the wall-clock budget (must stay <= the role's
+      # MaxSessionDuration).
+      - name: Configure AWS credentials (DVC S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 9000 # 2.5h
+
+      - name: Configure the DVC remote
+        env:
+          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
+
+      - name: Pull the current corpus from the DVC remote
+        run: |
+          # The per-(Term, stream) walk cursors and identity reconciliation
+          # read prior corpus state, so it must be restored; guard the very
+          # first run.
+          if [ -f corpus/corpus.db.dvc ]; then
+            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
+          else
+            echo "No corpus pointer yet; starting a fresh corpus."
+          fi
+
+      - name: Walk the Terms in checkpointed chunks until done or out of time
+        env:
+          # The loop pushes for up to ~2h, but a single installation token lives
+          # at most 1h (GitHub's hard cap). So the loop re-mints its own
+          # short-lived tokens from the App's private key as it goes; these two
+          # feed that.
+          APP_CLIENT_ID: ${{ vars.DATA_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          # Wall-clock budget for the whole loop, kept under timeout-minutes
+          # with room for setup and the post-loop steps — and sized so the run
+          # ends before the 04:47 live window wants the corpus-write lock.
+          LOOP_BUDGET_SECONDS: "6600" # 1h50m
+        run: |
+          set -euo pipefail
+
+          # --- Self-refreshing App token ----------------------------------------
+          # Mint fresh, repo-scoped `contents: write` tokens from the App's
+          # private key and refresh before they age out (installation tokens
+          # hard-expire at 1h).
+          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          mint_app_token() {
+            local now header payload unsigned sig jwt install_id body
+            now=$(date -u +%s)
+            header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+            # iss = the App's client id; iat backdated 60s for clock skew; exp 9m.
+            payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
+              "$((now - 60))" "$((now + 540))" "$APP_CLIENT_ID" | b64url)
+            unsigned="${header}.${payload}"
+            sig=$(printf '%s' "$unsigned" \
+              | openssl dgst -sha256 -sign <(printf '%s' "$APP_PRIVATE_KEY") -binary \
+              | b64url)
+            jwt="${unsigned}.${sig}"
+            install_id=$(curl -fsS \
+              -H "Authorization: Bearer ${jwt}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/installation" \
+              | jq -r .id)
+            # Least privilege: scoped to THIS repo, only the push permission the
+            # loop uses (the post-loop comment step mints its own token).
+            body=$(printf '{"repositories":["%s"],"permissions":{"contents":"write"}}' \
+              "${GITHUB_REPOSITORY##*/}")
+            curl -fsS -X POST \
+              -H "Authorization: Bearer ${jwt}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/app/installations/${install_id}/access_tokens" \
+              -d "$body" \
+              | jq -r .token
+          }
+
+          # persist-credentials is false on checkout, so authenticate the push via
+          # the App token's git credential helper. `gh auth git-credential` reads
+          # $GH_TOKEN at call time, so refreshing the variable mid-loop is enough.
+          GH_TOKEN=$(mint_app_token); export GH_TOKEN
+          gh auth setup-git
+          token_minted=$(date -u +%s)
+          TOKEN_MAX_AGE_SECONDS=3000 # re-mint at 50min, well under the 1h cap
+
+          refresh_token_if_stale() {
+            if [ "$(( $(date -u +%s) - token_minted ))" -lt "$TOKEN_MAX_AGE_SECONDS" ]; then
+              return 0
+            fi
+            GH_TOKEN=$(mint_app_token); export GH_TOKEN
+            token_minted=$(date -u +%s)
+            echo "Re-minted the App token (the previous one neared its 1h expiry)."
+          }
+          # ----------------------------------------------------------------------
+
+          deadline=$(( $(date -u +%s) + LOOP_BUDGET_SECONDS ))
+
+          checkpoint() {
+            # Push the blob BEFORE committing the pointer so the committed pointer
+            # always resolves against the remote; then prune the runner-local DVC
+            # cache copies the workspace no longer references (cache.type is
+            # `copy`, so they pile up across a long loop's checkpoints). Facts go
+            # straight to the default branch under the shared corpus-write lock:
+            # the pointer, plus any outcome.json the walker's resolution recorded
+            # onto a previously-open event under data/.
+            uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+            uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+            uvx --from 'dvc[s3]' dvc gc --workspace --force
+            refresh_token_if_stale
+            git add corpus/corpus.db.dvc
+            if [ -d data ]; then
+              git add data/
+            fi
+            if git diff --cached --quiet; then
+              echo "No corpus or outcome change this chunk; nothing to commit."
+              return 0
+            fi
+            local ingested probed attempt
+            ingested=$(jq -r '.ingested_granted + .ingested_denied + .ingested_other' historical-report.json)
+            probed=$(jq -r '.probed' historical-report.json)
+            git commit -m "historical: +${ingested} petition(s) (${probed} probed)"
+            # The default branch may have advanced since checkout; the shared
+            # corpus-write lock keeps the other corpus writers out, so rebase
+            # onto the latest tip and retry so the push is always a fast-forward.
+            for attempt in 1 2 3; do
+              git pull --rebase origin "${GITHUB_REF_NAME}"
+              if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+                return 0
+              fi
+              echo "::warning::push rejected (default branch advanced); retry ${attempt}"
+              sleep 3
+            done
+            echo "::error::could not push the corpus pointer after 3 attempts"
+            return 1
+          }
+
+          while :; do
+            # One checkpoint chunk (historical.max_probes_per_run docket probes).
+            # The per-(Term, stream) cursors advance inside the corpus and are
+            # pushed each pass, so the loop resumes cleanly after any stop; the
+            # totals file accumulates the whole run's counts for the comment.
+            uv run fedcourts historical-terms \
+              --report historical-report.json --totals historical-totals.json
+            checkpoint
+
+            stopped=$(jq -r '.stopped' historical-report.json)
+            if [ "$(jq -r '.complete' historical-report.json)" = "true" ]; then
+              echo "Term walk complete: every configured stream is at its frontier."
+              break
+            fi
+            if [ "$stopped" = "stream-errors" ]; then
+              echo "::warning::upstream errors stopped the remaining streams; resumes next run."
+              break
+            fi
+            if [ "$(date -u +%s)" -ge "$deadline" ]; then
+              echo "Wall-clock budget reached; the walk resumes next run from the cursors."
+              break
+            fi
+          done
+
+      # The loop can run for hours, so the up-front App token is long expired by
+      # the time it returns. Mint a fresh one for the comment/verdict steps.
+      - name: Re-mint app token for the post-loop steps
+        id: app-token-post
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+
+      - name: Summarize the run; comment progress on the open pull-log issue
+        env:
+          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The body is rendered by the tested library renderer over the run's
+          # cumulative totals; this step only posts it.
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          from fedcourtsai.pipeline.historical import HistoricalReport, render_markdown
+
+          report = HistoricalReport.model_validate_json(Path("historical-totals.json").read_text())
+          Path("historical-summary.md").write_text(render_markdown(report) + "\n")
+          PY
+          cat historical-summary.md >> "$GITHUB_STEP_SUMMARY"
+          # Best-effort progress comment on the day's open pull-log issue, if one
+          # exists (the 01:17 pull window opened it; dispatch runs outside the
+          # schedule may find none and keep the step summary only).
+          num=$(gh issue list --repo "$REPO" --label pull-log --state open \
+            --json number --jq '.[0].number')
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --repo "$REPO" --body-file historical-summary.md
+          else
+            echo "No open pull-log issue; progress lives in the step summary."
+          fi
+
+      # Reconcile predict scope on the now-current corpus: latch the
+      # out-of-scope cases so `open_events` drops them at the source, and clear
+      # the latch on any back in scope. This job carries the daily schedule, so
+      # the sweep's cadence lives here. NON-BLOCKING: a hiccup must not fail
+      # the walker run.
+      - name: Reconcile predict scope (latch out-of-scope cases)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db.dvc ]; then
+            echo "no corpus pointer yet; skipping scope reconcile"; exit 0
+          fi
+          gh auth setup-git  # persist-credentials is false on checkout
+          uv run fedcourts reconcile-scope --apply
+          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
+          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+          # Reclaim the runner's local DVC cache (cache.type is copy) like the
+          # loop's checkpoint — the blob is already on the remote.
+          uvx --from 'dvc[s3]' dvc gc --workspace --force
+          git add corpus/corpus.db.dvc
+          if git diff --cached --quiet; then
+            echo "Scope latch already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "historical: latch out-of-scope cases"
+          for attempt in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            echo "::warning::pointer push rejected (branch advanced); retry ${attempt}"
+            sleep 3
+          done
+          echo "::error::could not push the scope-latch pointer after 3 attempts"
+          exit 1
+
+      # Trailing, NON-BLOCKING data-validation, exactly as on the other jobs:
+      # produce the correctness verdict on the now-current corpus and publish it
+      # for run-ops to present and escalate — loud-not-fatal by contract.
+      - name: Produce + publish the corpus validation verdict
+        continue-on-error: true
+        uses: ./.github/actions/publish-corpus-verdict
+        with:
+          token: ${{ steps.app-token-post.outputs.token }}

@@ -51,7 +51,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``validate-corpus`` verdict: corpus integrity + cross-store referential checks.\n\nThe producer half of data validation: a deterministic correctness verdict over\nthe packed corpus and the git ledger under ``data/`` \u2014 the complement to\n``validate``, which only checks each ledger artifact against its schema. ``ok``\nis the conjunction of every check; ``skipped`` is set (with ``ok`` true and no\nchecks) when the corpus is absent, so the command is safe to call before a\n``dvc pull``. A pure function of its inputs \u2014 corpus, ledger, seed cursor, the\nsupplied baseline, and the as-of date \u2014 so it carries no timestamp and the same\ninputs always serialize identically. Surfaced (and escalated) by a separate\nwiring layer, not committed; a failed verdict is loud-not-fatal by contract.",
+  "description": "``validate-corpus`` verdict: corpus integrity + cross-store referential checks.\n\nThe producer half of data validation: a deterministic correctness verdict over\nthe packed corpus and the git ledger under ``data/`` \u2014 the complement to\n``validate``, which only checks each ledger artifact against its schema. ``ok``\nis the conjunction of every check; ``skipped`` is set (with ``ok`` true and no\nchecks) when the corpus is absent, so the command is safe to call before a\n``dvc pull``. A pure function of its inputs \u2014 corpus, ledger, the\nsupplied baseline, and the as-of date \u2014 so it carries no timestamp and the same\ninputs always serialize identically. Surfaced (and escalated) by a separate\nwiring layer, not committed; a failed verdict is loud-not-fatal by contract.",
   "properties": {
     "checks": {
       "items": {

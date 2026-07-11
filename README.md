@@ -39,8 +39,7 @@ request.
 | Label          | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | `run:dev`      | `run-dev`       | Normal development on the pipeline codebase                          | Claude Code |
-| `run:seed`     | `run-seed`      | Load historical dockets into the corpus (label = the frozen bulk mode; the weekly schedule runs the past-Term cert loader) | Script |
-| `run:pull`     | `run-pull`      | Two scheduled jobs: targeted CourtListener enrichment (four windows/day), and the **supremecourt.gov live poll** (four windows/day) that discovers pending petitions, tracks conference distribution, records outcomes, and provisions filed-document text | Script |
+| `run:pull`     | `run-pull`      | Three scheduled jobs: targeted CourtListener enrichment (four windows/day), the **supremecourt.gov live poll** (four windows/day) that discovers pending petitions, tracks conference distribution, records outcomes, and provisions filed-document text, and the daily **historical Term walker** that accumulates decided petitions newest-Term-first for base rates and back-testing | Script |
 | `run:reconcile`| `run-reconcile` | Confirm an ambiguous outcome by agent — **paused** while the live channel (whose proceedings text resolves outcomes deterministically) settles its fate | Claude Code |
 | `run:predict`  | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out) | Claude Code + Codex + Gemini |
 | `run:evaluate` | `run-evaluate`  | Score past predictions against realized outcomes (evaluator × predictor) | Claude Code + Codex + Gemini |
@@ -50,7 +49,7 @@ label — it runs on a schedule (or manual dispatch). See [`docs/pipeline.md`](d
 
 ```mermaid
 flowchart TD
-    seed["run:seed — past-Term cert loader<br/>(weekly; bulk mode frozen)"] --> corpus[("corpus")]
+    historical["run-pull historical job — Term walker<br/>(daily: decided petitions, newest Term first)"] --> corpus[("corpus")]
     live["run-pull live job — supremecourt.gov poll<br/>(4×/day: discover, watchlist, outcomes, documents)"] --> corpus
     pull["run-pull pull job — CourtListener enrichment<br/>(4×/day)"] --> corpus
     live -->|"distributed for conference"| predict["run:predict — predict open events<br/>(matrix over predictors)"]
@@ -109,7 +108,7 @@ mechanics live in [`docs/pipeline.md`](docs/pipeline.md) and
 
 State lives in two stores, split by kind. **Raw facts** — dockets, snapshots,
 judges, case and event metadata — go into a packed **corpus** (SQLite under
-DVC/S3), written identically by `seed` and `pull`. **Derived artifacts** are
+DVC/S3), written identically by every ingestion channel. **Derived artifacts** are
 versioned as files in git, organized **case-centrically** so everything we
 conclude about a single predictable event lives together:
 
@@ -147,32 +146,26 @@ uv run mypy
 uv run pytest
 ```
 
-`seed` and `pull` are single-docket REST helpers that fetch one case from the
-CourtListener REST API into the corpus through the shared ingestion core, so they
-need a free API token. `seed` onboards a docket; `pull` refreshes one and reports
-whether it changed:
+`pull` is a single-docket REST helper that fetches one case from the
+CourtListener REST API into the corpus through the shared ingestion core, so it
+needs a free API token. The first pull of a docket onboards it; later pulls
+refresh it and report whether it changed:
 
 ```bash
 export FEDCOURTS_COURTLISTENER_API_TOKEN=...   # https://www.courtlistener.com/help/api/rest/
-uv run fedcourts seed --court ca9 --docket <docket_id>   # onboard one docket into the corpus
-uv run fedcourts pull --court ca9 --docket <docket_id>   # refresh one docket; report changes
+uv run fedcourts pull --court ca9 --docket <docket_id>   # onboard/refresh one docket
 ```
 
-The historical mass is loaded by the `run-seed` workflow's two deterministic,
-no-agent loader modes, both chunked against resumable cursors into the *same*
-corpus through the *same* core and neither spending API budget: the default
-`live-terms` mode runs `seed-live-terms` (the past-Term SCOTUS cert set,
-sampled from the supremecourt.gov docket JSON), and the frozen `bulk` fallback
-runs `seed-backfill` (CourtListener **bulk data**, cursor in
-`config/seed-progress.yaml`):
+Historical mass is loaded by the `run-pull` workflow's deterministic, no-agent
+`historical` job — the Term walker: chunked against resumable cursors into the
+*same* corpus through the *same* core, sampling decided SCOTUS petitions from
+the supremecourt.gov docket JSON (no API budget):
 
 ```bash
-uv run fedcourts seed-live-terms --report seed-live-report.json   # load the next cert-set chunk
-uv run fedcourts seed-backfill --report seed-report.json          # load the next bulk chunk
+uv run fedcourts historical-terms --report historical-report.json   # load the next chunk
 ```
 
-See [`docs/live-sources.md`](docs/live-sources.md),
-[`docs/seed-backfill.md`](docs/seed-backfill.md), and
+See [`docs/live-sources.md`](docs/live-sources.md) and
 [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## For AI agents
@@ -199,7 +192,6 @@ docs/               architecture, data model, pipeline, security
 - [Data sources, terms & PII](docs/data-sources.md)
 - [Pipeline & labels](docs/pipeline.md)
 - [CLI reference](docs/cli.md)
-- [Seed-backfill](docs/seed-backfill.md)
 - [Budget](docs/budget.md)
 - [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)

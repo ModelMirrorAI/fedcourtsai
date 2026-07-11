@@ -23,7 +23,6 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
-    SeedProgress,
     UsageRole,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
@@ -36,7 +35,6 @@ from fedcourtsai.validate import (
     CHECK_NO_DUPLICATES,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
-    CHECK_SEED_CURSOR,
     CHECK_SNAPSHOT_NOT_FUTURE,
     check_ledger_events_in_git,
     check_no_duplicates,
@@ -281,7 +279,6 @@ def _run(db: Path, data_root: Path, **kw: object) -> CorpusValidation:
     return run_corpus_validation(
         corpus_db_path=db,
         data_root=data_root,
-        seed_cursor=kw.get("seed_cursor"),  # type: ignore[arg-type]
         today=kw.get("today", TODAY),  # type: ignore[arg-type]
         baseline_count=kw.get("baseline_count"),  # type: ignore[arg-type]
     )
@@ -400,28 +397,6 @@ def test_evaluation_without_prediction_fails(tmp_path: Path) -> None:
     assert _verdict_by_check(verdict)[CHECK_EVALUATION_TARGETS] is False
 
 
-# --- C: seed cursor reconciliation --------------------------------------------
-
-
-def test_seed_cursor_desync_fails(tmp_path: Path) -> None:
-    db = tmp_path / "corpus.db"
-    _seed_corpus(db)  # only ca9 has rows
-    cursor = SeedProgress.model_validate({"courts": {"ca9": {"offset": 1}, "ca1": {"offset": 100}}})
-    verdict = _run(db, tmp_path / "data", seed_cursor=cursor)
-    assert not verdict.ok
-    cursor_check = next(c for c in verdict.checks if c.name == CHECK_SEED_CURSOR)
-    assert not cursor_check.passed
-    assert any("ca1" in p for p in cursor_check.problems)
-
-
-def test_seed_cursor_reconciles(tmp_path: Path) -> None:
-    db = tmp_path / "corpus.db"
-    _seed_corpus(db)
-    cursor = SeedProgress.model_validate({"courts": {"ca9": {"offset": 1}}})
-    verdict = _run(db, tmp_path / "data", seed_cursor=cursor)
-    assert _verdict_by_check(verdict)[CHECK_SEED_CURSOR] is True
-
-
 # --- B: case-date ordering ----------------------------------------------------
 
 
@@ -507,7 +482,6 @@ def test_untracked_court_fails_when_set_supplied(tmp_path: Path) -> None:
     verdict = run_corpus_validation(
         corpus_db_path=db,
         data_root=tmp_path / "data",
-        seed_cursor=None,
         today=TODAY,
         tracked_courts=["ca1"],  # ca9 is not tracked
     )
@@ -523,7 +497,6 @@ def test_tracked_court_passes(tmp_path: Path) -> None:
     verdict = run_corpus_validation(
         corpus_db_path=db,
         data_root=tmp_path / "data",
-        seed_cursor=None,
         today=TODAY,
         tracked_courts=["ca9"],
     )
@@ -710,15 +683,9 @@ def test_validate_ledger_flags_malformed_flags_file(tmp_path: Path) -> None:
 
 
 def _cli_env(tmp_path: Path, corpus_root: Path) -> dict[str, str]:
-    """A CLI env whose seed cursor points at a fresh (empty) tmp path.
-
-    Without this the cursor falls back to the repo's real ``config/seed-progress.yaml``
-    (its path is CWD-relative), which would desync against the tiny test corpus.
-    """
+    """An isolated CLI env: fresh data/ and config roots beside the test corpus."""
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
-    cursor = tmp_path / "seed-progress.yaml"  # never created -> empty cursor
-    (config_root / "tracking.yaml").write_text(f"seed:\n  cursor: {cursor}\n")
     return {
         "FEDCOURTS_CORPUS_ROOT": str(corpus_root),
         "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),

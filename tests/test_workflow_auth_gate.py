@@ -17,7 +17,6 @@ WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 # matrix job `needs:`; for the rest the entry job is the privileged job itself.
 RUN_LABELS = {
     "run-pull.yml": ("run:pull", "pull"),
-    "run-seed.yml": ("run:seed", "seed"),
     "run-reconcile.yml": ("run:reconcile", "plan"),
     "run-predict.yml": ("run:predict", "plan"),
     "run-evaluate.yml": ("run:evaluate", "plan"),

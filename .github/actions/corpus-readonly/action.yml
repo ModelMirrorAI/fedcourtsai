@@ -4,7 +4,7 @@ description: >-
   (gitignored .dvc/config.local, never committed), and optionally pull the packed
   corpus. The shared first half of every corpus *consumer* job — the plan/cell jobs
   of the agent fan-outs, cleanup, analytics, and the metrics refresh. Corpus
-  *writers* (run-seed / run-pull) assume the read-write role and keep their own
+  *writers* (run-pull's jobs) assume the read-write role and keep their own
   wiring. The calling job must grant `id-token: write` and run in the `runner`
   environment so the role and remote variables are available to pass in.
 

@@ -1,4 +1,4 @@
-"""The past-Term cert loader (run-seed's live-terms mode): sampling, cursors, caps."""
+"""The historical Term walker (run-pull's historical job): sampling, cursors, caps."""
 
 from __future__ import annotations
 
@@ -10,15 +10,17 @@ import httpx
 import pytest
 
 from fedcourtsai import corpus
-from fedcourtsai.config import SeedLiveConfig, load_seed_live_config
-from fedcourtsai.pipeline.seedlive import (
-    SeedLiveReport,
+from fedcourtsai.config import HistoricalConfig, load_historical_config
+from fedcourtsai.pipeline.historical import (
+    HistoricalReport,
     StreamProgress,
     fold_totals,
     load_terms,
     render_markdown,
 )
+from fedcourtsai.schemas import EventKind
 from fedcourtsai.supremecourt import SupremeCourtClient
+from tests.conftest import seed_prediction
 from tests.test_documents import _pdf
 from tests.test_live import _DENIED_ENTRY, _GRANTED_ENTRY, _client, _payload
 
@@ -30,7 +32,7 @@ def _decided(number: str, order: dict[str, Any]) -> dict[str, Any]:
     return _payload(number, proceedings=[_payload()["ProceedingsandOrder"][0], order])
 
 
-def _config(**overrides: Any) -> SeedLiveConfig:
+def _config(**overrides: Any) -> HistoricalConfig:
     defaults: dict[str, Any] = {
         "terms": [22],
         "denial_sample_every": 3,
@@ -39,7 +41,7 @@ def _config(**overrides: Any) -> SeedLiveConfig:
         "document_floor_term": 99,
     }
     defaults.update(overrides)
-    return SeedLiveConfig.model_validate(defaults)
+    return HistoricalConfig.model_validate(defaults)
 
 
 def _serving_client(
@@ -151,8 +153,8 @@ def test_probe_cap_stops_the_walk_and_the_next_run_resumes(tmp_path: Path) -> No
     assert first.complete is False
     assert calls_first == ["22-1", "22-2"]
     with corpus.connect(db) as conn:
-        assert corpus.get_live_cursor(conn, 22, "seed-paid") == 2
-        assert corpus.get_live_cursor(conn, 22, "seed-ifp") is None
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 2
+        assert corpus.get_live_cursor(conn, 22, "historical-ifp") is None
 
     # The next invocation resumes past the cursor — earlier serials (including
     # any sampled-out denial) are never re-probed.
@@ -164,7 +166,7 @@ def test_probe_cap_stops_the_walk_and_the_next_run_resumes(tmp_path: Path) -> No
     assert second.ingested_granted == 2  # 22-3 and 22-4
     assert second.complete is True
     with corpus.connect(db) as conn:
-        assert corpus.get_live_cursor(conn, 22, "seed-paid") == 4
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 4
 
 
 def test_sampled_out_denial_advances_the_cursor(tmp_path: Path) -> None:
@@ -173,10 +175,10 @@ def test_sampled_out_denial_advances_the_cursor(tmp_path: Path) -> None:
     with _serving_client(served) as client:
         load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
     with corpus.connect(db) as conn:
-        assert corpus.get_live_cursor(conn, 22, "seed-paid") == 1
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 1
 
 
-def test_seed_cursors_never_collide_with_the_forward_pollers(tmp_path: Path) -> None:
+def test_historical_cursors_never_collide_with_the_forward_pollers(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         corpus.set_live_cursor(conn, 22, "paid", 500)  # the forward frontier
@@ -184,7 +186,136 @@ def test_seed_cursors_never_collide_with_the_forward_pollers(tmp_path: Path) -> 
         load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
     with corpus.connect(db) as conn:
         assert corpus.get_live_cursor(conn, 22, "paid") == 500  # untouched
-        assert corpus.get_live_cursor(conn, 22, "seed-paid") == 1
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 1
+
+
+def test_legacy_cursor_names_migrate_in_place_and_the_walk_resumes(tmp_path: Path) -> None:
+    """A corpus carrying the walker's earlier cursor names resumes gap-free: the
+    old-named rows are renamed at walk start (idempotently — a re-run with no
+    legacy rows is a no-op) and the walk continues past the migrated serial."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 22, "seed-paid", 2)
+        corpus.set_live_cursor(conn, 22, "seed-ifp", 5001)
+    served = {f"22-{n}": _decided(f"22-{n}", _GRANTED_ENTRY) for n in (1, 2, 3)}
+    calls: list[str] = []
+    with _serving_client(served, calls) as client:
+        report = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    # The walk resumed past the migrated serial: 22-1 / 22-2 were never re-probed.
+    assert calls[0] == "22-3"
+    assert report.ingested_granted == 1
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 3
+        assert corpus.get_live_cursor(conn, 22, "historical-ifp") == 5001
+        assert corpus.get_live_cursor(conn, 22, "seed-paid") is None
+        assert corpus.get_live_cursor(conn, 22, "seed-ifp") is None
+
+
+def test_legacy_cursor_migration_keeps_the_further_cursor_on_collision(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 22, "seed-paid", 7)
+        corpus.set_live_cursor(conn, 22, "historical-paid", 3)  # behind the legacy row
+        migrated = corpus.rename_live_streams(conn, {"seed-paid": "historical-paid"})
+    assert migrated == 1
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 7
+        assert corpus.get_live_cursor(conn, 22, "seed-paid") is None
+
+
+def test_legacy_cursor_migration_never_rewinds_a_further_new_cursor(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 22, "historical-paid", 9)  # ahead of the legacy row
+        corpus.set_live_cursor(conn, 22, "seed-paid", 3)
+        corpus.rename_live_streams(conn, {"seed-paid": "historical-paid"})
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 9  # forward-only
+        assert corpus.get_live_cursor(conn, 22, "seed-paid") is None
+
+
+def test_legacy_cursor_migration_is_a_no_op_when_clean(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.set_live_cursor(conn, 22, "seed-paid", 5)
+        first = corpus.rename_live_streams(conn, {"seed-paid": "historical-paid"})
+        second = corpus.rename_live_streams(conn, {"seed-paid": "historical-paid"})
+    assert (first, second) == (1, 0)
+    with corpus.connect(db) as conn:
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 5
+
+
+# --- the watchlist guard -------------------------------------------------------------
+
+
+def test_decided_petition_with_open_predicted_event_is_left_to_the_watchlist(
+    tmp_path: Path,
+) -> None:
+    """A serial resolving to an existing case with an open, predicted event is
+    never ingested here: the walker files no evaluate handoffs, so recording the
+    outcome would strand the committed prediction unscored — the watchlist's
+    re-poll owns that resolution. The cursor still advances (never re-probed)."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/74112233", court="scotus", docket_number="22-2")],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/74112233",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    seed_prediction(data_root, "scotus", 74112233, "evt-petition-disposition")
+
+    with _serving_client({"22-2": _decided("22-2", _GRANTED_ENTRY)}) as client:
+        report = load_terms(client, db, data_root, _config(), today=date(2026, 7, 10))
+
+    assert report.left_to_watchlist == 1
+    assert report.ingested_granted == 0
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/74112233")
+        assert row is not None and row.disposition is None  # untouched, watchlist's to resolve
+        events = corpus.events_for_case(conn, "scotus/74112233")
+        assert all(not e.resolved for e in events)
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 2  # never re-probed
+
+
+def test_decided_petition_with_open_but_unpredicted_event_is_still_ingested(
+    tmp_path: Path,
+) -> None:
+    """No prediction, nothing to score: the walker may land the resolution."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/74112233", court="scotus", docket_number="22-2")],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id="scotus/74112233",
+                    court="scotus",
+                    kind=EventKind.petition,
+                )
+            ],
+        )
+    with _serving_client({"22-2": _decided("22-2", _GRANTED_ENTRY)}) as client:
+        report = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    assert report.left_to_watchlist == 0
+    assert report.ingested_granted == 1
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/74112233")
+    assert row is not None and row.disposition == "granted"
 
 
 def test_time_cap_stops_the_walk(tmp_path: Path) -> None:
@@ -218,13 +349,13 @@ def test_stream_error_stops_the_stream_but_not_the_walk(tmp_path: Path) -> None:
 
     with _client(handler) as client:
         report = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
-    assert [f["stream"] for f in report.failed] == ["seed-paid"]
+    assert [f["stream"] for f in report.failed] == ["historical-paid"]
     assert report.ingested_granted == 1  # the IFP stream still walked
     assert report.complete is False and report.stopped == "stream-errors"
     with corpus.connect(db) as conn:
         # The failed stream's cursor is untouched: the retry is gap-free.
-        assert corpus.get_live_cursor(conn, 22, "seed-paid") is None
-        assert corpus.get_live_cursor(conn, 22, "seed-ifp") == 5001
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") is None
+        assert corpus.get_live_cursor(conn, 22, "historical-ifp") == 5001
 
 
 # --- identity reconciliation --------------------------------------------------------
@@ -295,40 +426,42 @@ def test_documents_fetched_only_from_the_floor_term_up(tmp_path: Path) -> None:
 # --- config -------------------------------------------------------------------------
 
 
-def test_load_seed_live_config_reads_section_and_defaults(tmp_path: Path) -> None:
-    (tmp_path / "tracking.yaml").write_text("seed_live:\n  denial_sample_every: 5\n")
-    cfg = load_seed_live_config(tmp_path)
+def test_load_historical_config_reads_section_and_defaults(tmp_path: Path) -> None:
+    (tmp_path / "tracking.yaml").write_text("historical:\n  denial_sample_every: 5\n")
+    cfg = load_historical_config(tmp_path)
     assert cfg.denial_sample_every == 5
-    assert cfg.terms == [24, 23, 22, 21, 20, 19, 18, 17]  # default holds
+    assert cfg.terms == [25, 24, 23, 22, 21, 20, 19, 18, 17]  # default holds
 
-    defaults = load_seed_live_config(tmp_path / "absent")
+    defaults = load_historical_config(tmp_path / "absent")
     assert defaults.max_probes_per_run == 600
     assert defaults.document_floor_term == 21
 
 
-def test_seed_live_config_rejects_terms_below_the_probe_floor() -> None:
+def test_historical_config_rejects_terms_below_the_probe_floor() -> None:
     with pytest.raises(ValueError, match="October Terms >= 17"):
-        SeedLiveConfig.model_validate({"terms": [16]})
+        HistoricalConfig.model_validate({"terms": [16]})
 
 
-def test_repo_tracking_yaml_carries_seed_live_section() -> None:
-    cfg = load_seed_live_config(Path("config"))
-    assert cfg.terms[0] == 24 and cfg.terms[-1] == 17
+def test_repo_tracking_yaml_carries_historical_section() -> None:
+    cfg = load_historical_config(Path("config"))
+    assert cfg.terms[0] == 25 and cfg.terms[-1] == 17
     assert cfg.denial_sample_every == 10
     assert cfg.document_floor_term == 21
 
 
 def test_fold_totals_sums_counts_and_keeps_latest_walk_state() -> None:
-    chunk1 = SeedLiveReport(
+    chunk1 = HistoricalReport(
         probed=600,
         served=580,
         ingested_granted=3,
         ingested_denied=50,
         skipped_denials=520,
         stopped="probe-cap",
-        streams=[StreamProgress(term=24, stream="seed-paid", cursor=598, frontier_reached=False)],
+        streams=[
+            StreamProgress(term=24, stream="historical-paid", cursor=598, frontier_reached=False)
+        ],
     )
-    chunk2 = SeedLiveReport(
+    chunk2 = HistoricalReport(
         probed=40,
         served=30,
         ingested_denied=3,
@@ -336,8 +469,8 @@ def test_fold_totals_sums_counts_and_keeps_latest_walk_state() -> None:
         complete=True,
         stopped="complete",
         streams=[
-            StreamProgress(term=24, stream="seed-paid", cursor=620, frontier_reached=True),
-            StreamProgress(term=24, stream="seed-ifp", cursor=5005, frontier_reached=True),
+            StreamProgress(term=24, stream="historical-paid", cursor=620, frontier_reached=True),
+            StreamProgress(term=24, stream="historical-ifp", cursor=5005, frontier_reached=True),
         ],
     )
     totals = fold_totals(fold_totals(None, chunk1), chunk2)
@@ -347,16 +480,16 @@ def test_fold_totals_sums_counts_and_keeps_latest_walk_state() -> None:
     assert totals.complete is True and totals.stopped == "complete"
     # The latest invocation's per-stream state wins; nothing is double-counted.
     by_key = {(s.term, s.stream): s for s in totals.streams}
-    assert by_key[(24, "seed-paid")].cursor == 620
-    assert by_key[(24, "seed-paid")].frontier_reached is True
-    assert by_key[(24, "seed-ifp")].cursor == 5005
+    assert by_key[(24, "historical-paid")].cursor == 620
+    assert by_key[(24, "historical-paid")].frontier_reached is True
+    assert by_key[(24, "historical-ifp")].cursor == 5005
 
 
 # --- the progress rendering ---------------------------------------------------------
 
 
 def test_render_markdown_carries_counts_and_stream_table() -> None:
-    report = SeedLiveReport(
+    report = HistoricalReport(
         probed=10,
         served=8,
         ingested_granted=1,
@@ -364,10 +497,10 @@ def test_render_markdown_carries_counts_and_stream_table() -> None:
         skipped_denials=5,
         complete=True,
         streams=[
-            {"term": 22, "stream": "seed-paid", "cursor": 8, "frontier_reached": True},
+            {"term": 22, "stream": "historical-paid", "cursor": 8, "frontier_reached": True},
         ],
     )
     body = render_markdown(report)
     assert "walk complete" in body
     assert "**10** serial(s)" in body
-    assert "| 22 | seed-paid | 8 | ✅ |" in body
+    assert "| 22 | historical-paid | 8 | ✅ |" in body

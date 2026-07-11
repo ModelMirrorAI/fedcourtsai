@@ -1,15 +1,14 @@
 name: run-ops
 
 # Operational analytics dashboard. A read-only DAILY roll-up of authoritative
-# sources — pipeline health (the GitHub Actions run history), backfill progress +
-# rate/ETA (the seed cursor vs the previous snapshot), and model + Actions spend
-# (the usage ledger + run durations) — rendered by `fedcourts ops-report`.
+# sources — pipeline health (the GitHub Actions run history) and model + Actions
+# spend (the usage ledger + run durations) — rendered by `fedcourts ops-report`.
 #
 # Persistence is FULLY in GitHub and never touches the default branch: each run
 # posts the current view to one long-lived "Ops dashboard" issue (updated in place)
 # and appends the JSON snapshot to a dedicated `ops-metrics` branch (an orphan
-# time-series, never merged to main — the prior snapshot drives the rate + ETA).
-# So `main` stays clean and the corpus-write path is untouched.
+# time-series, never merged to main). So `main` stays clean and the
+# corpus-write path is untouched.
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
@@ -26,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write # read the cursor/ledger + push the snapshot to the ops-metrics branch
+      contents: write # read the ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
       issues: write # post / update the dashboard issue
     steps:
@@ -67,18 +66,15 @@ jobs:
       - name: Build the ops report
         run: |
           set -euo pipefail
-          # Pull the previous snapshot + latest corpus verdict off the ops-metrics
-          # branch (if any). The previous snapshot drives the backfill rate + ETA;
-          # the corpus verdict (produced by the corpus-writer path — see
-          # publish-corpus-verdict) feeds the data-health section. Both best-effort:
-          # absent on the first ever run, which simply drops those fields. run-ops
-          # itself never pulls the corpus — it only reads this published verdict.
+          # Pull the latest corpus verdict + scope audit off the ops-metrics
+          # branch (if any). Both are produced by the corpus-writer path — see
+          # publish-corpus-verdict — and feed the data-health / scope sections.
+          # Best-effort: absent on the first ever run, which simply drops those
+          # fields. run-ops itself never pulls the corpus — it only reads these
+          # published artifacts.
           git fetch origin '+refs/heads/ops-metrics:refs/remotes/origin/ops-metrics' 2>/dev/null || true
           prev_args=()
           if git rev-parse --verify --quiet refs/remotes/origin/ops-metrics >/dev/null; then
-            if git show origin/ops-metrics:latest.json > prev-ops.json 2>/dev/null; then
-              prev_args=(--previous prev-ops.json)
-            fi
             if git show origin/ops-metrics:corpus-validation.json > corpus-validation.json 2>/dev/null; then
               prev_args+=(--corpus-validation corpus-validation.json)
             fi
@@ -110,7 +106,7 @@ jobs:
             git -C "$tree" rm -rf . >/dev/null 2>&1 || true
           fi
           cp new-ops.json "$tree/ops-${day}.json" # dated history (last write of the day wins)
-          cp new-ops.json "$tree/latest.json"     # what the next run reads as --previous
+          cp new-ops.json "$tree/latest.json"     # stable name for the newest snapshot
           git -C "$tree" add -A
           if git -C "$tree" diff --cached --quiet; then
             echo "No ops change to persist."

@@ -30,9 +30,9 @@ name: run-analytics
 # mints the dev App token (contents + PR write) to open its review PR.
 on:
   schedule:
-    # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-seed's
-    # Sunday-night window, between run-pull's 01:17 and 07:17 windows, so the
-    # refresh sees a settled corpus. Runs only the metrics-refresh job (a
+    # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
+    # 02:31 historical and 04:47 live windows, before its 07:17 pull window, so
+    # the refresh sees a settled corpus. Runs only the metrics-refresh job (a
     # schedule event carries no inputs, so the mode-gated jobs stay skipped).
     - cron: "41 5 * * 1"
   workflow_dispatch:

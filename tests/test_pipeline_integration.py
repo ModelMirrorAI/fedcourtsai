@@ -1,41 +1,34 @@
-"""Offline end-to-end regression for the seed → pull → outcome cascade.
+"""Offline end-to-end regression for the pull → outcome cascade.
 
-The per-module suites (``test_seed``, ``test_pull``, ``test_outcome``,
-``test_discover``, ``test_store`` …) each prove one stage in isolation. Nothing
-there drives the stages *through a shared corpus in one flow*, so a regression in
-how they compose — a cursor field that stops round-tripping, a queue that stops
-being written in the shape the workflow reads, an outcome that stops escalating,
-a rotation that stops skipping resolved cases — would land silently in CI.
+The per-module suites (``test_pull``, ``test_outcome``, ``test_discover``,
+``test_store`` …) each prove one stage in isolation. Nothing there drives the
+stages *through a shared corpus in one flow*, so a regression in how they
+compose — a queue that stops being written in the shape the workflow reads, an
+outcome that stops escalating, a rotation that stops skipping resolved cases —
+would land silently in CI.
 
-This test wires them together against a single ``tmp_path`` corpus using the same
-in-memory fakes the unit suites use, and asserts the **composition** the units do
-not: that seed defines each docket's predictable event(s) in the shared corpus,
-that seeded rows are what ``pull`` later rotates over, that a seed-defined event
-is what a later resolution attaches an ``outcome.json`` to, that ``pull-all``
-emits the three queue payloads ``run-pull.yml`` consumes, that the
-deterministic-first / agent-fallback outcome split runs through the real
-``pull`` + ``outcome`` code paths, and that oldest-first / skip-resolved rotation
-holds across two rounds over the shared corpus.
+This test wires them together against a single ``tmp_path`` corpus using the
+same in-memory fakes the unit suites use, and asserts the **composition** the
+units do not: that onboarded rows are what ``pull`` later rotates over, that an
+onboarding-defined event is what a later resolution attaches an ``outcome.json``
+to, that ``pull-all`` emits the queue payloads ``run-pull.yml`` consumes, that
+the deterministic-first / agent-fallback outcome split runs through the real
+``pull`` + ``outcome`` code paths, and that oldest-first / skip-resolved
+rotation holds across two rounds over the shared corpus.
 """
 
-from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
 from fedcourtsai import corpus
 from fedcourtsai.courtlistener import CourtListenerClient
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline.discover import discover_cases
+from fedcourtsai.pipeline.events import extract_events
+from fedcourtsai.pipeline.ingest import from_api_docket, upsert_to_corpus
 from fedcourtsai.pipeline.pull import pull_cases
-from fedcourtsai.pipeline.seed import backfill, load_cursor, snapshot_date
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.store import cases_due_for_pull
 from tests.conftest import seed_prediction
-
-# Reuse the per-stage fakes exactly as the unit suites define them.
-from tests.test_discover import FakeSearch
-from tests.test_discover import _docket as _search_docket
-from tests.test_seed import FakeBulkSource, _row
 
 _EVENT_ID = "evt-appeal-disposition"
 
@@ -67,8 +60,8 @@ def _client(client: FakeCourtListenerClient) -> CourtListenerClient:
 
 
 def _docket(docket_id: int, court: str = "ca9", **kw: Any) -> dict[str, Any]:
-    # The docket's own court must match the seeded row so the refresh updates it
-    # in place (the normalizer derives case_id from this url, not the call args).
+    # The docket's own court must match the onboarded row so the refresh updates
+    # it in place (the normalizer derives case_id from this url, not the call args).
     return {
         "id": docket_id,
         "court": f"https://www.courtlistener.com/api/rest/v4/courts/{court}/",
@@ -78,124 +71,68 @@ def _docket(docket_id: int, court: str = "ca9", **kw: Any) -> dict[str, Any]:
     }
 
 
-def _seed_event_ids(db: Path, court: str, docket: int) -> list[str]:
-    """The predictable-event ids *seed* recorded in the corpus for one case.
+def _onboard(db: Path, docket: dict[str, Any]) -> None:
+    """Land one pending docket in the shared corpus through the ingest core.
+
+    The same normalize + upsert + extract seams every production channel runs
+    (``pull_case``, the live poller), minus the channel's rotation stamp — so
+    the onboarded rows read as never-pulled and the rotation tests below can
+    assert the stalest-first ordering from a clean slate.
+    """
+    row = from_api_docket(docket)
+    upsert_to_corpus(db, [row])
+    extraction = extract_events(docket)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, extraction.events)
+
+
+def _event_ids(db: Path, court: str, docket: int) -> list[str]:
+    """The predictable-event ids onboarding recorded in the corpus for one case.
 
     The forward pipeline reads open/resolved event state from the corpus, so no
-    materialization into git is needed: seed's event rows are already what a later
-    resolution attaches an ``outcome.json`` to. Asserts seed defined at least one.
+    materialization into git is needed: the onboarding-defined event rows are
+    already what a later resolution attaches an ``outcome.json`` to. Asserts
+    onboarding defined at least one.
     """
     with corpus.connect(db) as conn:
         events = corpus.events_for_case(conn, f"{court}/{docket}")
-    assert events, f"seed defined no events for {court}/{docket}"
+    assert events, f"onboarding defined no events for {court}/{docket}"
     return [ev.event_id for ev in events]
 
 
-def _seed_courts() -> dict[str, list[dict[str, str]]]:
-    return {
-        "ca1": [_row("ca1", i) for i in range(5)],
-        "ca2": [_row("ca2", i) for i in range(3)],
-    }
+# --- 1. onboarding → corpus ------------------------------------------------------
 
 
-# --- 1. seed → corpus ----------------------------------------------------------
-
-
-def test_seed_fills_shared_corpus_without_signing_off(tmp_path: Path) -> None:
-    """Backfill across chunks lands rows + advances the cursor; sign-off stays human."""
-    cursor = tmp_path / "seed-progress.yaml"
+def test_onboarding_defines_baseline_events_in_shared_corpus(tmp_path: Path) -> None:
+    """Onboarded dockets land rows + their baseline predictable event."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
-    src = FakeBulkSource("2026-Q2", _seed_courts())
-
-    first = backfill(src, cursor_path=cursor, courts=["ca1", "ca2"], corpus_db_path=db, max_cases=4)
-    assert first.complete is False
-    assert load_cursor(cursor).courts["ca1"].offset == 4
+    for docket_id in (1, 2):
+        _onboard(db, _docket(docket_id))
     with corpus.connect(db) as conn:
-        assert corpus.count(conn) == 4
-
-    final = backfill(src, cursor_path=cursor, courts=["ca1", "ca2"], corpus_db_path=db, max_cases=4)
-    assert final.complete is True
-    with corpus.connect(db) as conn:
-        assert corpus.count(conn) == 8  # both courts fully loaded into the shared corpus
-        # Seed defines events too: every seeded docket carries its baseline
-        # predictable event, so the historical backfill is visible to prediction.
-        assert corpus.event_count(conn) == 8
-        baseline = corpus.events_for_case(conn, "ca1/0")
-        assert [e.event_id for e in baseline] == [_EVENT_ID]
-        assert baseline[0].kind == EventKind.appeal and baseline[0].resolved is False
-    # Completion is reported, but the maintainer sign-off flag is not flipped
-    # automatically — only the completion PR sets it.
-    assert load_cursor(cursor).completed is False
-
-
-# --- 1b. seed → discovery frontier hand-off ------------------------------------
-
-
-def test_seed_hands_discovery_frontier_to_pull(tmp_path: Path) -> None:
-    """Seed sets the frontier from the snapshot date; discovery resumes from it.
-
-    Composition the units don't: that the completed backfill's discovery watermark
-    lands at the snapshot's as-of date, that a later forward discovery starts there
-    (not at today's last-resort default, which would onboard nothing across the
-    snapshot→today gap), and that an empty discovery run never rewinds it.
-    """
-    cursor = tmp_path / "seed-progress.yaml"
-    db = corpus.corpus_db_path(tmp_path / "corpus")
-
-    # A dated bulk snapshot (2023-Q1) backfills ca9 to completion.
-    backfill(
-        FakeBulkSource("2023-Q1", {"ca9": [_row("ca9", i) for i in range(3)]}),
-        cursor_path=cursor,
-        courts=["ca9"],
-        corpus_db_path=db,
-        max_cases=100,
-    )
-    snapshot = snapshot_date("2023-Q1")
-    assert snapshot == date(2023, 3, 31)
-    with corpus.connect(db) as conn:
-        # Hand-off: the completed court's watermark is the snapshot's as-of date.
-        assert corpus.get_discovery_watermark(conn, "ca9") == snapshot
-
-    # Forward discovery defaulting to "today" would search from 2026 and find
-    # nothing; the seed hand-off makes it search from the 2023 snapshot and pick up
-    # an April-2023 filing the bulk snapshot was too early to include.
-    search = FakeSearch({"ca9": [_search_docket(900, "ca9", "2023-04-15")]})
-    today = date(2026, 6, 25)
-    result = discover_cases(
-        cast(CourtListenerClient, search), db, ["ca9"], max_new=10, default_since=today
-    )
-    assert search.calls[-1][1] == snapshot  # searched from the snapshot, not today
-    assert "ca9/900" in result.case_ids
-    with corpus.connect(db) as conn:
-        assert corpus.get_discovery_watermark(conn, "ca9") == date(2023, 4, 15)
-
-    # A second discovery run that finds nothing must not rewind to default_since:
-    # it advances/holds at the date it searched from (the stored watermark).
-    empty = FakeSearch({"ca9": []})
-    discover_cases(cast(CourtListenerClient, empty), db, ["ca9"], max_new=10, default_since=today)
-    assert empty.calls[-1][1] == date(2023, 4, 15)
-    with corpus.connect(db) as conn:
-        assert corpus.get_discovery_watermark(conn, "ca9") == date(2023, 4, 15)
+        assert corpus.count(conn) == 2
+        assert corpus.event_count(conn) == 2
+        baseline = corpus.events_for_case(conn, "ca9/1")
+    assert [e.event_id for e in baseline] == [_EVENT_ID]
+    assert baseline[0].kind == EventKind.appeal and baseline[0].resolved is False
 
 
 # --- 2 + 3. pull → corpus + queues, and the outcome cascade --------------------
 
 
 def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
-    """Seed, then run the pull-all resolution; assert queue shapes + the split."""
-    cursor = tmp_path / "seed-progress.yaml"
+    """Onboard, then run the pull-all resolution; assert queue shapes + the split."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
 
-    # Seed three pending cases into the shared corpus (these become the active set).
-    seed = FakeBulkSource("2026-Q2", {"ca9": [_row("ca9", i) for i in (1, 2, 3)]})
-    backfill(seed, cursor_path=cursor, courts=["ca9"], corpus_db_path=db, max_cases=100)
+    # Onboard three pending cases into the shared corpus (the active set).
+    for docket_id in (1, 2, 3):
+        _onboard(db, _docket(docket_id))
 
-    # The open predictable event each case carries is the one *seed* defined in the
-    # corpus — read straight from there (without seed defining events, there would
-    # be none for a later resolution to attach an outcome to).
+    # The open predictable event each case carries is the one onboarding defined
+    # in the corpus — read straight from there (without it, there would be none
+    # for a later resolution to attach an outcome to).
     for docket in (1, 2, 3):
-        assert _seed_event_ids(db, "ca9", docket) == [_EVENT_ID]
+        assert _event_ids(db, "ca9", docket) == [_EVENT_ID]
 
     # ca9/1: machine-readable disposition → deterministic outcome (evaluate).
     # ca9/2: decided but only "affirmed" → ambiguous → reconcile, no outcome.
@@ -209,7 +146,7 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
     )
 
     due = cases_due_for_pull(db, limit=50)
-    assert due == [("ca9", 1), ("ca9", 2), ("ca9", 3)]  # rotation feeds pull the seeded set
+    assert due == [("ca9", 1), ("ca9", 2), ("ca9", 3)]  # rotation feeds pull the onboarded set
 
     # The evaluate handoff requires something to score: seed the prediction a
     # predict run would have committed for the case that is about to resolve.
@@ -249,12 +186,11 @@ def test_pull_all_queues_and_outcome_cascade(tmp_path: Path) -> None:
 
 def test_rotation_is_oldest_first_and_skips_resolved(tmp_path: Path) -> None:
     """Oldest-``last_pulled``-first + skip-resolved holds across two pull rounds."""
-    cursor = tmp_path / "seed-progress.yaml"
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
 
-    seed = FakeBulkSource("2026-Q2", {"ca1": [_row("ca1", i) for i in range(4)]})
-    backfill(seed, cursor_path=cursor, courts=["ca1"], corpus_db_path=db, max_cases=100)
+    for docket_id in range(4):
+        _onboard(db, _docket(docket_id, court="ca1"))
 
     # ca1/0 refreshes as decided (becomes resolved); the rest stay pending.
     client = FakeCourtListenerClient(

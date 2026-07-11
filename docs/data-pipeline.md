@@ -1,24 +1,26 @@
-# Data pipeline: seed & pull
+# Data pipeline: ingestion & freshness
 
 How case data enters and stays current in `fedcourtsai`. This is the design
-contract for the **seed** (historical backfill) and **pull** (forward freshness)
-phases. For the label/workflow mechanics see [pipeline.md](pipeline.md); for the
-on-disk shapes see [data-model.md](data-model.md).
+contract for the ingestion channels — the **pull** (CourtListener enrichment),
+**live** (forward SCOTUS poll), and **historical** (Term walker) jobs. For the
+label/workflow mechanics see [pipeline.md](pipeline.md); for the on-disk shapes
+see [data-model.md](data-model.md).
 
 ## Scope
 
 Two different scopes apply, and keeping them apart is what bounds the bill:
 
-- **Ingestion scope — the full set.** Seed and pull assemble the **Supreme Court
-  and all 13 federal courts of appeals**:
+- **Ingestion scope — the full set.** The ingestion channels assemble the
+  **Supreme Court and all 13 federal courts of appeals**:
 
   ```
   scotus  ca1 ca2 ca3 ca4 ca5 ca6 ca7 ca8 ca9 ca10 ca11  cadc  cafc
   ```
 
   District courts are intentionally **out of scope** for now. Ingestion is
-  deterministic script work — bulk seed spends no API budget, pull is bounded by the
-  CourtListener throttle — so it is cheap relative to the agentic stages. The whole
+  deterministic script work — the supremecourt.gov channels spend no API budget,
+  pull is bounded by the CourtListener throttle — so it is cheap relative to the
+  agentic stages. The whole
   corpus is assembled precisely so predict/evaluate can **query the full history**
   for retrieval and back-testing, even for cases they never predict.
 - **Prediction scope — the SCOTUS-interaction gate (pilot).** The agentic
@@ -56,7 +58,7 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   as the `originating_court` / `originating_docket_number` corpus columns), the
   ingestion seam latches the matching *tracked* CoA docket eligible too — joining on
   court id + normalized docket-number string. The REST (pull) path carries that docket
-  number; the bulk (seed) path does not (CourtListener publishes no
+  number; a bulk-shaped path does not (CourtListener publishes no
   originating-court-information bulk table), so it fills only the originating court and
   the precise latch is pull-driven. The match is a conservative exact one — an
   unlinked or untracked SCOTUS docket is a harmless no-op — and, like the SCOTUS latch
@@ -89,17 +91,17 @@ queues and corpus updates.
 
 That cap makes one thing non-negotiable: **the REST API cannot load history.**
 The backlog is millions of dockets across 13 circuits; at ~30/day that is
-decades. So the two phases use two different sources:
+decades. So historical loading and forward enrichment use different sources:
 
-| Phase    | Source                              | Spends API budget? |
-|----------|-------------------------------------|--------------------|
-| **seed** | CourtListener **bulk data** (S3 CSV) | No (~0)            |
-| **pull** | CourtListener **REST API**           | Yes — owns it      |
+| Channel        | Source                               | Spends API budget? |
+|----------------|--------------------------------------|--------------------|
+| **historical** | supremecourt.gov **docket JSON**     | No (~0)            |
+| **live**       | supremecourt.gov **docket JSON**     | No (~0)            |
+| **pull**       | CourtListener **REST API**           | Yes — owns it      |
 
-CourtListener publishes **free quarterly bulk-data snapshots** (dockets, opinion
-clusters, opinions, citations, courts) to a public S3 bucket, regenerated on the
-last day of March/June/September/December. That is the right source for the
-historical mass, and it bypasses the throttle entirely.
+The supremecourt.gov docket JSON serves every SCOTUS petition of the e-filing
+era (OT2017+), so the historical Term walker builds per-Term history without
+touching the throttle at all.
 
 ## The planned end-state: a CourtListener database replica
 
@@ -109,7 +111,7 @@ That is the intended eventual upstream, once the project has the funding for the
 agreement and a hosted Postgres to receive it: one source with full field
 coverage (docket entries, cert-stage dates, the people/judges directory, the
 citation graph), current within replication lag, and **no request caps** — it
-collapses the seed/pull source split (bulk breadth vs REST depth) and dissolves
+collapses the historical/pull source split (breadth vs REST depth) and dissolves
 the budget constraint above.
 
 The pivot swaps the **channels**, never the **corpus**. The packed corpus and
@@ -126,8 +128,8 @@ evaluator grading — instead of walls. The replay/forward configuration
 difference is deliberately *behavioral, not technical* — a written decision:
 the dry run validates event formation, prompts, and scoring, not the forward
 stratum's evidence availability, and backtest results are iteration signal,
-never claimable performance. Either way, the replica arrives as a third source
-feeding the same normalized rows — a richer, faster seed-and-pull, not a new
+never claimable performance. Either way, the replica arrives as one more source
+feeding the same normalized rows — richer, faster ingestion, not a new
 consumer surface.
 
 Until then, four guardrails keep interim work from blocking the pivot:
@@ -156,7 +158,7 @@ with the drip they fed (see the pivot section below), while the durable parts �
 the cert-date columns, their normalization-layer mapping, the petition-aware
 resolution clock — stayed.
 
-## Pivot (July 2026): freeze the bulk-era channels, go live-first
+## Pivot (July 2026): retire the bulk-era channels, go live-first
 
 The live-sources track ([live-sources.md](live-sources.md)) made the bulk-era
 catch-up channels a dead end before the replica arrived: the supremecourt.gov
@@ -167,18 +169,20 @@ REST drip could not recover at any budget. What changed:
   cert-shell feeder `backfill_unresolved_cert_min_term`, and the opinion-cluster
   hop). It was re-fetching dockets whose upstream records are stubs — every
   flagged case landed in an unresolvable reconcile issue. Its budget slice
-  returns to the refresh rotation. The past-Term cert set it was meant to grow
-  now comes through the live channel instead (the `seed-live-terms` loader).
-- **The bulk-CSV seed path is frozen, not deleted** — kept as the fallback if
-  the replica timeline slips (frozen ≠ broken: it still imports and passes
-  tests). `run-seed`'s **default mode is now the past-Term cert loader**
-  (`fedcourts seed-live-terms`, the `live-terms` job): it walks decided October
-  Terms' docket serials over the supremecourt.gov docket JSON — the same
-  client, identity, and ingest seams as the forward poller — and lands the
-  sampled cert back-test set (all grants/GVRs plus a systematic denial slice;
-  the committed `seed_live:` section of `config/tracking.yaml` is the sampling
-  frame). The bulk path stays reachable via the `run:seed` label or dispatch
-  mode=bulk. See [live-sources.md](live-sources.md).
+  returns to the refresh rotation. The per-Term historical set it was meant to
+  grow now comes through the live channel instead (the `historical-terms`
+  walker).
+- **The bulk-CSV seed path is deleted** (git history keeps it; a future
+  bulk-shaped source — the replica, or CourtListener logical replication —
+  re-enters through the shared normalizer, `ingest.from_bulk_row`). Historical
+  loading is the **historical Term walker** (`fedcourts historical-terms`,
+  `run-pull`'s daily `historical` job): it walks October Terms' docket serials
+  newest-first over the supremecourt.gov docket JSON — the same client,
+  identity, and ingest seams as the forward poller — and lands the sampled
+  decided set (every decided petition, with denials systematically sampled; the
+  committed `historical:` section of `config/tracking.yaml` is the sampling frame),
+  primarily for the statpack's per-Term base rates, secondarily the cert
+  back-test set. See [live-sources.md](live-sources.md).
 - **Pull is re-aimed as targeted enrichment.** The live channel owns SCOTUS
   freshness; pull's REST budget goes to keeping the SCOTUS-touched set's
   CourtListener records current — most importantly the originating CoA dockets
@@ -198,67 +202,67 @@ Adoption also needs a terms review of the replication agreement itself; the
 access-gated, no-republication stance in [data-sources.md](data-sources.md)
 already matches the shape such an agreement requires.
 
-The replica serves the *historical* roles (seed breadth, refresh depth). The
+The replica serves the *historical* roles (loading breadth, refresh depth). The
 **live frontier** — discovering genuinely pending cases and provisioning case
 content for forward prediction — is a separate track with its own source and
 design: see [live-sources.md](live-sources.md). It follows the same guardrails
 (a third channel through the shared normalizer, the corpus as system of
 record) and is independent of both the REST budget and the replica timeline.
 
-## Two processes, one shared core
+## Three writer jobs, one shared core
 
-Seed and pull are **separate workflows** because they differ on every axis that
-matters — source, lifecycle, budget ownership, reporting, and steady-state
-cadence:
+`run-pull` carries three writer jobs on one surface because they differ on every
+axis that matters — source, charter, budget ownership, and cadence — while the
+cron minute keeps at most one running per scheduled window:
 
-| Axis            | seed (backfill)                         | pull (forward)                    |
-|-----------------|-----------------------------------------|-----------------------------------|
-| Source          | supremecourt.gov JSON (default loader); bulk S3 CSV (frozen mode) | REST API                          |
-| Lifecycle       | perpetual chunked walk (loader); finite until complete (bulk) | perpetual — runs daily forever    |
-| Budget          | ~0 API                                  | owns the CourtListener budget     |
-| Reporting       | long-lived `run:seed` issue, closed by a completion PR | short-lived `pull-log` issue per run |
-| Steady state    | **weekly** (the past-Term cert loader)  | stays **daily**                   |
+| Axis      | historical (Term walker)                | pull (enrichment)                 | live (forward poll)             |
+|-----------|-----------------------------------------|-----------------------------------|---------------------------------|
+| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           |
+| Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions: discovery, watchlist, outcomes |
+| Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        |
+| Cadence   | **daily** (1×, off-peak)                | **daily** (4 windows)             | **daily** (4 windows)           |
+| Handoffs  | none — lands already-resolved history   | predict/evaluate issues           | predict/evaluate issues         |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a normalization
-layer where a CourtListener API docket, a bulk CSV row, and a supremecourt.gov
+layer where a CourtListener API docket, a bulk-shaped row, and a supremecourt.gov
 docket JSON all become the same normalized
 row, then upsert into the packed corpus in `fedcourtsai.corpus`), shared
 dedup/cursor utilities, and shared PR plumbing. **Unify the
-library and the data, not the job.** Both ends write the same corpus, in the same
+library and the data, not the job.** Every job writes the same corpus, in the same
 format, through the same APIs; keeping the jobs separate only keeps the budget
-boundary crisp (pull owns the token; seed never touches it) and operational status
-legible.
+boundary crisp (the pull job owns the token; the other two never touch it) and
+operational status legible.
 
 ```
                 shared core (pipeline ingest + store + serialize)
    API docket JSON      ─┐
-   bulk CSV row          ┼─►  one normalized corpus row
+   bulk-shaped row       ┼─►  one normalized corpus row
    live docket JSON     ─┘
-   ┌────────────────────────┐
-   │ SEED (weekly loader;    │ supremecourt.gov ─► packed corpus (DVC): the past-Term
-   │  bulk mode frozen)      │ cert set; per-Term cursors + run:seed tracking issue
-   └────────────────────────┘
-   ┌────────────────────────┐
-   │ PULL — pull job (4×/day)│ REST API (per-tier governor) ─► enrichment: fresh
-   │  refresh + outcome      │ facts + snapshots; outcome.json + handoffs (ledger)
-   ├────────────────────────┤
-   │ PULL — live job (4×/day)│ supremecourt.gov (budget-free) ─► discovery,
-   │  watchlist + documents  │ watchlist, outcomes, filed-document text
-   └────────────────────────┘
+   ┌─────────────────────────────┐
+   │ PULL — historical job (1×/d)│ supremecourt.gov (budget-free) ─► decided
+   │  Term walker                │ petitions newest-Term-first; per-Term cursors
+   ├─────────────────────────────┤
+   │ PULL — pull job (4×/day)    │ REST API (per-tier governor) ─► enrichment: fresh
+   │  refresh + outcome          │ facts + snapshots; outcome.json + handoffs (ledger)
+   ├─────────────────────────────┤
+   │ PULL — live job (4×/day)    │ supremecourt.gov (budget-free) ─► discovery,
+   │  watchlist + documents      │ watchlist, outcomes, filed-document text
+   └─────────────────────────────┘
 ```
 
 ## Storage: one corpus, one ledger
 
 Raw facts and derived judgments have different shapes and lifetimes, so they live
-in different stores — but the split is by **kind**, not by phase. Both seed and
-pull write the *same* corpus through the *same* ingestion core:
+in different stores — but the split is by **kind**, not by phase. Every writer
+job writes the *same* corpus through the *same* ingestion core:
 
 1. **Raw facts → the corpus.** Dockets, snapshots, judges, case metadata and
    tracking state, and event definitions go into a **packed, queryable store** —
    a single **SQLite** database, `corpus/corpus.db` — versioned with **DVC** (the
-   blob in the DVC remote, the `corpus.db.dvc` pointer + load cursor in git). One
-   format, written identically whether a row comes from bulk CSV (seed) or the
-   REST API (pull) through the shared ingestion seam in `fedcourtsai.corpus`. DVC
+   blob in the DVC remote, the `corpus.db.dvc` pointer in git). One
+   format, written identically whether a row comes from the REST API, the live
+   poll, or the historical walk, through the shared ingestion seam in
+   `fedcourtsai.corpus`. DVC
    also versions pipeline **metrics** (`metrics/`, registered in `dvc.yaml`):
    back-test results and leaderboards.
 2. **Derived judgments → git.** Outcomes, predictions, evaluations, and their
@@ -269,15 +273,14 @@ pull write the *same* corpus through the *same* ingestion core:
 The rule is **pack, don't proliferate**: millions of per-case files would choke
 `git` even under LFS (one tree entry per pointer), so all facts — historical and
 fresh alike — go into a handful of large artifacts in one shared format. Keeping
-both ends of the pipeline on the same structures, schema, and APIs is the point:
-seed and pull differ on *source* and *budget*, not on how a fact is shaped or
-stored. The reasoning stays readable text in git because that diff is the
+every channel of the pipeline on the same structures, schema, and APIs is the
+point: the channels differ on *source* and *budget*, not on how a fact is shaped
+or stored. The reasoning stays readable text in git because that diff is the
 explainability trail a reviewer actually reads.
 
 ### Credentials for the DVC remote
 
-The DVC remote is a **private S3 bucket** the maintainer provisions out of band —
-distinct from the *public* CourtListener bulk-data S3 that **seed** reads from.
+The DVC remote is a **private S3 bucket** the maintainer provisions out of band.
 Workflows authenticate with **GitHub OIDC**, not static keys: each job that
 touches the remote runs `aws-actions/configure-aws-credentials` (pinned to a
 commit SHA) to assume an IAM role, reading the role ARN and region from the
@@ -290,7 +293,7 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-seed`, `run-pull`                    | read-write    | corpus writers (`dvc push`)      |
+| `run-pull` (all three jobs)               | read-write    | corpus writers (`dvc push`)      |
 | `run-predict`, `run-evaluate`, `run-reconcile` — plan jobs | read-only | scope gating over the whole corpus (full `dvc pull`) |
 | `run-predict`, `run-evaluate`, `run-reconcile` — cell jobs | read-only | point lookups + retrieval, blob queried in place (ranged reads, no pull) |
 | `run-analytics`, `run-cleanup`            | read-only     | scan-heavy analysis / metrics refresh / cleanup (full `dvc pull`) |
@@ -314,8 +317,9 @@ workflows that hold the credentials.
 **read-only** role, so a compromised predict/evaluate/reconcile runner cannot write
 or poison the corpus. The write role is **append-only** — get/put/list but **no
 delete** — and the bucket has **versioning** on, so no run can wipe corpus objects
-(no run garbage-collects the *remote* — `run-seed` prunes only its local runner
-cache with `dvc gc --workspace`, never `--cloud`; remote pushes only ever add).
+(no run garbage-collects the *remote* — the historical job prunes only its local
+runner cache with `dvc gc --workspace`, never `--cloud`; remote pushes only ever
+add).
 Both roles' OIDC trust is scoped to this repo's `runner` environment, so only
 `runner`-environment jobs — never an arbitrary PR-branch job — can assume them. The
 OIDC wiring (`permissions: id-token: write` + the credentials step) grants each job
@@ -324,20 +328,20 @@ its access without any long-lived key.
 ### Corpus-writer coordination
 
 `corpus/corpus.db` is one mutable SQLite blob behind one DVC pointer
-(`corpus/corpus.db.dvc`), and **two** workflows write it — `run-seed` (backfill /
-reconcile) and `run-pull` (its enrichment and live-poll jobs). A blob has no merge, so
-the pointer is last-writer-wins: if the two ran concurrently, or built on
+(`corpus/corpus.db.dvc`), and three writer jobs mutate it — `run-pull`'s
+enrichment, live-poll, and historical jobs. A blob has no merge, so
+the pointer is last-writer-wins: if two ran concurrently, or built on
 divergent bases, the second commit would silently drop the other's rows. Two rules
 prevent that:
 
-- **One lock.** Both workflows share the `corpus-write` concurrency group
+- **One lock.** The writer jobs share the `corpus-write` concurrency group
   (`cancel-in-progress: false`), so corpus writers never run simultaneously — a
   second run queues until the first finishes.
-- **Both commit straight to the default branch.** Each run does `dvc pull → mutate
-  → dvc add → dvc push → commit the pointer (+ cursor / outcomes)` and pushes
+- **All commit straight to the default branch.** Each run does `dvc pull → mutate
+  → dvc add → dvc push → commit the pointer (+ outcomes)` and pushes
   directly. Serialized by the lock, every run pulls the latest committed pointer
-  before mutating, so it always builds on its predecessor's writes. Neither writer
-  goes through a long-lived PR whose stale base could revert the other on merge.
+  before mutating, so it always builds on its predecessor's writes. No writer
+  goes through a long-lived PR whose stale base could revert the others on merge.
   If the default branch advanced for an unrelated reason between checkout and push
   (e.g. a `run:predict` / `run:evaluate` PR merged), the commit is rebased onto the
   new tip and the push retried — the lock means the pointer itself never conflicts,
@@ -515,63 +519,37 @@ across several courts, a mix of resolved and open, with their predictable events
 and dated snapshots — so the read commands (`provision-snapshot`, `query`,
 `open-events`) and the pytest suite run with no remote, token, or network. It is
 the offline reference *data* under the engines above; it is never a substitute
-for the real corpus the seed/pull workflows produce.
+for the real corpus the run-pull writer jobs produce.
 
-## Seed — historical backfill
+## Historical — the Term walker
 
-> **Frozen (July 2026 pivot).** The bulk-CSV path below is kept as the fallback
-> if the replica timeline slips, and still imports and passes tests — but no
-> scheduled run drives it: `run-seed`'s schedule and default dispatch mode run
-> the live-channel past-Term cert loader (`fedcourts seed-live-terms`) instead,
-> and the bulk path is reached via the `run:seed` label or dispatch mode=bulk.
-> See the pivot section above and [live-sources.md](live-sources.md).
-
-- **Trigger:** a single long-lived `run:seed` tracking issue (a maintainer opens
-  it and applies the `run:seed` label; see [seed-backfill.md](seed-backfill.md))
-  plus a weekly schedule.
-- **Each run** (deterministic, no agent, no API secret): read the committed
-  **cursor** → process the next chunk of the bulk snapshot for the target courts
-  → run the **event-definition stage** over each ingested docket so it carries its
-  predictable event(s) (see below) → write/append the DVC corpus → commit the
-  corpus pointer + cursor bump directly to the default branch (under the shared
-  `corpus-write` lock — see Corpus-writer coordination) → **comment progress on the
-  tracking issue** (per-court % and remaining).
-- **Multi-table staged join:** each fact a corpus row carries lives in a different
-  bulk file — the docket spine in `dockets`; the realized `disposition`, opinion
-  `summary`, `judges`, `precedential_status`, and `citation_count` in
-  `opinion-clusters`; the party and attorney names in `parties` / `attorneys`; and
-  the panel's judge names and seniority in `people-db-people` — and each file is
-  sorted by its own primary key, not the join key, so they cannot be co-iterated.
-  The bulk source resolves this in two phases behind the `BulkSource` seam, so the
-  cursor, driver, and report are unchanged. *Phase A* (heavy, only when the snapshot
-  changes) streams `dockets` filtered to the tracked courts into a local staging
-  SQLite, then streams each sibling table keeping only rows whose `docket_id` is in
-  that set: `opinion-clusters` (latest cluster per docket wins, its panel ids
-  resolved against the `people-db-people` directory to names + seniority) and the
-  many-per-docket `parties` / `attorneys` name rows. *Phase B* (cheap, per run)
-  serves each chunk as one indexed `LEFT JOIN`, aliasing the cluster columns and
-  aggregating the party/attorney names to the field names the ingestion core reads.
-  Pointing the staging path at a cached location lets successive runs reuse the staged
-  DB instead of re-streaming the GB-scale files.
-- **Extending the join:** the sibling tables are the seam for **bringing in more
-  bulk data**. Adding a field is local and additive — a column (or staging table)
-  in `CourtListenerBulkSource`, a stage step keyed on `docket_id`, a projection in
-  the Phase-B query, and the matching field on the corpus row (`ingest.CorpusRow` →
-  `corpus.CorpusRow`, plus its SQLite column) — with **no change** to the cursor,
-  chunk driver, `SeedReport`, or the `BulkSource` protocol. A sibling whose bulk file
-  a snapshot does not publish is simply skipped, so the docket spine always loads and
-  the new fields stay blank until the data is present.
-- **Resumability:** the cursor (e.g. `config/seed-progress.yaml`) records what is
-  loaded per court, so a chunked catch-up resumes cleanly across runs and the
-  backfill is rebuildable after a fresh clone.
-- **Completion:** on the run that exhausts every court, the workflow opens a
-  one-time **completion PR** that flips the cursor's `completed` sign-off flag.
-  Merging that PR is the maintainer's acknowledgement and **closes the tracking
-  issue** (`Closes #…`); the PR carries no corpus (the blob already streamed to the
-  default branch chunk-by-chunk, so parking it on a branch would reintroduce the
-  lost-update the `corpus-write` lock removed). Afterwards the workflow no-ops until
-  the next quarterly bulk snapshot, which resets `completed` and starts a
-  **reconciliation** pass.
+- **Trigger:** `run-pull`'s daily `historical` cron window (or dispatch
+  mode=historical). No trigger label: nothing an outside actor can file fires
+  it.
+- **Each run** (deterministic, no agent, no API secret): loop
+  `fedcourts historical-terms` in checkpointed chunks — walk the configured
+  October Terms' docket serials newest-first over the supremecourt.gov docket
+  JSON, resuming from the persisted per-(Term, stream) cursors in the corpus →
+  ingest each sampled decided petition through the shared live path (identity
+  reconciled, snapshot stored, resolved row + `outcome.json` recorded, events
+  latched closed, OT2021+ documents provisioned) → `dvc push` the corpus and
+  commit the pointer directly to the default branch after every chunk (under
+  the shared `corpus-write` lock — see Corpus-writer coordination) → comment
+  cumulative progress on the day's open `pull-log` issue.
+- **Sampling frame:** every decided petition is ingested except denials, which
+  are kept when their serial is a multiple of `historical.denial_sample_every`
+  — deterministic per serial, so resumed runs keep the identical sample; the
+  committed `historical:` section of `config/tracking.yaml` documents the
+  set's construction. Undecided petitions are skipped entirely (pending
+  matters are the forward poller's charter), so the walker writes **no**
+  predict/evaluate handoffs, ever.
+- **Resumability:** the cursors advance over every served serial (a 404 never
+  advances them), so a capped or crashed run resumes gap-free and the frontier
+  is re-confirmed cheaply; see [live-sources.md](live-sources.md) for the walk
+  design.
+- **Scope maintenance:** after the loop, the job runs `fedcourts
+  reconcile-scope --apply` — the predict-scope latch sweep rides the daily
+  historical window because the corpus is already pulled and pushed there.
 
 ## Pull — forward freshness
 
@@ -595,10 +573,8 @@ for the real corpus the seed/pull workflows produce.
   grows past one run's capacity, each case is simply
   refreshed every few days. The rotation key `last_pulled` is **per-case tracking
   state in the corpus** — raw facts, tracking state included, live in the corpus,
-  not git — so the governor adds and maintains that column (the old
-  `TrackedCase.last_pulled` git field was removed when seed/pull moved their raw
-  output into the corpus).
-- **Two jobs over the shared core** (since the July 2026 pivot):
+  not git — so the governor adds and maintains that column.
+- **Two forward jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), ingesting fresh facts into the
      corpus through the shared core and queuing `run:predict` for changed cases
      with open events — unless the refreshed docket already looks decided (its
@@ -620,8 +596,8 @@ for the real corpus the seed/pull workflows produce.
      whose proceedings text makes most resolutions deterministic — settles
      reconcile's fate; the live job surfaces ambiguous resolutions on its daily
      log instead of filing issues.
-- **CourtListener discovery is off** (`pull.discover_new_filings: false`, the
-  decision recorded at the pivot): the live channel's frontier probing onboards
+- **CourtListener discovery is off** (`pull.discover_new_filings: false`):
+  the live channel's frontier probing onboards
   newly filed SCOTUS petitions, and circuit discovery onboarded cases the
   SCOTUS-touch gate would not predict for years. The watermark machinery below
   remains implemented but dormant, and reactivates by flipping the flag.
@@ -630,10 +606,10 @@ for the real corpus the seed/pull workflows produce.
 
 Defining the **predictable events** of a docket is its own stage, decoupled from
 ingestion (`fedcourtsai.pipeline.events`), so it runs once over an ingested docket
-regardless of how the case entered (bulk `seed` or forward `pull`). Both entry
-paths call the **same** `extract_events`, differing only in a normalization seam
-(`from_bulk_row` for seed's CSV rows, `from_api_docket` for pull's REST objects),
-so a seeded and a discovered docket yield identical event rows for the same input.
+regardless of which channel the case entered by. Every entry
+path calls the **same** `extract_events`, differing only in a normalization seam
+(`from_bulk_row` for bulk-shaped rows, `from_api_docket` for REST objects),
+so every docket yields identical event rows for the same input.
 It is classification, not analysis: every event is pinned to a single docket entry
 with a closed `kind` enum (`motion` / `petition` / `appeal` / `order`), so the
 stage maps qualifying docket entries → event definitions (`kind`,
@@ -644,10 +620,10 @@ stage maps qualifying docket entries → event definitions (`kind`,
   machine-readable.
 - **Baseline-only when there are no entries.** Entry-pinned events
   (`motion` / `petition` / `order`) are produced only where the source actually
-  carries the docket entries. Bulk seed rows often do not, so a seeded docket gets
-  its baseline event alone; a later forward `pull` refresh, which fetches the full
-  entries, enriches the case with the finer-grained events. The baseline always
-  stands so no seeded docket is left with nothing to predict.
+  carries the docket entries. A bulk-shaped row often does not, so such a docket
+  gets its baseline event alone; a later forward `pull` refresh, which fetches
+  the full entries, enriches the case with the finer-grained events. The baseline
+  always stands so no docket is left with nothing to predict.
 - **Predictable / unresolved** = the request entry has no *later disposing order
   referencing it* (citing its docket-entry number). When a disposing order does
   reference it, the event is recorded `resolved`; with no citation the stage does
@@ -658,43 +634,35 @@ stage maps qualifying docket entries → event definitions (`kind`,
   detection uses (see the reconcile pause note above). The default path runs no
   agent.
 
-## Discovery frontier — the seed → pull hand-off
+## Discovery frontier
 
-> **Dormant.** CourtListener forward discovery is off since the July 2026 pivot
+> **Dormant.** CourtListener forward discovery is off
 > (`pull.discover_new_filings: false`) — the live channel onboards SCOTUS
 > filings. The mechanics below stay correct and reactivate with the flag; they
 > also document the watermark semantics the live channel's per-Term cursors
 > mirror.
 
 Forward discovery searches each court from a per-court **discovery watermark** held
-in the corpus (tracking state, never git `data/`). For the hand-off from the bulk
-backfill to the live frontier to be gap-free, three rules hold:
+in the corpus (tracking state, never git `data/`). For the frontier to stay
+gap-free, two rules hold:
 
-- **Seed establishes the frontier.** A bulk snapshot is "complete as of" the day
-  CourtListener regenerated it (the last day of its quarter). So when a court's
-  backfill completes, `seed` seeds that court's discovery watermark to the
-  **snapshot's date** (derived from the quarter id, e.g. `2026-Q2` → `2026-06-30`).
-  The first forward `pull` then discovers everything filed **since the snapshot**,
-  not since today — closing the snapshot→today gap that would otherwise be onboarded
-  by nothing.
 - **The watermark only moves forward.** A write older than the stored value is
-  ignored, so a later forward watermark always wins over seed's hand-off, and a
-  re-run (or a quarterly reconciliation against the same snapshot) never rewinds it.
+  ignored, so a later forward watermark always wins, and a re-run never rewinds it.
 - **A no-results run still advances it.** A discovery pass that finds no new dockets
   records the date it searched from, so the next run resumes there instead of
   resetting to the start default. (It advances only to a date already searched, so
   it can never skip a real filing.) Without this a court that keeps finding nothing
   would restart from "today" every run — a steady-state hole, not a one-time miss.
 
-A court should normally be **seeded** (or have `--since` passed to `discover`)
-before its first forward discovery, so its frontier is meaningful. The `today`
-default is only a last resort for a court with neither a watermark nor a completed
-seed; on its own it discovers nothing useful.
+A court should normally have `--since` passed to `discover` before its first
+forward discovery, so its frontier is meaningful. The `today`
+default is only a last resort for a court with no watermark; on its own it
+discovers nothing useful.
 
 ## Steady state
 
-History sits in the DVC corpus (the frozen bulk load plus the past-Term cert
-set the live-terms loader keeps growing). **SCOTUS freshness is the live
+History sits in the DVC corpus (the bulk-era load plus the historical Term
+set the historical Term walker keeps growing). **SCOTUS freshness is the live
 channel's**: the run-pull `live` job polls supremecourt.gov four times a day —
 frontier probing onboards new petitions within a cycle, the watchlist refresh
 catches distributions and resolutions within days of the conference. Pull's
@@ -702,60 +670,6 @@ four CourtListener windows spend the API budget on enrichment of the
 SCOTUS-touched set. The result is that the *prediction-relevant* slice — every
 pending petition and its originating docket — is complete to within one live
 cycle, while circuit breadth advances only as enrichment reaches it.
-
-## Full refresh — rebuild the forward state without losing history
-
-A **full refresh** is the operator escape hatch for a *structural* change to how
-data is produced: a new corpus column, a corrected normalization, or a
-data-validity bug whose easiest fix is to rebuild every case from source. Refreshing
-one case at a time within the daily budget could never catch up, so full refresh
-resets the pipeline's **forward tracking state** in one deterministic step
-(`fedcourts full-refresh`, run by `run-seed` on its `full_refresh` dispatch input)
-so the whole tracked set re-seeds and re-pulls fresh:
-
-- **Re-seed all bulk data.** The seed cursor (`config/seed-progress.yaml`) is reset
-  so the next `seed-backfill` re-loads every court from the top — the same path
-  seed's quarterly snapshot reconcile takes, triggered on demand rather than by a
-  new snapshot. The ingestion upsert is idempotent, so unchanged cases overwrite in
-  place and any newly-added column or corrected value is back-filled across the corpus.
-- **Re-pull and re-discover every tracked case.** The corpus forward cursors are
-  reset: each case's `last_pulled` is cleared so the budget governor treats the
-  active set as stalest and re-pulls it, and each tracked court's discovery
-  watermark is reset to the snapshot frontier so forward discovery re-walks the
-  whole post-snapshot range. That re-walk re-ingests every case filed since the
-  snapshot **whether open or closed** — which matters because pull's rotation
-  skips closed cases to save budget, so without it a case that resolved after the
-  snapshot would be refreshed by neither pull nor (being post-snapshot) the
-  re-seed. The watermark is *force*-reset (not just dropped) so an interleaved pull
-  cannot leave it advanced to today and skip the range. Re-ingestion never reopens
-  an already-resolved event — the event upsert latches `resolved` — so prior
-  outcomes are not disturbed. (Closed cases are refreshed at the docket level by
-  re-seed and re-discovery; a per-docket re-pull, which `skip_closed` still elides,
-  is not performed for them.)
-
-What it deliberately leaves alone is what keeps the operation safe and reversible —
-"version old data, keep it":
-
-- **Corpus history is preserved.** Case rows, predictable-event rows, and dated
-  snapshots are untouched; full refresh resets *tracking state*, never the facts, so
-  the corpus stays append-only and its row count never drops (the
-  `validate-corpus` invariant still holds). DVC content-addresses the corpus blob,
-  so a refreshed corpus pushes under a new key while the pre-refresh blob remains in
-  the remote (the read-write role grants no delete) and its `.dvc` pointer stays in
-  git history — so the prior state is recoverable.
-- **The git ledger is preserved.** Outcomes, predictions, and evaluations under
-  `data/` are versioned by git itself and stay where they are — the historical
-  record. "No current cases" follows from the reset rather than from deleting
-  anything: the agentic stages are driven by `pull` re-queuing changed cases with
-  open events, so after the reset `pull` re-pulls everyone and re-queues fresh, and
-  new predictions accrue alongside the retained history.
-
-Because it writes the corpus and the cursor, full refresh runs inside `run-seed`
-(the corpus-writer that holds the shared `corpus-write` lock): the reset runs once
-before the backfill loop, and the reset cursor + corpus blob are committed and
-pushed by the loop's first checkpoint. `--dry-run` reports the blast radius — courts
-to re-seed, cases to re-pull, watermarks to reset and the date to re-discover from —
-without writing.
 
 ## Data validation
 
@@ -783,15 +697,14 @@ The invariants fall in three layers:
   duplicated.
 - **Referential integrity** — every `outcome.json` / `prediction.json` /
   `evaluation.json` references an event and case that exist in the corpus (no
-  orphan judgments), every evaluation targets a real prediction, and the seed
-  cursor reconciles against the corpus row counts per court.
+  orphan judgments), and every evaluation targets a real prediction.
 
 The corpus-dependent layers land as a `fedcourts validate-corpus` command (sibling
 to `validate`) that emits a **JSON verdict** — pass/fail plus per-check counts,
-shaped like the other reports. Because `run-ops` is a corpus-free presenter (it
-reads the git cursor, not the blob — see [pipeline.md](pipeline.md)), the verdict
+shaped like the other reports. Because `run-ops` is a corpus-free presenter
+(see [pipeline.md](pipeline.md)), the verdict
 is **produced where the corpus is already pulled**: the corpus-writer path
-(`run-pull`, and `run-seed` on a reconciliation pass) runs the check as a
+(`run-pull`'s pull and historical jobs) runs the check as a
 non-blocking trailing step and publishes the verdict, and `run-ops` then renders a
 **data-health** section from it and, on failure, opens or updates a single
 long-lived issue — loud, but never blocking the pipeline. The git-only referential

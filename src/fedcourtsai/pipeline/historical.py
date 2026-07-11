@@ -1,25 +1,28 @@
-"""The past-Term cert loader: build the back-test set through the live channel.
+"""The historical Term walker: build per-Term history through the live channel.
 
-The back-test half of the live-sources design (docs/live-sources.md): the
+The historical half of the live-sources design (docs/live-sources.md): the
 supremecourt.gov docket JSON serves every decided petition of the e-filing era
 (OT2017+, per docs/live-sources-probe.md), through the identical client,
-mapping, identity, and ingest seams the forward poller uses — so the back-test
-set is built with the actual instrument, not a proxy. Run by the ``run-seed``
-workflow's ``live-terms`` mode via ``fedcourts seed-live-terms``.
+mapping, identity, and ingest seams the forward poller uses — so the historical
+set is built with the actual instrument, not a proxy. It accumulates resolved
+outcomes reverse-chronologically by Term, primarily to give the statpack's
+per-Term base rates real coverage, and secondarily to supply the cert back-test
+set. Run by the ``run-pull`` workflow's ``historical`` job via
+``fedcourts historical-terms``.
 
 How it differs from :func:`~fedcourtsai.pipeline.live.discover_live`, the
 forward frontier prober:
 
-- **It walks whole decided Terms, not a frontier.** Each configured Term's two
+- **It walks whole Terms, not a frontier.** Each configured Term's two
   numbering streams (paid petitions from 1, IFP from 5001) are walked
   sequentially to their end — ``frontier_misses`` consecutive 404s — under
   per-invocation probe and wall-clock caps, resuming from a persisted cursor.
   The cursors live in the same ``live_discovery_cursors`` table as the forward
-  poller's, under the distinct stream names ``seed-paid`` / ``seed-ifp``, so
-  the two walkers can never collide on a (term, stream) key. The cursor
-  advances over every *served* serial — ingested or sampled out — so a skipped
-  denial is never re-probed; a 404 never advances it, so a resumed run
-  re-confirms the frontier cheaply.
+  poller's, under the distinct stream names ``historical-paid`` /
+  ``historical-ifp``, so the two walkers can never collide on a (term, stream)
+  key. The cursor advances over every *served* serial — ingested or sampled
+  out — so a skipped denial is never re-probed; a 404 never advances it, so a
+  resumed run re-confirms the frontier cheaply.
 - **It samples deliberately instead of ingesting the sequence.** A Term is
   overwhelmingly denials, so each served record's disposition is read from its
   proceedings text first (:func:`~fedcourtsai.pipeline.cert_signals.match_disposition_signal`,
@@ -27,13 +30,17 @@ forward frontier prober:
   ingested **except denials, which are kept only when their serial is a
   multiple of ``denial_sample_every``** — a systematic sample over the docket
   sequence, deterministic per serial and therefore reproducible across resumed
-  runs. The frame and ratio live in ``tracking.yaml``'s ``seed_live:`` section
+  runs. The frame and ratio live in ``tracking.yaml``'s ``historical:`` section
   so the set's construction is documented. A record with no machine-readable
   disposition (a still-pending or held petition) is skipped entirely — pending
   matters are the forward poller's charter, and skipping them here keeps this
-  loader's guarantee absolute: **it writes no predict/evaluate/reconcile
-  queues, and every row it ingests lands already RESOLVED**, so the pending
-  rotation (``corpus.live_rotation``) never picks it up either.
+  walker's guarantee absolute: **it writes no predict/evaluate queues, and
+  every row it ingests lands already RESOLVED**, so the pending rotation
+  (``corpus.live_rotation``) never picks it up either. The complement of that
+  guarantee: a decided petition whose existing case carries an open,
+  **predicted** event is left to the watchlist rather than ingested (see
+  :meth:`_Walk.ingest`), so the resolution reaches the evaluate handoff this
+  walker never files.
 - **Documents follow the probe's floor.** An ingested petition from
   ``document_floor_term`` (~OT2021) onward gets its filed documents provisioned
   (:func:`~fedcourtsai.pipeline.live.provision_documents`) to feed
@@ -61,17 +68,29 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field
 
-from .. import corpus
-from ..config import SeedLiveConfig
+from .. import corpus, ids
+from ..config import HistoricalConfig
+from ..matrix import event_has_predictions
 from ..schemas import Disposition
 from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient
 from .cert_signals import match_disposition_signal
 from .live import _resolve_identity, ingest_live_payload, provision_documents
 
-# The loader's per-Term numbering streams. Same bases as the forward poller's,
+# The walker's per-Term numbering streams. Same bases as the forward poller's,
 # distinct cursor names so the two walkers never share a (term, stream) key in
 # `live_discovery_cursors` (the forward frontier uses "paid" / "ifp").
-SEED_STREAMS: tuple[tuple[str, int], ...] = (("seed-paid", 1), ("seed-ifp", IFP_SERIAL_BASE))
+HISTORICAL_STREAMS: tuple[tuple[str, int], ...] = (
+    ("historical-paid", 1),
+    ("historical-ifp", IFP_SERIAL_BASE),
+)
+
+# The walker previously persisted its cursors under these stream names; a
+# corpus that still holds them is migrated in place at walk start (see
+# `_migrate_legacy_cursors`). Droppable once no production corpus carries them.
+_LEGACY_STREAM_RENAMES: Mapping[str, str] = {
+    "seed-paid": "historical-paid",
+    "seed-ifp": "historical-ifp",
+}
 
 # The walk's cap probe: `None` keeps walking; a non-None reason stops it.
 type OutOf = Callable[[], str | None]
@@ -88,7 +107,7 @@ class StreamProgress(BaseModel):
     """Whether this invocation observed the stream's end (consecutive 404s)."""
 
 
-class SeedLiveReport(BaseModel):
+class HistoricalReport(BaseModel):
     """The ``--report`` payload: this invocation's counts + overall walk state."""
 
     probed: int = 0
@@ -104,6 +123,10 @@ class SeedLiveReport(BaseModel):
     skipped_undecided: int = 0
     """Served records with no machine-readable disposition (left to the
     forward poller; never ingested here)."""
+    left_to_watchlist: int = 0
+    """Decided records whose existing case carries an open, predicted event —
+    left to the watchlist so its resolution queues the evaluate handoff the
+    walker never files."""
     documents: int = 0
     """Filed documents provisioned for OT``document_floor_term``+ ingests."""
     reconcile_flagged: int = 0
@@ -144,6 +167,17 @@ def _keep(disposition: Disposition | None, serial: int, sample_every: int) -> bo
     return True
 
 
+def _migrate_legacy_cursors(corpus_db_path: Path) -> None:
+    """Rename any legacy-named walk cursors in place; idempotent, no-op when clean.
+
+    Runs at walk start (not as a one-shot script) so the rename stays correct
+    even if the corpus blob is ever rolled back to a pointer that still carries
+    the legacy names.
+    """
+    with corpus.connect(corpus_db_path) as conn:
+        corpus.rename_live_streams(conn, _LEGACY_STREAM_RENAMES)
+
+
 @dataclass
 class _Walk:
     """One invocation's walk state: the shared handles and its running report."""
@@ -151,9 +185,9 @@ class _Walk:
     client: SupremeCourtClient
     corpus_db_path: Path
     data_root: Path
-    config: SeedLiveConfig
+    config: HistoricalConfig
     today: date
-    report: SeedLiveReport = dataclasses_field(default_factory=SeedLiveReport)
+    report: HistoricalReport = dataclasses_field(default_factory=HistoricalReport)
 
     def walk_stream(self, term: int, stream: str, base: int, out_of: OutOf) -> None:
         """Walk one (Term, stream) from its cursor to frontier, cap, or error."""
@@ -209,10 +243,32 @@ class _Walk:
         )
 
     def ingest(self, payload: dict[str, Any], term: int, serial: int, label: Disposition) -> None:
-        """Land one sampled decided petition through the shared live-ingest path."""
+        """Land one sampled decided petition through the shared live-ingest path.
+
+        One guard first: a serial that resolves to an existing case with an
+        **open, predicted** event is left to the watchlist instead of ingested.
+        The walker files no evaluate handoffs by charter, so ingesting such a
+        case here would land its outcome without ever queuing the committed
+        prediction for scoring — and the resolved row would leave the live
+        rotation, so the forward poller would never see the transition either.
+        The watchlist re-poll detects the resolution and queues evaluate; the
+        cursor still advances (the serial is served), so the walker never
+        re-probes it.
+        """
         report = self.report
         with corpus.connect(self.corpus_db_path) as conn:
             docket_id = _resolve_identity(conn, payload, term, serial)
+            open_event_ids = [
+                event.event_id
+                for event in corpus.events_for_case(conn, ids.case_id("scotus", docket_id))
+                if not event.resolved
+            ]
+        if any(
+            event_has_predictions(self.data_root, "scotus", docket_id, event_id)
+            for event_id in open_event_ids
+        ):
+            report.left_to_watchlist += 1
+            return
         result = ingest_live_payload(
             self.corpus_db_path, self.data_root, payload, docket_id, today=self.today
         )
@@ -250,21 +306,23 @@ def load_terms(
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
-    config: SeedLiveConfig,
+    config: HistoricalConfig,
     *,
     today: date,
     clock: Callable[[], float] = time.monotonic,
-) -> SeedLiveReport:
-    """One capped invocation of the past-Term walk; resumes from the cursors.
+) -> HistoricalReport:
+    """One capped invocation of the Term walk; resumes from the cursors.
 
-    Walks ``config.terms`` in order, each Term's ``seed-paid`` then ``seed-ifp``
-    stream, until every stream's frontier is observed or a per-invocation cap
-    (``max_probes_per_run`` docket fetches; ``max_run_minutes`` wall clock,
-    checked between serials) stops the walk. An upstream error stops only its
-    stream — cursor untouched, next invocation retries the same serial — and
-    never aborts the invocation. Returns the report the run-seed loop reads for
-    its stop conditions and progress comment.
+    Walks ``config.terms`` in order, each Term's ``historical-paid`` then
+    ``historical-ifp`` stream, until every stream's frontier is observed or a
+    per-invocation cap (``max_probes_per_run`` docket fetches;
+    ``max_run_minutes`` wall clock, checked between serials) stops the walk. An
+    upstream error stops only its stream — cursor untouched, next invocation
+    retries the same serial — and never aborts the invocation. Returns the
+    report the run-pull historical loop reads for its stop conditions and
+    progress comment.
     """
+    _migrate_legacy_cursors(corpus_db_path)
     walk = _Walk(client, corpus_db_path, data_root, config, today)
     deadline = clock() + config.max_run_minutes * 60
 
@@ -276,7 +334,7 @@ def load_terms(
         return None
 
     for term in config.terms:
-        for stream, base in SEED_STREAMS:
+        for stream, base in HISTORICAL_STREAMS:
             walk.walk_stream(term, stream, base, out_of)
             capped = out_of()
             if capped is not None:
@@ -287,11 +345,11 @@ def load_terms(
     return walk.report
 
 
-def fold_totals(totals: SeedLiveReport | None, latest: SeedLiveReport) -> SeedLiveReport:
+def fold_totals(totals: HistoricalReport | None, latest: HistoricalReport) -> HistoricalReport:
     """Fold one invocation's report into a run's cumulative totals.
 
-    The run-seed loop invokes ``seed-live-terms`` many times per job (each
-    invocation is one checkpoint chunk); the totals file is what the run's
+    The run-pull historical loop invokes ``historical-terms`` many times per job
+    (each invocation is one checkpoint chunk); the totals file is what the run's
     single progress comment renders. Counters and failures accumulate; the walk
     state — per-(Term, stream) progress, ``complete``, ``stopped`` — is the
     latest invocation's view (its cursors already encode all prior progress).
@@ -300,7 +358,7 @@ def fold_totals(totals: SeedLiveReport | None, latest: SeedLiveReport) -> SeedLi
         return latest.model_copy(deep=True)
     merged = {(s.term, s.stream): s for s in totals.streams}
     merged.update({(s.term, s.stream): s for s in latest.streams})
-    return SeedLiveReport(
+    return HistoricalReport(
         probed=totals.probed + latest.probed,
         served=totals.served + latest.served,
         ingested_granted=totals.ingested_granted + latest.ingested_granted,
@@ -308,6 +366,7 @@ def fold_totals(totals: SeedLiveReport | None, latest: SeedLiveReport) -> SeedLi
         ingested_other=totals.ingested_other + latest.ingested_other,
         skipped_denials=totals.skipped_denials + latest.skipped_denials,
         skipped_undecided=totals.skipped_undecided + latest.skipped_undecided,
+        left_to_watchlist=totals.left_to_watchlist + latest.left_to_watchlist,
         documents=totals.documents + latest.documents,
         reconcile_flagged=totals.reconcile_flagged + latest.reconcile_flagged,
         failed=[*totals.failed, *latest.failed],
@@ -317,11 +376,11 @@ def fold_totals(totals: SeedLiveReport | None, latest: SeedLiveReport) -> SeedLi
     )
 
 
-def render_markdown(report: SeedLiveReport) -> str:
-    """The report as the run-seed progress comment / step-summary body."""
+def render_markdown(report: HistoricalReport) -> str:
+    """The report as the historical job's progress comment / step-summary body."""
     ingested = report.ingested_granted + report.ingested_denied + report.ingested_other
     lines = [
-        "### Past-Term cert loader progress" + (" — walk complete ✅" if report.complete else ""),
+        "### Historical Term walker progress" + (" — walk complete ✅" if report.complete else ""),
         "",
         f"Probed **{report.probed}** serial(s) ({report.served} served); ingested "
         f"**{ingested}** decided petition(s) — {report.ingested_granted} granted/GVR, "
@@ -337,6 +396,12 @@ def render_markdown(report: SeedLiveReport) -> str:
             f"| {s.term} | {s.stream} | {s.cursor if s.cursor is not None else '—'} "
             f"| {'✅' if s.frontier_reached else ''} |"
         )
+    if report.left_to_watchlist:
+        lines += [
+            "",
+            f"{report.left_to_watchlist} decided petition(s) with an open predicted "
+            "event left to the watchlist (its re-poll queues the evaluate handoff).",
+        ]
     if report.failed:
         lines += ["", f"⚠️ {len(report.failed)} stream error(s); those cursors will retry."]
     if report.reconcile_flagged:

@@ -1,21 +1,21 @@
-"""Shared ingestion core: one normalized corpus row from either source.
+"""Shared ingestion core: one normalized corpus row from either source shape.
 
-``seed`` reads CourtListener **bulk data** (S3 CSV) and ``pull`` reads the
-**REST API**; both hand their source records to this module so the packed
-corpus has a single shape, schema, and set of APIs regardless of origin. The
-two phases differ on *source* and *budget*, never on how a fact is shaped or
-stored (see ``docs/data-pipeline.md``).
+``pull`` reads the CourtListener **REST API**; a bulk-shaped source (a CSV
+export, or a future replication feed) hands flat rows. Both hand their source
+records to this module so the packed corpus has a single shape, schema, and
+set of APIs regardless of origin. Channels differ on *source* and *budget*,
+never on how a fact is shaped or stored (see ``docs/data-pipeline.md``).
 
 - :func:`from_api_docket` maps an API docket JSON object to a :class:`CorpusRow`.
-- :func:`from_bulk_row` maps a bulk CSV row (already parsed to a dict) to the
+- :func:`from_bulk_row` maps a bulk row (already parsed to a dict) to the
   same :class:`CorpusRow`.
 
 Both delegate to one private normalizer, so equivalent inputs from the two
 sources produce byte-identical rows apart from the recorded :attr:`CorpusRow.source`.
 
 Normalized rows are persisted into the single packed corpus — the SQLite store
-defined in :mod:`fedcourtsai.corpus` — via :func:`upsert_to_corpus`, so ``seed``
-and ``pull`` both land facts in one place through one seam.
+defined in :mod:`fedcourtsai.corpus` — via :func:`upsert_to_corpus`, so every
+channel lands facts in one place through one seam.
 """
 
 from __future__ import annotations
@@ -150,7 +150,7 @@ def _originating_docket_number(record: Mapping[str, Any]) -> str | None:
 
     The REST docket nests it under ``originating_court_information.docket_number``.
     CourtListener does not export the originating-court-information table in bulk,
-    so a bulk (seed) row leaves this blank — only the originating *court* is
+    so a bulk-shaped row leaves this blank — only the originating *court* is
     recoverable there — and the precise lower-court latch is REST (pull) driven.
     """
     info = record.get("originating_court_information")
@@ -352,9 +352,9 @@ def from_api_docket(docket: Mapping[str, Any]) -> CorpusRow:
 
 
 def from_bulk_row(row: Mapping[str, Any]) -> CorpusRow:
-    """Normalize a CourtListener bulk-data CSV row (the ``seed`` path).
+    """Normalize a CourtListener bulk-data row (a flat CSV/replication record).
 
-    ``row`` is a single CSV record already parsed to a mapping (e.g. via
+    ``row`` is a single record already parsed to a mapping (e.g. via
     :class:`csv.DictReader`); blank cells are treated as missing.
     """
     return _normalize(row, CorpusSource.bulk)
@@ -582,8 +582,8 @@ def is_predict_eligible(row: CorpusRow) -> bool:
     for the agentic predict/evaluate stages once it has interacted with the
     Supreme Court (``docs/data-pipeline.md``). A SCOTUS docket
     (``court == "scotus"``) is in-scope — its whole lifecycle is at SCOTUS, so this
-    satisfies "stays in-scope for its lifecycle". Set identically on both ingestion
-    paths (seed and pull) because both project through :func:`to_corpus_row`.
+    satisfies "stays in-scope for its lifecycle". Set identically on every
+    ingestion path because all project through :func:`to_corpus_row`.
 
     The *other* half of the rule — pulling the same case's originating
     court-of-appeals docket into scope — is not decidable from a single row (it
@@ -662,8 +662,8 @@ def upsert_to_corpus(
     """Upsert normalized rows into the packed SQLite corpus at ``db_path``.
 
     Idempotent by ``case_id`` (last write wins), so re-ingesting a docket — by
-    ``seed``, ``pull``, or the live poller — overwrites its row rather than
-    duplicating it. ``last_pulled`` / ``last_live_polled`` stamp the writing
+    ``pull``, the live poller, or the historical walker — overwrites its row
+    rather than duplicating it. ``last_pulled`` / ``last_live_polled`` stamp the writing
     channel's refresh date onto every row in the batch, advancing that channel's
     rotation key (each preserves the other channel's prior stamp).
 

@@ -6,7 +6,7 @@ CourtListener enforces per-token request budgets (see issue #1):
     50 requests / hour
     125 requests / day
 
-The deterministic ``seed`` / ``pull`` scripts can blow through these while
+The deterministic ``pull`` scripts can blow through these while
 paging docket entries, so :class:`RateLimiter` throttles every request *before*
 it is sent. It keeps a sliding-window log of request timestamps and, when a
 window is full, sleeps just long enough for the oldest request in that window to
