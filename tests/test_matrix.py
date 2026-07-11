@@ -28,7 +28,7 @@ def test_predict_matrix_is_predictor_by_event_product() -> None:
     assert {row["engine"]: row["model"] for row in inc} == {
         "claude-code": "claude-fable-5",
         "codex": "gpt-5.6-sol",
-        "gemini": "gemini-3.5-flash",
+        "gemini": "gemini-3.1-pro-preview",
     }
     row = inc[0]
     assert row["court"] == "ca9"
