@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca10/69180294",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition",
+      "message": "The cell is marked forward and the event unresolved in July 2026, but the provisioned snapshot's only docket entry is dated September 20, 2024 and described as case termination for order and judgment. The snapshot contains no judgment text or disposition, so the prediction could be completed only at low confidence without seeking outcome-revealing material.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

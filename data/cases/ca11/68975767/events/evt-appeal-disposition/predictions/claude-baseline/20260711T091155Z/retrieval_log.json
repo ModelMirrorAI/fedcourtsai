@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "1951454c43effb45",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "3ed65ea48951aa27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "91a8e250ad9d91a3",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca11/68975767 -type f | head -50",
+      "result_digest": "864e2b3575b7e6e6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "83a4ffea649f14c9",
+      "query": "uv run fedcourts paths --court ca11 --docket 68975767 --event evt-appeal-disposition 2>&1",
+      "result_digest": "26f1dd11733f0d1a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2a71be70d00e810c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca11/68975767/events/evt-appeal-disposition/event.yaml\"}",
+      "result_digest": "0870b57e091696cf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3f2b20ddf614a5ac",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca11/68975767/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "67f41e10cf7fd955",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca11/68975767/record/snapshots/2026-07-11.json\"}",
+      "result_digest": "080127ed0a1156f4",
+      "retrieved_doc_date": "2023-07-11",
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "60d972d9f17501b5",
+      "query": "echo \"DECIDED_BEFORE=${DECIDED_BEFORE:-<unset>}\"; ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ 2>/dev/null",
+      "result_digest": "d07d4d73ef887a6d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "df4d743b21c21497",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0ad1714e508f7109",
+      "query": "grep -n -A 25 \"Modern discretionary-cert\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40; echo ===; grep -n -B2 -A 15 \"ca11\\|circuit\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "11e9bb0d82eae768",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f491e11be1995714",
+      "query": "uv run fedcourts query --court ca11 --topic \"3840 Trademark\" --corpus-backend ranged --limit 8 2>ranged1.err; echo \"---stderr---\"; cat ranged1.err",
+      "result_digest": "a2f9ecd912e05db6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d49e2df5714b998c",
+      "query": "uv run fedcourts query --court ca11 --limit 10 --corpus-backend ranged 2>ranged2.err | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(r.get('case_id'), '|', r.get('disposition'), '|', (r.get('caption') or '')[:60], '|', r.get('date_terminated') or r.get('decided') or '')\n\"; echo '---stderr---'; cat ranged2.err",
+      "result_digest": "f0763a9ea48c6705",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "aea14976a42e240e",
+      "query": "grep -rn \"affirm\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/ --include=*.py -il; echo ===; grep -rn -i \"affirm\\|disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/outcomes.py 2>/dev/null | head -30",
+      "result_digest": "bc7e28c01c0ec223",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ae2f25c14d76463c",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca11/ | head; echo ===; find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -path \"*evt-appeal-disposition/outcome.json\" | head -20",
+      "result_digest": "facfe52665684bfe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d34d40e4792000d6",
+      "query": "grep -n -i \"affirm\\|reversed\\|disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/events.py | head -40",
+      "result_digest": "cb3d65ae640f4d3c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "31d43a1c6fa233cb",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -name outcome.json | head -20; echo ===; ls /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca11/66800253/events/ 2>/dev/null",
+      "result_digest": "ff3a6d1386d81479",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "836c43576235091a",
+      "query": "grep -rn -i \"affirm\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/corpus.py | head; echo ===; grep -rln \"disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/*.py /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/*.py",
+      "result_digest": "bc2975a9a147ae3b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "27b61e204d57fa6e",
+      "query": "grep -n -i \"affirm\\|reversed\\|granted\\|denied\\|dismiss\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/outcome.py | head -50",
+      "result_digest": "e67f36beb255ef30",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "727132fb8143b325",
+      "query": "grep -rn -i \"affirm\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/live.py /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/pull.py 2>/dev/null | head -20; echo ===; grep -rn \"Disposition.denied\\|Disposition.other\\|-> Disposition\\|def.*disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py | head -20",
+      "result_digest": "f74c21f8dcf3b905",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "896bac26eba01036",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py\", \"limit\": 55, \"offset\": 260}",
+      "result_digest": "37700cd8139dd3e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "54bedfd49b45b950",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/outcome.py\", \"limit\": 80, \"offset\": 50}",
+      "result_digest": "5e96a0807a449859",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d2c01eb13921edfe",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/; grep -n -i \"affirm\\|disposition\" /home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/reconcile.md 2>/dev/null | head -20",
+      "result_digest": "c25b55482d2f4295",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "71681c011cc0d8f7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/reconcile.md\", \"limit\": 30, \"offset\": 55}",
+      "result_digest": "4b1b70f0da7c4cea",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9044808a30046b9f",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "576b7ae8c5742ebd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "292f7cb1c10f913c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca11/68975767/events/evt-appeal-disposition/predictions/claude-baseline/20260711T091155Z",
+      "result_digest": "7da4e23ab15c351d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7eb721ec7af9f797",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"ca11/68975767\\\",\\n  \\\"confidence\\\": 0.7,\\n  \\\"created_at\\\": \\\"2026-07-11T09:15:57Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/ca11/68975767/record/snapshots/2026-07-11.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.03,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run_id\\\": ",
+      "result_digest": "8bb6331a4cc19647",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "460878eada4bbea5",
+      "query": "{\"content\": \"# Ain Jeem, Inc. v. Carl Puckett, Jr. \\u2014 ca11/68975767, evt-appeal-disposition\\n\\n**Prediction: appeal denied (affirmance). P(granted) = 0.03.**\\n\\n## The case\\n\\nEleventh Circuit appeal No. 23-12267 (consolidated with No. 23-13380), taken by\\nCarl Puckett, Jr. (with Marcella Puckett), pro se, from the Middle District of\\nFlorida trademark action *Ain Jeem, Inc. v. Puckett*, No. 8:21-cv-01331\\n(Judge Virginia M. Hernandez Covington). Notice of appeal filed 2023-07-10;\\nappellate",
+      "result_digest": "4c3d62bdf804e717",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c1e3c351b3808a57",
+      "query": "{\"content\": \"# Retrieval log \\u2014 claude-baseline, ca11/68975767, 20260711T091155Z\\n\\nBeyond the provisioned inputs (snapshot `record/snapshots/2026-07-11.json`,\\n`event.yaml`, `record/context.json`):\\n\\n## Corpus lookups (`fedcourts` CLI, ranged backend)\\n\\n1. `uv run fedcourts query --court ca11 --topic \\\"3840 Trademark\\\" --corpus-backend ranged --limit 8`\\n   \\u2014 no matching priors returned.\\n   `ranged corpus reads: 99 GET(s), 25952256 byte(s)`\\n2. `uv run fedcourts query --court ca11 -",
+      "result_digest": "1787af492a1c54c7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a830c61fa7152d71",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca11/68975767\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n      \\\"message\\\": \\\"Cell is forward-mode, but the provisioned snapshot's latest docket entry (2024-09-24, entry 26) is 'Opinion Issued' \\u2014 the appeal was decided in the world well before this run; only the corpus lacks the outcome. The disposition itself is not in the snapshot and I did not ret",
+      "result_digest": "fc1047f97c06a80c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1ea3b22839751fb5",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca11/68975767\\\",\\n  \\\"gaps\\\": [\\n    \\\"A circuit-appeal statpack cut keyed to appeal events (affirm/reverse/dismiss rates by circuit and pro-se status); the by-court cut is dominated by 'other' because merits labels like 'affirmed' fall through normalize_disposition\\\",\\n    \\\"fedcourts query returned no ca11 trademark priors and no captions/dates on the historical rows it did return, limiting comparability\\\",\\n    \\\"Guidance ",
+      "result_digest": "b039b1c3800691ed",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b45d06eff14b14e3",
+      "query": "uv run fedcourts validate data && rm -f ranged1.err ranged2.err && git status --short data/",
+      "result_digest": "cab58e063ea4aa38",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "af4db196b20b3446",
+      "query": "gh issue comment 562 --body \"**claude-baseline \u00b7 ca11/68975767 \u00b7 evt-appeal-disposition \u00b7 run 20260711T091155Z** \u2014 prediction written: \\`denied\\` (affirmance), P(granted)=0.03, granted=0. Pro se appeal from discretionary M.D. Fla. rulings (voluntary dismissal, mootness, serial reconsideration denials) reviewed for abuse of discretion. Note (also in flags.json, data-quality/info): the forward-mode snapshot already shows 'Opinion Issued' (2024-09-24), so I skipped all live retrieval on this case t",
+      "result_digest": "ec35440373d0490f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "ca11/68975767",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

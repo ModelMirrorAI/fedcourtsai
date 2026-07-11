@@ -1,0 +1,22 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68975767",
+  "gaps": [
+    "Motion-level base rates (grant/deny by motion kind, e.g. consolidate/stay/extend) — the statpack and query surface only case-level dispositions, which say little about a procedural motion",
+    "A provisioned snapshot of the companion appeal (23-13380) truncated to the event date would give safe, leakage-free context for cross-appeal motions"
+  ],
+  "helpful": [
+    "Provisioned snapshot (the dual-captioned later entries were the strongest signal)",
+    "metrics/statpack.md for a quick sense of corpus composition"
+  ],
+  "notes": "fedcourts query with --topic '3840 Trademark' on ca11 returned nothing; unfiltered ca11 priors were case-level and off-point for a consolidation motion. Skipped CourtListener MCP entirely: any post-filing lookup on this docket or its companion risked retrieving the motion's actual ruling.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

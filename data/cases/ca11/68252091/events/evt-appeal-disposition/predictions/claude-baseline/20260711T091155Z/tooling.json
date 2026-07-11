@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68252091",
+  "gaps": [
+    "Working CourtListener MCP access (server was down all run: 'REDIS_URL is not set')",
+    "A mandamus/original-proceeding cut in the statpack — the by-court base rates are dominated by merits appeals labeled 'other'",
+    "A fedcourts query filter for case type (original proceeding vs merits appeal)"
+  ],
+  "helpful": [
+    "metrics/statpack.md by-court base rates",
+    "Provisioned snapshot with full docket entries"
+  ],
+  "notes": "CourtListener MCP was configured but every call failed server-side, so the underlying flnd docket could not be examined. For a pro se IFP mandamus petition the loss is minor — the prior against grant is overwhelming — but for closer cases this outage would materially degrade the cell.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "CourtListener MCP (attempted, unavailable)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

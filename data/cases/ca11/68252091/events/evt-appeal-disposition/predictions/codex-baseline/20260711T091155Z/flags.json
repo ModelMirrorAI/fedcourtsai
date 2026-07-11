@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68252091",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition",
+      "message": "The 2026-07-11 snapshot contains a docket last indexed on 2024-02-14, only the initial mandamus petition and IFP motion, no filing text, and no panel. This supports a conservative forecast but prevents case-specific analysis and makes denial versus procedural dismissal unusually uncertain.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

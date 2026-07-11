@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68975767",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-motion-correct-in-dc-15",
+      "message": "The event definition is formed from the clerk's terminal notice that no action will be taken on filing 15 because it appears intended for another court. It therefore embeds an administrative resolution rather than presenting a genuinely pending motion; the prediction codes this as other.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

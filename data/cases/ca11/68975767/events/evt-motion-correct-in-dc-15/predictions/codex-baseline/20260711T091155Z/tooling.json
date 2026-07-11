@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68975767",
+  "gaps": [],
+  "helpful": [
+    "The provisioned snapshot contained both the motion and the clerk's no-action notice."
+  ],
+  "notes": "External retrieval and base rates would not improve an event whose definition already states the administrative treatment.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tools_used": [],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

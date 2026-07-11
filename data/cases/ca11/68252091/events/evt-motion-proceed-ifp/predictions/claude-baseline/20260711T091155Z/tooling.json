@@ -1,0 +1,28 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68252091",
+  "gaps": [
+    "Working CourtListener MCP (server errored on every call this run: 'REDIS_URL is not set')",
+    "Motion-level base rates (statpack and corpus are case-disposition-level; nothing on IFP/motion grant rates)",
+    "A litigant-history lookup (prior cases, frivolousness findings, filing injunctions for a named party) — the single most predictive signal for a pro se IFP motion"
+  ],
+  "helpful": [
+    "fedcourts paths (path resolution)",
+    "Provisioned snapshot (docket entries, fee status, originating-court info were the core inputs)"
+  ],
+  "notes": "Corpus query returned ca11 case-level priors with garbled metadata; statpack is SCOTUS-cert oriented. For motion events on circuit dockets, neither surface currently provides a usable quantitative prior, so the probability is essentially judgment plus general legal knowledge.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (attempted, failed)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

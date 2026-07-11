@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68975767",
+  "gaps": [
+    "Motion-level base rates (grant rate by motion kind, e.g. reconsideration-of-panel-order) — the statpack's case-level disposition cuts don't discriminate for procedural-motion events",
+    "A snapshot cut at the event's opened_at date for decided-but-forward-labeled cells, so the baseline can't leak the outcome"
+  ],
+  "helpful": [
+    "metrics/statpack.md by-court cut",
+    "Docket-entry text in the snapshot (the district court's reconsideration-standard order was the richest signal)"
+  ],
+  "notes": "fedcourts query returned zero ca11 trademark priors and only sparse historical ca11 rows; the intra-docket record carried the analysis. No CourtListener MCP calls: the snapshot already exposed the event's outcome (flagged), so touching this case's docket risked further exposure and the pre-decision record sufficed.",
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,10 @@
+case_id: ca11/68252091
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-appeal-disposition
+kind: appeal
+opened_at: '2024-02-01'
+resolved: false
+schema_version: '1.0'
+title: 'In re: Angela DeBose'

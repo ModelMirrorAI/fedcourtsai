@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68252091",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-appeal-disposition",
+      "message": "The CourtListener MCP server was unavailable for this cell: every tool call returned a server-side 'REDIS_URL is not set; cannot access session store' error. The prediction proceeded on the provisioned snapshot, fedcourts query priors, and the statpack. Impact here is low (pro se IFP mandamus petition with an overwhelming base rate against grant), but the same outage in a closer forward cell would materially degrade predictions — worth checking the MCP server provisioning for this run.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition",
+      "message": "The provisioned snapshot (2026-07-11.json) was last indexed by CourtListener on 2024-02-14 and shows only the first two docket entries of a Feb-2024 original proceeding; a CA11 mandamus petition would normally be resolved within months, so this forward-mode cell is likely predicting an event that has already been decided off-record. Flagging in case the pull pipeline should re-poll this docket.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca11/68975767",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-appeal-disposition-17",
+      "message": "The event remains marked unresolved, but the latest snapshot contains a September 24, 2024 docket document labeled 'Opinion Issued.' The document is unavailable and no disposition text is present, so the prediction does not use or infer the outcome.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}

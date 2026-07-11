@@ -1,0 +1,12 @@
+case_id: ca11/68252091
+decision_target: disposition
+description: 'ORIGINAL PROCEEDING DOCKETED. Petition for WRIT of MANDAMUS filed by
+  Petitioner Angela W. DeBose. Fee Status: IFP Pending [Entered: 02/09/2024 10:01
+  AM]'
+docket_entry_id: 378466288
+event_id: evt-petition-writ-of-mandamus
+kind: petition
+opened_at: '2024-02-01'
+resolved: false
+schema_version: '1.0'
+title: 'In re: Angela DeBose'

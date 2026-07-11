@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca11/68975767",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-motion-reconsideration-of-a-panel-order-entered",
+      "message": "Outcome exposure via the provisioned baseline: the snapshot (record/snapshots/2026-07-11.json) contains docket entry 22 (2024-05-02), 'ORDER: Motion for reconsideration of panel order filed by Appellant Carl Ellen Puckett, Jr. is DENIED. [21]', which is the resolution of the event being predicted. I did not retrieve it; it arrived in the guaranteed-common input. Disclosed per contract: I reasoned only from the pre-decision record (entries through 2024-03-25) plus base rates, but the cell's forward-mode signal is compromised and evaluation may wish to discount it.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-reconsideration-of-a-panel-order-entered",
+      "message": "Cell mode/state mismatch: context.json says 'forward' and event.yaml says resolved: false, but the docket shows the motion decided 2024-05-02 and an opinion issued 2024-09-24 — the case is not genuinely pending. The snapshot postdates the event's resolution by over two years; a point-in-time snapshot cut before 2024-03-25 (or replay mode with DECIDED_BEFORE) would have made this a clean back-test cell.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T091155Z",
+  "schema_version": "1.0"
+}
