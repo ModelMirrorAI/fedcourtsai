@@ -58,11 +58,11 @@ source.
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on (overlap with a `PriorQuery`), while `panel`
-carries the structured detail — each judge's authoritative `name` and `seniority`,
-resolved against the `people-db-people` directory during the staged join. The
-multi-valued sibling facts (`panel`, `parties`, `attorneys`) come from bulk files
-joined on `docket_id`; see the staged join in
-[docs/data-pipeline.md](../docs/data-pipeline.md).
+carries the structured detail — each judge's authoritative `name` and `seniority`.
+The multi-valued sibling facts (`panel`, `parties`, `attorneys`) are filled by
+whichever channel carries them; a bulk-shaped source supplies them as staged-join
+arrays (the panel resolved against the people-db directory) through the shared
+normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
@@ -107,7 +107,11 @@ classifying its docket entries; see
 Per-court **tracking state**: the newest
 `date_filed` `pull` has discovered for a court. Discovery fetches dockets filed
 on or after this date, then advances it, so each run resumes where the last left
-off without rescanning the court.
+off without rescanning the court. Dormant in production
+(`pull.discover_new_filings` is off — the live channel onboards SCOTUS
+filings); the live channel's and the historical walker's per-(Term, stream)
+cursors (one shared `live_discovery_cursors` table, disjoint stream names)
+follow the same only-moves-forward semantics.
 
 | Column       | Type      | Notes                                          |
 |--------------|-----------|------------------------------------------------|
@@ -116,8 +120,9 @@ off without rescanning the court.
 
 ## Dated snapshots (`snapshots`)
 
-Each `pull` stores the full point-in-time docket JSON (docket + entries) it
-fetched — the raw fact a normalized `cases` row cannot fully capture. `pull`
+Each ingestion channel stores the full point-in-time docket payload it fetched
+(the REST docket + entries, or the supremecourt.gov docket JSON) — the raw fact
+a normalized `cases` row cannot fully capture. `pull`
 diffs the latest stored snapshot against the fresh fetch to decide whether a case
 *changed* (the `run:predict` trigger), and the predict/evaluate
 workflows provision a case's latest snapshot from here for the agent to predict

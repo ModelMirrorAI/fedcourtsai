@@ -8,19 +8,23 @@ personal data in court records is handled. For the ingestion mechanics see
 
 ## Source and attribution
 
-Case data comes from two upstream providers, through three channels:
+Case data comes from two upstream providers, through the pipeline's three
+ingestion channels (**pull**, **live**, **historical** —
+[data-pipeline.md](data-pipeline.md)):
 
 - **[CourtListener](https://www.courtlistener.com/)**, a project of the
   [Free Law Project](https://free.law/): the **REST API** (targeted enrichment —
-  `pull`; the free quarterly bulk-data exports loaded the corpus's bulk-era
-  breadth).
+  the `pull` channel).
 - **supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
   Court itself — the live SCOTUS channel that owns SCOTUS freshness and loads
   the historical Term set. These are public records with no third-party license
   attached (the CourtListener terms below cover Free Law Project's curation,
   not these records). Design in [live-sources.md](live-sources.md); the
   ingested facts land in the same access-gated corpus under the same
-  no-republication posture.
+  no-republication posture. Filed documents are stored today as
+  pipeline-extracted text; one possible later direction — a direction, not a
+  commitment — is landing the historical documents (motions, opinions) on the
+  same access-gated S3 store as raw PDFs rather than extracted text only.
 
 A further channel is planned but not yet adopted: Free Law Project's commercial
 **database replication** offering, the intended eventual upstream for the
@@ -80,7 +84,7 @@ Federal dockets can carry personal data about parties, counsel, and third partie
 Our position is **minimal collection, gated storage, and a hard floor on sensitive
 material**:
 
-- **We ingest only what is already in the public bulk/API records** — no separate
+- **We ingest only what is already in the public upstream records** — no separate
   collection, enrichment, or de-anonymization, and no redaction beyond what
   CourtListener already applies to the public records.
 - **Raw facts stay access-gated.** The corpus that holds the full docket detail

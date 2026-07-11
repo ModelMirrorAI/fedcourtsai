@@ -5,9 +5,11 @@ pipeline workflows. Run `uv run fedcourts --help` for the live listing, or
 `uv run fedcourts <command> --help` for a command's flags; this page is the
 grouped overview. `--version` prints the installed package version.
 
-Commands fall into five groups: **ingestion** (write the corpus), **corpus
-inspection** (read it), **validation** (the gate), **metrics & reporting**, and
-**agent support** (fan-out matrices and registries). For the design behind the
+Commands fall into the groups headed below: **ingestion** (write the corpus),
+**corpus inspection** (read it), **validation** (the gate), **diagnostics**
+(read-only probes), **metrics & reporting**, **agent support** (fan-out
+matrices and registries), **maintenance** (corpus-informed cleanup), and
+**local iteration**. For the design behind the
 corpus/ledger split see [data-pipeline.md](data-pipeline.md) and
 [data-model.md](data-model.md); for how the workflows wire these together see
 [pipeline.md](pipeline.md).

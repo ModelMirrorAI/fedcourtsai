@@ -21,7 +21,7 @@ arrive — the only honest way to show calibration.
 | **Grant cadence** | Order lists, most Mondays after each conference, Oct–June | Steady stream of cert decisions |
 | **January "mop-up" conference** | Mid-January | Last grants that can still be argued the same term — a natural cutoff |
 | **Term ends** | Late June / early July | The full merits docket resolves — ~60–70 argued cases decided, the richest evaluation set of the year |
-| **Summer recess** | July–September | No new merits; time to seed, back-test, and retune |
+| **Summer recess** | July–September | No new merits; time to load history, back-test, and retune |
 
 Sources: [28 U.S.C. § 2](https://www.law.cornell.edu/uscode/text/28/2) (term start),
 [SCOTUSblog: the long conference](https://www.scotusblog.com/2025/08/what-is-the-supreme-courts-long-conference/),
@@ -51,9 +51,10 @@ Everything in the next three months is sequenced to make that release possible.
 
 ### Phase 0 — Foundations (before the first cert release)
 
-- **Historical Term walking running.** The `run-pull` historical job walks
-  decided October Terms newest-first over supremecourt.gov (no API budget),
-  filling the statpack's per-Term base rates and the cert back-test set.
+- **Historical Term walking running.** Done — the `run-pull` historical job
+  walks decided October Terms newest-first over supremecourt.gov (no API
+  budget), filling the statpack's per-Term base rates and the cert back-test
+  set.
 - **Freshness running daily.** Done, and better than planned: the
   supremecourt.gov live channel owns SCOTUS freshness budget-free (discovery,
   conference watchlist, outcomes, documents), while pull's daily CourtListener
@@ -68,17 +69,29 @@ Everything in the next three months is sequenced to make that release possible.
 
 ### Phase 1 — Long-conference cert release (OT2026 long conference, late Sept 2026)
 
-- **Historical coverage sufficient for the task**: the bulk-era load plus
-  the daily historical Term walker growing per-Term coverage through the live
-  channel (a bulk-shaped source would re-enter through the shared normalizer).
+- **Historical coverage sufficient for the task**: the daily historical Term
+  walker growing per-Term coverage through the supremecourt.gov channel, so the
+  statpack's per-Term cert base rates — the release's comparison anchor — rest
+  on enough decided Terms.
 - **Prediction scope gated and live.** Per the budget, predict a deliberate
   slice: **SCOTUS dockets only** — the predict fan-out filters on the corpus
   row's court, while
   ingestion stays full-coverage. See *The pilot slice* in [budget.md](budget.md).
+- **Predictors vetted by cert back-test.** The maintainer-triggered
+  `run-backtest` workflow replays the predictors over the walker's decided
+  petitions (outcomes hidden) and lands `metrics/cert-backtest.json` as a
+  reviewed PR — iteration signal for prompts, retrieval, and calibration before
+  the batch, never claimable performance.
+- **A one-time clean-slate sweep** (direction, not yet scheduled): once the
+  pipeline is stable, one maintainer-run, manually merged PR clearing the
+  accumulated pilot predictions and metrics, so the official forward record is
+  consistent with the current design. History-preserving — git retains the
+  record; only the tip changes.
 - **Cert-grant predictions issued** for the petitions on the long-conference list,
   by the competing predictors, *before* the conference.
 - **Mini-release published** once the opening order list resolves them (~early
-  Oct): the article + the first head-to-head predictor calibration.
+  Oct): the article + the first head-to-head predictor calibration, compared
+  against the statpack's per-Term cert base rates.
 
 ### Phase 2 — Steady state + first leaderboard (across the OT2026 argument season)
 
@@ -105,10 +118,11 @@ Everything in the next three months is sequenced to make that release possible.
   dockets, or a rotating sample of appeals that
   never reach SCOTUS — using the budget's levers, or to hold the gate as the durable
   scope.
-- **Back-testing live.** Replay current predictors against historical resolved
-  events from the corpus (outcome hidden), scored against known dispositions —
-  turning the seeded history into an evaluation asset, and a credible way to vet a
-  new predictor before it competes live.
+- **Back-testing live.** Done early (Phase 1): the maintainer-triggered
+  `run-backtest` workflow replays predictors against historical resolved events
+  from the corpus (outcome hidden), scored against known dispositions — the
+  credible way to vet a new predictor before it competes live. What remains
+  here is exercising it routinely as the walker deepens per-Term coverage.
 
 ### Beyond a year — the automated-research goal
 

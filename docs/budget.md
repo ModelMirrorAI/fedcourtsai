@@ -205,16 +205,13 @@ tracked set grows. Above Tier 4 is a custom commercial agreement (unpublished).
 
 The **pilot currently holds Tier 2 ($250/yr, billed annually)**. Pull runs four windows a day, each
 refreshing up to `max_cases_per_run` (30) dockets — ~120 refreshes/day of
-targeted enrichment (CourtListener discovery is off since the July 2026 pivot;
+targeted enrichment (CourtListener discovery is off;
 the budget-free supremecourt.gov live job owns SCOTUS freshness and
 onboarding), comfortably inside Tier 2's 15/min · 150/hr ·
 600/day (~200 dockets/day): each window's ~30×3 ≈ 90 requests stays under the
 hourly ceiling and the four windows stay under the daily one. A slice of every run
 (`eligible_refresh_reserve`) is reserved for the stalest SCOTUS dockets so
-the in-scope set rotates fast under the gate. (A second slice used to
-feed the interim date backfill; the July 2026 pivot decommissioned it — see the
-pivot section in [data-pipeline.md](data-pipeline.md) — so its budget now stays
-with the rotation.) Tier 3+ becomes the floor
+the in-scope set rotates fast under the gate. Tier 3+ becomes the floor
 only once the gate widens toward keeping all fourteen courts current at the live
 frontier. The membership raises the *ceiling*; the client still throttles to
 whatever `FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD` are set to in the runner
