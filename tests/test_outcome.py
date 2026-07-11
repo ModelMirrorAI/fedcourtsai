@@ -13,6 +13,7 @@ from fedcourtsai.pipeline.outcome import (
     is_machine_readable,
     record_outcomes,
     resolve_case,
+    termination_signal,
 )
 from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
 from fedcourtsai.serialize import read_model
@@ -200,3 +201,63 @@ def test_record_outcomes_refuses_an_orphaned_outcome(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="orphaned outcome"):
         record_outcomes(_db(tmp_path), tmp_path, "ca9", 64512345, resolution)
     assert not CasePaths(tmp_path, "ca9", 64512345).event("evt-petition-review").outcome.exists()
+
+
+def test_termination_signal_reads_the_clerks_termination_entry() -> None:
+    # A stale CA docket often carries no date_terminated/disposition, yet its
+    # latest entry states the matter is over — the signal appears_decided
+    # cannot see.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {"id": 10, "description": "Briefing complete"},
+            {"id": 11, "description": "Case termination for order and judgment"},
+        ],
+    }
+    signal = termination_signal(docket)
+    assert signal is not None and "Case termination" in signal
+
+
+def test_termination_signal_reads_the_opinion_issued_entry() -> None:
+    docket = {"id": 1, "docket_entries": [{"id": 10, "short_description": "Opinion Issued."}]}
+    signal = termination_signal(docket)
+    assert signal is not None and "Opinion Issued" in signal
+
+
+def test_termination_signal_only_reads_the_latest_entry() -> None:
+    # Pendency is event-level: a filing *after* a terminal entry (a
+    # stay-the-mandate motion, a rehearing petition) reopens the docket, so
+    # the earlier terminal entry must not starve the later event.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {"id": 10, "description": "Opinion Issued."},
+            {"id": 11, "description": "Motion to stay the mandate"},
+        ],
+    }
+    assert termination_signal(docket) is None
+
+
+def test_termination_signal_ignores_a_cluster_link_alone() -> None:
+    # A linked opinion cluster alone is deliberately not a signal: a
+    # motions-panel opinion can publish on a still-pending appeal.
+    docket = {
+        "id": 1,
+        "docket_entries": [{"id": 10, "description": "Filed"}],
+        "clusters": ["https://www.courtlistener.com/api/rest/v4/clusters/10122744/"],
+    }
+    assert termination_signal(docket) is None
+
+
+def test_termination_signal_none_for_a_pending_docket() -> None:
+    # Routine entries — including ones that merely *mention* an opinion — read
+    # as pending; only the anchored terminal phrasings match.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {"id": 10, "description": "Motion to stay pending appeal"},
+            {"id": 11, "description": "Citing the opinion issued in a related case"},
+        ],
+        "clusters": [],
+    }
+    assert termination_signal(docket) is None

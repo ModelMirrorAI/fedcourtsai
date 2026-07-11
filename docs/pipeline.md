@@ -109,7 +109,9 @@ run:seed schedule (weekly) → seed-live-terms → walk decided Terms, ingest gr
                                  ├─ detect resolution → write outcome.json when the
                                  │  disposition is machine-readable (git ledger)
                                  └─ create issues  ← APP TOKEN
-                                    ├─ run:predict    (changed case with open events)
+                                    ├─ run:predict    (changed case with open events,
+                                    │                  unless the docket already looks
+                                    │                  decided — skipped + surfaced)
                                     ├─ run:evaluate   (predicted event that gained
                                     │                  an outcome)
                                     └─ run:reconcile  (decided but not machine-readable

@@ -511,3 +511,73 @@ def test_format_discovery_failures_surfaces_each_courts_reason() -> None:
     # Both the court id and its failure type/message are visible from the log line.
     assert "scotus [ReadTimeout: read timed out]" in summary
     assert "ca1 [HTTPStatusError: 429 Too Many Requests]" in summary
+
+
+def test_decided_looking_docket_skips_the_forward_predict_queue(tmp_path: Path) -> None:
+    # A stale appellate docket whose entry is the clerk's termination note
+    # (date_terminated null, no disposition): its open events must not fan out
+    # forward cells — that run would be a mislabeled back-test whose
+    # unrestricted retrieval could read the outcome.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _open_event(db, "ca9", 64512345)
+    client = FakeClient(
+        DOCKET, [{"id": 1, "description": "Case termination for order and judgment"}]
+    )
+    queues = pull_cases(
+        cast(CourtListenerClient, client), db, tmp_path / "data", [("ca9", 64512345)]
+    )
+    assert queues.predict == []
+    skipped = queues.predict_skipped_decided
+    assert [(e["court"], e["docket"]) for e in skipped] == [("ca9", 64512345)]
+    assert "terminal" in str(skipped[0]["reason"])
+    assert skipped[0]["events"] == ["evt-appeal-disposition"]
+
+
+def test_reconcile_asked_docket_skips_the_forward_predict_queue(tmp_path: Path) -> None:
+    # Decided at case level but not deterministically recordable: resolution
+    # queues a reconcile — the same refresh must not also queue forward cells
+    # for the events the reconcile covers.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _open_event(db, "ca9", 64512345)
+    decided = {**DOCKET, "date_terminated": "2026-06-15"}  # no readable disposition
+    client = FakeClient(decided, [{"id": 1, "description": "Judgment entered"}])
+    queues = pull_cases(
+        cast(CourtListenerClient, client), db, tmp_path / "data", [("ca9", 64512345)]
+    )
+    assert queues.reconcile and queues.predict == []
+    assert [(e["court"], e["docket"]) for e in queues.predict_skipped_decided] == [
+        ("ca9", 64512345)
+    ]
+    assert "reconcile" in str(queues.predict_skipped_decided[0]["reason"])
+
+
+def test_pending_docket_still_queues_forward_prediction(tmp_path: Path) -> None:
+    # The decided-looking gate must not eat genuinely pending cases.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _open_event(db, "ca9", 64512345)
+    client = FakeClient(DOCKET, [{"id": 1, "description": "Motion to stay pending appeal"}])
+    queues = pull_cases(
+        cast(CourtListenerClient, client), db, tmp_path / "data", [("ca9", 64512345)]
+    )
+    assert [(e["court"], e["docket"]) for e in queues.predict] == [("ca9", 64512345)]
+    assert queues.predict_skipped_decided == []
+
+
+def test_later_filing_after_a_terminal_entry_still_queues_forward(tmp_path: Path) -> None:
+    # Pendency is event-level: a motion filed *after* the opinion issued (stay
+    # the mandate, rehearing) is genuinely pending, and the earlier terminal
+    # entry must not starve it out of the forward queue.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _open_event(db, "ca9", 64512345)
+    client = FakeClient(
+        DOCKET,
+        [
+            {"id": 1, "description": "Opinion Issued."},
+            {"id": 2, "description": "Motion to stay the mandate"},
+        ],
+    )
+    queues = pull_cases(
+        cast(CourtListenerClient, client), db, tmp_path / "data", [("ca9", 64512345)]
+    )
+    assert [(e["court"], e["docket"]) for e in queues.predict] == [("ca9", 64512345)]
+    assert queues.predict_skipped_decided == []

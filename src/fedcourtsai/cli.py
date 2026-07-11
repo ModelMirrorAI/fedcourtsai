@@ -2177,8 +2177,18 @@ def pull_all(
             if queues.evaluate_skipped
             else ""
         )
+        + (
+            f" ({len(queues.predict_skipped_decided)} decided-looking case(s) skipped forward)"
+            if queues.predict_skipped_decided
+            else ""
+        )
         + "."
     )
+    for skipped in queues.predict_skipped_decided:
+        typer.echo(
+            "Skipped forward prediction for "
+            f"{skipped['court']}/{skipped['docket']} — {skipped['reason']}"
+        )
     if queues.stopped:
         deferred = len(queues.deferred)
         typer.echo(
