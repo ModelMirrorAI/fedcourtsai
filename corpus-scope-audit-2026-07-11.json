@@ -74,20 +74,6 @@
       ]
     },
     {
-      "cases": 6,
-      "open_events": 6,
-      "reason": "internally inconsistent dates \u2014 decided before filed",
-      "recoverable": 6,
-      "sample_cases": [
-        "scotus/65875844",
-        "scotus/65876076",
-        "scotus/65876280",
-        "scotus/65877169",
-        "scotus/65877267",
-        "scotus/65877270"
-      ]
-    },
-    {
       "cases": 82338,
       "open_events": 82338,
       "reason": "pre-1925 mandatory-jurisdiction matter",
@@ -143,11 +129,11 @@
     }
   ],
   "schema_version": "1.0",
-  "scotus_open_events": 589189,
+  "scotus_open_events": 589148,
   "skipped": false,
   "unclassified": [
     {
-      "open_events": 58583,
+      "open_events": 58549,
       "reason": "recent or current Term (legitimately pending)",
       "sample_cases": [
         "scotus/14557919",
@@ -195,7 +181,7 @@
       ]
     },
     {
-      "open_events": 138,
+      "open_events": 137,
       "reason": "carries a disposition signal (open despite a recorded decision)",
       "sample_cases": [
         "scotus/1056408",
