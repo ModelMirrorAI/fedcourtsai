@@ -1,45 +1,47 @@
 {
-  "corpus_rows": 2151642,
-  "open": 2120675,
+  "corpus_rows": 2151659,
+  "dated_resolved": 184,
+  "machine_readable_resolved": 7123,
+  "open": 2120531,
   "overall": {
-    "cases": 2151642,
+    "cases": 2151659,
     "dispositions": [
       {
         "count": 24005,
         "disposition": "other",
-        "share": 0.7751800303548939
+        "share": 0.7711706502184529
       },
       {
-        "count": 6268,
+        "count": 6273,
         "disposition": "dismissed",
-        "share": 0.20240901604934286
+        "share": 0.20152274479568236
       },
       {
-        "count": 440,
+        "count": 587,
         "disposition": "denied",
-        "share": 0.014208673749475247
+        "share": 0.01885762014906194
       },
       {
-        "count": 248,
+        "count": 257,
         "disposition": "granted",
-        "share": 0.008008525204249686
+        "share": 0.008256232331020304
       },
       {
         "count": 3,
         "disposition": "granted-in-part",
-        "share": 9.687732101914941e-05
+        "share": 9.637625289128758e-05
       },
       {
         "count": 3,
         "disposition": "withdrawn",
-        "share": 9.687732101914941e-05
+        "share": 9.637625289128758e-05
       }
     ],
     "key": "",
-    "open": 2120675,
-    "resolved": 30967
+    "open": 2120531,
+    "resolved": 31128
   },
-  "resolved": 30967,
+  "resolved": 31128,
   "schema_version": "1.0",
   "sections": [
     {
@@ -50,27 +52,27 @@
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.7837837837837838
+              "share": 0.5076586433260394
             },
             {
-              "count": 47,
+              "count": 160,
+              "disposition": "denied",
+              "share": 0.350109409190372
+            },
+            {
+              "count": 52,
               "disposition": "dismissed",
-              "share": 0.15878378378378377
+              "share": 0.1137855579868709
             },
             {
               "count": 13,
-              "disposition": "denied",
-              "share": 0.04391891891891892
-            },
-            {
-              "count": 4,
               "disposition": "granted",
-              "share": 0.013513513513513514
+              "share": 0.028446389496717725
             }
           ],
           "key": "scotus",
-          "open": 589284,
-          "resolved": 296
+          "open": 589123,
+          "resolved": 457
         },
         {
           "cases": 247637,
@@ -106,7 +108,7 @@
           "resolved": 1463
         },
         {
-          "cases": 203462,
+          "cases": 203464,
           "dispositions": [
             {
               "count": 1367,
@@ -130,11 +132,11 @@
             }
           ],
           "key": "ca5",
-          "open": 201960,
+          "open": 201962,
           "resolved": 1502
         },
         {
-          "cases": 187217,
+          "cases": 187218,
           "dispositions": [
             {
               "count": 9857,
@@ -163,11 +165,11 @@
             }
           ],
           "key": "ca4",
-          "open": 171624,
+          "open": 171625,
           "resolved": 15593
         },
         {
-          "cases": 142306,
+          "cases": 142307,
           "dispositions": [
             {
               "count": 1239,
@@ -191,11 +193,11 @@
             }
           ],
           "key": "ca6",
-          "open": 140986,
+          "open": 140987,
           "resolved": 1320
         },
         {
-          "cases": 120921,
+          "cases": 120926,
           "dispositions": [
             {
               "count": 2311,
@@ -229,11 +231,11 @@
             }
           ],
           "key": "ca2",
-          "open": 118411,
+          "open": 118416,
           "resolved": 2510
         },
         {
-          "cases": 112964,
+          "cases": 112971,
           "dispositions": [
             {
               "count": 1192,
@@ -257,7 +259,7 @@
             }
           ],
           "key": "ca3",
-          "open": 111685,
+          "open": 111692,
           "resolved": 1279
         },
         {
@@ -404,7 +406,7 @@
           "resolved": 3042
         },
         {
-          "cases": 45336,
+          "cases": 45337,
           "dispositions": [
             {
               "count": 517,
@@ -428,10 +430,11 @@
             }
           ],
           "key": "ca1",
-          "open": 44737,
+          "open": 44738,
           "resolved": 599
         }
       ],
+      "cert_stage": false,
       "court": null,
       "group_by": "court",
       "title": "Cases by court"
@@ -444,29 +447,30 @@
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.7837837837837838
+              "share": 0.5076586433260394
             },
             {
-              "count": 47,
+              "count": 160,
+              "disposition": "denied",
+              "share": 0.350109409190372
+            },
+            {
+              "count": 52,
               "disposition": "dismissed",
-              "share": 0.15878378378378377
+              "share": 0.1137855579868709
             },
             {
               "count": 13,
-              "disposition": "denied",
-              "share": 0.04391891891891892
-            },
-            {
-              "count": 4,
               "disposition": "granted",
-              "share": 0.013513513513513514
+              "share": 0.028446389496717725
             }
           ],
           "key": "(none)",
-          "open": 589284,
-          "resolved": 296
+          "open": 589123,
+          "resolved": 457
         }
       ],
+      "cert_stage": false,
       "court": "scotus",
       "group_by": "topic",
       "title": "SCOTUS petitions by nature-of-suit topic"
@@ -474,184 +478,299 @@
     {
       "buckets": [
         {
-          "cases": 414178,
+          "cases": 414201,
           "dispositions": [
             {
               "count": 223,
               "disposition": "other",
-              "share": 0.7770034843205574
+              "share": 0.7012578616352201
             },
             {
-              "count": 47,
+              "count": 48,
               "disposition": "dismissed",
-              "share": 0.16376306620209058
+              "share": 0.1509433962264151
             },
             {
-              "count": 13,
+              "count": 43,
               "disposition": "denied",
-              "share": 0.04529616724738676
+              "share": 0.13522012578616352
             },
             {
               "count": 4,
               "disposition": "granted",
-              "share": 0.013937282229965157
+              "share": 0.012578616352201259
             }
           ],
           "key": "(none)",
-          "open": 413891,
-          "resolved": 287
+          "open": 413883,
+          "resolved": 318
         },
         {
           "cases": 24503,
           "dispositions": [
             {
+              "count": 15,
+              "disposition": "denied",
+              "share": 0.8333333333333334
+            },
+            {
               "count": 2,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.1111111111111111
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.05555555555555555
             }
           ],
           "key": "ca9",
-          "open": 24501,
-          "resolved": 2
+          "open": 24485,
+          "resolved": 18
         },
         {
           "cases": 20669,
           "dispositions": [
             {
+              "count": 12,
+              "disposition": "denied",
+              "share": 0.8571428571428571
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.07142857142857142
+            },
+            {
               "count": 1,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.07142857142857142
             }
           ],
           "key": "ca5",
-          "open": 20668,
-          "resolved": 1
+          "open": 20655,
+          "resolved": 14
         },
         {
           "cases": 17696,
           "dispositions": [
             {
+              "count": 13,
+              "disposition": "denied",
+              "share": 0.8666666666666667
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.06666666666666667
+            },
+            {
               "count": 1,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.06666666666666667
             }
           ],
           "key": "ca11",
-          "open": 17695,
-          "resolved": 1
+          "open": 17681,
+          "resolved": 15
         },
         {
           "cases": 15610,
           "dispositions": [
             {
+              "count": 14,
+              "disposition": "denied",
+              "share": 0.7368421052631579
+            },
+            {
+              "count": 3,
+              "disposition": "granted",
+              "share": 0.15789473684210525
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.05263157894736842
+            },
+            {
               "count": 1,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.05263157894736842
             }
           ],
           "key": "ca4",
-          "open": 15609,
-          "resolved": 1
+          "open": 15591,
+          "resolved": 19
         },
         {
           "cases": 13175,
           "dispositions": [
             {
+              "count": 17,
+              "disposition": "denied",
+              "share": 0.85
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.1
+            },
+            {
               "count": 1,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.05
             }
           ],
           "key": "ca6",
-          "open": 13174,
-          "resolved": 1
+          "open": 13155,
+          "resolved": 20
         },
         {
           "cases": 9531,
-          "dispositions": [],
+          "dispositions": [
+            {
+              "count": 6,
+              "disposition": "denied",
+              "share": 0.75
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.25
+            }
+          ],
           "key": "ca3",
-          "open": 9531,
-          "resolved": 0
+          "open": 9523,
+          "resolved": 8
         },
         {
           "cases": 9363,
-          "dispositions": [],
+          "dispositions": [
+            {
+              "count": 11,
+              "disposition": "denied",
+              "share": 0.9166666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.08333333333333333
+            }
+          ],
           "key": "ca2",
-          "open": 9363,
-          "resolved": 0
+          "open": 9351,
+          "resolved": 12
         },
         {
           "cases": 9023,
           "dispositions": [
             {
+              "count": 8,
+              "disposition": "denied",
+              "share": 0.8888888888888888
+            },
+            {
               "count": 1,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.1111111111111111
             }
           ],
           "key": "ca8",
-          "open": 9022,
-          "resolved": 1
+          "open": 9014,
+          "resolved": 9
         },
         {
           "cases": 8134,
           "dispositions": [
             {
+              "count": 6,
+              "disposition": "denied",
+              "share": 0.8571428571428571
+            },
+            {
               "count": 1,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.14285714285714285
             }
           ],
           "key": "ca7",
-          "open": 8133,
-          "resolved": 1
+          "open": 8127,
+          "resolved": 7
         },
         {
           "cases": 7010,
-          "dispositions": [],
+          "dispositions": [
+            {
+              "count": 8,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
           "key": "ca10",
-          "open": 7010,
-          "resolved": 0
+          "open": 7002,
+          "resolved": 8
         },
         {
           "cases": 4218,
           "dispositions": [
             {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.25
+            },
+            {
               "count": 1,
               "disposition": "other",
-              "share": 1.0
+              "share": 0.25
             }
           ],
           "key": "ca1",
-          "open": 4217,
-          "resolved": 1
+          "open": 4214,
+          "resolved": 4
         },
         {
           "cases": 3227,
-          "dispositions": [],
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
           "key": "cafc",
-          "open": 3227,
-          "resolved": 0
+          "open": 3224,
+          "resolved": 3
         },
         {
           "cases": 2709,
-          "dispositions": [],
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
           "key": "cadc",
-          "open": 2709,
-          "resolved": 0
+          "open": 2707,
+          "resolved": 2
         },
         {
-          "cases": 2060,
+          "cases": 2059,
           "dispositions": [],
           "key": "fla",
-          "open": 2060,
+          "open": 2059,
           "resolved": 0
         },
         {
-          "cases": 1544,
+          "cases": 1543,
           "dispositions": [],
           "key": "cal",
-          "open": 1544,
+          "open": 1543,
           "resolved": 0
         },
         {
@@ -662,24 +781,17 @@
           "resolved": 0
         },
         {
-          "cases": 1260,
+          "cases": 1259,
           "dispositions": [],
           "key": "va",
-          "open": 1260,
+          "open": 1259,
           "resolved": 0
         },
         {
-          "cases": 1063,
+          "cases": 1062,
           "dispositions": [],
           "key": "dc",
-          "open": 1063,
-          "resolved": 0
-        },
-        {
-          "cases": 844,
-          "dispositions": [],
-          "key": "michctapp",
-          "open": 844,
+          "open": 1062,
           "resolved": 0
         },
         {
@@ -690,6 +802,13 @@
           "resolved": 0
         },
         {
+          "cases": 843,
+          "dispositions": [],
+          "key": "michctapp",
+          "open": 843,
+          "resolved": 0
+        },
+        {
           "cases": 714,
           "dispositions": [],
           "key": "ga",
@@ -697,17 +816,17 @@
           "resolved": 0
         },
         {
-          "cases": 617,
+          "cases": 616,
           "dispositions": [],
           "key": "fladistctapp1",
-          "open": 617,
+          "open": 616,
           "resolved": 0
         },
         {
-          "cases": 617,
+          "cases": 616,
           "dispositions": [],
           "key": "oklacrimapp",
-          "open": 617,
+          "open": 616,
           "resolved": 0
         },
         {
@@ -725,24 +844,24 @@
           "resolved": 0
         },
         {
-          "cases": 527,
+          "cases": 526,
           "dispositions": [],
           "key": "fladistctapp4",
-          "open": 527,
-          "resolved": 0
-        },
-        {
-          "cases": 520,
-          "dispositions": [],
-          "key": "nev",
-          "open": 520,
+          "open": 526,
           "resolved": 0
         },
         {
           "cases": 519,
           "dispositions": [],
-          "key": "washctapp",
+          "key": "nev",
           "open": 519,
+          "resolved": 0
+        },
+        {
+          "cases": 517,
+          "dispositions": [],
+          "key": "washctapp",
+          "open": 517,
           "resolved": 0
         },
         {
@@ -795,10 +914,10 @@
           "resolved": 0
         },
         {
-          "cases": 433,
+          "cases": 432,
           "dispositions": [],
           "key": "la",
-          "open": 433,
+          "open": 432,
           "resolved": 0
         },
         {
@@ -823,17 +942,17 @@
           "resolved": 0
         },
         {
-          "cases": 398,
+          "cases": 397,
           "dispositions": [],
           "key": "gactapp",
-          "open": 398,
+          "open": 397,
           "resolved": 0
         },
         {
-          "cases": 389,
+          "cases": 388,
           "dispositions": [],
           "key": "massappct",
-          "open": 389,
+          "open": 388,
           "resolved": 0
         },
         {
@@ -900,10 +1019,10 @@
           "resolved": 0
         },
         {
-          "cases": 288,
+          "cases": 287,
           "dispositions": [],
           "key": "wash",
-          "open": 288,
+          "open": 287,
           "resolved": 0
         },
         {
@@ -956,10 +1075,10 @@
           "resolved": 0
         },
         {
-          "cases": 244,
+          "cases": 243,
           "dispositions": [],
           "key": "colo",
-          "open": 244,
+          "open": 243,
           "resolved": 0
         },
         {
@@ -1019,10 +1138,10 @@
           "resolved": 0
         },
         {
-          "cases": 193,
+          "cases": 192,
           "dispositions": [],
           "key": "tex",
-          "open": 193,
+          "open": 192,
           "resolved": 0
         },
         {
@@ -1033,10 +1152,10 @@
           "resolved": 0
         },
         {
-          "cases": 184,
+          "cases": 183,
           "dispositions": [],
           "key": "nj",
-          "open": 184,
+          "open": 183,
           "resolved": 0
         },
         {
@@ -1054,10 +1173,10 @@
           "resolved": 0
         },
         {
-          "cases": 165,
+          "cases": 164,
           "dispositions": [],
           "key": "kanctapp",
-          "open": 165,
+          "open": 164,
           "resolved": 0
         },
         {
@@ -1098,15 +1217,15 @@
         {
           "cases": 102,
           "dispositions": [],
-          "key": "scctapp",
+          "key": "utah",
           "open": 102,
           "resolved": 0
         },
         {
-          "cases": 102,
+          "cases": 101,
           "dispositions": [],
-          "key": "utah",
-          "open": 102,
+          "key": "scctapp",
+          "open": 101,
           "resolved": 0
         },
         {
@@ -1159,17 +1278,17 @@
           "resolved": 0
         },
         {
-          "cases": 86,
-          "dispositions": [],
-          "key": "indctapp",
-          "open": 86,
-          "resolved": 0
-        },
-        {
           "cases": 85,
           "dispositions": [],
           "key": "alaska",
           "open": 85,
+          "resolved": 0
+        },
+        {
+          "cases": 84,
+          "dispositions": [],
+          "key": "indctapp",
+          "open": 84,
           "resolved": 0
         },
         {
@@ -1182,15 +1301,15 @@
         {
           "cases": 79,
           "dispositions": [],
-          "key": "ri",
+          "key": "vt",
           "open": 79,
           "resolved": 0
         },
         {
-          "cases": 79,
+          "cases": 78,
           "dispositions": [],
-          "key": "vt",
-          "open": 79,
+          "key": "ri",
+          "open": 78,
           "resolved": 0
         },
         {
@@ -1859,26 +1978,312 @@
           "resolved": 0
         }
       ],
+      "cert_stage": false,
       "court": "scotus",
       "group_by": "originating_court",
       "title": "SCOTUS petitions by originating circuit"
+    },
+    {
+      "buckets": [
+        {
+          "cases": 126873,
+          "dispositions": [
+            {
+              "count": 204,
+              "disposition": "other",
+              "share": 0.7640449438202247
+            },
+            {
+              "count": 47,
+              "disposition": "dismissed",
+              "share": 0.1760299625468165
+            },
+            {
+              "count": 12,
+              "disposition": "denied",
+              "share": 0.0449438202247191
+            },
+            {
+              "count": 4,
+              "disposition": "granted",
+              "share": 0.0149812734082397
+            }
+          ],
+          "key": "(none)",
+          "open": 126606,
+          "resolved": 267
+        },
+        {
+          "cases": 124840,
+          "dispositions": [
+            {
+              "count": 13,
+              "disposition": "other",
+              "share": 1.0
+            }
+          ],
+          "key": "2000s",
+          "open": 124827,
+          "resolved": 13
+        },
+        {
+          "cases": 109307,
+          "dispositions": [
+            {
+              "count": 11,
+              "disposition": "other",
+              "share": 0.9166666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.08333333333333333
+            }
+          ],
+          "key": "1990s",
+          "open": 109295,
+          "resolved": 12
+        },
+        {
+          "cases": 97053,
+          "dispositions": [],
+          "key": "2010s",
+          "open": 97053,
+          "resolved": 0
+        },
+        {
+          "cases": 62149,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "other",
+              "share": 1.0
+            }
+          ],
+          "key": "1980s",
+          "open": 62148,
+          "resolved": 1
+        },
+        {
+          "cases": 36385,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "other",
+              "share": 1.0
+            }
+          ],
+          "key": "1970s",
+          "open": 36382,
+          "resolved": 3
+        },
+        {
+          "cases": 32814,
+          "dispositions": [
+            {
+              "count": 147,
+              "disposition": "denied",
+              "share": 0.9130434782608695
+            },
+            {
+              "count": 9,
+              "disposition": "granted",
+              "share": 0.055900621118012424
+            },
+            {
+              "count": 5,
+              "disposition": "dismissed",
+              "share": 0.031055900621118012
+            }
+          ],
+          "key": "2020s",
+          "open": 32653,
+          "resolved": 161
+        },
+        {
+          "cases": 107,
+          "dispositions": [],
+          "key": "1960s",
+          "open": 107,
+          "resolved": 0
+        },
+        {
+          "cases": 20,
+          "dispositions": [],
+          "key": "1910s",
+          "open": 20,
+          "resolved": 0
+        },
+        {
+          "cases": 10,
+          "dispositions": [],
+          "key": "1930s",
+          "open": 10,
+          "resolved": 0
+        },
+        {
+          "cases": 8,
+          "dispositions": [],
+          "key": "1940s",
+          "open": 8,
+          "resolved": 0
+        },
+        {
+          "cases": 5,
+          "dispositions": [],
+          "key": "1900s",
+          "open": 5,
+          "resolved": 0
+        },
+        {
+          "cases": 4,
+          "dispositions": [],
+          "key": "1880s",
+          "open": 4,
+          "resolved": 0
+        },
+        {
+          "cases": 3,
+          "dispositions": [],
+          "key": "1950s",
+          "open": 3,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "1850s",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "1890s",
+          "open": 1,
+          "resolved": 0
+        }
+      ],
+      "cert_stage": false,
+      "court": "scotus",
+      "group_by": "era",
+      "title": "SCOTUS cases by era"
+    },
+    {
+      "buckets": [
+        {
+          "cases": 446363,
+          "dispositions": [],
+          "key": "(open)",
+          "open": 446363,
+          "resolved": 0
+        },
+        {
+          "cases": 148,
+          "dispositions": [
+            {
+              "count": 148,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "denied",
+          "open": 0,
+          "resolved": 148
+        },
+        {
+          "cases": 28,
+          "dispositions": [
+            {
+              "count": 28,
+              "disposition": "other",
+              "share": 1.0
+            }
+          ],
+          "key": "other",
+          "open": 0,
+          "resolved": 28
+        },
+        {
+          "cases": 9,
+          "dispositions": [
+            {
+              "count": 9,
+              "disposition": "granted",
+              "share": 1.0
+            }
+          ],
+          "key": "granted",
+          "open": 0,
+          "resolved": 9
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "dismissed",
+              "share": 1.0
+            }
+          ],
+          "key": "dismissed",
+          "open": 0,
+          "resolved": 5
+        }
+      ],
+      "cert_stage": true,
+      "court": "scotus",
+      "group_by": "disposition",
+      "title": "Modern discretionary-cert petitions by disposition"
     }
   ],
   "terms": [
     {
       "base_rates": {
-        "cases": 4123,
+        "cases": 1,
         "dispositions": [],
-        "key": "2025",
-        "open": 4123,
+        "key": "2028",
+        "open": 1,
         "resolved": 0
       },
-      "term": 2025,
+      "term": 2028,
       "timing": {
         "cases": 0,
         "mean_days": null,
         "median_days": null,
         "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 4123,
+        "dispositions": [
+          {
+            "count": 147,
+            "disposition": "denied",
+            "share": 0.9130434782608695
+          },
+          {
+            "count": 9,
+            "disposition": "granted",
+            "share": 0.055900621118012424
+          },
+          {
+            "count": 5,
+            "disposition": "dismissed",
+            "share": 0.031055900621118012
+          }
+        ],
+        "key": "2025",
+        "open": 3962,
+        "resolved": 161
+      },
+      "term": 2025,
+      "timing": {
+        "cases": 5,
+        "mean_days": 120.6,
+        "median_days": 96.0,
+        "p90_days": 301.0
       }
     },
     {
@@ -1995,10 +2400,10 @@
     },
     {
       "base_rates": {
-        "cases": 6703,
+        "cases": 6704,
         "dispositions": [],
         "key": "2017",
-        "open": 6703,
+        "open": 6704,
         "resolved": 0
       },
       "term": 2017,
@@ -2027,10 +2432,10 @@
     },
     {
       "base_rates": {
-        "cases": 7484,
+        "cases": 7485,
         "dispositions": [],
         "key": "2015",
-        "open": 7484,
+        "open": 7485,
         "resolved": 0
       },
       "term": 2015,
@@ -2043,10 +2448,10 @@
     },
     {
       "base_rates": {
-        "cases": 8041,
+        "cases": 8043,
         "dispositions": [],
         "key": "2014",
-        "open": 8041,
+        "open": 8043,
         "resolved": 0
       },
       "term": 2014,
@@ -2059,10 +2464,10 @@
     },
     {
       "base_rates": {
-        "cases": 8500,
+        "cases": 8501,
         "dispositions": [],
         "key": "2013",
-        "open": 8500,
+        "open": 8501,
         "resolved": 0
       },
       "term": 2013,
@@ -2442,7 +2847,7 @@
     },
     {
       "base_rates": {
-        "cases": 12581,
+        "cases": 12583,
         "dispositions": [
           {
             "count": 3,
@@ -2451,7 +2856,7 @@
           }
         ],
         "key": "1992",
-        "open": 12578,
+        "open": 12580,
         "resolved": 3
       },
       "term": 1992,
@@ -2700,10 +3105,10 @@
     },
     {
       "base_rates": {
-        "cases": 4013,
+        "cases": 4014,
         "dispositions": [],
         "key": "1977",
-        "open": 4013,
+        "open": 4014,
         "resolved": 0
       },
       "term": 1977,
@@ -2716,7 +3121,7 @@
     },
     {
       "base_rates": {
-        "cases": 4016,
+        "cases": 4017,
         "dispositions": [
           {
             "count": 2,
@@ -2725,7 +3130,7 @@
           }
         ],
         "key": "1976",
-        "open": 4014,
+        "open": 4015,
         "resolved": 2
       },
       "term": 1976,
@@ -2738,10 +3143,10 @@
     },
     {
       "base_rates": {
-        "cases": 4111,
+        "cases": 4112,
         "dispositions": [],
         "key": "1975",
-        "open": 4111,
+        "open": 4112,
         "resolved": 0
       },
       "term": 1975,
@@ -2770,10 +3175,10 @@
     },
     {
       "base_rates": {
-        "cases": 4391,
+        "cases": 4392,
         "dispositions": [],
         "key": "1973",
-        "open": 4391,
+        "open": 4392,
         "resolved": 0
       },
       "term": 1973,
@@ -2786,10 +3191,10 @@
     },
     {
       "base_rates": {
-        "cases": 3922,
+        "cases": 3924,
         "dispositions": [],
         "key": "1972",
-        "open": 3922,
+        "open": 3924,
         "resolved": 0
       },
       "term": 1972,
@@ -2802,10 +3207,10 @@
     },
     {
       "base_rates": {
-        "cases": 3895,
+        "cases": 3896,
         "dispositions": [],
         "key": "1971",
-        "open": 3895,
+        "open": 3896,
         "resolved": 0
       },
       "term": 1971,
@@ -2916,8 +3321,24 @@
       "base_rates": {
         "cases": 1,
         "dispositions": [],
-        "key": "1950",
+        "key": "1955",
         "open": 1,
+        "resolved": 0
+      },
+      "term": 1955,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 2,
+        "dispositions": [],
+        "key": "1950",
+        "open": 2,
         "resolved": 0
       },
       "term": 1950,
@@ -3010,6 +3431,54 @@
     },
     {
       "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1940",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1940,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1939",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1939,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1937",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1937,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
+    },
+    {
+      "base_rates": {
         "cases": 2,
         "dispositions": [],
         "key": "1934",
@@ -3055,12 +3524,28 @@
         "median_days": null,
         "p90_days": null
       }
+    },
+    {
+      "base_rates": {
+        "cases": 1,
+        "dispositions": [],
+        "key": "1930",
+        "open": 1,
+        "resolved": 0
+      },
+      "term": 1930,
+      "timing": {
+        "cases": 0,
+        "mean_days": null,
+        "median_days": null,
+        "p90_days": null
+      }
     }
   ],
   "timing": {
-    "cases": 166,
-    "mean_days": 376.9,
-    "median_days": 351.0,
-    "p90_days": 654.0
+    "cases": 171,
+    "mean_days": 369.4,
+    "median_days": 347.0,
+    "p90_days": 636.0
   }
 }
