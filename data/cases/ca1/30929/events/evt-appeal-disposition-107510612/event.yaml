@@ -1,0 +1,11 @@
+case_id: ca1/30929
+decision_target: disposition
+description: 'CIVIL CASE docketed. Notice of appeal (doc. #24) filed by Appellant
+  Pedro Ortiz-Romero. [19-2084] (AL) [Entered: 11/01/2019 05:38 PM]'
+docket_entry_id: 124191266
+event_id: evt-appeal-disposition-107510612
+kind: appeal
+opened_at: '2019-11-01'
+resolved: false
+schema_version: '1.0'
+title: Ortiz-Romero v. Gov't Development Bank of PR

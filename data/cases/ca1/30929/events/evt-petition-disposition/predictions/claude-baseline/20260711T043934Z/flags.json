@@ -1,0 +1,31 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "ca1/30929",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "The pinned docket entry (124191269) is the court's sua sponte order to show cause whether the PROMESA Title III automatic stay applies to the appeal. The word 'petition' in it refers to the Commonwealth of Puerto Rico's Title III bankruptcy petition, not a party's request for relief, so the keyword extractor created a petition event with no grantable request behind it. The granted/denied vocabulary maps poorly onto its plausible resolutions (show cause discharged / appeal stayed / appeal proceeds); I predicted against the disposition the pipeline's normalizer would actually record.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode cell on a stale record: the snapshot's last docket entry is 2020-03-25, the show-cause responses were due April 2020, and CourtListener's copy of the docket is blocked and has not been modified since 2021-04-17. The appeal almost certainly resolved years ago off-record, but the outcome may never become machine-resolvable from CourtListener, leaving this cell permanently open. I did not retrieve post-event entries for this case, per the never-retrieve-own-outcome rule.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "message": "The CourtListener MCP server failed on every call with 'REDIS_URL is not set; cannot access session store.' (a server-side configuration error), so this cell had no CourtListener retrieval at all. Prediction proceeded on the provisioned snapshot, the statpack, and corpus priors.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "message": "fedcourts query priors for ca1 return rows whose summary/opinion text is mismatched — e.g. ca1/1883 and ca1/4680 (2018-2019 First Circuit dockets) carry nineteenth-century state-court opinion text. The ca1 slice of the corpus appears to have wrong opinion joins; only the disposition labels were usable as priors.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0"
+}

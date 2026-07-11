@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "ca1/30929",
+  "gaps": [
+    "Working ranged-corpus network access",
+    "Working CourtListener MCP session storage"
+  ],
+  "helpful": [
+    "Committed First Circuit base rates in metrics/statpack.md",
+    "Provisioned point-in-time docket snapshot"
+  ],
+  "notes": "Both live retrieval surfaces failed, but the statpack and provisioned record supported a conservative forecast.",
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "CourtListener MCP search (attempted)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

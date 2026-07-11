@@ -1,0 +1,438 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "1951454c43effb45",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "3ed65ea48951aa27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "530590aae2bcc2db",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69641076 -type f | head -50",
+      "result_digest": "9e52dc6729f34f4b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "42241b3f61904343",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69641076/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bdd745e5767606c1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69641076/events/evt-appeal-disposition/event.yaml\"}",
+      "result_digest": "4c2ed38f5bf4e847",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8fb04ad6be077acf",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69641076/record/snapshots/2026-07-11.json\"}",
+      "result_digest": "961f4f960edbb072",
+      "retrieved_doc_date": "2025-02-14",
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "7fb742f90d5e0ca1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "07e530a8c3095a0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "570cc7ca28acabb9",
+      "query": "grep -rn \"appeal\" /home/runner/work/fedcourtsai/fedcourtsai/docs/data-model.md | head -20; echo ---; grep -rn \"granted\" /home/runner/work/fedcourtsai/fedcourtsai/docs/data-model.md | head -20",
+      "result_digest": "560c31fef653d746",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7ee2a524f4d777b9",
+      "query": "sed -n 1,120p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "6a79551610c21e37",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b3ac7cfcc63bdab2",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ | head; echo ---; find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -path '*evt-appeal-disposition*/outcome.json' | head -20",
+      "result_digest": "32fd0ff5d5a1d650",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "66b81f7e0c5c1799",
+      "query": "uv run fedcourts paths --court ca10 --docket 69641076 --event evt-appeal-disposition 2>&1 | head -30",
+      "result_digest": "121abfb46eb26b09",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b3f6a062c93c5b95",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -name outcome.json | head -20; echo ---; find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -maxdepth 4 -name 'evt-*' -type d | sed 's|.*/events/||' | sort | uniq -c",
+      "result_digest": "c808fef32ea24e1a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a1d69fb3057dbaf5",
+      "query": "grep -rn -i \"affirm\\|revers\" /home/runner/work/fedcourtsai/fedcourtsai/src /home/runner/work/fedcourtsai/fedcourtsai/docs | head -30",
+      "result_digest": "74a1775940c7c4f3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "792356342a2c505b",
+      "query": "sed -n 30,120p /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/events.py",
+      "result_digest": "4ea69525b07352f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e840dfc4f49c7e3b",
+      "query": "grep -rln \"Disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/ | head; echo ---; grep -rn \"reversed\\|affirmed\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/outcomes.py 2>/dev/null | head",
+      "result_digest": "488ef5c45225ace6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "edfc4c9fb832282b",
+      "query": "grep -n \"reverse\\|affirm\\|granted\\|denied\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/outcome.py | head -40",
+      "result_digest": "35545369ea25df5b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bf590c93c7ba9155",
+      "query": "sed -n 50,105p /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/outcome.py; echo ===; grep -n \"class Disposition\\|granted\\|denied\\|dismissed\\|other\\|reversed\\|affirmed\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/schemas.py | sed -n 1,40p",
+      "result_digest": "47ea7901fe5f406e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fbb3fddb91af5aef",
+      "query": "grep -n \"affirm\\|revers\\|normalize\\|_DISPOSITION\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/corpus.py | head -20",
+      "result_digest": "25634e8075a52320",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "df8b7fa369355d31",
+      "query": "grep -rn \"Disposition\\.\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/*.py | grep -iv \"import\" | head -30",
+      "result_digest": "6f4c6ac22be91115",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2fa3315d038730fa",
+      "query": "sed -n 265,310p /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ingest.py",
+      "result_digest": "98a4db44677ffacd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "64de0b4fcc598ee5",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -path '*evt-appeal-disposition*' -name 'prediction.json' | head; echo ---; find /home/runner/work/fedcourtsai/fedcourtsai/data/cases -maxdepth 4 -type d -name evt-appeal-disposition",
+      "result_digest": "85c740362d4a9a7f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "288efe6e6900b583",
+      "query": "sed -n 775,800p /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/corpus.py; sed -n 945,960p /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/corpus.py",
+      "result_digest": "869e047af5f58c39",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "12adff4b402885bf",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69566612/events/evt-appeal-disposition/predictions/claude-baseline/20260710T205613Z/prediction.json; echo ===; cat /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69566612/events/evt-appeal-disposition/predictions/claude-baseline/20260710T205613Z/reasoning.md",
+      "result_digest": "bfefe26660cd42b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a4912748aaef3929",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint,mcp__courtlistener__get_more_results",
+      "result_digest": "94993ada374723ca",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "b1b07685d9ffc2f2",
+      "query": "\"Federal Home Loan Bank of Topeka\" Zhang",
+      "result_digest": "2a2ae5147ced726e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "0755a2941f66e5dd",
+      "query": "\"Federal Home Loan Bank of Topeka\" Zhang",
+      "result_digest": "2a2ae5147ced726e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "9cbee7d7dd8c8781",
+      "query": "ls -la /home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json 2>/dev/null && python3 -c \"\nimport json\ncfg=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))\ndef scrub(o):\n    if isinstance(o,dict): return {k:('<set>' if any(s in k.lower() for s in ('token','key','auth','secret')) else scrub(v)) for k,v in o.items()}\n    if isinstance(o,list): return [scrub(x) for x in o]\n    return o\nprint(json.dumps(scrub(cfg),indent=1))\"",
+      "result_digest": "d2179618e3c7379d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "47e65c5570d57e8b",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/search/?type=d&q=%22Federal%20Home%20Loan%20Bank%22%20Zhang\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nprint('count:',d.get('count'))\nfor r in d.get('results',[]):\n    print({k:r.get(k) for k in ('docket_id','docketNumber',",
+      "result_digest": "c1574e64ace9ddc7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4e4ab7a962dbaed1",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=16077204&order_by=recap_sequence_number&page_size=100&fields=entry_number,date_filed,description\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nprint('count:',d.get('count'),'next:',bool(d.get('next')))\nf",
+      "result_digest": "c8217f22d8e8e4e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "450a53194b21149a",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=16077204&order_by=-recap_sequence_number&page_size=60&fields=entry_number,date_filed,description,recap_documents\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nprint('count:',d.get('count'))\nfor r in d.ge",
+      "result_digest": "2cfae7cfc3074482",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b0bbc271a2dabb7a",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=16077204&order_by=-recap_sequence_number&page_size=80&fields=entry_number,date_filed,description,recap_documents&entry_number__lte=159&entry_number__gte=80\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\np",
+      "result_digest": "e17b973afce19e1f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9bc2b1018d474e4d",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"; ); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=16077204&order_by=-recap_sequence_number&page_size=80&fields=entry_number,date_filed,description,recap_documents&entry_number__lte=132&entry_number__gte=60\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)",
+      "result_digest": "44adb00f50a0576c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a6437829cedaea23",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=16077204&order_by=-recap_sequence_number&page_size=100&fields=entry_number,date_filed,description,recap_documents&entry_number__lte=113\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nprint('count:',d.get(",
+      "result_digest": "aa47c48976275e2b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4e67b86b7a970ef3",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/parties/?docket=16077204&fields=name,party_types,attorneys&page_size=20\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nfor r in d.get('results',[]):\n    types=[t.get('name') for t in (r.get('party_types') or [])]\n    attys=[a.g",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "589800b75eb25f27",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/parties/?docket=16077204\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nprint('count:',d.get('count'))\nfor r in d.get('results',[])[:10]:\n    types=[t.get('name') for t in (r.get('party_types') or [])]\n    attys=[(a.get('name')",
+      "result_digest": "ba14de884ebae3de",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "005337fba793814b",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/parties/?docket=16077204\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nres=d.get('results',[])\nprint('n results:',len(res))\nfor r in res[:12]:\n    types=[t.get('name') for t in (r.get('party_types') or [])]\n    attys=[a.get('n",
+      "result_digest": "63669d535443ba05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cc3ec9763e10f522",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=16077204&entry_number=162&fields=entry_number,recap_documents\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nfor r in d.get('results',[]):\n    for doc in r.get('recap_documents',[]):\n        print({k:doc.",
+      "result_digest": "598238ab0f4df3d3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "77b597a120206a15",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/recap-documents/384271162/?fields=plain_text\" | python3 -c \"\nimport json,sys\nt=json.load(sys.stdin)['plain_text']\nprint(t[3000:12000])\"",
+      "result_digest": "4439d0ca8faa0cb2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "334d3e3bebae603c",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/recap-documents/384271162/?fields=plain_text\" | python3 -c \"\nimport json,sys\nt=json.load(sys.stdin)['plain_text']\nprint(t[12000:18700])\"",
+      "result_digest": "398c02c246216777",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6099b37737d37aee",
+      "query": "TOK=$(python3 -c \"import json;print(json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/mcp-servers.json'))['mcpServers']['courtlistener']['env']['COURTLISTENER_API_TOKEN'])\"); curl -s -H \"Authorization: Token $TOK\" \"https://www.courtlistener.com/api/rest/v4/docket-entries/?docket=69641076&date_filed__lt=2025-02-14&order_by=recap_sequence_number&page_size=100&fields=entry_number,date_filed,description,recap_documents\" | python3 -c \"\nimport json,sys\nd=json.load(sys.stdin)\nprint('count:',d.g",
+      "result_digest": "51baf903d36e32e1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4b5789ace1931817",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "91ec3592bde2606d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6a3ef747808469de",
+      "query": "uv run fedcourts query --court ca10 --corpus-backend ranged 2>query_stderr1.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','case_name','docket_number','disposition','date_decided','topic','era')})\"; echo '--- stderr:'; cat query_stderr1.txt",
+      "result_digest": "f5bf9c4600478443",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "954ee4232136d2cd",
+      "query": "uv run fedcourts query --court ca10 --topic \"3442 Civil Rights: Jobs\" --corpus-backend ranged 2>query_stderr2.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','docket_number','disposition','date_decided','topic')})\" ; echo '--- stderr:'; cat query_stderr2.txt",
+      "result_digest": "654317c6bf446cfb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "818bfe0c2771d4fd",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/ca10/69641076/events/evt-appeal-disposition/predictions/claude-baseline/20260711T043934Z",
+      "result_digest": "a7314f540ff2c75b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "31f2e738f82b541e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"ca10/69641076\\\",\\n  \\\"confidence\\\": 0.7,\\n  \\\"created_at\\\": \\\"2026-07-11T04:47:12Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/ca10/69641076/record/snapshots/2026-07-11.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.08,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run_id\\\": ",
+      "result_digest": "5d64f060ee8c9b74",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d1f3bd77c957cde6",
+      "query": "{\"content\": \"# Zhang v. Federal Home Loan Bank of Topeka \\u2014 Tenth Circuit No. 24-3029 (appeal disposition)\\n\\n**Prediction: affirmance (`denied`), P(granted) = 0.08.** In this event's\\nvocabulary I read `granted` as the appellant obtaining relief (reversal or\\nvacatur, in whole or in part) and `denied` as affirmance of the judgment below.\\n\\n## The case\\n\\nQinghua (Josh) Zhang and Steven Craig Heiland, both senior-management-level\\nvice presidents, sued their former employer, the Federal Hom",
+      "result_digest": "b17ca087d98ac8b6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1da07fbab34d0b03",
+      "query": "{\"content\": \"# Retrieval log \\u2014 ca10/69641076 / evt-appeal-disposition / claude-baseline / 20260711T043934Z\\n\\n## Provisioned inputs\\n\\n- `data/cases/ca10/69641076/record/snapshots/2026-07-11.json` (baseline snapshot)\\n- `data/cases/ca10/69641076/events/evt-appeal-disposition/event.yaml`\\n- `data/cases/ca10/69641076/record/context.json` (mode: `forward`)\\n- No `record/documents/` were provisioned for this cell.\\n\\n## Corpus base rates (committed statpack)\\n\\n- Read `metrics/statpack.md` \\u20",
+      "result_digest": "2885d7f015e04a09",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b2a8166d3a636ea0",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca10/69641076\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": \\\"evt-appeal-disposition\\\",\\n      \\\"message\\\": \\\"Cell mode is 'forward' but the snapshot's only docket entry (2025-02-14, 'Case termination for order and judgment') shows the appeal was already decided ~17 months before this run. I treated the cell as a de facto replay: I did not retrieve the order and judgment, the linked opi",
+      "result_digest": "d017c2e66da3f672",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fb4b8a101ee954f0",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"ca10/69641076\\\",\\n  \\\"gaps\\\": [\\n    \\\"A working CourtListener MCP server (the configured one fails at startup with a missing session-store env var; REST fallback works but bypasses harness-side retrieval logging)\\\",\\n    \\\"A leakage-safe appellate-docket view (pre-decision CA10 entries, briefing, panel composition); CourtListener held nothing for this appeal but the termination entry\\\",\\n    \\\"A date-bounded retrieval mode t",
+      "result_digest": "3bb4afeb38f6361d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2e5a5049879d1ecf",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/cases/ca10/69641076",
+      "result_digest": "fbfebab407cc2552",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "79f084b8b7cded5b",
+      "query": "gh issue comment 559 --body \"**claude-baseline / ca10-69641076 / evt-appeal-disposition / run 20260711T043934Z** \u2014 prediction written: **affirmance (\\`denied\\`), P(granted) = 0.08, confidence 0.7**.\n\nZhang & Heiland v. FHLB Topeka (CA10 24-3029): appeal from a defense jury verdict in a Title VII retaliation/discrimination trial (D. Kan. 5:19-cv-04073) plus a denied Rule 59 motion. Every likely issue (unpreserved instruction objection, jury-question answer, Rule 408 exclusion of a severance offer",
+      "result_digest": "9866c7cfe54f034c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "ca10/69641076",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260711T043934Z",
+  "schema_version": "1.0"
+}
