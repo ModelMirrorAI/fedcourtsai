@@ -110,24 +110,32 @@ on your cell's disk: `fedcourts query` (a handful of similar resolved priors, ra
 `fedcourts open-events` read it in place on the remote via ranged reads, and each
 invocation reports its transfer as a `ranged corpus reads: N GET(s), M byte(s)`
 line on stderr — record those lines in `retrieval.md` (below). For aggregate
-disposition **base-rates**, read the committed `metrics/statpack.md` — the
-corpus-wide roll-up (overall, by court, by SCOTUS Term, by originating circuit,
-by era, and the **modern discretionary-cert cut**);
+disposition **base-rates**, read the committed `metrics/statpack.md`;
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
+Its cert statistics are computed over the live/historical slice with
+denial-reweighted counts (each section's scope line says which population it
+describes), so they estimate the true petition population rather than raw
+ingested rows.
 If the `DECIDED_BEFORE` environment variable is set, you are replaying a decided
 case as of a past moment (a back-test): pass `--decided-before "$DECIDED_BEFORE"`
 on every `fedcourts query` call so retrieval surfaces only priors that provably
-precede this case, and weigh base-rates from the case's own era rather than
-later ones.
+precede this case — and in the statpack, anchor **only on Term rows strictly
+preceding your clock** (the per-Term table exists for exactly this
+self-selection; later Terms post-date what you are allowed to know).
 For a modern cert petition, anchor on the **"Modern discretionary-cert petitions
 by disposition"** section — it is restricted to Term-prefixed cert dockets, so
 its grant/deny split is not diluted by historical merits-era labels (the overall
 base rate blends both and reads mostly `other`). The cert grant rate is low (a
-few percent). For a historical case, the era breakdown base-rates it against its
-own period. Recent Terms and the case's originating circuit remain the most
-relevant modern cuts; weigh them against this case's specifics rather than
-adopting them wholesale. Each `query` prior carries its caption, dates, and
-derived `era`, and `--era` restricts retrieval to the case's own period. See
+few percent). Then adjust from the signal cuts sitting beside it: **relist
+count** (repeated conference distributions are the classic pre-grant signal),
+**CVSG status** (the Court invited the Solicitor General's views), the
+**originating circuit**, and the per-Term table's fee-class detail (paid vs
+IFP filings — IFP petitions grant far more rarely; the per-fee-class rates
+themselves ride in `statpack.json` if you need them). Each cut's buckets carry
+the same base-rate breakdown, so read this case's bucket against the anchor. For a historical case, the era breakdown base-rates it against its
+own period. Weigh every cut against this case's specifics rather than adopting
+it wholesale. Each `query` prior carries its caption, dates, and derived
+`era`, and `--era` restricts retrieval to the case's own period. See
 `docs/cli.md`.
 
 ## Outputs (your two files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)

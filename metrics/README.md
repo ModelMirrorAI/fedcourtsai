@@ -49,19 +49,39 @@ stratum is evidence of forecasting skill, so no headline metric may mix them.
   replay; the report names what it skips. `fedcourts cert-backtest` remains
   runnable locally with the engine CLIs authenticated.
 - `statpack.json` / `statpack.md` — a corpus base-rate **statpack** (an independent
-  published artifact): headline case counts and the overall disposition base rate,
-  plus curated breakdowns — cases by court; SCOTUS petitions by Term, by
-  nature-of-suit topic, by originating circuit, and by decade era; and the
-  **modern discretionary-cert cut** (Term-prefixed cert dockets only — the
-  calibration anchor for cert predictions, undiluted by merits-era labels). The `statpack` DVC stage produces both the machine JSON and a
-  rendered Markdown document by running `fedcourts statpack`, a deterministic, offline
-  roll-up of the corpus — empty (zero counts, empty sections) until a corpus is present.
+  published artifact), two populations side by side. The labeled full-corpus
+  overview (cases by court, SCOTUS by decade era — the frozen bulk import
+  included) gives composition context. The **live/historical-slice cert
+  statistics** are what predictor and evaluator cells anchor on: disposition
+  base rates computed over rows the supremecourt.gov channel wrote, each row
+  counted `sample_weight` times so the historical walker's denial sampling
+  does not bias them — the **modern discretionary-cert cut** (the calibration
+  anchor, undiluted by merits-era labels), grant/deny by originating circuit,
+  by relist count, and by CVSG status, plus a by-originating-court reader
+  table that names state courts. A coverage block states the pack's own
+  denominators, and the per-Term array carries each October Term's
+  cursor-derived filings census by fee class (paid/IFP), walk-complete flags,
+  weighted estimates, grants, and pace-to-grant — the surface a time-masked
+  replay cell self-selects pre-cutoff Terms from. The `statpack` DVC stage
+  produces both the machine JSON and a rendered Markdown document by running
+  `fedcourts statpack`, a deterministic, offline roll-up of the corpus — empty
+  (zero counts, empty sections) until a corpus is present.
 
 These files are deterministic, offline roll-ups that start empty (zero counts)
 until their input lands — the evaluations ledger for the leaderboard, a corpus
 with outcome labels for the back-test and statpack. All are small and worth reading
 in a diff, so they are git-tracked rather than pushed to the DVC remote like the
 corpus blob.
+
+**Statpack directions not built.** The published stat packs
+(SCOTUSblog / Empirical SCOTUS) carry whole families of statistics this
+project's docket-first corpus cannot compute yet, kept here as named
+directions rather than silent gaps: justice-level statistics (frequency in
+the majority, agreement matrices, opinion authorship — need per-justice vote
+data, e.g. a Supreme Court Database import), amicus-brief counts per petition
+(need docket-entry parsing beyond the proceedings), oral-argument statistics
+(need transcript data), and a merits circuit scorecard (affirm/reverse by
+court below — needs judgment-entry parsing on decided merits cases).
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`) are **iteration

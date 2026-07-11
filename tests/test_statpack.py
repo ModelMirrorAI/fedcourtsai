@@ -396,14 +396,15 @@ def test_build_statpack_is_deterministic(fixture_corpus: FixtureCorpus) -> None:
 
 
 def test_committed_statpack_still_parses() -> None:
-    # The additive model must keep reading the committed artifact until the
-    # weekly metrics refresh regenerates it — the schema-migration guard.
+    # The committed artifact must always validate under the current model — a
+    # model change that orphans it would strand every consumer (agent cells,
+    # ops) until the next metrics refresh. Shape-agnostic on purpose: the
+    # artifact regenerates on its own cadence, so this pins parseability, not
+    # which vintage of the pack is committed (asserting pre-enrichment defaults
+    # here would redden the exact refresh PR that fills them).
     committed = Path(__file__).resolve().parents[1] / "metrics" / "statpack.json"
     pack = StatPack.model_validate_json(committed.read_text())
     assert pack.corpus_rows > 0
-    # Pre-enrichment fields default cleanly.
-    assert pack.coverage.census_filings is None
-    assert all(t.classes == [] for t in pack.terms)
 
 
 def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> None:
