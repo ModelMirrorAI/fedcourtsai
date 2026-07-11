@@ -33,18 +33,29 @@ CODEX_CONFIG_FILENAME = "config.toml"
 GEMINI_SETTINGS_FILENAME = "settings.json"
 
 
-# WORKAROUND for a packaging bug in courtlistener-api-client 1.0.0 (its only
-# release): `create_mcp_server()` reads bundled icon files from
-# `courtlistener/mcp/assets/`, but neither the wheel nor the sdist ships that
-# directory, so the `courtlistener-mcp` entry point crashes on startup with
-# FileNotFoundError — on every engine ("MCP issues detected" in Gemini,
-# silently zero MCP tools in Claude/Codex). Until upstream ships the assets,
-# launch the pinned package through `python -c` with a shim that writes
-# placeholder icon bytes (they are only base64-embedded into the server's
-# icon metadata) before calling the same `main()`. The shim is keyed to the
-# exact broken release, so bumping the manifest pin self-retires it back to
-# the plain entry point — delete this block once a fixed release is pinned.
+# WORKAROUND for two bugs in courtlistener-api-client 1.0.0 (its only
+# release), both keyed to the exact broken release so bumping the manifest pin
+# self-retires the shim back to the plain entry point — delete this block once
+# a fixed release is pinned.
+#
+# 1. Missing assets: `create_mcp_server()` reads bundled icon files from
+#    `courtlistener/mcp/assets/`, but neither the wheel nor the sdist ships
+#    that directory, so the `courtlistener-mcp` entry point crashes on startup
+#    with FileNotFoundError — on every engine ("MCP issues detected" in
+#    Gemini, silently zero MCP tools in Claude/Codex). The shim writes
+#    placeholder icon bytes (they are only base64-embedded into the server's
+#    icon metadata) before calling the same `main()`.
+# 2. Redis-only session store: the `search` and `call_endpoint` tools
+#    unconditionally store pagination state (the query_id resume mechanism)
+#    through `tools.utils.get_redis()`, which raises "REDIS_URL is not set;
+#    cannot access session store." when no Redis is configured. HTTP mode
+#    requires REDIS_URL at startup, but stdio mode — what the cells use —
+#    starts cleanly and then fails on every retrieval call. The shim pre-seeds
+#    the module-level client with an in-process fakeredis instance
+#    (`--with` below), which is the right scope for a single-cell stdio
+#    session: the store only ever holds this one session's resume state.
 _BROKEN_COURTLISTENER_RELEASE = "courtlistener-api-client[mcp]==1.0.0"
+_COURTLISTENER_FAKEREDIS_PIN = "fakeredis==2.36.2"
 _COURTLISTENER_MCP_SHIM = (
     "import pathlib\n"
     "import courtlistener.mcp\n"
@@ -58,6 +69,9 @@ _COURTLISTENER_MCP_SHIM = (
     "    path = assets / name\n"
     "    if not path.exists():\n"
     "        path.write_bytes(blob)\n"
+    "import courtlistener.mcp.tools.utils as utils\n"
+    "import fakeredis.aioredis\n"
+    "utils.redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)\n"
     "from courtlistener.mcp.server import main\n"
     "main()\n"
 )
@@ -71,8 +85,20 @@ def _launch(server: McpServerConfig) -> tuple[str, list[str], dict[str, str]]:
         if token:
             env[server.token_env] = token
     if server.package == _BROKEN_COURTLISTENER_RELEASE:
-        # The missing-assets workaround above; same pinned package, same env.
-        return "uvx", ["--from", server.package, "python", "-c", _COURTLISTENER_MCP_SHIM], env
+        # The two-bug workaround above; same pinned package, same env.
+        return (
+            "uvx",
+            [
+                "--with",
+                _COURTLISTENER_FAKEREDIS_PIN,
+                "--from",
+                server.package,
+                "python",
+                "-c",
+                _COURTLISTENER_MCP_SHIM,
+            ],
+            env,
+        )
     return "uvx", ["--from", server.package, server.command], env
 
 

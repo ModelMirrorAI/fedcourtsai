@@ -23,10 +23,13 @@ mcp_servers:
   - id: courtlistener
     # The official Free Law Project server, local-install stdio mode (the hosted
     # endpoint's OAuth flow does not fit headless CI). Launched via
-    # `uvx --from '<package>'`; exact-version pinned. This release ships
-    # without its icon assets and crashes at startup, so `fedcourtsai.mcp`
-    # launches it through a missing-assets shim keyed to this exact pin —
-    # bumping the pin to a fixed release self-retires the shim.
+    # `uvx --from '<package>'`; exact-version pinned. This release has two
+    # stdio-mode bugs — it ships without its icon assets (crashes at startup),
+    # and its search/call_endpoint tools demand a Redis session store stdio
+    # mode never configures (every call fails with "REDIS_URL is not set") —
+    # so `fedcourtsai.mcp` launches it through a shim keyed to this exact pin
+    # that writes placeholder assets and pre-seeds an in-process fakeredis
+    # store. Bumping the pin to a fixed release self-retires the shim.
     package: "courtlistener-api-client[mcp]==1.0.0"
     command: courtlistener-mcp
     # The CourtListener API token (repo secret COURTLISTENER_API_TOKEN, wired

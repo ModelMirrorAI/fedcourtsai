@@ -53,8 +53,11 @@ def test_claude_config_pins_uvx_launch_and_injects_token(
     doc = json.loads(claude_mcp_config([_SERVER]))
     server = doc["mcpServers"]["courtlistener"]
     assert server["command"] == "uvx"
-    # The missing-assets shim: same pinned package, launched through python -c.
-    assert server["args"][:4] == [
+    # The broken-release shim: same pinned package, launched through python -c,
+    # with an exact-pinned fakeredis for the in-process session store.
+    assert server["args"][:6] == [
+        "--with",
+        "fakeredis==2.36.2",
         "--from",
         "courtlistener-api-client[mcp]==1.0.0",
         "python",
@@ -62,17 +65,24 @@ def test_claude_config_pins_uvx_launch_and_injects_token(
     ]
     # Exact equality: the constant is the ONLY thing in the -c slot, so any
     # future interpolation into the payload fails here.
-    assert server["args"][4] == _COURTLISTENER_MCP_SHIM
+    assert server["args"][6] == _COURTLISTENER_MCP_SHIM
     assert server["env"] == {"COURTLISTENER_API_TOKEN": "tok-agent"}
 
 
-def test_courtlistener_shim_writes_the_missing_assets_then_starts_main() -> None:
-    # courtlistener-api-client 1.0.0 ships no mcp/assets directory, so the
-    # upstream entry point crashes at startup; the shim must create the icon
-    # files the server reads before handing over to the same main().
+def test_courtlistener_shim_works_around_both_release_bugs() -> None:
+    # courtlistener-api-client 1.0.0 ships no mcp/assets directory (the entry
+    # point crashes at startup) and its search/call_endpoint tools require a
+    # Redis session store that stdio mode never configures (every retrieval
+    # call fails with "REDIS_URL is not set"). The shim must create the icon
+    # files and pre-seed the module-level redis client with fakeredis before
+    # handing over to the same main().
     shim = _COURTLISTENER_MCP_SHIM
     assert "favicon.svg" in shim
     assert "apple-touch-icon.png" in shim
+    # The fakeredis pre-seed must land on the module global get_redis() reads,
+    # and must come before the server starts.
+    assert "utils.redis_client = fakeredis.aioredis.FakeRedis(decode_responses=True)" in shim
+    assert shim.index("redis_client") < shim.index("from courtlistener.mcp.server import main")
     assert shim.rstrip().endswith("main()")
     compile(shim, "<shim>", "exec")  # stays valid python
 
