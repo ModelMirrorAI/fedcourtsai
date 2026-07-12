@@ -15,17 +15,20 @@ stage.
 | _(none)_        | `integration-corpus` | manual dispatch                 | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
-operational analytics — pipeline health (the Actions run history), **substance**
+operational analytics, consolidated so it reads as a summary — pipeline health
+(the Actions run history, dormant workflows folded into one line), **substance**
 (is the machine producing: scored cells by stratum with deltas against the
 week-old snapshot when one exists — else the newest,
 replay calibration vs the modern-cert deny base rate with the sample size beside
 every number, per-predictor evaluation-score distributions, and live-frontier
-readiness — each rendered as an explicit absence until its feed exists), spend
-(the `usage.json` ledger + Actions minutes from run durations), open agent flags
-(the committed `flags.json` files, so agent-surfaced feedback is visible beyond
-the run PR that produced it), and **open trigger issues** (still-open `run:*`
-fan-out triggers = stalled runs, oldest first, so an orphaned issue never sits
-invisible) — rendered by `fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
+readiness — each sub-block shown only once its feed exists), **spend & cost**
+(the `usage.json` ledger + Actions minutes from run durations), **agent signals**
+(the committed `flags.json` / `tooling.json` and evaluator leakage gradings,
+scoped to a recent window so old, fixed flags age out of the summary — the
+`agent-feedback` issue and the raw ledger still keep every flag), and **open
+trigger issues** (still-open `run:*` fan-out triggers = stalled runs, oldest
+first, so an orphaned issue never sits invisible) — rendered by
+`fedcourts ops-report`. It surfaces the current view in one long-lived "Ops
 dashboard" issue and appends each JSON snapshot to a dedicated **`ops-metrics`
 branch** (an orphan time-series that never merges to `main`, so the default
 branch stays clean and a prior snapshot backs the substance deltas). On the
