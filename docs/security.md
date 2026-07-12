@@ -207,10 +207,12 @@ for the read-only role:** the cell path needs only `s3:GetObject` /
 never lists). Splitting that narrower policy out (cells on the narrowed role,
 full-pull consumers on the current one) is a maintainer-side IAM change,
 recorded here as the target. **Caveat (corpus split) — the narrowing and the
-cutover flag are in tension and must be sequenced.** The `casestore` provisioning
-backend *does* list (`s3:ListBucket`, and only `provision-snapshot`'s
-`latest_snapshot` needs it — `materialize-event`'s event/document reads are
-`GetObject`-only). The concrete production lever is now
+cutover flag are in tension and must be sequenced.** The `casestore` read path *does* list
+(`s3:ListBucket`): any latest-snapshot-style read under the split mode lists a
+case's `snapshots/` to find the newest — `provision-snapshot`, and under
+`FEDCOURTS_CORPUS_SPLIT` also the writer's own change-detection and the signal
+backfill. Pure `GetObject` reads (`materialize-event`'s event/document reads,
+document leaves) do not list. The concrete production lever is now
 **`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`): setting it on the
 `runner` environment flips the *entire* forward predict/evaluate fleet onto the
 casestore path at once, and it **overrides** the env-configured `ranged` backend

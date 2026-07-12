@@ -1362,9 +1362,10 @@ def build_index_cmd(
     (including the `has_opinion` presence bit) and the schema. Result-identical for
     the bulk consumers `statpack`/`backtest`/`query` — proven byte-identical by the
     parity gate. Under the corpus-split mode the signal readers are served too: scope
-    reconcile / `validate` key on the retained `has_opinion` bit rather than the
-    body, and `cert-backtest` reads snapshots from the content store via the payload
-    read source. This is a one-shot utility — under the split mode the writer already
+    reconcile / `validate` key on the retained `has_opinion` bit rather than the body,
+    and the snapshot readers (scope reconcile's bare-import rule and `cert-backtest`)
+    read from the content store via the payload read source. This is a one-shot
+    utility — under the split mode the writer already
     produces a payload-free blob, so no per-run build-index is needed.
     """
     settings = get_settings()

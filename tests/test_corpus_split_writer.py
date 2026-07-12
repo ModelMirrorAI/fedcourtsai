@@ -11,6 +11,7 @@ same seam. These tests prove the flip is lossless and that the store round-trips
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import date
 from pathlib import Path
 
@@ -115,6 +116,34 @@ def test_split_writer_matches_build_index_and_populates_store(
     bodies = [json.loads(on_store.objects[k]) for k in on_store.objects if k.endswith("/case.json")]
     assert bodies  # at least one case mirrored
     assert any(b.get("opinion_text") for b in bodies)  # the body is in the store, not the blob
+
+
+def test_build_index_backfills_has_opinion_on_a_legacy_blob(tmp_path: Path) -> None:
+    """Stripping a blob that predates the `has_opinion` column must preserve the
+    presence signal — `build-index` adds the column and sets it from the body before
+    NULLing it, so a legacy strip never silently reclassifies opinion-bearing cases."""
+    legacy = tmp_path / "legacy.db"
+    with corpus.connect(legacy) as conn:
+        corpus.upsert_rows(
+            conn, [_row("scotus/1003943", opinion_text="Affirmed."), _row("scotus/2")]
+        )
+    # Simulate a blob that predates the column: drop it back out, full schema otherwise.
+    raw = sqlite3.connect(legacy)
+    raw.execute("ALTER TABLE cases DROP COLUMN has_opinion")
+    raw.commit()
+    raw.close()
+    assert "has_opinion" not in {
+        r[1] for r in sqlite3.connect(legacy).execute("PRAGMA table_info(cases)")
+    }
+
+    index = tmp_path / "index.db"
+    build_index(legacy, index)
+
+    with corpus.connect(index) as out:
+        opinion = corpus.get_row(out, "scotus/1003943")
+        plain = corpus.get_row(out, "scotus/2")
+    assert opinion is not None and opinion.has_opinion is True and opinion.opinion_text is None
+    assert plain is not None and plain.has_opinion is False
 
 
 def test_split_reads_route_to_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

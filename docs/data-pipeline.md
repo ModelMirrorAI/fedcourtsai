@@ -295,10 +295,11 @@ payloads that move to the content store) — keeping every other column (includi
 **parity gate** (`tests/test_corpus_index.py`) proves the **bulk consumers**
 `statpack` / `backtest` / `query` produce byte-identical output from the index and
 the full blob, so those consumers can read the index unchanged. (The signal readers
-that keyed on a stripped field — scope reconcile / `validate` on `opinion_text`, and
-`cert-backtest` on `snapshots` — are handled by the phase-4 cutover switch below: a
-retained `has_opinion` presence bit for the first, and the payload read source for
-the second. See *The cutover switch* below.)
+that keyed on a stripped field — scope reconcile and `validate` on `opinion_text`,
+scope reconcile's bare-import rule and `cert-backtest` on `snapshots` — are handled
+by the phase-4 cutover switch below: a retained `has_opinion` presence bit for the
+opinion signal, and the payload read source for the snapshot reads. See *The cutover
+switch* below.)
 
 **Reading the store back.** The predict/evaluate **provisioning** commands can now
 source a cell's `record/` (the point-in-time snapshot, its documents, and the
@@ -335,8 +336,11 @@ never leave SQLite). A parity gate (`tests/test_corpus_split_writer.py`) proves 
 split blob equals the legacy blob run through `build-index`, table for table, with
 the payloads all in the store. Scope reconcile / `validate` read the retained
 `has_opinion` bit; `validate`'s blob-snapshot checks are vacuous under the mode
-(payload integrity is the store's write-once discipline). So flipping the flag both
-reads from and stops growing the blob. The mode needs the store populated
+(payload integrity is the store's write-once discipline). One reader is not yet
+routed: `query --full` / `--include-opinion` reads the opinion body from the `cases`
+column, which is empty under the mode — a documented follow-up; the default
+opinion-popped `query` output the parity gate covers is unaffected. So flipping the
+flag both reads from and stops growing the blob. The mode needs the store populated
 (`CASESTORE_URL` set);
 it is meant to be turned on at the clean-slate cutover, not incrementally. Turning
 it on is also an IAM precondition, not just an env change: it redirects cells onto

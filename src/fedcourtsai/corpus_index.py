@@ -22,9 +22,9 @@ NULLed and tables emptied, never dropped), so read code does not error on the in
 consumers** — ``statpack``, ``backtest``, and ``query`` — which the parity gate in
 ``tests/test_corpus_index.py`` proves byte-for-byte. The signal readers that keyed
 on a stripped field are handled by phase 4: scope reconcile / ``validate`` read the
-retained ``cases.has_opinion`` presence bit instead of the ``opinion_text`` body,
-and ``cert-backtest`` replay (which needs the snapshot payload) reads it from the
-content store through the payload read source (:func:`fedcourtsai.corpus`
+retained ``cases.has_opinion`` presence bit instead of the ``opinion_text`` body, and
+the snapshot readers (scope reconcile's bare-import rule and ``cert-backtest`` replay)
+read from the content store through the payload read source (:func:`fedcourtsai.corpus`
 ``_payload_read_source``) under the corpus-split mode.
 
 Under the split mode the writer already produces a payload-free blob directly, so
@@ -83,6 +83,15 @@ def build_index(src: Path, dst: Path) -> IndexStats:
         ).fetchone()[0]
         conn.execute("DELETE FROM snapshots")
         conn.execute("DELETE FROM documents")
+        # Preserve the opinion-presence signal before the body is stripped. A legacy
+        # blob predates the `has_opinion` column entirely, so add it first; then set
+        # it from the body for every case that still carries one. Idempotent on a
+        # blob the split writer already wrote (its bodies are already NULL, so this
+        # matches nothing and leaves the stored bits intact).
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(cases)")}
+        if "has_opinion" not in columns:
+            conn.execute("ALTER TABLE cases ADD COLUMN has_opinion INTEGER NOT NULL DEFAULT 0")
+        conn.execute("UPDATE cases SET has_opinion = 1 WHERE opinion_text IS NOT NULL")
         conn.execute("UPDATE cases SET opinion_text = NULL")
         conn.commit()
         conn.execute("VACUUM")  # reclaim the freed pages (must run outside a transaction)
