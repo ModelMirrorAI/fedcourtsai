@@ -1,0 +1,11 @@
+case_id: scotus/71573389
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-11-13'
+resolved: true
+schema_version: '1.0'
+title: Kaley Chiles, Petitioner v. Patty Salazar, in Her Official Capacity as Executive
+  Director of the Colorado Department of Regulatory Agencies, et al.

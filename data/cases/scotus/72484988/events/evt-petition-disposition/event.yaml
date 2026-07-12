@@ -1,0 +1,11 @@
+case_id: scotus/72484988
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-11-21'
+resolved: true
+schema_version: '1.0'
+title: Mary Dawes, Individually and as Administrator of the Estate of Decedent Genevive
+  A. Dawes, et al., Petitioners v. City of Dallas, Texas, et al.

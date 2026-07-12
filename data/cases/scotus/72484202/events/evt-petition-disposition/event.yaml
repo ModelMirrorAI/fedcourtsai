@@ -1,0 +1,11 @@
+case_id: scotus/72484202
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-10-31'
+resolved: true
+schema_version: '1.0'
+title: Gulf Coast Racing, L.L.C., et al., Petitioners v. Horseracing Integrity and
+  Safety Authority, Inc., et al.

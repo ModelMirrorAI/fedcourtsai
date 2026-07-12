@@ -1,0 +1,12 @@
+case_id: scotus/72487176
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-07-29'
+resolved: true
+schema_version: '1.0'
+title: William Crouch, in His Official Capacity as Cabinet Secretary of the West Virginia
+  Department of Health and Human Resources, et al., Petitioners v. Shauntae Anderson,
+  Individually and on Behalf of All Others Similarly Situated

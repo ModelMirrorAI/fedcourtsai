@@ -1,0 +1,11 @@
+case_id: scotus/72010643
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-12-06'
+resolved: true
+schema_version: '1.0'
+title: National Republican Senatorial Committee, et al., Petitioners v. Federal Election
+  Commission, et al.
