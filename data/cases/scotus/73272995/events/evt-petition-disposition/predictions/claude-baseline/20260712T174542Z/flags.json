@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73272995",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Cell is forward-mode and event.yaml says resolved: false, but the provisioned snapshot (record/snapshots/2026-07-12.json) already carries the effective final outcome: IFP denied Oct 6 2025 with a Rule 38(a)/33.1 compliance deadline of Oct 27 2025, no compliant refiling, and a final 'Case considered closed' entry on Jan 15 2026. The closure language carries no machine-readable cert-disposition signal (cert_signals patterns match neither 'forma pauperis is denied' nor 'Case considered closed'), which is presumably why the event stayed open and was provisioned for prediction. The event should be resolved with a recorded outcome rather than predicted; this cell's prediction is determined by the provisioned baseline itself and carries no forward signal. Same pattern as scotus/73272979 in run 20260712T114712Z — fee-default/Rule 39 closures may need their own termination signal in the outcome former.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Outcome-knowledge disclosure per the predict-as-if-undecided rule: I encountered the effective disposition in the provisioned snapshot itself, not via retrieval (no MCP/REST/web lookups were made about this case). reasoning.md separately reasons from the pre-decision record, and those signals (pro se IFP filing, non-legal conspiracy QP naming the lower courts as respondents, zero IFP grants in the Term-2025 slice) independently compel the same non-grant call, but the evaluation should discount this cell.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260712T174542Z",
+  "schema_version": "1.0"
+}
