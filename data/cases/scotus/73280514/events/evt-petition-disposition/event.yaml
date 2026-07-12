@@ -1,0 +1,11 @@
+case_id: scotus/73280514
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-10-09'
+resolved: true
+schema_version: '1.0'
+title: Dmt MacTruong, Petitioner v. Donald J. Trump, President of the United States,
+  et al.
