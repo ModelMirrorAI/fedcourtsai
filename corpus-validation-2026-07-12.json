@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4305562,
+      "checked": 4305633,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2199,
+      "checked": 2270,
       "detail": "as of 2026-07-12",
       "failures": 0,
       "name": "snapshot_not_future_dated",
@@ -70,7 +70,7 @@
       "problems": []
     },
     {
-      "checked": 4305562,
+      "checked": 4305633,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -78,7 +78,7 @@
       "problems": []
     },
     {
-      "checked": 903,
+      "checked": 946,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
