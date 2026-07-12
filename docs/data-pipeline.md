@@ -259,6 +259,25 @@ point: the channels differ on *source* and *budget*, not on how a fact is shaped
 or stored. The reasoning stays readable text in git because that diff is the
 explainability trail a reviewer actually reads.
 
+#### Corpus split (in progress): a browsable per-case content store
+
+The single ~1 GB SQLite blob commingles tiny, mutated-every-run metadata with
+huge, write-once bulk payloads (dated snapshots, extracted document text). Because
+DVC content-addresses the *whole* file and a writer re-pushes it every run, the
+remote accumulates a fresh ~1 GB object per run regardless of how few cases
+changed. The corpus is being split so bulk payloads move to **browsable,
+write-once per-case objects** in the same access-gated S3 bucket, keyed to mirror
+the git ledger's `data/cases/<court>/<docket>/` shape, while a small rebuildable
+index keeps serving bulk scans — so only *changed* cases upload and storage scales
+with case churn, not run count. This lands per-case objects **behind a
+pointer in the index, never as git tree entries**, so the "pack, don't
+proliferate" rule still holds (git never sees them). `fedcourtsai.casestore` is
+the phase-1 writer for that store (write-once discipline: document text leaves are
+content-addressed, dated snapshots immutable per day, small manifests versioned).
+It is **dormant** — gated on `FEDCOURTS_CASESTORE_URL` (unset by default) and not
+yet called by any writer or read by any consumer — so the migration is inert and
+reversible until later phases wire dual-write and flip readers over.
+
 ### Credentials for the DVC remote
 
 The DVC remote is a **private S3 bucket** the maintainer provisions out of band.
