@@ -420,6 +420,10 @@ def _within_window(run_id: str, generated_at: str, window_days: int) -> bool:
     gen_dt = _parse_iso(generated_at)
     if run_dt is None or gen_dt is None:
         return True
+    # run_dt is always UTC-aware; a hand-passed naive `generated_at` would otherwise
+    # crash the aware/naive comparison, so treat a bare timestamp as UTC.
+    if gen_dt.tzinfo is None:
+        gen_dt = gen_dt.replace(tzinfo=UTC)
     return run_dt >= gen_dt - timedelta(days=window_days)
 
 

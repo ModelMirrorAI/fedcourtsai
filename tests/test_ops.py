@@ -376,6 +376,41 @@ def test_summarize_flags_windows_out_old_flags_but_keeps_them_archived() -> None
     assert [fs.run_id for fs in digest.recent] == ["20260201T000000Z"]
 
 
+def test_summarize_flags_tolerates_naive_generated_at_and_unparseable_run_id() -> None:
+    older = _flags(
+        "20260101T000000Z",
+        AgentFlag(category=FlagCategory.scope, severity=FlagSeverity.info, message="old"),
+    )
+    newer = _flags(
+        "20260201T000000Z",
+        AgentFlag(category=FlagCategory.data_quality, severity=FlagSeverity.warning, message="odd"),
+    )
+    # An unparseable run id counts as in-window (surfaced, not silently dropped).
+    weird = _flags(
+        "not-a-timestamp",
+        AgentFlag(category=FlagCategory.other, severity=FlagSeverity.info, message="?"),
+    )
+    # A hand-passed *naive* generated_at (no offset) must not crash; treated as UTC.
+    digest = ops.summarize_flags([older, newer, weird], generated_at="2026-02-05T00:00:00")
+    # `newer` (4d) and the unparseable cell are in the 14-day window; `older` (35d) is not.
+    assert (digest.total, digest.cells) == (2, 2)
+    assert digest.archived == 1
+    assert {fs.run_id for fs in digest.recent} == {"20260201T000000Z", "not-a-timestamp"}
+
+
+def test_render_flags_digest_empty_in_window_notes_archived_older() -> None:
+    old = _flags(
+        "20260101T000000Z",
+        AgentFlag(category=FlagCategory.scope, severity=FlagSeverity.info, message="old"),
+    )
+    # Generated months later: nothing is in-window, but the old flag is counted archived.
+    md = ops.render_flags_digest(
+        ops.summarize_flags([old], generated_at="2026-06-01T00:00:00+00:00")
+    )
+    assert "_No flags in the last 14d._" in md
+    assert "1 older flag(s) archived in the ledger." in md
+
+
 def test_summarize_flags_empty_is_all_zero() -> None:
     digest = ops.summarize_flags([], generated_at="2026-02-05T00:00:00+00:00")
     assert (digest.total, digest.cells, digest.recent) == (0, 0, [])
