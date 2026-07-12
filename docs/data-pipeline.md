@@ -313,6 +313,21 @@ production predict/evaluate jobs still provision from the `ranged` corpus. (The
 the store or the index by default** — the migration stays reversible until a later
 phase flips the default over.
 
+**The cutover switch (phase 4, off by default).** `FEDCOURTS_CORPUS_SPLIT`
+(`Settings.corpus_split`) is the one mode flag that moves the go-forward system onto
+the store. This phase wires the **read** side: with the mode on, the forward-cell
+provisioners (`provision-snapshot` / `materialize-event`) default to
+`--corpus-backend casestore` — so a cutover flips the whole predict/evaluate fleet
+with one setting instead of threading `casestore` onto every cell command; an
+explicit `--corpus-backend` still wins, and with the mode off nothing changes. A
+later step wires the **write** side (the writer stops putting payloads in the blob so
+`corpus.db` collapses to the small index) so that flipping the flag both reads from
+and stops growing the blob. The mode needs the store populated (`CASESTORE_URL` set);
+it is meant to be turned on at the clean-slate cutover, not incrementally. Turning
+it on is also an IAM precondition, not just an env change: it redirects cells onto
+the casestore read path, which lists (`s3:ListBucket`) — see the corpus-split caveat
+in [security.md](security.md) for the ordering the read-only role must satisfy first.
+
 ### Credentials for the DVC remote
 
 The DVC remote is a **private S3 bucket** the maintainer provisions out of band.

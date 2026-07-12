@@ -1088,6 +1088,24 @@ def _casestore_source() -> provision.CasestoreSource:
         raise typer.Exit(code=2) from exc
 
 
+def _provision_backend(value: str) -> corpus.CorpusBackend:
+    """The effective backend for a forward-cell provisioning read.
+
+    An explicit ``--corpus-backend`` always wins. Otherwise, with the corpus-split
+    mode on (:attr:`Settings.corpus_split`), the forward provisioners read the
+    per-case content store *by default* — so a cutover flips the whole fleet with
+    one setting rather than threading ``casestore`` onto every cell command. With
+    the mode off it falls back to the ordinary corpus-backend setting (``local`` /
+    ``ranged``), i.e. today's behavior.
+    """
+    override = _corpus_backend(value, allow_casestore=True)
+    if override is not None:
+        return override
+    if get_settings().corpus_split:
+        return "casestore"
+    return corpus.resolve_backend(None)
+
+
 def _echo_read_stats(conn: corpus.ReadConnection) -> None:
     """Report a ranged connection's transfer counters to stderr.
 
@@ -1634,10 +1652,11 @@ def provision_snapshot(
     Point-in-time snapshots are raw facts that live in the packed corpus, not
     git. The predict/evaluate workflows call this to read the most
     recent dated snapshot for the case out of the corpus — the ``dvc pull``-ed
-    file, or the blob in place on the remote with ``--corpus-backend ranged`` —
-    and write it where the agent reads it (a gitignored ``record/`` path, never
-    committed). Any stored filed-document text (petition, questions presented,
-    brief in opposition — fetched pipeline-side by the live poller) is
+    file, or the blob in place on the remote with ``--corpus-backend ranged``, or
+    the per-case content store (``--corpus-backend casestore``, the default under
+    the corpus-split mode) — and write it where the agent reads it (a gitignored
+    ``record/`` path, never committed). Any stored filed-document text (petition,
+    questions presented, brief in opposition — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. Exits non-zero if the corpus holds no snapshot for the case.
@@ -1645,8 +1664,8 @@ def provision_snapshot(
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
-    backend = _corpus_backend(corpus_backend, allow_casestore=True)
-    if corpus.resolve_backend(backend) == "casestore":
+    backend = _provision_backend(corpus_backend)
+    if backend == "casestore":
         source = _casestore_source()
         found = source.latest_snapshot(case)
         documents = source.documents_for_case(case)
@@ -1835,12 +1854,13 @@ def materialize_event(
     corpus remote. The predict/evaluate cells call this to project the corpus event
     row into the committed git ledger; like their other corpus reads it honors the
     configured read backend, so a ranged cell queries the remote blob in place (a
-    local-only open would silently create an empty corpus and find no events).
+    local-only open would silently create an empty corpus and find no events) and,
+    under the corpus-split mode, it reads the per-case content store by default.
     Exits non-zero if the corpus holds no such event for the case.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_casestore=True))
+    backend = _provision_backend(corpus_backend)
     case = ids.case_id(court, docket)
     if backend == "casestore":
         match = next(

@@ -16,7 +16,7 @@ from moto import mock_aws
 from typer.testing import CliRunner
 
 from fedcourtsai import casestore, corpus, provision
-from fedcourtsai.cli import app
+from fedcourtsai.cli import _provision_backend, app
 from fedcourtsai.fixture import build_fixture_corpus
 
 runner = CliRunner()
@@ -109,6 +109,51 @@ def test_provision_record_is_byte_identical(
     casestore_tree = provision_record("casestore", tmp_path / "cs")
     assert blob_tree  # provisioning actually wrote a record/ (snapshot + event + document)
     assert blob_tree == casestore_tree
+
+
+def test_corpus_split_defaults_provisioning_to_casestore(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The corpus-split mode routes forward provisioning to the casestore without an
+    explicit --corpus-backend; an explicit backend still wins, and the mode off falls
+    back to the ordinary corpus-backend setting."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    assert _provision_backend("") == "casestore"
+    assert _provision_backend("local") == "local"  # explicit override still wins
+    assert _provision_backend("ranged") == "ranged"
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "0")
+    assert _provision_backend("") == "local"  # mode off -> the corpus-backend setting
+
+
+@mock_aws
+def test_corpus_split_provisions_from_casestore_without_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With corpus_split on, provision-snapshot reads the casestore even though no
+    --corpus-backend was passed and no corpus blob exists at the corpus root."""
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="fcai-split")
+    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", "s3://fcai-split/casestore/v1")
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+    # Seed the casestore by dual-writing a fixture corpus, then discard that blob.
+    seed_root = tmp_path / "seed"
+    seed_root.mkdir()
+    src = corpus.corpus_db_path(seed_root)
+    casestore.set_active_transport(casestore.transport_from_settings())
+    build_fixture_corpus(src)
+    case_id, _ = _case_with_event_and_snapshot(src)
+    casestore.reset_active_transport()  # the CLI builds its own transport from the env
+    court, docket = case_id.split("/")
+
+    # A different, empty corpus root: a local open would find no snapshot, so a
+    # successful record proves it came from the casestore, routed purely by the flag.
+    empty_root = tmp_path / "empty"
+    empty_root.mkdir()
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(empty_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "out"))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+
+    result = runner.invoke(app, ["provision-snapshot", "--court", court, "--docket", docket])
+    assert result.exit_code == 0, result.stderr
+    assert not corpus.corpus_db_path(empty_root).exists()  # never opened a local blob
 
 
 def test_connect_readonly_rejects_casestore(tmp_path: Path) -> None:
