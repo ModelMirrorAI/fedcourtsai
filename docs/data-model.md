@@ -68,9 +68,11 @@ is the single latched issue pattern of `ops-dashboard` / `data-validation`:
 find-or-create one issue under a non-triggering `agent-feedback` label, then post
 each flagged run's roll-up as one comment (a hidden per-run marker keeps a
 `collect` re-run from duplicating it). Once committed, the `run-ops` dashboard also
-scans these files into an **open agent flags** section, so a note stays
-discoverable beyond the run that raised it. The agent token stays comment-only: the
-file is written locally and the trusted `collect` job does the surfacing.
+surfaces *recent* flags under its **agent signals** section, windowed to the last
+two weeks so old, fixed notes age out of the summary (older ones are counted as
+archived) — the latched `agent-feedback` issue and the raw `flags.json` ledger keep
+the full history. The agent token stays comment-only: the file is written locally
+and the trusted `collect` job does the surfacing.
 
 A sibling channel, `tooling.json` (an `AgentToolingFeedback`, schema
 `schemas/agent_tooling.schema.json`), is **solicited every run** rather than
@@ -82,10 +84,11 @@ use the `fedcourts` corpus-query CLI, e.g. `query` / `open-events`), `used_base_
 lives alongside the cell's other output (`predictions/<predictor>/<run>/tooling.json`,
 `evaluations/<evaluator>/<run>/tooling.json`) and is
 committed with that output like `usage.json`, **not** rolled into the per-run
-PR/issue. Instead the `run-ops` dashboard scans committed `tooling.json` into an
-**agent tooling feedback** digest — how many reports used the corpus-query and
-base-rate CLIs and the most-mentioned `helpful` abilities and `gaps`. It is subjective and advisory,
-and never gates anything.
+PR/issue. Instead the `run-ops` dashboard scans committed `tooling.json` into a
+**tooling feedback** digest under its agent-signals section (also windowed to
+recent runs) — how many reports used the corpus-query and base-rate CLIs and the
+most-mentioned `helpful` abilities and `gaps`. It is subjective and advisory, and
+never gates anything.
 
 The raw facts an event is predicted from — its docket, the snapshot, the event
 definition itself — live in the corpus, not here. Predictors and evaluators read

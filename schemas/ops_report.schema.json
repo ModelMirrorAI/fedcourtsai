@@ -457,8 +457,15 @@
     },
     "FlagsDigest": {
       "additionalProperties": false,
-      "description": "Open agent flags scanned from the committed ``flags.json`` files under ``data/``.\n\nA read-only roll-up the run-ops dashboard presents so agent-surfaced feedback is\nvisible alongside the other operational analytics \u2014 not only in the run PR that\nproduced it. The severity counts are over *every* committed flag; ``recent`` keeps\nthe most recent flag-raising cells (newest first, capped), so a long history never\nbloats the dashboard while the counts still report the true volume.",
+      "description": "Open agent flags scanned from the committed ``flags.json`` files under ``data/``.\n\nA read-only roll-up the run-ops dashboard presents so agent-surfaced feedback is\nvisible alongside the other operational analytics \u2014 not only in the run PR that\nproduced it. The severity counts and ``recent`` cover only flags from runs within\n``window_days`` of generation, so long-since-fixed flags stop dominating the\nsummary; ``archived`` reports how many older flags remain in the committed\n``flags.json`` ledger (and the agent-feedback issue), which keep everything.",
       "properties": {
+        "archived": {
+          "default": 0,
+          "description": "Flags older than the window, still kept in the flags.json ledger and the agent-feedback issue",
+          "minimum": 0,
+          "title": "Archived",
+          "type": "integer"
+        },
         "blockers": {
           "description": "Flags at blocker severity",
           "minimum": 0,
@@ -496,6 +503,13 @@
           "minimum": 0,
           "title": "Warnings",
           "type": "integer"
+        },
+        "window_days": {
+          "default": 0,
+          "description": "Recency window (days) the counts cover; 0 = all-time",
+          "minimum": 0,
+          "title": "Window Days",
+          "type": "integer"
         }
       },
       "required": [
@@ -510,7 +524,7 @@
     },
     "LeakageDigest": {
       "additionalProperties": false,
-      "description": "The evaluators' leakage grading rolled up for the run-ops dashboard.\n\nThe visibility half of the backtest-as-iteration doctrine: replay cells run\nwith the same tools as forward cells, so the dashboard must show \u2014 across\nruns \u2014 whether outcome material is contaminating the backtest's iteration\nsignal. Counts are over every committed ``evaluation.json`` carrying a\n``leakage`` block; ``likely`` offenders are listed (capped) so a repeat\npattern names its predictor.",
+      "description": "The evaluators' leakage grading rolled up for the run-ops dashboard.\n\nThe visibility half of the backtest-as-iteration doctrine: replay cells run\nwith the same tools as forward cells, so the dashboard must show \u2014 across\nruns \u2014 whether outcome material is contaminating the backtest's iteration\nsignal. Counts are over committed ``evaluation.json`` files carrying a\n``leakage`` block within ``window_days`` of generation; ``likely`` offenders\nare listed (capped) so a repeat pattern names its predictor.",
       "properties": {
         "assessed": {
           "description": "Evaluations carrying a leakage assessment",
@@ -548,6 +562,13 @@
           "description": "Replay cells where influence is possible",
           "minimum": 0,
           "title": "Possible",
+          "type": "integer"
+        },
+        "window_days": {
+          "default": 0,
+          "description": "Recency window (days) the counts cover; 0 = all-time",
+          "minimum": 0,
+          "title": "Window Days",
           "type": "integer"
         }
       },
@@ -1074,7 +1095,7 @@
     },
     "ToolingDigest": {
       "additionalProperties": false,
-      "description": "Agent tooling self-reports (`tooling.json`) rolled up for the run-ops dashboard.\n\nA read-only roll-up of the committed :class:`AgentToolingFeedback` records so a\nmaintainer can see, across runs, whether the corpus tooling earns its keep:\n``corpus_query_uses`` / ``base_rate_uses`` of ``reports`` cells used the query and\nbase-rate ``stats`` CLIs, and ``helpful`` /\n``gaps`` are the most-mentioned abilities and missing tools (most common first,\ncapped). ``recent`` keeps the latest few full reports for detail; like\n:class:`FlagsDigest` the aggregate counts always cover every committed report.",
+      "description": "Agent tooling self-reports (`tooling.json`) rolled up for the run-ops dashboard.\n\nA read-only roll-up of the committed :class:`AgentToolingFeedback` records so a\nmaintainer can see, across runs, whether the corpus tooling earns its keep:\n``corpus_query_uses`` / ``base_rate_uses`` of ``reports`` cells used the query and\nbase-rate ``stats`` CLIs, and ``helpful`` /\n``gaps`` are the most-mentioned abilities and missing tools (most common first,\ncapped). ``recent`` keeps the latest few full reports for detail; like\n:class:`FlagsDigest` the counts cover only reports within ``window_days`` of\ngeneration, so the signal tracks current tooling rather than the whole history.",
       "properties": {
         "base_rate_uses": {
           "default": 0,
@@ -1117,6 +1138,13 @@
           "description": "Committed tooling.json reports scanned",
           "minimum": 0,
           "title": "Reports",
+          "type": "integer"
+        },
+        "window_days": {
+          "default": 0,
+          "description": "Recency window (days) the counts cover; 0 = all-time",
+          "minimum": 0,
+          "title": "Window Days",
           "type": "integer"
         }
       },
