@@ -319,15 +319,22 @@ prevent that:
 - **One lock.** The writer jobs share the `corpus-write` concurrency group
   (`cancel-in-progress: false`), so corpus writers never run simultaneously — a
   second run queues until the first finishes.
-- **All commit straight to the default branch.** Each run does `dvc pull → mutate
-  → dvc add → dvc push → commit the pointer (+ outcomes)` and pushes
-  directly. Serialized by the lock, every run pulls the latest committed pointer
-  before mutating, so it always builds on its predecessor's writes. No writer
-  goes through a long-lived PR whose stale base could revert the others on merge.
-  If the default branch advanced for an unrelated reason between checkout and push
-  (e.g. a `run:predict` / `run:evaluate` PR merged), the commit is rebased onto the
-  new tip and the push retried — the lock means the pointer itself never conflicts,
-  so this is a clean fast-forward, not a corpus merge.
+- **Reset to the live tip before mutating.** Each run does `sync to the current
+  tip → dvc pull → mutate → dvc add → dvc push → commit the pointer (+ outcomes)`
+  and pushes straight to the default branch. The lock serializes the writers, but
+  `actions/checkout` pins the run's *creation-time* `github.sha` — so a run that
+  queued behind another corpus writer would otherwise check out a stale base and
+  mutate a stale blob, and its commit could not rebase onto the advanced tip (an
+  unmergeable `corpus/corpus.db.dvc` conflict). To hold last-writer-wins, each
+  writer job first `git fetch`es and `git reset --hard`s to the current tip of the
+  default branch, so it always builds on its predecessor's writes. No writer goes
+  through a long-lived PR whose stale base could revert the others on merge. If the
+  default branch advanced for an unrelated reason after the reset (e.g. a
+  `run:predict` / `run:evaluate` PR merged, touching `data/`), the commit is rebased
+  onto the new tip and the push retried — a clean fast-forward, since the reset plus
+  the lock keep the corpus pointer itself from diverging. Should the pointer ever
+  conflict anyway, the commit step aborts the rebase and fails loudly rather than
+  silently dropping a writer's rows.
 
 ### The corpus file's physical layout
 
