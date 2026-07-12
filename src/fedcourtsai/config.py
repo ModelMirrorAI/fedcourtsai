@@ -51,10 +51,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_DVC_REMOTE_URL", "DVC_REMOTE_URL"),
     )
-    # Corpus split (phase 1): when set to ``s3://<bucket>[/<prefix>]`` the writer
-    # channels ALSO mirror each mutated case to the browsable per-case content
-    # store there (dual-write; see fedcourtsai.casestore). Unset = off, so the
-    # migration is default-inert and reversible — nothing reads the store yet.
+    # Corpus split (phase 1): points the per-case content store (see
+    # fedcourtsai.casestore) at ``s3://<bucket>[/<prefix>]``. Unset = off (the
+    # default). NOTE: the phase-1 writer library is dormant — setting this does
+    # not yet mirror anything; a later phase wires writers to dual-write here.
     casestore_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CASESTORE_URL", "CASESTORE_URL"),

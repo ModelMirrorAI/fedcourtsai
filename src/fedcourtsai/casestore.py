@@ -37,9 +37,11 @@ supremecourt.gov-derived raw fact, so it lives only in the access-gated bucket,
 never public git — exactly as the SQLite corpus does today (see
 docs/data-sources.md).
 
-Phase 1 is dual-write: this store is written *alongside* the SQLite blob and
-nothing reads it yet, so it is inert and fully reversible until a later phase
-flips consumers over.
+Phase 1 delivers this write-once *writer library* only. It is **dormant**: no
+writer channel calls :func:`mirror_case` and no consumer reads the store yet, and
+it is gated on ``FEDCOURTS_CASESTORE_URL`` (unset by default). A later phase wires
+the writers to dual-write here alongside the SQLite blob; until then the module is
+inert and fully reversible.
 """
 
 from __future__ import annotations
@@ -313,7 +315,11 @@ def write_documents(
     """
     refs: list[ObjectRef] = []
     manifest_entries: list[dict[str, Any]] = []
-    for doc in sorted(documents, key=lambda d: d.kind):
+    # One current leaf per kind: CaseDocument is keyed (case_id, kind) with
+    # latest-wins, so a batch carrying two of a kind keeps only the last — the
+    # manifest is "kind -> current leaf", not an append log.
+    by_kind = {doc.kind: doc for doc in documents}
+    for doc in sorted(by_kind.values(), key=lambda d: d.kind):
         text_bytes = doc.text.encode("utf-8")
         digest = digest_bytes(text_bytes)
         leaf = document_leaf_key(case_id, doc.kind, doc.fetched_at, digest)

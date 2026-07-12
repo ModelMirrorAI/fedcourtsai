@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from typing import Any
 
 import boto3
 import pytest
@@ -12,6 +13,16 @@ from moto import mock_aws
 from fedcourtsai import casestore, corpus
 
 REMOTE_URL = "s3://fcai-test-casestore/casestore/v1"
+
+
+def _read(t: casestore.InMemoryObjectTransport, key: str) -> bytes:
+    body = t.get(key)
+    assert body is not None
+    return body
+
+
+def _loads(t: casestore.InMemoryObjectTransport, key: str) -> Any:
+    return json.loads(_read(t, key))
 
 
 def _row(case_id: str = "ca9/64512345", **kwargs: object) -> corpus.CorpusRow:
@@ -91,16 +102,16 @@ def test_write_case_and_events_round_trip() -> None:
     row = _row(case_name="Doe v. Roe")
     ref = casestore.write_case(t, row)
     assert ref.key == "ca9/64512345/case.json"
-    stored = json.loads(t.get(ref.key))
+    stored = _loads(t, ref.key)
     assert stored["case_name"] == "Doe v. Roe"
-    assert ref.digest == casestore.digest_bytes(t.get(ref.key))
+    assert ref.digest == casestore.digest_bytes(_read(t, ref.key))
 
     event = corpus.CorpusEvent(
         event_id="evt-appeal-merits", case_id=row.case_id, court="ca9", kind="appeal"
     )
     eref = casestore.write_events(t, row.case_id, [event])
     assert eref.key == "ca9/64512345/events.json"
-    assert json.loads(t.get(eref.key))[0]["event_id"] == "evt-appeal-merits"
+    assert _loads(t, eref.key)[0]["event_id"] == "evt-appeal-merits"
 
 
 def test_write_documents_content_addressed_leaf_and_manifest() -> None:
@@ -111,7 +122,7 @@ def test_write_documents_content_addressed_leaf_and_manifest() -> None:
     assert leaf.startswith("ca9/64512345/documents/petition/2026-05-01-")
     assert t.get(leaf) == b"the petition text"
 
-    manifest = json.loads(t.get(casestore.documents_manifest_key("ca9/64512345")))
+    manifest = _loads(t, casestore.documents_manifest_key("ca9/64512345"))
     entry = manifest["documents"][0]
     assert entry["kind"] == "petition"
     assert entry["text_key"] == leaf
@@ -121,16 +132,13 @@ def test_write_documents_content_addressed_leaf_and_manifest() -> None:
 def test_superseding_document_lands_at_new_leaf_never_overwrites() -> None:
     t = casestore.InMemoryObjectTransport()
     casestore.write_documents(t, "ca9/64512345", [_doc("brief-in-opposition", "first BIO")])
-    first_leaf = json.loads(t.get(casestore.documents_manifest_key("ca9/64512345")))["documents"][
-        0
-    ]["text_key"]
+    manifest_key = casestore.documents_manifest_key("ca9/64512345")
+    first_leaf = _loads(t, manifest_key)["documents"][0]["text_key"]
 
     # A corrected BIO with different content on the same day → a new leaf key,
     # the old bytes are never overwritten (write-once).
     casestore.write_documents(t, "ca9/64512345", [_doc("brief-in-opposition", "corrected BIO")])
-    second_leaf = json.loads(t.get(casestore.documents_manifest_key("ca9/64512345")))["documents"][
-        0
-    ]["text_key"]
+    second_leaf = _loads(t, manifest_key)["documents"][0]["text_key"]
 
     assert first_leaf != second_leaf
     assert t.get(first_leaf) == b"first BIO"
@@ -144,6 +152,19 @@ def test_identical_document_remirror_uploads_nothing() -> None:
     casestore.write_documents(t, "ca9/64512345", [_doc("petition", "same text")])
     # The content-addressed leaf is skipped (if_absent); only the manifest re-writes.
     assert t.puts == puts_after_first + 1
+
+
+def test_write_documents_collapses_to_one_leaf_per_kind() -> None:
+    t = casestore.InMemoryObjectTransport()
+    refs = casestore.write_documents(
+        t,
+        "ca9/64512345",
+        [_doc("petition", "stale"), _doc("petition", "current")],
+    )
+    assert len(refs) == 1  # last of a repeated kind wins
+    manifest = _loads(t, casestore.documents_manifest_key("ca9/64512345"))
+    assert [e["kind"] for e in manifest["documents"]] == ["petition"]
+    assert _read(t, manifest["documents"][0]["text_key"]) == b"current"
 
 
 def test_mirror_case_writes_the_provided_subset() -> None:
@@ -164,7 +185,7 @@ def test_mirror_case_writes_the_provided_subset() -> None:
     # events=[] writes an explicit empty list (distinct from None).
     mirror2 = casestore.mirror_case(t, row=row, events=[])
     assert mirror2.events is not None
-    assert json.loads(t.get("ca9/64512345/events.json")) == []
+    assert _loads(t, "ca9/64512345/events.json") == []
 
 
 # --- settings / transport construction ----------------------------------------

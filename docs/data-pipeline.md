@@ -265,18 +265,19 @@ The single ~1 GB SQLite blob commingles tiny, mutated-every-run metadata with
 huge, write-once bulk payloads (dated snapshots, extracted document text). Because
 DVC content-addresses the *whole* file and a writer re-pushes it every run, the
 remote accumulates a fresh ~1 GB object per run regardless of how few cases
-changed. The corpus is being split so bulk payloads move to **browsable,
-write-once per-case objects** in the same access-gated S3 bucket, keyed to mirror
-the git ledger's `data/cases/<court>/<docket>/` shape, while a small rebuildable
-index keeps serving bulk scans — so only *changed* cases upload and storage scales
-with case churn, not run count. This lands per-case objects **behind a
-pointer in the index, never as git tree entries**, so the "pack, don't
-proliferate" rule still holds (git never sees them). `fedcourtsai.casestore` is
-the phase-1 writer for that store (write-once discipline: document text leaves are
+changed. The plan is to split the corpus so bulk payloads move to **browsable,
+write-once per-case objects** in an access-gated S3 store, keyed to mirror the git
+ledger's `data/cases/<court>/<docket>/` shape, while a small rebuildable index
+will keep serving bulk scans — so only *changed* cases upload and storage scales
+with case churn, not run count. Per-case objects will land **behind a pointer in
+the index, never as git tree entries**, so the "pack, don't proliferate" rule
+still holds (git never sees them). `fedcourtsai.casestore` is the phase-1 writer
+library for that store (write-once discipline: document text leaves are
 content-addressed, dated snapshots immutable per day, small manifests versioned).
-It is **dormant** — gated on `FEDCOURTS_CASESTORE_URL` (unset by default) and not
-yet called by any writer or read by any consumer — so the migration is inert and
-reversible until later phases wire dual-write and flip readers over.
+It is **dormant** — gated on `FEDCOURTS_CASESTORE_URL` (unset by default), not yet
+called by any writer or read by any consumer, and the index/pointer half is not
+yet built — so the migration is inert and reversible until later phases wire
+dual-write, add the index, and flip readers over.
 
 ### Credentials for the DVC remote
 
