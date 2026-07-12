@@ -86,15 +86,12 @@ class ObjectTransport(Protocol):
         """Store ``body`` at ``key``. When ``if_absent`` and the key already
         holds an object, skip the write (the leaf is content-addressed, so an
         existing key already holds identical bytes)."""
-        ...
 
     def get(self, key: str) -> bytes | None:
         """The object at ``key``, or ``None`` if it does not exist."""
-        ...
 
     def exists(self, key: str) -> bool:
         """Whether an object exists at ``key``."""
-        ...
 
 
 class InMemoryObjectTransport:
