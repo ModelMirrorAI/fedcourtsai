@@ -1,0 +1,10 @@
+{
+  "actual_disposition": "dismissed",
+  "actual_granted": 0,
+  "case_id": "scotus/73281973",
+  "event_id": "evt-petition-disposition",
+  "resolved_at": "2026-01-26",
+  "schema_version": "1.0",
+  "source": null,
+  "votes": []
+}
