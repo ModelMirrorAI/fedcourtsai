@@ -1210,9 +1210,9 @@ class LeakageDigest(_Strict):
     The visibility half of the backtest-as-iteration doctrine: replay cells run
     with the same tools as forward cells, so the dashboard must show — across
     runs — whether outcome material is contaminating the backtest's iteration
-    signal. Counts are over every committed ``evaluation.json`` carrying a
-    ``leakage`` block; ``likely`` offenders are listed (capped) so a repeat
-    pattern names its predictor.
+    signal. Counts are over committed ``evaluation.json`` files carrying a
+    ``leakage`` block within ``window_days`` of generation; ``likely`` offenders
+    are listed (capped) so a repeat pattern names its predictor.
     """
 
     assessed: int = Field(ge=0, description="Evaluations carrying a leakage assessment")
@@ -1225,6 +1225,9 @@ class LeakageDigest(_Strict):
         description="`case_id event_id predictor (by evaluator)` for each `likely` "
         "grading, newest first (capped)",
     )
+    window_days: int = Field(
+        default=0, ge=0, description="Recency window (days) the counts cover; 0 = all-time"
+    )
 
 
 class FlagsDigest(_Strict):
@@ -1232,9 +1235,10 @@ class FlagsDigest(_Strict):
 
     A read-only roll-up the run-ops dashboard presents so agent-surfaced feedback is
     visible alongside the other operational analytics — not only in the run PR that
-    produced it. The severity counts are over *every* committed flag; ``recent`` keeps
-    the most recent flag-raising cells (newest first, capped), so a long history never
-    bloats the dashboard while the counts still report the true volume.
+    produced it. The severity counts and ``recent`` cover only flags from runs within
+    ``window_days`` of generation, so long-since-fixed flags stop dominating the
+    summary; ``archived`` reports how many older flags remain in the committed
+    ``flags.json`` ledger (and the agent-feedback issue), which keep everything.
     """
 
     total: int = Field(ge=0, description="Individual flags across all committed flags.json")
@@ -1244,6 +1248,15 @@ class FlagsDigest(_Strict):
     infos: int = Field(ge=0, description="Flags at info severity")
     recent: list[AgentFlags] = Field(
         default_factory=list, description="Most recent flag-raising cells, newest first (capped)"
+    )
+    window_days: int = Field(
+        default=0, ge=0, description="Recency window (days) the counts cover; 0 = all-time"
+    )
+    archived: int = Field(
+        default=0,
+        ge=0,
+        description="Flags older than the window, still kept in the flags.json ledger "
+        "and the agent-feedback issue",
     )
 
 
@@ -1263,7 +1276,8 @@ class ToolingDigest(_Strict):
     base-rate ``stats`` CLIs, and ``helpful`` /
     ``gaps`` are the most-mentioned abilities and missing tools (most common first,
     capped). ``recent`` keeps the latest few full reports for detail; like
-    :class:`FlagsDigest` the aggregate counts always cover every committed report.
+    :class:`FlagsDigest` the counts cover only reports within ``window_days`` of
+    generation, so the signal tracks current tooling rather than the whole history.
     """
 
     reports: int = Field(ge=0, description="Committed tooling.json reports scanned")
@@ -1280,6 +1294,9 @@ class ToolingDigest(_Strict):
     )
     recent: list[AgentToolingFeedback] = Field(
         default_factory=list, description="Most recent full reports, newest first (capped)"
+    )
+    window_days: int = Field(
+        default=0, ge=0, description="Recency window (days) the counts cover; 0 = all-time"
     )
 
 

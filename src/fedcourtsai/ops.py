@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from .collect import flags_table
 from .leaderboard import RETROSPECTIVE, Stratum
@@ -245,9 +245,10 @@ def _fmt_delta(delta: int | None) -> str:
 def render_substance(digest: SubstanceDigest) -> str:
     """Render the substantive-results section: is the machine producing?
 
-    Every number that can be small carries its sample size beside it, and a
-    feed that has not landed renders as an explicit absence — an empty view is
-    itself the signal the instrument is not producing yet.
+    The headline cells line always renders (with each small number's sample size
+    beside it); each sub-block — calibration, evaluation scores, live frontier —
+    renders only when it has data, so an idle instrument reads as a short section
+    rather than a stack of "not producing yet" placeholders.
     """
     c = digest.cells
     lines = [
@@ -262,29 +263,26 @@ def render_substance(digest: SubstanceDigest) -> str:
     ]
 
     cal = digest.calibration
-    lines += ["", "**Calibration (replay stratum, advisory)**"]
-    if cal.sample == 0:
-        lines.append("_No scored replay cells yet._")
-    else:
+    cal_lines: list[str] = []
+    if cal.sample > 0:
         brier = "—" if cal.mean_brier is None else f"{cal.mean_brier:.3f}"
         accuracy = "—" if cal.accuracy is None else f"{cal.accuracy:.0%}"
-        lines.append(f"Mean Brier **{brier}** · accuracy **{accuracy}** (n={cal.sample})")
-    if cal.deny_base_rate is None:
-        lines.append("_Deny base rate unavailable (no modern-cert statpack section yet)._")
-    else:
+        cal_lines.append(f"Mean Brier **{brier}** · accuracy **{accuracy}** (n={cal.sample})")
+    if cal.deny_base_rate is not None:
         lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
-        lines.append(
+        cal_lines.append(
             f"Always-deny base rate **{cal.deny_base_rate:.0%}** "
             f"(est. over {cal.base_rate_cases:,} resolved modern-cert petitions, "
             "live/historical slice, denial-reweighted) · "
             f"lift **{lift}**"
         )
+    if cal_lines:
+        lines += ["", "**Calibration (replay stratum, advisory)**", *cal_lines]
 
-    lines += ["", "**Evaluation scores by predictor** (reasoning quality, all strata pooled)"]
-    if not digest.predictor_scores:
-        lines.append("_No evaluations committed yet._")
-    else:
+    if digest.predictor_scores:
         lines += [
+            "",
+            "**Evaluation scores by predictor** (reasoning quality, all strata pooled)",
             "| Predictor | Cells | Accuracy | Median | p25-p75 |",
             "|-----------|------:|---------:|-------:|---------|",
         ]
@@ -296,21 +294,20 @@ def render_substance(digest: SubstanceDigest) -> str:
                 f"| {row.predictor_id} | {row.evaluations} | {accuracy} | {median} | {spread} |"
             )
 
-    lines += ["", "**Live frontier**"]
     frontier = digest.live_frontier
-    if frontier is None or frontier.skipped:
-        lines.append("_No published watchlist snapshot yet._")
-    else:
+    if frontier is not None and not frontier.skipped:
         upcoming = (
             f"next conference **{frontier.next_conference}** "
             f"({frontier.next_conference_petitions} petition(s))"
             if frontier.next_conference is not None
             else "no upcoming conference scheduled"
         )
-        lines.append(
+        lines += [
+            "",
+            "**Live frontier**",
             f"Watchlist **{frontier.watchlist}** petition(s) · {upcoming} · "
-            f"documents provisioned on **{frontier.documents_provisioned}/{frontier.watchlist}**"
-        )
+            f"documents provisioned on **{frontier.documents_provisioned}/{frontier.watchlist}**",
+        ]
     return "\n".join(lines) + "\n"
 
 
@@ -398,8 +395,37 @@ def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
     )
 
 
-# How many of the most recent flag-raising cells the dashboard table lists; the
-# severity counts still cover every committed flag, so the cap never hides volume.
+# The dashboard's agent digests (flags, leakage, tooling) count only runs within
+# this many days of generation, so resolved-and-old signal stops dominating the
+# summary. The raw flags.json ledger and the agent-feedback issue keep everything;
+# this only scopes the roll-up.
+_AGENT_DIGEST_WINDOW_DAYS = 14
+
+
+def _parse_run_id(run_id: str) -> datetime | None:
+    """A ``YYYYMMDDThhmmssZ`` run id as a UTC datetime, or None if it doesn't parse."""
+    try:
+        return datetime.strptime(run_id, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+    except (ValueError, TypeError):
+        return None
+
+
+def _within_window(run_id: str, generated_at: str, window_days: int) -> bool:
+    """Whether ``run_id`` falls within ``window_days`` before ``generated_at``.
+
+    A run id or ``generated_at`` that does not parse counts as in-window, so a
+    malformed stamp is surfaced rather than silently dropped from the summary.
+    """
+    run_dt = _parse_run_id(run_id)
+    gen_dt = _parse_iso(generated_at)
+    if run_dt is None or gen_dt is None:
+        return True
+    return run_dt >= gen_dt - timedelta(days=window_days)
+
+
+# How many of the most recent flag-raising cells the dashboard table lists (within
+# the window above); the severity counts cover every in-window flag, so the cap
+# never hides volume inside the window.
 _FLAGS_RECENT_LIMIT = 20
 
 # How many `likely` leakage gradings the dashboard names individually.
@@ -407,19 +433,26 @@ _LEAKAGE_FLAGGED_LIMIT = 20
 
 
 def summarize_leakage(
-    evaluations: Iterable[Evaluation], *, limit: int = _LEAKAGE_FLAGGED_LIMIT
+    evaluations: Iterable[Evaluation],
+    *,
+    generated_at: str,
+    window_days: int = _AGENT_DIGEST_WINDOW_DAYS,
+    limit: int = _LEAKAGE_FLAGGED_LIMIT,
 ) -> LeakageDigest:
     """Roll the evaluators' leakage gradings into the dashboard's leakage digest.
 
     The visibility half of the backtest-as-iteration doctrine: counts over every
-    committed ``evaluation.json`` that carries a ``leakage`` block, with the
-    ``likely`` offenders named (newest first, capped) so a repeat pattern is
-    attributable to its predictor rather than lost in a count.
+    committed ``evaluation.json`` that carries a ``leakage`` block and lands within
+    ``window_days`` of ``generated_at``, with the ``likely`` offenders named (newest
+    first, capped) so a repeat pattern is attributable to its predictor rather than
+    lost in a count.
     """
     assessed = not_applicable = none = possible = likely = 0
     flagged: list[tuple[str, str]] = []
     for evaluation in evaluations:
         if evaluation.leakage is None:
+            continue
+        if not _within_window(evaluation.run_id, generated_at, window_days):
             continue
         assessed += 1
         verdict = evaluation.leakage.influenced_prediction
@@ -446,23 +479,32 @@ def summarize_leakage(
         possible=possible,
         likely=likely,
         flagged=[label for _, label in flagged[:limit]],
+        window_days=window_days,
     )
 
 
 def summarize_flags(
-    flag_sets: Iterable[AgentFlags], *, limit: int = _FLAGS_RECENT_LIMIT
+    flag_sets: Iterable[AgentFlags],
+    *,
+    generated_at: str,
+    window_days: int = _AGENT_DIGEST_WINDOW_DAYS,
+    limit: int = _FLAGS_RECENT_LIMIT,
 ) -> FlagsDigest:
     """Roll committed ``flags.json`` sets into the dashboard's open-flags digest.
 
-    Severity counts are over *every* flag supplied; ``recent`` keeps the most recent
-    flag-raising cells (by run id, newest first) capped at ``limit``, so a long
-    history never bloats the dashboard while the counts still report the true volume.
+    Only cells from runs within ``window_days`` of ``generated_at`` feed the counts
+    and the ``recent`` table, so long-since-fixed flags stop dominating the summary;
+    ``archived`` reports how many older flags remain in the ``flags.json`` ledger and
+    the agent-feedback issue. ``recent`` keeps the most recent in-window flag-raising
+    cells (by run id, newest first) capped at ``limit``.
     """
-    sets = list(flag_sets)
+    all_sets = list(flag_sets)
+    sets = [fs for fs in all_sets if _within_window(fs.run_id, generated_at, window_days)]
     counts = {FlagSeverity.blocker: 0, FlagSeverity.warning: 0, FlagSeverity.info: 0}
     for fs in sets:
         for flag in fs.flags:
             counts[FlagSeverity(flag.severity)] += 1
+    archived = sum(len(fs.flags) for fs in all_sets) - sum(counts.values())
     # Run ids are UTC timestamps, so descending lexical order is newest-first.
     recent = sorted(sets, key=lambda fs: (fs.run_id, fs.case_id, fs.actor_id), reverse=True)[:limit]
     return FlagsDigest(
@@ -472,6 +514,8 @@ def summarize_flags(
         warnings=counts[FlagSeverity.warning],
         infos=counts[FlagSeverity.info],
         recent=recent,
+        window_days=window_days,
+        archived=archived,
     )
 
 
@@ -492,17 +536,21 @@ def _rank_items(items: Iterable[str], *, limit: int) -> list[ToolingCount]:
 def summarize_tooling(
     reports: Iterable[AgentToolingFeedback],
     *,
+    generated_at: str,
+    window_days: int = _AGENT_DIGEST_WINDOW_DAYS,
     recent_limit: int = _TOOLING_RECENT_LIMIT,
     items_limit: int = _TOOLING_ITEMS_LIMIT,
 ) -> ToolingDigest:
     """Roll committed ``tooling.json`` self-reports into the dashboard's tooling digest.
 
-    ``corpus_query_uses`` / ``base_rate_uses`` of ``reports`` cells used the query and
-    base-rate ``stats`` CLIs; ``helpful`` /
-    ``gaps`` rank the most-mentioned abilities and missing tools across every report;
-    ``recent`` keeps the latest few full reports (by run id, newest first) for detail.
+    Only reports within ``window_days`` of ``generated_at`` feed the digest, so the
+    signal tracks current tooling rather than the whole history. ``corpus_query_uses``
+    / ``base_rate_uses`` of ``reports`` cells used the query and base-rate ``stats``
+    CLIs; ``helpful`` / ``gaps`` rank the most-mentioned abilities and missing tools
+    across the in-window reports; ``recent`` keeps the latest few full reports (by run
+    id, newest first) for detail.
     """
-    items = list(reports)
+    items = [r for r in reports if _within_window(r.run_id, generated_at, window_days)]
     recent = sorted(items, key=lambda r: (r.run_id, r.case_id, r.actor_id), reverse=True)[
         :recent_limit
     ]
@@ -513,6 +561,7 @@ def summarize_tooling(
         helpful=_rank_items((h for r in items for h in r.helpful), limit=items_limit),
         gaps=_rank_items((g for r in items for g in r.gaps), limit=items_limit),
         recent=recent,
+        window_days=window_days,
     )
 
 
@@ -588,9 +637,9 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
         cost=estimate_cost(run_list, spend),
         substance=substance,
         data_health=data_health,
-        flags=summarize_flags(flags),
-        leakage=summarize_leakage(evaluations),
-        tooling=summarize_tooling(tooling),
+        flags=summarize_flags(flags, generated_at=generated_at),
+        leakage=summarize_leakage(evaluations, generated_at=generated_at),
+        tooling=summarize_tooling(tooling, generated_at=generated_at),
         open_triggers=open_triggers,
     )
 
@@ -742,31 +791,38 @@ def render_data_health(health: DataHealth) -> str:
 
 
 def render_leakage_digest(digest: LeakageDigest) -> str:
-    """The dashboard's leakage section: is outcome material tainting iteration signal?"""
+    """The dashboard's leakage subsection: is outcome material tainting iteration signal?"""
+    window = f"last {digest.window_days}d" if digest.window_days else "all time"
     lines = [
-        "## Leakage grading (evaluator, advisory)",
+        "### Leakage (advisory)",
         f"{digest.assessed} assessed · {digest.not_applicable} forward (n/a) · "
-        f"{digest.none} clean · {digest.possible} possible · **{digest.likely} likely**",
+        f"{digest.none} clean · {digest.possible} possible · **{digest.likely} likely** "
+        f"({window})",
     ]
     if digest.flagged:
         lines.append("")
         lines += [f"- {label}" for label in digest.flagged]
     elif digest.assessed == 0:
         lines.append("")
-        lines.append("_No leakage assessments committed yet._")
+        lines.append(f"_No leakage assessments in the {window}._")
     return "\n".join(lines) + "\n"
 
 
 def render_flags_digest(digest: FlagsDigest) -> str:
-    """Render the dashboard's open-agent-flags section from the digest.
+    """Render the dashboard's agent-flags subsection from the digest.
 
-    Leads with the severity breakdown over every committed flag, then lists the most
-    recent flag-raising cells using the same table the per-run roll-up renders
-    (:func:`fedcourtsai.collect.flags_table`). A healthy ledger gets a one-line note
-    instead of an empty table.
+    Scoped to the digest's recency window, so long-since-fixed flags do not dominate;
+    leads with the in-window severity breakdown (older flags noted as archived in the
+    ledger), then the most recent flag-raising cells using the same table the per-run
+    roll-up renders (:func:`fedcourtsai.collect.flags_table`).
     """
+    window = f"last {digest.window_days}d" if digest.window_days else "all time"
+    archived = f" · {digest.archived} older archived in the ledger" if digest.archived else ""
     if digest.total == 0:
-        return "## Agent flags\n\n_No agent flags on record._\n"
+        tail = (
+            f" {digest.archived} older flag(s) archived in the ledger." if digest.archived else ""
+        )
+        return f"### Flags\n\n_No flags in the {window}._{tail}\n"
     breakdown = " · ".join(
         part
         for part in (
@@ -779,9 +835,10 @@ def render_flags_digest(digest: FlagsDigest) -> str:
     shown = sum(len(fs.flags) for fs in digest.recent)
     note = f" · showing the {shown} most recent" if shown < digest.total else ""
     lines = [
-        "## Agent flags",
+        "### Flags",
         "",
-        f"**{digest.total}** flag(s) across **{digest.cells}** cell(s) — {breakdown}{note}.",
+        f"**{digest.total}** flag(s) across **{digest.cells}** cell(s) in the {window} — "
+        f"{breakdown}{note}{archived}.",
         "",
         "Notes agents surfaced from committed `flags.json`, for triage.",
         "",
@@ -804,15 +861,16 @@ def render_tooling_digest(digest: ToolingDigest) -> str:
     whether the tooling earns its keep and where to invest. An empty ledger gets a
     one-line note.
     """
+    window = f"last {digest.window_days}d" if digest.window_days else "all time"
     if digest.reports == 0:
-        return "## Agent tooling feedback\n\n_No tooling reports on record._\n"
+        return f"### Tooling feedback\n\n_No tooling reports in the {window}._\n"
     query_share = f"{digest.corpus_query_uses}/{digest.reports}"
     base_rate_share = f"{digest.base_rate_uses}/{digest.reports}"
     lines = [
-        "## Agent tooling feedback",
+        "### Tooling feedback",
         "",
-        f"**{digest.reports}** self-report(s) — corpus-query CLI used by **{query_share}**, "
-        f"base-rate `stats` by **{base_rate_share}**. "
+        f"**{digest.reports}** self-report(s) ({window}) — corpus-query CLI used by "
+        f"**{query_share}**, base-rate `stats` by **{base_rate_share}**. "
         "What agents say helped and what they wished they had.",
     ]
     if digest.helpful:
@@ -822,8 +880,41 @@ def render_tooling_digest(digest: ToolingDigest) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_agent_signals(report: OpsReport) -> list[str]:
+    """The grouped 'Agent signals' section lines, or ``[]`` when no digests are present.
+
+    Flags, leakage, and tooling are all scoped to the same recency window, so they read
+    as one current-state block rather than three drifting all-time sections.
+    """
+    blocks: list[str] = []
+    if report.flags is not None:
+        blocks.append(render_flags_digest(report.flags).rstrip("\n"))
+    if report.leakage is not None:
+        blocks.append(render_leakage_digest(report.leakage).rstrip("\n"))
+    if report.tooling is not None:
+        blocks.append(render_tooling_digest(report.tooling).rstrip("\n"))
+    if not blocks:
+        return []
+    window_days = next(
+        (d.window_days for d in (report.flags, report.leakage, report.tooling) if d is not None),
+        0,
+    )
+    heading = f"## Agent signals (last {window_days}d)" if window_days else "## Agent signals"
+    out = ["", heading]
+    for block in blocks:
+        out += ["", block]
+    return out
+
+
 def render_markdown(report: OpsReport) -> str:
-    """Render the dashboard body posted to the run-ops issue / step summary."""
+    """Render the dashboard body posted to the run-ops issue / step summary.
+
+    A consolidated view: dormant workflows drop out of the health table, spend and
+    cost share one section, the agent-surfaced signals (flags, leakage, tooling) are
+    grouped and scoped to a recent window, and a healthy data verdict collapses to a
+    single line — the full breakdown appears only on a failing verdict (where
+    :func:`render_data_health` is also the escalation-issue body).
+    """
     lines: list[str] = [
         "# Ops dashboard",
         "",
@@ -831,12 +922,15 @@ def render_markdown(report: OpsReport) -> str:
         "",
         "## Pipeline health",
     ]
-    if report.health:
+    # Only workflows that actually ran in the window; a wall of dormant/retired
+    # "skipped 0% (0/0)" rows is the clutter, so summarize them in one line instead.
+    active = [h for h in report.health if h.successes + h.failures > 0]
+    if active:
         lines += [
             "| Workflow | Last | Success rate | Failures | Median | p95 |",
             "|----------|------|-------------:|---------:|-------:|----:|",
         ]
-        for h in report.health:
+        for h in active:
             rate = (
                 "—"
                 if h.success_rate is None
@@ -847,20 +941,17 @@ def render_markdown(report: OpsReport) -> str:
                 f"| {h.workflow} | {last} | {rate} | {h.failures} | "
                 f"{_fmt_duration(h.median_seconds)} | {_fmt_duration(h.p95_seconds)} |"
             )
+        dormant = len(report.health) - len(active)
+        if dormant:
+            lines += ["", f"_{dormant} dormant workflow(s) with no runs in the window hidden._"]
     else:
         lines.append("_No runs in the window._")
 
     if report.substance is not None:
         lines += ["", render_substance(report.substance).rstrip("\n")]
 
+    # Spend and cost run-rate are one money story — one section.
     s = report.spend
-    lines += [
-        "",
-        "## Spend (model usage)",
-        f"**{s.runs}** run(s) · **{s.total_tokens:,}** tokens · "
-        f"**${s.estimated_cost_usd:,.2f}** est. (~${s.mean_cost_usd_per_run:.4f}/run)",
-    ]
-
     ce = report.cost
     monthly = "—" if ce.estimated_monthly_usd is None else f"${ce.estimated_monthly_usd:,.0f}/mo"
     actions_monthly = (
@@ -868,29 +959,32 @@ def render_markdown(report: OpsReport) -> str:
     )
     lines += [
         "",
-        "## Cost run-rate (estimated)",
-        f"**~{monthly}** projected · Actions {actions_monthly} "
+        "## Spend & cost",
+        f"**{s.runs}** run(s) · **{s.total_tokens:,}** tokens · "
+        f"**${s.estimated_cost_usd:,.2f}** est. (~${s.mean_cost_usd_per_run:.4f}/run).",
+        "",
+        f"Run-rate **~{monthly}** projected · Actions {actions_monthly} "
         f"({ce.actions_minutes:,.0f} min ~ ${ce.actions_cost_usd:,.2f} over "
         f"{'—' if ce.window_days is None else f'{ce.window_days:g}d'}) · "
-        f"fixed ${ce.fixed_monthly_usd:,.0f}/mo · model ${ce.model_cost_usd:,.2f} cumulative",
+        f"fixed ${ce.fixed_monthly_usd:,.0f}/mo · model ${ce.model_cost_usd:,.2f} cumulative.",
         "",
         "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
         "no billing-API access); check the provider billing dashboards for ground truth.",
     ]
 
-    if report.open_triggers is not None:
+    # Only surface stalled fan-outs when there are any (the empty case is the norm).
+    if report.open_triggers:
         lines += ["", render_open_triggers(report.open_triggers, report.generated_at).rstrip("\n")]
 
-    if report.flags is not None:
-        lines += ["", render_flags_digest(report.flags).rstrip("\n")]
+    lines += _render_agent_signals(report)
 
-    if report.leakage is not None:
-        lines += ["", render_leakage_digest(report.leakage).rstrip("\n")]
-
-    if report.tooling is not None:
-        lines += ["", render_tooling_digest(report.tooling).rstrip("\n")]
-
-    if report.data_health is not None:
-        lines += ["", render_data_health(report.data_health).rstrip("\n")]
+    # A green verdict is one line; the full breakdown (and its detail table) appears
+    # only when failing — the same body the data-validation escalation issue posts.
+    dh = report.data_health
+    if dh is not None:
+        if dh.ok:
+            lines += ["", "**Data health:** ✅ Healthy."]
+        else:
+            lines += ["", render_data_health(dh).rstrip("\n")]
 
     return "\n".join(lines) + "\n"

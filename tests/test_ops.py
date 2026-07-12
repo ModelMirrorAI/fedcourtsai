@@ -171,7 +171,9 @@ def test_render_markdown_smoke() -> None:
     md = ops.render_markdown(report)
     assert "# Ops dashboard" in md
     assert "## Pipeline health" in md and "run-pull" in md
-    assert "## Spend (model usage)" in md and "$0.25" in md
+    # Spend and cost are one merged section, not two.
+    assert "## Spend & cost" in md and "$0.25" in md
+    assert "Run-rate" in md and "## Cost run-rate" not in md
 
 
 def test_render_markdown_handles_empty_health() -> None:
@@ -293,6 +295,39 @@ def test_render_markdown_omits_data_health_when_absent() -> None:
     assert "## Data health" not in ops.render_markdown(report)
 
 
+def test_render_markdown_healthy_data_health_is_one_line() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=[],
+        usage=[],
+        data_health=_healthy(),
+    )
+    md = ops.render_markdown(report)
+    # A green verdict collapses to a single line — no full section, no detail table.
+    assert "**Data health:** ✅ Healthy." in md
+    assert "## Data health" not in md and "Ledger schema" not in md
+
+
+def test_render_markdown_hides_dormant_workflows() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=[
+            _run(
+                "run-pull", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:05:00Z"
+            ),
+            # Dormant: only skipped runs, so it counts no successes or failures.
+            _run(
+                "run-seed", "skipped", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:00:01Z"
+            ),
+        ],
+        usage=[],
+    )
+    md = ops.render_markdown(report)
+    assert "| run-pull |" in md
+    assert "| run-seed |" not in md
+    assert "1 dormant workflow(s) with no runs in the window hidden" in md
+
+
 # --- agent-flags digest -------------------------------------------------------
 
 
@@ -302,7 +337,7 @@ def _flags(run_id: str, *flags: AgentFlag, case: str = "ca9/1", actor: str = "p"
     )
 
 
-def test_summarize_flags_counts_every_flag_and_caps_recent_newest_first() -> None:
+def test_summarize_flags_counts_in_window_and_caps_recent_newest_first() -> None:
     older = _flags(
         "20260101T000000Z",
         AgentFlag(category=FlagCategory.scope, severity=FlagSeverity.info, message="old"),
@@ -312,16 +347,37 @@ def test_summarize_flags_counts_every_flag_and_caps_recent_newest_first() -> Non
         AgentFlag(category=FlagCategory.blocked, severity=FlagSeverity.blocker, message="stuck"),
         AgentFlag(category=FlagCategory.data_quality, severity=FlagSeverity.warning, message="odd"),
     )
-    digest = ops.summarize_flags([older, newer], limit=1)
-    # Counts cover every committed flag, not just the capped recent window.
+    # A window wide enough to hold both cells: counts cover every in-window flag.
+    digest = ops.summarize_flags(
+        [older, newer], generated_at="2026-02-05T00:00:00+00:00", window_days=60, limit=1
+    )
     assert (digest.total, digest.cells) == (3, 2)
     assert (digest.blockers, digest.warnings, digest.infos) == (1, 1, 1)
+    assert digest.archived == 0
     # Newest run first, and the cap keeps only the most recent cell.
     assert [fs.run_id for fs in digest.recent] == ["20260201T000000Z"]
 
 
+def test_summarize_flags_windows_out_old_flags_but_keeps_them_archived() -> None:
+    older = _flags(
+        "20260101T000000Z",
+        AgentFlag(category=FlagCategory.scope, severity=FlagSeverity.info, message="old"),
+    )
+    newer = _flags(
+        "20260201T000000Z",
+        AgentFlag(category=FlagCategory.data_quality, severity=FlagSeverity.warning, message="odd"),
+    )
+    # The default 14-day window from just after `newer` excludes the month-old cell,
+    # which is counted as archived (it stays in the ledger, out of the summary).
+    digest = ops.summarize_flags([older, newer], generated_at="2026-02-05T00:00:00+00:00")
+    assert (digest.total, digest.cells) == (1, 1)
+    assert digest.window_days == ops._AGENT_DIGEST_WINDOW_DAYS
+    assert digest.archived == 1
+    assert [fs.run_id for fs in digest.recent] == ["20260201T000000Z"]
+
+
 def test_summarize_flags_empty_is_all_zero() -> None:
-    digest = ops.summarize_flags([])
+    digest = ops.summarize_flags([], generated_at="2026-02-05T00:00:00+00:00")
     assert (digest.total, digest.cells, digest.recent) == (0, 0, [])
 
 
@@ -334,9 +390,11 @@ def test_render_flags_digest_lists_recent_and_notes_truncation() -> None:
         )
         for n in range(1, 4)
     ]
-    md = ops.render_flags_digest(ops.summarize_flags(sets, limit=2))
-    assert "## Agent flags" in md
-    assert "**3** flag(s) across **3** cell(s)" in md
+    md = ops.render_flags_digest(
+        ops.summarize_flags(sets, generated_at="2026-02-03T12:00:00+00:00", limit=2)
+    )
+    assert "### Flags" in md
+    assert "**3** flag(s) across **3** cell(s)" in md and "last 14d" in md
     assert "showing the 2 most recent" in md
     # The shared collect table renders the triage columns.
     assert "| severity | category | actor | case | event | note |" in md
@@ -345,7 +403,8 @@ def test_render_flags_digest_lists_recent_and_notes_truncation() -> None:
 
 
 def test_render_flags_digest_clean_ledger_reads_as_none() -> None:
-    assert "_No agent flags on record._" in ops.render_flags_digest(ops.summarize_flags([]))
+    md = ops.render_flags_digest(ops.summarize_flags([], generated_at="2026-02-03T12:00:00+00:00"))
+    assert "_No flags in the last 14d._" in md
 
 
 def _tooling(
@@ -381,7 +440,9 @@ def test_summarize_tooling_counts_corpus_use_and_ranks_items() -> None:
         _tooling("20260102T000000Z", used=True, helpful=["query"], gaps=["docket diff"]),
         _tooling("20260103T000000Z", used=False, helpful=["MCP"], gaps=["a citation tool"]),
     ]
-    digest = ops.summarize_tooling(reports, recent_limit=2)
+    digest = ops.summarize_tooling(
+        reports, generated_at="2026-01-03T12:00:00+00:00", recent_limit=2
+    )
     assert digest.reports == 3
     assert digest.corpus_query_uses == 2
     assert digest.base_rate_uses == 1
@@ -393,7 +454,7 @@ def test_summarize_tooling_counts_corpus_use_and_ranks_items() -> None:
 
 
 def test_summarize_tooling_empty_is_zero() -> None:
-    digest = ops.summarize_tooling([])
+    digest = ops.summarize_tooling([], generated_at="2026-01-03T12:00:00+00:00")
     assert (digest.reports, digest.corpus_query_uses, digest.helpful, digest.gaps) == (0, 0, [], [])
 
 
@@ -403,10 +464,11 @@ def test_render_tooling_digest_shows_share_and_items() -> None:
             [
                 _tooling("r1", used=True, base_rates=True, helpful=["query"]),
                 _tooling("r2", used=False, gaps=["x"]),
-            ]
+            ],
+            generated_at="2026-01-03T12:00:00+00:00",
         )
     )
-    assert "## Agent tooling feedback" in md
+    assert "### Tooling feedback" in md
     assert "used by **1/2**" in md
     assert "base-rate `stats` by **1/2**" in md
     assert "Most helpful" in md and "query" in md
@@ -414,7 +476,10 @@ def test_render_tooling_digest_shows_share_and_items() -> None:
 
 
 def test_render_tooling_digest_empty_reads_as_none() -> None:
-    assert "_No tooling reports on record._" in ops.render_tooling_digest(ops.summarize_tooling([]))
+    md = ops.render_tooling_digest(
+        ops.summarize_tooling([], generated_at="2026-01-03T12:00:00+00:00")
+    )
+    assert "_No tooling reports in the last 14d._" in md
 
 
 def test_ops_report_rolls_up_committed_tooling(tmp_path: Path) -> None:
@@ -427,9 +492,14 @@ def test_ops_report_rolls_up_committed_tooling(tmp_path: Path) -> None:
     path.write_text(report.model_dump_json())
 
     json_out = tmp_path / "ops.json"
-    result = runner.invoke(app, ["ops-report", "--json", str(json_out)], env=_ops_env(tmp_path))
+    result = runner.invoke(
+        app,
+        ["ops-report", "--json", str(json_out), "--generated-at", "2026-06-20T00:00:00+00:00"],
+        env=_ops_env(tmp_path),
+    )
     assert result.exit_code == 0, result.output
-    assert "## Agent tooling feedback" in result.output and "fedcourts query" in result.output
+    assert "## Agent signals" in result.output and "### Tooling feedback" in result.output
+    assert "fedcourts query" in result.output
 
     parsed = json.loads(json_out.read_text())
     assert parsed["tooling"]["reports"] == 1 and parsed["tooling"]["corpus_query_uses"] == 1
@@ -443,7 +513,7 @@ def test_render_markdown_includes_agent_flags_section() -> None:
         usage=[],
         flags=[
             _flags(
-                "20260601T000000Z",
+                "20260620T000000Z",
                 AgentFlag(
                     category=FlagCategory.scope, severity=FlagSeverity.warning, message="check"
                 ),
@@ -451,7 +521,8 @@ def test_render_markdown_includes_agent_flags_section() -> None:
         ],
     )
     md = ops.render_markdown(report)
-    assert "## Agent flags" in md and "1 warning" in md
+    assert "## Agent signals (last 14d)" in md
+    assert "### Flags" in md and "1 warning" in md
     # The digest round-trips through the strict schema.
     assert OpsReport.model_validate(report.model_dump()) == report
 
@@ -627,9 +698,14 @@ def test_ops_report_rolls_up_committed_flags(tmp_path: Path) -> None:
     flags_path.write_text(flags.model_dump_json())
 
     json_out = tmp_path / "ops.json"
-    result = runner.invoke(app, ["ops-report", "--json", str(json_out)], env=_ops_env(tmp_path))
+    result = runner.invoke(
+        app,
+        ["ops-report", "--json", str(json_out), "--generated-at", "2026-06-20T00:00:00+00:00"],
+        env=_ops_env(tmp_path),
+    )
     assert result.exit_code == 0, result.output
-    assert "## Agent flags" in result.output and "ambiguous" in result.output
+    assert "## Agent signals" in result.output and "### Flags" in result.output
+    assert "ambiguous" in result.output
 
     report = json.loads(json_out.read_text())
     assert report["flags"]["total"] == 1 and report["flags"]["warnings"] == 1
@@ -666,14 +742,14 @@ def test_summarize_leakage_buckets_and_names_likely_offenders() -> None:
         # An old-schema record with no leakage block is skipped, not counted.
         _leaky_evaluation("none").model_copy(update={"leakage": None}),
     ]
-    digest = ops.summarize_leakage(evaluations)
+    digest = ops.summarize_leakage(evaluations, generated_at="2026-07-12T00:00:00+00:00")
     assert (digest.assessed, digest.not_applicable, digest.none) == (4, 1, 1)
     assert (digest.possible, digest.likely) == (1, 1)
     assert digest.flagged == ["scotus/1 evt-petition-disposition gemini-baseline (by codex-judge)"]
 
 
 def test_summarize_leakage_empty_is_all_zero() -> None:
-    digest = ops.summarize_leakage([])
+    digest = ops.summarize_leakage([], generated_at="2026-07-12T00:00:00+00:00")
     assert digest.assessed == 0 and digest.flagged == []
 
 
@@ -790,14 +866,17 @@ def test_summarize_substance_without_base_rate_leaves_lift_null() -> None:
     assert digest.calibration.lift_over_always_deny is None
 
 
-def test_render_substance_carries_counts_and_explicit_absences() -> None:
+def test_render_substance_suppresses_empty_subsections() -> None:
     digest = ops.summarize_substance(cell_counts=(0, 0, 0), stratified_evaluations=[])
     md = ops.render_substance(digest)
     assert "## Substance (is it producing?)" in md
-    assert "_No scored replay cells yet._" in md
-    assert "_Deny base rate unavailable" in md
-    assert "_No evaluations committed yet._" in md
-    assert "_No published watchlist snapshot yet._" in md
+    assert "Prediction cells committed: **0**" in md
+    # An idle instrument shows only the headline line — no empty sub-blocks or
+    # "not producing yet" placeholders.
+    assert "**Calibration" not in md
+    assert "**Evaluation scores by predictor**" not in md
+    assert "**Live frontier**" not in md
+    assert "yet._" not in md
 
 
 def test_render_substance_shows_frontier_and_lift() -> None:
