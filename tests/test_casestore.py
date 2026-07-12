@@ -275,6 +275,9 @@ class _BoomTransport:
     def exists(self, key: str) -> bool:
         return False
 
+    def list_keys(self, prefix: str) -> list[str]:
+        return []
+
 
 def test_corpus_writes_do_not_mirror_when_flag_off(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch
@@ -401,3 +404,25 @@ def test_malformed_casestore_url_disables_store_not_ingestion(
         assert corpus.upsert_rows(conn, [_row("scotus/1")]) == 1  # ingestion succeeds
         assert corpus.count(conn) == 1
     assert casestore.active_transport() is None  # store disabled, not raised
+
+
+def test_set_event_resolved_re_mirrors_events(tmp_path: Any) -> None:
+    """Resolving an event re-mirrors the case's events.json (a direct UPDATE the
+    upsert hook never sees)."""
+    t = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(t)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="petition",
+                )
+            ],
+        )
+        assert _loads(t, "scotus/1/events.json")[0]["resolved"] is False
+        corpus.set_event_resolved(conn, "scotus/1", "evt-petition-cert", resolved=True)
+        assert _loads(t, "scotus/1/events.json")[0]["resolved"] is True

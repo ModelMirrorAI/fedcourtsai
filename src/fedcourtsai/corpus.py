@@ -587,7 +587,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
-CorpusBackend = Literal["local", "ranged"]
+CorpusBackend = Literal["local", "ranged", "casestore"]
 
 
 def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
@@ -626,8 +626,19 @@ def connect_readonly(
     pointer next to ``db_path`` against the out-of-band remote URL. ``backend``
     overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting. Writers never use this
     seam — they need the concrete local connection and always own the file.
+
+    The ``casestore`` backend has no query surface (it serves per-case
+    *provisioning* reads from content objects, not SQL), so it is rejected here — a
+    command that only reads via this seam cannot serve it and must not silently fall
+    back to ``local``.
     """
-    if resolve_backend(backend) == "ranged":
+    effective = resolve_backend(backend)
+    if effective == "casestore":
+        raise ValueError(
+            "the casestore backend has no queryable connection; it serves only "
+            "per-case provisioning reads (see fedcourtsai.provision)"
+        )
+    if effective == "ranged":
         remote_url = get_settings().dvc_remote_url
         if remote_url is None:
             raise RangedBackendError(
@@ -1883,6 +1894,12 @@ def set_event_resolved(
             "UPDATE events SET resolved = ? WHERE case_id = ? AND event_id = ?",
             (int(resolved), case_id, event_id),
         )
+    # Resolving is a direct UPDATE the upsert_events hook never sees, so re-mirror
+    # the case's events here too — otherwise the casestore events.json keeps the
+    # stale resolved=0 until the next re-ingest, and a casestore-provisioned
+    # event.yaml would carry a stale flag for a replay cell's resolved target.
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
 
 
 def event_count(conn: ReadConnection) -> int:

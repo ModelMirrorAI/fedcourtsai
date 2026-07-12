@@ -206,7 +206,12 @@ for the read-only role:** the cell path needs only `s3:GetObject` /
 `ListBucket` (the ranged backend resolves keys from the committed pointer and
 never lists). Splitting that narrower policy out (cells on the narrowed role,
 full-pull consumers on the current one) is a maintainer-side IAM change,
-recorded here as the target.
+recorded here as the target. **Caveat (corpus split):** the opt-in `casestore`
+provisioning backend *does* list (`s3:ListBucket`, to find a case's latest
+snapshot under `casestore/.../snapshots/`), so if cells are ever pointed at it in
+production the narrowing and the casestore rollout must be sequenced together —
+either keep `ListBucket` on the casestore prefix, or add a per-case snapshot
+pointer so the reader can `GetObject` without listing.
 
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and

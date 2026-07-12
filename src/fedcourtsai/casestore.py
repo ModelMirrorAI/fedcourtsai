@@ -43,11 +43,17 @@ mirror here through the best-effort ``mirror_*`` helpers, reached via a single
 process transport (:func:`active_transport`) so activation is purely the env flag
 with no writer signature threading. It stays **gated on ``FEDCOURTS_CASESTORE_URL``**
 (unset → :func:`active_transport` is ``None`` → every mirror call is a pure no-op,
-the default and the state in every test that does not opt in), and **no consumer
-reads the store yet** — so with the flag off the pipeline is byte-for-byte
-unchanged, and a mirror failure with the flag on only logs (it never breaks the
-SQLite write that is the phase-1 system of record). A later phase adds the index +
-pointers and flips readers over.
+the default and the state in every test that does not opt in) — so with the flag
+off the pipeline is byte-for-byte unchanged, and a mirror failure with the flag on
+only logs (it never breaks the SQLite write that is the phase-1 system of record).
+``set_event_resolved`` also re-mirrors, so a resolved event's ``events.json`` stays
+current. **Known gap:** the direct-``UPDATE`` writers on ``cases`` columns — scope
+reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``) and
+``backfill_live_signals`` — are *not* mirrored, so ``case.json`` can lag the corpus
+until the case is next re-ingested. Provisioning does not read ``case.json`` (only
+snapshot/documents/events), so this does not affect the phase-3 casestore
+provisioning parity; a later phase that builds the index from the store will close
+it.
 """
 
 from __future__ import annotations
@@ -110,6 +116,11 @@ class ObjectTransport(Protocol):
     def exists(self, key: str) -> bool:
         """Whether an object exists at ``key``."""
 
+    def list_keys(self, prefix: str) -> list[str]:
+        """Every stored key beginning with ``prefix`` (used to find the latest
+        dated snapshot under a case's ``snapshots/`` — needs ``s3:ListBucket``)."""
+        ...
+
 
 class InMemoryObjectTransport:
     """A dict-backed transport for tests (no network, no boto3)."""
@@ -129,6 +140,9 @@ class InMemoryObjectTransport:
 
     def exists(self, key: str) -> bool:
         return key in self.objects
+
+    def list_keys(self, prefix: str) -> list[str]:
+        return [key for key in self.objects if key.startswith(prefix)]
 
 
 class S3ObjectTransport:
@@ -175,6 +189,16 @@ class S3ObjectTransport:
                 return False
             raise
         return True
+
+    def list_keys(self, prefix: str) -> list[str]:
+        full_prefix = self._full_key(prefix)
+        strip = f"{self._prefix}/" if self._prefix else ""
+        keys: list[str] = []
+        paginator = self._client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self._bucket, Prefix=full_prefix):
+            for obj in page.get("Contents", []):
+                keys.append(obj["Key"].removeprefix(strip))  # back to a logical key
+        return keys
 
 
 def parse_s3_url(url: str) -> tuple[str, str]:

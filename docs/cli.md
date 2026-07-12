@@ -45,7 +45,11 @@ real corpus.
 Read-only views. They read the `dvc pull`-ed file by default; where
 `--corpus-backend` is listed, `ranged` queries the immutable blob in place on
 the DVC remote instead (per-query egress in KBs, read stats echoed to stderr;
-see *The ranged read backend* in [data-pipeline.md](data-pipeline.md)).
+see *The ranged read backend* in [data-pipeline.md](data-pipeline.md)). The
+provisioning commands (`provision-snapshot`, `materialize-event`) additionally
+accept `casestore` — read the case's snapshot/documents/event from the per-case
+content store rather than the corpus (opt-in, corpus-split phase 3; needs
+`FEDCOURTS_CASESTORE_URL`).
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
