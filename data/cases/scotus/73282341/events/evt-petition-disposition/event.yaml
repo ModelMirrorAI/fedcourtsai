@@ -1,0 +1,11 @@
+case_id: scotus/73282341
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-02-02'
+resolved: true
+schema_version: '1.0'
+title: Sabrina D. Davis v. United States District Court for the District of South
+  Carolina
