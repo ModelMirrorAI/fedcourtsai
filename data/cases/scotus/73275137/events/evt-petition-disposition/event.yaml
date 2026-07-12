@@ -1,0 +1,11 @@
+case_id: scotus/73275137
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-08-19'
+resolved: true
+schema_version: '1.0'
+title: Johanna McGee, as Personal Representative of the Estate of Jacqueline McGee,
+  et al., Petitioners v. Alger County Treasurer, et al.

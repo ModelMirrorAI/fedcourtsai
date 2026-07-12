@@ -1,0 +1,11 @@
+case_id: scotus/73275166
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-08-26'
+resolved: true
+schema_version: '1.0'
+title: MSN Pharmaceuticals, Inc., et al., Petitioners v. Novartis Pharmaceuticals
+  Corporation
