@@ -49,7 +49,9 @@ see *The ranged read backend* in [data-pipeline.md](data-pipeline.md)). The
 provisioning commands (`provision-snapshot`, `materialize-event`) additionally
 accept `casestore` — read the case's snapshot/documents/event from the per-case
 content store rather than the corpus (opt-in, corpus-split phase 3; needs
-`FEDCOURTS_CASESTORE_URL`).
+`FEDCOURTS_CASESTORE_URL`). Under the corpus-split mode
+(`FEDCOURTS_CORPUS_SPLIT=1`) those two commands default to `casestore` without the
+explicit flag, so a cutover flips the whole fleet with one setting; off by default.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|

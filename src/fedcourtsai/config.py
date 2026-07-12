@@ -55,11 +55,20 @@ class Settings(BaseSettings):
     # fedcourtsai.casestore) at ``s3://<bucket>[/<prefix>]``. When set, the writer
     # channels dual-write each mutated case there alongside the corpus blob;
     # unset/empty = off (the default), so the pipeline is unchanged. Best-effort —
-    # a mirror failure only logs. Nothing reads the store yet.
+    # a mirror failure only logs. Reads land in phases 3-4 (the casestore
+    # provisioning backend, and `corpus_split` below).
     casestore_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CASESTORE_URL", "CASESTORE_URL"),
     )
+    # Corpus split (phase 4): the mode switch that moves the go-forward system onto
+    # the per-case content store. When on, the payload reads default to the casestore
+    # (this phase routes the forward-cell provisioners there without an explicit
+    # ``--corpus-backend casestore``) and a later step stops writing payloads into the
+    # blob so ``corpus.db`` collapses to a small metadata index. Off by default, so the
+    # pipeline is byte-for-byte unchanged until it is flipped on (at the clean-slate
+    # cutover). Needs the store populated — i.e. ``casestore_url`` set.
+    corpus_split: bool = False
 
 
 def get_settings() -> Settings:

@@ -206,12 +206,22 @@ for the read-only role:** the cell path needs only `s3:GetObject` /
 `ListBucket` (the ranged backend resolves keys from the committed pointer and
 never lists). Splitting that narrower policy out (cells on the narrowed role,
 full-pull consumers on the current one) is a maintainer-side IAM change,
-recorded here as the target. **Caveat (corpus split):** the opt-in `casestore`
-provisioning backend *does* list (`s3:ListBucket`, to find a case's latest
-snapshot under `casestore/.../snapshots/`), so if cells are ever pointed at it in
-production the narrowing and the casestore rollout must be sequenced together —
-either keep `ListBucket` on the casestore prefix, or add a per-case snapshot
-pointer so the reader can `GetObject` without listing.
+recorded here as the target. **Caveat (corpus split) — the narrowing and the
+cutover flag are in tension and must be sequenced.** The `casestore` provisioning
+backend *does* list (`s3:ListBucket`, and only `provision-snapshot`'s
+`latest_snapshot` needs it — `materialize-event`'s event/document reads are
+`GetObject`-only). The concrete production lever is now
+**`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`): setting it on the
+`runner` environment flips the *entire* forward predict/evaluate fleet onto the
+casestore path at once, and it **overrides** the env-configured `ranged` backend
+those cells run today (an explicit per-command `--corpus-backend` is the only thing
+that still wins). So this flag *is* the "cells pointed at it in production"
+scenario. Hard ordering: before the flag is turned on, the read-only role must
+retain (or regain) `s3:ListBucket` on the casestore prefix **or** a per-case
+snapshot pointer must exist so the reader can `GetObject` without listing; and
+conversely the `GetObject`-only narrowing target above **cannot** be applied while
+the flag is on. Do not turn on `FEDCOURTS_CORPUS_SPLIT` and narrow the role in the
+same change.
 
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and
