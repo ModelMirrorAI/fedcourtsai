@@ -1,0 +1,11 @@
+case_id: scotus/73278496
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-10-15'
+resolved: true
+schema_version: '1.0'
+title: Paul W. Parker, as Personal Representative of the Estate of Curtis John Rookaird,
+  Petitioner v. BNSF Railway Company, a Delaware Corporation
