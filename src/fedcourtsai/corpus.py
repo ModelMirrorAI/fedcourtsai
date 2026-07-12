@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -804,6 +804,44 @@ def _update_clause(column: str) -> str:
     return f"{column}=excluded.{column}"
 
 
+# --- dual-write sink (dependency-inverted) ------------------------------------
+#
+# The per-case content store (fedcourtsai.casestore) mirrors each mutated case for
+# the corpus split. To keep this storage module free of the S3 mirror — and free of
+# an import cycle — corpus does NOT import casestore; instead casestore registers a
+# sink here when it is imported (wired in fedcourtsai/__init__). No sink registered
+# → dual-write off (the default) → every hook below is a pure no-op.
+
+
+class MirrorSink(Protocol):
+    """The dual-write callbacks casestore registers via :func:`set_mirror_sink`."""
+
+    def mirror_cases(self, rows: Sequence[CorpusRow]) -> None: ...
+
+    def mirror_snapshot(
+        self, case_id: str, snapshot_date: date, payload: Mapping[str, Any]
+    ) -> None: ...
+
+    def mirror_documents_for_cases(self, conn: ReadConnection, case_ids: Iterable[str]) -> None: ...
+
+    def mirror_events_for_cases(self, conn: ReadConnection, case_ids: Iterable[str]) -> None: ...
+
+
+_MIRROR: dict[str, MirrorSink] = {}
+
+
+def set_mirror_sink(sink: MirrorSink | None) -> None:
+    """Register (``None`` clears) the dual-write sink; called by casestore on import."""
+    if sink is None:
+        _MIRROR.pop("sink", None)
+    else:
+        _MIRROR["sink"] = sink
+
+
+def _mirror_sink() -> MirrorSink | None:
+    return _MIRROR.get("sink")
+
+
 def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     """Insert or replace rows by ``case_id``; returns the number written.
 
@@ -818,6 +856,8 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     )
     with conn:
         conn.executemany(sql, [tuple(_to_record(r)[c] for c in _COLUMNS) for r in rows])
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_cases(rows)
     return len(rows)
 
 
@@ -1796,6 +1836,10 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
         conn.executemany(
             sql, [tuple(_event_to_record(e)[c] for c in _EVENT_COLUMNS) for e in events]
         )
+    # The mirror reads the full committed set back per case (guarded on the flag,
+    # so this is a pure no-op when the store is off).
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, [e.case_id for e in events])
     return len(events)
 
 
@@ -2027,6 +2071,8 @@ def upsert_snapshot(
             "ON CONFLICT(case_id, snapshot_date) DO UPDATE SET payload = excluded.payload",
             (case_id, snapshot_date.isoformat(), json.dumps(payload, sort_keys=True)),
         )
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_snapshot(case_id, snapshot_date, payload)
 
 
 def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str, Any]] | None:
@@ -2104,6 +2150,10 @@ def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) ->
                 for d in documents
             ],
         )
+    # The mirror reads the full committed set back per case (guarded on the flag,
+    # so this is a pure no-op when the store is off).
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_documents_for_cases(conn, [d.case_id for d in documents])
     return len(documents)
 
 

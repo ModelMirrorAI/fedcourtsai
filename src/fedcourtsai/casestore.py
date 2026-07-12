@@ -37,25 +37,42 @@ supremecourt.gov-derived raw fact, so it lives only in the access-gated bucket,
 never public git — exactly as the SQLite corpus does today (see
 docs/data-sources.md).
 
-Phase 1 delivers this write-once *writer library* only. It is **dormant**: no
-writer channel calls :func:`mirror_case` and no consumer reads the store yet, and
-it is gated on ``FEDCOURTS_CASESTORE_URL`` (unset by default). A later phase wires
-the writers to dual-write here alongside the SQLite blob; until then the module is
-inert and fully reversible.
+Phase 1 dual-writes: the four corpus write seams (:func:`fedcourtsai.corpus`
+``upsert_rows`` / ``upsert_snapshot`` / ``upsert_documents`` / ``upsert_events``)
+mirror here through the best-effort ``mirror_*`` helpers, reached via a single
+process transport (:func:`active_transport`) so activation is purely the env flag
+with no writer signature threading. It stays **gated on ``FEDCOURTS_CASESTORE_URL``**
+(unset → :func:`active_transport` is ``None`` → every mirror call is a pure no-op,
+the default and the state in every test that does not opt in), and **no consumer
+reads the store yet** — so with the flag off the pipeline is byte-for-byte
+unchanged, and a mirror failure with the flag on only logs (it never breaks the
+SQLite write that is the phase-1 system of record). A later phase adds the index +
+pointers and flips readers over.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Protocol
 
 from .config import get_settings
-from .corpus import CaseDocument, CorpusEvent, CorpusRow
+from .corpus import (
+    CaseDocument,
+    CorpusEvent,
+    CorpusRow,
+    ReadConnection,
+    documents_for_case,
+    events_for_case,
+    set_mirror_sink,
+)
+
+logger = logging.getLogger(__name__)
 
 # Bucket-relative default prefix; ``v1`` namespaces the layout so a later
 # incompatible reshape can land beside it rather than migrate in place.
@@ -174,15 +191,124 @@ def parse_s3_url(url: str) -> tuple[str, str]:
 def transport_from_settings() -> ObjectTransport | None:
     """Build the configured casestore transport, or ``None`` when dual-write is off.
 
-    Reads ``FEDCOURTS_CASESTORE_URL``; unset means the case store is disabled and
+    Reads ``FEDCOURTS_CASESTORE_URL``; unset (or empty — the workflow passes an
+    unset repo variable through as ``""``) means the case store is disabled and
     writers mirror nothing (the default, fully-reversible state). A bare bucket
     URL falls back to :data:`DEFAULT_PREFIX` so both env forms serve the layout.
     """
     url = get_settings().casestore_url
-    if url is None:
+    if url is None or not url.strip():
         return None
-    bucket, prefix = parse_s3_url(url)
+    bucket, prefix = parse_s3_url(url.strip())
     return S3ObjectTransport(bucket, prefix=prefix or DEFAULT_PREFIX)
+
+
+# --- process transport + best-effort mirroring --------------------------------
+#
+# The dual-write hooks in `fedcourtsai.corpus` reach the store through a single
+# process-wide transport, so activation is purely the env flag — no writer
+# signature threading. It is built lazily from settings once and cached; unset
+# flag → None → every mirror call is a pure no-op (the default, and the state in
+# every test that does not opt in).
+
+# A one-slot container (not a rebindable module global) holds the cached
+# transport, so the accessors need no `global` statement.
+_ACTIVE: dict[str, ObjectTransport | None] = {}
+
+
+def active_transport() -> ObjectTransport | None:
+    """The process-wide casestore transport (lazily built from settings, cached).
+
+    A build failure (a malformed ``FEDCOURTS_CASESTORE_URL``, a boto3/region
+    problem) disables the store — it logs and caches ``None`` rather than raising,
+    so a fat-fingered flag can never crash an ingestion write.
+    """
+    if "transport" not in _ACTIVE:
+        try:
+            _ACTIVE["transport"] = transport_from_settings()
+        except Exception as exc:  # broad by design: a bad flag disables, never crashes
+            logger.warning("casestore: disabled — could not build transport: %s", exc)
+            _ACTIVE["transport"] = None
+    return _ACTIVE["transport"]
+
+
+def set_active_transport(transport: ObjectTransport | None) -> None:
+    """Override the process transport (tests / explicit wiring)."""
+    _ACTIVE["transport"] = transport
+
+
+def reset_active_transport() -> None:
+    """Clear the cache so the next access rebuilds from settings (tests)."""
+    _ACTIVE.clear()
+
+
+def _best_effort(description: str, write: Callable[[ObjectTransport], object]) -> None:
+    """Run one mirror write against the active transport, swallowing any failure.
+
+    Dual-write is secondary to the SQLite blob (the phase-1 system of record), so a
+    store hiccup logs and is swallowed — it must never fail an ingestion write.
+    A no-op when the store is disabled (transport ``None``).
+    """
+    transport = active_transport()
+    if transport is None:
+        return
+    try:
+        write(transport)
+    except Exception as exc:  # broad by design: no mirror error may break ingestion
+        logger.warning("casestore: mirror failed (%s): %s", description, exc)
+
+
+def mirror_cases(rows: Sequence[CorpusRow]) -> None:
+    """Best-effort mirror of each row's ``case.json``; never raises."""
+    transport = active_transport()
+    if transport is None:
+        return
+    for row in rows:
+        try:
+            write_case(transport, row)
+        except Exception as exc:  # broad by design: no mirror error may break ingestion
+            logger.warning("casestore: mirror of case %s failed: %s", row.case_id, exc)
+
+
+def mirror_snapshot(case_id: str, snapshot_date: date, payload: Mapping[str, Any]) -> None:
+    """Best-effort mirror of one dated snapshot object; never raises."""
+    _best_effort(
+        f"snapshot {case_id}", lambda t: write_snapshot(t, case_id, snapshot_date, payload)
+    )
+
+
+def mirror_documents_for_cases(conn: ReadConnection, case_ids: Iterable[str]) -> None:
+    """Best-effort mirror of each case's FULL document set + manifest; never raises.
+
+    Guards on the transport *first*, so with the store off nothing is read back —
+    the flag-off path stays a pure no-op. Reading the committed set back per case
+    makes the mirrored manifest reflect every stored kind, not just the batch that
+    triggered the write.
+    """
+    transport = active_transport()
+    if transport is None:
+        return
+    for case_id in dict.fromkeys(case_ids):
+        try:
+            write_documents(transport, case_id, documents_for_case(conn, case_id))
+        except Exception as exc:  # broad by design: no mirror error may break ingestion
+            logger.warning("casestore: mirror of documents %s failed: %s", case_id, exc)
+
+
+def mirror_events_for_cases(conn: ReadConnection, case_ids: Iterable[str]) -> None:
+    """Best-effort mirror of each case's FULL event list; never raises.
+
+    Transport-guarded before any read-back (flag off → pure no-op); the committed
+    set is read back per case so ``events.json`` is the complete list.
+    """
+    transport = active_transport()
+    if transport is None:
+        return
+    for case_id in dict.fromkeys(case_ids):
+        try:
+            write_events(transport, case_id, events_for_case(conn, case_id))
+        except Exception as exc:  # broad by design: no mirror error may break ingestion
+            logger.warning("casestore: mirror of events %s failed: %s", case_id, exc)
 
 
 # --- serialization + digests --------------------------------------------------
@@ -369,3 +495,26 @@ def mirror_case(
     return CaseMirror(
         case=case_ref, events=events_ref, snapshot=snapshot_ref, documents=document_refs
     )
+
+
+# --- dual-write sink registration ---------------------------------------------
+
+
+class _CorpusMirrorSink:
+    """Adapts this module's ``mirror_*`` functions to :class:`fedcourtsai.corpus.MirrorSink`.
+
+    Registered with the corpus write seams so they mirror here *without* importing
+    this module — the dependency is inverted (casestore → corpus only), which keeps
+    the storage layer free of the S3 mirror and free of an import cycle.
+    """
+
+    mirror_cases = staticmethod(mirror_cases)
+    mirror_snapshot = staticmethod(mirror_snapshot)
+    mirror_documents_for_cases = staticmethod(mirror_documents_for_cases)
+    mirror_events_for_cases = staticmethod(mirror_events_for_cases)
+
+
+# Runs on import; fedcourtsai/__init__ imports this module so the sink is always
+# registered. The sink's mirror_* helpers are themselves gated on the flag
+# (active_transport() is None → no-op), so registration alone changes nothing.
+set_mirror_sink(_CorpusMirrorSink())

@@ -8,16 +8,30 @@ token, no network — exactly as the offline local loop does.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from fedcourtsai import corpus, fixture
+from fedcourtsai import casestore, corpus, fixture
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import Disposition, Prediction
 from fedcourtsai.serialize import write_json
+
+
+@pytest.fixture(autouse=True)
+def _reset_casestore_transport() -> Iterator[None]:
+    """Keep the process-wide casestore transport cache from leaking across tests.
+
+    The corpus write seams consult a cached transport; without this a test that
+    sets ``FEDCOURTS_CASESTORE_URL`` (or injects one) could leave the store active
+    for later tests in any file.
+    """
+    casestore.reset_active_transport()
+    yield
+    casestore.reset_active_transport()
 
 
 @dataclass(frozen=True)
