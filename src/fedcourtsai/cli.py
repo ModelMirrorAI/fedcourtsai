@@ -1059,17 +1059,23 @@ CorpusBackendOption = Annotated[
 ]
 
 
-def _corpus_backend(value: str) -> corpus.CorpusBackend | None:
-    """Parse a --corpus-backend value; empty means \"use the setting\"."""
+def _corpus_backend(value: str, *, allow_casestore: bool = False) -> corpus.CorpusBackend | None:
+    """Parse a --corpus-backend value; empty means \"use the setting\".
+
+    ``casestore`` is a provisioning-only backend (it has no query surface), so it is
+    accepted only where ``allow_casestore`` is set — the read commands reject it
+    cleanly here rather than crashing later in ``connect_readonly``.
+    """
     if not value:
         return None
     if value == "local":
         return "local"
     if value == "ranged":
         return "ranged"
-    if value == "casestore":
+    if value == "casestore" and allow_casestore:
         return "casestore"
-    typer.echo(f"Unknown --corpus-backend '{value}'; choose local, ranged, or casestore.", err=True)
+    choices = "local, ranged, or casestore" if allow_casestore else "local or ranged"
+    typer.echo(f"Unsupported --corpus-backend '{value}'; choose {choices}.", err=True)
     raise typer.Exit(code=2)
 
 
@@ -1639,7 +1645,7 @@ def provision_snapshot(
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
-    backend = _corpus_backend(corpus_backend)
+    backend = _corpus_backend(corpus_backend, allow_casestore=True)
     if corpus.resolve_backend(backend) == "casestore":
         source = _casestore_source()
         found = source.latest_snapshot(case)
@@ -1834,7 +1840,7 @@ def materialize_event(
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_casestore=True))
     case = ids.case_id(court, docket)
     if backend == "casestore":
         match = next(

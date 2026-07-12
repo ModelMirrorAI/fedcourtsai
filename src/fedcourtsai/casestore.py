@@ -43,11 +43,17 @@ mirror here through the best-effort ``mirror_*`` helpers, reached via a single
 process transport (:func:`active_transport`) so activation is purely the env flag
 with no writer signature threading. It stays **gated on ``FEDCOURTS_CASESTORE_URL``**
 (unset → :func:`active_transport` is ``None`` → every mirror call is a pure no-op,
-the default and the state in every test that does not opt in), and **no consumer
-reads the store yet** — so with the flag off the pipeline is byte-for-byte
-unchanged, and a mirror failure with the flag on only logs (it never breaks the
-SQLite write that is the phase-1 system of record). A later phase adds the index +
-pointers and flips readers over.
+the default and the state in every test that does not opt in) — so with the flag
+off the pipeline is byte-for-byte unchanged, and a mirror failure with the flag on
+only logs (it never breaks the SQLite write that is the phase-1 system of record).
+``set_event_resolved`` also re-mirrors, so a resolved event's ``events.json`` stays
+current. **Known gap:** the direct-``UPDATE`` writers on ``cases`` columns — scope
+reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``) and
+``backfill_live_signals`` — are *not* mirrored, so ``case.json`` can lag the corpus
+until the case is next re-ingested. Provisioning does not read ``case.json`` (only
+snapshot/documents/events), so this does not affect the phase-3 casestore
+provisioning parity; a later phase that builds the index from the store will close
+it.
 """
 
 from __future__ import annotations

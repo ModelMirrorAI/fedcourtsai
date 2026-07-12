@@ -1894,6 +1894,12 @@ def set_event_resolved(
             "UPDATE events SET resolved = ? WHERE case_id = ? AND event_id = ?",
             (int(resolved), case_id, event_id),
         )
+    # Resolving is a direct UPDATE the upsert_events hook never sees, so re-mirror
+    # the case's events here too — otherwise the casestore events.json keeps the
+    # stale resolved=0 until the next re-ingest, and a casestore-provisioned
+    # event.yaml would carry a stale flag for a replay cell's resolved target.
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
 
 
 def event_count(conn: ReadConnection) -> int:

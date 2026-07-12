@@ -139,3 +139,15 @@ def test_casestore_backend_without_url_exits_cleanly(
     )
     assert result.exit_code == 2
     assert "FEDCOURTS_CASESTORE_URL" in result.stderr
+
+
+def test_read_only_command_rejects_casestore_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A read-only command (query) rejects --corpus-backend casestore at parse time
+    with a clean exit, not a connect_readonly traceback."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path))
+    result = runner.invoke(app, ["query", "--corpus-backend", "casestore"])
+    assert result.exit_code == 2
+    assert "casestore" in result.stderr
+    assert result.exception is None or isinstance(result.exception, SystemExit)
