@@ -294,10 +294,12 @@ payloads that move to the content store) — keeping every other column (includi
 `summary`, which `query` emits), the events/cursors, and the schema itself. A
 **parity gate** (`tests/test_corpus_index.py`) proves the **bulk consumers**
 `statpack` / `backtest` / `query` produce byte-identical output from the index and
-the full blob, so a later phase can repoint *those* consumers at the index and stop
-writing the payloads to the blob. (Scope reconcile, `validate`, and `cert-backtest`
-read `opinion_text`/`snapshots` as signals and stay on the full blob — the index is
-a drop-in only for the bulk consumers the gate covers.)
+the full blob, so those consumers can read the index unchanged. (The signal readers
+that keyed on a stripped field — scope reconcile and `validate` on `opinion_text`,
+scope reconcile's bare-import rule and `cert-backtest` on `snapshots` — are handled
+by the phase-4 cutover switch below: a retained `has_opinion` presence bit for the
+opinion signal, and the payload read source for the snapshot reads. See *The cutover
+switch* below.)
 
 **Reading the store back.** The predict/evaluate **provisioning** commands can now
 source a cell's `record/` (the point-in-time snapshot, its documents, and the
@@ -319,10 +321,27 @@ the store. This phase wires the **read** side: with the mode on, the forward-cel
 provisioners (`provision-snapshot` / `materialize-event`) default to
 `--corpus-backend casestore` — so a cutover flips the whole predict/evaluate fleet
 with one setting instead of threading `casestore` onto every cell command; an
-explicit `--corpus-backend` still wins, and with the mode off nothing changes. A
-later step wires the **write** side (the writer stops putting payloads in the blob so
-`corpus.db` collapses to the small index) so that flipping the flag both reads from
-and stops growing the blob. The mode needs the store populated (`CASESTORE_URL` set);
+explicit `--corpus-backend` still wins, and with the mode off nothing changes.
+
+The **write** side is now wired too: under the mode the writer stops putting the
+bulk payloads into the blob — `upsert_snapshot` / `upsert_documents` skip the table
+insert (still mirroring to the store) and `upsert_rows` NULLs the `opinion_text`
+body while keeping a `has_opinion` presence bit — so `corpus.db` is born as the
+small metadata index and its per-run `dvc push` stops growing by ~a blob a run. The
+payload *reads* the writer itself needs (change detection's `latest_snapshot`,
+document dedup) and the readers need (provisioning, `cert-backtest` replay) are
+served from the store through a **payload read source** — the read counterpart of
+the dual-write mirror sink, consulted only under the mode (so the mode-off reads
+never leave SQLite). A parity gate (`tests/test_corpus_split_writer.py`) proves the
+split blob equals the legacy blob run through `build-index`, table for table, with
+the payloads all in the store. Scope reconcile / `validate` read the retained
+`has_opinion` bit; `validate`'s blob-snapshot checks are vacuous under the mode
+(payload integrity is the store's write-once discipline). One reader is not yet
+routed: `query --full` / `--include-opinion` reads the opinion body from the `cases`
+column, which is empty under the mode — a documented follow-up; the default
+opinion-popped `query` output the parity gate covers is unaffected. So flipping the
+flag both reads from and stops growing the blob. The mode needs the store populated
+(`CASESTORE_URL` set);
 it is meant to be turned on at the clean-slate cutover, not incrementally. Turning
 it on is also an IAM precondition, not just an env change: it redirects cells onto
 the casestore read path, which lists (`s3:ListBucket`) — see the corpus-split caveat

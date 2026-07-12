@@ -18,16 +18,17 @@ What is **kept**: every other ``cases`` column (including ``summary``, which
 tables, and every index. The schema is left identical to the corpus (columns are
 NULLed and tables emptied, never dropped), so read code does not error on the index.
 
-**Drop-in scope.** The index is *result-identical* only for the three **bulk
+**Drop-in scope.** The index is *result-identical* for the three **bulk
 consumers** — ``statpack``, ``backtest``, and ``query`` — which the parity gate in
-``tests/test_corpus_index.py`` proves byte-for-byte. It is **not** a drop-in for
-code that reads a stripped field as a *signal*: scope reconcile / audit and
-``validate`` read ``cases.opinion_text`` (and, for the bare-import rule, a case's
-``snapshots``) to classify it, and ``cert-backtest`` replay reads ``snapshots`` —
-those must keep reading the full corpus blob. A later phase repoints only the bulk
-consumers here.
+``tests/test_corpus_index.py`` proves byte-for-byte. The signal readers that keyed
+on a stripped field are handled by phase 4: scope reconcile / ``validate`` read the
+retained ``cases.has_opinion`` presence bit instead of the ``opinion_text`` body, and
+the snapshot readers (scope reconcile's bare-import rule and ``cert-backtest`` replay)
+read from the content store through the payload read source (:func:`fedcourtsai.corpus`
+``_payload_read_source``) under the corpus-split mode.
 
-This phase only *produces* the index and proves parity; no consumer reads it yet.
+Under the split mode the writer already produces a payload-free blob directly, so
+this module is a one-shot utility (e.g. to strip a legacy blob), not a per-run stage.
 """
 
 from __future__ import annotations
@@ -82,6 +83,15 @@ def build_index(src: Path, dst: Path) -> IndexStats:
         ).fetchone()[0]
         conn.execute("DELETE FROM snapshots")
         conn.execute("DELETE FROM documents")
+        # Preserve the opinion-presence signal before the body is stripped. A legacy
+        # blob predates the `has_opinion` column entirely, so add it first; then set
+        # it from the body for every case that still carries one. Idempotent on a
+        # blob the split writer already wrote (its bodies are already NULL, so this
+        # matches nothing and leaves the stored bits intact).
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(cases)")}
+        if "has_opinion" not in columns:
+            conn.execute("ALTER TABLE cases ADD COLUMN has_opinion INTEGER NOT NULL DEFAULT 0")
+        conn.execute("UPDATE cases SET has_opinion = 1 WHERE opinion_text IS NOT NULL")
         conn.execute("UPDATE cases SET opinion_text = NULL")
         conn.commit()
         conn.execute("VACUUM")  # reclaim the freed pages (must run outside a transaction)

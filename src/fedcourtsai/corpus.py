@@ -32,7 +32,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged
@@ -281,7 +281,27 @@ class CorpusRow(BaseModel):
         "`originating_court` this is the (court + number) join key onto the lower-court "
         "docket; only the REST path can populate it (bulk omits the table).",
     )
+    has_opinion: bool = Field(
+        default=False,
+        description="Whether the case has a linked published opinion — the "
+        "presence signal the scope classifiers key on (a merits disposition that "
+        "lives only in the opinion text). Derived from `opinion_text` at "
+        "construction, but stored as its own column so it survives the corpus "
+        "split: under the split, the heavy `opinion_text` body moves to the "
+        "content store and the corpus keeps only this bit.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
+
+    @model_validator(mode="after")
+    def _derive_has_opinion(self) -> CorpusRow:
+        # `has_opinion` reflects "an opinion body is present OR the stored flag
+        # already says so." Monotonic OR, so it is consistent in every case: a
+        # fresh ingest with `opinion_text` sets it True; a split-mode read (body
+        # stripped to the store, flag column = 1) keeps it True; a plain read
+        # round-trips unchanged. Never regresses a True to False.
+        if self.opinion_text and not self.has_opinion:
+            self.has_opinion = True
+        return self
 
 
 class CorpusEvent(BaseModel):
@@ -383,7 +403,11 @@ CREATE TABLE IF NOT EXISTS cases (
     distribution_count  INTEGER,
     cvsg_date           TEXT,
     originating_court_name TEXT,
-    sample_weight       INTEGER
+    sample_weight       INTEGER,
+    -- Presence bit for a linked published opinion (see CorpusRow.has_opinion):
+    -- kept in the index so the scope classifiers still work when the corpus
+    -- split moves the `opinion_text` body out to the content store.
+    has_opinion         INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -508,6 +532,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "cvsg_date": "TEXT",
     "originating_court_name": "TEXT",
     "sample_weight": "INTEGER",
+    "has_opinion": "INTEGER NOT NULL DEFAULT 0",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -687,6 +712,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "cvsg_date": row.cvsg_date.isoformat() if row.cvsg_date else None,
         "originating_court_name": row.originating_court_name,
         "sample_weight": row.sample_weight,
+        "has_opinion": int(row.has_opinion),
     }
 
 
@@ -756,6 +782,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         cvsg_date=_optional_date(record, "cvsg_date"),
         originating_court_name=_optional_str(record, "originating_court_name"),
         sample_weight=_optional_int(record, "sample_weight"),
+        has_opinion=bool(_optional_int(record, "has_opinion")),
     )
 
 
@@ -835,6 +862,8 @@ class MirrorSink(Protocol):
 
     def mirror_documents_for_cases(self, conn: ReadConnection, case_ids: Iterable[str]) -> None: ...
 
+    def mirror_documents(self, documents: Sequence[CaseDocument]) -> None: ...
+
     def mirror_events_for_cases(self, conn: ReadConnection, case_ids: Iterable[str]) -> None: ...
 
 
@@ -853,6 +882,53 @@ def _mirror_sink() -> MirrorSink | None:
     return _MIRROR.get("sink")
 
 
+# --- payload read source (dependency-inverted, symmetric to the mirror sink) --
+#
+# Under the corpus split the bulk payloads (snapshots, documents) live only in the
+# content store, not the blob — so the payload *reads* must come from the store
+# too: change detection and document dedup in the writer, and provisioning /
+# back-test replay in the readers. casestore registers a read source here with the
+# same inversion as the mirror sink (corpus never imports casestore). The snapshot
+# / document read functions consult it ONLY when `corpus_split` is on, so with the
+# mode off every read is the byte-for-byte SQLite path it is today.
+
+
+class PayloadReadSource(Protocol):
+    """Casestore-backed payload reads, consulted under the corpus-split mode."""
+
+    def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
+
+    def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
+
+    def documents_for_case(self, case_id: str) -> list[CaseDocument]: ...
+
+
+_READ_SOURCE: dict[str, PayloadReadSource] = {}
+
+
+def set_payload_read_source(source: PayloadReadSource | None) -> None:
+    """Register (``None`` clears) the casestore payload read source (called by casestore)."""
+    if source is None:
+        _READ_SOURCE.pop("source", None)
+    else:
+        _READ_SOURCE["source"] = source
+
+
+def _payload_read_source() -> PayloadReadSource | None:
+    """The read source, or ``None`` unless the corpus-split mode is on AND one is
+    registered — so the default path never leaves SQLite."""
+    if not get_settings().corpus_split:
+        return None
+    return _READ_SOURCE.get("source")
+
+
+def _split_mode() -> bool:
+    """Whether the corpus-split write mode is on: the payload columns/tables are
+    left empty (the content store is the system of record for them) so the blob
+    stays a small metadata index. Off by default — the writer is unchanged."""
+    return get_settings().corpus_split
+
+
 def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     """Insert or replace rows by ``case_id``; returns the number written.
 
@@ -865,8 +941,18 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
         f"INSERT INTO cases ({', '.join(_COLUMNS)}) VALUES ({placeholders}) "
         f"ON CONFLICT(case_id) DO UPDATE SET {updates}"
     )
+    split = _split_mode()
+
+    def _stored(row: CorpusRow) -> dict[str, object]:
+        record = _to_record(row)
+        if split:
+            # The opinion body moves to the content store (still mirrored below via
+            # the full `rows`); the index keeps only the `has_opinion` bit.
+            record["opinion_text"] = None
+        return record
+
     with conn:
-        conn.executemany(sql, [tuple(_to_record(r)[c] for c in _COLUMNS) for r in rows])
+        conn.executemany(sql, [tuple(_stored(r)[c] for c in _COLUMNS) for r in rows])
     if (sink := _mirror_sink()) is not None:
         sink.mirror_cases(rows)
     return len(rows)
@@ -1132,16 +1218,19 @@ def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
     published opinion falls through both and lands here instead.
 
     Safe against a live petition **by construction**: a pending cert petition has no
-    published opinion yet (no citation, no ``opinion_text``), so it can never match.
+    published opinion yet (no citation, no ``has_opinion``), so it can never match.
     SCOTUS-only, and only while still open (no ``disposition`` and no ``date_decided``);
     a case that later gains a real disposition is released by the two-directional scope
     reconcile. The published-opinion signal mirrors ``validate._recoverable_signal``.
+
+    Reads the ``has_opinion`` presence bit rather than ``opinion_text`` so it holds
+    under the corpus split, where the opinion body moves to the content store.
     """
     if row.court != "scotus":
         return False
     if row.disposition is not None or row.date_decided is not None:
         return False
-    return bool(row.citations or row.citation_count or row.opinion_text)
+    return bool(row.citations or row.citation_count or row.has_opinion)
 
 
 # SCOTUS application ("22A123", older "A-9999"), original-jurisdiction ("22O141"),
@@ -1326,7 +1415,7 @@ def is_bare_import_profile(row: CorpusRow) -> bool:
         return False
     if row.date_filed is not None or row.date_decided is not None or row.disposition is not None:
         return False
-    return not (row.citations or row.citation_count or row.opinion_text)
+    return not (row.citations or row.citation_count or row.has_opinion)
 
 
 def snapshot_links_opinion_cluster(payload: Mapping[str, Any]) -> bool:
@@ -2082,12 +2171,16 @@ def upsert_snapshot(
     a second pull on the same day overwrites that day's snapshot rather than
     duplicating it.
     """
-    with conn:
-        conn.execute(
-            "INSERT INTO snapshots (case_id, snapshot_date, payload) VALUES (?, ?, ?) "
-            "ON CONFLICT(case_id, snapshot_date) DO UPDATE SET payload = excluded.payload",
-            (case_id, snapshot_date.isoformat(), json.dumps(payload, sort_keys=True)),
-        )
+    # Under the split mode the snapshot lives only in the content store (mirrored
+    # below); the blob keeps no snapshots table content, so change detection reads
+    # the store via the read source instead.
+    if not _split_mode():
+        with conn:
+            conn.execute(
+                "INSERT INTO snapshots (case_id, snapshot_date, payload) VALUES (?, ?, ?) "
+                "ON CONFLICT(case_id, snapshot_date) DO UPDATE SET payload = excluded.payload",
+                (case_id, snapshot_date.isoformat(), json.dumps(payload, sort_keys=True)),
+            )
     if (sink := _mirror_sink()) is not None:
         sink.mirror_snapshot(case_id, snapshot_date, payload)
 
@@ -2096,8 +2189,12 @@ def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str,
     """The most recent dated snapshot for a case — ``(date, payload)`` — or ``None``.
 
     Ordered by ``snapshot_date`` so the newest pull wins; ``None`` means the case
-    has never been snapshotted (the onboarding signal for ``pull``).
+    has never been snapshotted (the onboarding signal for ``pull``). Under the
+    corpus-split mode the snapshots live in the content store, so the read is
+    served from there (``conn`` is unused) — see :func:`_payload_read_source`.
     """
+    if (source := _payload_read_source()) is not None:
+        return source.latest_snapshot(case_id)
     cur = conn.execute(
         "SELECT snapshot_date, payload FROM snapshots WHERE case_id = ? "
         "ORDER BY snapshot_date DESC LIMIT 1",
@@ -2117,8 +2214,11 @@ def latest_live_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict
     a supremecourt.gov docket JSON (carrying ``ProceedingsandOrder``) and a
     CourtListener REST docket look nothing alike — so a consumer of the live
     proceedings (the signal backfill) must skip past any newer REST snapshot a
-    later ``pull`` stored, not just take the newest row.
+    later ``pull`` stored, not just take the newest row. Under the corpus-split
+    mode the snapshots live in the content store, so it is served from there.
     """
+    if (source := _payload_read_source()) is not None:
+        return source.latest_live_snapshot(case_id)
     cur = conn.execute(
         "SELECT snapshot_date, payload FROM snapshots WHERE case_id = ? "
         "ORDER BY snapshot_date DESC",
@@ -2146,31 +2246,39 @@ def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) ->
     Latest-wins by design: a corrected or re-filed document (a new BIO after a
     bounced one) simply supersedes the stored text for its kind.
     """
-    with conn:
-        conn.executemany(
-            "INSERT INTO documents (case_id, kind, url, entry_date, fetched_at, pages, "
-            "truncated, text) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT(case_id, kind) DO UPDATE SET url = excluded.url, "
-            "entry_date = excluded.entry_date, fetched_at = excluded.fetched_at, "
-            "pages = excluded.pages, truncated = excluded.truncated, text = excluded.text",
-            [
-                (
-                    d.case_id,
-                    d.kind,
-                    d.url,
-                    d.entry_date,
-                    d.fetched_at.isoformat(),
-                    d.pages,
-                    int(d.truncated),
-                    d.text,
-                )
-                for d in documents
-            ],
-        )
-    # The mirror reads the full committed set back per case (guarded on the flag,
-    # so this is a pure no-op when the store is off).
+    split = _split_mode()
+    if not split:
+        with conn:
+            conn.executemany(
+                "INSERT INTO documents (case_id, kind, url, entry_date, fetched_at, pages, "
+                "truncated, text) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(case_id, kind) DO UPDATE SET url = excluded.url, "
+                "entry_date = excluded.entry_date, fetched_at = excluded.fetched_at, "
+                "pages = excluded.pages, truncated = excluded.truncated, text = excluded.text",
+                [
+                    (
+                        d.case_id,
+                        d.kind,
+                        d.url,
+                        d.entry_date,
+                        d.fetched_at.isoformat(),
+                        d.pages,
+                        int(d.truncated),
+                        d.text,
+                    )
+                    for d in documents
+                ],
+            )
     if (sink := _mirror_sink()) is not None:
-        sink.mirror_documents_for_cases(conn, [d.case_id for d in documents])
+        if split:
+            # The blob holds no documents to read back; the store is the system of
+            # record, so mirror the in-hand batch and let it merge with the case's
+            # existing manifest (the writer already deduped against the store).
+            sink.mirror_documents(documents)
+        else:
+            # The mirror reads the full committed set back per case (guarded on the
+            # flag, so this is a pure no-op when the store is off).
+            sink.mirror_documents_for_cases(conn, [d.case_id for d in documents])
     return len(documents)
 
 
@@ -2182,8 +2290,11 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
     pre-OT2021 petition whose links the site no longer serves, or a case the
     distribution trigger has not yet reached). Like :func:`_optional_date` for
     columns, a remote blob packed before the table existed reads as "no
-    documents" rather than failing the ranged cell.
+    documents" rather than failing the ranged cell. Under the corpus-split mode the
+    documents live in the content store, so the set is served from there.
     """
+    if (source := _payload_read_source()) is not None:
+        return source.documents_for_case(case_id)
     try:
         cur = conn.execute(
             "SELECT case_id, kind, url, entry_date, fetched_at, pages, truncated, text "

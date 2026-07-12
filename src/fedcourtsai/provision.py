@@ -16,7 +16,6 @@ populated the store.
 
 from __future__ import annotations
 
-import json
 from datetime import date
 from typing import Any
 
@@ -32,64 +31,26 @@ class CasestoreSource:
     """Read a case's snapshot / documents / events from the per-case content store.
 
     Mirrors the corpus read functions the provisioning commands use, so a
-    casestore-sourced ``record/`` is byte-identical to a corpus-sourced one.
+    casestore-sourced ``record/`` is byte-identical to a corpus-sourced one. Thin
+    over the shared ``casestore.read_*`` helpers (the same implementation the
+    process read source uses under the corpus-split mode), bound to an explicit
+    transport so a test can point it at an in-memory store.
     """
 
     def __init__(self, transport: casestore.ObjectTransport) -> None:
         self._transport = transport
 
     def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
-        """The newest dated snapshot — ``(date, payload)`` — or ``None``.
-
-        Lists the case's ``snapshots/`` and picks the max date, mirroring the
-        corpus ``ORDER BY snapshot_date DESC LIMIT 1``.
-        """
-        prefix = f"{casestore.case_prefix(case_id)}/snapshots/"
-        dates: list[date] = []
-        for key in self._transport.list_keys(prefix):
-            stem = key[len(prefix) :]
-            if stem.endswith(".json"):
-                try:
-                    dates.append(date.fromisoformat(stem[: -len(".json")]))
-                except ValueError:
-                    continue
-        if not dates:
-            return None
-        latest = max(dates)
-        body = self._transport.get(casestore.snapshot_key(case_id, latest))
-        if body is None:
-            return None
-        return latest, json.loads(body)
+        """The newest dated snapshot — ``(date, payload)`` — or ``None``."""
+        return casestore.read_latest_snapshot(self._transport, case_id)
 
     def documents_for_case(self, case_id: str) -> list[CaseDocument]:
-        """The case's documents, kind-ordered — reconstructed from the manifest
-        and the content-addressed text leaves (empty if none stored)."""
-        body = self._transport.get(casestore.documents_manifest_key(case_id))
-        if body is None:
-            return []
-        documents: list[CaseDocument] = []
-        for entry in json.loads(body).get("documents", []):  # manifest is kind-sorted
-            leaf = self._transport.get(entry["text_key"])
-            documents.append(
-                CaseDocument(
-                    case_id=case_id,
-                    kind=entry["kind"],
-                    url=entry["url"],
-                    entry_date=entry["entry_date"],
-                    fetched_at=date.fromisoformat(entry["fetched_at"]),
-                    pages=entry["pages"],
-                    truncated=entry["truncated"],
-                    text=leaf.decode("utf-8") if leaf is not None else "",
-                )
-            )
-        return documents
+        """The case's documents, kind-ordered, reconstructed from the manifest + leaves."""
+        return casestore.read_documents(self._transport, case_id)
 
     def events_for_case(self, case_id: str) -> list[CorpusEvent]:
         """The case's predictable events, event_id-ordered (empty if none stored)."""
-        body = self._transport.get(casestore.events_key(case_id))
-        if body is None:
-            return []
-        return [CorpusEvent.model_validate(entry) for entry in json.loads(body)]
+        return casestore.read_events(self._transport, case_id)
 
 
 def casestore_source_from_settings() -> CasestoreSource:

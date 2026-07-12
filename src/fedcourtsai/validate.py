@@ -606,9 +606,12 @@ def _recoverable_signal(row: corpus.CorpusRow) -> bool:
     An opinion, a citation, a citation count, or a decision date means the corpus
     already knows the case was decided — so a still-open event on it is likely a
     missed disposition (re-ingestible) rather than a genuinely absent one.
+
+    Reads the ``has_opinion`` presence bit, not ``opinion_text``, so it holds under
+    the corpus split (the opinion body moves to the content store).
     """
     return bool(
-        row.opinion_text or row.citations or row.citation_count or row.date_decided is not None
+        row.has_opinion or row.citations or row.citation_count or row.date_decided is not None
     )
 
 
