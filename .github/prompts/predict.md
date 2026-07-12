@@ -53,7 +53,10 @@ the workflow places them for your run:
    `documents.json` listing what is present (pages, truncation). These are
    pipeline-fetched inputs with the same standing as the snapshot: for a cert
    prediction, anchor on the questions presented and weigh the petition against
-   the BIO, and cite what you used in `reasoning.md`. Their absence just means
+   the BIO, and cite what you used in `reasoning.md`. A document with
+   `empty_text: true` was fetched but its text could not be extracted (a scanned
+   filing with no text layer) — treat it as content-unavailable, not as absent,
+   and say so rather than inferring from a blank file. Their absence just means
    the pipeline had nothing to fetch — predict from the snapshot as before.
 6. `record/context.json` — your cell's **mode**: `forward` or `replay`.
 

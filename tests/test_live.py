@@ -70,6 +70,16 @@ def _payload(
 
 _DENIED_ENTRY = {"Date": "Jul 06 2026", "Text": "Petition DENIED."}
 _GRANTED_ENTRY = {"Date": "Jul 06 2026", "Text": "Petition GRANTED limited to Question 1."}
+# A Rule 39.8 IFP-denial/dismissal: a terminal SCOTUS order the cert-disposition
+# resolver deliberately does not match (many words separate "petition" from
+# "dismissed"), so the routing backstop must keep it out of the forward queue.
+_RULE_398_ENTRY = {
+    "Date": "Oct 20 2025",
+    "Text": (
+        "Motion for leave to proceed in forma pauperis DENIED and petition for a "
+        "writ of habeas corpus DISMISSED. See Rule 39.8."
+    ),
+}
 
 
 # --- identity helpers ------------------------------------------------------------
@@ -372,6 +382,66 @@ def test_discover_live_enriches_an_existing_courtlistener_row(tmp_path: Path) ->
         assert corpus.get_row(conn, "scotus/9025000001") is None
         enriched = corpus.get_row(conn, "scotus/74112233")
     assert enriched is not None and enriched.case_name == "Doe, et al. v. Roe"
+
+
+def test_ingest_live_payload_flags_a_rule_398_terminal_order(tmp_path: Path) -> None:
+    # The resolver misses a Rule 39.8 dismissal, so no outcome is recorded (the
+    # event stays open) — but termination_signal fires on the same poll.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    docket_id = live_docket_id(25, 5001)
+    payload = _payload(
+        "25-5001", proceedings=[_payload()["ProceedingsandOrder"][0], _RULE_398_ENTRY]
+    )
+    result = ingest_live_payload(db, tmp_path / "data", payload, docket_id, today=date(2026, 7, 10))
+    assert result.resolved == []  # the cert resolver did not match -> nothing recorded
+    assert result.termination_signal is not None and "39.8" in result.termination_signal
+
+
+def test_live_poll_all_skips_a_decided_looking_terminal_order_forward(tmp_path: Path) -> None:
+    # A distributed petition whose latest order is a Rule 39.8 dismissal the
+    # resolver missed diverts to predict_skipped_decided — never a forward cell
+    # that could read the outcome from its own provisioned snapshot.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {
+        "25-5001": _payload(
+            "25-5001",
+            proceedings=[
+                _payload()["ProceedingsandOrder"][0],
+                {"Date": "Sep 15 2025", "Text": "DISTRIBUTED for Conference of 10/10/2025."},
+                _RULE_398_ENTRY,
+            ],
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 10)
+        )
+    assert queues.predict == []
+    assert [q["docket"] for q in queues.predict_skipped_decided] == [live_docket_id(25, 5001)]
+    assert "39.8" in str(queues.predict_skipped_decided[0]["reason"])
+
+
+def test_live_poll_all_surfaces_evaluate_skipped_from_the_refresh_path(tmp_path: Path) -> None:
+    # A petition that resolves on a refresh poll with no committed prediction to
+    # score must surface on evaluate_skipped — the refresh path's queue, which
+    # live_poll_all now merges (never silently discarded).
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+    served = {"25-1": _payload("25-1")}
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=config, today=date(2026, 7, 9))
+    # Refresh: the pending petition gains its denial order, but nothing predicted it.
+    served["25-1"] = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DENIED_ENTRY]
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 10)
+        )
+    assert queues.evaluate == []
+    assert [q["docket"] for q in queues.evaluate_skipped] == [9_025_000_001]
 
 
 # --- the full cycle ---------------------------------------------------------------
