@@ -7,20 +7,25 @@ corpus with the bulk stripped, so the queryable metadata can eventually be serve
 and re-pushed on its own (a fraction of the size) while the payloads live in the
 content store.
 
-What is stripped, and why it is safe (proven by the parity gate in
-``tests/test_corpus_index.py``):
+What is stripped:
 
 - the ``snapshots`` and ``documents`` tables — emptied (the point-in-time docket
-  JSON and extracted document text; the bulk consumers never read them);
-- ``cases.opinion_text`` — NULLed (the full opinion body; the bulk consumers never
-  read the value, and ``query`` pops it from its output unless ``--full``).
+  JSON and extracted document text);
+- ``cases.opinion_text`` — NULLed (the full opinion body).
 
 What is **kept**: every other ``cases`` column (including ``summary``, which
 ``query`` emits), the ``events`` / ``discovery_watermarks`` / ``live_discovery_cursors``
 tables, and every index. The schema is left identical to the corpus (columns are
-NULLed and tables emptied, never dropped) so the ranged backend and all read code
-work unchanged — the index is a drop-in for the bulk consumers (``statpack`` /
-``backtest`` / ``query``).
+NULLed and tables emptied, never dropped), so read code does not error on the index.
+
+**Drop-in scope.** The index is *result-identical* only for the three **bulk
+consumers** — ``statpack``, ``backtest``, and ``query`` — which the parity gate in
+``tests/test_corpus_index.py`` proves byte-for-byte. It is **not** a drop-in for
+code that reads a stripped field as a *signal*: scope reconcile / audit and
+``validate`` read ``cases.opinion_text`` (and, for the bare-import rule, a case's
+``snapshots``) to classify it, and ``cert-backtest`` replay reads ``snapshots`` —
+those must keep reading the full corpus blob. A later phase repoints only the bulk
+consumers here.
 
 This phase only *produces* the index and proves parity; no consumer reads it yet.
 """
@@ -54,15 +59,19 @@ class IndexStats:
 def build_index(src: Path, dst: Path) -> IndexStats:
     """Write a payload-stripped copy of the corpus at ``src`` to ``dst``.
 
-    Copies the blob, empties the ``snapshots`` and ``documents`` tables, NULLs
-    ``cases.opinion_text``, then ``VACUUM``s so the freed space is reclaimed. The
-    schema is unchanged (nothing dropped), so the result is a drop-in for the bulk
-    consumers. ``src`` must exist and be a corpus SQLite file at rest (non-WAL, as
-    the ranged layout keeps it), so a plain file copy is consistent.
+    Copies the blob with ``VACUUM INTO`` (a clean, compact copy that reads the
+    committed state through a connection, so it is correct even if a WAL sidecar
+    exists — unlike a raw file copy), empties the ``snapshots`` and ``documents``
+    tables, NULLs ``cases.opinion_text``, then ``VACUUM``s the result so the freed
+    space is reclaimed. The schema is unchanged (nothing dropped).
     """
-    import shutil  # noqa: PLC0415 — only needed on this write path, not at import
-
-    shutil.copyfile(src, dst)
+    if dst.exists():
+        dst.unlink()  # VACUUM INTO requires the target not to exist
+    copier = sqlite3.connect(src)
+    try:
+        copier.execute("VACUUM INTO ?", (str(dst),))
+    finally:
+        copier.close()
     conn = sqlite3.connect(dst)
     try:
         cases = conn.execute("SELECT COUNT(*) FROM cases").fetchone()[0]

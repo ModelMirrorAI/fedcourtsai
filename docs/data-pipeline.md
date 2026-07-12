@@ -291,11 +291,13 @@ The complementary **index** is the small queryable half. `fedcourts build-index`
 (`fedcourtsai.corpus_index`) writes a copy of the corpus with the bulk stripped —
 the `snapshots`/`documents` tables emptied and `cases.opinion_text` NULLed (the
 payloads that move to the content store) — keeping every other column (including
-`summary`, which `query` emits), the events/cursors, and the schema itself, so it
-is a drop-in for the bulk consumers. A **parity gate** (`tests/test_corpus_index.py`)
-proves `statpack` / `backtest` / `query` produce byte-identical output from the
-index and the full blob, so a later phase can repoint those consumers at the index
-and stop writing the payloads to the blob. **No consumer reads either the store or
+`summary`, which `query` emits), the events/cursors, and the schema itself. A
+**parity gate** (`tests/test_corpus_index.py`) proves the **bulk consumers**
+`statpack` / `backtest` / `query` produce byte-identical output from the index and
+the full blob, so a later phase can repoint *those* consumers at the index and stop
+writing the payloads to the blob. (Scope reconcile, `validate`, and `cert-backtest`
+read `opinion_text`/`snapshots` as signals and stay on the full blob — the index is
+a drop-in only for the bulk consumers the gate covers.) **No consumer reads either the store or
 the index yet** — the migration stays reversible until that later phase flips
 readers over.
 
