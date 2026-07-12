@@ -285,9 +285,19 @@ as a repo/org variable; unset → `""` → off by default), so with the flag
 off the pipeline is byte-for-byte unchanged, and with it on a mirror failure only
 logs and never breaks the SQLite write (the phase-1 system of record). Enabling also
 requires the read-write S3 role to permit `PutObject` **and** `GetObject`/`HeadObject`
-(the write-once existence check) on the store's prefix. **No
-consumer reads the store yet** and the index/pointer half is not built — so the
-migration stays reversible until later phases add the index and flip readers over.
+(the write-once existence check) on the store's prefix.
+
+The complementary **index** is the small queryable half. `fedcourts build-index`
+(`fedcourtsai.corpus_index`) writes a copy of the corpus with the bulk stripped —
+the `snapshots`/`documents` tables emptied and `cases.opinion_text` NULLed (the
+payloads that move to the content store) — keeping every other column (including
+`summary`, which `query` emits), the events/cursors, and the schema itself, so it
+is a drop-in for the bulk consumers. A **parity gate** (`tests/test_corpus_index.py`)
+proves `statpack` / `backtest` / `query` produce byte-identical output from the
+index and the full blob, so a later phase can repoint those consumers at the index
+and stop writing the payloads to the blob. **No consumer reads either the store or
+the index yet** — the migration stays reversible until that later phase flips
+readers over.
 
 ### Credentials for the DVC remote
 

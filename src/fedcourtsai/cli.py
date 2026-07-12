@@ -23,6 +23,7 @@ from . import (
     analytics,
     cleanup,
     corpus,
+    corpus_index,
     corpus_ranged,
     dvc,
     ids,
@@ -1306,6 +1307,35 @@ def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
             f"{corpus.snapshot_count(conn)} snapshot(s)"
         )
         _echo_read_stats(conn)
+
+
+@app.command("build-index")
+def build_index_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <corpus_root>/index.db)."),
+    ] = None,
+) -> None:
+    """Build the small, payload-stripped index from the corpus blob (corpus split).
+
+    Copies the corpus, empties the `snapshots`/`documents` tables and NULLs
+    `cases.opinion_text` (the bulk that moves to the per-case content store), and
+    VACUUMs. The schema is unchanged, so the result is a drop-in for the bulk
+    consumers (`statpack`/`backtest`/`query`) — proven byte-identical by the parity
+    tests. No consumer reads it yet; this phase only produces it.
+    """
+    settings = get_settings()
+    src = corpus.corpus_db_path(settings.corpus_root)
+    dst = out if out is not None else corpus_index.index_db_path(settings.corpus_root)
+    if not src.exists():
+        typer.echo(f"No corpus at {src} — `dvc pull` to fetch it from the remote.", err=True)
+        raise typer.Exit(code=1)
+    stats = corpus_index.build_index(src, dst)
+    typer.echo(
+        f"index: {stats.cases} case(s); dropped {stats.snapshots_dropped} snapshot(s) + "
+        f"{stats.documents_dropped} document(s), NULLed {stats.opinions_nulled} opinion(s); "
+        f"{stats.src_bytes / 1_000_000:.1f} MB -> {stats.index_bytes / 1_000_000:.1f} MB -> {dst}"
+    )
 
 
 @app.command()
