@@ -69,6 +69,7 @@ from .corpus import (
     ReadConnection,
     documents_for_case,
     events_for_case,
+    set_mirror_sink,
 )
 
 logger = logging.getLogger(__name__)
@@ -494,3 +495,26 @@ def mirror_case(
     return CaseMirror(
         case=case_ref, events=events_ref, snapshot=snapshot_ref, documents=document_refs
     )
+
+
+# --- dual-write sink registration ---------------------------------------------
+
+
+class _CorpusMirrorSink:
+    """Adapts this module's ``mirror_*`` functions to :class:`fedcourtsai.corpus.MirrorSink`.
+
+    Registered with the corpus write seams so they mirror here *without* importing
+    this module — the dependency is inverted (casestore → corpus only), which keeps
+    the storage layer free of the S3 mirror and free of an import cycle.
+    """
+
+    mirror_cases = staticmethod(mirror_cases)
+    mirror_snapshot = staticmethod(mirror_snapshot)
+    mirror_documents_for_cases = staticmethod(mirror_documents_for_cases)
+    mirror_events_for_cases = staticmethod(mirror_events_for_cases)
+
+
+# Runs on import; fedcourtsai/__init__ imports this module so the sink is always
+# registered. The sink's mirror_* helpers are themselves gated on the flag
+# (active_transport() is None → no-op), so registration alone changes nothing.
+set_mirror_sink(_CorpusMirrorSink())
