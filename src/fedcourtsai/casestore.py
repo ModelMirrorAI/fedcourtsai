@@ -76,6 +76,7 @@ from .corpus import (
     documents_for_case,
     events_for_case,
     set_mirror_sink,
+    set_payload_read_source,
 )
 
 logger = logging.getLogger(__name__)
@@ -319,6 +320,26 @@ def mirror_documents_for_cases(conn: ReadConnection, case_ids: Iterable[str]) ->
             logger.warning("casestore: mirror of documents %s failed: %s", case_id, exc)
 
 
+def mirror_documents(documents: Sequence[CaseDocument]) -> None:
+    """Best-effort mirror of a document *batch*, merged per case; never raises.
+
+    The split-mode entry point: the blob keeps no documents, so the batch is
+    merged onto each case's existing store manifest (:func:`merge_documents`)
+    rather than read back from the corpus. Transport-guarded (store off → no-op).
+    """
+    transport = active_transport()
+    if transport is None:
+        return
+    by_case: dict[str, list[CaseDocument]] = {}
+    for doc in documents:
+        by_case.setdefault(doc.case_id, []).append(doc)
+    for case_id, docs in by_case.items():
+        try:
+            merge_documents(transport, case_id, docs)
+        except Exception as exc:  # broad by design: no mirror error may break ingestion
+            logger.warning("casestore: mirror of documents %s failed: %s", case_id, exc)
+
+
 def mirror_events_for_cases(conn: ReadConnection, case_ids: Iterable[str]) -> None:
     """Best-effort mirror of each case's FULL event list; never raises.
 
@@ -450,6 +471,28 @@ def write_snapshot(
     return ObjectRef(key=key, digest=digest_bytes(body), size=len(body))
 
 
+def _put_document_leaf(
+    transport: ObjectTransport, case_id: str, doc: CaseDocument
+) -> tuple[dict[str, Any], ObjectRef]:
+    """Write one document's content-addressed text leaf; return its manifest entry + ref."""
+    text_bytes = doc.text.encode("utf-8")
+    digest = digest_bytes(text_bytes)
+    leaf = document_leaf_key(case_id, doc.kind, doc.fetched_at, digest)
+    transport.put(leaf, text_bytes, if_absent=True)
+    entry = {
+        "kind": doc.kind,
+        "url": doc.url,
+        "entry_date": doc.entry_date,
+        "fetched_at": doc.fetched_at.isoformat(),
+        "pages": doc.pages,
+        "truncated": doc.truncated,
+        "text_key": leaf,
+        "digest": digest,
+        "bytes": len(text_bytes),
+    }
+    return entry, ObjectRef(key=leaf, digest=digest, size=len(text_bytes))
+
+
 def write_documents(
     transport: ObjectTransport, case_id: str, documents: Sequence[CaseDocument]
 ) -> list[ObjectRef]:
@@ -458,7 +501,9 @@ def write_documents(
     Text leaves are written ``if_absent`` (content-addressed keys already hold
     identical bytes, so a re-mirror uploads nothing). The manifest records the
     current leaf per kind with its digest, so provisioning can resolve and pin
-    the exact text without reading the leaf.
+    the exact text without reading the leaf. The manifest is *replaced* with
+    exactly these kinds — the caller passes the full set (a corpus read-back);
+    see :func:`merge_documents` for the split-mode batch merge.
     """
     refs: list[ObjectRef] = []
     manifest_entries: list[dict[str, Any]] = []
@@ -467,26 +512,37 @@ def write_documents(
     # manifest is "kind -> current leaf", not an append log.
     by_kind = {doc.kind: doc for doc in documents}
     for doc in sorted(by_kind.values(), key=lambda d: d.kind):
-        text_bytes = doc.text.encode("utf-8")
-        digest = digest_bytes(text_bytes)
-        leaf = document_leaf_key(case_id, doc.kind, doc.fetched_at, digest)
-        transport.put(leaf, text_bytes, if_absent=True)
-        ref = ObjectRef(key=leaf, digest=digest, size=len(text_bytes))
+        entry, ref = _put_document_leaf(transport, case_id, doc)
+        manifest_entries.append(entry)
         refs.append(ref)
-        manifest_entries.append(
-            {
-                "kind": doc.kind,
-                "url": doc.url,
-                "entry_date": doc.entry_date,
-                "fetched_at": doc.fetched_at.isoformat(),
-                "pages": doc.pages,
-                "truncated": doc.truncated,
-                "text_key": leaf,
-                "digest": digest,
-                "bytes": len(text_bytes),
-            }
-        )
     manifest_body = _canonical_json({"documents": manifest_entries})
+    transport.put(documents_manifest_key(case_id), manifest_body)
+    return refs
+
+
+def merge_documents(
+    transport: ObjectTransport, case_id: str, documents: Sequence[CaseDocument]
+) -> list[ObjectRef]:
+    """Overlay a *batch* of documents onto the case's existing manifest.
+
+    The split-mode counterpart to :func:`write_documents`: under the corpus split
+    the blob holds no documents to read the full set back from, so the store is the
+    accumulator. Each batch's kinds are written (content-addressed leaves) and
+    merged into the existing ``documents.json`` — other kinds already recorded are
+    preserved — so a later brief-in-opposition fetch never drops the petition from
+    the manifest. Kind-sorted, matching :func:`write_documents`.
+    """
+    entries: dict[str, dict[str, Any]] = {}
+    existing = transport.get(documents_manifest_key(case_id))
+    if existing is not None:
+        for entry in json.loads(existing).get("documents", []):
+            entries[entry["kind"]] = entry
+    refs: list[ObjectRef] = []
+    for doc in {doc.kind: doc for doc in documents}.values():
+        entry, ref = _put_document_leaf(transport, case_id, doc)
+        entries[doc.kind] = entry
+        refs.append(ref)
+    manifest_body = _canonical_json({"documents": [entries[k] for k in sorted(entries)]})
     transport.put(documents_manifest_key(case_id), manifest_body)
     return refs
 
@@ -521,6 +577,109 @@ def mirror_case(
     )
 
 
+# --- reads (the payload read source, symmetric to the mirror) -----------------
+#
+# Under the corpus split these serve the payloads the blob no longer holds. They
+# take an explicit transport so provision.CasestoreSource (its own transport, for
+# tests) and the process read source (the active transport) share one implementation.
+
+
+def _snapshot_dates(transport: ObjectTransport, case_id: str) -> list[date]:
+    """Every dated snapshot's date for a case, parsed from its ``snapshots/`` keys."""
+    prefix = f"{case_prefix(case_id)}/snapshots/"
+    dates: list[date] = []
+    for key in transport.list_keys(prefix):
+        stem = key[len(prefix) :]
+        if stem.endswith(".json"):
+            try:
+                dates.append(date.fromisoformat(stem[: -len(".json")]))
+            except ValueError:
+                continue
+    return dates
+
+
+def read_latest_snapshot(
+    transport: ObjectTransport, case_id: str
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest dated snapshot — ``(date, payload)`` — or ``None`` (mirrors the
+    corpus ``ORDER BY snapshot_date DESC LIMIT 1``)."""
+    dates = _snapshot_dates(transport, case_id)
+    if not dates:
+        return None
+    latest = max(dates)
+    body = transport.get(snapshot_key(case_id, latest))
+    if body is None:
+        return None
+    return latest, json.loads(body)
+
+
+def read_latest_live_snapshot(
+    transport: ObjectTransport, case_id: str
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest **live-shaped** snapshot (carrying ``ProceedingsandOrder``), or
+    ``None`` — mirrors ``corpus.latest_live_snapshot``, skipping newer REST rows."""
+    for snapshot_date in sorted(_snapshot_dates(transport, case_id), reverse=True):
+        body = transport.get(snapshot_key(case_id, snapshot_date))
+        if body is None:
+            continue
+        payload = json.loads(body)
+        if "ProceedingsandOrder" in payload:
+            return snapshot_date, payload
+    return None
+
+
+def read_documents(transport: ObjectTransport, case_id: str) -> list[CaseDocument]:
+    """The case's documents, kind-ordered, reconstructed from the manifest + leaves."""
+    body = transport.get(documents_manifest_key(case_id))
+    if body is None:
+        return []
+    documents: list[CaseDocument] = []
+    for entry in json.loads(body).get("documents", []):  # manifest is kind-sorted
+        leaf = transport.get(entry["text_key"])
+        documents.append(
+            CaseDocument(
+                case_id=case_id,
+                kind=entry["kind"],
+                url=entry["url"],
+                entry_date=entry["entry_date"],
+                fetched_at=date.fromisoformat(entry["fetched_at"]),
+                pages=entry["pages"],
+                truncated=entry["truncated"],
+                text=leaf.decode("utf-8") if leaf is not None else "",
+            )
+        )
+    return documents
+
+
+def read_events(transport: ObjectTransport, case_id: str) -> list[CorpusEvent]:
+    """The case's predictable events, event_id-ordered (empty if none stored)."""
+    body = transport.get(events_key(case_id))
+    if body is None:
+        return []
+    return [CorpusEvent.model_validate(entry) for entry in json.loads(body)]
+
+
+class _CasestoreReadSource:
+    """``corpus.PayloadReadSource`` over the process (active) transport.
+
+    Consulted only under the corpus-split mode (the gate lives in
+    ``corpus._payload_read_source``). With the store unbuilt (transport ``None``)
+    it reads as empty — the same "no prior / no documents" the corpus would.
+    """
+
+    def latest_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
+        transport = active_transport()
+        return None if transport is None else read_latest_snapshot(transport, case_id)
+
+    def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None:
+        transport = active_transport()
+        return None if transport is None else read_latest_live_snapshot(transport, case_id)
+
+    def documents_for_case(self, case_id: str) -> list[CaseDocument]:
+        transport = active_transport()
+        return [] if transport is None else read_documents(transport, case_id)
+
+
 # --- dual-write sink registration ---------------------------------------------
 
 
@@ -535,6 +694,7 @@ class _CorpusMirrorSink:
     mirror_cases = staticmethod(mirror_cases)
     mirror_snapshot = staticmethod(mirror_snapshot)
     mirror_documents_for_cases = staticmethod(mirror_documents_for_cases)
+    mirror_documents = staticmethod(mirror_documents)
     mirror_events_for_cases = staticmethod(mirror_events_for_cases)
 
 
@@ -542,3 +702,8 @@ class _CorpusMirrorSink:
 # registered. The sink's mirror_* helpers are themselves gated on the flag
 # (active_transport() is None → no-op), so registration alone changes nothing.
 set_mirror_sink(_CorpusMirrorSink())
+
+# The read counterpart, registered the same way. corpus consults it only under the
+# corpus-split mode (corpus._payload_read_source gates on the flag), so with the
+# mode off the corpus reads never leave SQLite and registration alone changes nothing.
+set_payload_read_source(_CasestoreReadSource())

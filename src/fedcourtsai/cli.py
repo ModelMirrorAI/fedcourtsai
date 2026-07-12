@@ -1358,11 +1358,14 @@ def build_index_cmd(
     """Build the small, payload-stripped index from the corpus blob (corpus split).
 
     Empties the `snapshots`/`documents` tables and NULLs `cases.opinion_text` (the
-    bulk that moves to the per-case content store), keeping every other column and
-    the schema. Result-identical (a drop-in) only for the bulk consumers
-    `statpack`/`backtest`/`query` — proven byte-identical by the parity gate; scope
-    reconcile/`validate`/`cert-backtest`, which read opinion_text/snapshots as
-    signals, keep reading the full blob. No consumer reads the index yet.
+    bulk that moves to the per-case content store), keeping every other column
+    (including the `has_opinion` presence bit) and the schema. Result-identical for
+    the bulk consumers `statpack`/`backtest`/`query` — proven byte-identical by the
+    parity gate. Under the corpus-split mode the signal readers are served too: scope
+    reconcile / `validate` key on the retained `has_opinion` bit rather than the
+    body, and `cert-backtest` reads snapshots from the content store via the payload
+    read source. This is a one-shot utility — under the split mode the writer already
+    produces a payload-free blob, so no per-run build-index is needed.
     """
     settings = get_settings()
     src = corpus.corpus_db_path(settings.corpus_root)

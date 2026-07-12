@@ -18,16 +18,17 @@ What is **kept**: every other ``cases`` column (including ``summary``, which
 tables, and every index. The schema is left identical to the corpus (columns are
 NULLed and tables emptied, never dropped), so read code does not error on the index.
 
-**Drop-in scope.** The index is *result-identical* only for the three **bulk
+**Drop-in scope.** The index is *result-identical* for the three **bulk
 consumers** — ``statpack``, ``backtest``, and ``query`` — which the parity gate in
-``tests/test_corpus_index.py`` proves byte-for-byte. It is **not** a drop-in for
-code that reads a stripped field as a *signal*: scope reconcile / audit and
-``validate`` read ``cases.opinion_text`` (and, for the bare-import rule, a case's
-``snapshots``) to classify it, and ``cert-backtest`` replay reads ``snapshots`` —
-those must keep reading the full corpus blob. A later phase repoints only the bulk
-consumers here.
+``tests/test_corpus_index.py`` proves byte-for-byte. The signal readers that keyed
+on a stripped field are handled by phase 4: scope reconcile / ``validate`` read the
+retained ``cases.has_opinion`` presence bit instead of the ``opinion_text`` body,
+and ``cert-backtest`` replay (which needs the snapshot payload) reads it from the
+content store through the payload read source (:func:`fedcourtsai.corpus`
+``_payload_read_source``) under the corpus-split mode.
 
-This phase only *produces* the index and proves parity; no consumer reads it yet.
+Under the split mode the writer already produces a payload-free blob directly, so
+this module is a one-shot utility (e.g. to strip a legacy blob), not a per-run stage.
 """
 
 from __future__ import annotations
