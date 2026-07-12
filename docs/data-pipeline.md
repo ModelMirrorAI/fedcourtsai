@@ -272,12 +272,20 @@ will keep serving bulk scans — so only *changed* cases upload and storage scal
 with case churn, not run count. Per-case objects will land **behind a pointer in
 the index, never as git tree entries**, so the "pack, don't proliferate" rule
 still holds (git never sees them). `fedcourtsai.casestore` is the phase-1 writer
-library for that store (write-once discipline: document text leaves are
-content-addressed, dated snapshots immutable per day, small manifests versioned).
-It is **dormant** — gated on `FEDCOURTS_CASESTORE_URL` (unset by default), not yet
-called by any writer or read by any consumer, and the index/pointer half is not
-yet built — so the migration is inert and reversible until later phases wire
-dual-write, add the index, and flip readers over.
+for that store (write-once discipline: document text leaves are content-addressed,
+dated snapshots immutable per day, small manifests versioned).
+
+The writer channels **dual-write** to it: the four corpus write seams
+(`upsert_rows` / `upsert_snapshot` / `upsert_documents` / `upsert_events`) mirror
+each mutated case through best-effort `casestore.mirror_*` helpers, reached via one
+process transport so activation is purely the env flag — no writer signature
+threading. It stays **gated on `FEDCOURTS_CASESTORE_URL`** (wired in `run-pull` from
+the `CASESTORE_URL` repo variable, unset → `""` → off by default), so with the flag
+off the pipeline is byte-for-byte unchanged, and with it on a mirror failure only
+logs and never breaks the SQLite write (the phase-1 system of record). Enabling also
+requires the read-write S3 role to permit `PutObject` on the store's prefix. **No
+consumer reads the store yet** and the index/pointer half is not built — so the
+migration stays reversible until later phases add the index and flip readers over.
 
 ### Credentials for the DVC remote
 

@@ -818,6 +818,9 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
     )
     with conn:
         conn.executemany(sql, [tuple(_to_record(r)[c] for c in _COLUMNS) for r in rows])
+    from . import casestore  # noqa: PLC0415 — deferred: casestore imports this module
+
+    casestore.mirror_cases(rows)
     return len(rows)
 
 
@@ -1796,6 +1799,12 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
         conn.executemany(
             sql, [tuple(_event_to_record(e)[c] for c in _EVENT_COLUMNS) for e in events]
         )
+    from . import casestore  # noqa: PLC0415 — deferred: casestore imports this module
+
+    # Read back the full committed set per case so the mirrored events.json is the
+    # complete list, not just this batch.
+    for case_id in dict.fromkeys(e.case_id for e in events):
+        casestore.mirror_events(case_id, events_for_case(conn, case_id))
     return len(events)
 
 
@@ -2027,6 +2036,9 @@ def upsert_snapshot(
             "ON CONFLICT(case_id, snapshot_date) DO UPDATE SET payload = excluded.payload",
             (case_id, snapshot_date.isoformat(), json.dumps(payload, sort_keys=True)),
         )
+    from . import casestore  # noqa: PLC0415 — deferred: casestore imports this module
+
+    casestore.mirror_snapshot(case_id, snapshot_date, payload)
 
 
 def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str, Any]] | None:
@@ -2104,6 +2116,12 @@ def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) ->
                 for d in documents
             ],
         )
+    from . import casestore  # noqa: PLC0415 — deferred: casestore imports this module
+
+    # Read back the full committed set per case so the mirrored manifest reflects
+    # every stored kind, not just this batch (a re-fetch may carry one kind).
+    for case_id in dict.fromkeys(d.case_id for d in documents):
+        casestore.mirror_documents(case_id, documents_for_case(conn, case_id))
     return len(documents)
 
 

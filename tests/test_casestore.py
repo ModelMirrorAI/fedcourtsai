@@ -257,3 +257,114 @@ def test_mirror_case_end_to_end_over_s3() -> None:
     assert "casestore/v1/scotus/74112233/events.json" in keys
     assert "casestore/v1/scotus/74112233/snapshots/2026-05-01.json" in keys
     assert "casestore/v1/scotus/74112233/documents/documents.json" in keys
+
+
+# --- dual-write hooks through the corpus write seams --------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_transport() -> Any:
+    """Keep the process transport cache from leaking across tests."""
+    casestore.reset_active_transport()
+    yield
+    casestore.reset_active_transport()
+
+
+class _BoomTransport:
+    """A transport whose writes always fail — to prove mirroring is best-effort."""
+
+    def put(self, key: str, body: bytes, *, if_absent: bool = False) -> None:
+        raise RuntimeError("s3 down")
+
+    def get(self, key: str) -> bytes | None:
+        return None
+
+    def exists(self, key: str) -> bool:
+        return False
+
+
+def test_corpus_writes_do_not_mirror_when_flag_off(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("FEDCOURTS_CASESTORE_URL", raising=False)
+    monkeypatch.delenv("CASESTORE_URL", raising=False)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row("scotus/1")])
+        corpus.upsert_snapshot(conn, "scotus/1", date(2026, 5, 1), {"x": 1})
+    assert casestore.active_transport() is None  # dormant → pure no-op
+
+
+def test_upsert_rows_mirrors_case_json(tmp_path: Any) -> None:
+    t = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(t)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row("scotus/74112233", case_name="A v. B")])
+    assert _loads(t, "scotus/74112233/case.json")["case_name"] == "A v. B"
+
+
+def test_upsert_snapshot_mirrors_dated_object(tmp_path: Any) -> None:
+    t = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(t)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_snapshot(conn, "scotus/1", date(2026, 5, 1), {"ProceedingsandOrder": []})
+    assert t.exists("scotus/1/snapshots/2026-05-01.json")
+
+
+def test_upsert_documents_mirrors_full_set_across_batches(tmp_path: Any) -> None:
+    t = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(t)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind="petition",
+                    url="u1",
+                    fetched_at=date(2026, 5, 1),
+                    text="P",
+                )
+            ],
+        )
+        # A later batch carries only the BIO; the mirrored manifest must still
+        # list BOTH kinds (read-back of the full stored set, not just this batch).
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind="brief-in-opposition",
+                    url="u2",
+                    fetched_at=date(2026, 5, 2),
+                    text="B",
+                )
+            ],
+        )
+    manifest = _loads(t, "scotus/1/documents/documents.json")
+    assert sorted(e["kind"] for e in manifest["documents"]) == ["brief-in-opposition", "petition"]
+
+
+def test_upsert_events_mirrors_full_set(tmp_path: Any) -> None:
+    t = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(t)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-cert",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind="petition",
+                )
+            ],
+        )
+    assert _loads(t, "scotus/1/events.json")[0]["event_id"] == "evt-petition-cert"
+
+
+def test_mirror_failure_never_breaks_the_corpus_write(tmp_path: Any) -> None:
+    casestore.set_active_transport(_BoomTransport())
+    with corpus.connect(tmp_path / "c.db") as conn:
+        # The corpus write must succeed even though every mirror put raises.
+        assert corpus.upsert_rows(conn, [_row("scotus/1")]) == 1
+        assert corpus.count(conn) == 1
