@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272995",
+  "gaps": [
+    "An explicit normalized-disposition rule for a cert docket administratively closed after an IFP denial and nonpayment"
+  ],
+  "helpful": [
+    "Provisioned petition and questions-presented text",
+    "Committed cert base rates with paid/IFP detail",
+    "Provisioned Supreme Court docket snapshot"
+  ],
+  "notes": "The provisioned inputs and fee-class base rates were sufficient; external case retrieval would not have resolved the administratively-closed disposition label.",
+  "role": "predictor",
+  "run_id": "20260712T174542Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "committed statpack",
+    "repository code search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

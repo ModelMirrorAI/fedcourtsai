@@ -1,0 +1,30 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73274882",
+  "gaps": [
+    "statpack relist-count and CVSG cuts are '(unknown)' for the entire modern-cert population, so the single strongest cert signal (serial relisting) has no quantitative anchor",
+    "fedcourts query has no free-text/topic filter that would surface doctrinally similar petitions (e.g. other Second Amendment cert petitions); citation filters returned nothing",
+    "a corpus view of same-conference sibling outcomes (what was granted/denied/held at conference X) would have made the June 30 hold-vs-deny signal directly queryable instead of inferred from a broad era query"
+  ],
+  "helpful": [
+    "provisioned docket snapshot current to 2026-07-10 (the full distribution/relist history was the decisive input)",
+    "provisioned questions-presented, petition, and brief-in-opposition text",
+    "fedcourts query --era 2020s (surfaced the 2026-06-30 grants in Viramontes/Grant and same-day denials of sibling 2A petitions)",
+    "metrics/statpack.md modern-cert base rates",
+    "web search (identified the Benson split and the limited QP of the Viramontes/Grant grant)"
+  ],
+  "notes": "Corpus priors were unexpectedly the highest-value retrieval: a plain era-filtered query happened to return the companion hardware-ban dockets with their 2026-06-30 cert-granted dates and distribution counts, which established that Duncan was held (not denied) at the end-of-term conference. Two ranged queries cost ~105 MB of GETs each, which feels heavy for a handful of rows.",
+  "role": "predictor",
+  "run_id": "20260712T174542Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus reads)",
+    "metrics/statpack.md (committed base rates)",
+    "WebSearch (2 calls)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
