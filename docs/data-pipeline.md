@@ -279,8 +279,9 @@ The writer channels **dual-write** to it: the four corpus write seams
 (`upsert_rows` / `upsert_snapshot` / `upsert_documents` / `upsert_events`) mirror
 each mutated case through best-effort `casestore.mirror_*` helpers, reached via one
 process transport so activation is purely the env flag — no writer signature
-threading. It stays **gated on `FEDCOURTS_CASESTORE_URL`** (wired in `run-pull` from
-the `CASESTORE_URL` repo variable, unset → `""` → off by default), so with the flag
+threading. It stays **gated on `FEDCOURTS_CASESTORE_URL`** (wired per writer job in
+`run-pull` from the `CASESTORE_URL` variable — set it on the `runner` environment, or
+as a repo/org variable; unset → `""` → off by default), so with the flag
 off the pipeline is byte-for-byte unchanged, and with it on a mirror failure only
 logs and never breaks the SQLite write (the phase-1 system of record). Enabling also
 requires the read-write S3 role to permit `PutObject` **and** `GetObject`/`HeadObject`

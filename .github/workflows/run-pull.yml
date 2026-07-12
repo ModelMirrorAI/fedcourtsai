@@ -99,16 +99,6 @@ concurrency:
   group: ${{ (github.event_name != 'issues' || github.event.label.name == 'run:pull') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
   cancel-in-progress: false
 
-# Corpus split (phase 1) dual-write flag. When the CASESTORE_URL repo variable is
-# set to s3://<bucket>[/<prefix>], the writer jobs ALSO mirror each mutated case to
-# the browsable per-case content store (fedcourtsai.casestore) alongside the corpus
-# blob. Unset renders as "" → off (the default), so this is inert until a maintainer
-# opts in. Best-effort: a mirror failure only logs, never fails ingestion. Enabling
-# also requires the read-write S3 role to permit PutObject + GetObject/HeadObject
-# (the write-once existence check) on that prefix.
-env:
-  FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-
 jobs:
   pull:
     # One writer job per run: the cron minute (17 = pull, 31 = historical,
@@ -126,6 +116,15 @@ jobs:
     # much less work.
     timeout-minutes: 45
     environment: runner
+    # Corpus-split (phase 1) dual-write flag, resolved from the `runner` environment
+    # (falling back to a repo/org variable of the same name). Set CASESTORE_URL to
+    # s3://<bucket>[/<prefix>] to mirror each mutated case to the per-case content
+    # store (fedcourtsai.casestore) alongside the corpus blob; unset → "" → off (the
+    # default). Best-effort — a mirror failure only logs, never fails ingestion;
+    # enabling also needs the read-write S3 role to permit PutObject +
+    # GetObject/HeadObject (the write-once existence check) on that prefix.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
     permissions:
       contents: write
       issues: write
@@ -448,6 +447,9 @@ jobs:
     # the cap releases the shared corpus-write lock quickly if a network step hangs.
     timeout-minutes: 30
     environment: runner
+    # Corpus-split dual-write flag (see the pull job); off unless CASESTORE_URL is set.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
     # Unlike `pull`, the ambient GITHUB_TOKEN is never used here (checkout, the
     # corpus push, and every gh call run on the App token, and there is no
     # authorize-trigger step to need a read) — so it carries no write at all.
@@ -705,6 +707,9 @@ jobs:
     # work's slot.
     timeout-minutes: 125
     environment: runner
+    # Corpus-split dual-write flag (see the pull job); off unless CASESTORE_URL is set.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
     # The ambient GITHUB_TOKEN is never used here (checkout, the corpus push,
     # and every gh call run on App tokens) — so it carries no write at all.
     permissions:
