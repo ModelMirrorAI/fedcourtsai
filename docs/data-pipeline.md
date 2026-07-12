@@ -297,9 +297,21 @@ payloads that move to the content store) — keeping every other column (includi
 the full blob, so a later phase can repoint *those* consumers at the index and stop
 writing the payloads to the blob. (Scope reconcile, `validate`, and `cert-backtest`
 read `opinion_text`/`snapshots` as signals and stay on the full blob — the index is
-a drop-in only for the bulk consumers the gate covers.) **No consumer reads either the store or
-the index yet** — the migration stays reversible until that later phase flips
-readers over.
+a drop-in only for the bulk consumers the gate covers.)
+
+**Reading the store back.** The predict/evaluate **provisioning** commands can now
+source a cell's `record/` (the point-in-time snapshot, its documents, and the
+event) from the content store instead of the corpus, behind **`--corpus-backend
+casestore`** (`fedcourtsai.provision.CasestoreSource`). A parity gate
+(`tests/test_provision_casestore.py`) proves `provision-snapshot` /
+`materialize-event` materialize a **byte-identical** `record/` whichever backend
+they read from. It is **opt-in and unused in production**: nothing selects it by
+default, and it only works once dual-write has populated the store, so the
+production predict/evaluate jobs still provision from the `ranged` corpus. (The
+`casestore` backend has no query surface, so `connect_readonly` rejects it — `query`
+/ `stats` / scope reconcile still read the corpus/index.) So still **nothing reads
+the store or the index by default** — the migration stays reversible until a later
+phase flips the default over.
 
 ### Credentials for the DVC remote
 

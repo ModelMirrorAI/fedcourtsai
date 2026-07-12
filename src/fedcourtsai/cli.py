@@ -30,6 +30,7 @@ from . import (
     integration_check,
     mcp,
     metrics_refresh,
+    provision,
     retrieval,
 )
 from .agent_feedback import post_agent_feedback
@@ -1051,8 +1052,9 @@ CorpusBackendOption = Annotated[
     typer.Option(
         "--corpus-backend",
         help="Corpus read backend: local (the dvc-pulled file) or ranged (query "
-        "the blob in place on the DVC remote). Default: the corpus-backend "
-        "setting from the environment.",
+        "the blob in place on the DVC remote); the provisioning commands also "
+        "accept casestore (read the per-case content objects). Default: the "
+        "corpus-backend setting from the environment.",
     ),
 ]
 
@@ -1061,10 +1063,23 @@ def _corpus_backend(value: str) -> corpus.CorpusBackend | None:
     """Parse a --corpus-backend value; empty means \"use the setting\"."""
     if not value:
         return None
-    if value not in ("local", "ranged"):
-        typer.echo(f"Unknown --corpus-backend '{value}'; choose local or ranged.", err=True)
-        raise typer.Exit(code=2)
-    return "local" if value == "local" else "ranged"
+    if value == "local":
+        return "local"
+    if value == "ranged":
+        return "ranged"
+    if value == "casestore":
+        return "casestore"
+    typer.echo(f"Unknown --corpus-backend '{value}'; choose local, ranged, or casestore.", err=True)
+    raise typer.Exit(code=2)
+
+
+def _casestore_source() -> provision.CasestoreSource:
+    """Build the casestore provisioning source, exiting cleanly if it is unconfigured."""
+    try:
+        return provision.casestore_source_from_settings()
+    except provision.ProvisionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
 
 
 def _echo_read_stats(conn: corpus.ReadConnection) -> None:
@@ -1625,10 +1640,15 @@ def provision_snapshot(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     case = ids.case_id(court, docket)
     backend = _corpus_backend(corpus_backend)
-    with corpus.connect_readonly(db_path, backend=backend) as conn:
-        found = corpus.latest_snapshot(conn, case)
-        documents = corpus.documents_for_case(conn, case)
-        _echo_read_stats(conn)
+    if corpus.resolve_backend(backend) == "casestore":
+        source = _casestore_source()
+        found = source.latest_snapshot(case)
+        documents = source.documents_for_case(case)
+    else:
+        with corpus.connect_readonly(db_path, backend=backend) as conn:
+            found = corpus.latest_snapshot(conn, case)
+            documents = corpus.documents_for_case(conn, case)
+            _echo_read_stats(conn)
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (dvc pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
@@ -1815,13 +1835,22 @@ def materialize_event(
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
-    if backend == "local" and not db_path.exists():
-        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
-        raise typer.Exit(code=1)
     case = ids.case_id(court, docket)
-    with corpus.connect_readonly(db_path, backend=backend) as conn:
-        match = next((e for e in corpus.events_for_case(conn, case) if e.event_id == event), None)
-        _echo_read_stats(conn)
+    if backend == "casestore":
+        match = next(
+            (e for e in _casestore_source().events_for_case(case) if e.event_id == event), None
+        )
+    else:
+        if backend == "local" and not db_path.exists():
+            typer.echo(
+                f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True
+            )
+            raise typer.Exit(code=1)
+        with corpus.connect_readonly(db_path, backend=backend) as conn:
+            match = next(
+                (e for e in corpus.events_for_case(conn, case) if e.event_id == event), None
+            )
+            _echo_read_stats(conn)
     if match is None:
         typer.echo(
             f"No event {event!r} in corpus for {case} (dvc pull the corpus first?)", err=True

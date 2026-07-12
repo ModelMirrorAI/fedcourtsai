@@ -275,6 +275,9 @@ class _BoomTransport:
     def exists(self, key: str) -> bool:
         return False
 
+    def list_keys(self, prefix: str) -> list[str]:
+        return []
+
 
 def test_corpus_writes_do_not_mirror_when_flag_off(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch

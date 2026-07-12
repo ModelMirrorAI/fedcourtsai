@@ -110,6 +110,11 @@ class ObjectTransport(Protocol):
     def exists(self, key: str) -> bool:
         """Whether an object exists at ``key``."""
 
+    def list_keys(self, prefix: str) -> list[str]:
+        """Every stored key beginning with ``prefix`` (used to find the latest
+        dated snapshot under a case's ``snapshots/`` — needs ``s3:ListBucket``)."""
+        ...
+
 
 class InMemoryObjectTransport:
     """A dict-backed transport for tests (no network, no boto3)."""
@@ -129,6 +134,9 @@ class InMemoryObjectTransport:
 
     def exists(self, key: str) -> bool:
         return key in self.objects
+
+    def list_keys(self, prefix: str) -> list[str]:
+        return [key for key in self.objects if key.startswith(prefix)]
 
 
 class S3ObjectTransport:
@@ -175,6 +183,16 @@ class S3ObjectTransport:
                 return False
             raise
         return True
+
+    def list_keys(self, prefix: str) -> list[str]:
+        full_prefix = self._full_key(prefix)
+        strip = f"{self._prefix}/" if self._prefix else ""
+        keys: list[str] = []
+        paginator = self._client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self._bucket, Prefix=full_prefix):
+            for obj in page.get("Contents", []):
+                keys.append(obj["Key"].removeprefix(strip))  # back to a logical key
+        return keys
 
 
 def parse_s3_url(url: str) -> tuple[str, str]:

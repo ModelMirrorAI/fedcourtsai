@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # How read-only consumers open the corpus: "local" reads the dvc-pulled file,
     # "ranged" queries the immutable blob in place on the DVC remote via HTTP
     # range requests (see fedcourtsai.corpus_ranged). Writers always open local.
-    corpus_backend: Literal["local", "ranged"] = "local"
+    corpus_backend: Literal["local", "ranged", "casestore"] = "local"
     # The DVC remote's bucket URL, supplied out of band exactly like the
     # workflows' `dvc remote add` step (never committed; see SECURITY.md). The
     # ranged backend resolves the corpus pointer against it. The bare workflow
