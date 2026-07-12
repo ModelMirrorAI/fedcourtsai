@@ -38,6 +38,9 @@ jobs:
           languages: python
           build-mode: none
           queries: security-and-quality
+          # Filters one noisy, redundant rule (py/ineffectual-statement); see the
+          # file for the rationale. The suite otherwise stays fully enabled.
+          config-file: ./.github/codeql/codeql-config.yml
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:

@@ -1,0 +1,20 @@
+name: fedcourtsai CodeQL config
+
+# Keep the full security-and-quality suite (it surfaces real findings — e.g. the
+# implicit-string-concatenation warning), but filter one maintainability rule.
+#
+# py/ineffectual-statement flags the idiomatic `...` body of a PEP 544 Protocol /
+# stub method. This codebase leans on Protocol seams (ObjectTransport,
+# RangeTransport, ReadConnection, the engine/predictor protocols, …), so the rule
+# re-fires as a false positive on every new seam. Its genuine cases (a `==` where
+# `=` was meant, a bare useless expression) are already caught in the required
+# gate by ruff — B015 "pointless comparison" and B018 "useless expression" — which
+# correctly exempt `...` and docstrings. CodeQL config can only exclude a whole
+# rule id (not "only when the statement is `...`"), so per-alert dismissal would be
+# perpetual toil; filtering the one redundant, noisy rule is the surgical fix.
+# Policy: only non-`security`-tagged (maintainability/quality) rules may be
+# filtered here. Excluding a security-severity rule reduces our security coverage
+# and must not be added without explicit security review.
+query-filters:
+  - exclude:
+      id: py/ineffectual-statement
