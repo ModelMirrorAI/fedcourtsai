@@ -195,6 +195,21 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
+      - name: Sync the working tree to the current tip of the default branch
+        # actions/checkout pins this run's frozen github.sha — the branch tip when
+        # the run was CREATED, not when it starts. A run that queues behind another
+        # corpus writer on the shared corpus-write lock therefore checks out a
+        # stale base, so the corpus blob it dvc-pulls and mutates is built on an
+        # obsolete pointer and the final commit cannot rebase onto the advanced tip
+        # (an unmergeable corpus/corpus.db.dvc conflict). Reset to the live tip
+        # first, under the lock, so we always mutate the latest committed corpus —
+        # the invariant docs/data-pipeline.md's corpus-writer coordination relies
+        # on. The repo is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
       - uses: ./.github/actions/setup-python-env
 
       # Assume the read-write (append-only) IAM role via GitHub OIDC so pull can
@@ -283,12 +298,27 @@ jobs:
             exit 0
           fi
           git commit -m "pull: refresh corpus + outcomes ($(date -u +%Y-%m-%d))"
-          # The default branch may have advanced since checkout (e.g. a run:predict
-          # / run:evaluate PR merged). The corpus-write lock keeps the other corpus
-          # writer out, so the pointer never conflicts; rebase our commit onto the
-          # latest tip and retry so the push is always a fast-forward.
+          # We synced to the live tip before mutating and hold the corpus-write
+          # lock, so the corpus pointer is built on the latest committed base. The
+          # default branch can still advance for an unrelated reason (e.g. a
+          # run:predict / run:evaluate PR merged, touching data/), so rebase onto
+          # the new tip and retry the push as a fast-forward. A rebase CONFLICT
+          # means the pointer diverged despite the lock — fail loudly rather than
+          # silently exhausting retries or masking it as a push rejection.
           for attempt in 1 2 3; do
-            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if ! git pull --rebase origin "${GITHUB_REF_NAME}"; then
+              # A genuine conflict (a diverged corpus pointer — a corpus writer was
+              # not serialized) leaves a rebase in progress; a transient fetch blip
+              # does not. Tell them apart so triage isn't misdirected — fail closed
+              # either way.
+              if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+                git rebase --abort || true
+                echo "::error::rebase conflict on the corpus pointer against the advanced tip — a concurrent corpus writer was not serialized (see docs/data-pipeline.md corpus-writer coordination)"
+              else
+                echo "::error::could not fetch/rebase onto the advanced tip (transient upstream failure)"
+              fi
+              exit 1
+            fi
             if git push origin "HEAD:${GITHUB_REF_NAME}"; then
               echo "committed=true" >> "$GITHUB_OUTPUT"
               exit 0
@@ -460,6 +490,21 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
+      - name: Sync the working tree to the current tip of the default branch
+        # actions/checkout pins this run's frozen github.sha — the branch tip when
+        # the run was CREATED, not when it starts. A run that queues behind another
+        # corpus writer on the shared corpus-write lock therefore checks out a
+        # stale base, so the corpus blob it dvc-pulls and mutates is built on an
+        # obsolete pointer and the final commit cannot rebase onto the advanced tip
+        # (an unmergeable corpus/corpus.db.dvc conflict). Reset to the live tip
+        # first, under the lock, so we always mutate the latest committed corpus —
+        # the invariant docs/data-pipeline.md's corpus-writer coordination relies
+        # on. The repo is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
       - uses: ./.github/actions/setup-python-env
 
       # Same read-write (append-only) role as `pull`: the live poller adds
@@ -524,10 +569,25 @@ jobs:
             exit 0
           fi
           git commit -m "live: refresh corpus + outcomes ($(date -u +%Y-%m-%d))"
-          # The corpus-write lock keeps the other corpus writer out; rebase onto
-          # the latest tip and retry so the push is always a fast-forward.
+          # We synced to the live tip before mutating and hold the corpus-write
+          # lock, so the pointer is built on the latest committed base; only an
+          # unrelated advance (a merged data/ PR) should need a rebase, which is a
+          # clean fast-forward. A rebase CONFLICT means the pointer diverged despite
+          # the lock — fail loudly rather than masking it as a push rejection.
           for attempt in 1 2 3; do
-            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if ! git pull --rebase origin "${GITHUB_REF_NAME}"; then
+              # A genuine conflict (a diverged corpus pointer — a corpus writer was
+              # not serialized) leaves a rebase in progress; a transient fetch blip
+              # does not. Tell them apart so triage isn't misdirected — fail closed
+              # either way.
+              if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+                git rebase --abort || true
+                echo "::error::rebase conflict on the corpus pointer against the advanced tip — a concurrent corpus writer was not serialized (see docs/data-pipeline.md corpus-writer coordination)"
+              else
+                echo "::error::could not fetch/rebase onto the advanced tip (transient upstream failure)"
+              fi
+              exit 1
+            fi
             if git push origin "HEAD:${GITHUB_REF_NAME}"; then
               echo "committed=true" >> "$GITHUB_OUTPUT"
               exit 0
@@ -653,6 +713,21 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # actions/checkout pins this run's frozen github.sha — the branch tip when
+        # the run was CREATED, not when it starts. A run that queues behind another
+        # corpus writer on the shared corpus-write lock therefore checks out a
+        # stale base, so the corpus blob it dvc-pulls and mutates is built on an
+        # obsolete pointer and the final commit cannot rebase onto the advanced tip
+        # (an unmergeable corpus/corpus.db.dvc conflict). Reset to the live tip
+        # first, under the lock, so we always mutate the latest committed corpus —
+        # the invariant docs/data-pipeline.md's corpus-writer coordination relies
+        # on. The repo is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
 
       - uses: ./.github/actions/setup-python-env
 
@@ -783,11 +858,26 @@ jobs:
             ingested=$(jq -r '.ingested_granted + .ingested_denied + .ingested_other' historical-report.json)
             probed=$(jq -r '.probed' historical-report.json)
             git commit -m "historical: +${ingested} petition(s) (${probed} probed)"
-            # The default branch may have advanced since checkout; the shared
-            # corpus-write lock keeps the other corpus writers out, so rebase
-            # onto the latest tip and retry so the push is always a fast-forward.
+            # We synced to the live tip at job start and each chunk rebases before
+            # pushing, all under the shared corpus-write lock, so the pointer is
+            # built on the latest committed base; only an unrelated advance (a
+            # merged data/ PR) should need a rebase, which is a clean fast-forward.
+            # A rebase CONFLICT means the pointer diverged despite the lock — fail
+            # loudly rather than masking it as a push rejection.
             for attempt in 1 2 3; do
-              git pull --rebase origin "${GITHUB_REF_NAME}"
+              if ! git pull --rebase origin "${GITHUB_REF_NAME}"; then
+                # A genuine conflict (a diverged corpus pointer — a corpus writer
+                # was not serialized) leaves a rebase in progress; a transient fetch
+                # blip does not. Tell them apart so triage isn't misdirected — fail
+                # closed either way.
+                if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+                  git rebase --abort || true
+                  echo "::error::rebase conflict on the corpus pointer against the advanced tip — a concurrent corpus writer was not serialized (see docs/data-pipeline.md corpus-writer coordination)"
+                else
+                  echo "::error::could not fetch/rebase onto the advanced tip (transient upstream failure)"
+                fi
+                return 1
+              fi
               if git push origin "HEAD:${GITHUB_REF_NAME}"; then
                 return 0
               fi
@@ -888,8 +978,25 @@ jobs:
             exit 0
           fi
           git commit -m "historical: latch out-of-scope cases"
+          # This runs after the walk under the same corpus-write lock, on the tip
+          # the walk left; only an unrelated advance (a merged data/ PR) should
+          # need a rebase, which is a clean fast-forward. A rebase CONFLICT means
+          # the pointer diverged despite the lock — fail loudly rather than masking
+          # it as a push rejection.
           for attempt in 1 2 3; do
-            git pull --rebase origin "${GITHUB_REF_NAME}"
+            if ! git pull --rebase origin "${GITHUB_REF_NAME}"; then
+              # A genuine conflict (a diverged corpus pointer — a corpus writer was
+              # not serialized) leaves a rebase in progress; a transient fetch blip
+              # does not. Tell them apart so triage isn't misdirected — fail closed
+              # either way.
+              if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+                git rebase --abort || true
+                echo "::error::rebase conflict on the corpus pointer against the advanced tip — a concurrent corpus writer was not serialized (see docs/data-pipeline.md corpus-writer coordination)"
+              else
+                echo "::error::could not fetch/rebase onto the advanced tip (transient upstream failure)"
+              fi
+              exit 1
+            fi
             if git push origin "HEAD:${GITHUB_REF_NAME}"; then
               exit 0
             fi
