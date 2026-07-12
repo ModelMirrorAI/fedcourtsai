@@ -261,3 +261,63 @@ def test_termination_signal_none_for_a_pending_docket() -> None:
         "clusters": [],
     }
     assert termination_signal(docket) is None
+
+
+def test_termination_signal_reads_a_rule_398_ifp_dismissal() -> None:
+    # A Rule 39.8 IFP-denial/dismissal the cert-disposition resolver does not
+    # match (the noun and verb are many words apart); the routing backstop does.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Motion for leave to proceed in forma pauperis DENIED and petition "
+                    "for a writ of habeas corpus DISMISSED. See Rule 39.8."
+                ),
+            }
+        ],
+    }
+    signal = termination_signal(docket)
+    assert signal is not None and "39.8" in signal
+
+
+def test_termination_signal_reads_a_bare_rule_398_filing_bar() -> None:
+    # An abusive-filer Rule 39.8 bar with no "petition ... dismissed" verb: only
+    # the rule-39.8 alternation can catch it, so this pins that branch specifically.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Motion for leave to proceed in forma pauperis DENIED. See Rule 39.8."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is not None
+
+
+def test_termination_signal_reads_a_fee_default_closure() -> None:
+    docket = {"id": 1, "docket_entries": [{"id": 10, "description": "Case considered closed."}]}
+    assert termination_signal(docket) is not None
+
+
+def test_termination_signal_ignores_an_ifp_denial_with_a_fee_deadline() -> None:
+    # The initial IFP denial that only sets a payment deadline is NOT terminal:
+    # the petition may still proceed on payment, so it must stay predictable —
+    # the later closure/dismissal entry, not this denial, is the terminal signal.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Motion for leave to proceed in forma pauperis is denied. Petitioner "
+                    "allowed until Nov 12 2025, to pay the docketing fee. Rule 33.1."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is None

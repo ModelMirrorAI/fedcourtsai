@@ -54,7 +54,7 @@ from ..supremecourt import (
 from .documents import fetch_case_documents
 from .events import extract_events
 from .ingest import from_live_record, map_live_docket, upsert_to_corpus
-from .outcome import resolve_case
+from .outcome import resolve_case, termination_signal
 from .pull import PullQueues, _in_predict_scope
 
 # The two per-Term numbering streams discovery probes, each from its base.
@@ -74,6 +74,11 @@ class LiveResult:
     # The caller compares it against the pre-poll value: a transition (fresh
     # distribution or a relist's new date) is the predict trigger.
     distributed: date | None = None
+    # A human-readable reason the fresh docket already reads as decided even
+    # though resolution recorded no outcome (a SCOTUS terminal order the cert
+    # resolver does not match — e.g. a Rule 39.8 dismissal), or None. Keeps such
+    # a case out of the forward-predict queue; mirrors ``PullResult``.
+    termination_signal: str | None = None
 
 
 @dataclass
@@ -155,6 +160,7 @@ def ingest_live_payload(
         unrecorded_events=[r.event_id for r in resolution.unrecorded],
         unrecorded_reason=resolution.unrecorded[0].reason if resolution.unrecorded else None,
         distributed=row.distributed_for_conference,
+        termination_signal=termination_signal(record),
     )
 
 
@@ -362,7 +368,22 @@ def _route_result(
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
     events = open_events(corpus_db_path, "scotus", docket_id)
     if queue_predict and in_scope and result.changed and events:
-        queues.predict.append({"court": "scotus", "docket": docket_id, "events": events})
+        # A decided-looking docket never queues forward (pull's rule, verbatim): a
+        # terminal order the cert resolver missed, or an outcome that appears
+        # decided but was not deterministically recorded, diverts to
+        # predict_skipped_decided so the skip is triageable, not a mislabeled
+        # forward cell whose unrestricted retrieval could read the outcome.
+        decided_reason = result.termination_signal or (
+            "docket appears decided; its outcome could not be recorded deterministically"
+            if result.unrecorded_events
+            else None
+        )
+        if decided_reason:
+            queues.predict_skipped_decided.append(
+                {"court": "scotus", "docket": docket_id, "events": events, "reason": decided_reason}
+            )
+        else:
+            queues.predict.append({"court": "scotus", "docket": docket_id, "events": events})
     if in_scope and result.resolved:
         # Only events something actually predicted reach evaluation: the live
         # sweeps resolve plenty of never-predicted petitions (frontier catch-up,
@@ -459,7 +480,9 @@ def live_poll_all(
         today=today,
     )
     queues.predict.extend(refreshed.predict)
+    queues.predict_skipped_decided.extend(refreshed.predict_skipped_decided)
     queues.evaluate.extend(refreshed.evaluate)
+    queues.evaluate_skipped.extend(refreshed.evaluate_skipped)
     queues.unrecorded.extend(refreshed.unrecorded)
     queues.failed.extend(refreshed.failed)
     return queues, discovery

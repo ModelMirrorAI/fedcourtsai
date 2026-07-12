@@ -243,6 +243,35 @@ def test_provision_snapshot_materializes_documents(fixture_corpus: FixtureCorpus
     manifest = json.loads(paths.documents_manifest.read_text())
     assert manifest[0]["kind"] == KIND_QUESTIONS_PRESENTED
     assert "text" not in manifest[0]  # metadata only; the text lives in its own file
+    assert manifest[0]["empty_text"] is False  # real extracted text is present
+
+
+def test_provision_snapshot_flags_a_blank_extraction(fixture_corpus: FixtureCorpus) -> None:
+    # A scanned filing with no text layer extracts to whitespace: pages/truncated
+    # alone would read as usable, so the manifest must carry empty_text=true so the
+    # cell tells "document present but unextractable" apart from "document absent".
+    db = corpus.corpus_db_path(fixture_corpus.corpus_root)
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind=KIND_PETITION,
+                    url="https://example/scanned.pdf",
+                    fetched_at=date(2026, 7, 10),
+                    pages=10,
+                    text="   \n  \n",  # scanned, no text layer -> whitespace only
+                )
+            ],
+        )
+    result = runner.invoke(app, ["provision-snapshot", "--court", "scotus", "--docket", "305"])
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    entry = next(
+        e for e in json.loads(paths.documents_manifest.read_text()) if e["kind"] == KIND_PETITION
+    )
+    assert entry["empty_text"] is True and entry["pages"] == 10
 
 
 def test_redact_snapshot_strips_qplink() -> None:

@@ -73,10 +73,31 @@ def appears_decided(row: CorpusRow) -> bool:
 
 
 # Docket-entry descriptions that state the matter is over even when the docket
-# row carries no decision date or disposition — common on appellate dockets
-# CourtListener stopped indexing years ago (``date_terminated`` stays null):
-# the clerk's termination entry and the published-opinion entry.
-_TERMINAL_ENTRY_RE = re.compile(r"^opinion issued\b|\bcase termination\b", re.IGNORECASE)
+# row carries no decision date or disposition. Two families:
+#   - appellate dockets CourtListener stopped indexing years ago
+#     (``date_terminated`` stays null): the clerk's termination entry and the
+#     published-opinion entry;
+#   - SCOTUS terminal orders the cert-disposition resolver deliberately does not
+#     match — an IFP denial that dismisses under Rule 39.8, an original/habeas
+#     petition dismissal (many words separate "petition" from "dismissed"), and a
+#     fee-default closure.
+# This is a high-recall *routing* backstop only: a match diverts a decided-looking
+# case out of the forward-predict queue for triage (``predict_skipped_decided``);
+# it never records an ``outcome.json``, so — unlike broadening the resolving
+# instrument (:func:`fedcourtsai.pipeline.cert_signals.match_disposition_signal`) —
+# a false positive is cheap (a case parked for triage, its events left open), not a
+# fabricated ground truth. The initial IFP denial that only sets a fee deadline
+# ("...is denied. Petitioner allowed until ... to pay") is deliberately *not*
+# matched: that petition may still proceed on payment, so the later closure /
+# dismissal entry — not the denial — is the terminal signal.
+_TERMINAL_ENTRY_RE = re.compile(
+    r"^opinion issued\b"
+    r"|\bcase termination\b"
+    r"|\bconsidered closed\b"
+    r"|\brule\s*39\.8\b"
+    r"|\bpetition\b.{0,80}?\bdismissed\b",
+    re.IGNORECASE,
+)
 
 
 def termination_signal(docket: Mapping[str, Any]) -> str | None:

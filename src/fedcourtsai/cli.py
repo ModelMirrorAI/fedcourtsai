@@ -1697,7 +1697,18 @@ def provision_snapshot(
             write_text(paths.document(doc.kind), doc.text)
         write_raw_json(
             paths.documents_manifest,
-            [doc.model_dump(mode="json", exclude={"text"}) for doc in documents],
+            [
+                {
+                    **doc.model_dump(mode="json", exclude={"text"}),
+                    # A present document whose extracted text is blank/whitespace
+                    # (a scanned PDF with no text layer) would read as usable from
+                    # pages/truncated alone; flag it so the cell distinguishes
+                    # "no document" / "document present but no text layer" /
+                    # "text present". Derived here, not stored on the row.
+                    "empty_text": not doc.text.strip(),
+                }
+                for doc in documents
+            ],
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
@@ -2131,8 +2142,18 @@ def live_poll(
             if queues.evaluate_skipped
             else ""
         )
+        + (
+            f" ({len(queues.predict_skipped_decided)} decided-looking case(s) skipped forward)"
+            if queues.predict_skipped_decided
+            else ""
+        )
         + "."
     )
+    for skipped in queues.predict_skipped_decided:
+        typer.echo(
+            "Skipped forward prediction for "
+            f"{skipped['court']}/{skipped['docket']} — {skipped['reason']}"
+        )
 
 
 @app.command("conference-set")
