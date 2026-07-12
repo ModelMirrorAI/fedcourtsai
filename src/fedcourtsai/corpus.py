@@ -1801,10 +1801,9 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
         )
     from . import casestore  # noqa: PLC0415 — deferred: casestore imports this module
 
-    # Read back the full committed set per case so the mirrored events.json is the
-    # complete list, not just this batch.
-    for case_id in dict.fromkeys(e.case_id for e in events):
-        casestore.mirror_events(case_id, events_for_case(conn, case_id))
+    # The mirror reads the full committed set back per case (guarded on the flag,
+    # so this is a pure no-op when the store is off).
+    casestore.mirror_events_for_cases(conn, [e.case_id for e in events])
     return len(events)
 
 
@@ -2118,10 +2117,9 @@ def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) ->
         )
     from . import casestore  # noqa: PLC0415 — deferred: casestore imports this module
 
-    # Read back the full committed set per case so the mirrored manifest reflects
-    # every stored kind, not just this batch (a re-fetch may carry one kind).
-    for case_id in dict.fromkeys(d.case_id for d in documents):
-        casestore.mirror_documents(case_id, documents_for_case(conn, case_id))
+    # The mirror reads the full committed set back per case (guarded on the flag,
+    # so this is a pure no-op when the store is off).
+    casestore.mirror_documents_for_cases(conn, [d.case_id for d in documents])
     return len(documents)
 
 

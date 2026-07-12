@@ -56,13 +56,20 @@ import hashlib
 import json
 import logging
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Protocol
 
 from .config import get_settings
-from .corpus import CaseDocument, CorpusEvent, CorpusRow
+from .corpus import (
+    CaseDocument,
+    CorpusEvent,
+    CorpusRow,
+    ReadConnection,
+    documents_for_case,
+    events_for_case,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -209,9 +216,18 @@ _ACTIVE: dict[str, ObjectTransport | None] = {}
 
 
 def active_transport() -> ObjectTransport | None:
-    """The process-wide casestore transport (lazily built from settings, cached)."""
+    """The process-wide casestore transport (lazily built from settings, cached).
+
+    A build failure (a malformed ``FEDCOURTS_CASESTORE_URL``, a boto3/region
+    problem) disables the store — it logs and caches ``None`` rather than raising,
+    so a fat-fingered flag can never crash an ingestion write.
+    """
     if "transport" not in _ACTIVE:
-        _ACTIVE["transport"] = transport_from_settings()
+        try:
+            _ACTIVE["transport"] = transport_from_settings()
+        except Exception as exc:  # broad by design: a bad flag disables, never crashes
+            logger.warning("casestore: disabled — could not build transport: %s", exc)
+            _ACTIVE["transport"] = None
     return _ACTIVE["transport"]
 
 
@@ -260,14 +276,38 @@ def mirror_snapshot(case_id: str, snapshot_date: date, payload: Mapping[str, Any
     )
 
 
-def mirror_documents(case_id: str, documents: Sequence[CaseDocument]) -> None:
-    """Best-effort mirror of a case's full document set + manifest; never raises."""
-    _best_effort(f"documents {case_id}", lambda t: write_documents(t, case_id, documents))
+def mirror_documents_for_cases(conn: ReadConnection, case_ids: Iterable[str]) -> None:
+    """Best-effort mirror of each case's FULL document set + manifest; never raises.
+
+    Guards on the transport *first*, so with the store off nothing is read back —
+    the flag-off path stays a pure no-op. Reading the committed set back per case
+    makes the mirrored manifest reflect every stored kind, not just the batch that
+    triggered the write.
+    """
+    transport = active_transport()
+    if transport is None:
+        return
+    for case_id in dict.fromkeys(case_ids):
+        try:
+            write_documents(transport, case_id, documents_for_case(conn, case_id))
+        except Exception as exc:  # broad by design: no mirror error may break ingestion
+            logger.warning("casestore: mirror of documents %s failed: %s", case_id, exc)
 
 
-def mirror_events(case_id: str, events: Sequence[CorpusEvent]) -> None:
-    """Best-effort mirror of a case's full event set; never raises."""
-    _best_effort(f"events {case_id}", lambda t: write_events(t, case_id, events))
+def mirror_events_for_cases(conn: ReadConnection, case_ids: Iterable[str]) -> None:
+    """Best-effort mirror of each case's FULL event list; never raises.
+
+    Transport-guarded before any read-back (flag off → pure no-op); the committed
+    set is read back per case so ``events.json`` is the complete list.
+    """
+    transport = active_transport()
+    if transport is None:
+        return
+    for case_id in dict.fromkeys(case_ids):
+        try:
+            write_events(transport, case_id, events_for_case(conn, case_id))
+        except Exception as exc:  # broad by design: no mirror error may break ingestion
+            logger.warning("casestore: mirror of events %s failed: %s", case_id, exc)
 
 
 # --- serialization + digests --------------------------------------------------

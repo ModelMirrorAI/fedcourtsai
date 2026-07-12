@@ -283,7 +283,8 @@ threading. It stays **gated on `FEDCOURTS_CASESTORE_URL`** (wired in `run-pull` 
 the `CASESTORE_URL` repo variable, unset → `""` → off by default), so with the flag
 off the pipeline is byte-for-byte unchanged, and with it on a mirror failure only
 logs and never breaks the SQLite write (the phase-1 system of record). Enabling also
-requires the read-write S3 role to permit `PutObject` on the store's prefix. **No
+requires the read-write S3 role to permit `PutObject` **and** `GetObject`/`HeadObject`
+(the write-once existence check) on the store's prefix. **No
 consumer reads the store yet** and the index/pointer half is not built — so the
 migration stays reversible until later phases add the index and flip readers over.
 

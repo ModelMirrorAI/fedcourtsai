@@ -260,14 +260,7 @@ def test_mirror_case_end_to_end_over_s3() -> None:
 
 
 # --- dual-write hooks through the corpus write seams --------------------------
-
-
-@pytest.fixture(autouse=True)
-def _reset_transport() -> Any:
-    """Keep the process transport cache from leaking across tests."""
-    casestore.reset_active_transport()
-    yield
-    casestore.reset_active_transport()
+# (the process transport cache is reset per test by an autouse conftest fixture)
 
 
 class _BoomTransport:
@@ -368,3 +361,43 @@ def test_mirror_failure_never_breaks_the_corpus_write(tmp_path: Any) -> None:
         # The corpus write must succeed even though every mirror put raises.
         assert corpus.upsert_rows(conn, [_row("scotus/1")]) == 1
         assert corpus.count(conn) == 1
+
+
+def test_read_back_skipped_when_flag_off(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the store off, the documents/events read-back must not even run."""
+    monkeypatch.delenv("FEDCOURTS_CASESTORE_URL", raising=False)
+    monkeypatch.delenv("CASESTORE_URL", raising=False)
+    calls: list[str] = []
+    real = corpus.documents_for_case
+
+    def spy(conn: corpus.ReadConnection, case_id: str) -> list[corpus.CaseDocument]:
+        calls.append(case_id)
+        return real(conn, case_id)
+
+    monkeypatch.setattr(casestore, "documents_for_case", spy)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind="petition",
+                    url="u",
+                    fetched_at=date(2026, 5, 1),
+                    text="P",
+                )
+            ],
+        )
+    assert calls == []  # the read-back is guarded behind the transport check
+
+
+def test_malformed_casestore_url_disables_store_not_ingestion(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fat-fingered flag disables the store; it must never crash a corpus write."""
+    monkeypatch.setenv("FEDCOURTS_CASESTORE_URL", "not-an-s3-url")
+    casestore.reset_active_transport()
+    with corpus.connect(tmp_path / "c.db") as conn:
+        assert corpus.upsert_rows(conn, [_row("scotus/1")]) == 1  # ingestion succeeds
+        assert corpus.count(conn) == 1
+    assert casestore.active_transport() is None  # store disabled, not raised

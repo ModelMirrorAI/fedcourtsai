@@ -104,7 +104,8 @@ concurrency:
 # the browsable per-case content store (fedcourtsai.casestore) alongside the corpus
 # blob. Unset renders as "" → off (the default), so this is inert until a maintainer
 # opts in. Best-effort: a mirror failure only logs, never fails ingestion. Enabling
-# also requires the read-write S3 role to permit PutObject on that prefix.
+# also requires the read-write S3 role to permit PutObject + GetObject/HeadObject
+# (the write-once existence check) on that prefix.
 env:
   FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
 
