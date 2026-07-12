@@ -1,0 +1,17 @@
+{
+  "actor_id": "gemini-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 978516,
+  "case_id": "scotus/73274882",
+  "created_at": "2026-07-12T17:45:42Z",
+  "engine": "gemini",
+  "estimated_cost_usd": 0.5836532,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 157711,
+  "model": "gemini-3.1-pro-preview",
+  "output_tokens": 6044,
+  "pipeline_sha": "ade17b92fce8322a7bc508dbc6aaa834aee3485f",
+  "role": "predictor",
+  "run_id": "20260712T174542Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73274882",
+  "gaps": [
+    "The ranged corpus backend was unreachable because the runner could not resolve the remote host.",
+    "The provisioned document set did not include the March and April 2026 supplemental filings, which were important to interpreting the prolonged hold."
+  ],
+  "helpful": [
+    "The provisioned petition and brief in opposition exposed both sides of the certworthiness dispute.",
+    "The committed statpack supplied a calibrated modern cert baseline.",
+    "CourtListener MCP exposed the related Benson decision and its unresolved en banc posture."
+  ],
+  "notes": "The corpus query was attempted but returned no priors. Related-case MCP retrieval materially improved the forecast without seeking this petition's outcome.",
+  "role": "predictor",
+  "run_id": "20260712T174542Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "metrics/statpack.md",
+    "fedcourts query (attempted; remote unavailable)",
+    "CourtListener MCP search",
+    "CourtListener MCP opinion endpoint"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
