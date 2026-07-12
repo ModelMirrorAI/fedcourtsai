@@ -1,0 +1,198 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "e264b2e1ea419437",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "0c3d8930c72d41ee",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "dd596999d12f3106",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272979 -type f | head -50",
+      "result_digest": "98170852190c2c0e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "45257505e148e5ca",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272979/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c24067c476619f23",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272979/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "e32fea4fb2ecee42",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ec80c89505c963ec",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73272979/record/snapshots/2026-07-12.json\"}",
+      "result_digest": "bc9da59b06cde51e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f82b7672cfb33576",
+      "query": "uv run fedcourts paths --court scotus --docket 73272979 --event evt-petition-disposition 2>&1",
+      "result_digest": "4d480221bd4a4d6d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bd9b5f79f7a9732d",
+      "query": "grep -n -A 30 \"habeas\\|Modern discretionary\" metrics/statpack.md | head -80",
+      "result_digest": "dbad7810107f460c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a3bb2b0a37da0cb0",
+      "query": "grep -n -B2 -A 15 \"fee\\|IFP\\|paid\" metrics/statpack.md | head -60",
+      "result_digest": "848d89f6fe830187",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "655b5eab7156e17c",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition --text \"original petition for writ of habeas corpus, pro se state prisoner, in forma pauperis, Rule 39.8\" --limit 5 2>&1",
+      "result_digest": "eb2dbad32327a24e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "91ec3592bde2606d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "181a85b5ef1dd20f",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 5 --corpus-backend ranged 2>&1 | tail -12",
+      "result_digest": "c501c8abc5178685",
+      "retrieved_doc_date": "2024-10-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "39a13ace87a9d491",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "46c24ef3cabf2b19",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73272979\\\",\\n  \\\"confidence\\\": 0.98,\\n  \\\"created_at\\\": \\\"2026-07-12T11:50:01Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"granted\\\": 0,\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73272979/record/snapshots/2026-07-12.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"dismissed\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.001,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\",
+      "result_digest": "b06dccdb98a80f56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "285aaab183a684e1",
+      "query": "{\"content\": \"# In Re Deryl Nelson, No. 25-5077 (scotus/73272979) \\u2014 evt-petition-disposition\\n\\n## Threshold disclosure: the provisioned snapshot already contains the disposition\\n\\nThis cell is marked `forward` (`record/context.json`), but the provisioned\\nbaseline snapshot (`record/snapshots/2026-07-12.json`) records the final order\\non its face. The Oct 20 2025 docket entry reads:\\n\\n> The motion for leave to proceed in forma pauperis is denied, and the petition\\n> for a writ of habeas co",
+      "result_digest": "c3c52768a7b54e07",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b036b78235d0245a",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73272979 / evt-petition-disposition / claude-baseline / 20260712T114712Z\\n\\nBeyond the provisioned inputs (snapshot, event definition, context.json):\\n\\n1. **Committed statpack** \\u2014 read `metrics/statpack.md`: the \\\"Modern\\n   discretionary-cert petitions by disposition\\\" section, the originating-circuit\\n   cuts, and the per-Term table (Term 2025: denied 92.6%, granted 4.9%,\\n   dismissed 2.5%) for base-rate context.\\n2. **Corpus priors** \\u2014\\n ",
+      "result_digest": "a29f407495bd08cb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d16491392ed6090d",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73272979\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Cell is marked forward-mode and event.yaml says resolved: false, but the provisioned snapshot (record/snapshots/2026-07-12.json) already contains the final order: on Oct 20 2025 the IFP motion was denied and the original habeas petition dismissed under Rule 39.8, with a Mart",
+      "result_digest": "d9ba21d3b6700161",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d77cfbeb69a57954",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73272979\\\",\\n  \\\"gaps\\\": [\\n    \\\"A statpack cut for original petitions (In Re habeas/mandamus, 25-5xxx IFP originals) \\u2014 the modern discretionary-cert section excludes exactly the population this case belongs to\\\",\\n    \\\"fedcourts query filters for fee class (paid vs IFP) and petition kind (cert vs original), so retrieved priors can match posture instead of just court+era\\\",\\n    \\\"A provisioning-time staleness c",
+      "result_digest": "5a6f1dbf17e190ee",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "74413acdcbf55e44",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "705784752878feae",
+      "query": "gh issue comment 585 --body \"**claude-baseline / scotus/73272979 / evt-petition-disposition / 20260712T114712Z** \u2014 prediction written: \\`dismissed\\`, P(granted)=0.001.\n\n\u26a0\ufe0f Data-quality flag (details in the cell's \\`flags.json\\`): this forward-mode cell's provisioned snapshot already contains the final order \u2014 on Oct 20 2025 the IFP motion was denied and the original habeas petition was dismissed under Rule 39.8 with a Martin filing bar. The event should likely be resolved to an outcome rather th",
+      "result_digest": "6a01c0f18d682f46",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73272979",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260712T114712Z",
+  "schema_version": "1.0"
+}

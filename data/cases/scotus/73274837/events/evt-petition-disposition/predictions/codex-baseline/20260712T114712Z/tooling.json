@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73274837",
+  "gaps": [
+    "The ranged corpus backend was unreachable because its object-store hostname did not resolve, so no similar resolved priors were available.",
+    "The provisioned snapshot identifies supplemental briefs but does not include their text; those filings may explain the unusually long conference history."
+  ],
+  "helpful": [
+    "The provisioned petition, brief in opposition, and questions presented supplied both sides' vehicle and merits arguments.",
+    "The snapshot's complete conference-distribution history was the strongest case-specific signal.",
+    "The committed statpack supplied a modern certiorari base rate.",
+    "CourtListener MCP confirmed the broader appellate landscape without querying this petition's disposition."
+  ],
+  "notes": "The corpus query was attempted but returned no priors. CourtListener searches were bounded and did not seek the pending case's outcome.",
+  "role": "predictor",
+  "run_id": "20260712T114712Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (attempted; backend unavailable)",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
