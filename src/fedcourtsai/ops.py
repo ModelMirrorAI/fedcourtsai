@@ -873,9 +873,11 @@ def render_tooling_digest(digest: ToolingDigest) -> str:
     lines = [
         "### Tooling feedback",
         "",
-        f"**{digest.reports}** self-report(s) ({window}) — corpus-query CLI used by "
-        f"**{query_share}**, base-rate `stats` by **{base_rate_share}**. "
-        "What agents say helped and what they wished they had.",
+        (
+            f"**{digest.reports}** self-report(s) ({window}) — corpus-query CLI used by "
+            f"**{query_share}**, base-rate `stats` by **{base_rate_share}**. "
+            "What agents say helped and what they wished they had."
+        ),
     ]
     if digest.helpful:
         lines += ["", "**Most helpful**", *[_tooling_item_line(i) for i in digest.helpful]]

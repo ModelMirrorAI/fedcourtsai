@@ -813,17 +813,21 @@ def render_statpack_markdown(pack: StatPack) -> str:
             f"of {len(pack.terms)} Term(s); the JSON artifact carries every Term and the "
             "per-fee-class detail._",
             "",
-            "| Term | filings (paid/IFP) | ingested | est. resolved | est. base rate "
-            "| est. grant rate | grants | median days | complete |",
+            (
+                "| Term | filings (paid/IFP) | ingested | est. resolved | est. base rate "
+                "| est. grant rate | grants | median days | complete |"
+            ),
             "| --- | --- | --: | --: | --- | --- | --: | --: | --- |",
         ]
         for entry in shown:
             lines.append(_term_row(entry))
         lines += [
             "",
-            "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
-            "anchor only on Term rows strictly preceding your clock — later Terms "
-            "post-date what you are allowed to know._",
+            (
+                "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
+                "anchor only on Term rows strictly preceding your clock — later Terms "
+                "post-date what you are allowed to know._"
+            ),
         ]
     return "\n".join(lines) + "\n"
 
