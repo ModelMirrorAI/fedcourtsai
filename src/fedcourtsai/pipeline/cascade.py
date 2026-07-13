@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from .. import corpus, ids
 from ..paths import CasePaths
@@ -38,7 +39,7 @@ from ..registry import enabled_evaluators, enabled_predictors
 from ..schemas import Outcome, PredictableEvent, UsageRole
 from ..serialize import write_json, write_raw_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
-from .outcome import granted_flag, is_machine_readable
+from .outcome import disposition_basis, granted_flag, is_machine_readable
 from .runner import RunRequest, get_runner
 
 
@@ -80,7 +81,11 @@ def _select_events(events: list[corpus.CorpusEvent], event: str | None) -> list[
     return events
 
 
-def _outcome_for_resolved(row: corpus.CorpusRow, event_id: str) -> Outcome | None:
+def _outcome_for_resolved(
+    row: corpus.CorpusRow,
+    event_id: str,
+    basis: Literal["standard", "mootness"] = "standard",
+) -> Outcome | None:
     """Ground-truth :class:`Outcome` for an already-resolved event, or ``None``.
 
     ``pull``'s :func:`fedcourtsai.pipeline.outcome.detect_resolution` records an
@@ -100,6 +105,7 @@ def _outcome_for_resolved(row: corpus.CorpusRow, event_id: str) -> Outcome | Non
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
         source=row.citations[0] if row.citations else None,
+        disposition_basis=basis,
     )
 
 
@@ -163,10 +169,14 @@ def run_cascade(
     targets = _select_events(all_events, event)
 
     snapshot: Path | None = None
+    # The provisioned snapshot also supplies the outcome's basis marker, so a
+    # cascade over a resolved mootness case grades like the live channel would.
+    basis: Literal["standard", "mootness"] = "standard"
     if found is not None:
         snapshot_date, payload = found
         snapshot = case_paths.snapshot(snapshot_date.isoformat())
         write_raw_json(snapshot, payload)
+        basis = disposition_basis(payload)
 
     # Materialize the git event definitions, and the ground truth for any resolved
     # target, that the agents read — the workflow's provisioning step.
@@ -175,7 +185,7 @@ def run_cascade(
         events = case_paths.event(ev.event_id)
         write_yaml(events.event_file, _event_definition(ev))
         if ev.resolved:
-            outcome = _outcome_for_resolved(row, ev.event_id)
+            outcome = _outcome_for_resolved(row, ev.event_id, basis)
             if outcome is not None:
                 write_json(events.outcome, outcome)
                 outcomes.append(events.outcome)

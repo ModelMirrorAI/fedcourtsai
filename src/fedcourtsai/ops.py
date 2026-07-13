@@ -18,7 +18,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 
 from .collect import flags_table
-from .leaderboard import RETROSPECTIVE, Stratum
+from .leaderboard import FORWARD, RETROSPECTIVE, Stratum
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
@@ -198,7 +198,10 @@ def summarize_substance(
     never the section.
     """
     predictions, events_predicted, predicted_resolved = cell_counts
-    forward = [ev for ev, stratum in stratified_evaluations if stratum != RETROSPECTIVE]
+    # Strictly the timing strata: a procedural (mootness-basis) cell counts in
+    # neither — the leaderboard segments it out of the skill aggregates, and
+    # this funnel mirrors that doctrine.
+    forward = [ev for ev, stratum in stratified_evaluations if stratum == FORWARD]
     replay = [ev for ev, stratum in stratified_evaluations if stratum == RETROSPECTIVE]
 
     prior_cells = previous.substance.cells if previous is not None and previous.substance else None

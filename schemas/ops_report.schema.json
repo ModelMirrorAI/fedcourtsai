@@ -940,7 +940,7 @@
     },
     "SubstanceCells": {
       "additionalProperties": false,
-      "description": "Scored-cell counts across the pipeline funnel, forward vs replay.\n\nThe funnel: prediction cells committed \u2192 events with at least one prediction\n\u2192 predicted events whose ground truth landed \u2192 evaluations, split by the\npre-registration stratum (the leaderboard's forward/retrospective doctrine \u2014\nnever blended). ``*_delta`` fields carry the change against the prior\nops-metrics snapshot when a comparable one was supplied, else null.",
+      "description": "Scored-cell counts across the pipeline funnel, forward vs replay.\n\nThe funnel: prediction cells committed \u2192 events with at least one prediction\n\u2192 predicted events whose ground truth landed \u2192 evaluations, counted per\ntiming stratum (the leaderboard's forward/retrospective doctrine \u2014 never\nblended; a procedural mootness-basis cell counts in neither, mirroring its\nsegmentation out of the skill aggregates). ``*_delta`` fields carry the\nchange against the prior ops-metrics snapshot when a comparable one was\nsupplied, else null.",
       "properties": {
         "evaluations_forward": {
           "description": "Scored cells in the forward stratum",

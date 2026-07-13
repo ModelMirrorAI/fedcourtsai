@@ -32,6 +32,18 @@ class CaseStatus(StrEnum):
 
 
 class Disposition(StrEnum):
+    """The realized-outcome vocabulary, with the mapping conventions for
+    non-standard SCOTUS forms. Every GVR lands ``granted`` — including the
+    Munsingwear vacatur, whose mootness basis is segmented for scoring via
+    ``Outcome.disposition_basis``, never a distinct label. On mandatory-
+    jurisdiction direct appeals the resolver latches only the vacatur-remand
+    form (granted side); the other direct-appeal forms (probable jurisdiction
+    noted, summary affirmance, dismissal for want of a substantial federal
+    question) are deliberate resolver misses that reach maintainer triage,
+    where the convention is: grant-side for probable jurisdiction, the
+    denied/dismissed side for summary affirmance and want-of-a-question.
+    """
+
     granted = "granted"
     denied = "denied"
     granted_in_part = "granted-in-part"
@@ -180,6 +192,14 @@ class Outcome(_Strict):
     actual_granted: int = Field(ge=0, le=1)
     votes: list[JudgeVote] = Field(default_factory=list)
     source: str | None = Field(default=None, description="Docket entry id or citation")
+    disposition_basis: Literal["standard", "mootness"] = Field(
+        default="standard",
+        description="What drove the disposition's wording: 'mootness' when the "
+        "order is mootness practice (a Munsingwear vacatur, a dismissal as "
+        "moot) — the label then tracks vacatur practice rather than "
+        "cert-worthiness, so scoring segments the cell into the leaderboard's "
+        "procedural stratum instead of the headline strata",
+    )
 
 
 class LeakageAssessment(_Strict):
@@ -449,7 +469,7 @@ class RetrievalLog(_Strict):
 
 
 class LeaderboardStratum(_Strict):
-    """Aggregates over one pre-registration stratum of a predictor's evaluations.
+    """Aggregates over one stratum of a predictor's evaluations.
 
     A cell is *forward* when the event was still unresolved at the prediction's
     commit time and *retrospective* when it had already resolved — in which case
@@ -477,7 +497,11 @@ class LeaderboardStratum(_Strict):
 
 
 class LeaderboardEntry(_Strict):
-    """One predictor's standings, aggregated per pre-registration stratum."""
+    """One predictor's standings, aggregated per stratum.
+
+    Forward and retrospective are the pre-registration (timing) strata; the
+    procedural block segments mootness-basis cells out of both.
+    """
 
     predictor_id: str
     rank: int = Field(ge=1, description="1-based standing; 1 is best")
@@ -494,6 +518,13 @@ class LeaderboardEntry(_Strict):
         "measures calibration and label-mapping fit, not forecasting skill; "
         "null when this predictor has no scored retrospective cell.",
     )
+    procedural: LeaderboardStratum | None = Field(
+        default=None,
+        description="Cells whose outcome was mootness practice (the outcome's "
+        "disposition_basis) — the label tracks vacatur practice rather than "
+        "cert-worthiness, so these aggregate separately and never enter the "
+        "ranking; null when this predictor has none.",
+    )
 
 
 class Leaderboard(_Strict):
@@ -501,14 +532,24 @@ class Leaderboard(_Strict):
 
     A deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:
     one entry per predictor, ranked best-first on the **forward** stratum (see
-    :class:`LeaderboardStratum` — forward and retrospective cells are never
-    blended into one number). Computed by ``fedcourts leaderboard``; carries no
+    :class:`LeaderboardStratum` — the strata are never blended into one number,
+    and ``evaluations_total`` includes the procedural cells the ranking
+    excludes). Computed by ``fedcourts leaderboard``; carries no
     timestamp so the same ledger always serializes identically.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
-    predictors_ranked: int = Field(ge=0, description="Number of predictors on the board")
+    predictors_ranked: int = Field(
+        ge=0,
+        description="Number of predictors on the board (a procedural-only "
+        "predictor still appears, sorted after every ranked one)",
+    )
     evaluations_total: int = Field(ge=0, description="Total evaluations aggregated")
+    procedural_evaluations: int = Field(
+        default=0,
+        ge=0,
+        description="Evaluations segmented out for a mootness-basis outcome (never ranked)",
+    )
     forward_evaluations: int = Field(
         default=0, ge=0, description="Evaluations of true forward forecasts"
     )
@@ -1324,10 +1365,12 @@ class SubstanceCells(_Strict):
     """Scored-cell counts across the pipeline funnel, forward vs replay.
 
     The funnel: prediction cells committed → events with at least one prediction
-    → predicted events whose ground truth landed → evaluations, split by the
-    pre-registration stratum (the leaderboard's forward/retrospective doctrine —
-    never blended). ``*_delta`` fields carry the change against the prior
-    ops-metrics snapshot when a comparable one was supplied, else null.
+    → predicted events whose ground truth landed → evaluations, counted per
+    timing stratum (the leaderboard's forward/retrospective doctrine — never
+    blended; a procedural mootness-basis cell counts in neither, mirroring its
+    segmentation out of the skill aggregates). ``*_delta`` fields carry the
+    change against the prior ops-metrics snapshot when a comparable one was
+    supplied, else null.
     """
 
     predictions: int = Field(ge=0, description="prediction.json cells committed under data/")

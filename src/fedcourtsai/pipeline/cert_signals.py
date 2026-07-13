@@ -140,6 +140,51 @@ def _is_non_order_sentence(sentence: str) -> bool:
     return bool(_MOTION_OPEN_RE.match(sentence)) and bool(_CONSIDERATION_RE.search(sentence))
 
 
+_MOOTNESS_RE = re.compile(r"\bmoot\w*\b", re.IGNORECASE)
+# Comma-conjoined clauses within one order sentence rule independently; the
+# bare "and" without a comma stays one clause ("Judgment VACATED and case
+# REMANDED ... as moot" must keep its mootness basis).
+_CLAUSE_SPLIT_RE = re.compile(r",\s+and\s+", re.IGNORECASE)
+
+
+def mootness_disposition(text: str) -> bool:
+    """Whether ``text``'s disposition order is mootness practice, not a merits call.
+
+    True when the matched disposition's *own sentence* carries mootness language
+    — the Munsingwear vacatur ("Judgment VACATED and case REMANDED ... with
+    instructions to dismiss the case as moot") or a plain dismissal as moot.
+    Such an order's wording tracks the Court's vacatur practice rather than
+    cert-worthiness, so scoring segments these cells into their own leaderboard
+    stratum (see ``Outcome.disposition_basis``). Sentence-scoped on purpose: a
+    denial followed by a separate sentence discussing mootness stays a merits
+    disposition. False when no disposition matches at all.
+    """
+    for pattern, _disposition, _label in _ENTRY_SIGNALS:
+        position = 0
+        while (match := pattern.search(text, position)) is not None:
+            if _is_non_order_sentence(_containing_sentence(text, match.start())):
+                position = match.end()
+                continue
+            # The GVR patterns can span sentences ("Petition GRANTED. Judgment
+            # VACATED ... as moot."), so the basis reads the whole sentence
+            # window the match covers — then narrows to the comma-conjoined
+            # clause(s) the match actually sits in, so a compound order pairing
+            # a motion "denied as moot" with the cert denial ("... is denied as
+            # moot, and the petition ... is denied.") never retro-tags the
+            # merits denial as mootness practice.
+            starts = _sentence_boundaries(text)
+            window_start = max(s for s in starts if s <= match.start())
+            later = [s for s in starts if s >= match.end()]
+            window = text[window_start : later[0] if later else len(text)]
+            clause_starts = [0] + [boundary.end() for boundary in _CLAUSE_SPLIT_RE.finditer(window)]
+            rel_start, rel_end = match.start() - window_start, match.end() - window_start
+            clause_from = max(c for c in clause_starts if c <= rel_start)
+            clause_after = [c for c in clause_starts if c >= rel_end]
+            clause = window[clause_from : clause_after[0] if clause_after else len(window)]
+            return bool(_MOOTNESS_RE.search(clause))
+    return False
+
+
 def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
     """First cert-disposition signal in ``text``, as (disposition, label, snippet).
 

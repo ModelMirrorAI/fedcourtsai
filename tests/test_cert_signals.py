@@ -8,7 +8,7 @@ no-match fixtures are the pending-shaped near-misses a broadened pattern must
 never read as a disposition.
 """
 
-from fedcourtsai.pipeline.cert_signals import match_disposition_signal
+from fedcourtsai.pipeline.cert_signals import match_disposition_signal, mootness_disposition
 from fedcourtsai.schemas import Disposition
 
 # --- dispositions the resolver must read -----------------------------------------
@@ -253,3 +253,35 @@ def test_semicolon_scopes_a_trailing_filed_clause() -> None:
         "Petition for a writ of certiorari granted; statement of Justice Alito filed."
     )
     assert matched is not None and matched[0] == Disposition.granted
+
+
+def test_mootness_disposition_reads_the_munsingwear_and_moot_dismissal_forms() -> None:
+    # Mootness practice: the order's own sentence carries the mootness basis.
+    assert mootness_disposition(
+        "Judgment VACATED and case REMANDED to the United States Court of "
+        "Appeals for the Ninth Circuit with instructions to dismiss the case "
+        "as moot."
+    )
+    assert mootness_disposition("Petition for a writ of certiorari dismissed as moot.")
+    # Merits dispositions stay standard — including the ordinary GVR.
+    assert not mootness_disposition(
+        "Judgment VACATED and case REMANDED for further consideration in "
+        "light of Louisiana v. Callais."
+    )
+    assert not mootness_disposition("Petition DENIED.")
+    # Sentence-scoped: mootness discussed in a separate sentence is not the basis.
+    assert not mootness_disposition(
+        "Petition DENIED. Justice Jackson, dissenting, would note the case may be moot."
+    )
+    # No disposition at all reads False, never mootness.
+    assert not mootness_disposition("DISTRIBUTED for Conference of 9/29/2025.")
+
+
+def test_compound_moot_motion_denial_is_not_a_mootness_basis() -> None:
+    # A comma-conjoined compound order: the motion clause is denied AS MOOT,
+    # the petition clause is a genuine merits denial — clause scoping keeps
+    # the merits denial out of the procedural stratum.
+    assert not mootness_disposition(
+        "The motion of petitioner to expedite consideration is denied as "
+        "moot, and the petition for a writ of certiorari is denied."
+    )

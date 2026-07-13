@@ -33,7 +33,7 @@ from ..matrix import event_has_predictions
 from ..store import open_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
-from .outcome import UnrecordedOutcome, resolve_case, termination_signal
+from .outcome import UnrecordedOutcome, disposition_basis, resolve_case, termination_signal
 
 
 @dataclass
@@ -90,7 +90,14 @@ def pull_case(
     # Runs *before* re-extraction: `default_event` marks a decided case's baseline
     # resolved (from its disposition), so resolution must see the event still open
     # to record its outcome before extraction latches it closed.
-    resolution = resolve_case(corpus_db_path, data_root, row, court_id, docket_id)
+    resolution = resolve_case(
+        corpus_db_path,
+        data_root,
+        row,
+        court_id,
+        docket_id,
+        disposition_basis=disposition_basis(fresh),
+    )
 
     # Re-extract predictable events from the refreshed docket, not just at
     # discovery: a filing that appears *after* onboarding — most importantly a

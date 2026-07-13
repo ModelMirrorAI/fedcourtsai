@@ -32,13 +32,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .. import corpus, ids
 from ..paths import CasePaths
 from ..schemas import Disposition, Outcome, PredictableEvent
 from ..serialize import write_json, write_yaml
 from ..store import open_events
+from .cert_signals import match_disposition_signal, mootness_disposition
 from .ingest import CorpusRow
 
 # Dispositions that count as a granted (1) binary outcome; a partial grant still
@@ -211,7 +212,30 @@ class Resolution:
     unrecorded: tuple[UnrecordedOutcome, ...] = ()
 
 
-def _build_outcome(row: CorpusRow, event_id: str) -> Outcome:
+def disposition_basis(docket: Mapping[str, Any]) -> Literal["standard", "mootness"]:
+    """What drove the payload's disposition wording — the ``Outcome`` basis marker.
+
+    Pure over the fresh full-docket payload (either shape, via
+    :func:`entry_descriptions`), so the refresh channels compute it from the
+    payload they already hold and pass it into :func:`resolve_case`. "mootness"
+    when the first disposition-bearing entry is mootness practice
+    (:func:`fedcourtsai.pipeline.cert_signals.mootness_disposition` — a
+    Munsingwear vacatur or a dismissal as moot): the label then tracks vacatur
+    practice rather than cert-worthiness, and scoring segments the cell into
+    the leaderboard's procedural stratum. On the REST shape the recorded
+    disposition can come from upstream fields or cert dates rather than entry
+    text, so the basis attaches to the first disposition-bearing *entry* — the
+    same first-entry rule the live resolver applies.
+    """
+    for text in entry_descriptions(docket):
+        if match_disposition_signal(text) is not None:
+            return "mootness" if mootness_disposition(text) else "standard"
+    return "standard"
+
+
+def _build_outcome(
+    row: CorpusRow, event_id: str, basis: Literal["standard", "mootness"]
+) -> Outcome:
     """Construct the ground-truth ``Outcome`` from a decided, machine-readable row.
 
     ``resolved_at`` is the :func:`corpus.resolution_date` — for a SCOTUS petition
@@ -227,6 +251,7 @@ def _build_outcome(row: CorpusRow, event_id: str) -> Outcome:
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
         source=row.citations[0] if row.citations else None,
+        disposition_basis=basis,
     )
 
 
@@ -235,6 +260,7 @@ def detect_resolution(
     court_id: str,
     docket_id: int,
     open_event_ids: list[str],
+    disposition_basis: Literal["standard", "mootness"] = "standard",
 ) -> Resolution:
     """Decide how each open event resolves, given the refreshed corpus row.
 
@@ -248,7 +274,7 @@ def detect_resolution(
     readable = is_machine_readable(row.disposition) and corpus.resolution_date(row) is not None
     if readable and len(open_event_ids) == 1:
         event_id = open_event_ids[0]
-        return Resolution(outcomes={event_id: _build_outcome(row, event_id)})
+        return Resolution(outcomes={event_id: _build_outcome(row, event_id, disposition_basis)})
 
     if not is_machine_readable(row.disposition):
         reason = "docket appears decided but its disposition is not machine-readable"
@@ -340,6 +366,7 @@ def resolve_case(
     row: CorpusRow,
     court_id: str,
     docket_id: int,
+    disposition_basis: Literal["standard", "mootness"] = "standard",
 ) -> Resolution:
     """Detect and record resolution for one freshly-refreshed case.
 
@@ -349,6 +376,6 @@ def resolve_case(
     :class:`Resolution` so the caller can surface the unrecorded rest.
     """
     open_event_ids = open_events(corpus_db_path, court_id, docket_id)
-    resolution = detect_resolution(row, court_id, docket_id, open_event_ids)
+    resolution = detect_resolution(row, court_id, docket_id, open_event_ids, disposition_basis)
     record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
     return resolution

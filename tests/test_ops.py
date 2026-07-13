@@ -1178,3 +1178,19 @@ def test_summarize_health_excludes_label_filter_skips() -> None:
     # The most recent *execution* is the failure, not the later skips.
     assert health.last_conclusion == "failure"
     assert health.last_run_at == "2026-07-13T11:00:00Z"
+
+
+def test_summarize_substance_excludes_procedural_cells_from_both_strata() -> None:
+    # A mootness-basis (procedural) cell counts in neither timing stratum —
+    # the funnel mirrors the leaderboard's segmentation, so no headline
+    # metric ever mixes it in.
+    stratified: list[tuple[Evaluation, Stratum]] = [
+        (_evaluation("claude-baseline", correct=1, brier=0.1, quality=0.8), "forward"),
+        (_evaluation("claude-baseline", correct=1, brier=0.0, quality=0.9), "procedural"),
+    ]
+    digest = ops.summarize_substance(
+        cell_counts=(2, 2, 2),
+        stratified_evaluations=stratified,
+        statpack=None,
+    )
+    assert (digest.cells.evaluations_forward, digest.cells.evaluations_retrospective) == (1, 0)

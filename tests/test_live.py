@@ -24,6 +24,8 @@ from fedcourtsai.pipeline.live import (
     ingest_live_payload,
     live_poll_all,
 )
+from fedcourtsai.schemas import Disposition, Outcome
+from fedcourtsai.serialize import read_model
 from fedcourtsai.supremecourt import (
     SupremeCourtClient,
     current_october_term,
@@ -907,3 +909,33 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
 
     # Idempotent: everything resolvable was resolved; the second run is a no-op.
     assert backfill_live_signals(db, denial_sample_every=10) == (0, 0)
+
+
+def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> None:
+    # The Munsingwear order latches granted (the GVR convention) but its
+    # wording is mootness practice — the recorded ground truth carries the
+    # basis so scoring segments the cell into the procedural stratum.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 274)
+    ingest_live_payload(db, data_root, _payload("25-274"), docket_id, today=date(2026, 7, 9))
+
+    munsingwear_entry = {
+        "Date": "May 11 2026",
+        "Text": (
+            "Petition GRANTED. Judgment VACATED and case REMANDED with "
+            "instructions to dismiss the case as moot."
+        ),
+    }
+    decided = ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-274", proceedings=[_payload()["ProceedingsandOrder"][0], munsingwear_entry]),
+        docket_id,
+        today=date(2026, 7, 10),
+    )
+    (event_id,) = decided.resolved
+    outcome_path = CasePaths(data_root, "scotus", docket_id).event(event_id).outcome
+    outcome = read_model(outcome_path, Outcome)
+    assert outcome.actual_disposition == Disposition.granted
+    assert outcome.disposition_basis == "mootness"
