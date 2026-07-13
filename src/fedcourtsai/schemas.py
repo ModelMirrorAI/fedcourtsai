@@ -887,6 +887,59 @@ class CorpusScopeAudit(_Strict):
     )
 
 
+class ScopeManifestEntry(_Strict):
+    """The published prediction-scope decision for one already-public case.
+
+    One row per docket that has a committed directory under ``data/cases`` *and*
+    a corpus row — a subset of the git-visible public set (a public docket absent
+    from the corpus is omitted), and never anything outside it. The fields mirror
+    the corpus's
+    scope columns for the case: whether it is in the prediction gate
+    (``predict_eligible`` ≡ court is SCOTUS), whether the reconcile has latched it
+    out (``predict_excluded``), the shared exclusion reason when it has, and the
+    inclusion weight the sampling channel asserted. ``sample_weight`` is null when
+    no channel asserted one; ``out_of_scope_reason`` is null for an in-scope case.
+    """
+
+    case_id: str = Field(description="``<court>/<docket>`` of an already-public case")
+    predict_eligible: bool = Field(description="In the prediction gate (court is SCOTUS)")
+    predict_excluded: bool = Field(description="Latched out of scope by the reconcile")
+    out_of_scope_reason: str | None = Field(
+        default=None, description="Shared exclusion reason when excluded; null when in scope"
+    )
+    sample_weight: int | None = Field(
+        default=None,
+        description="Inverse inclusion probability the sampling channel asserted; null if none",
+    )
+
+
+class ScopeManifest(_Strict):
+    """``data/scope/scope.json`` — the published prediction-scope decision, public set only.
+
+    A deterministic, offline census of the prediction-scope decision (eligible /
+    excluded / reason / sample weight) for every docket **already public** under
+    ``data/cases`` — enumerated from that committed directory tree alone, never
+    from the corpus. So it publishes the scope call for the cases the repository
+    already discloses, and by construction cannot enumerate the broader ingested
+    corpus (a compilation-extent boundary held deliberately). ``skipped`` is set
+    (with empty entries) when the corpus is absent, so it is safe to regenerate
+    before a corpus pull. A pure function of the committed tree + corpus, so it
+    carries no timestamp and reruns reproduce it byte for byte.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    skipped: bool = Field(
+        default=False, description="True when no corpus was present; scope was not resolved"
+    )
+    cases: int = Field(default=0, ge=0, description="Public cases in the manifest")
+    eligible: int = Field(default=0, ge=0, description="Of those, in the prediction gate")
+    excluded: int = Field(default=0, ge=0, description="Of those, latched out of scope")
+    entries: list[ScopeManifestEntry] = Field(
+        default_factory=list,
+        description="One entry per included public case (present in the corpus), in case_id order",
+    )
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 
@@ -1615,6 +1668,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "flags.json": AgentFlags,
     "tooling.json": AgentToolingFeedback,
     "retrieval_log.json": RetrievalLog,
+    "scope.json": ScopeManifest,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -1632,6 +1686,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "ops_report": OpsReport,
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
+    "scope_manifest": ScopeManifest,
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
