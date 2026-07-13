@@ -321,3 +321,116 @@ def test_termination_signal_ignores_an_ifp_denial_with_a_fee_deadline() -> None:
         ],
     }
     assert termination_signal(docket) is None
+
+
+def test_termination_signal_reads_a_gvr_vacate_and_remand_order() -> None:
+    # The GVR shape the cert-disposition resolver's grant-anchored patterns
+    # miss: a bare vacate-and-remand order carries no "grant" word and no
+    # literal "GVR" token, yet the matter is decided. This is the exact entry
+    # that leaked already-decided SCOTUS dockets into forward cells.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Judgment VACATED and case REMANDED for further consideration "
+                    "in light of Louisiana v. Callais."
+                ),
+            }
+        ],
+    }
+    signal = termination_signal(docket)
+    assert signal is not None and "VACATED" in signal
+
+
+def test_termination_signal_reads_the_judgment_issued_entry() -> None:
+    # "Judgment Issued" is the SCOTUS mandate analog — it follows the
+    # disposition order, so it is often the *latest* entry and the only
+    # terminal-shaped text the latest-entry rule can see.
+    docket = {"id": 1, "docket_entries": [{"id": 10, "description": "Judgment Issued."}]}
+    assert termination_signal(docket) is not None
+
+
+def test_termination_signal_ignores_a_vacatur_without_a_remand() -> None:
+    # An interim vacatur (a stay vacated, an order vacated on rehearing) does
+    # not end the matter; only the vacate-and-remand pair reads terminal.
+    docket = {
+        "id": 1,
+        "docket_entries": [{"id": 10, "description": "Order vacating the stay entered."}],
+    }
+    assert termination_signal(docket) is None
+
+
+def test_termination_signal_ignores_a_vacate_and_remand_motion() -> None:
+    # The SG's confession-of-error *motion* asks for a vacate-and-remand but
+    # decides nothing — the verb precedes "judgment", which the disposition
+    # noun-verb shape ("judgment ... vacated ... remand") does not match.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Motion of respondent to vacate the judgment and remand the case "
+                    "for further proceedings filed."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is None
+
+
+def test_termination_signal_ignores_an_en_banc_panel_opinion_vacatur() -> None:
+    # Rehearing en banc vacates the *panel opinion* and remands to the panel —
+    # the appeal is very much alive, and no "judgment" anchors the pair.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Rehearing en banc GRANTED. The panel opinion is VACATED and "
+                    "the case is REMANDED to the panel."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is None
+
+
+def test_termination_signal_ignores_a_judgment_issued_recital() -> None:
+    # A docketing recital that merely *mentions* an issued judgment ("NOTICE OF
+    # APPEAL filed from the judgment issued on ...") opens a matter rather than
+    # closing one; only the start-anchored bare "Judgment Issued" entry counts.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "NOTICE OF APPEAL filed from the judgment issued on 03/04/2026 "
+                    "by the district court."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is None
+
+
+def test_termination_signal_reads_a_circuit_vacate_and_remand_disposition() -> None:
+    # The CA disposition shape carries the same judgment-vacated-remand
+    # noun-verb order as the SCOTUS GVR, so the one pattern covers both.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "OPINION filed. The judgment of the district court is VACATED "
+                    "and the case is REMANDED for further proceedings."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is not None

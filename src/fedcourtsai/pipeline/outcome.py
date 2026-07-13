@@ -73,29 +73,46 @@ def appears_decided(row: CorpusRow) -> bool:
 
 
 # Docket-entry descriptions that state the matter is over even when the docket
-# row carries no decision date or disposition. Two families:
+# row carries no decision date or disposition. Three families:
 #   - appellate dockets CourtListener stopped indexing years ago
 #     (``date_terminated`` stays null): the clerk's termination entry and the
 #     published-opinion entry;
 #   - SCOTUS terminal orders the cert-disposition resolver deliberately does not
 #     match — an IFP denial that dismisses under Rule 39.8, an original/habeas
 #     petition dismissal (many words separate "petition" from "dismissed"), and a
-#     fee-default closure.
-# This is a high-recall *routing* backstop only: a match diverts a decided-looking
-# case out of the forward-predict queue for triage (``predict_skipped_decided``);
-# it never records an ``outcome.json``, so — unlike broadening the resolving
+#     fee-default closure;
+#   - SCOTUS decided-merits orders the resolver's grant-anchored patterns miss:
+#     a vacate-and-remand disposition with no "grant" word ("Judgment VACATED
+#     and case REMANDED for further consideration in light of ..."), and the
+#     "Judgment Issued" entry that follows it (the mandate analog — on a SCOTUS
+#     docket the matter is over once judgment issues).
+# The two new shapes are anchored against pending-shaped near-misses: "judgment
+# issued" is start-anchored (like "opinion issued") so a docketing recital
+# ("NOTICE OF APPEAL filed from the judgment issued on ...") stays pending, and
+# the vacate pair requires the disposition order's noun-verb shape — "judgment
+# ... vacated ... remand" — so the SG's confession-of-error *motion* ("Motion of
+# respondent to vacate the judgment and remand ... filed", verb before noun) and
+# an en banc panel-opinion vacatur ("panel opinion is VACATED and the case is
+# REMANDED to the panel", no judgment) stay pending too.
+# This is a high-recall *routing* backstop that also feeds the forward-cell
+# provisioning refusal (``provision-snapshot --refuse-terminal``): a match
+# diverts a decided-looking case out of the forward-predict queue for triage
+# (``predict_skipped_decided``), or leaves a fanned-out cell snapshot-less. It
+# never records an ``outcome.json``, so — unlike broadening the resolving
 # instrument (:func:`fedcourtsai.pipeline.cert_signals.match_disposition_signal`) —
-# a false positive is cheap (a case parked for triage, its events left open), not a
-# fabricated ground truth. The initial IFP denial that only sets a fee deadline
-# ("...is denied. Petitioner allowed until ... to pay") is deliberately *not*
-# matched: that petition may still proceed on payment, so the later closure /
-# dismissal entry — not the denial — is the terminal signal.
+# a false positive is cheap (a case parked for triage or one degraded cell, its
+# events left open), not a fabricated ground truth. The initial IFP denial that
+# only sets a fee deadline ("...is denied. Petitioner allowed until ... to pay")
+# is deliberately *not* matched: that petition may still proceed on payment, so
+# the later closure / dismissal entry — not the denial — is the terminal signal.
 _TERMINAL_ENTRY_RE = re.compile(
     r"^opinion issued\b"
     r"|\bcase termination\b"
     r"|\bconsidered closed\b"
     r"|\brule\s*39\.8\b"
-    r"|\bpetition\b.{0,80}?\bdismissed\b",
+    r"|\bpetition\b.{0,80}?\bdismissed\b"
+    r"|^judgment issued\b"
+    r"|\bjudgment\b.{0,40}?\bvacated\b.{0,80}?\bremand\w*",
     re.IGNORECASE,
 )
 
