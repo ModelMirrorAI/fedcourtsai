@@ -198,11 +198,18 @@ Access mirrors each workflow's role in the pipeline:
 | `run-backtest`                            | read-only     | replay: full index `dvc pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only | record provisioning from the content store + ranged index queries (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `dvc pull`) |
+| `integration-corpus`                      | read-only     | ranged read-path preflight (role assumed directly, no pull) |
+| `run-ops`                                 | none          | dashboard reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
 The split is deliberate: a cell touches KBs of one case's data, so it reads the
 per-case objects and the immutable index in place and moves no full blob; the
 plan jobs and `run-analytics` scan the index and keep the full pull.
+
+Developer access is separate from the workflow roles: the maintainer uses IAM
+Identity Center SSO, and a contributor gets an on-demand, read-only IAM user
+whose policy grants only `GetObject` / `GetObjectVersion` / `ListBucket` on the
+corpus bucket — the one static credential in the system.
 
 Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-

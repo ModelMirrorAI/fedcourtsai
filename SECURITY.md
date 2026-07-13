@@ -17,7 +17,11 @@ runbook, [docs/security.md](docs/security.md).
   env only where needed — with two deliberate carve-outs: the cells' MCP-config
   step writes it into runner-local, gitignored client-config files, and the
   predict cells' Claude and Codex agent steps carry it in their step env so the
-  prompt contract's REST fallback can expand it by env-var reference. The
+  prompt contract's REST fallback can expand it by env-var reference (Gemini's
+  CLI strips custom env, so its step stays token-free and its agent is told to
+  skip the fallback). Exposure equals the step-env's own: the files are on an
+  ephemeral runner, never committed, and the artifact upload is an explicit
+  allowlist that excludes them. The
   prompt forbids ever writing the literal value into a command line or output
   file (tool-call command lines are harvested into the committed
   `retrieval_log.json`). The accepted residual: the engines hold that env while
