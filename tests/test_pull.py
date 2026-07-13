@@ -589,3 +589,33 @@ def test_later_filing_after_a_terminal_entry_still_queues_forward(tmp_path: Path
     )
     assert [(e["court"], e["docket"]) for e in queues.predict] == [("ca9", 64512345)]
     assert queues.predict_skipped_decided == []
+
+
+def test_gvr_disposed_docket_skips_the_forward_predict_queue(tmp_path: Path) -> None:
+    # A SCOTUS GVR resolves the matter with no "grant" word, so the cert
+    # resolver never latches a disposition and the case still looks pending at
+    # the row level — the routing backstop must divert it on the entry text
+    # ("Judgment Issued", following the vacate-and-remand order) instead of
+    # fanning out a forward cell whose snapshot contains the outcome.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _open_event(db, "ca9", 64512345)
+    client = FakeClient(
+        DOCKET,
+        [
+            {
+                "id": 1,
+                "description": (
+                    "Judgment VACATED and case REMANDED for further consideration "
+                    "in light of Louisiana v. Callais."
+                ),
+            },
+            {"id": 2, "description": "Judgment Issued."},
+        ],
+    )
+    queues = pull_cases(
+        cast(CourtListenerClient, client), db, tmp_path / "data", [("ca9", 64512345)]
+    )
+    assert queues.predict == []
+    skipped = queues.predict_skipped_decided
+    assert [(e["court"], e["docket"]) for e in skipped] == [("ca9", 64512345)]
+    assert "terminal" in str(skipped[0]["reason"])

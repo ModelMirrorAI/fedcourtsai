@@ -80,6 +80,7 @@ from .pipeline import historical, liveprobe
 from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
+from .pipeline.outcome import termination_signal
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.scope_reconcile import reconcile_predict_scope
@@ -1649,6 +1650,17 @@ def provision_snapshot(
             "provisioner in cert_backtest writes this itself)."
         ),
     ] = "forward",
+    refuse_terminal: Annotated[
+        bool,
+        typer.Option(
+            "--refuse-terminal",
+            help="Refuse (exit 3, writing nothing) when the snapshot's latest "
+            "docket entry reads terminal — a forward *prediction* cell must "
+            "never see a decided docket. Only run-predict passes this: an "
+            "evaluate cell targets exactly decided dockets, so the default "
+            "provisions unconditionally.",
+        ),
+    ] = False,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's latest corpus snapshot (and documents) for an agent run.
@@ -1663,7 +1675,9 @@ def provision_snapshot(
     questions presented, brief in opposition — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
-    fetch rights. Exits non-zero if the corpus holds no snapshot for the case.
+    fetch rights. Exits non-zero if the corpus holds no snapshot for the case
+    (code 1), or — under ``--refuse-terminal`` on a forward cell — if the
+    snapshot already reads decided (code 3, nothing written).
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -1685,6 +1699,26 @@ def provision_snapshot(
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
         raise typer.Exit(code=2)
     snapshot_date, payload = found
+    # Leakage guard (opt-in): a forward *prediction* cell predicts a genuinely
+    # pending event, so a snapshot whose latest entry reads terminal must never
+    # be materialized — it would hand the predictor the outcome it is supposed
+    # to predict. The pull-side routing skip (``predict_skipped_decided``) is
+    # the primary protection; this refusal is defense-in-depth for cells fanned
+    # out before the docket latched. Refuses before writing anything (no
+    # snapshot, no context.json); run-predict's provisioning step is
+    # continue-on-error, so the cell runs snapshot-less and the agent notes the
+    # gap per the prompt contract. Opt-in because the other callers *must* see
+    # decided dockets: run-evaluate provisions the same forward-mode cell for
+    # an already-resolved event, and the replay provisioner truncates
+    # point-in-time itself.
+    if refuse_terminal and mode == "forward":
+        terminal = termination_signal(payload)
+        if terminal is not None:
+            typer.echo(
+                f"refusing to provision forward cell for {case}: {terminal}",
+                err=True,
+            )
+            raise typer.Exit(code=3)
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
     write_raw_json(dest, payload)
