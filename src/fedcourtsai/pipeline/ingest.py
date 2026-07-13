@@ -543,11 +543,13 @@ def _live_resolution(
     """(disposition, cert_granted, cert_denied, terminated) from the proceedings.
 
     The disposition orders ride as plain proceedings text ("Petition DENIED."),
-    which the shared cert-order patterns match — 64/64 on the reachability-probe
-    sample (docs/live-sources-probe.md). The first matching entry, in docket
-    order, is the cert-stage disposition and its entry date is the decision
-    date: a grant dates ``date_cert_granted``, a denial ``date_cert_denied``,
-    and anything else (dismissed / withdrawn) dates the termination.
+    which the shared cert-order patterns match — validated against the
+    reachability-probe sample (``fedcourts probe-live-terms``; re-run it when
+    the patterns change to re-establish the recall claim). The first matching
+    entry, in docket order, is the cert-stage disposition and its entry date is
+    the decision date: a grant dates ``date_cert_granted``, a denial
+    ``date_cert_denied``, and anything else (dismissed / withdrawn) dates the
+    termination.
     """
     for entry in entries:
         matched = match_disposition_signal(str(entry.get("description") or ""))

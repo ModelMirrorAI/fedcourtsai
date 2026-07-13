@@ -3,10 +3,21 @@
 The one deterministic instrument that reads a concrete cert disposition out of
 free order-list language ("Petition DENIED.", "GVR'd", "certiorari granted"),
 shared by every consumer that needs it — the live channel's ingest-time
-resolution (:mod:`.ingest`) and the live reachability probe
-(:mod:`.liveprobe`).
+resolution (:mod:`.ingest`), the historical loader (:mod:`.historical`), and
+the live reachability probe (:mod:`.liveprobe`).
 A leaf module on purpose: it depends only on the shared schema, so the
 consumers can never form an import cycle around it.
+
+Because a match here *records ground truth* (disposition + decision date), the
+patterns trade recall for precision: a shape that could also appear in a
+pending-docket entry — a motion order reciting the petition as its object, a
+party paper suggesting a vacatur — must not match. The deliberate misses
+(cert-before-judgment denials, Rule 39.8 IFP dismissals) are covered by the
+high-recall routing backstop
+(:func:`fedcourtsai.pipeline.outcome.termination_signal`), where a false
+positive only parks a case for triage. Re-run the reachability probe
+(``fedcourts probe-live-terms``) after changing the patterns to re-establish
+the recall claim over the live sample.
 """
 
 from __future__ import annotations
@@ -17,12 +28,33 @@ from ..schemas import Disposition
 
 # Docket-entry text patterns that signal a concrete cert disposition. Each maps the
 # matched phrase to a :class:`Disposition` and a short human label; the first match
-# (scanned in order) wins, so the more specific GVR pattern precedes bare "granted".
+# (scanned in order) wins, so the more specific GVR patterns precede bare "granted".
 _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
     # Grant/vacate/remand: the petition is granted, so it lands on the granted side.
     (re.compile(r"\bgvr\b", re.IGNORECASE), Disposition.granted, "GVR"),
     (
         re.compile(r"grant\w*.{0,60}?vacat\w*.{0,60}?remand\w*", re.IGNORECASE | re.DOTALL),
+        Disposition.granted,
+        "GVR",
+    ),
+    # The bare vacate-and-remand order — no "grant" word at all. Two forms carry
+    # it: the cert-track GVR whose order-list entry skips the grant recital, and
+    # the mandatory-jurisdiction direct appeal ("Judgment VACATED and case
+    # REMANDED for further consideration in light of ..."), which by convention
+    # lands on the granted side like every GVR. Anchored to the *start of the
+    # entry* — a disposition entry opens with its judgment ("Judgment VACATED
+    # ...", "The judgment of the ... Circuit is vacated, and the case is
+    # remanded ...") — so a party paper *reciting* a vacatur ("Brief of
+    # respondent suggesting that the judgment be vacated and the case remanded
+    # filed."), the SG's confession-of-error motion, and an en banc
+    # panel-opinion vacatur never read as a disposition. The first gap is wide
+    # enough for the prose form to name the lower court between "judgment" and
+    # "vacated".
+    (
+        re.compile(
+            r"^(?:the\s+)?judgment\b.{0,80}?\bvacated\b.{0,80}?\bremand\w*",
+            re.IGNORECASE | re.DOTALL,
+        ),
         Disposition.granted,
         "GVR",
     ),
