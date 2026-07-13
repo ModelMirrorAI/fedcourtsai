@@ -1,0 +1,10 @@
+case_id: scotus/72486858
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-09'
+resolved: true
+schema_version: '1.0'
+title: Charlene Rosa, Petitioner v. Florida

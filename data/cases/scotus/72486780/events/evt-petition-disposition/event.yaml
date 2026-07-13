@@ -1,0 +1,11 @@
+case_id: scotus/72486780
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-05-28'
+resolved: true
+schema_version: '1.0'
+title: Ian Leonard Clark, Petitioner v. United States District Court for the District
+  of Oregon, et al.
