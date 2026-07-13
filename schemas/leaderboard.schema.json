@@ -2,7 +2,7 @@
   "$defs": {
     "LeaderboardEntry": {
       "additionalProperties": false,
-      "description": "One predictor's standings, aggregated per pre-registration stratum.",
+      "description": "One predictor's standings, aggregated per stratum.\n\nForward and retrospective are the pre-registration (timing) strata; the\nprocedural block segments mootness-basis cells out of both.",
       "properties": {
         "evaluators": {
           "description": "Distinct evaluators that scored this predictor",
@@ -25,6 +25,18 @@
         "predictor_id": {
           "title": "Predictor Id",
           "type": "string"
+        },
+        "procedural": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cells whose outcome was mootness practice (the outcome's disposition_basis) \u2014 the label tracks vacatur practice rather than cert-worthiness, so these aggregate separately and never enter the ranking; null when this predictor has none."
         },
         "rank": {
           "description": "1-based standing; 1 is best",
@@ -55,7 +67,7 @@
     },
     "LeaderboardStratum": {
       "additionalProperties": false,
-      "description": "Aggregates over one pre-registration stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\ncommit time and *retrospective* when it had already resolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.",
+      "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\ncommit time and *retrospective* when it had already resolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.",
       "properties": {
         "accuracy": {
           "description": "Mean correctness across evaluations",
@@ -132,7 +144,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 forward and retrospective cells are never\nblended into one number). Computed by ``fedcourts leaderboard``; carries no\ntimestamp so the same ledger always serializes identically.",
+  "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of every ``evaluation.json`` under ``data/``:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). Computed by ``fedcourts leaderboard``; carries no\ntimestamp so the same ledger always serializes identically.",
   "properties": {
     "entries": {
       "items": {
@@ -155,9 +167,16 @@
       "type": "integer"
     },
     "predictors_ranked": {
-      "description": "Number of predictors on the board",
+      "description": "Number of predictors on the board (a procedural-only predictor still appears, sorted after every ranked one)",
       "minimum": 0,
       "title": "Predictors Ranked",
+      "type": "integer"
+    },
+    "procedural_evaluations": {
+      "default": 0,
+      "description": "Evaluations segmented out for a mootness-basis outcome (never ranked)",
+      "minimum": 0,
+      "title": "Procedural Evaluations",
       "type": "integer"
     },
     "retrospective_evaluations": {

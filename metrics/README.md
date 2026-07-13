@@ -15,8 +15,9 @@ and `dvc metrics diff` can track them over time:
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
   under `data/`: per predictor, accuracy, mean Brier score, mean vote accuracy, a
   mean reasoning-quality summary, and counts (events scored, evaluations,
-  evaluators), each reported **per pre-registration stratum** — `forward` and
-  `retrospective` blocks, never blended into one number. The `leaderboard` DVC
+  evaluators), each reported **per stratum** — the `forward` and
+  `retrospective` timing blocks plus the basis-driven `procedural` block,
+  never blended into one number, with only the timing strata ranked. The `leaderboard` DVC
   stage produces it by running `fedcourts leaderboard`, a deterministic, offline
   roll-up — empty (`{}` plus the zero counts) until the first evaluation lands.
 
@@ -33,6 +34,14 @@ outcome's `resolved_at`, both committed artifacts (`classify_stratum` in
 `fedcourtsai.leaderboard` is the single definition). Retrospective cells remain
 valuable — they measure calibration and label-mapping fit — but only the forward
 stratum is evidence of forecasting skill, so no headline metric may mix them.
+
+**The procedural stratum.** A cell whose outcome was mootness practice — a
+Munsingwear vacatur ("granted", but the wording tracks the Court's vacatur
+practice) or a dismissal as moot — segments into a third, `procedural` stratum
+regardless of timing (the outcome's `disposition_basis` marks it at
+resolution). Its aggregates are reported per predictor but never enter the
+ranking: scoring them as merits calls would conflate cert-worthiness
+calibration with vacatur-practice prediction.
 
 - `cert-backtest.json` — the cert-specific back-test (not a DVC stage): predictors
   replayed over the most recently decided modern discretionary-cert petitions,

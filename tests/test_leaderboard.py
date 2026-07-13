@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import (
     FORWARD,
+    PROCEDURAL,
     RETROSPECTIVE,
     Stratum,
     build_leaderboard,
@@ -63,6 +64,7 @@ def _write_cell(
     *,
     predicted_at: datetime = datetime(2026, 6, 20, tzinfo=UTC),
     resolved_at: date = date(2026, 6, 23),
+    disposition_basis: str = "standard",
 ) -> None:
     """A full scored cell: evaluation plus the prediction and outcome it targets."""
     _write(data_root, ev)
@@ -85,12 +87,15 @@ def _write_cell(
     )
     write_json(
         event.outcome,
-        Outcome(
-            case_id=ev.case_id,
-            event_id=ev.event_id,
-            resolved_at=resolved_at,
-            actual_disposition=Disposition.granted,
-            actual_granted=1,
+        Outcome.model_validate(
+            dict(
+                case_id=ev.case_id,
+                event_id=ev.event_id,
+                resolved_at=resolved_at,
+                actual_disposition=Disposition.granted,
+                actual_granted=1,
+                disposition_basis=disposition_basis,
+            )
         ),
     )
 
@@ -242,3 +247,40 @@ def test_cli_writes_valid_sorted_leaderboard(tmp_path: Path) -> None:
         env={"FEDCOURTS_DATA_ROOT": str(data_root)},
     )
     assert out.read_text() == first
+
+
+def test_mootness_outcome_routes_to_the_procedural_stratum(tmp_path: Path) -> None:
+    # A mootness-basis outcome (a Munsingwear vacatur, a dismissal as moot)
+    # carries a label that tracks vacatur practice, not cert-worthiness — the
+    # cell segments into the procedural stratum regardless of timing, even
+    # when the prediction was a true forward forecast.
+    ev = _evaluation("p-moot")
+    _write_cell(
+        tmp_path,
+        ev,
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),  # timing alone would read forward
+        disposition_basis="mootness",
+    )
+    ((_, stratum),) = iter_stratified_evaluations(tmp_path)
+    assert stratum == PROCEDURAL
+
+
+def test_procedural_cells_aggregate_separately_and_never_rank(tmp_path: Path) -> None:
+    # Predictor A: one real forward win. Predictor B: a perfect score that is
+    # purely procedural. A must outrank B — procedural accuracy buys no rank —
+    # and the totals must report the segmentation.
+    board = build_leaderboard(
+        [
+            (_evaluation("a", correct=1, brier_score=0.1), FORWARD),
+            (_evaluation("b", correct=1, brier_score=0.0), PROCEDURAL),
+        ]
+    )
+    assert [e.predictor_id for e in board.entries] == ["a", "b"]
+    a, b = board.entries
+    assert a.forward is not None and a.procedural is None
+    assert b.forward is None and b.retrospective is None
+    assert b.procedural is not None and b.procedural.accuracy == 1.0
+    assert board.procedural_evaluations == 1
+    assert board.evaluations_total == 2
+    assert board.forward_evaluations == 1

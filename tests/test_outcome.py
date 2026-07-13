@@ -9,6 +9,7 @@ from fedcourtsai.pipeline.ingest import from_api_docket
 from fedcourtsai.pipeline.outcome import (
     appears_decided,
     detect_resolution,
+    disposition_basis,
     granted_flag,
     is_machine_readable,
     record_outcomes,
@@ -509,3 +510,36 @@ def test_termination_signal_latest_entry_rule_holds_on_the_live_shape() -> None:
         ],
     }
     assert termination_signal(docket) is None
+
+
+def test_disposition_basis_reads_the_payload_and_threads_into_the_outcome() -> None:
+    munsingwear = {
+        "CaseNumber": "25-100 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
+            {
+                "Date": "May 11 2026",
+                "Text": (
+                    "Judgment VACATED and case REMANDED with instructions to "
+                    "dismiss the case as moot."
+                ),
+            },
+        ],
+    }
+    assert disposition_basis(munsingwear) == "mootness"
+    plain = {
+        "id": 1,
+        "docket_entries": [{"id": 10, "description": "Petition DENIED."}],
+    }
+    assert disposition_basis(plain) == "standard"
+    assert disposition_basis({"id": 2, "docket_entries": []}) == "standard"
+
+    # The basis lands on the written ground truth.
+    row = from_api_docket(DECIDED_DOCKET)
+    resolution = detect_resolution(
+        row, "ca9", 64512345, ["evt-petition-review"], disposition_basis="mootness"
+    )
+    assert resolution.outcomes["evt-petition-review"].disposition_basis == "mootness"
+    # And defaults to standard when the channel passes nothing.
+    default = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
+    assert default.outcomes["evt-petition-review"].disposition_basis == "standard"

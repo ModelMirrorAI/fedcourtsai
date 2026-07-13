@@ -402,8 +402,9 @@ def leaderboard(
     Deterministic and offline: aggregates every committed ``evaluation.json``
     under ``data/`` into one best-first standing per predictor — accuracy, mean
     Brier score, mean vote accuracy, a reasoning-quality summary, and counts,
-    each reported **per pre-registration stratum** (forward forecasts vs
-    retrospective cells, never blended; see the ``Leaderboard`` schema) — and
+    each reported **per stratum** (forward forecasts vs retrospective cells vs
+    procedural mootness-basis cells, never blended and with only the timing
+    strata ranked; see the ``Leaderboard`` schema) — and
     writes it through the shared serializer for minimal diffs. Reruns over an
     unchanged ledger reproduce the file byte for byte.
     """
@@ -415,7 +416,8 @@ def leaderboard(
         f"leaderboard: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) "
         f"({board.forward_evaluations} forward / "
-        f"{board.retrospective_evaluations} retrospective) -> {destination}"
+        f"{board.retrospective_evaluations} retrospective / "
+        f"{board.procedural_evaluations} procedural) -> {destination}"
     )
 
 

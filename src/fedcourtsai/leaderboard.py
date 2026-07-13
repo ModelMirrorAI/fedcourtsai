@@ -10,10 +10,14 @@ aggregation: a prediction committed while its event was still open is a true
 *forward* forecast; a prediction over an event that had already resolved is
 *retrospective* by construction — the outcome is public knowledge inside every
 modern model's training data, so such a cell measures recall plus calibration,
-never ex-ante forecasting skill. The two strata are aggregated separately and
-never blended into one headline number. :func:`classify_stratum` is the single
-definition of the split, derivable offline from committed artifacts (the
-prediction's ``created_at`` vs the outcome's ``resolved_at``).
+never ex-ante forecasting skill. A cell whose outcome was mootness practice
+(the outcome's ``disposition_basis``) is *procedural* regardless of timing —
+its label tracks the Court's vacatur wording, not cert-worthiness. The strata
+are aggregated separately and never blended into one headline number, and only
+forward/retrospective enter the ranking. :func:`classify_stratum` is the single
+definition of the timing split, derivable offline from committed artifacts (the
+prediction's ``created_at`` vs the outcome's ``resolved_at``); the procedural
+override lives with the join in ``store.iter_stratified_evaluations``.
 """
 
 from __future__ import annotations
@@ -25,10 +29,14 @@ from typing import Literal
 
 from .schemas import Evaluation, Leaderboard, LeaderboardEntry, LeaderboardStratum
 
-Stratum = Literal["forward", "retrospective"]
+Stratum = Literal["forward", "retrospective", "procedural"]
 
 FORWARD: Stratum = "forward"
 RETROSPECTIVE: Stratum = "retrospective"
+# Cells whose outcome was mootness practice (the outcome's disposition_basis):
+# the ground-truth label tracks the Court's vacatur wording rather than
+# cert-worthiness, so these aggregate separately and never enter the ranking.
+PROCEDURAL: Stratum = "procedural"
 
 # Brier scores are bounded in [0, 1]; predictors that never reported one sort
 # after every predictor that did, without colliding with a real worst score.
@@ -77,7 +85,8 @@ def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]
 
     Forward accuracy (desc) then forward Brier (asc, missing last) lead because
     only the forward stratum measures forecasting skill; the retrospective pair
-    orders predictors that have no forward cells yet. ``predictor_id`` makes the
+    orders predictors that have no forward cells yet. The procedural stratum
+    never contributes — vacatur-practice calls buy no rank. ``predictor_id`` makes the
     ranking deterministic under full ties.
     """
 
@@ -108,14 +117,14 @@ def build_leaderboard(cells: Iterable[tuple[Evaluation, Stratum]]) -> Leaderboar
     a total order, so the ranking is deterministic even under ties.
     """
     by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
-        lambda: {FORWARD: [], RETROSPECTIVE: []}
+        lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
     )
     for ev, stratum in cells:
         by_predictor[ev.predictor_id][stratum].append(ev)
 
     entries: list[LeaderboardEntry] = []
     for predictor_id, strata in by_predictor.items():
-        evals = strata[FORWARD] + strata[RETROSPECTIVE]
+        evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
         entries.append(
             LeaderboardEntry(
                 predictor_id=predictor_id,
@@ -123,6 +132,7 @@ def build_leaderboard(cells: Iterable[tuple[Evaluation, Stratum]]) -> Leaderboar
                 evaluators=len({ev.evaluator_id for ev in evals}),
                 forward=_aggregate(strata[FORWARD]),
                 retrospective=_aggregate(strata[RETROSPECTIVE]),
+                procedural=_aggregate(strata[PROCEDURAL]),
             )
         )
 
@@ -135,8 +145,11 @@ def build_leaderboard(cells: Iterable[tuple[Evaluation, Stratum]]) -> Leaderboar
 
     return Leaderboard(
         predictors_ranked=len(entries),
-        evaluations_total=_stratum_total(FORWARD) + _stratum_total(RETROSPECTIVE),
+        evaluations_total=(
+            _stratum_total(FORWARD) + _stratum_total(RETROSPECTIVE) + _stratum_total(PROCEDURAL)
+        ),
         forward_evaluations=_stratum_total(FORWARD),
         retrospective_evaluations=_stratum_total(RETROSPECTIVE),
+        procedural_evaluations=_stratum_total(PROCEDURAL),
         entries=entries,
     )

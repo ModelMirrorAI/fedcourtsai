@@ -88,8 +88,8 @@ walls, and grading its retrieval is your job. For each predictor:
 1. Read its `predictions/<predictor_id>/<run_id>/retrieval_log.json` — the
    tool-call transcript the harness captured from the engine's own log (never
    the agent's word): tool names, query slices, and `retrieved_doc_date` where
-   a document date was legible. Its `mode` field tells you which stratum the
-   prediction ran in; a missing log or mode grades as `unknown` (assess from
+   a document date was legible. Its `mode` field tells you whether the
+   prediction ran forward or as a replay; a missing log or mode grades as `unknown` (assess from
    `reasoning.md`/`retrieval.md` alone).
 2. **`forward`** → `leakage.influenced_prediction` = `not_applicable` (and
    `leakage_suspected` = `false`), unless the reasoning itself shows the

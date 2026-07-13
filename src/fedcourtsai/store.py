@@ -14,7 +14,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from . import corpus, ids
-from .leaderboard import Stratum, classify_stratum
+from .leaderboard import PROCEDURAL, Stratum, classify_stratum
 from .schemas import AgentFlags, AgentToolingFeedback, Evaluation, ModelUsage, Outcome, Prediction
 from .serialize import read_model
 
@@ -158,7 +158,15 @@ def iter_stratified_evaluations(data_root: Path) -> list[tuple[Evaluation, Strat
         )
         latest_created_at = max(read_model(p, Prediction).created_at for p in prediction_files)
         outcome = read_model(event_dir / "outcome.json", Outcome)
-        cells.append((evaluation, classify_stratum(latest_created_at, outcome.resolved_at)))
+        # A mootness-basis outcome routes to the procedural stratum regardless
+        # of timing: the label tracks vacatur practice, not cert-worthiness,
+        # so it must not enter the forward/retrospective skill aggregates.
+        stratum: Stratum = (
+            PROCEDURAL
+            if outcome.disposition_basis == "mootness"
+            else classify_stratum(latest_created_at, outcome.resolved_at)
+        )
+        cells.append((evaluation, stratum))
     return cells
 
 

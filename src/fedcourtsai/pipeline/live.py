@@ -54,7 +54,7 @@ from ..supremecourt import (
 from .documents import fetch_case_documents
 from .events import extract_events
 from .ingest import from_live_record, map_live_docket, upsert_to_corpus
-from .outcome import resolve_case, termination_signal
+from .outcome import disposition_basis, resolve_case, termination_signal
 from .pull import PullQueues, _in_predict_scope
 
 # The two per-Term numbering streams discovery probes, each from its base.
@@ -147,7 +147,14 @@ def ingest_live_payload(
     # Resolution before re-extraction, exactly as in pull_case: `default_event`
     # marks a decided case's baseline resolved, so resolution must see the event
     # still open to record its outcome before extraction latches it closed.
-    resolution = resolve_case(corpus_db_path, data_root, row, "scotus", docket_id)
+    resolution = resolve_case(
+        corpus_db_path,
+        data_root,
+        row,
+        "scotus",
+        docket_id,
+        disposition_basis=disposition_basis(record),
+    )
 
     extraction = extract_events(record, normalize=from_live_record)
     with corpus.connect(corpus_db_path) as conn:

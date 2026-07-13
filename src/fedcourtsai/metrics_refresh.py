@@ -53,7 +53,8 @@ def _headline(metrics_root: Path, filename: str) -> str:
             f"{board.predictors_ranked} predictor(s) ranked from "
             f"{board.evaluations_total} evaluation(s) "
             f"({board.forward_evaluations} forward / "
-            f"{board.retrospective_evaluations} retrospective)"
+            f"{board.retrospective_evaluations} retrospective / "
+            f"{board.procedural_evaluations} procedural)"
         )
     if filename == "backtest.json":
         bt = read_model(metrics_root / filename, Backtest)

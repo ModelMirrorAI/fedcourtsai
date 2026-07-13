@@ -44,6 +44,7 @@
       "type": "object"
     },
     "Disposition": {
+      "description": "The realized-outcome vocabulary, with the mapping conventions for\nnon-standard SCOTUS forms. Every GVR lands ``granted`` \u2014 including the\nMunsingwear vacatur, whose mootness basis is segmented for scoring via\n``Outcome.disposition_basis``, never a distinct label. On mandatory-\njurisdiction direct appeals the resolver latches only the vacatur-remand\nform (granted side); the other direct-appeal forms (probable jurisdiction\nnoted, summary affirmance, dismissal for want of a substantial federal\nquestion) are deliberate resolver misses that reach maintainer triage,\nwhere the convention is: grant-side for probable jurisdiction, the\ndenied/dismissed side for summary affirmance and want-of-a-question.",
       "enum": [
         "granted",
         "denied",
