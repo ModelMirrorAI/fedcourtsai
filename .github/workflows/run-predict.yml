@@ -23,13 +23,13 @@ jobs:
     # Corpus-split read side for the matrix scope backstop: the bare-opinion-
     # import exclusion fetches the case's latest snapshot, which under
     # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (the
-    # pulled corpus.db is the payload-free index). Unset variable -> '0' -> off.
+    # ranged-read index carries no snapshots). Unset variable -> '0' -> off.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: read
-      id-token: write # assume the AWS role to pull the corpus for scope gating
+      id-token: write # assume the AWS role for ranged corpus reads (scope gating)
       issues: write # close the trigger issue when the matrix is empty (nothing in scope)
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
@@ -67,19 +67,16 @@ jobs:
           uv run fedcourts authorize-trigger \
             --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
 
-      # The scope gate (predict.scope=scotus_docket) reads each case's corpus row
-      # (court + exclusion reasons) from the corpus, so the corpus must be on
-      # disk before predict-matrix runs — a missing database aborts the build
-      # loudly rather than emitting an empty matrix. A
-      # missing pointer only warns (a pre-corpus repo has nothing to gate on).
-      # Plan is a scan-shaped consumer, so it keeps the full pull; the cell jobs
-      # below read the blob in place via the ranged backend instead.
-      - uses: ./.github/actions/corpus-readonly
+      # The scope gate (predict.scope=scotus_docket) reads each case's corpus
+      # row (court + exclusion reasons) for the *specific* cases the trigger
+      # issue names -- point lookups, not a scan -- so it reads the committed
+      # corpus pointer in place over the ranged backend (KBs) instead of
+      # pulling the whole index. The cell jobs below use the same backend.
+      - uses: ./.github/actions/corpus-ranged
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
-          missing-pointer: warn
 
       - name: Build predictor x case x event matrix
         id: plan

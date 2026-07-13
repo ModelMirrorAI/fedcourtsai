@@ -282,8 +282,9 @@ unaffected: the draft path only triggers when the agent stopped early.
 
 `run-pull` pushes factual snapshots **to the corpus** — the per-case content
 store plus the `corpus-push` of the index — before it queues `run:predict`, so
-`run-predict` — a read-only corpus consumer (its plan job pulls the index, its
-cells provision from the content store and query the index in place) — sees the
+`run-predict` — a read-only corpus consumer (its plan job and cells both read
+the index in place over the ranged backend; the cells also provision from the
+content store) — sees the
 snapshot it must predict from. Raw facts never go through PRs (they are
 CourtListener data, not agent output); agent outputs (predictions, evaluations)
 always do.
