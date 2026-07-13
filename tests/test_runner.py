@@ -17,6 +17,7 @@ from fedcourtsai.pipeline.runner import (
     CodexRunner,
     EngineFailed,
     EngineUnavailable,
+    GeminiRunner,
     RunRequest,
     StubRunner,
     _run_subprocess,
@@ -106,6 +107,7 @@ def test_get_runner_returns_the_stub_backend() -> None:
 def test_get_runner_returns_the_real_engine_backends() -> None:
     assert get_runner("claude-code").backend == "claude-code"
     assert get_runner("codex").backend == "codex"
+    assert get_runner("gemini").backend == "gemini"
 
 
 def test_get_runner_rejects_unknown_backend() -> None:
@@ -192,6 +194,31 @@ def test_codex_runner_gets_the_inline_identifier_kickoff(tmp_path: Path) -> None
     assert ".github/prompts/predict.md" in kickoff
     assert f"PREDICTOR_ID={PREDICTOR}" in kickoff
     assert "EVENT_ID=" in kickoff
+
+
+def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
+    recorder = _Recorder()
+    runner = GeminiRunner(command_runner=recorder)
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    written = runner.run(request)
+
+    # The command reproduces run-predict.yml's headless Gemini invocation.
+    assert recorder.argv[:2] == ["gemini", "--yolo"]
+    assert "gemini-3.1-pro-preview" in recorder.argv
+    assert recorder.argv[-2:] == ["--output-format", "json"]
+    # The kickoff prompt rides on --prompt: the template by reference, ids inline,
+    # because Gemini's CLI strips the env-var channel from the agent's shell.
+    kickoff = recorder.argv[recorder.argv.index("--prompt") + 1]
+    assert ".github/prompts/predict.md" in kickoff
+    assert f"PREDICTOR_ID={PREDICTOR}" in kickoff
+    # A headless run must trust the workspace or the CLI exits 55; auth
+    # (GEMINI_API_KEY) is inherited from the ambient environment, never set here.
+    assert recorder.env["GEMINI_CLI_TRUST_WORKSPACE"] == "true"
+    assert recorder.env["MODEL_ID"] == "gemini-3.1-pro-preview"
+    # It reports the artifacts the agent left at the canonical paths.
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
 
 
 def test_nonzero_exit_raises_engine_failed(tmp_path: Path) -> None:

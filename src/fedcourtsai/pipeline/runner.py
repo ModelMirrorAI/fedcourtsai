@@ -20,13 +20,14 @@ and identical in *shape* to what the workflow produces.
 
 Three families of backend target this seam. The offline :class:`StubRunner` is the
 fast reference used in tests and ``local-cascade --engine stub``. The agentic
-:class:`ClaudeCodeRunner` / :class:`CodexRunner` drive the *real* headless agents
-(``claude`` / ``codex``) over the identical cell contract — the same
-inline-identifier kickoff prompt and env vars, the same registry prompt
-template, the same output paths the live workflows use — so
-``local-cascade`` can exercise a real engine end-to-end exactly as CI would. The
-live workflows still invoke their engine through the action wrappers; these CLI
-backends are the local mirror of that, not a replacement for it.
+:class:`ClaudeCodeRunner` / :class:`CodexRunner` / :class:`GeminiRunner` drive the
+*real* headless agents (``claude`` / ``codex`` / ``gemini``) over the identical
+cell contract — the same inline-identifier kickoff prompt and env vars, the same
+registry prompt template, the same output paths the live workflows use — so
+``local-cascade`` and the cert back-test can exercise a real engine end-to-end
+exactly as CI would. The live workflows still invoke their engine through the CLI
+directly (or an action wrapper); these backends are the library mirror of that,
+not a replacement for it.
 
 The third is the offline :class:`ReplayRunner`: it emits a *captured real cell's*
 prediction from a committed cassette instead of calling a model. The stub's output
@@ -292,6 +293,7 @@ class StubRunner:
 # drift from what the workflows' matrix resolves.
 _CLAUDE_MODEL = DEFAULT_MODELS["claude-code"]
 _CODEX_MODEL = DEFAULT_MODELS["codex"]
+_GEMINI_MODEL = DEFAULT_MODELS["gemini"]
 _MAX_TURNS = 120
 
 # A command executor: run argv with env, return the process exit code. Injected so
@@ -509,6 +511,41 @@ class CodexRunner(AgenticRunner):
         return EngineCommand(argv=argv, env=_cell_env(request, self.model))
 
 
+@dataclass(frozen=True)
+class GeminiRunner(AgenticRunner):
+    """Run the ``gemini`` CLI headless, mirroring ``run-predict``'s Gemini step.
+
+    Gemini drives its CLI directly — ``gemini --yolo --model M --prompt P
+    --output-format json`` — the same headless call the workflow makes (the
+    upstream ``run-gemini-cli`` action pulls unpinned actions the org's
+    SHA-pinning policy rejects, so it is bypassed there too). Auth is the
+    inherited ``GEMINI_API_KEY``; a headless run must trust the workspace
+    explicitly (``GEMINI_CLI_TRUST_WORKSPACE=true``) or the CLI exits 55. As in
+    the workflow, the cell identifiers ride inline in the prompt: Gemini's CLI
+    strips custom env vars from the agent's shell in CI (its sanitizer runs strict
+    whenever ``GITHUB_SHA`` is set), so the inline channel is authoritative and
+    the ``_cell_env`` contract is a secondary channel that survives only off-CI.
+    """
+
+    backend: str = "gemini"
+    engine: Engine = Engine.gemini
+    model: str = _GEMINI_MODEL
+
+    def build_command(self, request: RunRequest) -> EngineCommand:
+        argv = [
+            "gemini",
+            "--yolo",
+            "--model",
+            self.model,
+            "--prompt",
+            _claude_instruction(request, self.model),
+            "--output-format",
+            "json",
+        ]
+        env = {**_cell_env(request, self.model), "GEMINI_CLI_TRUST_WORKSPACE": "true"}
+        return EngineCommand(argv=argv, env=env)
+
+
 # --- replay backend ------------------------------------------------------------
 #
 # The offline `replay` engine emits a captured real cell's prediction from a
@@ -585,11 +622,13 @@ def _make_replay_runner() -> Runner:
 
 
 # Backends keyed by name, mirroring how the workflow selects an engine: the
-# offline `stub` and `replay` plus the two real agents `local-cascade` can drive.
+# offline `stub` and `replay` plus the three real agents `local-cascade` and the
+# cert back-test can drive.
 _BACKENDS: dict[str, Callable[[], Runner]] = {
     "stub": StubRunner,
     "claude-code": ClaudeCodeRunner,
     "codex": CodexRunner,
+    "gemini": GeminiRunner,
     "replay": _make_replay_runner,
 }
 
@@ -599,9 +638,9 @@ def get_runner(backend: str = "stub") -> Runner:
 
     ``stub`` is deterministic and offline; ``replay`` is also offline but emits a
     captured prediction from the configured cassette (``FEDCOURTS_REPLAY_ROOT``);
-    ``claude-code`` / ``codex`` drive the real headless agents (network + auth
-    required). Raises ``KeyError`` for an unknown backend, naming the ones
-    available, and :class:`ReplayUnavailable` if ``replay`` has no cassette.
+    ``claude-code`` / ``codex`` / ``gemini`` drive the real headless agents
+    (network + auth required). Raises ``KeyError`` for an unknown backend, naming
+    the ones available, and :class:`ReplayUnavailable` if ``replay`` has no cassette.
     """
     try:
         factory = _BACKENDS[backend]

@@ -95,7 +95,7 @@ committed), plus the spend ledger.
 |---------|---------|-----------|
 | `leaderboard` | Rank predictors from the evaluations ledger into `metrics/leaderboard.json`. | `--out` |
 | `backtest` | Replay the reference predictors over resolved corpus events into `metrics/backtest.json`. The prior-vote baseline is **time-masked**: it votes only over priors that provably precede each trial's own year, and a trial with no derivable year gets the conservative floor rather than a hindsight vote. | `--out`, `--court`, `--limit` |
-| `cert-backtest` | Back-test cert predictors over the most recently decided modern discretionary-cert petitions (outcome hidden), scoring accuracy, Brier, **lift over the always-deny floor**, and a P(granted) calibration view into `metrics/cert-backtest.json` — labeled retrospective. Offline reference baselines always run; `--engine auto` additionally replays every enabled predictor over **redacted snapshots** in a scratch tree, each through its **own configured engine** (an apples-to-apples read; a predictor whose engine has no registered runner is skipped and named, never mislabeled through another engine), while a concrete backend (`stub`, `replay`, `claude-code`, `codex`) routes every predictor through that one backend for offline runs and single-engine sweeps. Spends tokens on a real engine; never writes `data/`. Petitions with no held snapshot or petition event are dropped up front and named, so all backtesters in one report score the same set; each cell's `DECIDED_BEFORE` is the trial's year, so the agent's own corpus retrieval is time-masked too. | `--out`, `--limit`, `--engine`, `--work-dir` |
+| `cert-backtest` | Back-test cert predictors over the most recently decided modern discretionary-cert petitions (outcome hidden), scoring accuracy, Brier, **lift over the always-deny floor**, and a P(granted) calibration view into `metrics/cert-backtest.json` — labeled retrospective. Offline reference baselines always run; `--engine auto` additionally replays every enabled predictor over **redacted snapshots** in a scratch tree, each through its **own configured engine** (an apples-to-apples read; a predictor whose engine has no registered runner is skipped and named, never mislabeled through another engine), while a concrete backend (`stub`, `replay`, `claude-code`, `codex`, `gemini`) routes every predictor through that one backend for offline runs and single-engine sweeps. Spends tokens on a real engine; never writes `data/`. Petitions with no held snapshot or petition event are dropped up front and named, so all backtesters in one report score the same set; each cell's `DECIDED_BEFORE` is the trial's year, so the agent's own corpus retrieval is time-masked too. | `--out`, `--limit`, `--engine`, `--work-dir` |
 | `statpack` | Roll the corpus into a base-rate **statpack** at `metrics/statpack.{json,md}`, two populations side by side: the labeled full-corpus overview (by court, by era) and the **live/historical-slice cert statistics** the predict/evaluate prompts anchor on — denial-reweighted disposition base rates (the modern-cert calibration anchor), cuts by originating circuit / relist count / CVSG status, a by-originating-court reader table naming state courts, a coverage block, and a per-SCOTUS-Term detail array (cursor-derived filings census per fee class, walk-complete flags, weighted estimates, grants and pace-to-grant; recent first — the Markdown shows the latest 10 and states the replay per-Term self-selection rule). Deterministic and offline; writes the empty pack when the corpus is absent. | `--out`, `--markdown-out` |
 | `ops-report` | Roll pipeline health, **substance** (scored cells by stratum with deltas vs `--previous`, replay calibration vs the statpack's deny base rate, per-predictor score distributions, `--live-frontier` readiness), spend & cost, **agent signals** (flags, leakage, and tooling digests, windowed to recent runs), data health, and open `run:*` trigger issues (stalled fan-outs) into the ops dashboard Markdown (and optional JSON); `--digest-out` renders the weekly interrogative digest. | `--runs`, `--json`, `--generated-at`, `--corpus-validation`, `--live-frontier`, `--previous`, `--digest-out`, `--data-health-out`, `--trigger-issues` |
 | `record-usage` | Record one run's measured token usage and estimated cost next to its prediction/evaluation output. | `--court`, `--docket`, `--event`, `--run-id`, `--engine`, `--role`, `--actor`, `--model`, `--*-tokens`, `--claude-execution-file`, `--codex-sessions-dir`, `--gemini-telemetry-file`, `--pipeline-sha` |
@@ -167,11 +167,12 @@ would — **review and discard them**, don't commit a local cascade's output.
   probability and panel votes, so the scoring metrics and leaderboard roll-up run
   over realistic output; identity fields are rebound to each cell. Set
   `FEDCOURTS_REPLAY_ROOT` or the command errors clearly.
-- `claude-code` / `codex` — drive the **real** headless agents (`claude`, `codex`)
-  over the same cell contract the workflows use (the inline-identifier kickoff
-  prompt plus the env vars), so the cells are byte-identical in shape to a CI
-  run. The `claude` CLI ships in the devcontainer (`codex` you install
-  yourself).
+- `claude-code` / `codex` / `gemini` — drive the **real** headless agents
+  (`claude`, `codex`, `gemini`) over the same cell contract the workflows use
+  (the inline-identifier kickoff prompt plus the env vars), so the cells are
+  byte-identical in shape to a CI run. The `claude` CLI ships in the devcontainer
+  (`codex` you install yourself; `gemini` is `npm install`-ed, as the workflow
+  does).
 
 **Auth for the real engines.** Credentials are inherited from the environment,
 never assembled by the command. For Claude, set either:
@@ -182,4 +183,4 @@ never assembled by the command. For Claude, set either:
   instead of billing per token. This mirrors the `claude_code_oauth_token` fallback
   noted in `run-predict.yml`.
 
-For Codex, set `OPENAI_API_KEY`.
+For Codex, set `OPENAI_API_KEY`. For Gemini, set `GEMINI_API_KEY`.

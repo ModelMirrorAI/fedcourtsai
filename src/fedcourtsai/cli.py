@@ -476,7 +476,7 @@ def cert_backtest_cmd(
             help="Also replay the enabled agentic predictors: 'auto' routes each "
             "predictor through its own configured engine (skipping any whose engine "
             "has no registered runner); a concrete backend (stub, replay, "
-            "claude-code, codex) routes every predictor through that one backend "
+            "claude-code, codex, gemini) routes every predictor through that one backend "
             "(offline runs / single-engine sweeps). Omit to score only the offline "
             "reference baselines."
         ),
@@ -1784,7 +1784,7 @@ def local_cascade(
         str,
         typer.Option(
             help="Engine backend: stub (offline, default) | replay (offline, recorded "
-            "cassette) | claude-code | codex."
+            "cassette) | claude-code | codex | gemini."
         ),
     ] = "stub",
     run_id: Annotated[
@@ -1805,10 +1805,11 @@ def local_cascade(
     ``--engine replay`` is also offline but emits a captured real prediction from
     the cassette at ``FEDCOURTS_REPLAY_ROOT`` (see ``tests/cassettes``), so the
     scoring and leaderboard consumers run over realistic output rather than the stub
-    floor. ``--engine claude-code`` / ``--engine codex`` drive the real headless agents
-    against the same env-var + prompt contract the workflows use; auth is inherited
-    from the environment (for Claude, ``ANTHROPIC_API_KEY`` or the subscription
-    ``CLAUDE_CODE_OAUTH_TOKEN`` from ``claude setup-token``). Writes derived
+    floor. ``--engine claude-code`` / ``--engine codex`` / ``--engine gemini`` drive the
+    real headless agents against the same env-var + prompt contract the workflows use;
+    auth is inherited from the environment (``ANTHROPIC_API_KEY`` or the subscription
+    ``CLAUDE_CODE_OAUTH_TOKEN`` from ``claude setup-token`` for Claude,
+    ``OPENAI_API_KEY`` for Codex, ``GEMINI_API_KEY`` for Gemini). Writes derived
     artifacts under ``data/`` exactly as a real run would — review and discard them
     rather than committing a local cascade's output. See ``docs/cli.md``.
     """
