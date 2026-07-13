@@ -242,9 +242,9 @@ jobs:
         env:
           # The remote's bucket URL, out of band (never committed; see
           # SECURITY.md); boto3 picks up the OIDC-assumed credentials from the
-          # environment. The repo variable keeps its legacy DVC_REMOTE_URL name
-          # until it is renamed to CORPUS_REMOTE_URL; the CLI accepts both.
-          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          # environment. Sourced from the CORPUS_REMOTE_URL repo variable
+          # (the CLI also still accepts the legacy DVC_REMOTE_URL env alias).
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # Discovery and the rotation governor read prior corpus state (the
           # discovery watermark and per-case last_pulled), so it must be
@@ -276,7 +276,7 @@ jobs:
 
       - name: Push the corpus blob to the remote
         env:
-          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # pull-all wrote fresh facts, discovered filings, and bumped tracking
           # state in corpus/corpus.db. corpus-push uploads the blob to its
@@ -535,8 +535,8 @@ jobs:
 
       - name: Pull the current corpus from the remote
         env:
-          # See the pull job: legacy variable name, new env name, CLI takes both.
-          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          # See the pull job: CORPUS_REMOTE_URL variable, same env name.
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # The live rotation and the per-Term discovery cursors read prior
           # corpus state, so it must be restored; a first run has no committed
@@ -554,7 +554,7 @@ jobs:
 
       - name: Push the corpus blob to the remote
         env:
-          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # live-poll wrote fresh snapshots, rows, and cursors into
           # corpus/corpus.db. Blob before pointer commit (content-addressed,
@@ -772,8 +772,8 @@ jobs:
 
       - name: Pull the current corpus from the remote
         env:
-          # See the pull job: legacy variable name, new env name, CLI takes both.
-          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          # See the pull job: CORPUS_REMOTE_URL variable, same env name.
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           # The per-(Term, stream) walk cursors and identity reconciliation
           # read prior corpus state, so it must be restored; a first run has no
@@ -783,8 +783,8 @@ jobs:
       - name: Walk the Terms in checkpointed chunks until done or out of time
         env:
           # The loop's checkpoints push the corpus blob, so the remote URL must
-          # be job-step env here (legacy variable name; the CLI accepts both).
-          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          # be job-step env here (CORPUS_REMOTE_URL variable).
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           # The loop pushes for up to ~2h, but a single installation token lives
           # at most 1h (GitHub's hard cap). So the loop re-mints its own
           # short-lived tokens from the App's private key as it goes; these two
@@ -975,7 +975,7 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to reconcile.

@@ -16,11 +16,9 @@ inputs:
   aws-region:
     description: AWS region for the role/remote (pass vars.AWS_REGION).
     required: true
-  dvc-remote-url:
+  corpus-remote-url:
     description: >-
-      The corpus remote's bucket URL (pass vars.DVC_REMOTE_URL). The input
-      keeps the repo variable's legacy name until the variable itself is
-      renamed to CORPUS_REMOTE_URL.
+      The corpus remote's bucket URL (pass vars.CORPUS_REMOTE_URL).
     required: true
 
 runs:
@@ -34,7 +32,7 @@ runs:
     - name: Select the ranged corpus backend
       shell: bash
       env:
-        CORPUS_REMOTE_URL: ${{ inputs.dvc-remote-url }}
+        CORPUS_REMOTE_URL: ${{ inputs.corpus-remote-url }}
       run: |
         set -euo pipefail
         # Job-wide env for every later step: the read seam resolves the
