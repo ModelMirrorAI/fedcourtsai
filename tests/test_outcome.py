@@ -432,6 +432,17 @@ def test_termination_signal_reads_a_cert_before_judgment_denial() -> None:
         ],
     }
     assert termination_signal(docket) is not None
+    # The consolidated-docket plural form terminates the same way.
+    plural = {
+        "id": 2,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": "Petitions for writs of certiorari before judgment denied.",
+            }
+        ],
+    }
+    assert termination_signal(plural) is not None
 
 
 def test_termination_signal_ignores_a_cbj_expedite_motion_order() -> None:

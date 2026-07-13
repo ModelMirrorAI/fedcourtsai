@@ -118,7 +118,7 @@ _TERMINAL_ENTRY_RE = re.compile(
     # recital), so routing is its only net. Start-anchored — the disposition
     # entry opens with the noun, while the expedite order opens with
     # "Motion ..." and must stay pending.
-    r"|^petition for (?:a )?writ of certiorari before judgment (?:is )?(?:denied|dismiss)",
+    r"|^petitions? for (?:a )?writs? of certiorari before judgment (?:are |is )?(?:denied|dismiss)",
     re.IGNORECASE,
 )
 
