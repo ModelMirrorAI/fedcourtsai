@@ -11,13 +11,15 @@ consumers can never form an import cycle around it.
 Because a match here *records ground truth* (disposition + decision date), the
 patterns trade recall for precision: a shape that could also appear in a
 pending-docket entry — a motion order reciting the petition as its object, a
-party paper suggesting a vacatur — must not match. The deliberate misses
-(cert-before-judgment denials, Rule 39.8 IFP dismissals) are covered by the
-high-recall routing backstop
-(:func:`fedcourtsai.pipeline.outcome.termination_signal`), where a false
-positive only parks a case for triage. Re-run the reachability probe
-(``fedcourts probe-live-terms``) after changing the patterns to re-establish
-the recall claim over the live sample.
+party paper suggesting a vacatur — must not match. A deliberate miss falls to
+the high-recall routing backstop
+(:func:`fedcourtsai.pipeline.outcome.termination_signal`) for the shapes it
+carries (Rule 39.8 IFP dismissals, cert-before-judgment denials), where a
+false positive only parks a case for triage; anything neither instrument reads
+(a bare CBJ grant set for argument) is an accepted residual, surfaced by
+re-running the reachability probe (``fedcourts probe-live-terms``) — do that
+after any pattern change to re-establish the recall claim over the live
+sample.
 """
 
 from __future__ import annotations

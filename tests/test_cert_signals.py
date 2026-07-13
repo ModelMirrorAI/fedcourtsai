@@ -135,7 +135,8 @@ def test_bare_cert_before_judgment_disposition_is_a_deliberate_miss() -> None:
     # A CBJ disposition *without* a vacatur ("... before judgment DENIED.")
     # stays unmatched by design: accepting the multi-word gap would also
     # accept the expedite-motion recital above. The miss is cheap — the
-    # routing backstop parks the decided docket for triage.
+    # routing backstop's anchored CBJ-denial shape (termination_signal) parks
+    # the quiet decided docket for maintainer triage instead of recording.
     assert (
         match_disposition_signal("Petition for writ of certiorari before judgment DENIED.") is None
     )
