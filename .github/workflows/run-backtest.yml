@@ -117,6 +117,12 @@ jobs:
           # Engine credentials for the replay cells; unused by the stub backend.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
+          # clean-slate cutover switch; unset variable -> '0' -> off) the pulled
+          # corpus.db is a payload-free index, and the replay's snapshot reads
+          # come from the per-case content store instead. Inert while off.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
           # A label run uses the real engines with the default set size;
           # dispatch chooses. `--limit` IS the set-size cap (there is no higher
           # ceiling to lower), so a large dispatch value is a deliberate,

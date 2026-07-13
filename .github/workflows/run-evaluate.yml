@@ -21,6 +21,13 @@ jobs:
     if: github.event.label.name == 'run:evaluate'
     runs-on: ubuntu-latest
     environment: runner
+    # Corpus-split read side for the matrix scope backstop: the bare-opinion-
+    # import exclusion fetches the case's latest snapshot, which under
+    # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (the
+    # pulled corpus.db is the payload-free index). Unset variable -> '0' -> off.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: read
       id-token: write # assume the AWS role to dvc pull the corpus for scope gating
@@ -170,6 +177,12 @@ jobs:
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
+          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the clean-slate
+          # cutover switch; unset variable -> '0' -> off) provisioning defaults to
+          # the per-case content store, which needs its URL. Inert while the flag
+          # is off -- the corpus/ranged path is unchanged.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID"
 
       # A predictable event is a corpus fact, not a committed file. Project it into
@@ -182,6 +195,12 @@ jobs:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
           EVENT_ID: ${{ matrix.event_id }}
+          # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the clean-slate
+          # cutover switch; unset variable -> '0' -> off) provisioning defaults to
+          # the per-case content store, which needs its URL. Inert while the flag
+          # is off -- the corpus/ranged path is unchanged.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
       # Configure the cell's MCP retrieval from the evaluator registry's
