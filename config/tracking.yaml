@@ -62,7 +62,7 @@ live:
   # (sequential probing: paid from <term>-1, IFP from <term>-5001).
   max_new_cases_per_run: 25
   # Oldest October Term the refresh rotation reaches — the reachability probe's
-  # floor (docs/live-sources-probe.md): full JSON coverage OT2017+.
+  # floor (docs/live-sources.md): full JSON coverage OT2017+.
   term_floor_year: 2017
   # Seconds between requests (polite-client pacing; browser UA is built in).
   throttle_seconds: 1.0
@@ -88,7 +88,7 @@ live:
 # documented and reproducible.
 historical:
   # Two-digit October Terms to walk, newest first. Floor OT2017, the
-  # reachability probe's full-JSON floor (docs/live-sources-probe.md). OT2025
+  # reachability probe's full-JSON floor (docs/live-sources.md). OT2025
   # is walkable alongside the forward poller (`live:`): the walker ingests
   # only decided petitions, skips pending ones, and leaves a decided petition
   # whose existing case carries an open PREDICTED event to the watchlist (its

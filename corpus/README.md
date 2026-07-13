@@ -1,30 +1,51 @@
 # Corpus — the unified raw-fact store
 
-All *raw facts* live here in one packed, queryable store: dockets, dated
-snapshots, judges, case metadata and tracking state, and event definitions.
-There is **one** corpus for the whole pipeline, written identically by every
-ingestion channel (the CourtListener REST API and the supremecourt.gov live +
-historical channels) through the shared ingestion
-seam in [`fedcourtsai.corpus`](../src/fedcourtsai/corpus.py). Derived judgments
-(outcomes, predictions, evaluations, reasoning) do **not** live here — they are
-the git ledger under [`data/`](../data). See
-[docs/data-model.md](../docs/data-model.md) and
-[docs/data-pipeline.md](../docs/data-pipeline.md).
+All *raw facts* live in the corpus: dockets, dated snapshots, judges, case
+metadata and tracking state, and event definitions — written identically by
+every ingestion channel through the shared seam in
+[`fedcourtsai.corpus`](../src/fedcourtsai/corpus.py). Derived judgments live in
+the git ledger under [`data/`](../data), not here (see the *Data model* section
+of the [README](../README.md); pipeline design:
+[docs/data-pipeline.md](../docs/data-pipeline.md)). This page is the store
+internals and developer access.
 
 ## Format and tracking
 
-The packed store is a single **SQLite** database, `corpus/corpus.db`, versioned
-with **DVC**: the blob lives in the DVC remote (a private S3 bucket) and only the
-small `corpus.db.dvc` pointer is committed to git. The blob and its sidecar
-files are gitignored (see `.gitignore`); the pointer is created on first ingest
-(`dvc add corpus/corpus.db`) by the run-pull writer jobs and updated as the
-corpus grows.
+The corpus has two halves:
 
-SQLite (over Parquet shards) keeps the corpus a single artifact — one DVC
-pointer rather than a sharded tree — queryable with plain SQL for retrieval and
-needing no extra runtime dependency. The format is internal; the stable contract
-is the **row schema** below, whose identifiers and `Disposition` vocabulary are
-shared with the ledger models in `fedcourtsai.schemas`.
+- **The index** — a single **SQLite** database, `corpus/corpus.db`, versioned
+  with **DVC**: the blob lives in the DVC remote (a private S3 bucket) and only
+  the small `corpus.db.dvc` pointer is committed to git (the blob and its
+  sidecars are gitignored). In production (the corpus-split mode,
+  `FEDCOURTS_CORPUS_SPLIT=1` on the runner environment) the writers keep it
+  **payload-free**: the `snapshots`/`documents` tables stay empty and
+  `cases.opinion_text` stays NULL (a `has_opinion` presence bit is retained),
+  so the blob stays a small metadata index and its per-run `dvc push` does not
+  grow with the bulk. With the mode off (the default — dev environments, the
+  fixture loop, offline tests) the same schema holds the payloads inline in a
+  single self-contained blob.
+- **The per-case content store** ([`fedcourtsai.casestore`](../src/fedcourtsai/casestore.py))
+  — a browsable, write-once, access-gated S3 store holding the bulk payloads,
+  keyed to mirror the ledger's `data/cases/<court>/<docket>/` shape:
+
+  ```
+  <court>/<docket_id>/
+    case.json                                    # the CorpusRow
+    events.json                                  # the case's events
+    snapshots/<YYYY-MM-DD>.json                  # dated point-in-time docket payload
+    documents/documents.json                     # manifest: kind -> current text leaf
+    documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
+  ```
+
+  Document text leaves are content-addressed and dated snapshots immutable per
+  day, so bulk content is never overwritten in place; the small manifests are
+  versioned by the bucket rather than deleted. Its location comes from
+  `FEDCOURTS_CASESTORE_URL`.
+
+SQLite keeps the index a single artifact — one DVC pointer, queryable with
+plain SQL. The format is internal; the stable contract is the **row schema**
+below, whose identifiers and `Disposition` vocabulary are shared with the
+ledger models in `fedcourtsai.schemas`.
 
 ## Row schema (`cases`)
 
@@ -49,7 +70,7 @@ source.
 | `citations`           | json array      |                                              |
 | `citation_count`      | integer         | times the decision has been cited            |
 | `precedential_status` | text            | Published / Unpublished / Errata             |
-| `opinion_text`        | text            | full opinion text                            |
+| `opinion_text`        | text            | opinion body — NULL under the split mode (the content store holds it; `has_opinion` retains the presence signal) |
 | `summary`             | text            | short form for retrieval                     |
 | `last_pulled`         | date            | tracking state: when `pull` last refreshed it |
 | `predict_eligible`    | integer (0/1)   | derived mirror of the prediction scope (`court == scotus`); see below |
@@ -66,12 +87,10 @@ source.
 | `sample_weight`       | integer         | inverse inclusion probability (1 = kept with certainty; the sampling interval for a walker-kept denial); null = no channel asserted a weight |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
-flat name list retrieval matches on (overlap with a `PriorQuery`), while `panel`
-carries the structured detail — each judge's authoritative `name` and `seniority`.
+flat name list retrieval matches on, while `panel` carries the structured detail.
 The multi-valued sibling facts (`panel`, `parties`, `attorneys`) are filled by
-whichever channel carries them; a bulk-shaped source supplies them as staged-join
-arrays (the panel resolved against the people-db directory) through the shared
-normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`.
+whichever channel carries them; a bulk-shaped source supplies them through the
+shared normalizer, `fedcourtsai.pipeline.ingest.from_bulk_row`.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
@@ -83,38 +102,27 @@ The live-parsed signal family (`distributed_for_conference`,
 `distribution_count`, `cvsg_date`, `originating_court_name`) is supplied only by
 the supremecourt.gov channel; every other writer preserves the stored values
 (fill-in latches, except `distribution_count`, which max-latches — proceedings
-are append-only, so the count only grows and a degraded parse's confident 0
-cannot wipe a stored value). `distribution_count` doubles as the family's
-parse-coverage sentinel: null means the proceedings were never live-parsed,
-0 asserts *parsed and never distributed*. `sample_weight` is min-latched — an
-inclusion probability is only ever learned toward certainty (weight 1) — so a
-weighted aggregate can multiply by it and count a walker-sampled denial at
-full strength. Null means no channel asserted a weight: permanent on rows the
-live channel never wrote, pre-capture within the live slice. The historical
-walker's start heals pre-capture live rows deterministically
-(`fedcourtsai.pipeline.ingest.backfill_live_signals`): the three signals are
-re-parsed from the stored live snapshots; weights are recovered by rule from
-the row and the walk cursors (denied + serial on the sample grid + cursor
-covers the serial ⇒ the sampling interval, else 1).
+are append-only, so the count only grows). `distribution_count` doubles as the
+family's parse-coverage sentinel: null means the proceedings were never
+live-parsed, 0 asserts *parsed and never distributed*. `sample_weight` is
+min-latched — an inclusion probability is only ever learned toward certainty —
+so a weighted aggregate can multiply by it and count a walker-sampled denial at
+full strength; null means no channel asserted a weight.
 
 `predict_eligible` is a **derived convenience mirror** of the prediction scope
 (`court == 'scotus'`): every scope seam reads the court predicate directly, so
-the column is queryable but never the source of truth — ingestion writes it by
-the same rule and the scope reconcile normalizes stale values. Only the agentic
+the column is queryable but never the source of truth. Only the agentic
 predict/evaluate stages are gated; ingestion stays full-coverage. The
-lower-court link — `originating_court` (CourtListener `appeal_from`) plus
-`originating_docket_number` (`originating_court_information.docket_number`,
-populated only on the REST path) — is retrieval context, never a scope trigger.
-See the prediction scope in [docs/data-pipeline.md](../docs/data-pipeline.md).
+lower-court link (`originating_court` / `originating_docket_number`) is
+retrieval context, never a scope trigger. See the prediction scope in
+[docs/data-pipeline.md](../docs/data-pipeline.md).
 
 ## Predictable events (`events`)
 
-The things the pipeline predicts about a case — e.g. the disposition of an
-appeal — are raw facts too, so they live in the corpus, not as per-case
-`event.yaml` files. The deterministic event-definition stage
-(`fedcourtsai.pipeline.events`) records one or more events for a docket by
-classifying its docket entries; see
-[docs/data-pipeline.md](../docs/data-pipeline.md).
+The things the pipeline predicts about a case are raw facts too, so they live
+in the corpus, not as per-case files. The deterministic event-definition stage
+(`fedcourtsai.pipeline.events`) records one or more events per docket by
+classifying its entries; see [docs/data-pipeline.md](../docs/data-pipeline.md).
 
 | Column            | Type        | Notes                                       |
 |-------------------|-------------|---------------------------------------------|
@@ -129,36 +137,29 @@ classifying its docket entries; see
 | `opened_at`       | date        | when the event became predictable           |
 | `resolved`        | integer     | 0 while open, 1 once resolved               |
 
-## Forward-discovery watermark (`discovery_watermarks`)
+## Cursors and watermarks
 
-Per-court **tracking state**: the newest
-`date_filed` `pull` has discovered for a court. Discovery fetches dockets filed
-on or after this date, then advances it, so each run resumes where the last left
-off without rescanning the court. Dormant in production
-(`pull.discover_new_filings` is off — the live channel onboards SCOTUS
-filings); the live channel's and the historical walker's per-(Term, stream)
-cursors (one shared `live_discovery_cursors` table, disjoint stream names)
-follow the same only-moves-forward semantics. Beside each cursor's
-`last_serial` sits a nullable `frontier_serial` — where the stream's end
-(consecutive 404s) was last observed. `frontier_serial = last_serial` reads as
-*walk complete at the current cursor*; the cursor pair also yields an exact
-per-Term filings census by fee class (paid serials number from 1, IFP from
-5001) without ingesting every serial.
-
-| Column       | Type      | Notes                                          |
-|--------------|-----------|------------------------------------------------|
-| `court`      | text (PK) | CourtListener court id                          |
-| `last_filed` | date      | newest `date_filed` discovered so far          |
+Per-court discovery watermarks (`discovery_watermarks`: `court`, `last_filed`)
+are dormant in production (`pull.discover_new_filings` is off — the live
+channel onboards SCOTUS filings). The live channel's and the historical
+walker's per-(Term, stream) cursors share one `live_discovery_cursors` table
+with disjoint stream names and the same only-moves-forward semantics. Beside
+each cursor's `last_serial` sits a nullable `frontier_serial` — where the
+stream's end (consecutive 404s) was last observed; `frontier_serial =
+last_serial` reads as *walk complete at the current cursor*, and the cursor
+pair yields an exact per-Term filings census by fee class (paid serials number
+from 1, IFP from 5001) without ingesting every serial.
 
 ## Dated snapshots (`snapshots`)
 
 Each ingestion channel stores the full point-in-time docket payload it fetched
 (the REST docket + entries, or the supremecourt.gov docket JSON) — the raw fact
-a normalized `cases` row cannot fully capture. `pull`
-diffs the latest stored snapshot against the fresh fetch to decide whether a case
-*changed* (the `run:predict` trigger), and the predict/evaluate
-workflows provision a case's latest snapshot from here for the agent to predict
-from (`fedcourts provision-snapshot`).
+a normalized `cases` row cannot fully capture. `pull` diffs the latest stored
+snapshot against the fresh fetch to decide whether a case *changed* (the
+`run:predict` trigger), and provisioning materializes a case's latest snapshot
+for the agent to predict from (`fedcourts provision-snapshot`). In production
+the payloads live as the content store's `snapshots/<date>.json` objects and
+this table stays empty; with the split mode off they live inline:
 
 | Column          | Type      | Notes                                          |
 |-----------------|-----------|------------------------------------------------|

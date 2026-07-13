@@ -284,6 +284,11 @@ that allowance. There is no same-region discount between Actions and S3.
 > below are re-derived under the corrected model and the **ranged-read design**
 > (cells query the blob in place; see [data-pipeline.md](data-pipeline.md)).
 
+> **Pre-split figures.** The storage and egress projections below were sized
+> against the single full corpus blob; under the corpus split (payload-free
+> index + per-case content store) they are pending post-cutover verification
+> against measured transfer.
+
 The corpus is a handful of large blobs, not millions of files (by design). Even a
 corpus carrying opinion text for the full backlog is plausibly tens of GB;
 DVC keeps historical versions, so budget for a small multiple:

@@ -1200,8 +1200,8 @@ def probe_live_terms(
     proceedings text carries machine-matchable disposition orders. Strictly
     **read-only** and budget-free: this is the supremecourt.gov channel, not the
     CourtListener client — no token, no governor; writes nothing but the report
-    files named. Findings feed the Term-floor decision in
-    ``docs/live-sources-probe.md``.
+    files named. Findings re-establish the Term-floor and disposition-resolver
+    recall conclusions recorded in ``docs/live-sources.md``.
     """
     if min_term > max_term:
         typer.echo("--min-term must not exceed --max-term", err=True)

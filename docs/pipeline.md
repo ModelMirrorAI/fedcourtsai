@@ -221,7 +221,7 @@ Separately, every cell may also write a `tooling.json` self-report on its
 environment/tooling, committed with the cell's output rather than rolled into the
 per-run PR/issue; the `run-ops` dashboard scans these into a tooling-feedback
 digest. See the `flags.json` and `tooling.json` channels in
-[data-model.md](data-model.md).
+[data-pipeline.md](data-pipeline.md).
 
 To trigger prediction/evaluation for **one** case, open an issue whose body
 contains a single object and apply `run:predict` (or `run:evaluate`):
@@ -279,9 +279,10 @@ unaffected: the draft path only triggers when the agent stopped early.
 
 ## Snapshot sequencing
 
-`run-pull` pushes factual snapshots **to the corpus** (`dvc push`) before it
-queues `run:predict`, so `run-predict` — a read-only corpus consumer (its plan
-job pulls, its cells read the blob in place) — sees the snapshot it must predict
-from. Raw facts never go through PRs (they are
+`run-pull` pushes factual snapshots **to the corpus** — the per-case content
+store plus the `dvc push` of the index — before it queues `run:predict`, so
+`run-predict` — a read-only corpus consumer (its plan job pulls the index, its
+cells provision from the content store and query the index in place) — sees the
+snapshot it must predict from. Raw facts never go through PRs (they are
 CourtListener data, not agent output); agent outputs (predictions, evaluations)
 always do.
