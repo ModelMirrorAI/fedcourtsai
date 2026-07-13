@@ -1,0 +1,11 @@
+case_id: scotus/72486279
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-03-26'
+resolved: true
+schema_version: '1.0'
+title: Mitchell S. Sanderson, Petitioner v. Kari Agotness, Judge, District Court of
+  North Dakota, Northeast Judicial District Five

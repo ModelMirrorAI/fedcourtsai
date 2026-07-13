@@ -1,0 +1,10 @@
+case_id: scotus/72486211
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-03-19'
+resolved: true
+schema_version: '1.0'
+title: Brenetta Naneke Sherman, Petitioner v. Solvay USA, Inc., et al.
