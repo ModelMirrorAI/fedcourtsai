@@ -1,1 +1,0 @@
-No retrieval beyond the provisioned inputs and the statpack baseline.
