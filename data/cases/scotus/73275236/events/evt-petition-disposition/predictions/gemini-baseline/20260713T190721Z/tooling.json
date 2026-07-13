@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73275236",
+  "run_id": "20260713T190721Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["web_fetch"],
+  "helpful": ["web_fetch tool was essential for reading the un-provisioned abeyance letter directly from the docket link in the snapshot."],
+  "gaps": [],
+  "notes": "The provided statpack base rates for CVSG were very useful context."
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275236",
+  "run_id": "20260713T190721Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "provisioned snapshot + documents (questions-presented, petition, brief-in-opposition)",
+    "curl fetch of a supremecourt.gov docket PDF"
+  ],
+  "helpful": [
+    "The provisioned snapshot's ProceedingsandOrder entries carried the DocumentUrl for the decisive May 18 abeyance letter, so one targeted fetch resolved what the entry text alone left ambiguous.",
+    "statpack CVSG and relist cuts gave a usable quantitative anchor before the case-specific mootness adjustment."
+  ],
+  "gaps": [
+    "No pdftotext (or equivalent) on the runner: extracting the fetched supremecourt.gov PDF required hand-rolling a content-stream decoder, which produced slightly garbled text. A provisioned text extraction for late party letters (like the QP/petition/BIO extracts) or a PDF-to-text utility would help.",
+    "fedcourts query has no free-text/topic vocabulary discovery; a citation query for Munsingwear priors returned nothing and cost 408 ranged GETs (~107 MB), an expensive way to learn the corpus lacks that cut.",
+    "statpack has no cut for petitions that go moot / are held in abeyance pending settlement, which is the operative population here."
+  ],
+  "notes": "The event now turns less on cert-worthiness than on Munsingwear-vacatur practice; the disposition label the extractor assigns (GVR → granted vs dismissal) is the crux, so having cert_signals.py readable in-repo was genuinely useful."
+}

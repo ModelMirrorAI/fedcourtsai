@@ -1,0 +1,3 @@
+- Read provisioned snapshot `2026-07-13.json` and documents (`questions-presented.txt`).
+- Read `metrics/statpack.md` for base rates on cert petitions and CVSG impact.
+- `web_fetch` call to retrieve the contents of the May 18, 2026 letter from petitioners: `https://www.supremecourt.gov/DocketPDF/25/25-293/409180/20260518162619988_25-293%20-%20Letter%20re%20Dismissal.pdf`. The letter confirmed that respondent voluntarily dismissed claims against General Dynamics, and that petitioners will seek a *Munsingwear* vacatur once the remaining settlements are approved.

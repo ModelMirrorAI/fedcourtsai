@@ -1,0 +1,246 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "2b10492a9badd5ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "ebfa62bb9642c31a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8b8171a76bbca7dc",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236 -type f | head -50",
+      "result_digest": "1489b1addcd6fd44",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bf543f7d186d4c26",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "64544dcabb0e92d3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "6b239411f498864e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ec7921d7255ed19c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/snapshots/2026-07-13.json\"}",
+      "result_digest": "9792297e2dc01f18",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6ca45d86b12ed42c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/documents/documents.json\"}",
+      "result_digest": "2c1a9d1157121b37",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "98ef67fe4e1e5b8f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/documents/questions-presented.txt\"}",
+      "result_digest": "8e38238e40623343",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "46908d08bbca1eb3",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/documents/brief-in-opposition.txt",
+      "result_digest": "e6f4120721b54180",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c8a8967161b0e407",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/documents/petition.txt\", \"limit\": 180}",
+      "result_digest": "9353543896f8a3f4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "670ed6f51f2b43df",
+      "query": "cd /tmp && curl -sL -o dismissal-letter.pdf \"https://www.supremecourt.gov/DocketPDF/25/25-293/409180/20260518162619988_25-293%20-%20Letter%20re%20Dismissal.pdf\" && (pdftotext dismissal-letter.pdf - 2>/dev/null || python3 -c \"\nimport zlib,re\ndata=open('dismissal-letter.pdf','rb').read()\nprint(len(data))\n\")",
+      "result_digest": "a67378f5efa71c27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "68a2cfc0718a8301",
+      "query": "grep -n -i -A 30 \"Modern discretionary-cert petitions by disposition\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "c9eea70ab61e794a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7706b5f93807e072",
+      "query": "cd /tmp && python3 - <<'EOF'\nimport re, zlib\ndata = open('dismissal-letter.pdf','rb').read()\ntexts = []\nfor m in re.finditer(rb'stream\\r?\\n(.*?)endstream', data, re.S):\n    s = m.group(1)\n    try:\n        d = zlib.decompress(s)\n    except Exception:\n        continue\n    # extract text show operators\n    for t in re.findall(rb'\\((.*?)(?<!\\\\)\\)\\s*Tj|\\[(.*?)\\]\\s*TJ', d, re.S):\n        chunk = t[0] or t[1]\n        parts = re.findall(rb'\\((.*?)(?<!\\\\)\\)', chunk) if t[1] else [chunk]\n        txt = b''",
+      "result_digest": "5f1b06150444b540",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e063dd018ddab6ab",
+      "query": "grep -n -i -B2 -A 20 \"CVSG\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -50; echo ---; grep -n -i -A 15 \"relist count\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -25",
+      "result_digest": "e085a148ee780435",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "679838669e3a9e4b",
+      "query": "grep -rn -i \"munsingwear\\|vacated\\|GRANTED\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include=*.py -l | head; echo ---; grep -rn -i \"disposition\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai --include=*.py -l | head",
+      "result_digest": "96e8dda7e404e638",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0314a51c0785e151",
+      "query": "grep -n -i \"munsingwear\\|vacat\\|granted\\|denied\\|dismiss\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/cert_signals.py | head -40",
+      "result_digest": "59475184bd42d17d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "df4d743b21c21497",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8dfa2d8c2f5e0250",
+      "query": "grep -n -i -m5 \"split\\|no-poach\\|no poach\\|conceal\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/documents/brief-in-opposition.txt | head; sed -n '1,60p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/record/documents/brief-in-opposition.txt",
+      "result_digest": "8ffdc289ba9a7694",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ac3be58ec8972d6b",
+      "query": "uv run fedcourts query --court scotus --citation \"340 U.S. 36\" --corpus-backend ranged 2>querystderr.txt | head -8; echo \"--- stderr:\"; cat querystderr.txt; rm -f querystderr.txt",
+      "result_digest": "427178553c0f805d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "dfe98b0f4b18064d",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275236/events/evt-petition-disposition/predictions/claude-baseline/20260713T190721Z",
+      "result_digest": "c7624373ccf2340f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4323358a0bbeb18b",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73275236\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260713T190721Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-13T19:12:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73275236/record/snapshots/2026-07-13.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.52,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  ",
+      "result_digest": "b7074500d411e20e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fc08cd108d6fc286",
+      "query": "{\"content\": \"# General Dynamics Corp. v. Scharpf, No. 25-293 \\u2014 petition disposition\\n\\n## The legal question\\n\\nThe petition (docketed September 15, 2025, from the Fourth Circuit, No. 24-1465)\\npresents a clean, well-framed question: whether antitrust plaintiffs adequately\\nplead fraudulent concealment \\u2014 tolling the Clayton Act's four-year statute of\\nlimitations, 15 U.S.C. \\u00a7 15b \\u2014 merely by alleging that the defendants maintained\\nan *unwritten* conspiratorial agreement. The",
+      "result_digest": "9b8295c1e032df78",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "97d1cb2557906994",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73275236 \\u00b7 evt-petition-disposition \\u00b7 claude-baseline \\u00b7 20260713T190721Z\\n\\nCell mode: `forward` (retrieval unrestricted). No CourtListener MCP or REST\\ncalls were needed \\u2014 the provisioned snapshot was fetched the same day as this\\nrun.\\n\\n## Web fetch (supremecourt.gov, linked from the provisioned snapshot)\\n\\n- `curl` of the May 18, 2026 filing\\n  `https://www.supremecourt.gov/DocketPDF/25/25-293/409180/20260518162619988_25-293%20-",
+      "result_digest": "39a628c21cb93e3d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "858664505469d928",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73275236\\\",\\n  \\\"run_id\\\": \\\"20260713T190721Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned snapshot + documents (questions-presented, petition, brief-in-opposition)\\\",\\n    \\\"curl fetch of a supremecourt.gov docket PDF\\\"\\n  ],\\n ",
+      "result_digest": "cb3704346a79671f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4ecc5248e3a74327",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73275236\\\",\\n  \\\"run_id\\\": \\\"20260713T190721Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"ambiguous-event\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"This forward cell's case was strategically mooted mid-stream: per the May 18, 2026 letter on the SCOTUS docket, respondent voluntarily dismissed",
+      "result_digest": "f993ee6b27ec9ce5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "eaf62bb2dbacefcd",
+      "query": "uv run fedcourts validate data && git status --short data/",
+      "result_digest": "63d7b918a3a79aae",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f1932acca0a80db3",
+      "query": "gh issue comment 631 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed 's#.*github.com[:/]##;s#\\.git$##')\" --body \"claude-baseline \u00b7 scotus/73275236 \u00b7 evt-petition-disposition \u00b7 run 20260713T190721Z: prediction written. P(granted)=0.52, modal disposition **granted** \u2014 but via a likely *Munsingwear* GVR, not a plenary grant: the May 18, 2026 letter on the docket discloses respondent's voluntary dismissal of the GD petitioners, settlements in principle with the",
+      "result_digest": "66dfe11eb5e16439",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73275236",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260713T190721Z",
+  "schema_version": "1.0"
+}

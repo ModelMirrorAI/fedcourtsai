@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275236",
+  "run_id": "20260713T190721Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "This forward cell's case was strategically mooted mid-stream: per the May 18, 2026 letter on the SCOTUS docket, respondent voluntarily dismissed her claims against the General Dynamics petitioners, the remaining petitioners have class settlements in principle, and the petition is to be held in abeyance while General Dynamics plans to seek Munsingwear vacatur ('grant certiorari and vacate') once the case is moot. The eventual ground-truth label therefore hinges on order wording rather than cert-worthiness: a Munsingwear GVR maps to 'granted' under cert_signals.py while a mootness/Rule 46 dismissal maps to 'dismissed', so scoring for this cell will conflate merits-grant probability with vacatur-practice probability. Prediction made accordingly (modal outcome: Munsingwear GVR, labeled granted), but maintainers may want to decide whether Munsingwear dispositions should score as grants for cert-prediction purposes."
+    }
+  ]
+}

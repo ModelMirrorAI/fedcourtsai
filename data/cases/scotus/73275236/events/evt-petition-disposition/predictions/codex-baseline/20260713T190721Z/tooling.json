@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275236",
+  "run_id": "20260713T190721Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack",
+    "fedcourts query (attempted)",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The snapshot exposed both the CVSG and the later dismissal-related abeyance request.",
+    "The petition and brief in opposition permitted direct comparison of the asserted split and vehicle objections.",
+    "The statpack supplied calibrated modern-cert, CVSG, circuit, Term, and paid-petition base rates."
+  ],
+  "gaps": [
+    "The ranged corpus query failed because the corpus-store hostname could not be resolved.",
+    "Text of the provisioned docket's May 18 dismissal-related letter was not among the fetched documents."
+  ],
+  "notes": "The provisioned record was sufficient to complete the prediction. The failed corpus query returned no priors; CourtListener MCP remained available for general legal context."
+}
