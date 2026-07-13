@@ -188,12 +188,14 @@ jobs:
         # event, and the mode in record/context.json keys the prompt contract's
         # retrieval etiquette; the cert back-test's replay provisioner
         # writes `replay` itself.
-        # `--refuse-terminal`: leakage guard — if the snapshot's latest entry
-        # already reads terminal (the docket resolved after fan-out, or a
-        # disposition shape the resolver has not latched), refuse it (exit 3,
-        # nothing written) rather than hand the predictor the outcome. Only
-        # this workflow passes the flag: run-evaluate provisions the same cell
-        # for an already-resolved event, where a decided docket is the point.
+        # `--refuse-terminal`: leakage guard — if the snapshot already shows
+        # the outcome (its latest entry reads terminal, or any entry carries a
+        # machine-readable disposition order — the docket resolved after
+        # fan-out, or an order the routing rule cannot see behind an
+        # administrative tail), refuse it (exit 3, nothing written) rather
+        # than hand the predictor the outcome. Only this workflow passes the
+        # flag: run-evaluate provisions the same cell for an already-resolved
+        # event, where a decided docket is the point.
         run: uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --mode forward --refuse-terminal
 
       # A predictable event is a corpus fact, not a committed file. Project it into

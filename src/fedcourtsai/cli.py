@@ -78,9 +78,10 @@ from .ops import (
 from .paths import CasePaths
 from .pipeline import historical, liveprobe
 from .pipeline.cascade import CascadeError, run_cascade
+from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
-from .pipeline.outcome import termination_signal
+from .pipeline.outcome import entry_descriptions, termination_signal
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.scope_reconcile import reconcile_predict_scope
@@ -1654,11 +1655,12 @@ def provision_snapshot(
         bool,
         typer.Option(
             "--refuse-terminal",
-            help="Refuse (exit 3, writing nothing) when the snapshot's latest "
-            "docket entry reads terminal — a forward *prediction* cell must "
-            "never see a decided docket. Only run-predict passes this: an "
-            "evaluate cell targets exactly decided dockets, so the default "
-            "provisions unconditionally.",
+            help="Refuse (exit 3, writing nothing) when the snapshot already "
+            "shows the outcome — the latest entry reads terminal, or any "
+            "entry carries a machine-readable disposition order. A forward "
+            "*prediction* cell must never see a decided docket. Only "
+            "run-predict passes this: an evaluate cell targets exactly "
+            "decided dockets, so the default provisions unconditionally.",
         ),
     ] = False,
     corpus_backend: CorpusBackendOption = "",
@@ -1700,19 +1702,33 @@ def provision_snapshot(
         raise typer.Exit(code=2)
     snapshot_date, payload = found
     # Leakage guard (opt-in): a forward *prediction* cell predicts a genuinely
-    # pending event, so a snapshot whose latest entry reads terminal must never
-    # be materialized — it would hand the predictor the outcome it is supposed
-    # to predict. The pull-side routing skip (``predict_skipped_decided``) is
-    # the primary protection; this refusal is defense-in-depth for cells fanned
-    # out before the docket latched. Refuses before writing anything (no
-    # snapshot, no context.json); run-predict's provisioning step is
-    # continue-on-error, so the cell runs snapshot-less and the agent notes the
-    # gap per the prompt contract. Opt-in because the other callers *must* see
-    # decided dockets: run-evaluate provisions the same forward-mode cell for
-    # an already-resolved event, and the replay provisioner truncates
+    # pending event, so a snapshot that shows the outcome must never be
+    # materialized — it would hand the predictor the answer. Two checks, both
+    # over either payload shape (REST ``docket_entries`` or the raw live
+    # ``ProceedingsandOrder`` the live channel stores verbatim):
+    #   - the routing instrument (``termination_signal``, latest entry only);
+    #   - the resolver (``match_disposition_signal``) over *every* entry —
+    #     provisioning's semantic is "outcome visible anywhere in the
+    #     snapshot", not docket pendency, and a SCOTUS disposition is often
+    #     followed by administrative notations ("Application ... denied as
+    #     moot") that hide it from the latest-entry rule.
+    # The pull-side routing skip and the resolver latch are the primary
+    # protections; this refusal is defense-in-depth for cells fanned out
+    # before the docket latched. Refuses before writing anything (no snapshot,
+    # no context.json); run-predict's provisioning step is continue-on-error,
+    # so the cell runs snapshot-less and the agent notes the gap per the
+    # prompt contract. Opt-in because the other callers *must* see decided
+    # dockets: run-evaluate provisions the same forward-mode cell for an
+    # already-resolved event, and the replay provisioner truncates
     # point-in-time itself.
     if refuse_terminal and mode == "forward":
         terminal = termination_signal(payload)
+        if terminal is None:
+            for text in entry_descriptions(payload):
+                matched = match_disposition_signal(text)
+                if matched is not None:
+                    terminal = f"snapshot carries a disposition order: {matched[2]!r}"
+                    break
         if terminal is not None:
             typer.echo(
                 f"refusing to provision forward cell for {case}: {terminal}",

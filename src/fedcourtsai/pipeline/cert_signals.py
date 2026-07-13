@@ -3,8 +3,10 @@
 The one deterministic instrument that reads a concrete cert disposition out of
 free order-list language ("Petition DENIED.", "GVR'd", "certiorari granted"),
 shared by every consumer that needs it — the live channel's ingest-time
-resolution (:mod:`.ingest`), the historical loader (:mod:`.historical`), and
-the live reachability probe (:mod:`.liveprobe`).
+resolution (:mod:`.ingest`), the historical loader (:mod:`.historical`), the
+live reachability probe (:mod:`.liveprobe`), and the forward-provisioning
+leakage guard (``provision-snapshot --refuse-terminal``), whose false-positive
+cost is the cheapest of the family: one snapshot-less cell, no recorded fact.
 A leaf module on purpose: it depends only on the shared schema, so the
 consumers can never form an import cycle around it.
 
