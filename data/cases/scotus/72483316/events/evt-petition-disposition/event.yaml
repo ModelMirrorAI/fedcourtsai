@@ -1,0 +1,11 @@
+case_id: scotus/72483316
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-02-07'
+resolved: true
+schema_version: '1.0'
+title: Lucinda Jones, Petitioner v. David W. McKeague, Senior Judge, United States
+  Court of Appeals for the Sixth Circuit, et al.

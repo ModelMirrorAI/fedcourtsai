@@ -1,0 +1,11 @@
+case_id: scotus/72480016
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-10-26'
+resolved: true
+schema_version: '1.0'
+title: S. B., on Behalf of Her Minor Daughter, S. B., Petitioner v. Jefferson Parish
+  School Board, et al.

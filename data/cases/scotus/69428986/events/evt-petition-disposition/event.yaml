@@ -1,0 +1,10 @@
+case_id: scotus/69428986
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-01-31'
+resolved: true
+schema_version: '1.0'
+title: United States, Petitioner v. David L. Miller

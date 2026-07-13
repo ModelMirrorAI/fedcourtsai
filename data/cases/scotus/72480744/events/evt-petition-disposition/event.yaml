@@ -1,0 +1,11 @@
+case_id: scotus/72480744
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-11-27'
+resolved: true
+schema_version: '1.0'
+title: Kathleen A. McCallister, Chapter 13 Trustee, Petitioner v. Roger A. Evans,
+  et al.

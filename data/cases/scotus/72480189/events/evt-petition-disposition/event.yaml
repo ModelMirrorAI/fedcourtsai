@@ -1,0 +1,11 @@
+case_id: scotus/72480189
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-11-14'
+resolved: true
+schema_version: '1.0'
+title: Dan Caulkins, et al., Petitioners v. Jay Robert Pritzker, in His Official Capacity
+  as Governor of the State of Illinois, et al.

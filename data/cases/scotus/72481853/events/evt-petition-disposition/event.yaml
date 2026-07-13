@@ -1,0 +1,11 @@
+case_id: scotus/72481853
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-12-19'
+resolved: true
+schema_version: '1.0'
+title: Grupo Unidos por el Canal, S.A., et al., Petitioners v. Autoridad del Canal
+  de Panama

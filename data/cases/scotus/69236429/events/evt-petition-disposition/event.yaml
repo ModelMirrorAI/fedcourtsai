@@ -1,0 +1,11 @@
+case_id: scotus/69236429
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-12-08'
+resolved: true
+schema_version: '1.0'
+title: Gerald F. Lackey, in His Official Capacity as the Commissioner of the Virginia
+  Department of Motor Vehicles, Petitioner v. Damian Stinnie, et al.

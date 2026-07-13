@@ -1,0 +1,12 @@
+case_id: scotus/72482174
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-12-27'
+resolved: true
+schema_version: '1.0'
+title: City of Los Angeles, California, et al., Petitioners v. M. A. R., a Minor,
+  By and Through His Guardian ad Litem, Elisabeth Barragan, Individually and as a
+  Successor in Interest to Daniel Rivera, et al.
