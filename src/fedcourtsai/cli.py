@@ -33,6 +33,7 @@ from . import (
     provision,
     repo_gate,
     retrieval,
+    scope_manifest,
 )
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
@@ -349,6 +350,45 @@ def reconcile_scope_cmd(
         f"{result.excluded} / {result.released} of {result.eligible_cases} eligible case(s)"
     )
     typer.echo(result.model_dump_json())
+
+
+@app.command("scope-manifest")
+def scope_manifest_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <data_root>/scope/scope.json)."),
+    ] = None,
+) -> None:
+    """Publish the prediction-scope decision for the already-public case set.
+
+    Writes ``data/scope/scope.json`` — one row per docket that already has a
+    committed directory under ``data/cases`` and a corpus row, carrying that
+    case's ``predict_eligible`` / ``predict_excluded`` / exclusion reason /
+    sample weight from the corpus (a public docket absent from the corpus is
+    omitted rather than guessed at). The transparency counterpart of ``reconcile-scope``:
+    the reconcile decides scope in the corpus, this publishes the decision for
+    the cases the repository already discloses. Enumerated from the committed
+    ``data/cases`` tree alone — never a corpus scan — so it cannot enumerate the
+    broader ingested corpus (a deliberate compilation-extent boundary).
+    Deterministic and offline: a pure function of the committed tree + corpus, so
+    reruns reproduce it byte for byte. Writes the empty ``skipped`` manifest when
+    the corpus is absent (run after a corpus pull). Git-tracked; regenerate and
+    open a reviewed PR when the public set or its scope latches change.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    manifest = scope_manifest.build_scope_manifest(
+        data_root=settings.data_root, corpus_db_path=db_path
+    )
+    destination = out if out is not None else settings.data_root / "scope" / "scope.json"
+    write_json(destination, manifest)
+    if manifest.skipped:
+        typer.echo(f"scope-manifest: skipped (no corpus at {db_path}) -> {destination}")
+        return
+    typer.echo(
+        f"scope-manifest: {manifest.cases} public case(s), {manifest.eligible} eligible, "
+        f"{manifest.excluded} excluded -> {destination}"
+    )
 
 
 @app.command("corpus-status")

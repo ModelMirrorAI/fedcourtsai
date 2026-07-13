@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "ScopeManifestEntry": {
+      "additionalProperties": false,
+      "description": "The published prediction-scope decision for one already-public case.\n\nOne row per docket that has a committed directory under ``data/cases`` *and*\na corpus row \u2014 a subset of the git-visible public set (a public docket absent\nfrom the corpus is omitted), and never anything outside it. The fields mirror\nthe corpus's\nscope columns for the case: whether it is in the prediction gate\n(``predict_eligible`` \u2261 court is SCOTUS), whether the reconcile has latched it\nout (``predict_excluded``), the shared exclusion reason when it has, and the\ninclusion weight the sampling channel asserted. ``sample_weight`` is null when\nno channel asserted one; ``out_of_scope_reason`` is null for an in-scope case.",
+      "properties": {
+        "case_id": {
+          "description": "``<court>/<docket>`` of an already-public case",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "out_of_scope_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shared exclusion reason when excluded; null when in scope",
+          "title": "Out Of Scope Reason"
+        },
+        "predict_eligible": {
+          "description": "In the prediction gate (court is SCOTUS)",
+          "title": "Predict Eligible",
+          "type": "boolean"
+        },
+        "predict_excluded": {
+          "description": "Latched out of scope by the reconcile",
+          "title": "Predict Excluded",
+          "type": "boolean"
+        },
+        "sample_weight": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inverse inclusion probability the sampling channel asserted; null if none",
+          "title": "Sample Weight"
+        }
+      },
+      "required": [
+        "case_id",
+        "predict_eligible",
+        "predict_excluded"
+      ],
+      "title": "ScopeManifestEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/scope/scope.json`` \u2014 the published prediction-scope decision, public set only.\n\nA deterministic, offline census of the prediction-scope decision (eligible /\nexcluded / reason / sample weight) for every docket **already public** under\n``data/cases`` \u2014 enumerated from that committed directory tree alone, never\nfrom the corpus. So it publishes the scope call for the cases the repository\nalready discloses, and by construction cannot enumerate the broader ingested\ncorpus (a compilation-extent boundary held deliberately). ``skipped`` is set\n(with empty entries) when the corpus is absent, so it is safe to regenerate\nbefore a corpus pull. A pure function of the committed tree + corpus, so it\ncarries no timestamp and reruns reproduce it byte for byte.",
+  "properties": {
+    "cases": {
+      "default": 0,
+      "description": "Public cases in the manifest",
+      "minimum": 0,
+      "title": "Cases",
+      "type": "integer"
+    },
+    "eligible": {
+      "default": 0,
+      "description": "Of those, in the prediction gate",
+      "minimum": 0,
+      "title": "Eligible",
+      "type": "integer"
+    },
+    "entries": {
+      "description": "One entry per included public case (present in the corpus), in case_id order",
+      "items": {
+        "$ref": "#/$defs/ScopeManifestEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "excluded": {
+      "default": 0,
+      "description": "Of those, latched out of scope",
+      "minimum": 0,
+      "title": "Excluded",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skipped": {
+      "default": false,
+      "description": "True when no corpus was present; scope was not resolved",
+      "title": "Skipped",
+      "type": "boolean"
+    }
+  },
+  "title": "ScopeManifest",
+  "type": "object"
+}
