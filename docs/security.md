@@ -175,15 +175,15 @@ stores — the DVC remote (the corpus index and metrics) and the per-case conten
 store:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`) —
-  **append-only**: `s3:GetObject` / `PutObject` / `ListBucket`, and an explicit
-  `Deny` on every delete plus `DeleteBucket` / `PutBucketVersioning`. Content-
+  **append-only**: it can read, list, and add objects, with an explicit
+  `Deny` on every delete and on bucket-versioning changes. Content-
   addressed `dvc push` only ever adds objects, no run garbage-collects the
   remote (the historical job's `dvc gc --workspace` prunes only its local runner cache,
   never `--cloud`), and the content store's write-once objects and versioned
   manifests never need a delete; this means no run can wipe corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
-  *consumer* job — `GetObject` / `ListBucket` only, so a compromised consumer
-  runner cannot write or poison the corpus). Consumers reach it through two
+  *consumer* job — read and list only, so a compromised consumer runner
+  cannot write or poison the corpus). Consumers reach it through two
   composites: `corpus-ranged` for the predict/evaluate **cell** jobs
   (role + backend env only; the cell reads the content store and queries the
   index blob in place, no pull) and `corpus-readonly` for the scan-heavy
@@ -207,9 +207,8 @@ per-case objects and the immutable index in place and moves no full blob; the
 plan jobs and `run-analytics` scan the index and keep the full pull.
 
 Developer access is separate from the workflow roles: the maintainer uses IAM
-Identity Center SSO, and a contributor gets an on-demand, read-only IAM user
-whose policy grants only `GetObject` / `GetObjectVersion` / `ListBucket` on the
-corpus bucket — the one static credential in the system.
+Identity Center SSO, and a contributor gets an on-demand IAM user scoped
+read-only to the corpus bucket — the one static credential in the system.
 
 Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-

@@ -39,7 +39,7 @@ cached prefix stays as long as possible (don't interleave case facts with them).
    output contract.
 
 **Per-case — read last, right before you write.** The workflow provisions these
-from the corpus (raw facts live in the DVC/S3 corpus, not git); read them where
+from the corpus (raw facts live in the S3 corpus stores, not git); read them where
 the workflow places them for your run:
 
 3. The **event definition** for `$EVENT_ID` — what to predict.
