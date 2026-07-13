@@ -6,27 +6,25 @@
 #     short-lived SSO session assumes the read-only corpus role.
 #   - Contributor: a dedicated read-only IAM user's key pair, which boto3 reads
 #     straight from the environment -- nothing to write for AWS.
-# The DVC remote's URL is never committed (see SECURITY.md): every environment
-# writes it out of band into the gitignored .dvc/config.local, exactly as the
-# workflows do before any push/pull. Absent secrets, the hook notes it and
-# succeeds anyway, because the offline fixture loop and the full gate need no
-# remote at all.
+# The corpus remote's URL is never committed (see SECURITY.md): it rides in
+# out of band as an environment variable, exactly as the workflows supply it.
+# Absent secrets, the hook notes it and succeeds anyway, because the offline
+# fixture loop and the full gate need no remote at all.
 #
 # No corpus bytes are transferred here. Codespaces runs on Azure, so a full
-# `dvc pull` is cross-cloud S3 internet egress — pulling is a deliberate
-# command (`uv run dvc pull corpus/corpus.db.dvc`), never part of container
-# creation; quick lookups use the ranged backend
+# pull is cross-cloud S3 internet egress — pulling is a deliberate command
+# (`uv run fedcourts corpus-pull`), never part of container creation; quick
+# lookups use the ranged backend
 # (`fedcourts query --corpus-backend ranged ...`) with no pull at all.
 set -euo pipefail
 
-# .dvc/ lives at the repo root, and the dvc CLI comes from the synced
-# environment (`uv sync` runs in onCreateCommand, before this postCreate hook),
-# so anchor on the script's location rather than the caller's cwd.
+# Anchor on the script's location rather than the caller's cwd.
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# The application accepts the bare workflow variable name as an alias of the
-# FEDCOURTS_-prefixed one (see fedcourtsai.config), so honor either here too.
-remote_url="${DVC_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-}}"
+# The application accepts the bare workflow variable names as aliases of the
+# FEDCOURTS_-prefixed ones (see fedcourtsai.config); the DVC_* pair is the
+# legacy spelling, honored until the Codespaces secret is renamed.
+remote_url="${CORPUS_REMOTE_URL:-${FEDCOURTS_CORPUS_REMOTE_URL:-${DVC_REMOTE_URL:-${FEDCOURTS_DVC_REMOTE_URL:-}}}}"
 
 if [[ -z "${AWS_SSO_START_URL:-}" && -z "${AWS_ACCESS_KEY_ID:-}" && -z "${remote_url}" ]]; then
   echo "Corpus remote access not configured (user-scoped Codespaces secrets absent); offline fixture work is unaffected."
@@ -72,14 +70,14 @@ elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
   echo "Read-only corpus credentials found in the environment (IAM-user key pair)."
 fi
 
-# The remote's URL is independent of which credential flow is present.
+# The remote's URL is independent of which credential flow is present. The
+# tooling reads it from the environment (any accepted alias), so all that is
+# needed is the preferred name in every shell; the SSO flow's AWS_PROFILE
+# export above already routes boto3 through the assumed-role profile. The
+# grep guard keeps container rebuilds from stacking duplicate lines.
 if [[ -n "${remote_url}" ]]; then
-  # -f keeps this idempotent across container rebuilds: it overwrites the
-  # remote entry already present in .dvc/config.local instead of failing on it.
-  uv run dvc remote add --local -d -f storage "${remote_url}"
-  if [[ "${sso_configured}" == true ]]; then
-    # dvc's boto3 must resolve the assumed-role profile, not ambient env creds.
-    uv run dvc remote modify --local storage profile fedcourts-ro
+  if ! grep -q "^export CORPUS_REMOTE_URL=" "${HOME}/.bashrc" 2>/dev/null; then
+    printf 'export CORPUS_REMOTE_URL=%q\n' "${remote_url}" >> "${HOME}/.bashrc"
   fi
-  echo "Corpus remote configured in .dvc/config.local (read-only). Ranged queries work now; a full pull stays deliberate: uv run dvc pull corpus/corpus.db.dvc"
+  echo "Corpus remote URL exported as CORPUS_REMOTE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
 fi

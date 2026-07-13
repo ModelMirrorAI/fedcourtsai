@@ -48,8 +48,8 @@ Attribution is given in the README *Data & attribution* section and the top-leve
 
 The NoDerivatives term is why the **derived corpus is not publicly republished**.
 The raw-fact corpus — every docket, snapshot, judge, and case record drawn from
-CourtListener — lives in the **access-gated** private DVC/S3 remote, never in public
-git (see [data-pipeline.md](data-pipeline.md) → *Storage*). It is an internal
+CourtListener — lives in the **access-gated** private S3 corpus remote, never in
+public git (see [data-pipeline.md](data-pipeline.md) → *Storage*). It is an internal
 working set, not a public dataset.
 
 What does go to **public git** under `data/` is only our **own work product**: the
@@ -88,7 +88,7 @@ material**:
   collection, enrichment, or de-anonymization, and no redaction beyond what
   CourtListener already applies to the public records.
 - **Raw facts stay access-gated.** The corpus that holds the full docket detail
-  lives in the private DVC/S3 remote, not public git. The only PII that can reach
+  lives in the private S3 corpus remote, not public git. The only PII that can reach
   public git is whatever a piece of reasoning quotes from a public docket while
   explaining a prediction.
 - **Sealed, privileged, or otherwise sensitive material is never fed into the

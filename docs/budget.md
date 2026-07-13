@@ -263,19 +263,20 @@ The realistic runner-minute footprint, free at every level:
 dev usage: **$0–50/mo**.
 
 Artifact/cache storage on Actions is **$0.25/GB-mo** (shared storage) — negligible
-here since the corpus lives in DVC/S3, not Actions artifacts.
+here since the corpus lives in S3, not Actions artifacts.
 
-### 4. S3 / DVC corpus storage
+### 4. S3 corpus storage
 
-The raw-fact corpus (`corpus/corpus.db`) and metrics live in a **private S3
-bucket** behind DVC. [S3 Standard, us-east-1](https://aws.amazon.com/s3/pricing/):
+The raw-fact corpus (`corpus/corpus.db` and the per-case content store) lives
+in a **private S3 bucket**.
+[S3 Standard, us-east-1](https://aws.amazon.com/s3/pricing/):
 **$0.023/GB-mo** storage, **$0.005/1K** PUTs, **$0.0004/1K** GETs; egress to the
 internet is free for the first **100 GB/mo account-wide**, then **$0.09/GB**
 (ingress always free).
 
 GitHub-hosted runners execute on **Azure**, so every byte a workflow reads out of
-the bucket — a `dvc pull`, a ranged `GET` — is S3 **internet egress** against
-that allowance. There is no same-region discount between Actions and S3.
+the bucket — a full `corpus-pull`, a ranged `GET` — is S3 **internet egress**
+against that allowance. There is no same-region discount between Actions and S3.
 
 > **Superseded assumption.** This section previously priced workflow egress as
 > free on the claim that runners run in the bucket's region. That was wrong —
@@ -290,11 +291,12 @@ that allowance. There is no same-region discount between Actions and S3.
 > against measured transfer.
 
 The corpus is a handful of large blobs, not millions of files (by design). Even a
-corpus carrying opinion text for the full backlog is plausibly tens of GB;
-DVC keeps historical versions, so budget for a small multiple:
+corpus carrying opinion text for the full backlog is plausibly tens of GB; the
+content-addressed remote keeps historical versions (add-only), so budget for a
+small multiple:
 
 - **Storage:** ~10–100 GB → **≈ $0.25–2.50/mo.**
-- **Ingress (`dvc push`):** free, at any scale.
+- **Ingress (`corpus-push`):** free, at any scale.
 - **Cell reads (ranged):** a predict/evaluate cell never pulls the
   blob; it makes indexed point queries over HTTP range requests. Measured
   against the real corpus: a snapshot provisioning ≈ 5 GETs / ~1.3 MB; a
@@ -348,7 +350,7 @@ batch is API-metered (all three engines).
 | CourtListener Tier 2 (annual) | ~$21 | $250 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |
-| S3 / DVC | ~$5 | ~$60 |
+| S3 (corpus + content store) | ~$5 | ~$60 |
 | **Total** | **≈ $375–1,375/mo** | **≈ $4.5–16K/yr** |
 
 ### B. Full scope (all 14 courts, all three engines, every event)
@@ -359,7 +361,7 @@ batch is API-metered (all three engines).
 | CourtListener Tier 4 | $100 | $1,200 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$50 | ~$600 |
-| S3 / DVC (recurring full pulls at a tens-of-GB blob; see §4) | ~$100 | ~$1,200 |
+| S3 (recurring full pulls at a tens-of-GB blob; see §4) | ~$100 | ~$1,200 |
 | **Total** | **≈ $22.2K/mo** | **≈ $264K/yr** |
 
 The gap between A and B is almost entirely the prediction *slice* and the

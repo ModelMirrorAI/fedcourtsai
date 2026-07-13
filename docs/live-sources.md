@@ -158,7 +158,7 @@ opposition on the same **distribution transition** that queues prediction (the
 record-complete moment, and near filing time — links are a rolling ~5-Term
 window upstream). Text is extracted with pypdf (born-digital filings under the
 e-filing mandate; a scanned paper filing degrades to empty text), capped at
-`live.document_text_cap` per document, and stored in the DVC-backed corpus's
+`live.document_text_cap` per document, and stored in the access-gated corpus's
 `documents` table — never the git ledger. `provision-snapshot` materializes it
 into the cell's gitignored `record/documents/` with a `documents.json`
 manifest, and the predict prompt points agents at it. **The questions presented

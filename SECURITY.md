@@ -36,16 +36,17 @@ runbook, [docs/security.md](docs/security.md).
   the commit/PR, so a prompt injection in docket text cannot push code with the
   agent's token. Issue and docket text stay untrusted input.
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
-  stores (the DVC remote and the per-case content store) assume a
+  stores (the corpus remote and the per-case content store) assume a
   least-privilege IAM role via GitHub OIDC. **Two roles, split by access:**
   corpus writers get a **read-write, append-only** role (get/put/list, **no
   delete**) and every corpus consumer a **read-only** role, so a compromised
   consumer runner cannot tamper with the data; the buckets keep **versioning**
   on, so no run can wipe corpus objects. Both roles' OIDC trust is scoped to
-  this repo's `runner` environment, so a PR-branch job cannot assume them. The
-  committed `.dvc/config` carries no credentials and no bucket URL — each job
-  (and operator) supplies the URL out of band into the gitignored
-  `.dvc/config.local`. Per-workflow role assignments and policies:
+  this repo's `runner` environment, so a PR-branch job cannot assume them. No
+  committed file carries credentials or the bucket URL — each job (and
+  operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
+  environment variable, and boto3 reads its credentials from the environment.
+  Per-workflow role assignments and policies:
   [docs/security.md](docs/security.md).
 - **One scoped exception: developer corpus access from Codespaces.** Two
   developer flows, both read-only, both fed by **user-scoped** Codespaces

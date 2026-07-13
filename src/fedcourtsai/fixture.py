@@ -1,8 +1,8 @@
 """Synthetic fixture corpus for offline local runs and tests.
 
 Provisioning a snapshot, retrieving priors, or listing a case's open events all
-read from the packed corpus (:mod:`fedcourtsai.corpus`), which in production is a
-``dvc pull`` of the S3-backed remote behind OIDC — infra a laptop (or a unit
+read from the packed corpus (:mod:`fedcourtsai.corpus`), which in production is
+pulled from the S3-backed remote behind OIDC — infra a laptop (or a unit
 test) cannot reach. This module builds a *tiny, deterministic* corpus from
 hard-coded facts instead, so the local read loop and the offline tests run with
 no remote, no token, and no network.

@@ -5,11 +5,12 @@ state, and event definitions — live in one packed, queryable store, written
 **identically** by every ingestion channel (the CourtListener REST API and the
 supremecourt.gov live + historical channels) through this one ingestion seam.
 The packed store is a single **SQLite**
-database (``corpus/corpus.db``) versioned with DVC: the data blob lives in the
-DVC remote and only the small ``*.dvc`` pointer is committed to git.
+database (``corpus/corpus.db``): the data blob lives in the S3 corpus remote
+(content-addressed, add-only — see :mod:`fedcourtsai.corpus_remote`) and only
+the small ``corpus.db.ref`` pointer is committed to git.
 
 SQLite was chosen over Parquet shards because the corpus is a single artifact
-(one DVC pointer, not a sharded tree), it is queryable with plain SQL for
+(one pointer, not a sharded tree), it is queryable with plain SQL for
 retrieval (filter by court / judges / topic / citation), and it needs no extra
 runtime dependency. The *format* is internal; the stable contract the ledger
 relies on is this row schema — its identifiers and ``Disposition`` vocabulary,
@@ -35,19 +36,19 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .config import get_settings
-from .corpus_ranged import RangedBackendError, connect_ranged
+from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
 from .schemas import Disposition, EventKind
 
 CORPUS_DB_FILENAME = "corpus.db"
 
 # The corpus file's physical layout is a contract with ranged remote reads
 # (read-only SQLite over HTTP range requests against the immutable blob on the
-# DVC remote): 64 KB pages keep a B-tree descent to a handful of round trips
+# corpus remote): 64 KB pages keep a B-tree descent to a handful of round trips
 # (SQLite's maximum page size), and the file must not be in WAL mode at rest —
 # a WAL reader needs the `-wal` sidecar, which never ships with the blob.
 # `connect` creates databases with this layout, `ensure_ranged_layout` migrates
 # a pre-existing file, and `check_ranged_layout` is the offline drift check
-# `fedcourts dvc-status` enforces.
+# `fedcourts corpus-status` enforces.
 RANGED_PAGE_SIZE = 65536
 
 # SQLite database header: the page size is the big-endian 16-bit word at offset
@@ -80,7 +81,7 @@ def check_ranged_layout(db_path: Path) -> list[str]:
     """Layout problems that would break ranged remote reads; empty when fine.
 
     Reads only the file header, so it is offline-safe and graceful before a
-    ``dvc pull`` — an absent or empty file is not a problem, there is simply
+    corpus pull — an absent or empty file is not a problem, there is simply
     nothing to check yet.
     """
     layout = _file_layout(db_path)
@@ -107,7 +108,7 @@ def ensure_ranged_layout(db_path: Path) -> bool:
     The migration for a file created under different settings: reset WAL to a
     rollback journal, set the 64 KB page size, and ``VACUUM`` so every page is
     rewritten at the new size. The corpus writers call this before their
-    ``dvc add``, so a migration runs inside the job that already holds the
+    push, so a migration runs inside the job that already holds the
     ``corpus-write`` lock and the rebuilt file is what gets pushed. When the
     layout is already right this is a header read and a no-op.
     """
@@ -337,8 +338,8 @@ class CaseDocument(BaseModel):
 
     Fetched pipeline-side by the live poller (never agent-side) and keyed
     ``(case_id, kind)`` — the latest fetch of a kind wins, so a corrected or
-    re-filed document supersedes. Text lives here in the DVC-backed corpus,
-    never the git ledger (the access-gated, no-republication posture);
+    re-filed document supersedes. Text lives here in the access-gated corpus,
+    never the git ledger (the no-republication posture);
     provisioning materializes it into a cell's gitignored ``record/`` path.
     """
 
@@ -469,8 +470,8 @@ CREATE TABLE IF NOT EXISTS live_discovery_cursors (
 
 -- Per-case filed-document text: a raw fact fetched pipeline-side by the
 -- live poller on the distribution transition. Keyed (case_id, kind) — the
--- latest fetch of a kind wins. Text stays in the DVC-backed corpus
--- (access-gated), never the git ledger; provisioning materializes it per cell.
+-- latest fetch of a kind wins. Text stays in the access-gated corpus,
+-- never the git ledger; provisioning materializes it per cell.
 CREATE TABLE IF NOT EXISTS documents (
     case_id     TEXT NOT NULL,
     kind        TEXT NOT NULL,
@@ -645,10 +646,11 @@ def connect_readonly(
 ) -> Iterator[ReadConnection]:
     """Open the corpus for reading via the selected backend.
 
-    ``local`` (the default) opens the ``dvc pull``-ed file exactly like
-    :func:`connect`; ``ranged`` queries the immutable blob in place on the DVC
-    remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the committed
-    pointer next to ``db_path`` against the out-of-band remote URL. ``backend``
+    ``local`` (the default) opens the pulled file exactly like
+    :func:`connect`; ``ranged`` queries the immutable blob in place on the
+    corpus remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the
+    committed pointer next to ``db_path`` (``.ref``, or the legacy ``.dvc``
+    for the shim cycle) against the out-of-band remote URL. ``backend``
     overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting. Writers never use this
     seam — they need the concrete local connection and always own the file.
 
@@ -664,13 +666,13 @@ def connect_readonly(
             "per-case provisioning reads (see fedcourtsai.provision)"
         )
     if effective == "ranged":
-        remote_url = get_settings().dvc_remote_url
+        remote_url = get_settings().corpus_remote_url
         if remote_url is None:
             raise RangedBackendError(
-                "the ranged corpus backend needs the DVC remote URL from the "
+                "the ranged corpus backend needs the corpus remote URL from the "
                 "environment (the same out-of-band value the workflows use)"
             )
-        pointer = db_path.with_name(db_path.name + ".dvc")
+        pointer = find_pointer(db_path)
         with connect_ranged(pointer, remote_url) as ranged:
             yield ranged
     else:

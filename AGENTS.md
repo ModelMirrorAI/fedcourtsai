@@ -92,7 +92,7 @@ uv run ruff check .
 uv run mypy
 uv run pytest
 uv run fedcourts validate data
-uv run fedcourts dvc-status
+uv run fedcourts corpus-status
 uv run fedcourts export-schemas schemas
 git diff --exit-code schemas   # CI fails if the committed schemas drift
 ```
@@ -166,8 +166,8 @@ substitute.
 
 ## Data model (summary)
 
-Raw facts live in the corpus (a payload-free SQLite index under DVC plus a
-per-case S3 content store); derived judgments live in git under
+Raw facts live in the corpus (a payload-free SQLite index in a private S3
+remote plus a per-case S3 content store); derived judgments live in git under
 `data/cases/<court_id>/<docket_id>/events/<event_id>/`. Full description: the
 *Data model* section of `README.md`; pipeline design: `docs/data-pipeline.md`;
 task-specific instructions: the prompt file named in your run

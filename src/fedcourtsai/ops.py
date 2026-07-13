@@ -52,7 +52,7 @@ _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_
 # signal. Set a real rate here if the repo ever goes private or moves to
 # larger runners.
 _ACTIONS_USD_PER_MINUTE = 0.0
-# Infra not metered per run: CourtListener Tier 3 ($50) + S3/DVC (~$5), USD/month.
+# Infra not metered per run: CourtListener Tier 3 ($50) + S3 (~$5), USD/month.
 _FIXED_MONTHLY_USD = 55.0
 _DAYS_PER_MONTH = 30.0
 

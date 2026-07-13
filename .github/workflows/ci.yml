@@ -51,8 +51,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: validate data
         run: uv run fedcourts validate data
-      - name: dvc status
-        run: uv run fedcourts dvc-status
+      - name: corpus status
+        run: uv run fedcourts corpus-status
       - name: schema drift
         run: |
           uv run fedcourts export-schemas schemas

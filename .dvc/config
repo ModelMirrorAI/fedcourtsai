@@ -1,9 +1,8 @@
 [core]
     analytics = false
     remote = storage
-# The default remote `storage` is a private S3 bucket provisioned out of band.
-# Its URL, region, and credentials are NEVER committed: CI assumes a
-# least-privilege IAM role via GitHub OIDC and defines the remote from the runner
-# environment before any push/pull, writing it to the gitignored .dvc/config.local:
-#     dvc remote add --local -d storage "<bucket url from the runner env>"
-# Run the same command locally against your own bucket. See SECURITY.md.
+# INERT — retained for one transition cycle only. The corpus transport moved
+# to `fedcourts corpus-pull` / `corpus-push` (boto3, CORPUS_REMOTE_URL from the
+# environment); no code path invokes the dvc CLI or reads this file anymore.
+# It is deleted together with the legacy corpus/corpus.db.dvc pointer and its
+# fallback shim once the first writer run publishes corpus/corpus.db.ref.

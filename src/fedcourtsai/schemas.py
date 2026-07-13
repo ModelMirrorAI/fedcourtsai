@@ -783,7 +783,7 @@ class CorpusValidation(_Strict):
     ``validate``, which only checks each ledger artifact against its schema. ``ok``
     is the conjunction of every check; ``skipped`` is set (with ``ok`` true and no
     checks) when the corpus is absent, so the command is safe to call before a
-    ``dvc pull``. A pure function of its inputs — corpus, ledger, the
+    corpus pull. A pure function of its inputs — corpus, ledger, the
     supplied baseline, and the as-of date — so it carries no timestamp and the same
     inputs always serialize identically. Surfaced (and escalated) by a separate
     wiring layer, not committed; a failed verdict is loud-not-fatal by contract.
@@ -858,7 +858,7 @@ class CorpusScopeAudit(_Strict):
     corpus reconcile (resolve if recoverable, else latch out of scope). The
     ``recoverable`` split is what tells those two paths apart. ``skipped`` is set
     (with empty exclusions) when the corpus is absent, so it is safe before a
-    ``dvc pull``. A pure function of the corpus, so it carries no timestamp.
+    corpus pull. A pure function of the corpus, so it carries no timestamp.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -930,7 +930,7 @@ class AnalyticsReport(_Strict):
     reruns over an unchanged corpus reproduce it byte for byte. ``total`` is the base
     rate over the whole matched set; when a ``group_by`` dimension is given, ``buckets``
     breaks it down per group value (most cases first). ``skipped`` is set (with an empty
-    ``total``) when the corpus is absent, so it is safe to call before a ``dvc pull``.
+    ``total``) when the corpus is absent, so it is safe to call before a corpus pull.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -1071,7 +1071,7 @@ class StatPackTerm(_Strict):
 
     The per-Term detail published stat packs devote one document per Term to; here
     every Term is an entry in a single artifact (recent first), so the statpack stays
-    one deterministic DVC metric with reviewable diffs and a single-Term view is a
+    one deterministic committed metric with reviewable diffs and a single-Term view is a
     filter (``fedcourts stats --court scotus --term N``) rather than a separate file.
     Aggregates are computed over the live/historical provenance slice (weighted, so
     the denial sampling does not bias them); a Term known only from the discovery
@@ -1141,7 +1141,7 @@ class StatPack(_Strict):
     A deterministic, offline roll-up of the corpus into headline counts plus a curated
     set of base-rate breakdowns (:class:`StatPackSection`) — the project's analogue of a
     published court "statpack". A pure function of the corpus (no clock, no network), so
-    reruns over an unchanged corpus reproduce it byte for byte; git-tracked as a DVC
+    reruns over an unchanged corpus reproduce it byte for byte; git-tracked as a
     metric alongside ``leaderboard.json`` / ``backtest.json``. Starts empty (zero counts,
     no sections) until a corpus is present — mirroring the other metrics artifacts, an
     absent corpus yields the empty pack rather than an error.

@@ -89,8 +89,8 @@ State lives in two stores, split by **kind of data**:
 - **Raw facts → the corpus.** Dockets, point-in-time snapshots, judges, case and
   tracking metadata, and event definitions, written identically by every
   ingestion channel through one shared core. The corpus has two halves: a
-  small, **payload-free SQLite index** (`corpus/corpus.db`, versioned with DVC
-  — the blob in a private S3 remote, the pointer in git) serving queries,
+  small, **payload-free SQLite index** (`corpus/corpus.db` — the blob at a
+  content-addressed key in a private S3 remote, the pointer in git) serving queries,
   scans, scope gating, and base rates; and a browsable, **write-once per-case
   content store** (an access-gated S3 store, `fedcourtsai.casestore`) holding
   the bulk payloads — dated snapshots, extracted filed-document text, opinion

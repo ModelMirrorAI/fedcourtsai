@@ -2,7 +2,7 @@
 
 The :func:`fixture_corpus` fixture builds the synthetic corpus
 (:mod:`fedcourtsai.fixture`) under a throwaway corpus root and points the CLI at
-it, so the read commands run fully offline — no DVC remote, no CourtListener
+it, so the read commands run fully offline — no corpus remote, no CourtListener
 token, no network — exactly as the offline local loop does.
 """
 

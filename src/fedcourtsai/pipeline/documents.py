@@ -5,7 +5,7 @@ filed PDF, and the questions presented plus the petition/BIO are the signals
 cert prediction actually turns on. Everything here is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the
-DVC-backed corpus, and materialized into the cell's gitignored ``record/``
+access-gated corpus, and materialized into the cell's gitignored ``record/``
 path at provisioning — so the snapshot rule holds, every predictor in a
 fan-out reads identical content, and agents never fetch.
 

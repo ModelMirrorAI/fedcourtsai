@@ -22,7 +22,7 @@ uv run ruff check .
 uv run mypy
 uv run pytest --cov --cov-report=term-missing
 uv run fedcourts validate data       # ledger schema + git-only references
-uv run fedcourts dvc-status          # DVC metadata is internally consistent
+uv run fedcourts corpus-status       # corpus + metrics bookkeeping is consistent
 ```
 
 The `pytest` run includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
@@ -58,8 +58,8 @@ change to a prompt, the snapshot provisioning, or a finalize step is "open a PR,
 have a maintainer apply a label, wait for Actions, read the logs" — slow,
 token-spending, and human-gated.
 
-**Infra-bound integration** — the live CourtListener REST API, the `dvc pull` of the
-corpus from S3 over OIDC, the GitHub App token, issue comments — is deliberately
+**Infra-bound integration** — the live CourtListener REST API, the corpus pull
+from S3 over OIDC, the GitHub App token, issue comments — is deliberately
 *not* part of the fast loop. It is exercised by dedicated paths and occasional
 manual workflow dispatch, never on every iteration.
 
@@ -112,7 +112,7 @@ path over the cassette; capturing a fresh cassette is a record-once step (run a 
 cell, copy its `prediction.json` / `reasoning.md` under `tests/cassettes`).
 
 **A fixture corpus.** A tiny synthetic corpus, built deterministically by
-`fedcourts make-fixture-corpus`, stands in for the DVC/S3 corpus so
+`fedcourts make-fixture-corpus`, stands in for the S3-hosted corpus so
 `provision-snapshot`, `query`, and `open-events` — and therefore the whole cascade —
 run with no remote, no role assumption, and no tokens.
 

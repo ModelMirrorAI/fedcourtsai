@@ -30,7 +30,7 @@ jobs:
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: read
-      id-token: write # assume the AWS role to dvc pull the corpus for scope gating
+      id-token: write # assume the AWS role to pull the corpus for scope gating
       issues: write # close the trigger issue when the matrix is empty (nothing in scope)
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
@@ -69,7 +69,7 @@ jobs:
             --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
 
       # The scope gate (predict.scope=scotus_docket) reads each case's corpus row
-      # (court + exclusion reasons) from the DVC-backed corpus, so the corpus must be on
+      # (court + exclusion reasons) from the corpus, so the corpus must be on
       # disk before evaluate-matrix runs — a missing database aborts the build
       # loudly rather than emitting an empty matrix. A
       # missing pointer only warns (a pre-corpus repo has nothing to gate on).
@@ -126,7 +126,7 @@ jobs:
       # The cell no longer commits or opens a PR — it only reads the repo and
       # uploads an artifact; the collect job does the git/PR with its own token.
       contents: read
-      id-token: write # assume the AWS role for the DVC S3 remote (read-only)
+      id-token: write # assume the AWS role for the corpus S3 remote (read-only)
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -167,7 +167,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
 
-      # Point-in-time snapshots are raw facts in the DVC-backed corpus, not git:
+      # Point-in-time snapshots are raw facts in the access-gated corpus, not git:
       # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
       # to the gitignored record/ path the evaluator reads (never committed).
       # Best-effort — a missing snapshot must not abort the run; the agent notes
