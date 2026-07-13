@@ -61,27 +61,32 @@ effective input (the large majority served from cache) + ~6K output per run**.
 This was once a planning assumption (~$1–2/run); it is now **measured**. Every
 predict/evaluate run records its tokens and an estimated cost (at the rates in
 this section, kept in `fedcourtsai.pricing`) to a `usage.json` beside its
-output, and `fedcourts usage-summary` rolls those up. Across the **155 predict
-runs** in the committed ledger: claude-baseline earned **~$0.55/run** on
-`claude-opus-4-8` (8 runs) but runs at **~$2.59/run** on `claude-fable-5`
-(60 runs — the 2× token rate plus heavier retrieval); codex-baseline holds
-near **~$0.91/run** on `gpt-5.5` (46 runs) and **~$1.01/run** on its successor
-`gpt-5.6-sol` (22 runs); gemini-baseline measured **~$0.52/run** on
-`gemini-3.1-pro-preview` (7 runs) and — counterintuitively — **~$0.99/run**
-on the cheaper-rated `gemini-3.5-flash` (12 runs; the flash runs burned more
-tokens than the rate saved). Prompt caching on the stable prefix is what
-keeps the sub-Fable figures near the original $0.50 expectation. **Caveats:**
-these are *predict* figures; no event has been evaluated yet, so **evaluate
-per-run cost is unmeasured**. The full-scope estimates below still use the
-historical **~$0.50/run** anchor, which understates a Fable-heavy mix (the
-blended measured mean is ≈ $1.54/run) — re-anchor them once the evaluate side
-is measured. **Model refresh (2026-07):** codex's default is `gpt-5.6-sol`
-(priced identically to `gpt-5.5` at $5/$30); gemini's default is
-`gemini-3.1-pro-preview` — the Pro tier is the like-for-like comparator
-against the other engines' frontier defaults, and its measured $0.52/run is
-so far *cheaper* than flash's measured figure despite the higher rate, so the
-per-token "cheaper lever" reading of flash does not survive measurement.
-Re-check `fedcourts usage-summary` as runs accumulate on the defaults.
+output, and `fedcourts usage-summary` rolls those up. The **pilot round**
+measured this at scale across models: over its ~155 predict runs, claude-baseline
+ran **~$0.55/run** on `claude-opus-4-8` but **~$2.59/run** on `claude-fable-5`
+(the 2× token rate plus heavier retrieval); codex-baseline held near
+**~$0.91–1.01/run** on `gpt-5.5`/`gpt-5.6-sol`; gemini-baseline measured
+**~$0.52/run** on `gemini-3.1-pro-preview` and — counterintuitively —
+**~$0.99/run** on the cheaper-rated `gemini-3.5-flash` (the flash runs burned
+more tokens than the rate saved). The pilot's blended mean was ≈ **$1.54/run**;
+prompt caching on the stable prefix is what keeps the sub-Fable figures near the
+original $0.50 expectation.
+
+The **clean-slate cutover cleared that pilot ledger**, so the committed ledger is
+rebuilding from the first clean round — **3 predict runs so far**, one per engine:
+claude-baseline ~$2.99, codex-baseline ~$1.69, gemini-baseline ~$0.45 (on the
+`claude-fable-5` / `gpt-5.6-sol` / `gemini-3.1-pro-preview` defaults). That is too
+thin to re-anchor on, so the full-scope estimates below still use the historical
+**~$0.50/run** anchor — which understates a Fable-heavy mix (the pilot's
+≈ $1.54/run blended mean); re-anchor once the clean ledger accumulates and the
+evaluate side is measured. **Caveats:** these are *predict* figures; no event has
+been evaluated yet, so **evaluate per-run cost is unmeasured**. **Model defaults
+(2026-07):** codex `gpt-5.6-sol` (priced identically to `gpt-5.5` at $5/$30);
+gemini `gemini-3.1-pro-preview` — the Pro tier is the like-for-like comparator
+against the other engines' frontier defaults, and its measured cost undercut
+flash's despite the higher rate, so the per-token "cheaper lever" reading of
+flash did not survive measurement. Re-check `fedcourts usage-summary` as runs
+accumulate on the defaults.
 
 That ≈ $0.50/run is an **on-demand** figure; one discount produces it:
 
@@ -317,14 +322,14 @@ small multiple:
   predict/evaluate **plan** jobs no longer pull — they read the index in place
   over the ranged backend, like the cells, so they fall under *Cell reads*
   above, not here. Order **~250–300 full pulls/mo × blob size**: at today's
-  ~0.8 GB blob that is ~100–170 GB/mo, **at or above the free tier** ⇒
-  ≈ **$0–10/mo**. This term scales linearly with the blob: at a 10 GB blob the
-  same cadence moves ~1–2 TB/mo ≈ **$80–170/mo**, making it — not the cells —
+  ~1.0 GB blob that is ~250–300 GB/mo, **just above the 100 GB free tier** ⇒
+  ≈ **$15/mo**. This term scales linearly with the blob: at a 10 GB blob the
+  same cadence moves ~2.5–3 TB/mo ≈ **$230/mo**, making it — not the cells —
   the S3 line's dominant term. If backlog growth takes the blob there, the
   lever is moving the full-pull consumers to ranged/incremental reads, caching
   the blob on the Actions side, or thinning the pull cadence.
 
-> **Line item: ≈ $10/mo at today's blob; ≈ $100/mo at a tens-of-GB blob**
+> **Line item: ≈ $15/mo at today's ~1 GB blob; ≈ $230/mo at a 10 GB blob**
 > (driven by the recurring full pulls, per the derivation above). The other thing that
 > would change it materially is storing **embeddings** for semantic retrieval
 > over the full backlog (a future upgrade) — that adds storage plus a one-time
@@ -352,8 +357,8 @@ batch is API-metered (all three engines).
 | CourtListener Tier 2 (annual) | ~$21 | $250 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$0–50 | ~$0–600 |
-| S3 (corpus + content store) | ~$5 | ~$60 |
-| **Total** | **≈ $375–1,375/mo** | **≈ $4.5–16K/yr** |
+| S3 (corpus + content store; recurring full pulls at today's ~1 GB blob) | ~$15 | ~$180 |
+| **Total** | **≈ $385–1,385/mo** | **≈ $4.6–16K/yr** |
 
 ### B. Full scope (all 14 courts, all three engines, every event)
 
@@ -363,8 +368,8 @@ batch is API-metered (all three engines).
 | CourtListener Tier 4 | $100 | $1,200 |
 | GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$50 | ~$600 |
-| S3 (recurring full pulls at a tens-of-GB blob; see §4) | ~$100 | ~$1,200 |
-| **Total** | **≈ $22.2K/mo** | **≈ $264K/yr** |
+| S3 (recurring full pulls at a ~10 GB blob; see §4) | ~$230 | ~$2,760 |
+| **Total** | **≈ $22.3K/mo** | **≈ $266K/yr** |
 
 The gap between A and B is almost entirely the prediction *slice* and the
 three-engine fan-out. The budget is governed by choosing where on that line to
