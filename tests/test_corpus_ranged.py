@@ -60,17 +60,6 @@ def _write_pointer(db_path: Path) -> tuple[Path, str]:
     return pointer, sha256
 
 
-def _write_legacy_pointer(db_path: Path) -> tuple[Path, str]:
-    """A DVC-era YAML pointer (the shim's input) in its committed shape."""
-    blob = db_path.read_bytes()
-    md5 = hashlib.md5(blob).hexdigest()
-    pointer = db_path.with_name(db_path.name + ".dvc")
-    pointer.write_text(
-        f"outs:\n- md5: {md5}\n  size: {len(blob)}\n  hash: md5\n  path: {db_path.name}\n"
-    )
-    return pointer, md5
-
-
 def _fixture_remote(tmp_path: Path) -> tuple[Path, FileTransport]:
     """The fixture corpus staged behind an offline transport."""
     db = build_fixture_corpus(tmp_path / "corpus.db")
@@ -89,7 +78,6 @@ def test_resolver_maps_pointer_to_remote_key(tmp_path: Path) -> None:
     assert remote.key == f"store/index/sha256/{sha256}"
     assert remote.size == db.stat().st_size
     assert remote.checksum == sha256
-    assert remote.checksum_algorithm == "sha256"
 
 
 def test_resolver_handles_prefixless_bucket(tmp_path: Path) -> None:
@@ -99,28 +87,13 @@ def test_resolver_handles_prefixless_bucket(tmp_path: Path) -> None:
     assert remote.key == f"index/sha256/{sha256}"
 
 
-def test_find_pointer_prefers_ref_over_legacy(tmp_path: Path) -> None:
+def test_find_pointer_returns_ref_and_fails_when_absent(tmp_path: Path) -> None:
     db = build_fixture_corpus(tmp_path / "corpus.db")
-    legacy, _ = _write_legacy_pointer(db)
-    assert corpus_ranged.find_pointer(db) == legacy  # only the legacy pointer exists
     ref, _ = _write_pointer(db)
-    assert corpus_ranged.find_pointer(db) == ref  # .ref wins once present
-    legacy.unlink()
+    assert corpus_ranged.find_pointer(db) == ref
     ref.unlink()
     with pytest.raises(corpus_ranged.RangedBackendError, match="no corpus pointer"):
         corpus_ranged.find_pointer(db)
-
-
-def test_resolver_maps_legacy_pointer_to_md5_layout(tmp_path: Path) -> None:
-    # The transition shim: a `.dvc` pointer resolves against DVC's md5 cache
-    # layout so a checkout that predates `.ref` still reads.
-    db = build_fixture_corpus(tmp_path / "corpus.db")
-    pointer, md5 = _write_legacy_pointer(db)
-    remote = corpus_ranged.resolve_pointer(pointer, REMOTE_URL)
-    assert remote.key == f"store/files/md5/{md5[:2]}/{md5[2:]}"
-    assert remote.size == db.stat().st_size
-    assert remote.checksum == md5
-    assert remote.checksum_algorithm == "md5"
 
 
 @pytest.mark.parametrize(
@@ -169,25 +142,6 @@ def test_resolver_fails_loudly_on_broken_pointer(
     tmp_path: Path, pointer_text: str, expected: str
 ) -> None:
     pointer = tmp_path / "corpus.db.ref"
-    pointer.write_text(pointer_text)
-    with pytest.raises(corpus_ranged.RangedBackendError, match=expected):
-        corpus_ranged.resolve_pointer(pointer, REMOTE_URL)
-
-
-@pytest.mark.parametrize(
-    ("pointer_text", "expected"),
-    [
-        ("outs: []\n", "exactly one out"),
-        ("outs:\n- md5: nope\n  size: 5\n  path: corpus.db\n", "no valid md5"),
-        (f"outs:\n- md5: {'a' * 32}\n  size: 0\n  path: corpus.db\n", "no positive size"),
-        ("notouts: 1\n", "exactly one out"),
-        ("{", "not valid YAML"),
-    ],
-)
-def test_resolver_fails_loudly_on_broken_legacy_pointer(
-    tmp_path: Path, pointer_text: str, expected: str
-) -> None:
-    pointer = tmp_path / "corpus.db.dvc"
     pointer.write_text(pointer_text)
     with pytest.raises(corpus_ranged.RangedBackendError, match=expected):
         corpus_ranged.resolve_pointer(pointer, REMOTE_URL)

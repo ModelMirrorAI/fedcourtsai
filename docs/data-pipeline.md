@@ -214,15 +214,10 @@ coherent (blob out of git, pointer well-formed, metrics committed, ranged
 layout); the online pull/push stays with the corpus-writer workflows that hold
 the credentials.
 
-**Transition state (one cycle).** The index transport just moved off DVC onto
-the direct boto3 pattern above. Until the first writer run publishes the new
-`corpus.db.ref` pointer, readers fall back to the legacy committed
-`corpus.db.dvc` pointer (resolved against DVC's md5 cache layout,
-md5-verified on pull); the `.dvc` file stays committed for exactly that one
-cycle and a follow-up change deletes it together with the fallback shim. The
-`DVC_REMOTE_URL` repo variable keeps its name for now — the tooling accepts
-both it and the preferred `CORPUS_REMOTE_URL`, so the variable can be renamed
-without a lockstep change.
+The `DVC_REMOTE_URL` repo variable keeps its legacy name for now — the
+tooling accepts both it and the preferred `CORPUS_REMOTE_URL`, so the
+variable can be renamed without a lockstep change (the alias retires with the
+rename).
 
 ### Corpus-writer coordination
 

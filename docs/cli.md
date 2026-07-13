@@ -86,7 +86,7 @@ URL from `CORPUS_REMOTE_URL` (legacy `DVC_REMOTE_URL` accepted).
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `corpus-pull` | Download the blob the committed pointer names (`corpus/corpus.db.ref`, or the legacy `.dvc` pointer for one transition cycle), verifying its checksum + size before the file lands. | `--missing-pointer fail\|warn` |
+| `corpus-pull` | Download the blob the committed `corpus/corpus.db.ref` pointer names, verifying its checksum + size before the file lands. | `--missing-pointer fail\|warn` |
 | `corpus-push` | Digest the local blob, upload it to its content-addressed key (put-if-absent; the remote stays add-only), and rewrite the pointer — blob before pointer, so a committed pointer always resolves. | |
 
 ## Diagnostics — read-only probes

@@ -40,17 +40,11 @@ runs:
         # Job-wide env for every later step: the read seam resolves the
         # committed corpus pointer against the remote URL and serves reads via
         # ranged GETs (see "The ranged read backend" in docs/data-pipeline.md).
-        # Exported under BOTH names during the variable-rename transition:
-        # CORPUS_REMOTE_URL is the preferred name; DVC_REMOTE_URL keeps any
-        # tooling pinned to the legacy name working and goes away with the
-        # rename. The heredoc form keeps the write line-safe: a multiline
-        # value cannot smuggle extra NAME=value pairs into the job env.
+        # The heredoc form keeps the write line-safe: a multiline value cannot
+        # smuggle extra NAME=value pairs into the job env.
         {
           echo "FEDCOURTS_CORPUS_BACKEND=ranged"
           echo "CORPUS_REMOTE_URL<<__FEDCOURTS_EOF__"
-          echo "$CORPUS_REMOTE_URL"
-          echo "__FEDCOURTS_EOF__"
-          echo "DVC_REMOTE_URL<<__FEDCOURTS_EOF__"
           echo "$CORPUS_REMOTE_URL"
           echo "__FEDCOURTS_EOF__"
         } >> "$GITHUB_ENV"

@@ -172,8 +172,7 @@ Every `runner` job already runs from a `main` ref for its trigger — `schedule`
 
 Two IAM roles, assumed via GitHub OIDC (no static keys), cover both private S3
 stores — the corpus remote (the index blob under its content-addressed
-`index/sha256/<digest>` keys, plus the legacy DVC `files/md5/**` objects until
-the transition shim retires) and the per-case content store:
+`index/sha256/<digest>` keys) and the per-case content store:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`) —
   **append-only**: it can read, list, and add objects, with an explicit

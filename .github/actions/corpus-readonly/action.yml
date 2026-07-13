@@ -48,7 +48,7 @@ runs:
         MISSING_POINTER: ${{ inputs.missing-pointer }}
       run: |
         set -euo pipefail
-        # corpus-pull resolves the committed pointer (corpus/corpus.db.ref, or
-        # the legacy .dvc pointer for one transition cycle) against the remote
-        # URL and verifies the blob's checksum + size before it lands.
+        # corpus-pull resolves the committed pointer (corpus/corpus.db.ref)
+        # against the remote URL and verifies the blob's checksum + size
+        # before it lands.
         uv run fedcourts corpus-pull --missing-pointer "$MISSING_POINTER"

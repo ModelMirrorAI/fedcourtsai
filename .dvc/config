@@ -1,8 +1,0 @@
-[core]
-    analytics = false
-    remote = storage
-# INERT — retained for one transition cycle only. The corpus transport moved
-# to `fedcourts corpus-pull` / `corpus-push` (boto3, CORPUS_REMOTE_URL from the
-# environment); no code path invokes the dvc CLI or reads this file anymore.
-# It is deleted together with the legacy corpus/corpus.db.dvc pointer and its
-# fallback shim once the first writer run publishes corpus/corpus.db.ref.
