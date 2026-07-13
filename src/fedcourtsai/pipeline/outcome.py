@@ -112,7 +112,13 @@ _TERMINAL_ENTRY_RE = re.compile(
     r"|\brule\s*39\.8\b"
     r"|\bpetition\b.{0,80}?\bdismissed\b"
     r"|^judgment issued\b"
-    r"|\bjudgment\b.{0,40}?\bvacated\b.{0,80}?\bremand\w*",
+    r"|\bjudgment\b.{0,40}?\bvacated\b.{0,80}?\bremand\w*"
+    # The cert-before-judgment denial/dismissal: a deliberate resolver miss
+    # (its multi-word noun-verb gap would also admit the expedite-motion
+    # recital), so routing is its only net. Start-anchored — the disposition
+    # entry opens with the noun, while the expedite order opens with
+    # "Motion ..." and must stay pending.
+    r"|^petition for (?:a )?writ of certiorari before judgment (?:is )?(?:denied|dismiss)",
     re.IGNORECASE,
 )
 

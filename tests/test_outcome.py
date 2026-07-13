@@ -418,6 +418,41 @@ def test_termination_signal_ignores_a_judgment_issued_recital() -> None:
     assert termination_signal(docket) is None
 
 
+def test_termination_signal_reads_a_cert_before_judgment_denial() -> None:
+    # The CBJ denial is a deliberate resolver miss (its multi-word noun-verb
+    # gap would also admit the expedite-motion recital), so routing is its
+    # only net — the denied-CBJ docket goes quiet with this as its latest entry.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": "Petition for a writ of certiorari before judgment denied.",
+            }
+        ],
+    }
+    assert termination_signal(docket) is not None
+
+
+def test_termination_signal_ignores_a_cbj_expedite_motion_order() -> None:
+    # The order on an expedite motion recites the same noun phrase but opens
+    # with "Motion ..." — a pending CBJ docket must never be parked out of the
+    # forward queue by its own scheduling order.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Motion of petitioners to expedite consideration of the "
+                    "petition for a writ of certiorari before judgment denied."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is None
+
+
 def test_termination_signal_reads_a_circuit_vacate_and_remand_disposition() -> None:
     # The CA disposition shape carries the same judgment-vacated-remand
     # noun-verb order as the SCOTUS GVR, so the one pattern covers both.
