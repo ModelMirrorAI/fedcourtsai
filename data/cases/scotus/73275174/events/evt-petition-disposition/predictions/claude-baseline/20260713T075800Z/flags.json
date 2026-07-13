@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73275174",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Outcome leakage in a forward-mode cell: record/context.json says mode=forward, but the provisioned snapshot (2026-07-13) postdates the disposition and contains it — a May 18, 2026 entry disposing of the appeal in light of Louisiana v. Callais (with a noted dissent) and a June 22, 2026 'Judgment Issued' entry. The event.yaml still says resolved: false. I disclosed this in reasoning.md, reasoned only from the pre-decision record (entries through the 5/14/2026 conference distribution), and made no retrieval about this case; the cell should still be discounted for evaluation. Suggest the provisioner treat a snapshot containing a disposition-bearing entry as a replay trigger (set DECIDED_BEFORE / truncate the snapshot) rather than provisioning it forward.",
+      "severity": "warning"
+    },
+    {
+      "category": "ambiguous-event",
+      "event_id": "evt-petition-disposition",
+      "message": "This is a mandatory-jurisdiction direct appeal (28 U.S.C. 1253 jurisdictional statement), not a discretionary cert petition. The Disposition enum has no labels for the appeal-specific outcomes (summary affirmance, probable jurisdiction noted, vacate-and-remand without a 'grant' word), and cert_signals' regexes would not match 'Judgment VACATED and case REMANDED' order text, so the outcome former may not auto-resolve this event. I mapped the GVR-family prediction to 'granted' per the repo's convention that petition-stage vacate-and-remand relief lands on the granted side.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0"
+}

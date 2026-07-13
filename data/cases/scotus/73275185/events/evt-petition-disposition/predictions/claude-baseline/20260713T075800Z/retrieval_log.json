@@ -1,0 +1,222 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "203519cfd299cf9a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "0c3d8930c72d41ee",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "887c163ddcea1802",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185 -type f | head -50",
+      "result_digest": "8a393bac4fc45390",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f1540e27558b2b82",
+      "query": "uv run fedcourts paths --court scotus --docket 73275185 --event evt-petition-disposition 2>&1",
+      "result_digest": "aa873116a89f2ab7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1b7b2a3ac5fb3280",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "570806b98867b41c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "fee8361dce5bd548",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a595e55206341594",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185/record/snapshots/2026-07-13.json\"}",
+      "result_digest": "6b2e86a089fa6583",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a2262c08cf7670b8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185/record/documents/documents.json\"}",
+      "result_digest": "ad5db3f618dccd0e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0316e6a742c13f45",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185/record/documents/brief-in-opposition.txt",
+      "result_digest": "f15465c425b2d3fe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4cf009bf01d2a12b",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ 2>/dev/null && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md 2>/dev/null",
+      "result_digest": "42f73a739711e801",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b909c657c22009b4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185/record/documents/brief-in-opposition.txt\", \"limit\": 200}",
+      "result_digest": "f234185eb316f8f4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "b6f1afed4462b97c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "91ec3592bde2606d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7ed081d69c2b381a",
+      "query": "uv run fedcourts query --court scotus --citation \"Allen v. Milligan\" --limit 5 2>query_stderr.txt; echo \"--- stderr ---\"; cat query_stderr.txt",
+      "result_digest": "c245bf804decedbc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b36e93bd4be0b94d",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>query_stderr2.txt | head -20; echo \"--- stderr ---\"; cat query_stderr2.txt",
+      "result_digest": "9e1c3c3e5d6fc20a",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "82778fab0b08b216",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275185/events/evt-petition-disposition/predictions/claude-baseline/20260713T075800Z",
+      "result_digest": "eb511523fab4cdd5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "885c7ee4bc54eead",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73275185\\\",\\n  \\\"confidence\\\": 0.6,\\n  \\\"created_at\\\": \\\"2026-07-13T08:01:47Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"granted\\\": 1,\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73275185/record/snapshots/2026-07-13.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.8,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run_",
+      "result_digest": "c9046f23623433ae",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0c22e9bb54b9cfaa",
+      "query": "{\"content\": \"# Allen v. Caster, No. 25-243 \\u2014 petition disposition (evt-petition-disposition)\\n\\n## Contamination disclosure (read first)\\n\\nThe provisioned snapshot (`record/snapshots/2026-07-13.json`) **contains this\\nevent's outcome**: the docket's May 11, 2026 entries record the petition's\\ndisposition and the ensuing judgment. The cell is nonetheless marked\\n`mode: forward` and the event `resolved: false`. I also recognize this case\\nindependently \\u2014 it is the companion to *Allen v.",
+      "result_digest": "3d0f7c400c502418",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ee6ab837f18bb881",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73275185 / evt-petition-disposition / claude-baseline / 20260713T075800Z\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"Allen v. Milligan\\\" --limit 5`\\n   \\u2014 sought priors citing the companion case; returned no rows.\\n   `ranged corpus reads: 408 GET(s), 106954752 byte(s)`\\n2. `uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5`\\n   \\u2014 pulled modern gran",
+      "result_digest": "62b705053700d341",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "13b06502fe6f30e8",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73275185\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Outcome leakage in the provisioned baseline: the snapshot (record/snapshots/2026-07-13.json) itself contains this event's disposition \\u2014 the May 11, 2026 docket entries record the petition's resolution and the ensuing judgment. I also recognize the case independently (companion",
+      "result_digest": "873902804ce77e93",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0344c79582ee1b53",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73275185\\\",\\n  \\\"gaps\\\": [\\n    \\\"A pre-decision snapshot cut (or DECIDED_BEFORE clock) for cells whose docket already contains the outcome \\u2014 I had to self-censor the disposition entries manually\\\",\\n    \\\"Relist/CVSG and distribution-count cuts in the statpack are empty (unknown bucket only); a held-case / relisted-petition grant rate would have been the single most useful number here\\\",\\n    \\\"The petition and q",
+      "result_digest": "421acdef1f533f1d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "17b5ba2e5ac49e4f",
+      "query": "rm -f query_stderr.txt query_stderr2.txt && uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "444a3dd6515509f9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "47c073192196f505",
+      "query": "gh issue comment 609 --body \"**claude-baseline / 20260713T075800Z / scotus/73275185 / evt-petition-disposition** \u2014 prediction written: **granted** (P=0.80, confidence 0.6, predicted 6\u20133).\n\n\u26a0\ufe0f Two warnings in \\`flags.json\\`: the provisioned snapshot itself contains the outcome (the case was disposed of on 2026-05-11, a GVR-style order in light of *Louisiana v. Callais*), yet the cell was fanned out as \\`forward\\`/unresolved \u2014 the latch appears to have missed this disposition, and the cell should ",
+      "result_digest": "2d0478bced8abd68",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73275185",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0"
+}

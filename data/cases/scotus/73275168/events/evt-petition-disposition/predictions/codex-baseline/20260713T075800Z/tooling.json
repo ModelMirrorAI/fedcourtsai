@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73275168",
+  "gaps": [
+    "The ranged corpus remote was unreachable, so citation-matched resolved priors could not be retrieved.",
+    "The provisioned documents did not include the petitioner's reply, which would have helped assess the BIO's mootness and alternative-ground objections."
+  ],
+  "helpful": [
+    "The provisioned petition, questions presented, BIO, and dated docket snapshot exposed both the cert merits and the vehicle defects.",
+    "The committed statpack supplied a paid-petition base rate.",
+    "CourtListener opinion search verified representative decisions on both sides of the circuit split."
+  ],
+  "notes": "The corpus query was attempted but failed before returning any priors. The repeated conference distributions in the snapshot were the strongest case-specific signal.",
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (attempted; remote unavailable)",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

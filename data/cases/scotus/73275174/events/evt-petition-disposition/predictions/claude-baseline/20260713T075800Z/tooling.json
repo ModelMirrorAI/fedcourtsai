@@ -1,0 +1,28 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73275174",
+  "gaps": [
+    "provisioned filed-document text (record/documents/ was absent, so the jurisdictional statement's questions presented were not readable)",
+    "a topic/subject filter that can find redistricting or VRA priors (query --topic had nothing to match; results were generic grants)",
+    "statpack cuts keyed to appeals/original-jurisdiction cases as distinct from discretionary cert petitions",
+    "relist/CVSG signal cuts populated (both read (unknown) in the statpack)"
+  ],
+  "helpful": [
+    "metrics/statpack.md",
+    "fedcourts query --corpus-backend ranged",
+    "cert_signals.py as the authoritative disposition-label mapping (GVR -> granted)"
+  ],
+  "notes": "Provisioning bug worth fixing at the source: a forward-mode cell whose latest snapshot already contains the disposition (see flags.json). A guard that scans the snapshot's proceedings for disposition-bearing entries before provisioning forward would prevent the leak entirely.",
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
