@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73275215",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode cell on an already-decided case: the provisioned baseline snapshot (record/snapshots/2026-07-13.json) contains the outcome — May 11, 2026 entries 'Judgment VACATED and case REMANDED for further consideration in light of Louisiana v. Callais' and 'Judgment Issued', with a Sotomayor/Kagan/Jackson dissent noted. I did not retrieve this; it is in the guaranteed-common input, so every predictor in this fan-out sees it. My prediction is unavoidably outcome-aware — reasoning.md reasons from the pre-decision record, but the evaluation should discount this cell as leakage-contaminated.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The event is still open (event.yaml resolved: false) two months after the May 11, 2026 disposition. Likely cause: the terminal entry 'Judgment VACATED and case REMANDED...' carries no grant/deny verb, so the deterministic cert-signal matcher cannot record it and the case was never routed out of the forward-predict queue. Needs outcome triage — under the repo's GVR convention a vacate-and-remand for the appellants maps to granted; alternatively latch the case out of scope as a mandatory appeal.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260713T130811Z",
+  "schema_version": "1.0"
+}
