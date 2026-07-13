@@ -1,0 +1,318 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "2b10492a9badd5ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4cf9f2199d34652a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "255c75d455d1bafc",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388 -type f | head -50",
+      "result_digest": "bd7facc70825cbef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "d55fbc24975a5505",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cc2b964d69433131",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "aca493a65cdbc636",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "7b0ebda75004f470",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "833176b60c0d05c1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388/record/snapshots/2026-07-13.json\"}",
+      "result_digest": "cd242e50780899f0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "13147cd528deb84f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388/record/documents/documents.json\"}",
+      "result_digest": "856d97a75d5a5ba1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8bee191f1563935d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388/record/documents/questions-presented.txt\"}",
+      "result_digest": "f0d554b25aef96d2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "292d2140da582ccc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388/record/documents/petition.txt\"}",
+      "result_digest": "735f47a7a21d7699",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8ab040a1134ebbfa",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "ba98723558e1889b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "552c47aaceb6ee41",
+      "query": "uv run fedcourts paths --court scotus --docket 73277388 --event evt-petition-disposition 2>&1",
+      "result_digest": "6c9fcdbae3d48f8c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "18fcf686a54e4c62",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7262c0f17fe394dc",
+      "query": "uv run fedcourts query --court scotus --docket 73277388 --event evt-petition-disposition 2>&1 | head -80",
+      "result_digest": "d627eef94824e0a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "8a98acdd9217e552",
+      "query": "uv run fedcourts query --help 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g'",
+      "result_digest": "ae338ed13af65ea9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6d2218a15ac4e4e2",
+      "query": "uv run fedcourts query --court scotus --citation \"563 U.S. 333\" --citation \"581 U.S. 246\" --citation \"9 U.S.C. \u00a7 2\" --limit 8 2>err.log | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','caption','disposition','era','term','date_filed','date_resolved','topic')})\n\"; echo '--- stderr:'; cat err.log; rm -f err.log",
+      "result_digest": "aebe76d2d618fde7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "358702502dd5380a",
+      "query": "uv run fedcourts query --court scotus --citation \"9 U.S.C.\" --limit 8 2>err.log | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','caption','disposition','era','date_filed','date_resolved')})\n\"; echo '--- stderr:'; cat err.log; rm -f err.log",
+      "result_digest": "aebe76d2d618fde7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "894842b23c66743d",
+      "query": "\"Johnson\" \"Continental Finance\"",
+      "result_digest": "9bc5b2510528839e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "3769fd6a87366dd4",
+      "query": "\"Continental Finance\"",
+      "result_digest": "a8b03d835eb6c82c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "c2fa2837028ed338",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 5, \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-34\", \"fields\": \"id,case_name,docket_number,date_filed,date_terminated,absolute_url\"}}",
+      "result_digest": "5be6f06dfec2ac6b",
+      "retrieved_doc_date": "2025-07-10",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "59d5a575806453da",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 30, \"query\": {\"docket\": 73272764, \"fields\": \"date_filed,description\", \"order_by\": \"-date_filed\"}}",
+      "result_digest": "2a211d3acf3e75cb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "982f124618c917d2",
+      "query": "uv run fedcourts open-events --help 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | head -30",
+      "result_digest": "231bbef1c238c14c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7259df165a939994",
+      "query": "select:WebSearch,WebFetch",
+      "result_digest": "b39b7e39e3708321",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "229b7b00883705b4",
+      "query": "Continental Finance v. Johnson 25-34 Supreme Court cert petition arbitration Maryland consideration",
+      "result_digest": "d4cf01e53f36d743",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "59b67dea987a64a0",
+      "query": "\"25-34\" Continental Finance Johnson certiorari granted denied conference 2026",
+      "result_digest": "6bb4ba83a3859fcc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "7ae2a658397b1774",
+      "query": "List the full proceedings and orders history of this Supreme Court docket (No. 25-34, Continental Finance Co. v. Johnson): every docket entry with its date, especially any distribution for conference, response requested, CVSG, relist, grant, denial, or hold. What is the current status of the petition?",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "5b3e26dc3a7017c4",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 1, \"query\": {\"id\": 73272764}}",
+      "result_digest": "8604df36b9e58ab6",
+      "retrieved_doc_date": "2025-07-10",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "7f1d6dbb36fbf7b1",
+      "query": "Continental Finance Johnson Supreme Court CVSG solicitor general arbitration FAA Maryland Cheek relist",
+      "result_digest": "92f64e7ad92a0fcb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "641cddb89deaef1d",
+      "query": "\"25-311\" OR \"Genesis Financial\" Supreme Court cert petition arbitration Ford Spring Oaks",
+      "result_digest": "47dd8d7f7d46144e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "2d9bc20e754d8a15",
+      "query": "What is the current status of the Supreme Court cert petition in Genesis Financial Solutions v. Ford (No. 25-311)? Note any developments: response requested, distribution for conference, relists, CVSG, connection to Continental Finance v. Johnson (25-34), settlement, extensions of time, or predictions of grant/denial. Include any dates mentioned.",
+      "result_digest": "a9280b12447e625b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "5eb95a0450d1f269",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73277388/events/evt-petition-disposition/predictions/claude-baseline/20260713T234230Z",
+      "result_digest": "a74226ff6f91b4b6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "25eac7137417b4dd",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73277388\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260713T234230Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-13T23:48:54Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73277388/record/snapshots/2026-07-13.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.28,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "111ab48af35b878c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e12f1d2b615eb1dd",
+      "query": "{\"content\": \"# Genesis Financial Solutions, Inc. v. Ford, No. 25-311 \\u2014 cert disposition\\n\\n**Prediction: denied (P(granted) = 0.28).** A well-above-baseline grant\\nprobability driven by strong docket signals, but denial remains the single\\nmost likely disposition.\\n\\n## The legal question\\n\\nWhether the FAA, 9 U.S.C. \\u00a7 2, preempts Maryland's *Cheek* rule requiring an\\narbitration clause inside an otherwise-valid contract to be supported by its\\nown separate consideration. The petition ",
+      "result_digest": "64bd77433abc3b95",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c5e597785b9e583c",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73277388 evt-petition-disposition (claude-baseline, 20260713T234230Z)\\n\\nMode: `forward` (pending case; retrieval unrestricted). All calls below were\\nabout base rates, priors, and the companion petition \\u2014 never this case's own\\noutcome (which does not exist yet).\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --citation \\\"563 U.S. 333\\\" --citation \\\"581 U.S. 246\\\" --citation \\\"9 U.S.C. \\u00a7 2\\\" --limit 8`\\n  \\u2014 sought resol",
+      "result_digest": "afba600d769f5c08",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "205d433cbd250ad4",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73277388\\\",\\n  \\\"run_id\\\": \\\"20260713T234230Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP (search, call_endpoint: dockets, docket-entries)\\\",\\n    \\\"web search / web fetch\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack s",
+      "result_digest": "a7ab9d193d4ec5ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9f6d3a19caea4cc4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "258fe30cf8aab65f",
+      "query": "gh issue comment 647 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed 's#.*github.com[:/]##;s#\\.git$##')\" --body \"**claude-baseline / claude-fable-5** \u2014 scotus/73277388 evt-petition-disposition (run 20260713T234230Z): wrote prediction.json, reasoning.md, retrieval.md, tooling.json; \\`fedcourts validate data\\` passes.\n\nCall: **denied**, P(granted) = 0.28. Strong grant-side signals (CFR after two rejected waivers, ABA petition-stage amicus, lopsided 5\u20131 FAA-pr",
+      "result_digest": "1ee8858d26d707d5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73277388",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260713T234230Z",
+  "schema_version": "1.0"
+}

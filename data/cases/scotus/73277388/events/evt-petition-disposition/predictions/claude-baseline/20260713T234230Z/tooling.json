@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277388",
+  "run_id": "20260713T234230Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, call_endpoint: dockets, docket-entries)",
+    "web search / web fetch"
+  ],
+  "helpful": [
+    "statpack signal cuts (relist, CVSG, originating-circuit) made it easy to price the call-for-response and companion-case signals against the low cert base rate",
+    "provisioned petition.txt and questions-presented.txt were complete and clean, so no retrieval was needed for the case's own merits record",
+    "courtlistener dockets endpoint answered the key live question (companion petition 25-34 still pending, not denied) in one call"
+  ],
+  "gaps": [
+    "fedcourts query matched zero priors on FAA/arbitration citations despite two attempts; a topic or free-text hook for cert-stage priors would make the corpus retrieval surface actually usable for issue-alike petitions",
+    "no tool reaches current SCOTUS docket entries for a *related* case: courtlistener has no entry-level SCOTUS data and supremecourt.gov 403s the fetcher, so relist/CVSG status of the companion petition (the single most predictive fact here) could not be confirmed",
+    "a statpack cut conditioned on call-for-response would directly price this case's strongest signal"
+  ],
+  "notes": "Forward-mode cell; ~13 retrieval calls. Each fedcourts query cost ~107 MB of ranged reads to return nothing, which feels expensive for a miss."
+}

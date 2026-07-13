@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/73277388",
+  "run_id": "20260713T234230Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "google_web_search"
+  ],
+  "helpful": [
+    "Google Web Search was critical in discovering that the related petition (No. 25-34) was dismissed under Rule 46.1, completely altering the posture of this case."
+  ],
+  "gaps": [
+    "CourtListener MCP search by docket number (e.g. 25-34) did not surface the Supreme Court docket easily, requiring fallback to Google Web Search."
+  ],
+  "notes": "The pipeline provided `documents.json` and the petition text which contained the critical cross-reference to No. 25-34."
+}

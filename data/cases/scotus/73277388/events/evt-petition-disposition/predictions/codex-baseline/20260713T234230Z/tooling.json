@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277388",
+  "run_id": "20260713T234230Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "committed statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "The provisioned snapshot exposed the response request and complete procedural timeline.",
+    "The complete petition text made the alleged split and vehicle arguments assessable.",
+    "The statpack supplied fee-class, circuit, relist, and CVSG calibration.",
+    "CourtListener opinion search confirmed the principal Fourth Circuit authorities."
+  ],
+  "gaps": [
+    "The ranged corpus query could not reach the remote store because DNS resolution failed.",
+    "No provisioned brief in opposition was available because the response is not yet due.",
+    "CourtListener did not surface the related Supreme Court docket through its search collections."
+  ],
+  "notes": "The cell remained usable from the provisioned filings, committed base rates, and CourtListener opinion research despite the unavailable ranged corpus priors."
+}
