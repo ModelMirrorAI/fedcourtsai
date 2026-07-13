@@ -1,0 +1,11 @@
+case_id: scotus/72483749
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-06-06'
+resolved: true
+schema_version: '1.0'
+title: Art Bullock, et al., Petitioners v. R-Ranch Property Owners' Association, et
+  al.
