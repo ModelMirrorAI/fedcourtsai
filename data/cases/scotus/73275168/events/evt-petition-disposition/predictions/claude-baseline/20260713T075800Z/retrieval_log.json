@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "203519cfd299cf9a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "0c3d8930c72d41ee",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "879ddb39b5bff3d8",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168 -type f | head -50",
+      "result_digest": "7d654d8b2e7f404b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "70f5842064ea9bd3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a9b2431b33bd874c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d34ea0b6dbd6c72a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "98ea462996941975",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a8aa31875bd4e965",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/documents/documents.json\"}",
+      "result_digest": "d005274b7068aeaa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "65140b3fa1371a11",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/snapshots/2026-07-13.json\"}",
+      "result_digest": "ea5b443bc16ae85d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f1dbc2b0a27453b6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/documents/questions-presented.txt\"}",
+      "result_digest": "d16e1888edbd6d90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "11ea2fe8aca24bd2",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/documents/brief-in-opposition.txt",
+      "result_digest": "26a28f939aec38a0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "80a7e40d14bb3cb1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/documents/petition.txt\", \"limit\": 700}",
+      "result_digest": "d7f116be6ff6d67d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "216e26ae21bac0e6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "8b806cf1191bb140",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f1f36820e4fd89d0",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && grep -n \"Modern discretionary-cert\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -5",
+      "result_digest": "5ce37141299769dd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "430fc546ecf04b13",
+      "query": "sed -n 1,200p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "1857787c7becc3f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "284ff9d70e40c4d1",
+      "query": "sed -n 1,120p /home/runner/work/fedcourtsai/fedcourtsai/docs/cli.md | grep -n -A 20 \"query\"",
+      "result_digest": "d952acb7e65442de",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c9c5b92ef5ab84a3",
+      "query": "uv run fedcourts query --court scotus --topic \"sentencing guidelines commentary deference\" --limit 8 2>query_stderr.txt; echo \"---STDERR---\"; cat query_stderr.txt",
+      "result_digest": "de6e2e63c705fb7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "601e9e340e68de41",
+      "query": "uv run fedcourts query --court scotus --topic \"sentencing guidelines\" --limit 8 2>q2.txt | head -20; echo \"---STDERR---\"; cat q2.txt",
+      "result_digest": "de6e2e63c705fb7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e2987dd556b4afa5",
+      "query": "uv run fedcourts query --court scotus --topic \"sentencing\" --limit 10 2>q3.txt | head -30; echo \"---STDERR---\"; cat q3.txt",
+      "result_digest": "de6e2e63c705fb7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "769e1c95f6a587fc",
+      "query": "uv run fedcourts query --court scotus --topic \"criminal\" --limit 5 2>q4.txt | head -10; echo \"---STDERR---\"; cat q4.txt; uv run fedcourts open-events --court scotus --docket 73275168 2>oe.txt; echo \"---OE-STDERR---\"; cat oe.txt",
+      "result_digest": "258565e7c208f00e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "f3f80658d5fd082e",
+      "query": "Supreme Court cert granted Sentencing Guidelines commentary deference Kisor Loper Bright 2026",
+      "result_digest": "e8eb937943041a9c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "5fb4859178c00643",
+      "query": "grep -rn -i \"vacated\\|GVR\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/ --include=*.py | head -20",
+      "result_digest": "4b56c767f41f1d91",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "82c1da3c7055517e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/cert_signals.py\", \"limit\": 80}",
+      "result_digest": "51e3db488a86ed40",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d178a012f32163c7",
+      "query": "\"Beaird\" Supreme Court 25-5343 Stinson certiorari granted amicus appointed",
+      "result_digest": "392a8dbbe06bee21",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "9044808a30046b9f",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "9a64e367a7dc4b7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6401d9b97976a103",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73275168/events/evt-petition-disposition/predictions/claude-baseline/20260713T075800Z",
+      "result_digest": "37bd72a9f218ffad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "357dbaea6f865da6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73275168\\\",\\n  \\\"confidence\\\": 0.55,\\n  \\\"created_at\\\": \\\"2026-07-13T08:04:17Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"granted\\\": 1,\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73275168/record/snapshots/2026-07-13.json\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"probability\\\": 0.6,\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"run",
+      "result_digest": "0a9f5bd1e1e2b3e0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a82f99eb0e835d46",
+      "query": "{\"content\": \"# Poore v. United States, No. 25-227 \\u2014 cert-petition disposition\\n\\n**Prediction: granted (P = 0.60), where \\\"granted\\\" follows the pipeline's coding\\nconvention that a GVR \\u2014 grant, vacate, remand \\u2014 lands on the granted side. The\\nmodal concrete outcome I foresee is a GVR in light of *Beaird v. United States*,\\nNo. 25-5343, not a plenary merits grant.**\\n\\n## The legal question\\n\\nPoore, a \\u00a7 922(g)(1) felon-in-possession defendant, received a base-offense-level\\n",
+      "result_digest": "cb5ca5ed69f2ec1e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "cb5200f3279b4b51",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73275168 / evt-petition-disposition / claude-baseline / 20260713T075800Z\\n\\nMode: `forward` (pending case; retrieval unrestricted). This case's own outcome\\nwas never sought \\u2014 it does not yet exist.\\n\\n## Corpus lookups (`fedcourts`, ranged reads against the remote)\\n\\n1. `uv run fedcourts query --court scotus --topic \\\"sentencing guidelines commentary deference\\\" --limit 8`\\n   \\u2014 similar resolved priors. **0 rows.**\\n   `ranged corpus reads: ",
+      "result_digest": "da13c273c67ca5d2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "03bc322ed5f803c5",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73275168\\\",\\n  \\\"gaps\\\": [\\n    \\\"fedcourts query returned 0 rows for every --topic tried (from very specific down to 'criminal') on scotus; the topic index seems too sparse to surface cert priors, so no corpus priors informed this cell\\\",\\n    \\\"a statpack cut for 'related petition granted / hold candidate' status would capture the single strongest signal in this cell better than relist count\\\",\\n    \\\"the relist_buck",
+      "result_digest": "0b20db1ab423e817",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e5c4a52cd4b27d1b",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73275168\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"This petition is almost certainly being held for Beaird v. United States, No. 25-5343 (cert granted 2026-04-20 on the identical question presented; Poore's conference distributions stopped at the 2026-04-17 conference). Expect no disposition until Beaird is decided (~June 2027), so",
+      "result_digest": "4cd98a41f260f4eb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "65d3606b95d86a4a",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/cases/scotus/73275168/",
+      "result_digest": "a77d6952f827f4fe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "51431b26a67cdeef",
+      "query": "gh issue comment 609 --body \"**claude-baseline** cell done for \\`scotus/73275168\\` / \\`evt-petition-disposition\\` (run \\`20260713T075800Z\\`): predicted **granted**, P(granted) = 0.60. Poore v. United States, No. 25-227, appears to be held for *Beaird v. United States*, No. 25-5343 (granted 2026-04-20 on the identical Guidelines-commentary-deference QP) \u2014 ten relists, then distributions stopped at the 4/17 conference. Modal concrete outcome is a post-*Beaird* GVR (coded \\`granted\\` by the pipelin",
+      "result_digest": "afcd0ee2bd0ae294",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73275168",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0"
+}

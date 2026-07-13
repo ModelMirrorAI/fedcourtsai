@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73275168",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "This petition is almost certainly being held for Beaird v. United States, No. 25-5343 (cert granted 2026-04-20 on the identical question presented; Poore's conference distributions stopped at the 2026-04-17 conference). Expect no disposition until Beaird is decided (~June 2027), so this event will likely stay open for about a year, and its eventual resolution is most plausibly a GVR — which the pipeline's cert-signal labeler codes as 'granted'.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0"
+}

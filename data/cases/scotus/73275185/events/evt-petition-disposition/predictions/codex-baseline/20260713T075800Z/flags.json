@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73275185",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The event is marked unresolved and context.json says forward, but the provisioned 2026-07-13 snapshot contains the May 11, 2026 disposition. The cell therefore does not present a genuinely pending event as configured.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Outcome leakage from the provisioned baseline: the snapshot states that the petition was granted, the judgment vacated and remanded in light of Louisiana v. Callais, with Justices Sotomayor, Kagan, and Jackson dissenting. No retrieval sought the disposition, and the prediction was reconstructed from the pre-disposition record, but contamination cannot be excluded.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0"
+}

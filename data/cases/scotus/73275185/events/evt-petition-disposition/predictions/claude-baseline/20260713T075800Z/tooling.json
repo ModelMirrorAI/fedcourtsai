@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73275185",
+  "gaps": [
+    "A pre-decision snapshot cut (or DECIDED_BEFORE clock) for cells whose docket already contains the outcome — I had to self-censor the disposition entries manually",
+    "Relist/CVSG and distribution-count cuts in the statpack are empty (unknown bucket only); a held-case / relisted-petition grant rate would have been the single most useful number here",
+    "The petition and questions-presented documents were not provisioned (only the BIO); QPs had to be taken from the BIO's restatement",
+    "fedcourts query has no free-text/topic match for SCOTUS dockets (citation lookup on 'Allen v. Milligan' returned nothing), so finding doctrinally similar priors is hit-or-miss"
+  ],
+  "helpful": [
+    "metrics/statpack.md modern-cert base rates as the anchor",
+    "Provisioned brief-in-opposition full text (47 pp.)",
+    "fedcourts query priors showing the multi-distribution-to-grant pattern",
+    "Snapshot's full proceedings list (hold pattern, expedite/stay posture were all visible)"
+  ],
+  "notes": "Corpus query is expensive on the ranged backend (~140 MB transferred across two calls for five usable rows); a smaller index for docket-level priors would cut that substantially.",
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "provisioned snapshot + brief-in-opposition.txt"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

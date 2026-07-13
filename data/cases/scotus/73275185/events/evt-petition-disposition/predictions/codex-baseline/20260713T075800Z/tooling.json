@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73275185",
+  "gaps": [
+    "The ranged corpus backend was unreachable because its remote host did not resolve.",
+    "The provisioned document set omitted the petition and a separate questions-presented extract."
+  ],
+  "helpful": [
+    "The committed certiorari statpack supplied disposition and circuit base rates.",
+    "The complete provisioned brief in opposition supplied the questions and developed factual record.",
+    "CourtListener MCP confirmed relevant pre-petition Supreme Court authority."
+  ],
+  "notes": "The corpus query was attempted with a pre-2025 cutoff to avoid this case but returned no results due to DNS failure. The snapshot's outcome leakage was a data-provisioning issue, not a retrieval-tool issue.",
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "committed statpack",
+    "fedcourts query (attempted; remote unavailable)",
+    "CourtListener MCP search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

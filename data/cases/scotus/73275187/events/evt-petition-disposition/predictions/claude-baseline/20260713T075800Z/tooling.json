@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73275187",
+  "gaps": [
+    "The statpack's relist-count and CVSG cuts are entirely '(unknown)' buckets, so the two signal cuts the prompt says to anchor on were unusable; populating relist/distribution counts from the docket's DISTRIBUTED entries would directly serve cells like this one",
+    "No hold-detection signal in the corpus row (a long gap between distributions with no disposition); I had to infer the hold from raw docket text and fetch the supplemental brief myself to learn the hold target",
+    "A conditional grant-rate cut for call-for-response petitions (respondent waived, Court requested response) would be the single most predictive base rate for SCOTUS cert cells"
+  ],
+  "helpful": [
+    "Provisioned petition/BIO/QP texts were decisive — the split framing and the BIO's vehicle attack came straight from them with no fetching",
+    "fedcourts query --era 2020s surfaced sibling petitions granted/denied 2026-06-30 from the same 6/29 conference, which proved this petition survived the cleanup orders list — the strongest single signal in the cell",
+    "metrics/statpack.md modern-cert section anchored the prior (~4.9% grant)"
+  ],
+  "notes": "Forward-mode web fetch of the docket-linked supplemental brief (identifying the Pung hold) changed the probability by roughly 3x versus snapshot-only reasoning; cheap per-case provisioning of supplemental briefs alongside petition/BIO would capture this systematically.",
+  "role": "predictor",
+  "run_id": "20260713T075800Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "curl + pypdf (docket-linked supplemental brief)",
+    "courtlistener MCP search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
