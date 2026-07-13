@@ -85,9 +85,11 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
     """Per-workflow health from a list of Actions runs (``gh run list --json`` shape).
 
     Each run is expected to carry ``workflowName``, ``status``, ``conclusion``, and
-    timestamps. Workflows are returned sorted by name; within each, the success rate
-    is over *completed* runs only, and durations come from completed runs whose
-    timestamps parse.
+    timestamps. Workflows are returned sorted by name; within each, the success
+    rate and the duration percentiles are over *conclusive* completed runs only
+    (success + the failure family — label-filter skips and other non-conclusive
+    conclusions excluded), so the rate matches the rendered success fraction and
+    the ~1s skip overhead never drags the percentiles.
     """
     by_workflow: dict[str, list[Mapping[str, object]]] = {}
     for run in runs:
@@ -97,18 +99,38 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
     health: list[WorkflowHealth] = []
     for workflow, workflow_runs in sorted(by_workflow.items()):
         completed = [r for r in workflow_runs if r.get("status") == "completed"]
-        successes = sum(1 for r in completed if r.get("conclusion") == "success")
-        failures = sum(1 for r in completed if r.get("conclusion") in _FAILURE_CONCLUSIONS)
-        durations = [s for r in completed if (s := _run_seconds(r)) is not None]
-        # "Most recent" by start time; createdAt is ISO-8601 so string order is time order.
-        recent = max(workflow_runs, key=lambda r: str(r.get("createdAt") or ""))
+        # A skipped run is not an execution: the label-triggered workflows
+        # complete a skipped run for every unrelated `issues: labeled` event
+        # (the job-level label filter, by design), so counting skips would
+        # dilute the rate and drag the duration percentiles toward the ~1s
+        # skip overhead. Health reads over the *conclusive* runs only — which
+        # also keeps the rare neutral/action_required conclusions out of the
+        # rate and percentiles (they still surface as executions in "Last").
+        conclusive = [
+            r
+            for r in completed
+            if r.get("conclusion") == "success" or r.get("conclusion") in _FAILURE_CONCLUSIONS
+        ]
+        successes = sum(1 for r in conclusive if r.get("conclusion") == "success")
+        failures = len(conclusive) - successes
+        durations = [s for r in conclusive if (s := _run_seconds(r)) is not None]
+        # "Most recent" by start time; createdAt is ISO-8601 so string order is
+        # time order. Completed skips are ignored here too — "Last" should
+        # answer "how did the last real execution end" (an in-progress run
+        # still surfaces, as conclusion None).
+        executions = [
+            r
+            for r in workflow_runs
+            if not (r.get("status") == "completed" and r.get("conclusion") == "skipped")
+        ]
+        recent = max(executions or workflow_runs, key=lambda r: str(r.get("createdAt") or ""))
         health.append(
             WorkflowHealth(
                 workflow=workflow,
                 runs_considered=len(workflow_runs),
                 successes=successes,
                 failures=failures,
-                success_rate=(successes / len(completed)) if completed else None,
+                success_rate=(successes / len(conclusive)) if conclusive else None,
                 last_conclusion=(
                     str(recent.get("conclusion")) if recent.get("conclusion") else None
                 ),

@@ -5,3 +5,4 @@
 /corpus.db-wal
 /corpus.db-shm
 *.parquet
+/index.db

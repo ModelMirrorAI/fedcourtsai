@@ -1184,7 +1184,7 @@
             }
           ],
           "default": null,
-          "description": "Conclusion of the most recent run (success, failure, \u2026)",
+          "description": "Conclusion of the most recent real execution (completed label-filter skips ignored when any real execution exists \u2014 an all-skip window reads as skipped; an in-progress run reads as null)",
           "title": "Last Conclusion"
         },
         "last_run_at": {
@@ -1246,7 +1246,7 @@
             }
           ],
           "default": null,
-          "description": "successes / completed runs, or null when none completed",
+          "description": "successes / conclusive completed runs (success + failure family; label-filter skips excluded), or null when none concluded",
           "title": "Success Rate"
         },
         "successes": {
