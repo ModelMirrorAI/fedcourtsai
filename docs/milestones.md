@@ -4,9 +4,10 @@ Where the project stands and what it is aiming at, anchored to the Supreme
 Court's term calendar so public "releases" land when the Court is producing the
 events worth predicting. It is a sequence, not a set of dated commitments: the
 external anchors — the long conference, the end of term — are fixed; the
-internal ordering is load-bearing; the specific timing is our best estimate
-and, like any forecast this project makes, will be reported against honestly
-rather than quietly revised.
+internal ordering is load-bearing; the specific timing is a working estimate,
+shared for transparency. (The project's accountable forecasts are its
+committed predictions, which are evaluated against real outcomes — not this
+planning document.)
 
 ## Why anchor to the SCOTUS calendar
 
@@ -101,9 +102,19 @@ for it — a predictor is just an id, an engine, and a prompt — so it is
 sequenced after the loop and the leaderboard are proven, and after back-testing
 gives a cheap way to screen candidates before they spend live budget.
 
-**Infrastructure step, funding-gated: the CourtListener database replica.**
-Once the project has the support to pay for Free Law Project's replication
-agreement and host a Postgres replica, the ingestion upstreams consolidate onto
-it — full field coverage, continuously current, no request caps (see *The
-planned end-state* in [data-pipeline.md](data-pipeline.md)). The corpus
-boundary and everything downstream of ingestion are unchanged by design.
+**Partnership-gated architecture: Free Law Project.** Several ingestion
+upgrades wait on an established relationship (and, for some, funding) with
+Free Law Project rather than on engineering:
+
+- **Database replication** — a hosted Postgres replica under FLP's replication
+  agreement consolidates the ingestion upstreams: full field coverage,
+  continuously current, no request caps (see *The planned end-state* in
+  [data-pipeline.md](data-pipeline.md)).
+- **Webhooks** — CourtListener's docket-alert webhooks could replace polling
+  for liveness (relevant mainly if the scope ever widens past SCOTUS, whose
+  own site the live channel already polls without limits).
+- **Opinion bodies from the replica** — would obviate storing opinion text in
+  the content store and close out the remaining opinion-body read path.
+
+The corpus boundary and everything downstream of ingestion are unchanged by
+design under all of these.
