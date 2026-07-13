@@ -70,6 +70,21 @@ class Settings(BaseSettings):
     # cutover). Needs the store populated — i.e. ``casestore_url`` set.
     corpus_split: bool = False
 
+    @field_validator("corpus_split", mode="before")
+    @classmethod
+    def _empty_corpus_split_is_off(cls, value: object) -> object:
+        """An empty ``FEDCOURTS_CORPUS_SPLIT`` reads as off, not as a parse error.
+
+        The workflows wire the flag from a repository variable, and an unset
+        variable lands in the job env as the empty string — which pydantic's
+        bool parser rejects. Empty must degrade to the default (off), matching
+        ``casestore_url``'s documented "unset/empty = off", instead of failing
+        every ``get_settings()`` call.
+        """
+        if isinstance(value, str) and not value.strip():
+            return False
+        return value
+
 
 def get_settings() -> Settings:
     return Settings()

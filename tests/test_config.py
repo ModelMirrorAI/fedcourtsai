@@ -1,9 +1,12 @@
 from pathlib import Path
 
+import pytest
+
 from fedcourtsai.config import (
     PredictConfig,
     PredictScope,
     PullConfig,
+    Settings,
     load_courts,
     load_predict_config,
     load_pull_config,
@@ -109,3 +112,15 @@ def test_load_predict_config_defaults_to_scotus_docket(tmp_path: Path) -> None:
 def test_repo_tracking_yaml_carries_default_scope() -> None:
     # The committed config pins the documented default the workflows read.
     assert load_predict_config(Path("config")).scope == PredictScope.scotus_docket
+
+
+def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The workflows wire FEDCOURTS_CORPUS_SPLIT from a repository variable; an
+    # unset variable lands in the job env as the empty string, which must read
+    # as the default (off) — not crash settings resolution.
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "")
+    assert Settings().corpus_split is False
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    assert Settings().corpus_split is True
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "0")
+    assert Settings().corpus_split is False

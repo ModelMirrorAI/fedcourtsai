@@ -123,8 +123,13 @@ jobs:
     # default). Best-effort — a mirror failure only logs, never fails ingestion;
     # enabling also needs the read-write S3 role to permit PutObject +
     # GetObject/HeadObject (the write-once existence check) on that prefix.
+    # FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (flipped at the
+    # clean-slate cutover): '1' stops packing payloads into the blob (the corpus
+    # collapses to the small metadata index) and routes the writer's own payload
+    # reads to the store. Unset variable → '0' → off; needs CASESTORE_URL set.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: write
       issues: write
@@ -447,9 +452,11 @@ jobs:
     # the cap releases the shared corpus-write lock quickly if a network step hangs.
     timeout-minutes: 30
     environment: runner
-    # Corpus-split dual-write flag (see the pull job); off unless CASESTORE_URL is set.
+    # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
+    # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     # Unlike `pull`, the ambient GITHUB_TOKEN is never used here (checkout, the
     # corpus push, and every gh call run on the App token, and there is no
     # authorize-trigger step to need a read) — so it carries no write at all.
@@ -707,9 +714,11 @@ jobs:
     # work's slot.
     timeout-minutes: 125
     environment: runner
-    # Corpus-split dual-write flag (see the pull job); off unless CASESTORE_URL is set.
+    # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
+    # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     # The ambient GITHUB_TOKEN is never used here (checkout, the corpus push,
     # and every gh call run on App tokens) — so it carries no write at all.
     permissions:
