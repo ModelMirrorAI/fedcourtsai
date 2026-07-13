@@ -92,8 +92,8 @@ predicts a green CI run.
 
 **An engine seam with offline backends.** The per-engine execution lives behind a
 runner interface in the library rather than in YAML. Alongside the real
-`claude-code` and `codex` backends sits a `stub` backend that writes schema-valid
-canned artifacts with no model call and no network. The stub exercises the whole
+`claude-code`, `codex`, and `gemini` backends sits a `stub` backend that writes
+schema-valid canned artifacts with no model call and no network. The stub exercises the whole
 cell mechanism — provisioning, artifact production, validation, and the code that
 consumes the output — so the majority of "did I break the plumbing" regressions are
 caught in `pytest`, not in CI. The stub tests the scaffolding, not the judgment;

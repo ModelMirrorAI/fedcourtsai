@@ -296,9 +296,12 @@ class _RecordingRunner:
         return self._stub.run(request)
 
 
-def _fake_get_runner(calls: list[tuple[str, str]]) -> object:
+def _fake_get_runner(calls: list[tuple[str, str]], *, unrouted: str | None = None) -> object:
+    """A `get_runner` double that records routing; ``unrouted`` simulates an engine
+    with no registered runner (raising ``KeyError`` as the real registry would)."""
+
     def factory(backend: str = "stub") -> _RecordingRunner:
-        if backend == "gemini":  # mirrors the real registry: no gemini runner
+        if backend == unrouted:
             raise KeyError(backend)
         return _RecordingRunner(backend, calls)
 
@@ -308,9 +311,8 @@ def _fake_get_runner(calls: list[tuple[str, str]]) -> object:
 def test_replay_routes_each_predictor_through_its_own_engine(
     fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Without an override every predictor rides its configured engine — the
-    # apples-to-apples read — and a predictor whose engine has no registered
-    # runner is absent from the result, never mislabeled through another engine.
+    # Without an override every predictor rides its own configured engine — the
+    # apples-to-apples read — claude-code, codex, and gemini alike.
     calls: list[tuple[str, str]] = []
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
     with corpus.connect(fixture_corpus.db_path) as conn:
@@ -322,12 +324,35 @@ def test_replay_routes_each_predictor_through_its_own_engine(
         work_root=tmp_path / "replay",
         run_id="20260706T000000Z",
     )
-    assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
-    assert ("claude-code", "claude-baseline") in calls
-    assert ("codex", "codex-baseline") in calls
+    assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline", "gemini-baseline"}
     # No cell ever ran on an engine other than its predictor's own.
     routed = {actor: backend for backend, actor in calls}
-    assert routed == {"claude-baseline": "claude-code", "codex-baseline": "codex"}
+    assert routed == {
+        "claude-baseline": "claude-code",
+        "codex-baseline": "codex",
+        "gemini-baseline": "gemini",
+    }
+
+
+def test_replay_drops_a_predictor_whose_engine_has_no_runner(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A predictor whose engine has no registered runner is absent from the result,
+    # never mislabeled through another engine (here gemini stands in for any such
+    # engine, its runner simulated away).
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls, unrouted="gemini"))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    backtesters = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
+    assert "gemini" not in {backend for backend, _ in calls}
 
 
 def test_replay_unknown_override_still_raises(fixture_corpus: FixtureCorpus) -> None:
@@ -397,9 +422,16 @@ def test_cli_auto_routes_and_skips_partial_coverage(
     assert report.events_scored == 1
     assert "skipped 1 petition(s) without a replayable snapshot: scotus/999" in result.stderr
     ids = {e.predictor_id for e in report.entries}
-    assert {"constant-denied", "prior-vote", "claude-baseline", "codex-baseline"} <= ids
-    assert "gemini-baseline" not in ids
-    assert "skipped predictor gemini-baseline" in result.stderr
+    # Every enabled predictor replays through its own engine — gemini-baseline
+    # included, now that the gemini runner is registered.
+    assert {
+        "constant-denied",
+        "prior-vote",
+        "claude-baseline",
+        "codex-baseline",
+        "gemini-baseline",
+    } <= ids
+    assert "skipped predictor" not in result.stderr
 
 
 def test_cli_writes_valid_report_with_stub_replay(
