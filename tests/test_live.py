@@ -183,6 +183,27 @@ def test_from_live_docket_reads_the_disposition_order() -> None:
     assert granted.date_cert_granted == date(2026, 7, 6)
 
 
+def test_from_live_docket_reads_a_bare_gvr_order() -> None:
+    # The grant-less GVR ("Judgment VACATED and case REMANDED ... in light of
+    # ...") resolves the petition on the granted side and stamps the grant
+    # date, so the docket latches instead of lingering pending — an unlatched
+    # decided docket keeps its events open and unscoreable.
+    gvr_entry = {
+        "Date": "May 11 2026",
+        "Text": (
+            "Judgment VACATED and case REMANDED for further consideration in "
+            "light of Louisiana v. Callais."
+        ),
+    }
+    row = from_live_docket(
+        _payload(proceedings=[_payload()["ProceedingsandOrder"][0], gvr_entry]),
+        live_docket_id(25, 274),
+    )
+    assert row.disposition == "granted"
+    assert row.date_cert_granted == date(2026, 5, 11)
+    assert row.date_cert_denied is None
+
+
 def test_from_live_docket_untracked_lower_court_leaves_linkage_unset() -> None:
     payload = _payload()
     payload["LowerCourt"] = "Circuit Court of Michigan, Genesee County"
