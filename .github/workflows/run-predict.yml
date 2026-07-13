@@ -20,6 +20,13 @@ jobs:
     if: github.event.label.name == 'run:predict'
     runs-on: ubuntu-latest
     environment: runner
+    # Corpus-split read side for the matrix scope backstop: the bare-opinion-
+    # import exclusion fetches the case's latest snapshot, which under
+    # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (the
+    # pulled corpus.db is the payload-free index). Unset variable -> '0' -> off.
+    env:
+      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
     permissions:
       contents: read
       id-token: write # assume the AWS role to dvc pull the corpus for scope gating
