@@ -1,0 +1,11 @@
+case_id: scotus/72486032
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-02-25'
+resolved: true
+schema_version: '1.0'
+title: Jorge L. Quintana, Sr., Petitioner v. Tanya Holzhaus, Individually and as Escrow
+  Agent of Stewart Title Company, et al.

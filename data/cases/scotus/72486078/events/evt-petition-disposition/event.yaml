@@ -1,0 +1,11 @@
+case_id: scotus/72486078
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-02-28'
+resolved: true
+schema_version: '1.0'
+title: Victor Charles Rogers, Petitioner v. Eric Guerrero, Director, Texas Department
+  of Criminal Justice, Correctional Institutions Division
