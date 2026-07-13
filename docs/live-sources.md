@@ -55,12 +55,16 @@ Three access facts shape the client:
   poll on a cadence matched to the docket's rhythm (hourly for the conference
   watchlist, daily for frontier probing) rather than hammering.
 
-These facts — and the channel's Term reach — are empirically verified: the
-reachability probe (`fedcourts probe-live-terms`, run 2026-07-10) found 100 %
-JSON availability for OT2017+, a stable schema across all served Terms, and
-machine-matchable disposition orders on every sampled decided petition, with
-document links reliable only ~OT2021+. Findings and the Term-floor decision:
-[live-sources-probe.md](live-sources-probe.md).
+These facts — and the channel's Term reach — are empirically verified by the
+reachability probe (`fedcourts probe-live-terms`), which holds three standing
+conclusions: **the Term floor for full JSON coverage is OT2017** (the e-filing
+era — every number, paid and IFP, with a stable schema across served Terms;
+document links are reliable only ~OT2021+, a rolling retention window);
+**disposition orders ride as plain `ProceedingsandOrder` text readable by the
+shared cert-order patterns** (`pipeline/cert_signals.py`), so every sampled
+decided petition lands with a machine-readable cert label; and the probe is
+**re-run to re-establish that resolver recall claim** after any pattern change
+(and to confirm the document-window edge).
 
 ## Architecture: a third channel, the same corpus
 
@@ -166,10 +170,9 @@ same reason (verified live at implementation).
 ## The historical Term set: per-Term history through the same channel
 
 The docket JSON serves decided petitions all the way back to OT2017 (the
-e-filing era; see [live-sources-probe.md](live-sources-probe.md)), so the cert
-**back-test set** is built through the identical client, mapping, identity, and
-ingest seams as the forward task — the dry run validates the actual instrument,
-not a proxy. `fedcourts historical-terms` (the `run-pull` workflow's
+e-filing era — the probe's Term floor above), so the cert **back-test set** is
+built through the identical client, mapping, identity, and ingest seams as the
+forward task — the dry run validates the actual instrument, not a proxy. `fedcourts historical-terms` (the `run-pull` workflow's
 `historical` job) walks each configured Term's two numbering streams
 sequentially from persisted cursors (`historical-paid` / `historical-ifp` in
 the same cursor table as the forward frontier's, disjoint names so the walkers

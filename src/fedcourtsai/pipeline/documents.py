@@ -9,7 +9,7 @@ DVC-backed corpus, and materialized into the cell's gitignored ``record/``
 path at provisioning — so the snapshot rule holds, every predictor in a
 fan-out reads identical content, and agents never fetch.
 
-Two findings shape the selection (docs/live-sources-probe.md plus a live
+Two findings shape the selection (docs/live-sources.md plus a live
 check at implementation):
 
 - **``QPLink`` is an outcome artifact, never an input.** The ``/qp/`` page is

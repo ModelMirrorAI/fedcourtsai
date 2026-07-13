@@ -162,7 +162,7 @@ class LiveConfig(BaseModel):
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
     # Oldest October Term the refresh rotation reaches — the reachability
-    # probe's floor (docs/live-sources-probe.md): full JSON coverage OT2017+.
+    # probe's floor (docs/live-sources.md): full JSON coverage OT2017+.
     term_floor_year: int = Field(default=2017, ge=1925)
     # Polite-client pacing between requests, seconds.
     throttle_seconds: float = Field(default=1.0, gt=0)
@@ -205,7 +205,7 @@ class HistoricalConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     # Two-digit October Terms to walk, newest first. Floor OT2017 — the
-    # reachability probe's full-JSON floor (docs/live-sources-probe.md).
+    # reachability probe's full-JSON floor (docs/live-sources.md).
     terms: list[int] = Field(default=[25, 24, 23, 22, 21, 20, 19, 18, 17])
     # Keep a denial when serial % denial_sample_every == 0 (1 keeps every denial).
     denial_sample_every: int = Field(default=10, ge=1)

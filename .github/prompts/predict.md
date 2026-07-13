@@ -39,7 +39,7 @@ cached prefix stays as long as possible (don't interleave case facts with them).
    output contract.
 
 **Per-case — read last, right before you write.** The workflow provisions these
-from the corpus (raw facts live in the DVC/S3 corpus, not git); read them where
+from the corpus (raw facts live in the S3 corpus stores, not git); read them where
 the workflow places them for your run:
 
 3. The **event definition** for `$EVENT_ID` — what to predict.
@@ -210,7 +210,12 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
 - **You run headless** (in CI, no interactive input). If the snapshot is missing or
   the event is malformed, do not stall waiting for input — always explain the
   problem in `reasoning.md` and record a `flags.json` note (`category` `blocked` or
-  `data-quality`) so it reaches a maintainer durably, then finish. Make the most
+  `data-quality`) so it reaches a maintainer durably, then finish. A forward cell
+  may legitimately find itself without a provisioned snapshot (provisioning refuses
+  a forward cell whose snapshot's latest entry reads terminal — the case already
+  looks decided): note the gap in `flags.json` and predict from priors and base
+  rates only, treating the case per the first rule above — do not retrieve its
+  current docket state or outcome. Make the most
   conservative reasonable call rather than guessing widely. (A trigger-issue comment
   is fine as an extra, but the issue is closed when the run lands — `flags.json` is
   the channel that survives.)

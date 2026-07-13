@@ -5,7 +5,7 @@ The Court's own site serves a structured JSON docket per case at
 record, minutes-to-hours fresh, with **no API budget**. This is deliberately
 *not* the CourtListener client: no token, no request governor, none of the
 budget machinery. The three access facts from docs/live-sources.md (verified by
-the reachability probe, docs/live-sources-probe.md) shape it instead: a browser
+the reachability probe, docs/live-sources.md) shape it instead: a browser
 user-agent (the default programmatic UA is refused with a 403), a polite ~1
 request/second throttle, and backoff on errors.
 
