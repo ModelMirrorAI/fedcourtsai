@@ -234,13 +234,25 @@ casestore read path *does* list (`s3:ListBucket`) — a latest-snapshot-style
 read lists a case's `snapshots/` to find the newest (`provision-snapshot`, the
 writer's own change detection, the signal backfill), while pure `GetObject`
 reads (`materialize-event`'s event/document reads, document leaves) do not.
-The read-only role must therefore retain `s3:ListBucket` on the casestore
-prefix for as long as the mode is on. A `GetObject`-only narrowing of the cell
-path (no `ListBucket`; the ranged backend resolves index keys from the
-committed pointer and never lists) remains the recorded target for the *index*
-side, but it cannot be applied to the casestore prefix unless a per-case
-snapshot pointer exists so the reader can `GetObject` without listing — do not
-narrow the role and rely on the split mode in the same change.
+The read-only role therefore keeps `s3:ListBucket`, and by decision it stays.
+A `GetObject`-only narrowing was considered and not pursued: the casestore path
+genuinely needs the list while the split is on, so dropping it is not an IAM
+change but a code change (a per-case snapshot pointer to resolve the newest
+snapshot as a deterministic key the reader can `GetObject` without listing) for
+a marginal gain — and the index side already never lists (ranged reads resolve
+the key from the committed pointer). The residual this leaves is bounded and
+understood: on a bucket of only public court-derived objects, `ListBucket` lets
+a holder *enumerate* the ingested-set extent — the compilation extent, the same
+boundary `data/scope/scope.json` withholds from the committed public surface
+(it can enumerate keys for ingested-but-unpublished dockets). But it widens
+discovery, not reach: the role can already `GetObject` that content by key, and
+the no-republication posture is license/content-based (see
+[data-sources.md](data-sources.md)), not identity-based, so enumeration reads
+out nothing the role could not already read given the keys. `ListBucket` is also
+useful for console/Codespaces inspection and future read-side work. The
+least-privilege line that carries the threat model is the one the role already
+holds: **no write or delete** (append-only remote, explicit deny, versioning
+on), the cell-blast-radius bound stated above.
 
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and

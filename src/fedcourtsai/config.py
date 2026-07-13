@@ -47,11 +47,11 @@ class Settings(BaseSettings):
     # The corpus remote's bucket URL, supplied out of band (never committed;
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the committed corpus pointer against it. The bare workflow variable names
-    # are accepted as aliases so the same runner env serves both; the DVC_*
-    # names alias the repo variable's legacy spelling (the workflows still pass
-    # vars.DVC_REMOTE_URL) so the variable can be renamed to CORPUS_REMOTE_URL
-    # without a lockstep change — new names win when both are set, and the
-    # DVC_* aliases retire with that rename.
+    # are accepted as aliases so the same runner env serves both. The workflow
+    # variable is now CORPUS_REMOTE_URL (the rename is done); the DVC_* aliases
+    # survive only for the Codespaces devcontainer secret, still spelled
+    # DVC_REMOTE_URL (see .devcontainer/) — new names win when both are set, and
+    # the DVC_* aliases retire when that secret is renamed too.
     corpus_remote_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
