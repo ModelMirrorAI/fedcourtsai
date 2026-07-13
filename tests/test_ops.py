@@ -2,6 +2,7 @@ import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, ops
@@ -139,11 +140,13 @@ def test_estimate_cost_actions_minutes_and_monthly_projection() -> None:
     ]
     cost = ops.estimate_cost(runs, ops.summarize_spend([]))
     assert cost.actions_minutes == 60.0  # two 30-minute runs
-    assert cost.actions_cost_usd == round(60 * ops._ACTIONS_USD_PER_MINUTE, 4)  # 0.36
+    # Public repo: standard runners are free, so minutes carry no dollar cost.
+    assert cost.actions_cost_usd == 0.0
+    assert ops._ACTIONS_USD_PER_MINUTE == 0.0
     assert cost.window_days == 2.0
-    # $0.36 over 2 days -> $5.40/mo Actions + $55 fixed = $60.40 -> rounded $60.
-    assert cost.actions_monthly_usd == 5.4
-    assert cost.estimated_monthly_usd == 60.4
+    # $0 Actions over 2 days -> the projection reduces to the fixed infra.
+    assert cost.actions_monthly_usd == 0.0
+    assert cost.estimated_monthly_usd == ops._FIXED_MONTHLY_USD
     assert cost.fixed_monthly_usd == ops._FIXED_MONTHLY_USD
 
 
@@ -1128,3 +1131,20 @@ def test_live_frontier_skips_gracefully_without_a_corpus(tmp_path: Path) -> None
     assert result.exit_code == 0, result.output
     frontier = LiveFrontier.model_validate_json(out.read_text())
     assert frontier.skipped is True and frontier.watchlist == 0
+
+
+def test_estimate_cost_projection_arithmetic_with_a_nonzero_rate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The public repo prices Actions at zero, which would mask a regression in
+    # the projection math — prove the arithmetic with the dormant nonzero path.
+    monkeypatch.setattr(ops, "_ACTIONS_USD_PER_MINUTE", 0.006)
+    runs = [
+        _run("run-pull", "success", started="2026-06-24T00:00:00Z", ended="2026-06-24T00:30:00Z"),
+        _run("run-pull", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:30:00Z"),
+    ]
+    cost = ops.estimate_cost(runs, ops.summarize_spend([]))
+    # $0.36 over a 2-day window -> $5.40/mo Actions + $55 fixed.
+    assert cost.actions_cost_usd == 0.36
+    assert cost.actions_monthly_usd == 5.4
+    assert cost.estimated_monthly_usd == 60.4
