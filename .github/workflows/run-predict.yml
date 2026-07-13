@@ -218,8 +218,17 @@ jobs:
               # The Gemini settings file is (re)written whole here — telemetry
               # block included — because the secret-free install step below must
               # stay secret-free; mcp-config merges mcpServers over the base.
+              # context.fileFiltering.respectGitIgnore=false: the case snapshot
+              # is provisioned into the gitignored record/ path (see the provision
+              # step above), and Gemini's read_file honours .gitignore by
+              # default, so without this it cannot read the very files the
+              # prompt contract names — forcing a run_shell_command fallback that
+              # leaves the read unlogged in retrieval_log.json. Claude and Codex
+              # do not gitignore-filter their reads; this brings Gemini in line.
+              # The key is namespaced under `context` per the gemini-cli 0.49.0
+              # settings schema (a bare top-level fileFiltering is ignored).
               mkdir -p .gemini
-              printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
+              printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role predictor --actor "$PREDICTOR_ID" \
                 --base-settings .gemini/settings.json > .gemini/settings.json.new

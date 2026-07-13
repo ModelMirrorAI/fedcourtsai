@@ -1,0 +1,17 @@
+# Files Gemini's read_file / glob / read_many_files tools must never surface.
+#
+# run-predict sets context.fileFiltering.respectGitIgnore=false so the agent can
+# read the case snapshot provisioned into the gitignored data/*/*/record/ path.
+# That also stops .gitignore from hiding the runner-local, secret-bearing files
+# below — chiefly .gemini/settings.json, into which `fedcourts mcp-config` writes
+# the literal CourtListener API token. respectGeminiIgnore stays on by default and
+# is independent of respectGitIgnore, so this list re-establishes a filesystem-level
+# guard beneath the prompt contract's no-literal-secrets rule.
+#
+# Do NOT add data/*/*/record/ here — the predictor is meant to read it.
+/.gemini/
+/.codex/
+/mcp-servers.json
+/.env
+/.envrc
+/.dvc/config.local
