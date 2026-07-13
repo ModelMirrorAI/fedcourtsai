@@ -18,12 +18,10 @@ inputs:
   aws-region:
     description: AWS region for the role/remote (pass vars.AWS_REGION).
     required: true
-  dvc-remote-url:
+  corpus-remote-url:
     description: >-
-      The corpus remote's bucket URL (pass vars.DVC_REMOTE_URL). The input
-      keeps the repo variable's legacy name until the variable itself is
-      renamed to CORPUS_REMOTE_URL; it is passed to the CLI under the new
-      name either way, and the CLI accepts both.
+      The corpus remote's bucket URL (pass vars.CORPUS_REMOTE_URL); the CLI
+      also still accepts the legacy DVC_REMOTE_URL env alias.
     required: true
   missing-pointer:
     description: >-
@@ -44,7 +42,7 @@ runs:
     - name: Pull the corpus
       shell: bash
       env:
-        CORPUS_REMOTE_URL: ${{ inputs.dvc-remote-url }}
+        CORPUS_REMOTE_URL: ${{ inputs.corpus-remote-url }}
         MISSING_POINTER: ${{ inputs.missing-pointer }}
       run: |
         set -euo pipefail

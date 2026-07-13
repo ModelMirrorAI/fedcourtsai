@@ -92,7 +92,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
           missing-pointer: warn
 
       # The real-engine replay shells out to the agent CLIs through the tested

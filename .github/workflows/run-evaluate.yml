@@ -79,7 +79,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
           missing-pointer: warn
 
       - name: Build evaluator x case x event matrix
@@ -165,7 +165,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
 
       # Point-in-time snapshots are raw facts in the access-gated corpus, not git:
       # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
