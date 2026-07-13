@@ -1,0 +1,10 @@
+case_id: scotus/72487254
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-03-11'
+resolved: true
+schema_version: '1.0'
+title: Dagoberto Luna, Petitioner v. Pamela Bondi, Attorney General

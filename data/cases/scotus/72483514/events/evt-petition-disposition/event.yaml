@@ -1,0 +1,10 @@
+case_id: scotus/72483514
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-04-01'
+resolved: true
+schema_version: '1.0'
+title: Elliot McGucken, Petitioner v. Valnet, Inc., a Canadian Corporation, dba TheTravel.com
