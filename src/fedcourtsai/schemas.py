@@ -658,10 +658,14 @@ class WorkflowHealth(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="successes / completed runs, or null when none completed",
+        description="successes / conclusive completed runs (success + failure family; "
+        "label-filter skips excluded), or null when none concluded",
     )
     last_conclusion: str | None = Field(
-        default=None, description="Conclusion of the most recent run (success, failure, …)"
+        default=None,
+        description="Conclusion of the most recent real execution (completed "
+        "label-filter skips ignored when any real execution exists — an "
+        "all-skip window reads as skipped; an in-progress run reads as null)",
     )
     last_run_at: str | None = Field(
         default=None, description="ISO-8601 start of the most recent run in the window"

@@ -1148,3 +1148,33 @@ def test_estimate_cost_projection_arithmetic_with_a_nonzero_rate(
     assert cost.actions_cost_usd == 0.36
     assert cost.actions_monthly_usd == 5.4
     assert cost.estimated_monthly_usd == 60.4
+
+
+def test_summarize_health_excludes_label_filter_skips() -> None:
+    # The label-triggered workflows complete a skipped run for every unrelated
+    # `issues: labeled` event — skips are not executions, so they must not
+    # dilute the rate, drag the duration percentiles toward the ~1s skip
+    # overhead, or masquerade as the "last" run.
+    runs: list[dict[str, object]] = [
+        _run(
+            "run-predict", "success", started="2026-07-13T10:00:00Z", ended="2026-07-13T10:30:00Z"
+        ),
+        _run(
+            "run-predict", "failure", started="2026-07-13T11:00:00Z", ended="2026-07-13T11:10:00Z"
+        ),
+        _run(
+            "run-predict", "skipped", started="2026-07-13T12:00:00Z", ended="2026-07-13T12:00:01Z"
+        ),
+        _run(
+            "run-predict", "skipped", started="2026-07-13T12:30:00Z", ended="2026-07-13T12:30:01Z"
+        ),
+    ]
+    (health,) = ops.summarize_health(runs)
+    assert (health.successes, health.failures) == (1, 1)
+    # Rate over conclusive runs only — matching the rendered "(x/y)" fraction.
+    assert health.success_rate == 1 / 2
+    # Durations exclude the ~1s skips.
+    assert health.median_seconds == 600
+    # The most recent *execution* is the failure, not the later skips.
+    assert health.last_conclusion == "failure"
+    assert health.last_run_at == "2026-07-13T11:00:00Z"
