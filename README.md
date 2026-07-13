@@ -119,7 +119,10 @@ The line is deliberate: raw facts are bulk and regenerable, so they live in
 the packed, access-gated corpus (per-case content objects stay behind index
 pointers, never git tree entries); derived judgments are tiny, critical, and
 worth reading in a diff, so they live in git, validating against the pydantic
-models in `fedcourtsai.schemas` (exported to `schemas/*.schema.json`). Full
+models in `fedcourtsai.schemas` (exported to `schemas/*.schema.json`).
+Alongside the per-case tree, two repo-level roll-ups are regenerated
+deterministically and committed for review: `metrics/` and `data/scope/scope.json`
+(the published prediction-scope decision for the already-public case set). Full
 design: [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## Develop

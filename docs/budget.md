@@ -285,10 +285,11 @@ against that allowance. There is no same-region discount between Actions and S3.
 > below are re-derived under the corrected model and the **ranged-read design**
 > (cells query the blob in place; see [data-pipeline.md](data-pipeline.md)).
 
-> **Pre-split figures.** The storage and egress projections below were sized
-> against the single full corpus blob; under the corpus split (payload-free
-> index + per-case content store) they are pending post-cutover verification
-> against measured transfer.
+> **Split is live; figures not yet measured.** The projections below were sized
+> against the single full corpus blob. The corpus split (payload-free index +
+> per-case content store) is now live in production, so they remain projections
+> pending confirmation against measured transfer — the post-cutover egress check
+> that compares real S3 egress + request counts to these numbers.
 
 The corpus is a handful of large blobs, not millions of files (by design). Even a
 corpus carrying opinion text for the full backlog is plausibly tens of GB; the
@@ -311,10 +312,11 @@ small multiple:
 - **Recurring full pulls (the remaining bulk egress):** the scan-shaped
   consumers still move whole blobs — the corpus-writer jobs (`run-pull`,
   **eight windows a day** across its pull + live jobs ⇒ ~240 pulls/mo on their
-  own), the plan jobs each triggered run, then
-  analytics and an occasional deliberate Codespaces exploration (a maintainer's
-  local cleanup sweep included) or
-  integration check. Order **~250–300 full pulls/mo × blob size**: at today's
+  own), then analytics and an occasional deliberate Codespaces exploration (a
+  maintainer's local cleanup sweep included) or integration check. The
+  predict/evaluate **plan** jobs no longer pull — they read the index in place
+  over the ranged backend, like the cells, so they fall under *Cell reads*
+  above, not here. Order **~250–300 full pulls/mo × blob size**: at today's
   ~0.8 GB blob that is ~100–170 GB/mo, **at or above the free tier** ⇒
   ≈ **$0–10/mo**. This term scales linearly with the blob: at a 10 GB blob the
   same cadence moves ~1–2 TB/mo ≈ **$80–170/mo**, making it — not the cells —

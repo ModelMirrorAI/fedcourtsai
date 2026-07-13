@@ -199,6 +199,18 @@ cell's tooling, scanned by `run-ops` into a tooling digest; advisory, never
 gating. `retrieval_log.json` is the harness-captured tool-call transcript the
 evaluators' leakage grading reads.
 
+**Repo-level roll-ups** sit outside the per-case tree, each a deterministic,
+offline function of the corpus regenerated and committed for review: the
+`metrics/` artifacts (leaderboard, backtest, statpack) and
+`data/scope/scope.json`, the published prediction-scope decision
+(`predict_eligible` / `predict_excluded` / reason / `sample_weight`) for the
+already-public case set. `metrics/` refreshes on the analytics workflow; the
+scope manifest (`fedcourts scope-manifest`) is regenerated on demand — when the
+public set or its scope latches change — and PR'd. It is enumerated from the
+committed `data/cases` tree alone, never a corpus scan, so it discloses only the
+already-public set and cannot enumerate the wider ingested corpus (see
+[cli.md](cli.md)).
+
 ### Credentials and access roles
 
 The corpus remote and the content store are private S3 behind **GitHub OIDC** —
@@ -214,10 +226,10 @@ coherent (blob out of git, pointer well-formed, metrics committed, ranged
 layout); the online pull/push stays with the corpus-writer workflows that hold
 the credentials.
 
-The `DVC_REMOTE_URL` repo variable keeps its legacy name for now — the
-tooling accepts both it and the preferred `CORPUS_REMOTE_URL`, so the
-variable can be renamed without a lockstep change (the alias retires with the
-rename).
+The workflow variable is `CORPUS_REMOTE_URL` (the rename off the old
+`DVC_REMOTE_URL` spelling is done). The tooling still accepts the legacy
+`DVC_*` aliases, which now survive only for the Codespaces devcontainer secret
+(still spelled `DVC_REMOTE_URL`); they retire when that secret is renamed too.
 
 ### Corpus-writer coordination
 
