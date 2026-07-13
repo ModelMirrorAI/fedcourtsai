@@ -47,8 +47,11 @@ from .schemas import (
 _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_failure"})
 
 # Cost constants, kept in sync with docs/budget.md (the single source for rates).
-# GitHub Actions Linux 2-core beyond the included minutes, private repo, USD/min.
-_ACTIONS_USD_PER_MINUTE = 0.006
+# GitHub Actions standard runners are free on a public repository, so the
+# per-minute rate is zero; minutes are still tracked as a runtime-health
+# signal. Set a real rate here if the repo ever goes private or moves to
+# larger runners.
+_ACTIONS_USD_PER_MINUTE = 0.0
 # Infra not metered per run: CourtListener Tier 3 ($50) + S3/DVC (~$5), USD/month.
 _FIXED_MONTHLY_USD = 55.0
 _DAYS_PER_MONTH = 30.0
@@ -579,10 +582,12 @@ def _parse_iso(value: str) -> datetime | None:
 def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> CostEstimate:
     """Rough monthly cost run-rate from run durations + recorded spend + fixed infra.
 
-    GitHub Actions cost is estimated from completed-run wall-clock x the per-minute
-    rate and projected to 30 days from the span of the observed runs (no billing-API
-    access needed); the fixed monthly infra is added. Model token cost is reported
-    cumulatively (not a rate), so it is shown but not added into the projection.
+    GitHub Actions minutes are summed from completed-run wall-clock and priced
+    at the configured per-minute rate — zero on this public repository, where
+    standard runners are free, so the minutes ride along as a runtime-health
+    signal and the projection reduces to the fixed monthly infra. Model token
+    cost is reported cumulatively (not a rate), so it is shown but not added
+    into the projection.
     """
     run_list = list(runs)
     seconds = [s for r in run_list if (s := _run_seconds(r)) is not None]
