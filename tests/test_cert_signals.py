@@ -79,17 +79,80 @@ def test_existing_shapes_still_read() -> None:
 
 def test_expedite_motion_orders_are_not_the_cert_disposition() -> None:
     # The clerk's order on an expedite motion embeds the full cert noun phrase
-    # as the *motion's object*, with the motion's verb right after — and it
-    # appears earlier in docket order than the petition's own disposition, so
-    # a match here would stamp the wrong outcome with the wrong date. Both
-    # polarities must stay unmatched.
+    # as the *motion's object* ("consideration of the petition ..."), with the
+    # motion's verb right after — and it appears earlier in docket order than
+    # the petition's own disposition, so a match here would stamp the wrong
+    # outcome with the wrong date. Both polarities, both the plain and the
+    # before-judgment forms, must stay unmatched.
     for text in (
         "Motion of the Special Counsel to expedite consideration of the "
         "petition for a writ of certiorari before judgment granted.",
         "Motion of petitioners to expedite consideration of the petition "
         "for a writ of certiorari before judgment denied.",
+        "Motion of petitioner to expedite consideration of the petition "
+        "for a writ of certiorari granted.",
+        "Motion of respondent to expedite consideration of the petition "
+        "for a writ of certiorari denied.",
     ):
         assert match_disposition_signal(text) is None, text
+
+
+def test_filing_recital_with_a_conditional_disposition_is_not_an_order() -> None:
+    # A docketing recital — the sentence ends in "filed" — decides nothing,
+    # however much disposition language rides inside it. This exact entry
+    # fabricated a corpus row's grant, dated to the motion's filing.
+    assert (
+        match_disposition_signal(
+            "Motion of petitioner to expedite consideration of the petition for "
+            "a writ of certiorari and to expedite merits briefing and oral "
+            "arugment in the event the petition is granted filed."  # (sic) — verbatim
+        )
+        is None
+    )
+
+
+def test_compound_expedite_and_petition_grant_still_reads() -> None:
+    # The conjunctive compound — motion AND petition granted together — is a
+    # real cert grant: the motion word opens the sentence, but nothing recites
+    # the petition as "consideration of" an object.
+    matched = match_disposition_signal(
+        "The motion to expedite and the petition for a writ of certiorari are "
+        "GRANTED.  The petition for a writ of certiorari before judgment in "
+        "No. 24-1287 is granted.  The cases are consolidated."
+    )
+    assert matched is not None and matched[0] == Disposition.granted
+
+
+def test_stay_application_treated_as_petition_and_granted_still_reads() -> None:
+    # The application-order form that converts a stay application into a CBJ
+    # petition and grants it — a genuine grant that must keep latching.
+    matched = match_disposition_signal(
+        "Application (25A264) for stay presented to The Chief Justice and by "
+        "him referred to the Court is granted. The July 17, 2025 order of the "
+        "United States District Court is stayed. The application is also "
+        "treated as a petition for a writ of certiorari before judgment, and "
+        "the petition is granted (case No. 25-332)."
+    )
+    assert matched is not None and matched[0] == Disposition.granted
+
+
+def test_rule_398_compound_dismissal_still_reads() -> None:
+    # The Rule 39.8 long form opens with a motion word too — the guard must
+    # not eat it: "writ of certiorari is dismissed" is the real disposition.
+    matched = match_disposition_signal(
+        "The motion for leave to proceed in forma pauperis is denied, and the "
+        "petition for a writ of certiorari is dismissed.  See Rule 39.8."
+    )
+    assert matched is not None and matched[0] == Disposition.dismissed
+
+
+def test_ifp_grant_plus_cert_grant_compound_still_reads() -> None:
+    matched = match_disposition_signal(
+        "Motion to proceed in forma pauperis and petition for a writ of "
+        "certiorari GRANTED. Judgment VACATED and case REMANDED for further "
+        "consideration in light of Hewitt v. United States."
+    )
+    assert matched is not None and matched[0] == Disposition.granted
 
 
 def test_party_papers_reciting_a_vacatur_are_not_a_disposition() -> None:
@@ -168,3 +231,25 @@ def test_routine_pending_entries_do_not_match() -> None:
         "Reply of petitioner filed. (Distributed)",
     ):
         assert match_disposition_signal(text) is None, text
+
+
+def test_abbreviation_periods_do_not_split_guard_sentences() -> None:
+    # "Inc." / "No." periods are citations, not sentence ends — a false
+    # boundary would strip the motion-word opening or the terminal "filed"
+    # and let the recital shapes pierce the guard.
+    for text in (
+        "Motion of petitioner Acme Inc. to expedite consideration of the "
+        "petition for a writ of certiorari granted.",
+        "Motion of petitioner to vacate the stay in the event the petition "
+        "is granted in No. 25-332 filed.",
+    ):
+        assert match_disposition_signal(text) is None, text
+
+
+def test_semicolon_scopes_a_trailing_filed_clause() -> None:
+    # The genuine order before a semicolon-joined "...filed" notation must
+    # keep reading — only the trailing clause is a recital.
+    matched = match_disposition_signal(
+        "Petition for a writ of certiorari granted; statement of Justice Alito filed."
+    )
+    assert matched is not None and matched[0] == Disposition.granted

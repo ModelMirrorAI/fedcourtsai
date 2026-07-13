@@ -85,15 +85,75 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
 _SNIPPET_PAD = 40
 
 
+# Sentence-level rejections for pending-docket text that carries disposition
+# words without deciding anything, derived from a survey of every matched entry
+# in the corpus. Two shapes exist in the wild or in the clerk's known repertoire:
+#   - a docketing *recital* — the sentence ends in "filed", so any disposition
+#     words inside are quoted or conditional, never an order ("Motion of
+#     petitioner to expedite consideration of the petition ... in the event the
+#     petition is granted filed."); this shape fabricated a real corpus row's
+#     grant, with the motion's filing date as the "decision" date;
+#   - the order *on an expedite motion* — the sentence opens with a motion word
+#     and recites the petition as the object of "consideration of", so the
+#     trailing verb grants/denies expedition, not the petition. The guard needs
+#     both conditions: a legitimate compound order also opens with a motion
+#     word ("The motion to expedite and the petition ... are GRANTED." — a real
+#     grant, conjunctive subject) and the Rule 39.8 compound opens with "The
+#     motion for leave ..." — neither contains "consideration of".
+_FILED_RECITAL_RE = re.compile(r"\bfiled\s*\.?\s*$", re.IGNORECASE)
+_MOTION_OPEN_RE = re.compile(r"^\s*(?:the\s+)?(?:motion|application)\b", re.IGNORECASE)
+_CONSIDERATION_RE = re.compile(r"\bconsideration of\b", re.IGNORECASE)
+# Candidate sentence boundaries; a semicolon counts so a trailing "...filed"
+# clause never swallows the genuine order before it ("Petition GRANTED;
+# statement of Justice Alito filed.").
+_SENTENCE_END_RE = re.compile(r"(?<=[.!?;])\s+")
+# A period that ends one of these is a citation/abbreviation, not a sentence —
+# "No. 25-332", "ECF Doc. 52", "Trump v. Anderson", "U. S.", "Acme Inc." A
+# false boundary here would strip the guard's anchors (a fragment losing its
+# motion-word opening, or a recital losing its terminal "filed"), so the
+# splitter must merge through them; merging is strictly safe for the guards.
+_ABBREVIATION_TAIL_RE = re.compile(r"(?:\bNos?|\bv|\bvs|\bInc|\bCorp|\bDoc|\b[A-Z])\.$")
+
+
+def _sentence_boundaries(text: str) -> list[int]:
+    """Start offsets of each sentence in ``text``, abbreviation-aware."""
+    starts = [0]
+    for boundary in _SENTENCE_END_RE.finditer(text):
+        if _ABBREVIATION_TAIL_RE.search(text, 0, boundary.start()):
+            continue
+        starts.append(boundary.end())
+    return starts
+
+
+def _containing_sentence(text: str, position: int) -> str:
+    """The sentence of ``text`` that contains character ``position``."""
+    starts = _sentence_boundaries(text)
+    start = max(s for s in starts if s <= position)
+    later = [s for s in starts if s > position]
+    return text[start : later[0] if later else len(text)]
+
+
+def _is_non_order_sentence(sentence: str) -> bool:
+    """Whether disposition words in this sentence decide nothing (see above)."""
+    if _FILED_RECITAL_RE.search(sentence):
+        return True
+    return bool(_MOTION_OPEN_RE.match(sentence)) and bool(_CONSIDERATION_RE.search(sentence))
+
+
 def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
     """First cert-disposition signal in ``text``, as (disposition, label, snippet).
 
     ``None`` when no order language matches — the caller's cue that the text
-    carries no machine-readable cert disposition.
+    carries no machine-readable cert disposition. A match inside a non-order
+    sentence (a filing recital, an expedite-motion order) is skipped and the
+    scan continues, so a later genuine order in the same entry still reads.
     """
     for pattern, disposition, label in _ENTRY_SIGNALS:
-        match = pattern.search(text)
-        if match:
+        position = 0
+        while (match := pattern.search(text, position)) is not None:
+            if _is_non_order_sentence(_containing_sentence(text, match.start())):
+                position = match.end()
+                continue
             start = max(0, match.start() - _SNIPPET_PAD)
             end = min(len(text), match.end() + _SNIPPET_PAD)
             snippet = " ".join(text[start:end].split())
