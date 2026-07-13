@@ -134,3 +134,64 @@ def test_provision_snapshot_replay_mode_is_exempt_from_the_terminal_guard(
 
     assert result.exit_code == 0, result.output
     assert json.loads(out.read_text())["docket_number"] == "24-12"
+
+
+# The raw live-channel snapshot shape: the disposition order sits mid-docket
+# with an administrative notation after it, so the latest-entry routing rule
+# alone cannot see it — the guard's whole-snapshot disposition scan must.
+_LIVE_DECIDED_PAYLOAD = {
+    "CaseNumber": "24-12 ",
+    "ProceedingsandOrder": [
+        {"Date": "Jun 01 2025", "Text": "Petition for a writ of certiorari filed."},
+        {
+            "Date": "May 11 2026",
+            "Text": (
+                "Judgment VACATED and case REMANDED for further consideration "
+                "in light of Louisiana v. Callais."
+            ),
+        },
+        {"Date": "May 11 2026", "Text": "Judgment Issued."},
+        {"Date": "May 11 2026", "Text": "Application (25A1231) denied as moot."},
+    ],
+}
+
+
+def test_provision_snapshot_refuses_a_live_shape_snapshot_with_a_buried_disposition(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 13), _LIVE_DECIDED_PAYLOAD)
+
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "scotus", "--docket", "305", "--refuse-terminal"],
+    )
+
+    assert result.exit_code == 3
+    assert "refusing to provision forward cell" in result.output
+    assert not CasePaths(fixture_corpus.data_root, "scotus", 305).cell_context.exists()
+
+
+def test_provision_snapshot_guard_ignores_a_pending_live_shape_snapshot(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A genuinely pending live snapshot (filed + distributed, no disposition)
+    # provisions under the guard — the disposition scan must not read routine
+    # entries as outcomes.
+    pending = {
+        "CaseNumber": "24-12 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
+            {"Date": "Jun 20 2026", "Text": "Brief of respondent in opposition filed."},
+            {"Date": "Jul 01 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."},
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 14), pending)
+
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "scotus", "--docket", "305", "--refuse-terminal"],
+    )
+
+    assert result.exit_code == 0, result.output

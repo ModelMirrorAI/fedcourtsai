@@ -480,3 +480,32 @@ def test_termination_signal_reads_a_circuit_vacate_and_remand_disposition() -> N
         ],
     }
     assert termination_signal(docket) is not None
+
+
+def test_termination_signal_reads_the_raw_live_payload_shape() -> None:
+    # The live channel stores the supremecourt.gov JSON verbatim as the
+    # point-in-time snapshot: proceedings ride under ProceedingsandOrder/Text,
+    # not docket_entries/description. The signal must read both shapes.
+    docket = {
+        "CaseNumber": "25-274 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
+            {"Date": "May 11 2026", "Text": "Judgment Issued."},
+        ],
+    }
+    assert termination_signal(docket) is not None
+
+
+def test_termination_signal_latest_entry_rule_holds_on_the_live_shape() -> None:
+    # Same pendency semantics on the raw shape: an administrative notation
+    # after the terminal entry is the latest described entry, so the
+    # latest-entry rule reads the docket as active — provisioning's
+    # whole-snapshot disposition scan, not this signal, covers that tail.
+    docket = {
+        "CaseNumber": "25-274 ",
+        "ProceedingsandOrder": [
+            {"Date": "May 11 2026", "Text": "Judgment Issued."},
+            {"Date": "May 11 2026", "Text": "Application (25A1231) denied as moot."},
+        ],
+    }
+    assert termination_signal(docket) is None

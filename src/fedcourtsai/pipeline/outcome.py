@@ -123,6 +123,35 @@ _TERMINAL_ENTRY_RE = re.compile(
 )
 
 
+def entry_descriptions(docket: Mapping[str, Any]) -> list[str]:
+    """Every non-empty entry description in a docket payload, in docket order.
+
+    Reads both payload shapes a stored snapshot can carry: the REST/mapped
+    ``docket_entries`` list (``description`` / ``short_description``) and the
+    raw supremecourt.gov ``ProceedingsandOrder`` list (``Text``) that the live
+    channel stores verbatim as the point-in-time raw fact. The shapes are
+    mutually exclusive per stored payload (each channel stores its own payload
+    whole), so the concatenation order is immaterial in practice. Tolerates
+    malformed entries (skipped, never raised) — the raw payload is unvalidated.
+    """
+    descriptions: list[str] = []
+    for entry in docket.get("docket_entries") or []:
+        if not isinstance(entry, Mapping):
+            continue
+        for key in ("description", "short_description"):
+            description = str(entry.get(key) or "").strip()
+            if description:
+                descriptions.append(description)
+                break
+    for entry in docket.get("ProceedingsandOrder") or []:
+        if not isinstance(entry, Mapping):
+            continue
+        description = str(entry.get("Text") or "").strip()
+        if description:
+            descriptions.append(description)
+    return descriptions
+
+
 def termination_signal(docket: Mapping[str, Any]) -> str | None:
     """A human-readable reason the fresh docket looks already decided, or ``None``.
 
@@ -136,18 +165,14 @@ def termination_signal(docket: Mapping[str, Any]) -> str | None:
     later event. (A linked opinion cluster alone is deliberately not a signal
     here, matching :func:`fedcourtsai.corpus.snapshot_links_opinion_cluster`'s
     callers: a motions-panel opinion can publish on a still-pending appeal.)
-    Pure, over the fresh full-docket payload. Used to keep decided-looking
-    cases out of the forward-prediction queue — a forward cell on a decided
-    case is a mislabeled back-test with unrestricted retrieval, so any
-    predictor could trivially read the outcome.
+    Pure, over the fresh full-docket payload in either shape
+    (:func:`entry_descriptions`). Used to keep decided-looking cases out of
+    the forward-prediction queue — a forward cell on a decided case is a
+    mislabeled back-test with unrestricted retrieval, so any predictor could
+    trivially read the outcome.
     """
-    last_description = ""
-    for entry in docket.get("docket_entries") or []:
-        for key in ("description", "short_description"):
-            description = str(entry.get(key) or "").strip()
-            if description:
-                last_description = description
-                break
+    descriptions = entry_descriptions(docket)
+    last_description = descriptions[-1] if descriptions else ""
     if last_description and _TERMINAL_ENTRY_RE.search(last_description):
         return f"latest docket entry reads as terminal: {last_description!r}"
     return None
