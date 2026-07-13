@@ -3,9 +3,9 @@
 The corpus is a single ~1 GB SQLite blob that commingles two things with very
 different lifetimes: tiny, mutated-every-run metadata (the scannable ``cases``
 columns, scope, cursors) and huge, write-once bulk payloads (dated snapshots and
-extracted document text). Because DVC content-addresses the *whole* file and a
-writer re-pushes it every run, the remote accumulates a fresh ~1 GB object per
-run regardless of how few cases changed.
+extracted document text). Because the index transport content-addresses the
+*whole* file and a writer re-pushes it every run, the remote accumulates a
+fresh ~1 GB object per run regardless of how few cases changed.
 
 This module is the first step of splitting that blob: it stages each case's bulk
 payloads as **browsable per-case objects** in S3, mirroring the git ledger's
@@ -151,7 +151,7 @@ class S3ObjectTransport:
 
     Credentials and region come from the environment (the OIDC-assumed role in
     workflows, the developer's profile locally), exactly like the ranged reader
-    and DVC's own boto3.
+    and the whole-file corpus transport.
     """
 
     def __init__(self, bucket: str, *, prefix: str = "") -> None:

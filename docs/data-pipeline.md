@@ -133,11 +133,15 @@ live in different stores, split by **kind**:
      (`corpus/corpus.db`) carrying the scannable `cases` columns (including
      `summary` and a `has_opinion` presence bit), the events and cursors, and
      the schema itself — everything queries, scans, scope gating, and base
-     rates need. It is versioned with **DVC** (the blob in the private S3
-     remote, the `corpus.db.dvc` pointer in git; DVC also versions the
-     `metrics/` roll-ups per `dvc.yaml`). The planned direction is to unify
-     the index's transport onto the same boto3-against-S3 pattern the content
-     store uses.
+     rates need. The blob lives in the private S3 remote at a
+     **content-addressed, add-only** key (`index/sha256/<digest>`) and only
+     the small JSON pointer (`corpus/corpus.db.ref`: key, size, sha256,
+     schema version) is
+     committed — `fedcourts corpus-push` publishes a new immutable version,
+     `corpus-pull` fetches and **checksum-verifies** what the pointer names,
+     the same boto3-against-S3 pattern the content store uses. (The `metrics/`
+     roll-ups are plain git-tracked files; the offline gate checks they stay
+     committed.)
    - **The per-case content store** (`fedcourtsai.casestore`) — a browsable,
      **write-once**, access-gated S3 store holding the bulk payloads: dated
      point-in-time snapshots, extracted filed-document text, and opinion
@@ -197,28 +201,40 @@ evaluators' leakage grading reads.
 
 ### Credentials and access roles
 
-The DVC remote and the content store are private S3 behind **GitHub OIDC** —
+The corpus remote and the content store are private S3 behind **GitHub OIDC** —
 no static keys in workflows; two IAM roles split read-write (the corpus
-writers) from read-only (every consumer). The committed `.dvc/config` holds no
-credentials and no bucket URL; each job (and each operator) supplies the URL
-out of band into the gitignored `.dvc/config.local`. The full wiring — roles,
-the per-workflow access table, trust scoping, bucket posture — is
-single-sourced in [security.md](security.md). The CI gate has no remote, so it
-runs the offline half: `fedcourts dvc-status` checks the committed DVC
-bookkeeping is internally coherent; the online `dvc status` stays with the
-corpus-writer workflows that hold the credentials.
+writers) from read-only (every consumer). No config file carries credentials
+or the bucket URL; each job (and each operator) supplies the URL out of band
+as the `CORPUS_REMOTE_URL` environment variable, and boto3 takes its
+credentials from the environment. The full wiring — roles, the per-workflow
+access table, trust scoping, bucket posture — is single-sourced in
+[security.md](security.md). The CI gate has no remote, so it runs the offline
+half: `fedcourts corpus-status` checks the committed bookkeeping is internally
+coherent (blob out of git, pointer well-formed, metrics committed, ranged
+layout); the online pull/push stays with the corpus-writer workflows that hold
+the credentials.
+
+**Transition state (one cycle).** The index transport just moved off DVC onto
+the direct boto3 pattern above. Until the first writer run publishes the new
+`corpus.db.ref` pointer, readers fall back to the legacy committed
+`corpus.db.dvc` pointer (resolved against DVC's md5 cache layout,
+md5-verified on pull); the `.dvc` file stays committed for exactly that one
+cycle and a follow-up change deletes it together with the fallback shim. The
+`DVC_REMOTE_URL` repo variable keeps its name for now — the tooling accepts
+both it and the preferred `CORPUS_REMOTE_URL`, so the variable can be renamed
+without a lockstep change.
 
 ### Corpus-writer coordination
 
-`corpus/corpus.db` is one mutable SQLite blob behind one DVC pointer, and three
-writer jobs mutate it. A blob has no merge, so the pointer is last-writer-wins:
+`corpus/corpus.db` is one mutable SQLite blob behind one committed pointer, and
+three writer jobs mutate it. A blob has no merge, so the pointer is last-writer-wins:
 concurrent or divergent-base writers would silently drop each other's rows.
 Two rules prevent that: **one lock** — the writer jobs share the `corpus-write`
 concurrency group (`cancel-in-progress: false`), so corpus writers never run
 simultaneously — and **reset to the live tip before mutating**: because
 `actions/checkout` pins the run's *creation-time* sha, each writer job first
 `git fetch`es and `git reset --hard`s to the current tip of the default branch
-before `dvc pull → mutate → dvc add → dvc push → commit the pointer`, so it
+before `corpus-pull → mutate → corpus-push → commit the pointer`, so it
 always builds on its predecessor's writes (an unrelated tip advance after the
 reset rebases cleanly; a pointer conflict aborts the rebase and fails loudly).
 The content store needs no such lock: its per-case objects are write-once and
@@ -229,22 +245,22 @@ its manifests versioned, so concurrent mirrors cannot drop each other's data.
 `fedcourtsai.corpus_ranged` implements **ranged remote reads**: a read-only
 SQLite VFS (apsw) that queries the immutable, content-addressed blob in place
 on the remote, serving page reads from block-aligned S3 ranged `GET`s (fixed
-256 KB blocks through a per-connection LRU; the file size comes from the DVC
-pointer, so the object is never `HEAD`ed). Immutability is what makes this
+256 KB blocks through a per-connection LRU; the file size comes from the
+committed pointer, so the object is never `HEAD`ed). Immutability is what makes this
 sound with **no consistency machinery**: the committed pointer names one exact
 byte sequence, so a reader can never observe a torn write. The blob's physical
 layout is a contract with that access pattern, and the writers guarantee it:
 **64 KB pages** (a B-tree descent costs a handful of round trips) and a
 **non-WAL journal mode at rest** (a WAL reader needs the `-wal` sidecar, which
 never ships). `corpus.connect` creates every database with this layout, each
-writer command rebuilds a drifted file (`VACUUM`) before its `dvc add`, and
-`fedcourts dvc-status` fails on a drifted local file — enforced, not
-remembered. The retrieval read paths are index-served (pinned by `EXPLAIN
+writer command (and `corpus-push` itself) rebuilds a drifted file (`VACUUM`)
+before the push, and `fedcourts corpus-status` fails on a drifted local file —
+enforced, not remembered. The retrieval read paths are index-served (pinned by `EXPLAIN
 QUERY PLAN` tests), keeping a ranged point lookup at KB scale.
 
 Read-only consumers go through `corpus.connect_readonly`, which picks the
 backend from the corpus-backend setting (or an explicit override): `local`
-opens the `dvc pull`-ed file, `ranged` resolves the committed pointer against
+opens the pulled file, `ranged` resolves the committed pointer against
 the out-of-band remote URL; writers never use this seam. Each ranged connection
 reports its `GET`s and bytes fetched to stderr — the per-query egress evidence
 retrieval logging and the integration check consume — and the transport is one
@@ -291,17 +307,17 @@ serves it in two modes, both strictly **read-only** (see
 [security.md](security.md)): **ranged queries** for quick lookups
 (`--corpus-backend ranged` on `query` / `open-events` / `corpus-info` —
 per-query egress in KBs) and **a deliberate full pull** for scan-heavy
-exploration (`uv run dvc pull corpus/corpus.db.dvc`). Default to ranged:
+exploration (`uv run fedcourts corpus-pull`). Default to ranged:
 Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.
 
 Credentials arrive as **user-scoped** Codespaces secrets — never repo-level,
 never committed: the **maintainer** via IAM Identity Center (short-lived SSO
 sessions assuming the read-only role, configured by the devcontainer's
 post-create hook), **contributors** via a dedicated read-only IAM user's key
-pair, provisioned on demand (see [security.md](security.md)). The hook writes
-the gitignored `.dvc/config.local` exactly as the workflows do; absent secrets
-it prints a note and succeeds — the offline fixture loop and the full gate
-need no remote.
+pair, provisioned on demand (see [security.md](security.md)). The hook exports
+the remote URL as `CORPUS_REMOTE_URL`, exactly the env contract the workflows
+use; absent secrets it prints a note and succeeds — the offline fixture loop
+and the full gate need no remote.
 
 ### Corpus schema
 
@@ -317,7 +333,7 @@ shared with the ledger models.
 ### Consumers of the historical corpus
 
 - **Back-testing** — replay predictors against historical *resolved* events
-  (outcome hidden at predict time): `fedcourts backtest` (the `backtest` DVC
+  (outcome hidden at predict time): `fedcourts backtest` (the `backtest`
   stage → `metrics/backtest.json`) and the maintainer-triggered `cert-backtest`
   engine replay.
 - **Base-rate aggregation** — `fedcourts stats` on demand, and the published

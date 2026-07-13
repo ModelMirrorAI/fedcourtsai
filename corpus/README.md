@@ -13,14 +13,17 @@ internals and developer access.
 
 The corpus has two halves:
 
-- **The index** — a single **SQLite** database, `corpus/corpus.db`, versioned
-  with **DVC**: the blob lives in the DVC remote (a private S3 bucket) and only
-  the small `corpus.db.dvc` pointer is committed to git (the blob and its
+- **The index** — a single **SQLite** database, `corpus/corpus.db`: the blob
+  lives in the corpus remote (a private S3 bucket) at a content-addressed,
+  add-only key and only the small `corpus.db.ref` pointer (key + size +
+  sha256 + schema version; see
+  [`fedcourtsai.corpus_remote`](../src/fedcourtsai/corpus_remote.py))
+  is committed to git (the blob and its
   sidecars are gitignored). In production (the corpus-split mode,
   `FEDCOURTS_CORPUS_SPLIT=1` on the runner environment) the writers keep it
   **payload-free**: the `snapshots`/`documents` tables stay empty and
   `cases.opinion_text` stays NULL (a `has_opinion` presence bit is retained),
-  so the blob stays a small metadata index and its per-run `dvc push` does not
+  so the blob stays a small metadata index and its per-run push does not
   grow with the bulk. With the mode off (the default — dev environments, the
   fixture loop, offline tests) the same schema holds the payloads inline in a
   single self-contained blob.
@@ -42,7 +45,7 @@ The corpus has two halves:
   versioned by the bucket rather than deleted. Its location comes from
   `FEDCOURTS_CASESTORE_URL`.
 
-SQLite keeps the index a single artifact — one DVC pointer, queryable with
+SQLite keeps the index a single artifact — one pointer, queryable with
 plain SQL. The format is internal; the stable contract is the **row schema**
 below, whose identifiers and `Disposition` vocabulary are shared with the
 ledger models in `fedcourtsai.schemas`.
@@ -170,8 +173,8 @@ this table stays empty; with the split mode off they live inline:
 ## Working with it locally
 
 ```bash
-dvc remote modify --local storage url "<your bucket url>"   # one-time, see SECURITY.md
-dvc pull                 # fetch corpus.db from the remote
+export CORPUS_REMOTE_URL="<your bucket url>"   # out of band, see SECURITY.md
+fedcourts corpus-pull    # fetch corpus.db from the remote (checksum-verified)
 fedcourts corpus-info    # show the location and row count
 ```
 

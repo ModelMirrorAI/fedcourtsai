@@ -70,8 +70,8 @@ live:
   frontier_misses: 2
   # Per-document cap on extracted text stored in the corpus: ~40 dense
   # pages. Documents (petition, questions presented, BIO) are fetched on the
-  # same distribution transition that queues predict; the cap bounds DVC blob
-  # growth, and a truncated document is flagged in its provisioning manifest.
+  # same distribution transition that queues predict; the cap bounds corpus
+  # blob growth, and a truncated document is flagged in its provisioning manifest.
   document_text_cap: 150000
   # Predict timing is not configured here: the live channel queues run:predict
   # on a DISTRIBUTION TRANSITION — a petition newly distributed for a

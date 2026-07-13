@@ -8,9 +8,9 @@ Term year, disposition). A pure function of the corpus — no clock, no network,
 randomness — so the same corpus yields byte-identical output.
 
 Exposed two ways, both read-only: ``fedcourts stats`` (a maintainer investigating the
-corpus, or a predictor pulling base-rate context after a ``dvc pull``) and the
+corpus, or a predictor pulling base-rate context after a corpus pull) and the
 ``corpus-stats`` mode of the ``run-analytics`` workflow. It never writes the corpus,
-``data/``, DVC, or git.
+``data/``, the corpus remote, or git.
 """
 
 from __future__ import annotations
@@ -354,7 +354,7 @@ def compute_report(conn: sqlite3.Connection, query: AnalyticsQuery) -> Analytics
 def run_analytics(*, corpus_db_path: Path, query: AnalyticsQuery) -> AnalyticsReport:
     """Compute base-rates from the packed corpus, or a skipped report if it is absent.
 
-    Graceful before a ``dvc pull`` (mirrors :func:`fedcourtsai.validate.run_scope_audit`):
+    Graceful before a corpus pull (mirrors :func:`fedcourtsai.validate.run_scope_audit`):
     a missing corpus yields ``skipped=True`` with an empty total rather than an error.
     """
     if not corpus_db_path.exists():
@@ -630,7 +630,7 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
 
     Deterministic and offline — a pure function of the corpus — so reruns reproduce it
     byte for byte. Mirrors ``fedcourts backtest`` / ``leaderboard``: an absent corpus
-    (run before ``dvc pull``) yields the empty zero-count pack rather than an error.
+    (run before a corpus pull) yields the empty zero-count pack rather than an error.
 
     Two populations, kept apart by section flags: the full-corpus overview
     (bulk import included) for composition context, and the live-slice weighted
@@ -896,7 +896,7 @@ def render_markdown(report: AnalyticsReport) -> str:
     report.
     """
     if report.skipped:
-        return "## Corpus analytics\n\n_No corpus present — run after `dvc pull`._\n"
+        return "## Corpus analytics\n\n_No corpus present — run after `fedcourts corpus-pull`._\n"
 
     total = report.total
     lines = [

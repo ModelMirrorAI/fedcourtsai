@@ -274,7 +274,7 @@ def test_predict_matrix_scope_all_keeps_every_case(tmp_path: Path) -> None:
 
 def test_predict_matrix_missing_corpus_fails_loudly(tmp_path: Path) -> None:
     # Regression: the scope gate reads each case's corpus row. If the
-    # corpus DB was never provisioned (e.g. the planning job skipped `dvc pull`),
+    # corpus DB was never provisioned (e.g. the planning job skipped the corpus pull),
     # an absent database must abort loudly — not silently drop every case and emit
     # an empty matrix, which reads as a normal "nothing in scope" result and skips
     # the predict job. The config exists; only the corpus DB is missing.

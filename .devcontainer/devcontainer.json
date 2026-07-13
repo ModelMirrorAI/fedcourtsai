@@ -29,7 +29,7 @@
       "description": "Read-only corpus IAM user's secret access key (contributor path)"
     },
     "DVC_REMOTE_URL": {
-      "description": "DVC remote S3 URL, written to the gitignored .dvc/config.local on create (both paths)"
+      "description": "Corpus remote S3 URL (legacy secret name, exported as CORPUS_REMOTE_URL on create; both paths)"
     }
   },
   "customizations": {

@@ -67,7 +67,7 @@ branch:
 - **`main: require PR`** — requires a pull request plus the `gate` status check to
   merge. **Bypass: the data App only**, so the deterministic
   `run-pull` writer jobs push corpus facts (the corpus blob — rows and point-in-time
-  snapshots — to the DVC remote; its pointer and deterministic `outcome.json` to
+  snapshots — to the S3 corpus remote; its pointer and deterministic `outcome.json` to
   `main`) while all agent code changes — including anything the dev App holds —
   go through a reviewed PR. The dev App is deliberately **absent** from this
   bypass list. Required approvals are `0` (a maintainer reviews at merge time); set
@@ -154,7 +154,7 @@ credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion and, via the cells'
 MCP config and the predict agent steps' scoped env for the REST fallback, by
 agent retrieval; unset degrades the agents to anonymous rate
-limits), the AWS role ARNs and region, and the DVC remote URL (referenced by
+limits), the AWS role ARNs and region, and the corpus remote URL (referenced by
 role, never committed). Every job that needs any of them declares
 `environment: runner`.
 
@@ -171,15 +171,16 @@ Every `runner` job already runs from a `main` ref for its trigger — `schedule`
 ## S3 / the private stores
 
 Two IAM roles, assumed via GitHub OIDC (no static keys), cover both private S3
-stores — the DVC remote (the corpus index and metrics) and the per-case content
-store:
+stores — the corpus remote (the index blob under its content-addressed
+`index/sha256/<digest>` keys, plus the legacy DVC `files/md5/**` objects until
+the transition shim retires) and the per-case content store:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`) —
   **append-only**: it can read, list, and add objects, with an explicit
-  `Deny` on every delete and on bucket-versioning changes. Content-
-  addressed `dvc push` only ever adds objects, no run garbage-collects the
-  remote (the historical job's `dvc gc --workspace` prunes only its local runner cache,
-  never `--cloud`), and the content store's write-once objects and versioned
+  `Deny` on every delete and on bucket-versioning changes. The
+  content-addressed `fedcourts corpus-push` only ever adds objects (an
+  existing digest key is left untouched), no run garbage-collects the remote,
+  and the content store's write-once objects and versioned
   manifests never need a delete; this means no run can wipe corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
   *consumer* job — read and list only, so a compromised consumer runner
@@ -193,11 +194,11 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (all three jobs)               | read-write    | corpus writers (`dvc push` + content-store mirror) |
-| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the whole index (full `dvc pull`) |
-| `run-backtest`                            | read-only     | replay: full index `dvc pull` + redacted snapshots from the content store |
+| `run-pull` (all three jobs)               | read-write    | corpus writers (`corpus-push` + content-store mirror) |
+| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the whole index (full `corpus-pull`) |
+| `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only | record provisioning from the content store + ranged index queries (no pull) |
-| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `dvc pull`) |
+| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`) |
 | `integration-corpus`                      | read-only     | ranged read-path preflight (role assumed directly, no pull) |
 | `run-ops`                                 | none          | dashboard reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |

@@ -25,12 +25,13 @@ from . import (
     corpus,
     corpus_index,
     corpus_ranged,
-    dvc,
+    corpus_remote,
     ids,
     integration_check,
     mcp,
     metrics_refresh,
     provision,
+    repo_gate,
     retrieval,
 )
 from .agent_feedback import post_agent_feedback
@@ -185,7 +186,7 @@ def validate(
     Two corpus-free layers the PR gate can enforce offline: every known artifact
     matches its schema, and every judgment references an event that exists in the
     git tree (with its declared ids matching the path) while every evaluation
-    targets a real prediction. The corpus-dependent referential checks need the DVC
+    targets a real prediction. The corpus-dependent referential checks need the
     remote, so they run scheduled via ``validate-corpus`` rather than here.
     """
     result = validate_ledger(path)
@@ -235,7 +236,7 @@ def validate_corpus_cmd(
     correctness invariants that span the two stores — the corpus is append-only and
     self-consistent, and no git-ledger judgment under ``data/`` is an orphan. Writes
     the structured ``CorpusValidation`` verdict and prints a one-line summary.
-    Graceful when the corpus is absent (run before ``dvc pull``): writes a skipped
+    Graceful when the corpus is absent (run before a corpus pull): writes a skipped
     verdict and exits 0. The exit code reports check health (non-zero on a failed
     verdict) so a caller can surface it; the wiring that runs this treats a failure
     as loud-not-fatal, never blocking on it.
@@ -284,7 +285,7 @@ def corpus_scope_audit_cmd(
     the cases, open events, and the recoverable subset (those whose case carries an
     opinion/citation/decision-date signal — a hint the disposition is an ingestion gap
     rather than genuinely absent). Writes the `CorpusScopeAudit` and prints a summary.
-    Graceful when the corpus is absent (run before `dvc pull`): writes a skipped audit
+    Graceful when the corpus is absent (run before a corpus pull): writes a skipped audit
     and exits 0. The corpus-writer path publishes this for `run-ops` to present.
     """
     settings = get_settings()
@@ -328,14 +329,14 @@ def reconcile_scope_cmd(
     (`corpus.out_of_scope_reason_full` — the row rules plus the snapshot-aware bare
     opinion-import rule) and clears it on those back in scope — so `open-events` (and
     thus the predict/queueing paths) drop excluded cases at the source. Dry-run by
-    default; `--apply` writes (the historical job then `dvc push`es the corpus). Prints a
+    default; `--apply` writes (the historical job then pushes the corpus). Prints a
     `ScopeReconcileResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
         typer.echo(
-            f"the corpus database is missing at {db_path}; provision it (dvc pull) "
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
             "before running the scope reconcile.",
             err=True,
         )
@@ -350,44 +351,120 @@ def reconcile_scope_cmd(
     typer.echo(result.model_dump_json())
 
 
-@app.command("dvc-status")
-def dvc_status(
+@app.command("corpus-status")
+def corpus_status(
     path: Annotated[Path, typer.Argument(help="Repository root to check.")] = Path("."),
 ) -> None:
-    """Check the committed DVC metadata is internally consistent (offline).
+    """Check the committed corpus + metrics bookkeeping is consistent (offline).
 
-    The CI gate has no DVC remote or credentials, so it cannot diff the corpus
-    blob against S3. This is the offline half that can run there: it confirms
-    every DVC-tracked data output (the ``corpus/corpus.db.dvc`` pointer, any
-    cached stage output) is well-formed, gitignored, and absent from git — so the
-    corpus blob can never slip into the repo — and that every ``cache: false``
-    pipeline output (the ``metrics/`` roll-ups) is committed. When the corpus
-    blob is present locally it also checks the file's physical layout against
-    the ranged-read contract (64 KB pages, non-WAL at rest) so a drifted file
-    fails loudly before it is pushed. Exits non-zero and lists every problem if
-    the bookkeeping has drifted. The online ``dvc status`` / push side belongs
-    to the data workflows that hold the remote credentials.
+    The CI gate has no corpus remote or credentials, so it cannot diff the
+    corpus blob against S3. This is the offline half that can run there: it
+    confirms the corpus blob is gitignored and absent from git — so it can
+    never slip into the repo — that the committed ``corpus/corpus.db.ref``
+    pointer (when present) is well-formed, and that every metrics roll-up is
+    on disk and committed. When the corpus blob is present locally it also
+    checks the file's physical layout against the ranged-read contract (64 KB
+    pages, non-WAL at rest) so a drifted file fails loudly before it is
+    pushed. Exits non-zero and lists every problem if the bookkeeping has
+    drifted. The online pull/push side belongs to the data workflows that
+    hold the remote credentials.
     """
-    is_tracked, is_ignored = dvc.git_checkers(path)
-    errors = dvc.check_state(path, is_tracked=is_tracked, is_ignored=is_ignored)
-    outs, _ = dvc.collect_outs(path)
-    tracked = dvc.tracked_paths(outs)
-    # The ranged-read layout contract rides on the same offline gate: check the
-    # corpus blob's header whenever the file is present (absent is fine — the
-    # gate runs before any `dvc pull`).
-    errors += [
-        problem
-        for out_path in tracked
-        if out_path.name == corpus.CORPUS_DB_FILENAME
-        for problem in corpus.check_ranged_layout(path / out_path)
-    ]
+    is_tracked, is_ignored = repo_gate.git_checkers(path)
+    errors = repo_gate.check_state(path, is_tracked=is_tracked, is_ignored=is_ignored)
     if errors:
         for err in errors:
-            typer.echo(f"DVC {err}", err=True)
-        typer.echo(f"\n{len(errors)} DVC metadata problem(s)", err=True)
+            typer.echo(f"corpus-status: {err}", err=True)
+        typer.echo(f"\n{len(errors)} corpus bookkeeping problem(s)", err=True)
         raise typer.Exit(code=1)
-    summary = ", ".join(str(p) for p in tracked) if tracked else "none"
-    typer.echo(f"OK: DVC metadata consistent ({len(tracked)} remote-tracked output(s): {summary})")
+    pointer = "pointer present" if (path / repo_gate.CORPUS_POINTER).is_file() else "no pointer yet"
+    typer.echo(
+        f"OK: corpus bookkeeping consistent ({repo_gate.CORPUS_BLOB} out of git, {pointer}, "
+        f"{len(repo_gate.METRICS_ARTIFACTS)} metrics artifact(s) committed)"
+    )
+
+
+def _require_corpus_remote_url() -> str:
+    """The out-of-band corpus remote URL, or a loud CLI exit when unset."""
+    remote_url = get_settings().corpus_remote_url
+    if remote_url is None or not remote_url.strip():
+        typer.echo(
+            "corpus remote URL is not configured; set CORPUS_REMOTE_URL "
+            "(the same out-of-band value the workflows use — see SECURITY.md)",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    return remote_url.strip()
+
+
+@app.command("corpus-pull")
+def corpus_pull(
+    missing_pointer: Annotated[
+        str,
+        typer.Option(
+            help="What to do when no corpus pointer is committed: 'fail' the "
+            "command, or 'warn' and exit cleanly (writers: a fresh repo starts "
+            "an empty corpus)."
+        ),
+    ] = "fail",
+) -> None:
+    """Download the corpus index blob from the remote, checksum-verified.
+
+    Resolves the committed pointer (``corpus/corpus.db.ref``, or the legacy
+    ``.dvc`` pointer for one transition cycle) against the out-of-band remote
+    URL, streams the blob to ``corpus/corpus.db``, and verifies its digest and
+    size before the file lands — a truncated or corrupted transfer fails
+    loudly instead of masquerading as the corpus.
+    """
+    if missing_pointer not in {"fail", "warn"}:
+        typer.echo(f"--missing-pointer must be 'fail' or 'warn', not {missing_pointer!r}", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    try:
+        pointer = corpus_ranged.find_pointer(db_path)
+    except corpus_ranged.RangedBackendError as exc:
+        if missing_pointer == "warn":
+            typer.echo("No corpus pointer yet; starting a fresh corpus.")
+            return
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    remote_url = _require_corpus_remote_url()
+    try:
+        remote = corpus_remote.download_index(pointer, remote_url, db_path)
+    except (corpus_remote.CorpusRemoteError, corpus_ranged.RangedBackendError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    # Deliberately no remote key in the log line: the joined key carries the
+    # remote URL's path prefix, which is supplied out of band and never
+    # published (see SECURITY.md); size + verified digest identify the pull.
+    typer.echo(
+        f"pulled {db_path} ({remote.size} bytes, {remote.checksum_algorithm}-verified, "
+        f"{remote.checksum})"
+    )
+
+
+@app.command("corpus-push")
+def corpus_push() -> None:
+    """Publish the corpus index blob to the remote and rewrite the pointer.
+
+    Digests ``corpus/corpus.db``, uploads it to its content-addressed key
+    (put-if-absent: the remote stays add-only, every version immutable), and
+    only then rewrites ``corpus/corpus.db.ref`` — so a committed pointer
+    always resolves against the remote. The writer workflows commit the
+    pointer after this command returns. Rebuilds the file to the ranged-read
+    layout first if it drifted (the same guarantee every writer command gives).
+    """
+    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    remote_url = _require_corpus_remote_url()
+    try:
+        _ensure_corpus_layout(db_path)
+        pointer = corpus_remote.upload_index(db_path, remote_url)
+    except (corpus_remote.CorpusRemoteError, corpus_ranged.RangedBackendError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(
+        f"pushed {db_path} ({pointer.size} bytes) to {pointer.key}; "
+        f"pointer rewritten at {corpus_remote.pointer_path_for(db_path)}"
+    )
 
 
 @app.command()
@@ -441,7 +518,7 @@ def backtest(
     and the prediction is scored against the known disposition. Deterministic and
     offline — a pure function of the corpus — so reruns reproduce the file byte
     for byte. Writes an empty zero-count report when the corpus is absent (run
-    after `dvc pull`) or carries no resolved events.
+    after a corpus pull) or carries no resolved events.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -575,8 +652,8 @@ def statpack(
     with a cursor-derived filings census, per-fee-class estimates, and
     walk-complete flags. Deterministic and offline: a pure function of the
     corpus, so reruns reproduce both files byte for byte. Writes the empty
-    zero-count pack when the corpus is absent (run after `dvc pull`).
-    Git-tracked as a DVC metric alongside `leaderboard` / `backtest`.
+    zero-count pack when the corpus is absent (run after a corpus pull).
+    Git-tracked alongside `leaderboard` / `backtest`.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -1055,8 +1132,8 @@ CorpusBackendOption = Annotated[
     str,
     typer.Option(
         "--corpus-backend",
-        help="Corpus read backend: local (the dvc-pulled file) or ranged (query "
-        "the blob in place on the DVC remote); the provisioning commands also "
+        help="Corpus read backend: local (the pulled file) or ranged (query "
+        "the blob in place on the corpus remote); the provisioning commands also "
         "accept casestore (read the per-case content objects). Default: the "
         "corpus-backend setting from the environment.",
     ),
@@ -1129,7 +1206,7 @@ def _ensure_corpus_layout(db_path: Path) -> None:
     """Rebuild the corpus file to the ranged-read layout if it has drifted.
 
     Every corpus-writer command calls this before returning, so the file a
-    workflow ``dvc add``s always satisfies the layout contract ``dvc-status``
+    workflow pushes always satisfies the layout contract ``corpus-status``
     enforces (64 KB pages, non-WAL at rest) — the migration happens under the
     ``corpus-write`` lock the writer's job already holds.
     """
@@ -1317,7 +1394,7 @@ def make_fixture_corpus(
     """Build a tiny deterministic synthetic corpus for offline local runs.
 
     The local read loop (`provision-snapshot`, `query`, `open-events`, …) reads
-    the packed corpus, which in production is a `dvc pull` of the S3 remote behind
+    the packed corpus, which in production is a `corpus-pull` of the S3 remote behind
     OIDC — unreachable from a laptop. This builds a small, fully synthetic corpus
     from hard-coded facts instead: a handful of cases across several courts, a mix
     of resolved and open, with their predictable events and dated snapshots, so
@@ -1337,12 +1414,12 @@ def make_fixture_corpus(
 
 @app.command("corpus-info")
 def corpus_info(corpus_backend: CorpusBackendOption = "") -> None:
-    """Show the corpus location and row count (after `dvc pull`, or ranged)."""
+    """Show the corpus location and row count (after `corpus-pull`, or ranged)."""
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
     if backend == "local" and not db_path.exists():
-        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.")
+        typer.echo(f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.")
         return
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         typer.echo(
@@ -1376,7 +1453,9 @@ def build_index_cmd(
     src = corpus.corpus_db_path(settings.corpus_root)
     dst = out if out is not None else corpus_index.index_db_path(settings.corpus_root)
     if not src.exists():
-        typer.echo(f"No corpus at {src} — `dvc pull` to fetch it from the remote.", err=True)
+        typer.echo(
+            f"No corpus at {src} — `fedcourts corpus-pull` to fetch it from the remote.", err=True
+        )
         raise typer.Exit(code=1)
     stats = corpus_index.build_index(src, dst)
     typer.echo(
@@ -1434,7 +1513,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     / ``--disposition`` match exactly; ``--judge`` and ``--citation`` (repeatable)
     match on overlap and rank the results by how much they share. Prints one
     compact JSON row per line, ranked, with ``opinion_text`` omitted unless
-    ``--full``. Reads the ``dvc pull``-ed file, or the blob in place on the
+    ``--full``. Reads the pulled file, or the blob in place on the
     remote with ``--corpus-backend ranged``.
 
     Maintained as-is: cells' open-web retrieval moved to the official
@@ -1446,7 +1525,10 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
     if backend == "local" and not db_path.exists():
-        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
+        typer.echo(
+            f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.",
+            err=True,
+        )
         raise typer.Exit(code=1)
     try:
         disp = Disposition(disposition) if disposition else None
@@ -1539,7 +1621,7 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         ),
     ] = None,
 ) -> None:
-    """Aggregate corpus disposition base-rates, overall and by a dimension (run after `dvc pull`).
+    """Aggregate corpus disposition base-rates, overall and by a dimension (corpus on disk).
 
     The aggregate counterpart of `query`: instead of returning individual priors it
     rolls the whole matched set into base-rates — how the realized dispositions split,
@@ -1671,7 +1753,7 @@ def provision_snapshot(
 
     Point-in-time snapshots are raw facts that live in the packed corpus, not
     git. The predict/evaluate workflows call this to read the most
-    recent dated snapshot for the case out of the corpus — the ``dvc pull``-ed
+    recent dated snapshot for the case out of the corpus — the pulled
     file, or the blob in place on the remote with ``--corpus-backend ranged``, or
     the per-case content store (``--corpus-backend casestore``, the default under
     the corpus-split mode) — and write it where the agent reads it (a gitignored
@@ -1697,7 +1779,7 @@ def provision_snapshot(
             documents = corpus.documents_for_case(conn, case)
             _echo_read_stats(conn)
     if found is None:
-        typer.echo(f"No snapshot in corpus for {case} (dvc pull the corpus first?)", err=True)
+        typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
     if mode not in ("forward", "replay"):
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
@@ -1803,7 +1885,10 @@ def corpus_integration_check(
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
     if backend == "local" and not db_path.exists():
-        typer.echo(f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True)
+        typer.echo(
+            f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.",
+            err=True,
+        )
         raise typer.Exit(code=1)
     report = integration_check.run_integration_check(
         corpus_db_path=db_path,
@@ -1937,7 +2022,8 @@ def materialize_event(
     else:
         if backend == "local" and not db_path.exists():
             typer.echo(
-                f"No corpus at {db_path} — `dvc pull` to fetch it from the remote.", err=True
+                f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.",
+                err=True,
             )
             raise typer.Exit(code=1)
         with corpus.connect_readonly(db_path, backend=backend) as conn:
@@ -1947,7 +2033,7 @@ def materialize_event(
             _echo_read_stats(conn)
     if match is None:
         typer.echo(
-            f"No event {event!r} in corpus for {case} (dvc pull the corpus first?)", err=True
+            f"No event {event!r} in corpus for {case} (corpus-pull the corpus first?)", err=True
         )
         raise typer.Exit(code=1)
     dest = out or CasePaths(settings.data_root, court, docket).event(event).event_file
@@ -2399,7 +2485,7 @@ def _scope_filtered(
     provisioned" — :func:`corpus.connect` would silently create an empty database
     and drop *every* case, producing an empty matrix that looks like a normal
     "nothing in scope" result. Fail loud instead, so a planning job that forgot to
-    ``dvc pull`` the corpus aborts visibly rather than silently predicting nothing.
+    pull the corpus aborts visibly rather than silently predicting nothing.
     """
     if scope == PredictScope.all:
         return cases
@@ -2407,7 +2493,7 @@ def _scope_filtered(
     if not db_path.exists():
         typer.echo(
             f"prediction scope is '{scope.value}' but the corpus database is missing at "
-            f"{db_path}; provision it (dvc pull) before planning the matrix.",
+            f"{db_path}; provision it (fedcourts corpus-pull) before planning the matrix.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -2645,7 +2731,7 @@ def cleanup_out_of_scope_predictions_cmd(
 ) -> None:
     """Prune committed predictions for cases now out of predict scope.
 
-    Reads the corpus (must be ``dvc pull``'d) and the committed ``data/`` tree and
+    Reads the corpus (must be pulled) and the committed ``data/`` tree and
     finds every ``…/predictions`` directory whose case an exclusion predicate drops —
     pre-1925 mandatory jurisdiction or a stale unresolvable old SCOTUS petition;
     the event definition and any ``outcome.json`` stay, only the out-of-scope
@@ -2659,7 +2745,7 @@ def cleanup_out_of_scope_predictions_cmd(
     corpus_db = corpus.corpus_db_path(settings.corpus_root)
     if not corpus_db.exists():
         typer.echo(
-            f"the corpus database is missing at {corpus_db}; provision it (dvc pull) "
+            f"the corpus database is missing at {corpus_db}; provision it (fedcourts corpus-pull) "
             "before running cleanup.",
             err=True,
         )
@@ -2724,7 +2810,7 @@ def metrics_refresh_plan(
 ) -> None:
     """Render the review-PR plan for a metrics refresh (``run-analytics``).
 
-    The workflow regenerates the metrics artifacts (the same tested commands the DVC
+    The workflow regenerates the metrics artifacts (the same tested commands the
     stages run), diffs ``metrics/``, and hands the changed paths here; this prints a
     JSON plan ``{"changed":[...],"pr":<branch/title/commit/body|null>}`` with a
     per-artifact headline read from the regenerated files. ``pr`` is null when

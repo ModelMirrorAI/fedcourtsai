@@ -6,7 +6,8 @@ pipeline workflows. Run `uv run fedcourts --help` for the live listing, or
 grouped overview. `--version` prints the installed package version.
 
 Commands fall into the groups headed below: **ingestion** (write the corpus),
-**corpus inspection** (read it), **validation** (the gate), **diagnostics**
+**corpus inspection** (read it), **validation** (the gate), **corpus
+transport** (move the blob), **diagnostics**
 (read-only probes), **metrics & reporting**, **agent support** (fan-out
 matrices and registries), **maintenance** (corpus-informed cleanup), and
 **local iteration**. For the design behind the
@@ -41,9 +42,9 @@ real corpus.
 
 ## Corpus inspection — read the corpus
 
-Read-only views. They read the `dvc pull`-ed file by default; where
+Read-only views. They read the pulled file by default; where
 `--corpus-backend` is listed, `ranged` queries the immutable blob in place on
-the DVC remote instead (per-query egress in KBs, read stats echoed to stderr;
+the corpus remote instead (per-query egress in KBs, read stats echoed to stderr;
 see *The ranged read backend* in [data-pipeline.md](data-pipeline.md)). The
 provisioning commands (`provision-snapshot`, `materialize-event`) additionally
 accept `casestore` — read the case's snapshot/documents/event from the per-case
@@ -68,14 +69,25 @@ without the explicit flag, so the whole fleet reads one store from one setting.
 
 ## Validation — the gate
 
-The offline checks the PR gate can run without the DVC remote.
+The offline checks the PR gate can run without the corpus remote.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
 | `validate` | Validate the git ledger under a path: schema conformance plus git-only references. This is what CI runs on every PR. | `PATH` (default `data`) |
 | `validate-corpus` | Open the corpus and assert the cross-store integrity + referential invariants, emitting a `CorpusValidation` verdict. Skips gracefully when the corpus is absent. | `--out`, `--baseline-count`, `--today` |
 | `corpus-scope-audit` | Census the corpus's still-open SCOTUS events that the predict scope excludes, per exclusion reason (the shared rules: era, staleness, published-opinion, non-cert docket form, disbarment, consolidated-member agreement, date consistency, and the snapshot-aware bare opinion-import profile), with a recoverable-vs-bare split, plus a breakdown of the *unclassified* open events (why each stays in scope) and a docket-number **shape histogram** for the not-parseable bucket — the scope-refinement signal (the concrete formats a Term-parser broadening would target). A shape under ~100 open events is an accepted fragment: it stays visible in the histogram by design, and no exclusion predicate is chased for it. The read-only counterpart of `reconcile-scope`, for ad-hoc scope triage. Emits a `CorpusScopeAudit`; skips gracefully when the corpus is absent. | `--out` |
-| `dvc-status` | Check the committed DVC metadata is internally consistent — the offline half of `dvc status` — and, when the corpus blob is present locally, that its physical layout matches the ranged-read contract (64 KB pages, non-WAL at rest). | `PATH` (default `.`) |
+| `corpus-status` | Check the committed corpus + metrics bookkeeping is internally consistent — the blob out of git and gitignored, the `corpus.db.ref` pointer well-formed, the metrics roll-ups committed — and, when the corpus blob is present locally, that its physical layout matches the ranged-read contract (64 KB pages, non-WAL at rest). | `PATH` (default `.`) |
+
+## Corpus transport — move the blob
+
+The pull/push pair the data workflows (and a developer with credentials) use to
+move the corpus index blob between disk and the S3 remote; both read the remote
+URL from `CORPUS_REMOTE_URL` (legacy `DVC_REMOTE_URL` accepted).
+
+| Command | Purpose | Key flags |
+|---------|---------|-----------|
+| `corpus-pull` | Download the blob the committed pointer names (`corpus/corpus.db.ref`, or the legacy `.dvc` pointer for one transition cycle), verifying its checksum + size before the file lands. | `--missing-pointer fail\|warn` |
+| `corpus-push` | Digest the local blob, upload it to its content-addressed key (put-if-absent; the remote stays add-only), and rewrite the pointer — blob before pointer, so a committed pointer always resolves. | |
 
 ## Diagnostics — read-only probes
 
@@ -125,13 +137,13 @@ Helpers the workflows and agents use to fan out and stay in contract.
 
 Deterministic sweeps that prune already-merged derived artifacts the append-only
 writers can never remove. They need the corpus, so a maintainer runs them
-locally over a pulled corpus (`dvc pull`) and lands the result as a **reviewed**
+locally over a pulled corpus (`fedcourts corpus-pull`) and lands the result as a **reviewed**
 (not auto-merged, manually merged) PR on a `cleanup/*` branch.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
 | `cleanup-out-of-scope-predictions` | Prune committed predictions for cases now out of predict scope, gated on the real corpus row via the same shared exclusion reasoning `predict-matrix` drops on (`corpus.out_of_scope_reason_full`). The event definition and any `outcome.json` stay; only the predictions go. Prints `{"prunable":[…],"removed":<bool>}`; dry-run by default. | `--apply` |
-| `reconcile-scope` | The **corpus**-side counterpart: over the SCOTUS dockets, latch `predict_excluded` on those the shared exclusion reasoning now matches (the row rules plus the snapshot-aware bare opinion-import rule) and clear it on those back in scope, so `open-events` drops them at the source. Run where the corpus is pulled (the run-pull historical job), `dvc push` after; prints a `ScopeReconcileResult`. Dry-run by default. | `--apply` |
+| `reconcile-scope` | The **corpus**-side counterpart: over the SCOTUS dockets, latch `predict_excluded` on those the shared exclusion reasoning now matches (the row rules plus the snapshot-aware bare opinion-import rule) and clear it on those back in scope, so `open-events` drops them at the source. Run where the corpus is pulled (the run-pull historical job), `corpus-push` after; prints a `ScopeReconcileResult`. Dry-run by default. | `--apply` |
 | `assert-cleanup-paths` | Enforce the **cleanup jail** on a change set (`git diff --name-status`): exit non-zero unless every change is a *delete* under a `data/cases/**/events/*/predictions/` subtree. The maintainer's sweep and the required CI check (`cleanup-paths`, on `cleanup/*` branches) both call it — the destructive counterpart to `assert-paths`. | `--name-status-file` |
 
 ## Local iteration — the full cascade off Actions
@@ -149,8 +161,8 @@ CI run.
 | `local-cascade` | Provision a case's snapshot, predict it with every enabled predictor, evaluate the resulting predictions with every enabled evaluator, and validate the produced ledger. | `--court`, `--docket`, `--event`, `--engine`, `--run-id` |
 
 It reads the case from the packed corpus — point it at the synthetic fixture
-(`make-fixture-corpus`) for a fully offline run, a real `dvc pull`-provisioned
-one, or (via the corpus-backend setting) the blob in place on the DVC remote.
+(`make-fixture-corpus`) for a fully offline run, a real `corpus-pull`-provisioned
+one, or (via the corpus-backend setting) the blob in place on the corpus remote.
 With no `--event` it runs every event the case defines; a resolved event also
 gets its ground-truth `outcome.json` materialized so the evaluate stage has
 something to score. The derived artifacts land under `data/` exactly as a real run

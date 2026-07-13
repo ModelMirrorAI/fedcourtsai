@@ -208,7 +208,7 @@
     },
     "StatPackTerm": {
       "additionalProperties": false,
-      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic DVC metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.",
+      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.",
       "properties": {
         "base_rates": {
           "$ref": "#/$defs/BaseRateBucket",
@@ -408,7 +408,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/statpack.json`` \u2014 a corpus base-rate statpack (an independent artifact).\n\nA deterministic, offline roll-up of the corpus into headline counts plus a curated\nset of base-rate breakdowns (:class:`StatPackSection`) \u2014 the project's analogue of a\npublished court \"statpack\". A pure function of the corpus (no clock, no network), so\nreruns over an unchanged corpus reproduce it byte for byte; git-tracked as a DVC\nmetric alongside ``leaderboard.json`` / ``backtest.json``. Starts empty (zero counts,\nno sections) until a corpus is present \u2014 mirroring the other metrics artifacts, an\nabsent corpus yields the empty pack rather than an error.",
+  "description": "``metrics/statpack.json`` \u2014 a corpus base-rate statpack (an independent artifact).\n\nA deterministic, offline roll-up of the corpus into headline counts plus a curated\nset of base-rate breakdowns (:class:`StatPackSection`) \u2014 the project's analogue of a\npublished court \"statpack\". A pure function of the corpus (no clock, no network), so\nreruns over an unchanged corpus reproduce it byte for byte; git-tracked as a\nmetric alongside ``leaderboard.json`` / ``backtest.json``. Starts empty (zero counts,\nno sections) until a corpus is present \u2014 mirroring the other metrics artifacts, an\nabsent corpus yields the empty pack rather than an error.",
   "properties": {
     "corpus_rows": {
       "default": 0,

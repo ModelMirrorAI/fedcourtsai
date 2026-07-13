@@ -1,13 +1,17 @@
 # Metrics
 
-Pipeline metrics, registered in [`dvc.yaml`](../dvc.yaml) so `dvc metrics show`
-and `dvc metrics diff` can track them over time:
+Pipeline metrics: small, deterministic, git-tracked roll-ups whose reviewed
+diffs track predictor and corpus quality over time. The offline gate
+(`fedcourts corpus-status`) checks that the four scheduled-refresh artifacts —
+`leaderboard.json`, `backtest.json`, `statpack.json`, `statpack.md` — exist
+and are committed; `cert-backtest.json` is maintainer-triggered and not
+gate-checked:
 
 - `backtest.json` — results of replaying predictors against historical *resolved*
   events in the corpus (outcome hidden at predict time, scored against the known
   `disposition`): per predictor, disposition accuracy, binary granted accuracy,
-  and the mean Brier score of P(granted). The `backtest` DVC stage produces it by
-  running `fedcourts backtest`, a deterministic, offline replay over the corpus —
+  and the mean Brier score of P(granted). `fedcourts backtest` produces it —
+  a deterministic, offline replay over the corpus —
   empty (zero counts) until a corpus with outcome labels is present. **Labeled
   retrospective by construction** (see the stratification note below): every
   replayed event resolved long before any modern model's training cutoff, so the
@@ -17,8 +21,8 @@ and `dvc metrics diff` can track them over time:
   mean reasoning-quality summary, and counts (events scored, evaluations,
   evaluators), each reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
-  never blended into one number, with only the timing strata ranked. The `leaderboard` DVC
-  stage produces it by running `fedcourts leaderboard`, a deterministic, offline
+  never blended into one number, with only the timing strata ranked.
+  `fedcourts leaderboard` produces it — a deterministic, offline
   roll-up — empty (`{}` plus the zero counts) until the first evaluation lands.
 
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
@@ -43,7 +47,8 @@ resolution). Its aggregates are reported per predictor but never enter the
 ranking: scoring them as merits calls would conflate cert-worthiness
 calibration with vacatur-practice prediction.
 
-- `cert-backtest.json` — the cert-specific back-test (not a DVC stage): predictors
+- `cert-backtest.json` — the cert-specific back-test (not on the scheduled
+  refresh): predictors
   replayed over the most recently decided modern discretionary-cert petitions,
   outcome hidden behind a redacted snapshot, scored on accuracy, Brier, **lift
   over the always-deny floor** (the honest signal under cert's denial skew), and
@@ -71,16 +76,16 @@ calibration with vacatur-practice prediction.
   denominators, and the per-Term array carries each October Term's
   cursor-derived filings census by fee class (paid/IFP), walk-complete flags,
   weighted estimates, grants, and pace-to-grant — the surface a time-masked
-  replay cell self-selects pre-cutoff Terms from. The `statpack` DVC stage
-  produces both the machine JSON and a rendered Markdown document by running
-  `fedcourts statpack`, a deterministic, offline roll-up of the corpus — empty
+  replay cell self-selects pre-cutoff Terms from. `fedcourts statpack`
+  produces both the machine JSON and a rendered Markdown document — a
+  deterministic, offline roll-up of the corpus — empty
   (zero counts, empty sections) until a corpus is present.
 
 These files are deterministic, offline roll-ups that start empty (zero counts)
 until their input lands — the evaluations ledger for the leaderboard, a corpus
 with outcome labels for the back-test and statpack. All are small and worth reading
-in a diff, so they are git-tracked rather than pushed to the DVC remote like the
-corpus blob.
+in a diff, so they are git-tracked rather than pushed to the corpus remote like
+the corpus blob.
 
 **Statpack directions not built.** The published stat packs
 (SCOTUSblog / Empirical SCOTUS) carry whole families of statistics this

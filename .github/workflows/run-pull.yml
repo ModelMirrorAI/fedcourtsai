@@ -11,7 +11,7 @@ name: run-pull
 #   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
 #   re-polls the pending watchlist. No CourtListener token, no API budget; the
-#   same corpus-writer plumbing (DVC push, pointer commit, queue handoffs).
+#   same corpus-writer plumbing (corpus push, pointer commit, queue handoffs).
 # - `historical` (the `31 2` cron or dispatch mode=historical): the historical
 #   Term walker (docs/live-sources.md) — LOOPS `fedcourts historical-terms`,
 #   which walks the configured October Terms' docket serials newest-first over
@@ -37,8 +37,9 @@ name: run-pull
 # Deterministic (no agent): re-fetches tracked dockets
 # and detects resolution of open events —
 # writing `outcome.json` when the disposition is machine-readable — ingesting the
-# raw facts (including each refresh's point-in-time snapshot) into the DVC-managed
-# corpus (pulled from / pushed back to the S3 remote). The new outcomes and the
+# raw facts (including each refresh's point-in-time snapshot) into the S3-hosted
+# corpus (pulled from / pushed back to the remote via `fedcourts corpus-pull` /
+# `corpus-push`). The new outcomes and the
 # small corpus pointer are committed DIRECTLY to main (they are CourtListener
 # facts, not agent output — see docs/data-pipeline.md). It then opens
 # a `run:predict` issue for each changed case with open events and a `run:evaluate`
@@ -110,7 +111,7 @@ jobs:
       (github.event_name == 'issues' && github.event.label.name == 'run:pull')
     runs-on: ubuntu-latest
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
-    # CourtListener fetches + DVC S3 transfer) finishes well inside this; the cap
+    # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
     # releases the shared corpus-write lock far sooner than GitHub's 6h default if
     # a network step hangs. Below the historical job's budget, since pull does
     # much less work.
@@ -133,7 +134,7 @@ jobs:
     permissions:
       contents: write
       issues: write
-      id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
+      id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       # An issue *form* applies its declared labels on creation regardless of the
       # submitter's permissions, so on a public repo anyone could fire this
@@ -213,9 +214,9 @@ jobs:
         # actions/checkout pins this run's frozen github.sha — the branch tip when
         # the run was CREATED, not when it starts. A run that queues behind another
         # corpus writer on the shared corpus-write lock therefore checks out a
-        # stale base, so the corpus blob it dvc-pulls and mutates is built on an
+        # stale base, so the corpus blob it pulls and mutates is built on an
         # obsolete pointer and the final commit cannot rebase onto the advanced tip
-        # (an unmergeable corpus/corpus.db.dvc conflict). Reset to the live tip
+        # (an unmergeable corpus/corpus.db.ref conflict). Reset to the live tip
         # first, under the lock, so we always mutate the latest committed corpus —
         # the invariant docs/data-pipeline.md's corpus-writer coordination relies
         # on. The repo is public, so this read-only fetch needs no credentials.
@@ -227,34 +228,29 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       # Assume the read-write (append-only) IAM role via GitHub OIDC so pull can
-      # `dvc push` fresh forward facts into the corpus on the S3 remote. The role
+      # push fresh forward facts into the corpus on the S3 remote. The role
       # grants get/put/list but no delete, so a run can add corpus objects but
       # never wipe them. No static keys; the role ARN and region come from the
       # `runner` environment.
-      - name: Configure AWS credentials (DVC S3 remote, read-write)
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      # Define the remote's bucket URL out of band into the gitignored
-      # .dvc/config.local (never committed; see SECURITY.md). Boto3 picks up the
-      # OIDC-assumed credentials from the environment.
-      - name: Configure the DVC remote
+      - name: Pull the current corpus from the remote
         env:
-          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
-        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
-
-      - name: Pull the current corpus from the DVC remote
+          # The remote's bucket URL, out of band (never committed; see
+          # SECURITY.md); boto3 picks up the OIDC-assumed credentials from the
+          # environment. The repo variable keeps its legacy DVC_REMOTE_URL name
+          # until it is renamed to CORPUS_REMOTE_URL; the CLI accepts both.
+          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
-          # First run has no committed pointer yet, so dvc pull would fail — guard
-          # it. Discovery and the rotation governor read prior corpus state (the
-          # discovery watermark and per-case last_pulled), so it must be restored.
-          if [ -f corpus/corpus.db.dvc ]; then
-            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
-          else
-            echo "No corpus pointer yet; starting a fresh corpus."
-          fi
+          # Discovery and the rotation governor read prior corpus state (the
+          # discovery watermark and per-case last_pulled), so it must be
+          # restored. A first run has no committed pointer yet — warn and start
+          # a fresh corpus. The pull is checksum-verified against the pointer.
+          uv run fedcourts corpus-pull --missing-pointer warn
 
       - name: Refresh tracked dockets
         env:
@@ -278,13 +274,16 @@ jobs:
             --unrecorded-out unrecorded-queue.json \
             --limit 50
 
-      - name: Push the corpus blob to the DVC remote
+      - name: Push the corpus blob to the remote
+        env:
+          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
           # pull-all wrote fresh facts, discovered filings, and bumped tracking
-          # state in corpus/corpus.db. Push the blob before committing the pointer
-          # so the committed pointer always resolves against the remote.
-          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
-          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+          # state in corpus/corpus.db. corpus-push uploads the blob to its
+          # content-addressed key (add-only remote) and rewrites the pointer —
+          # blob before pointer commit, so the committed pointer always
+          # resolves against the remote.
+          uv run fedcourts corpus-push
 
       - name: Configure git identity
         uses: ./.github/actions/configure-git-identity
@@ -298,11 +297,14 @@ jobs:
           set -euo pipefail
           # Facts go straight to main: any deterministically-detected outcome.json
           # under data/ and the small corpus pointer (the corpus blob — rows and
-          # point-in-time snapshots — lives in the DVC remote, pushed above).
+          # point-in-time snapshots — lives in the S3 remote, pushed above).
+          # The legacy corpus.db.dvc pointer stays committed untouched for one
+          # transition cycle (the pull shim reads it on checkouts that predate
+          # the .ref pointer); a follow-up change removes it with the shim.
           # data/ may not exist yet (no outcome has ever been written), so stage it
           # only when present; the corpus pointer always exists and an empty staged
           # set is handled by the no-op guard below.
-          git add corpus/corpus.db.dvc
+          git add corpus/corpus.db.ref
           if [ -d data ]; then
             git add data/
           fi
@@ -441,14 +443,14 @@ jobs:
     # probes supremecourt.gov docket JSON for newly docketed petitions and
     # re-polls the pending watchlist — no CourtListener token, no API budget.
     # Same corpus-writer shape and privileges as `pull` (App token + the
-    # read-write DVC role), but schedule/dispatch only: there is no `run:live`
+    # read-write corpus role), but schedule/dispatch only: there is no `run:live`
     # label, so nothing an outside actor can file fires this job and no
     # issue-form authorization gate is needed.
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
     runs-on: ubuntu-latest
-    # A cycle is ~60 polite requests at 1 req/s plus the DVC transfer — minutes;
+    # A cycle is ~60 polite requests at 1 req/s plus the S3 transfer — minutes;
     # the cap releases the shared corpus-write lock quickly if a network step hangs.
     timeout-minutes: 30
     environment: runner
@@ -462,7 +464,7 @@ jobs:
     # authorize-trigger step to need a read) — so it carries no write at all.
     permissions:
       contents: read
-      id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
+      id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       - name: Mint app token
         id: app-token
@@ -513,9 +515,9 @@ jobs:
         # actions/checkout pins this run's frozen github.sha — the branch tip when
         # the run was CREATED, not when it starts. A run that queues behind another
         # corpus writer on the shared corpus-write lock therefore checks out a
-        # stale base, so the corpus blob it dvc-pulls and mutates is built on an
+        # stale base, so the corpus blob it pulls and mutates is built on an
         # obsolete pointer and the final commit cannot rebase onto the advanced tip
-        # (an unmergeable corpus/corpus.db.dvc conflict). Reset to the live tip
+        # (an unmergeable corpus/corpus.db.ref conflict). Reset to the live tip
         # first, under the lock, so we always mutate the latest committed corpus —
         # the invariant docs/data-pipeline.md's corpus-writer coordination relies
         # on. The repo is public, so this read-only fetch needs no credentials.
@@ -528,26 +530,21 @@ jobs:
 
       # Same read-write (append-only) role as `pull`: the live poller adds
       # snapshots and rows to the corpus blob but can never wipe remote objects.
-      - name: Configure AWS credentials (DVC S3 remote, read-write)
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Configure the DVC remote
+      - name: Pull the current corpus from the remote
         env:
-          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
-        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
-
-      - name: Pull the current corpus from the DVC remote
+          # See the pull job: legacy variable name, new env name, CLI takes both.
+          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
           # The live rotation and the per-Term discovery cursors read prior
-          # corpus state, so it must be restored; guard the very first run.
-          if [ -f corpus/corpus.db.dvc ]; then
-            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
-          else
-            echo "No corpus pointer yet; starting a fresh corpus."
-          fi
+          # corpus state, so it must be restored; a first run has no committed
+          # pointer yet — warn and start fresh. Checksum-verified.
+          uv run fedcourts corpus-pull --missing-pointer warn
 
       - name: Poll the live channel
         # No token, no budget env: politeness (browser UA, ~1 req/s) is built
@@ -558,13 +555,15 @@ jobs:
             --evaluate-out evaluate-queue.json \
             --unrecorded-out unrecorded-queue.json
 
-      - name: Push the corpus blob to the DVC remote
+      - name: Push the corpus blob to the remote
+        env:
+          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
           # live-poll wrote fresh snapshots, rows, and cursors into
-          # corpus/corpus.db. Push the blob before committing the pointer so the
-          # committed pointer always resolves against the remote.
-          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
-          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
+          # corpus/corpus.db. Blob before pointer commit (content-addressed,
+          # add-only), so the committed pointer always resolves against the
+          # remote.
+          uv run fedcourts corpus-push
 
       - name: Configure git identity
         uses: ./.github/actions/configure-git-identity
@@ -577,8 +576,9 @@ jobs:
         run: |
           set -euo pipefail
           # Facts go straight to main, exactly as in `pull`: deterministically
-          # detected outcome.json files under data/ plus the small corpus pointer.
-          git add corpus/corpus.db.dvc
+          # detected outcome.json files under data/ plus the small corpus
+          # pointer (the legacy .dvc pointer stays for the shim cycle).
+          git add corpus/corpus.db.ref
           if [ -d data ]; then
             git add data/
           fi
@@ -698,7 +698,7 @@ jobs:
     # ingests the sampled decided set — every decided petition except denials,
     # which are systematically sampled per config/tracking.yaml's committed
     # `historical:` frame. No CourtListener token, no API budget; the same
-    # corpus-writer plumbing as the other jobs (checkpointed loop, DVC push,
+    # corpus-writer plumbing as the other jobs (checkpointed loop, corpus push,
     # pointer commit). Deliberately files NO predict/evaluate handoffs: every
     # ingested petition is decided history, landed already resolved.
     # Schedule/dispatch only: there is no trigger label for this job, so
@@ -723,7 +723,7 @@ jobs:
     # and every gh call run on App tokens) — so it carries no write at all.
     permissions:
       contents: read
-      id-token: write # assume the AWS role for the DVC S3 remote (read-write corpus)
+      id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       - name: Mint app token
         id: app-token
@@ -742,9 +742,9 @@ jobs:
         # actions/checkout pins this run's frozen github.sha — the branch tip when
         # the run was CREATED, not when it starts. A run that queues behind another
         # corpus writer on the shared corpus-write lock therefore checks out a
-        # stale base, so the corpus blob it dvc-pulls and mutates is built on an
+        # stale base, so the corpus blob it pulls and mutates is built on an
         # obsolete pointer and the final commit cannot rebase onto the advanced tip
-        # (an unmergeable corpus/corpus.db.dvc conflict). Reset to the live tip
+        # (an unmergeable corpus/corpus.db.ref conflict). Reset to the live tip
         # first, under the lock, so we always mutate the latest committed corpus —
         # the invariant docs/data-pipeline.md's corpus-writer coordination relies
         # on. The repo is public, so this read-only fetch needs no credentials.
@@ -766,31 +766,28 @@ jobs:
       # remote objects. The loop pushes for up to ~2h, so the session must
       # outlast the wall-clock budget (must stay <= the role's
       # MaxSessionDuration).
-      - name: Configure AWS credentials (DVC S3 remote, read-write)
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ vars.AWS_REGION }}
           role-duration-seconds: 9000 # 2.5h
 
-      - name: Configure the DVC remote
+      - name: Pull the current corpus from the remote
         env:
-          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
-        run: uvx --from 'dvc[s3]' dvc remote add --local -d storage "$DVC_REMOTE_URL"
-
-      - name: Pull the current corpus from the DVC remote
+          # See the pull job: legacy variable name, new env name, CLI takes both.
+          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
           # The per-(Term, stream) walk cursors and identity reconciliation
-          # read prior corpus state, so it must be restored; guard the very
-          # first run.
-          if [ -f corpus/corpus.db.dvc ]; then
-            uvx --from 'dvc[s3]' dvc pull corpus/corpus.db.dvc
-          else
-            echo "No corpus pointer yet; starting a fresh corpus."
-          fi
+          # read prior corpus state, so it must be restored; a first run has no
+          # committed pointer yet — warn and start fresh. Checksum-verified.
+          uv run fedcourts corpus-pull --missing-pointer warn
 
       - name: Walk the Terms in checkpointed chunks until done or out of time
         env:
+          # The loop's checkpoints push the corpus blob, so the remote URL must
+          # be job-step env here (legacy variable name; the CLI accepts both).
+          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
           # The loop pushes for up to ~2h, but a single installation token lives
           # at most 1h (GitHub's hard cap). So the loop re-mints its own
           # short-lived tokens from the App's private key as it goes; these two
@@ -860,17 +857,14 @@ jobs:
 
           checkpoint() {
             # Push the blob BEFORE committing the pointer so the committed pointer
-            # always resolves against the remote; then prune the runner-local DVC
-            # cache copies the workspace no longer references (cache.type is
-            # `copy`, so they pile up across a long loop's checkpoints). Facts go
+            # always resolves against the remote (corpus-push streams straight
+            # from the workspace file — no local cache to prune). Facts go
             # straight to the default branch under the shared corpus-write lock:
             # the pointer, plus any outcome.json the walker's resolution recorded
             # onto a previously-open event under data/.
-            uvx --from 'dvc[s3]' dvc add corpus/corpus.db
-            uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
-            uvx --from 'dvc[s3]' dvc gc --workspace --force
+            uv run fedcourts corpus-push
             refresh_token_if_stale
-            git add corpus/corpus.db.dvc
+            git add corpus/corpus.db.ref
             if [ -d data ]; then
               git add data/
             fi
@@ -984,19 +978,19 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
+          CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
           set -euo pipefail
-          if [ ! -f corpus/corpus.db.dvc ]; then
+          # Either pointer means a corpus exists (the legacy .dvc form only
+          # until the shim cycle ends); neither means nothing to reconcile.
+          if [ ! -f corpus/corpus.db.ref ] && [ ! -f corpus/corpus.db.dvc ]; then
             echo "no corpus pointer yet; skipping scope reconcile"; exit 0
           fi
           gh auth setup-git  # persist-credentials is false on checkout
           uv run fedcourts reconcile-scope --apply
-          uvx --from 'dvc[s3]' dvc add corpus/corpus.db
-          uvx --from 'dvc[s3]' dvc push corpus/corpus.db.dvc
-          # Reclaim the runner's local DVC cache (cache.type is copy) like the
-          # loop's checkpoint — the blob is already on the remote.
-          uvx --from 'dvc[s3]' dvc gc --workspace --force
-          git add corpus/corpus.db.dvc
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
           if git diff --cached --quiet; then
             echo "Scope latch already converged; nothing to persist."
             exit 0

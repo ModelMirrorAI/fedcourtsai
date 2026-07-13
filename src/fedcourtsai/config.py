@@ -39,17 +39,25 @@ class Settings(BaseSettings):
     # it out inside a CI job reads as a hang and gets the run killed at the job
     # timeout — so the client raises instead and the caller wraps up the run.
     courtlistener_max_wait: float = 300.0
-    # How read-only consumers open the corpus: "local" reads the dvc-pulled file,
-    # "ranged" queries the immutable blob in place on the DVC remote via HTTP
-    # range requests (see fedcourtsai.corpus_ranged). Writers always open local.
+    # How read-only consumers open the corpus: "local" reads the pulled file
+    # (`fedcourts corpus-pull`), "ranged" queries the immutable blob in place on
+    # the corpus remote via HTTP range requests (see fedcourtsai.corpus_ranged).
+    # Writers always open local.
     corpus_backend: Literal["local", "ranged", "casestore"] = "local"
-    # The DVC remote's bucket URL, supplied out of band exactly like the
-    # workflows' `dvc remote add` step (never committed; see SECURITY.md). The
-    # ranged backend resolves the corpus pointer against it. The bare workflow
-    # variable name is accepted as an alias so the same runner env serves both.
-    dvc_remote_url: str | None = Field(
+    # The corpus remote's bucket URL, supplied out of band (never committed;
+    # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
+    # the committed corpus pointer against it. The bare workflow variable names
+    # are accepted as aliases so the same runner env serves both; the DVC_*
+    # names are the legacy pair, kept so the repo variable can be renamed to
+    # CORPUS_REMOTE_URL without a lockstep change — new names win when both set.
+    corpus_remote_url: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("FEDCOURTS_DVC_REMOTE_URL", "DVC_REMOTE_URL"),
+        validation_alias=AliasChoices(
+            "FEDCOURTS_CORPUS_REMOTE_URL",
+            "CORPUS_REMOTE_URL",
+            "FEDCOURTS_DVC_REMOTE_URL",
+            "DVC_REMOTE_URL",
+        ),
     )
     # Corpus split (phase 1): points the per-case content store (see
     # fedcourtsai.casestore) at ``s3://<bucket>[/<prefix>]``. When set, the writer
@@ -170,7 +178,7 @@ class LiveConfig(BaseModel):
     # assigned sequentially; the tolerance bridges an occasional withheld one).
     frontier_misses: int = Field(default=2, ge=1)
     # Per-document cap on extracted text stored in the corpus: petitions
-    # run 30-300 pages, and the cap is what keeps the DVC blob's growth sane.
+    # run 30-300 pages, and the cap is what keeps the corpus blob's growth sane.
     # ~150k characters is roughly 40 dense pages — the petition's argument in
     # full for a typical filing; a longer one is stored truncated (and flagged).
     document_text_cap: int = Field(default=150_000, ge=1_000)

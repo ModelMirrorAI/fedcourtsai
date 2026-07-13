@@ -104,7 +104,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``fedcourts stats`` verdict: aggregate disposition base-rates over the corpus.\n\nA read-only roll-up of the corpus rows matching a structured query into base-rates\n\u2014 the aggregate counterpart of the per-case priors ``fedcourts query`` returns. A\npure function of the corpus (no clock, no network), so it carries no timestamp and\nreruns over an unchanged corpus reproduce it byte for byte. ``total`` is the base\nrate over the whole matched set; when a ``group_by`` dimension is given, ``buckets``\nbreaks it down per group value (most cases first). ``skipped`` is set (with an empty\n``total``) when the corpus is absent, so it is safe to call before a ``dvc pull``.",
+  "description": "``fedcourts stats`` verdict: aggregate disposition base-rates over the corpus.\n\nA read-only roll-up of the corpus rows matching a structured query into base-rates\n\u2014 the aggregate counterpart of the per-case priors ``fedcourts query`` returns. A\npure function of the corpus (no clock, no network), so it carries no timestamp and\nreruns over an unchanged corpus reproduce it byte for byte. ``total`` is the base\nrate over the whole matched set; when a ``group_by`` dimension is given, ``buckets``\nbreaks it down per group value (most cases first). ``skipped`` is set (with an empty\n``total``) when the corpus is absent, so it is safe to call before a corpus pull.",
   "properties": {
     "buckets": {
       "description": "Per-group base-rate breakdown, most cases first",

@@ -5,7 +5,7 @@ A corpus row carries the realized ``disposition`` (see
 back-test set: take every **resolved** event, hide its outcome, replay a
 predictor against the facts it would have seen before the decision, and score
 the prediction against the known label. The result rolls up into
-``metrics/backtest.json`` (DVC-tracked) so ``dvc metrics diff`` tracks predictor
+``metrics/backtest.json`` (git-tracked) so its reviewed diffs track predictor
 quality on history alongside the live leaderboard.
 
 The scoring half here is deterministic and offline — a pure function of the

@@ -52,8 +52,8 @@ the cascade: every task that reads the corpus and answers a question or refreshe
 derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
 each as its own least-privilege job holding only the credentials its mode needs:
 
-- **`corpus-stats`** (dispatch) assumes the read-only S3 role, `dvc pull`s the
-  corpus, and runs `fedcourts stats` to aggregate disposition base-rates (overall,
+- **`corpus-stats`** (dispatch) assumes the read-only S3 role, pulls the
+  corpus (`fedcourts corpus-pull`), and runs `fedcourts stats` to aggregate disposition base-rates (overall,
   filtered to one SCOTUS Term via the `term` input, or grouped by court / topic /
   judge / SCOTUS Term / disposition / originating circuit / decade era, with a
   cert-stage cut restricted to modern discretionary-cert dockets). Read-only: results go
@@ -61,8 +61,8 @@ each as its own least-privilege job holding only the credentials its mode needs:
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/leaderboard.json` (input: the `data/`
   evaluations ledger) and `metrics/backtest.json` / `metrics/statpack.{json,md}`
-  (input: the corpus) are deterministic DVC stages that previously only changed
-  when someone ran `dvc repro` locally. It reruns those stages' tested
+  (input: the corpus) are deterministic stage commands that previously only
+  changed when someone reran them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
@@ -73,7 +73,7 @@ each as its own least-privilege job holding only the credentials its mode needs:
 
 `integration-corpus` is the read-path preflight, also outside the cascade: a
 manual-dispatch, strictly read-only check of the **ranged corpus backend**
-against the real DVC remote — the tested `fedcourts corpus-integration-check`
+against the real corpus remote — the tested `fedcourts corpus-integration-check`
 read set plus an optional stub `local-cascade` cell — dispatched around changes
 to corpus access or the corpus-consuming workflows and before releases. See
 *Infra-bound integration* in [testing.md](testing.md).
@@ -88,7 +88,8 @@ reconcile** (`fedcourts reconcile-scope`) — it carries the sweep's daily
 cadence: it latches out-of-scope cases (the shared exclusion rules — era,
 staleness, docket form, date consistency, and the snapshot-aware bare
 opinion-import profile) in the corpus so they leave the predictable set at the
-source, then `dvc push`es the pointer like any other corpus write. The
+source, then pushes the blob and commits the pointer like any other corpus
+write. The
 full design — sources, budget boundary, the corpus/ledger storage split, and the
 historical corpus — is in [data-pipeline.md](data-pipeline.md).
 
@@ -96,7 +97,7 @@ historical corpus — is in [data-pipeline.md](data-pipeline.md).
 
 ```
 daily ×1 → run-pull (historical job) → walk Terms newest-first, ingest decided petitions (denials sampled)
-                              └─ checkpointed: dvc push + pointer commit per chunk
+                              └─ checkpointed: corpus-push + pointer commit per chunk
    daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
                                  ├─ detect resolution → write outcome.json when the
@@ -189,7 +190,7 @@ logic-in-tested-Python convention above).
 cases × events** into a GitHub Actions matrix. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
 SCOTUS docket is in scope, minus the shared exclusion reasons), so `plan` first
-`dvc pull`s the corpus; with the gate on
+pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix. Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
@@ -280,7 +281,7 @@ unaffected: the draft path only triggers when the agent stopped early.
 ## Snapshot sequencing
 
 `run-pull` pushes factual snapshots **to the corpus** — the per-case content
-store plus the `dvc push` of the index — before it queues `run:predict`, so
+store plus the `corpus-push` of the index — before it queues `run:predict`, so
 `run-predict` — a read-only corpus consumer (its plan job pulls the index, its
 cells provision from the content store and query the index in place) — sees the
 snapshot it must predict from. Raw facts never go through PRs (they are

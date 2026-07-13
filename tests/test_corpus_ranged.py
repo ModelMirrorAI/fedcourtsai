@@ -9,6 +9,7 @@ the network.
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import date
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from fedcourtsai.pipeline.cascade import run_cascade
 from fedcourtsai.schemas import Disposition
 
 REMOTE_URL = "s3://test-bucket/store"
+_SHA = "a" * 64
 
 
 class FileTransport:
@@ -40,7 +42,26 @@ class FileTransport:
 
 
 def _write_pointer(db_path: Path) -> tuple[Path, str]:
-    """A DVC pointer for ``db_path`` in the committed pointer's exact shape."""
+    """A JSON ``.ref`` pointer for ``db_path`` in the committed pointer's exact shape."""
+    blob = db_path.read_bytes()
+    sha256 = hashlib.sha256(blob).hexdigest()
+    pointer = db_path.with_name(db_path.name + ".ref")
+    pointer.write_text(
+        json.dumps(
+            {
+                "key": f"index/sha256/{sha256}",
+                "size": len(blob),
+                "sha256": sha256,
+                "schema_version": "1.0",
+            }
+        )
+        + "\n"
+    )
+    return pointer, sha256
+
+
+def _write_legacy_pointer(db_path: Path) -> tuple[Path, str]:
+    """A DVC-era YAML pointer (the shim's input) in its committed shape."""
     blob = db_path.read_bytes()
     md5 = hashlib.md5(blob).hexdigest()
     pointer = db_path.with_name(db_path.name + ".dvc")
@@ -62,19 +83,95 @@ def _fixture_remote(tmp_path: Path) -> tuple[Path, FileTransport]:
 
 def test_resolver_maps_pointer_to_remote_key(tmp_path: Path) -> None:
     db = build_fixture_corpus(tmp_path / "corpus.db")
-    pointer, md5 = _write_pointer(db)
+    pointer, sha256 = _write_pointer(db)
     remote = corpus_ranged.resolve_pointer(pointer, REMOTE_URL)
     assert remote.bucket == "test-bucket"
-    assert remote.key == f"store/files/md5/{md5[:2]}/{md5[2:]}"
+    assert remote.key == f"store/index/sha256/{sha256}"
     assert remote.size == db.stat().st_size
-    assert remote.md5 == md5
+    assert remote.checksum == sha256
+    assert remote.checksum_algorithm == "sha256"
 
 
 def test_resolver_handles_prefixless_bucket(tmp_path: Path) -> None:
     db = build_fixture_corpus(tmp_path / "corpus.db")
-    pointer, md5 = _write_pointer(db)
+    pointer, sha256 = _write_pointer(db)
     remote = corpus_ranged.resolve_pointer(pointer, "s3://bare-bucket")
-    assert remote.key == f"files/md5/{md5[:2]}/{md5[2:]}"
+    assert remote.key == f"index/sha256/{sha256}"
+
+
+def test_find_pointer_prefers_ref_over_legacy(tmp_path: Path) -> None:
+    db = build_fixture_corpus(tmp_path / "corpus.db")
+    legacy, _ = _write_legacy_pointer(db)
+    assert corpus_ranged.find_pointer(db) == legacy  # only the legacy pointer exists
+    ref, _ = _write_pointer(db)
+    assert corpus_ranged.find_pointer(db) == ref  # .ref wins once present
+    legacy.unlink()
+    ref.unlink()
+    with pytest.raises(corpus_ranged.RangedBackendError, match="no corpus pointer"):
+        corpus_ranged.find_pointer(db)
+
+
+def test_resolver_maps_legacy_pointer_to_md5_layout(tmp_path: Path) -> None:
+    # The transition shim: a `.dvc` pointer resolves against DVC's md5 cache
+    # layout so a checkout that predates `.ref` still reads.
+    db = build_fixture_corpus(tmp_path / "corpus.db")
+    pointer, md5 = _write_legacy_pointer(db)
+    remote = corpus_ranged.resolve_pointer(pointer, REMOTE_URL)
+    assert remote.key == f"store/files/md5/{md5[:2]}/{md5[2:]}"
+    assert remote.size == db.stat().st_size
+    assert remote.checksum == md5
+    assert remote.checksum_algorithm == "md5"
+
+
+@pytest.mark.parametrize(
+    ("pointer_text", "expected"),
+    [
+        ("{", "not valid JSON"),
+        ("[1, 2]\n", "must be a JSON object"),
+        (
+            json.dumps({"size": 5, "sha256": _SHA, "schema_version": "1.0"}),
+            "no remote key",
+        ),
+        (
+            json.dumps(
+                {"key": "index/sha256/nope", "size": 5, "sha256": "nope", "schema_version": "1.0"}
+            ),
+            "no valid sha256",
+        ),
+        (
+            json.dumps(
+                {"key": f"index/sha256/{_SHA}", "size": 0, "sha256": _SHA, "schema_version": "1.0"}
+            ),
+            "no positive size",
+        ),
+        (
+            json.dumps(
+                {"key": f"index/sha256/{_SHA}", "size": 5, "sha256": _SHA, "schema_version": "9.9"}
+            ),
+            "schema_version",
+        ),
+        (
+            # A key/digest divergence could route the digest-blind ranged
+            # reader to a different object than the checksum vouches for.
+            json.dumps(
+                {
+                    "key": f"index/sha256/{'b' * 64}",
+                    "size": 5,
+                    "sha256": _SHA,
+                    "schema_version": "1.0",
+                }
+            ),
+            "does not match its own",
+        ),
+    ],
+)
+def test_resolver_fails_loudly_on_broken_pointer(
+    tmp_path: Path, pointer_text: str, expected: str
+) -> None:
+    pointer = tmp_path / "corpus.db.ref"
+    pointer.write_text(pointer_text)
+    with pytest.raises(corpus_ranged.RangedBackendError, match=expected):
+        corpus_ranged.resolve_pointer(pointer, REMOTE_URL)
 
 
 @pytest.mark.parametrize(
@@ -87,7 +184,7 @@ def test_resolver_handles_prefixless_bucket(tmp_path: Path) -> None:
         ("{", "not valid YAML"),
     ],
 )
-def test_resolver_fails_loudly_on_broken_pointer(
+def test_resolver_fails_loudly_on_broken_legacy_pointer(
     tmp_path: Path, pointer_text: str, expected: str
 ) -> None:
     pointer = tmp_path / "corpus.db.dvc"
@@ -97,10 +194,14 @@ def test_resolver_fails_loudly_on_broken_pointer(
 
 
 def test_resolver_fails_loudly_on_missing_pointer_and_bad_url(tmp_path: Path) -> None:
-    with pytest.raises(corpus_ranged.RangedBackendError, match="no DVC pointer"):
-        corpus_ranged.resolve_pointer(tmp_path / "corpus.db.dvc", REMOTE_URL)
-    pointer = tmp_path / "corpus.db.dvc"
-    pointer.write_text(f"outs:\n- md5: {'a' * 32}\n  size: 5\n  path: corpus.db\n")
+    with pytest.raises(corpus_ranged.RangedBackendError, match="no corpus pointer"):
+        corpus_ranged.resolve_pointer(tmp_path / "corpus.db.ref", REMOTE_URL)
+    pointer = tmp_path / "corpus.db.ref"
+    pointer.write_text(
+        json.dumps(
+            {"key": f"index/sha256/{_SHA}", "size": 5, "sha256": _SHA, "schema_version": "1.0"}
+        )
+    )
     with pytest.raises(corpus_ranged.RangedBackendError, match="not an s3://"):
         corpus_ranged.resolve_pointer(pointer, "gs://elsewhere/prefix")
 
@@ -228,6 +329,10 @@ def test_connect_readonly_ranged_end_to_end(
     _stage_moto_bucket(pointer, db.read_bytes())
     db.unlink()  # ranged access must not need (or recreate) the local blob
     monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
+    # The legacy env alias must keep working until the repo variable is renamed;
+    # clear the preferred names so an ambient value cannot shadow the check.
+    monkeypatch.delenv("FEDCOURTS_CORPUS_REMOTE_URL", raising=False)
+    monkeypatch.delenv("CORPUS_REMOTE_URL", raising=False)
     monkeypatch.setenv("FEDCOURTS_DVC_REMOTE_URL", REMOTE_URL)
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
@@ -255,7 +360,7 @@ def test_stub_cascade_reads_via_ranged_backend(
     cascade cell exercises against the real remote: with the backend set to
     ``ranged`` in the environment, ``run_cascade`` provisions the snapshot,
     predicts with the offline stub engine, and validates the ledger without a
-    ``dvc pull``-ed corpus file on disk.
+    pulled corpus file on disk.
     """
     db = corpus.corpus_db_path(tmp_path / "corpus")
     build_fixture_corpus(db)
@@ -263,7 +368,7 @@ def test_stub_cascade_reads_via_ranged_backend(
     _stage_moto_bucket(pointer, db.read_bytes())
     db.unlink()  # ranged access must not need (or recreate) the local blob
     monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
-    monkeypatch.setenv("FEDCOURTS_DVC_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
     # ca9/103 is the fixture's open-event appeals case: predict only, nothing
@@ -287,8 +392,13 @@ def test_connect_readonly_ranged_without_remote_url_fails_loudly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
-    monkeypatch.delenv("FEDCOURTS_DVC_REMOTE_URL", raising=False)
-    monkeypatch.delenv("DVC_REMOTE_URL", raising=False)
+    for name in (
+        "FEDCOURTS_CORPUS_REMOTE_URL",
+        "CORPUS_REMOTE_URL",
+        "FEDCOURTS_DVC_REMOTE_URL",
+        "DVC_REMOTE_URL",
+    ):
+        monkeypatch.delenv(name, raising=False)
     with (
         pytest.raises(corpus_ranged.RangedBackendError, match="remote URL"),
         corpus.connect_readonly(tmp_path / "corpus.db"),
@@ -315,7 +425,7 @@ def test_cli_materialize_event_reads_via_ranged_backend(
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
     monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
-    monkeypatch.setenv("FEDCOURTS_DVC_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
     result = CliRunner().invoke(

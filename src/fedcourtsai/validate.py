@@ -527,7 +527,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     The subset of layer-C checks that need only the git ledger under ``data/``:
     every judgment references an event defined in git, and every evaluation targets
     a prediction that exists. The corpus-dependent referential checks (which need
-    the DVC blob) stay on the schedule — the gate is deliberately offline.
+    the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
     return [check_ledger_events_in_git(data_root), check_evaluation_targets(data_root)]
 
@@ -575,7 +575,7 @@ def run_corpus_validation(
     """Validate the corpus + ledger and return the verdict (the CLI is a thin wrapper).
 
     Graceful when the corpus is absent — returns a skipped verdict (``ok`` true, no
-    checks), so the command is safe to call before a ``dvc pull``. If the file
+    checks), so the command is safe to call before a corpus pull. If the file
     exists but does not open as a database, that is itself a failed integrity check
     rather than a crash. ``tracked_courts`` scopes the domain check; absent it, the
     court-membership half is skipped.

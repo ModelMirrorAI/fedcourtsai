@@ -98,10 +98,18 @@ def test_markdown_summary_names_every_read(corpus_db: Path) -> None:
 def _stage_ranged_remote(db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Publish the corpus blob to moto's S3 and point the env at it, ranged."""
     blob = db.read_bytes()
-    md5 = hashlib.md5(blob).hexdigest()
-    pointer = db.with_name(db.name + ".dvc")
+    sha256 = hashlib.sha256(blob).hexdigest()
+    pointer = db.with_name(db.name + ".ref")
     pointer.write_text(
-        f"outs:\n- md5: {md5}\n  size: {len(blob)}\n  hash: md5\n  path: {db.name}\n"
+        json.dumps(
+            {
+                "key": f"index/sha256/{sha256}",
+                "size": len(blob),
+                "sha256": sha256,
+                "schema_version": "1.0",
+            }
+        )
+        + "\n"
     )
     remote = corpus_ranged.resolve_pointer(pointer, REMOTE_URL)
     client = boto3.client("s3", region_name="us-east-1")
@@ -109,7 +117,7 @@ def _stage_ranged_remote(db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     client.put_object(Bucket=remote.bucket, Key=remote.key, Body=blob)
     db.unlink()  # ranged access must not need (or recreate) the local blob
     monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "ranged")
-    monkeypatch.setenv("FEDCOURTS_DVC_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
 
 

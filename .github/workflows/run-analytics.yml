@@ -6,14 +6,14 @@ name: run-analytics
 #
 #   - corpus-stats:    aggregate disposition base-rates over the packed corpus
 #                      (`fedcourts stats`) — the "what's the grant rate for X"
-#                      question. Reads the corpus read-only via a `dvc pull`.
+#                      question. Reads the corpus read-only via a full pull.
 #   - metrics-refresh: regenerate the committed metrics artifacts (leaderboard /
 #                      backtest / statpack) and land any change as a **reviewed**
 #                      PR — never a direct commit to main, never auto-merged.
 #                      Also the schedule's job (weekly).
 #
 # The analysis mode is strictly read-only: it writes neither the corpus, `data/`,
-# DVC, nor git, opens no PR, and files no issue — every result goes to the Actions
+# the corpus remote, nor git, opens no PR, and files no issue — every result goes to the Actions
 # step summary and the run log.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
@@ -76,7 +76,7 @@ jobs:
       cancel-in-progress: true
     permissions:
       contents: read
-      id-token: write # assume the read-only AWS role to dvc pull the corpus
+      id-token: write # assume the read-only AWS role to pull the corpus
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -129,7 +129,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
-      id-token: write # assume the read-only AWS role to dvc pull the corpus
+      id-token: write # assume the read-only AWS role to pull the corpus
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -169,8 +169,8 @@ jobs:
           dvc-remote-url: ${{ vars.DVC_REMOTE_URL }}
           missing-pointer: warn
 
-      # The same commands the dvc.yaml stages run, called directly (avoiding an
-      # untracked dvc.lock); each is deterministic, so an unchanged input
+      # The tested stage commands, run directly; each is deterministic, so an
+      # unchanged input
       # reproduces the committed artifact byte for byte. The corpus-dependent
       # pair runs only when the corpus is on disk — regenerating without it
       # would replace real metrics with the empty pack. (The backtest's

@@ -44,7 +44,7 @@ def test_connect_creates_ranged_layout(tmp_path: Path) -> None:
 
 
 def test_check_ranged_layout_graceful_before_pull(tmp_path: Path) -> None:
-    # Absent and empty files are the pre-`dvc pull` states, not problems.
+    # Absent and empty files are the pre-pull states, not problems.
     assert corpus.check_ranged_layout(tmp_path / "corpus.db") == []
     empty = tmp_path / "empty.db"
     empty.touch()

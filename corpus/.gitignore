@@ -1,7 +1,9 @@
-# The corpus data blob is DVC-managed: the database lives in the DVC remote and
-# only the small `corpus.db.dvc` pointer (created on first ingest) is committed
-# to git. Never commit the blob itself or its SQLite sidecar files.
+# The corpus data blob lives in the S3 corpus remote (content-addressed,
+# add-only) and only the small `corpus.db.ref` pointer (written by
+# `fedcourts corpus-push`) is committed to git. Never commit the blob itself,
+# its download staging file, or its SQLite sidecar files.
 /corpus.db
+/corpus.db.partial
 /corpus.db-wal
 /corpus.db-shm
 *.parquet

@@ -71,7 +71,7 @@ read the diff, run the linters, and report findings with a clear verdict. You do
   `docs/pipeline.md`.
 - **Logic in tested Python, bash only plumbs.** This is the house rule. Decision and
   presentation logic belongs in a `fedcourts` command with unit tests; the workflow's
-  `run:` should be limited to git/gh/dvc plumbing that calls those commands and reads
+  `run:` should be limited to git/gh plumbing that calls those commands and reads
   their JSON. **Smells to flag:** building markdown/PR bodies with `jq`/`printf`/heredocs;
   permission or eligibility checks in `case`/`if` bash; non-trivial parsing or control
   flow in shell. Point to the tested-command pattern in the predict/evaluate **collect**
