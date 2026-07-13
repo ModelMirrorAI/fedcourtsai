@@ -1,7 +1,0 @@
-- Checked `metrics/statpack.md` for base rates on modern discretionary-cert petitions and relist counts.
-- `mcp_courtlistener_search` (Opinion): `q="Gator's Custom Guns" type=o` to confirm the Washington Supreme Court ruling.
-- `mcp_courtlistener_search` (Opinion): `q="Benson OR Bensen" court="scotus" type=o` to check for relevant intervening SCOTUS authority.
-- `mcp_courtlistener_search` (Opinion): `q="Benson" court="scotus" filed_after="2025-01-01" type=o` to narrow search for recent intervening SCOTUS authority.
-- `mcp_courtlistener_search` (Opinion): `q="Benson" court="wash" filed_after="2025-01-01" type=o` to check for relevant intervening Washington authority.
-- `mcp_courtlistener_search` (Docket): `q="Benson" court="scotus" type=d` and `q="magazine OR \"assault weapon\"" court="scotus" filed_after="2025-01-01" type=d` to search for parallel petitions holding at SCOTUS.
-- `uv run fedcourts query --court scotus --event evt-petition-disposition "petition for certiorari relisted over twenty times"` (command errored due to unsupported filtering on free text).
