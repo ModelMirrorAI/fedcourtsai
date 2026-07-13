@@ -48,8 +48,10 @@ class Settings(BaseSettings):
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the committed corpus pointer against it. The bare workflow variable names
     # are accepted as aliases so the same runner env serves both; the DVC_*
-    # names are the legacy pair, kept so the repo variable can be renamed to
-    # CORPUS_REMOTE_URL without a lockstep change — new names win when both set.
+    # names alias the repo variable's legacy spelling (the workflows still pass
+    # vars.DVC_REMOTE_URL) so the variable can be renamed to CORPUS_REMOTE_URL
+    # without a lockstep change — new names win when both are set, and the
+    # DVC_* aliases retire with that rename.
     corpus_remote_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices(

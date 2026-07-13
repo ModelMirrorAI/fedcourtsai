@@ -649,10 +649,10 @@ def connect_readonly(
     ``local`` (the default) opens the pulled file exactly like
     :func:`connect`; ``ranged`` queries the immutable blob in place on the
     corpus remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the
-    committed pointer next to ``db_path`` (``.ref``, or the legacy ``.dvc``
-    for the shim cycle) against the out-of-band remote URL. ``backend``
-    overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting. Writers never use this
-    seam — they need the concrete local connection and always own the file.
+    committed ``.ref`` pointer next to ``db_path`` against the out-of-band
+    remote URL. ``backend`` overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting.
+    Writers never use this seam — they need the concrete local connection and
+    always own the file.
 
     The ``casestore`` backend has no query surface (it serves per-case
     *provisioning* reads from content objects, not SQL), so it is rejected here — a

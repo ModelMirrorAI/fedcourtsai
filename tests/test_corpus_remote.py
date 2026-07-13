@@ -103,7 +103,7 @@ def test_download_round_trip_verifies_sha256(tmp_path: Path) -> None:
     )
 
     assert db.read_bytes() == original
-    assert remote.checksum_algorithm == "sha256"
+    assert remote.checksum == hashlib.sha256(original).hexdigest()
     assert not db.with_name(db.name + ".partial").exists()
 
 
@@ -140,63 +140,6 @@ def test_download_size_mismatch_fails_loudly(tmp_path: Path) -> None:
     assert not db.exists()
 
 
-# --- the legacy fallback shim (one transition cycle) --------------------------------
-
-
-def _stage_legacy_remote(db_content: bytes, tmp_path: Path) -> tuple[Path, InMemoryFileTransport]:
-    """Only the DVC-era pointer exists; the blob sits at the md5 cache layout."""
-    db = tmp_path / "corpus.db"
-    md5 = hashlib.md5(db_content).hexdigest()
-    legacy = db.with_name(db.name + ".dvc")
-    legacy.write_text(
-        f"outs:\n- md5: {md5}\n  size: {len(db_content)}\n  hash: md5\n  path: {db.name}\n"
-    )
-    transport = InMemoryFileTransport()
-    transport.objects[f"store/files/md5/{md5[:2]}/{md5[2:]}"] = db_content
-    return db, transport
-
-
-def test_legacy_shim_downloads_and_verifies_md5(tmp_path: Path) -> None:
-    content = b"legacy corpus bytes"
-    db, transport = _stage_legacy_remote(content, tmp_path)
-
-    pointer = corpus_ranged.find_pointer(db)  # falls back to the .dvc pointer
-    remote = corpus_remote.download_index(pointer, REMOTE_URL, db, transport=transport)
-
-    assert db.read_bytes() == content
-    assert remote.checksum_algorithm == "md5"
-
-
-def test_legacy_shim_fails_loudly_on_md5_mismatch(tmp_path: Path) -> None:
-    db, transport = _stage_legacy_remote(b"legacy corpus bytes", tmp_path)
-    (key,) = transport.objects
-    transport.objects[key] = b"corrupted legacy bytesX"[: len(transport.objects[key])]
-
-    with pytest.raises(corpus_remote.CorpusRemoteError, match="does not match the pointer"):
-        corpus_remote.download_index(
-            corpus_ranged.find_pointer(db), REMOTE_URL, db, transport=transport
-        )
-    assert not db.exists()
-
-
-def test_first_push_after_shim_pull_publishes_new_layout(tmp_path: Path) -> None:
-    """The cutover sequence: pull via the shim, push to the new layout + pointer."""
-    content = b"legacy corpus bytes"
-    db, transport = _stage_legacy_remote(content, tmp_path)
-    corpus_remote.download_index(
-        corpus_ranged.find_pointer(db), REMOTE_URL, db, transport=transport
-    )
-
-    pointer = corpus_remote.upload_index(db, REMOTE_URL, transport=transport)
-
-    sha256 = hashlib.sha256(content).hexdigest()
-    assert pointer.key == f"index/sha256/{sha256}"
-    # The new pointer now wins over the still-present legacy one.
-    assert corpus_ranged.find_pointer(db) == corpus_remote.pointer_path_for(db)
-    # Add-only: the legacy object is untouched beside the new one.
-    assert len(transport.objects) == 2
-
-
 # --- pointer file round-trip and validation ------------------------------------------
 
 
@@ -217,8 +160,6 @@ def test_digest_file_streams_digest_and_size(tmp_path: Path) -> None:
     digest, size = corpus_remote.digest_file(blob)
     assert digest == hashlib.sha256(b"x" * 1000).hexdigest()
     assert size == 1000
-    md5_digest, _ = corpus_remote.digest_file(blob, "md5")
-    assert md5_digest == hashlib.md5(b"x" * 1000).hexdigest()
 
 
 # --- the boto3 transport (moto) and the CLI commands ---------------------------------

@@ -298,9 +298,6 @@ jobs:
           # Facts go straight to main: any deterministically-detected outcome.json
           # under data/ and the small corpus pointer (the corpus blob — rows and
           # point-in-time snapshots — lives in the S3 remote, pushed above).
-          # The legacy corpus.db.dvc pointer stays committed untouched for one
-          # transition cycle (the pull shim reads it on checkouts that predate
-          # the .ref pointer); a follow-up change removes it with the shim.
           # data/ may not exist yet (no outcome has ever been written), so stage it
           # only when present; the corpus pointer always exists and an empty staged
           # set is handled by the no-op guard below.
@@ -577,7 +574,7 @@ jobs:
           set -euo pipefail
           # Facts go straight to main, exactly as in `pull`: deterministically
           # detected outcome.json files under data/ plus the small corpus
-          # pointer (the legacy .dvc pointer stays for the shim cycle).
+          # pointer.
           git add corpus/corpus.db.ref
           if [ -d data ]; then
             git add data/
@@ -981,9 +978,8 @@ jobs:
           CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
           set -euo pipefail
-          # Either pointer means a corpus exists (the legacy .dvc form only
-          # until the shim cycle ends); neither means nothing to reconcile.
-          if [ ! -f corpus/corpus.db.ref ] && [ ! -f corpus/corpus.db.dvc ]; then
+          # No committed pointer means no corpus — nothing to reconcile.
+          if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping scope reconcile"; exit 0
           fi
           gh auth setup-git  # persist-credentials is false on checkout

@@ -16,14 +16,6 @@ ranged reads from the same pointer:
   sha256 + size before the file lands, failing loudly on any mismatch — a
   truncated or corrupted transfer can never masquerade as the corpus.
 
-**Legacy fallback shim (one transition cycle, then deleted).** When only the
-DVC-era ``corpus/corpus.db.dvc`` pointer exists, :func:`download_index`
-resolves it through the legacy branch of ``corpus_ranged.resolve_pointer``
-(DVC's md5 cache layout) and verifies **md5** instead — the legacy pointer
-carries no sha256. The first writer run after the cutover pulls through the
-shim, then publishes to the new layout and commits the new pointer; a
-follow-up change deletes this shim together with the committed ``.dvc`` file.
-
 Credentials and region come from the environment (the OIDC-assumed role in
 workflows, the developer's profile locally), exactly like the ranged reader
 and the casestore. The transport seam keeps boto3 out of unit tests; it is
@@ -134,9 +126,9 @@ def pointer_path_for(db_path: Path) -> Path:
     return db_path.with_name(db_path.name + POINTER_SUFFIX)
 
 
-def digest_file(path: Path, algorithm: str = "sha256") -> tuple[str, int]:
-    """``(hex digest, byte size)`` of ``path``, streamed in bounded memory."""
-    digest = hashlib.new(algorithm)
+def digest_file(path: Path) -> tuple[str, int]:
+    """``(sha256 hex digest, byte size)`` of ``path``, streamed in bounded memory."""
+    digest = hashlib.sha256()
     size = 0
     with path.open("rb") as fh:
         while chunk := fh.read(_CHUNK_BYTES):
@@ -188,13 +180,11 @@ def download_index(
     *,
     transport: WholeFileTransport | None = None,
 ) -> RemoteObject:
-    """Fetch the blob the pointer names into ``dest``, checksum-verified.
+    """Fetch the blob the pointer names into ``dest``, sha256-verified.
 
     Downloads to a sibling ``.partial`` file, verifies digest + size, then
     renames into place — a failed or corrupted transfer never leaves a
-    plausible-looking corpus file behind. A ``.dvc`` pointer rides the legacy
-    shim (see the module docstring): resolved via DVC's md5 layout and
-    verified by md5, since the legacy pointer carries no sha256.
+    plausible-looking corpus file behind.
     """
     remote = resolve_pointer(pointer_path, remote_url)
     active = transport if transport is not None else S3FileTransport(remote.bucket)
@@ -202,11 +192,11 @@ def download_index(
     partial = dest.with_name(dest.name + ".partial")
     try:
         active.download(remote.key, partial)
-        digest, size = digest_file(partial, remote.checksum_algorithm)
+        digest, size = digest_file(partial)
         if size != remote.size or digest != remote.checksum:
             raise CorpusRemoteError(
                 f"downloaded corpus index does not match the pointer {pointer_path}: "
-                f"got {remote.checksum_algorithm} {digest} ({size} bytes), "
+                f"got sha256 {digest} ({size} bytes), "
                 f"expected {remote.checksum} ({remote.size} bytes)"
             )
     except BaseException:

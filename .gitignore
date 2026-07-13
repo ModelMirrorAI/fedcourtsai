@@ -147,7 +147,9 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
-# DVC remote credentials / bucket URL (defined out of band per run; never committed)
+# A legacy DVC-era local credential file (bucket URL, possibly keys) — never
+# committed. The DVC transport is gone, but a developer checkout may still
+# carry this file; keep ignoring it so a stale copy can't be staged.
 .dvc/config.local
 
 # Point-in-time docket snapshots are raw facts (their home is the packed corpus),

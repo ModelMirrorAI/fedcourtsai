@@ -19,10 +19,7 @@ Three seams, each swappable on its own:
   contained swap, and tests substitute an in-memory transport here.
 * **Resolver** — :func:`resolve_pointer` is the **only** place that knows the
   remote key layout. It maps the committed pointer (key + checksum + size) to
-  the object's coordinates and fails loudly when the coupling breaks. For one
-  transition cycle it also resolves the legacy DVC pointer
-  (``corpus/corpus.db.dvc``, md5 cache layout) so a checkout that predates the
-  ``.ref`` pointer still reads; the legacy branch goes away with the shim.
+  the object's coordinates and fails loudly when the coupling breaks.
 * **VFS** — a private apsw VFS serving ``xRead`` from block-aligned ranged GETs
   (:data:`BLOCK_SIZE` bytes) through an in-process LRU cache, with the file
   size taken from the pointer (no HEAD request) and every write/lock/journal
@@ -48,7 +45,6 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 import apsw
-import yaml
 
 # Ranged GETs are block-aligned at this size: large enough that a B-tree
 # descent over 64 KB pages usually lands in one or two blocks, small enough
@@ -58,15 +54,11 @@ BLOCK_SIZE = 256 * 1024
 # while letting a work session's hot pages (schema, index roots) stay resident.
 CACHE_BLOCKS = 64
 
-_MD5_RE = re.compile(r"[0-9a-f]{32}")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _S3_URL_RE = re.compile(r"s3://(?P<bucket>[^/]+)/?(?P<prefix>.*)")
 
-# The committed corpus-index pointer's filename suffixes: the JSON pointer is
-# primary; the DVC-era YAML pointer is honored for one transition cycle (the
-# shim) so a checkout that predates the `.ref` pointer still resolves.
+# The committed corpus-index pointer's filename suffix (JSON, beside the blob).
 POINTER_SUFFIX = ".ref"
-LEGACY_POINTER_SUFFIX = ".dvc"
 # The pointer schema this reader understands; bumped on incompatible reshapes.
 POINTER_SCHEMA_VERSION = "1.0"
 # Remote-prefix-relative home of the published index versions; the digest in
@@ -128,17 +120,15 @@ class S3RangeTransport:
 class RemoteObject:
     """The corpus blob resolved to its remote coordinates.
 
-    ``checksum``/``checksum_algorithm`` carry the pointer's content identity —
-    sha256 from the ``.ref`` pointer, md5 from the legacy shim — so a
-    whole-file download can verify what it fetched (see
+    ``checksum`` carries the pointer's sha256 so a whole-file download can
+    verify what it fetched (see
     :func:`fedcourtsai.corpus_remote.download_index`).
     """
 
     bucket: str
     key: str
     size: int
-    checksum: str
-    checksum_algorithm: str  # "sha256" (.ref pointer) or "md5" (legacy shim)
+    checksum: str  # the pointer's sha256, hex
 
 
 @dataclass(frozen=True)
@@ -168,21 +158,11 @@ def parse_remote_url(remote_url: str) -> tuple[str, str]:
 
 
 def find_pointer(db_path: Path) -> Path:
-    """The committed pointer beside ``db_path``: ``.ref``, else the legacy ``.dvc``.
-
-    The legacy fallback exists for one transition cycle only, so a checkout
-    that predates the ``.ref`` pointer (or a writer's very first run after the
-    cutover) still resolves; it is deleted together with the shim.
-    """
+    """The committed ``.ref`` pointer beside ``db_path``, failing loudly when absent."""
     pointer = db_path.with_name(db_path.name + POINTER_SUFFIX)
     if pointer.is_file():
         return pointer
-    legacy = db_path.with_name(db_path.name + LEGACY_POINTER_SUFFIX)
-    if legacy.is_file():
-        return legacy
-    raise RangedBackendError(
-        f"no corpus pointer at {pointer} (nor legacy {legacy}); is the repo checked out?"
-    )
+    raise RangedBackendError(f"no corpus pointer at {pointer} (is the repo checked out?)")
 
 
 def read_index_pointer(pointer_path: Path) -> IndexPointer:
@@ -229,59 +209,15 @@ def read_index_pointer(pointer_path: Path) -> IndexPointer:
 def resolve_pointer(pointer_path: Path, remote_url: str) -> RemoteObject:
     """Map the committed pointer to the blob's bucket/key/size/checksum.
 
-    The single place that knows the remote key layout. The primary format is
-    the JSON ``.ref`` pointer, whose content-addressed ``key`` joins directly
-    under the remote prefix; a ``.dvc`` pointer takes the legacy branch for
-    one transition cycle. Raises :class:`RangedBackendError` with a specific
-    message on any mismatch, so a layout change or a malformed pointer
-    surfaces immediately.
+    The single place that knows the remote key layout: the JSON ``.ref``
+    pointer's content-addressed ``key`` joins directly under the remote
+    prefix. Raises :class:`RangedBackendError` with a specific message on any
+    mismatch, so a layout change or a malformed pointer surfaces immediately.
     """
     bucket, prefix = parse_remote_url(remote_url)
-    if pointer_path.name.endswith(LEGACY_POINTER_SUFFIX):
-        return _resolve_legacy_pointer(pointer_path, bucket, prefix)
     pointer = read_index_pointer(pointer_path)
     key = "/".join(part for part in (prefix, pointer.key) if part)
-    return RemoteObject(
-        bucket=bucket,
-        key=key,
-        size=pointer.size,
-        checksum=pointer.sha256,
-        checksum_algorithm="sha256",
-    )
-
-
-def _resolve_legacy_pointer(pointer_path: Path, bucket: str, prefix: str) -> RemoteObject:
-    """Resolve the DVC-era YAML pointer against DVC's md5 cache layout.
-
-    Transition shim, kept for one cycle: it maps the legacy pointer's md5 +
-    size to ``<prefix>/files/md5/<first two md5 hex chars>/<rest>`` so a
-    checkout that predates ``corpus.db.ref`` still reads. Deleted together
-    with the committed ``.dvc`` file once every consumer is on the JSON
-    pointer.
-    """
-    if not pointer_path.is_file():
-        raise RangedBackendError(f"no corpus pointer at {pointer_path} (is the repo checked out?)")
-    try:
-        pointer = yaml.safe_load(pointer_path.read_text())
-    except yaml.YAMLError as exc:
-        raise RangedBackendError(
-            f"legacy DVC pointer {pointer_path} is not valid YAML: {exc}"
-        ) from exc
-    outs = pointer.get("outs") if isinstance(pointer, dict) else None
-    if not isinstance(outs, list) or len(outs) != 1 or not isinstance(outs[0], dict):
-        raise RangedBackendError(
-            f"legacy DVC pointer {pointer_path} must declare exactly one out; "
-            "cannot resolve the blob"
-        )
-    md5 = outs[0].get("md5")
-    size = outs[0].get("size")
-    if not isinstance(md5, str) or _MD5_RE.fullmatch(md5) is None:
-        raise RangedBackendError(f"legacy DVC pointer {pointer_path} carries no valid md5 checksum")
-    if not isinstance(size, int) or size <= 0:
-        raise RangedBackendError(f"legacy DVC pointer {pointer_path} carries no positive size")
-    parts = [prefix, "files", "md5", md5[:2], md5[2:]]
-    key = "/".join(part for part in parts if part)
-    return RemoteObject(bucket=bucket, key=key, size=size, checksum=md5, checksum_algorithm="md5")
+    return RemoteObject(bucket=bucket, key=key, size=pointer.size, checksum=pointer.sha256)
 
 
 @dataclass
@@ -514,9 +450,7 @@ def connect_ranged(
     )
     vfs_name = f"fedcourts-ranged-{next(_vfs_names)}"
     vfs = _RangedVFS(vfs_name, reader)
-    db_name = pointer_path.name
-    for suffix in (POINTER_SUFFIX, LEGACY_POINTER_SUFFIX):
-        db_name = db_name.removesuffix(suffix)
+    db_name = pointer_path.name.removesuffix(POINTER_SUFFIX)
     try:
         connection = apsw.Connection(
             db_name,

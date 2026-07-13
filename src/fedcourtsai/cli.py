@@ -409,11 +409,10 @@ def corpus_pull(
 ) -> None:
     """Download the corpus index blob from the remote, checksum-verified.
 
-    Resolves the committed pointer (``corpus/corpus.db.ref``, or the legacy
-    ``.dvc`` pointer for one transition cycle) against the out-of-band remote
-    URL, streams the blob to ``corpus/corpus.db``, and verifies its digest and
-    size before the file lands — a truncated or corrupted transfer fails
-    loudly instead of masquerading as the corpus.
+    Resolves the committed ``corpus/corpus.db.ref`` pointer against the
+    out-of-band remote URL, streams the blob to ``corpus/corpus.db``, and
+    verifies its digest and size before the file lands — a truncated or
+    corrupted transfer fails loudly instead of masquerading as the corpus.
     """
     if missing_pointer not in {"fail", "warn"}:
         typer.echo(f"--missing-pointer must be 'fail' or 'warn', not {missing_pointer!r}", err=True)
@@ -436,10 +435,7 @@ def corpus_pull(
     # Deliberately no remote key in the log line: the joined key carries the
     # remote URL's path prefix, which is supplied out of band and never
     # published (see SECURITY.md); size + verified digest identify the pull.
-    typer.echo(
-        f"pulled {db_path} ({remote.size} bytes, {remote.checksum_algorithm}-verified, "
-        f"{remote.checksum})"
-    )
+    typer.echo(f"pulled {db_path} ({remote.size} bytes, sha256-verified, {remote.checksum})")
 
 
 @app.command("corpus-push")

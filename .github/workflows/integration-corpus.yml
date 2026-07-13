@@ -91,11 +91,10 @@ jobs:
           DOCKET: ${{ inputs.docket }}
           # The ranged backend resolves the committed corpus pointer against
           # the remote URL, supplied out of band exactly like the remote
-          # wiring in the corpus-readonly composite. Both env names during the
-          # variable-rename transition: CORPUS_REMOTE_URL is preferred, the
-          # legacy DVC_REMOTE_URL goes away with the repo variable's rename.
+          # wiring in the corpus-readonly composite. The repo variable keeps
+          # its legacy DVC_REMOTE_URL name until it is renamed to
+          # CORPUS_REMOTE_URL; the CLI accepts both.
           CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
-          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
         run: |
           set -euo pipefail
           uv run fedcourts corpus-integration-check \
@@ -114,9 +113,8 @@ jobs:
         env:
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
-          # Both env names during the variable-rename transition (see above).
+          # Legacy variable name, new env name — see above.
           CORPUS_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
-          DVC_REMOTE_URL: ${{ vars.DVC_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
         run: |
           set -euo pipefail
