@@ -1,0 +1,11 @@
+case_id: scotus/73275203
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-09-05'
+resolved: true
+schema_version: '1.0'
+title: Zante, Inc., dba Marlena's Bistro and Pizzeria, Petitioner v. Michigan Department
+  of Agriculture and Rural Development

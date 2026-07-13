@@ -1,0 +1,10 @@
+{
+  "actual_disposition": "denied",
+  "actual_granted": 0,
+  "case_id": "scotus/73274918",
+  "event_id": "evt-petition-disposition",
+  "resolved_at": "2025-08-04",
+  "schema_version": "1.0",
+  "source": null,
+  "votes": []
+}

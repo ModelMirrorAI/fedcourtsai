@@ -1,0 +1,11 @@
+case_id: scotus/73275206
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-09-05'
+resolved: true
+schema_version: '1.0'
+title: Christine Asing, Petitioner v. Hawaii Government Employees Association - AFSCME
+  Local 152, AFL-CIO
