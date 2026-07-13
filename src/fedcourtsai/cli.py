@@ -2458,7 +2458,10 @@ def _resolve_cases(
 
 
 def _scope_filtered(
-    cases: list[CaseRequest], scope: PredictScope, corpus_root: Path
+    cases: list[CaseRequest],
+    scope: PredictScope,
+    corpus_root: Path,
+    corpus_backend: corpus.CorpusBackend,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -2476,17 +2479,23 @@ def _scope_filtered(
     with the reason echoed per case. These filters layer on top of the court
     predicate so ingestion coverage is unaffected.
 
-    Gating reads the corpus, so the corpus database must be on disk. If it is
-    absent the gate cannot distinguish "case not eligible" from "corpus never
-    provisioned" — :func:`corpus.connect` would silently create an empty database
-    and drop *every* case, producing an empty matrix that looks like a normal
-    "nothing in scope" result. Fail loud instead, so a planning job that forgot to
-    pull the corpus aborts visibly rather than silently predicting nothing.
+    Gating reads the corpus through the configured backend — the pulled local
+    file, or the committed pointer read in place over ``ranged``. The matrix is
+    built from the *specific* cases the trigger issue names, so gating is a
+    handful of point lookups (each case's row, and a latest-snapshot lookup only
+    for a bare-import row), which the ranged backend serves in KBs — no full
+    pull. Under ``local`` the database must be on disk: if it is absent the gate
+    cannot distinguish "case not eligible" from "corpus never provisioned"
+    (:func:`corpus.connect` would silently create an empty database and drop
+    *every* case, an empty matrix that looks like a normal "nothing in scope"
+    result), so fail loud. Under ``ranged`` the committed pointer + remote URL
+    stand in for the file, and a missing pointer/URL fails loud in
+    :func:`corpus.connect_readonly` itself.
     """
     if scope == PredictScope.all:
         return cases
     db_path = corpus.corpus_db_path(corpus_root)
-    if not db_path.exists():
+    if corpus_backend == "local" and not db_path.exists():
         typer.echo(
             f"prediction scope is '{scope.value}' but the corpus database is missing at "
             f"{db_path}; provision it (fedcourts corpus-pull) before planning the matrix.",
@@ -2494,7 +2503,7 @@ def _scope_filtered(
         )
         raise typer.Exit(code=1)
     kept: list[CaseRequest] = []
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_readonly(db_path, backend=corpus_backend) as conn:
         for case in cases:
             row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
             if row is None or row.court != "scotus":
@@ -2558,9 +2567,14 @@ def predict_matrix_cmd(
     scope = load_predict_config(settings.config_root).scope
     cases = _resolve_cases(
         _scope_filtered(
-            _requested_cases(body_file, court, docket, event), scope, settings.corpus_root
+            _requested_cases(body_file, court, docket, event),
+            scope,
+            settings.corpus_root,
+            settings.corpus_backend,
         ),
-        lambda c, d: open_events(corpus.corpus_db_path(settings.corpus_root), c, d),
+        lambda c, d: open_events(
+            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
+        ),
     )
     matrix = predict_matrix(settings.config_root / "predictors.yaml", cases, run_id)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
@@ -2592,9 +2606,14 @@ def evaluate_matrix_cmd(
     scope = load_predict_config(settings.config_root).scope
     cases = _resolve_cases(
         _scope_filtered(
-            _requested_cases(body_file, court, docket, event), scope, settings.corpus_root
+            _requested_cases(body_file, court, docket, event),
+            scope,
+            settings.corpus_root,
+            settings.corpus_backend,
         ),
-        lambda c, d: resolved_events(corpus.corpus_db_path(settings.corpus_root), c, d),
+        lambda c, d: resolved_events(
+            corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
+        ),
     )
     # The cost gate: events with no committed prediction are dropped here, at
     # plan time, so no evaluator cell (and no model spend) is minted for them —

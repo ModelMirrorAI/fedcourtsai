@@ -99,17 +99,26 @@ def open_events(
     return [event.event_id for event in events if not event.resolved]
 
 
-def resolved_events(corpus_db_path: Path, court_id: str, docket_id: int) -> list[str]:
+def resolved_events(
+    corpus_db_path: Path,
+    court_id: str,
+    docket_id: int,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+) -> list[str]:
     """Event ids the corpus tracks as resolved (``resolved = 1``).
 
     The mirror of :func:`open_events`: an event whose ``outcome.json`` has been
     recorded is flipped resolved in the corpus, making it ready for
-    ``run-evaluate``. Empty (not created) if the corpus does not exist yet.
+    ``run-evaluate``. Empty (not created) if the local corpus does not exist
+    yet; ``backend`` selects the read backend (see
+    :func:`corpus.connect_readonly`).
     """
-    if not corpus_db_path.exists():
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
         return []
     case_id = ids.case_id(court_id, docket_id)
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         events = corpus.events_for_case(conn, case_id)
     return [event.event_id for event in events if event.resolved]
 

@@ -184,17 +184,18 @@ stores — the corpus remote (the index blob under its content-addressed
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
   *consumer* job — read and list only, so a compromised consumer runner
   cannot write or poison the corpus). Consumers reach it through two
-  composites: `corpus-ranged` for the predict/evaluate **cell** jobs
-  (role + backend env only; the cell reads the content store and queries the
-  index blob in place, no pull) and `corpus-readonly` for the scan-heavy
-  full-pull consumers (the plan jobs, `run-analytics`, the metrics refresh).
+  composites: `corpus-ranged` for the predict/evaluate **plan and cell** jobs
+  (role + backend env only; they query the index blob in place — the plan job's
+  scope gating is point lookups over the named cases, and the cell also reads
+  the content store — no pull) and `corpus-readonly` for the scan-heavy
+  full-pull consumers (`run-analytics` / the metrics refresh, and `run-backtest`).
 
 Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
 | `run-pull` (all three jobs)               | read-write    | corpus writers (`corpus-push` + content-store mirror) |
-| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the whole index (full `corpus-pull`) |
+| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the named cases — ranged point lookups, no pull |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only | record provisioning from the content store + ranged index queries (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`) |
@@ -202,9 +203,10 @@ Access mirrors each workflow's role in the pipeline:
 | `run-ops`                                 | none          | dashboard reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
-The split is deliberate: a cell touches KBs of one case's data, so it reads the
-per-case objects and the immutable index in place and moves no full blob; the
-plan jobs and `run-analytics` scan the index and keep the full pull.
+The split is deliberate: a plan job gates only the cases its trigger names and
+a cell touches KBs of one case's data, so both read the immutable index in
+place and move no full blob; only the whole-corpus scanners (`run-analytics`
+and `run-backtest`) keep the full pull.
 
 Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped

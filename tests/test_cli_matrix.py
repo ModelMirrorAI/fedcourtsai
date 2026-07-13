@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from fedcourtsai.corpus_ranged import RangedBackendError
 from tests.conftest import seed_prediction
 
 runner = CliRunner()
@@ -295,6 +296,35 @@ def test_predict_matrix_missing_corpus_fails_loudly(tmp_path: Path) -> None:
     assert result.exit_code != 0
     assert "corpus database is missing" in result.stderr
     assert "include" not in result.stdout  # no matrix emitted
+
+
+def test_predict_matrix_ranged_backend_does_not_require_a_local_db(tmp_path: Path) -> None:
+    # Under the ranged backend the plan job reads the committed pointer in place,
+    # so a missing local corpus.db must NOT trigger the local "corpus is missing"
+    # abort — the gate routes through connect_readonly and (with no remote URL
+    # configured here) fails with the ranged-backend error instead. This pins
+    # that the backend is honored and the local-file precondition is scoped to
+    # the local backend.
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    for name in ("predictors.yaml", "evaluators.yaml"):
+        (config_root / name).write_text((_REPO_CONFIG / name).read_text())
+    (config_root / "tracking.yaml").write_text("predict:\n  scope: scotus_docket\n")
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = {
+        "FEDCOURTS_CONFIG_ROOT": str(config_root),
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus"),  # no DB on disk
+        "FEDCOURTS_CORPUS_BACKEND": "ranged",  # and no remote URL set
+    }
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code != 0
+    # The ranged path was taken: a RangedBackendError (no pointer/URL here), not
+    # the local "corpus database is missing" precondition.
+    assert isinstance(result.exception, RangedBackendError)
+    assert "corpus database is missing" not in result.stderr
 
 
 def test_evaluate_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
