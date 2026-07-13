@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73275213",
+  "gaps": [
+    "The jurisdictional statement and motion-to-affirm text were not provisioned, so the exact questions and party arguments were unavailable."
+  ],
+  "helpful": [
+    "The snapshot's detailed pre-disposition docket chronology supplied strong procedural signals.",
+    "CourtListener MCP verified the controlling pre-existing Allen v. Milligan authority.",
+    "The committed statpack helped identify why the ordinary cert baseline was not comparable."
+  ],
+  "notes": "The snapshot/event-state mismatch created outcome leakage; a pre-disposition snapshot cutoff would materially improve forecast integrity.",
+  "role": "predictor",
+  "run_id": "20260713T130811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "CourtListener MCP search and endpoint lookup",
+    "committed corpus statpack"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
