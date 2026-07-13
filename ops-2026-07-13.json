@@ -1,12 +1,12 @@
 {
   "cost": {
-    "actions_cost_usd": 2.5442,
-    "actions_minutes": 424.0,
-    "actions_monthly_usd": 62.37,
-    "estimated_monthly_usd": 117.37,
+    "actions_cost_usd": 0.0,
+    "actions_minutes": 352.5,
+    "actions_monthly_usd": 0.0,
+    "estimated_monthly_usd": 55.0,
     "fixed_monthly_usd": 55.0,
-    "model_cost_usd": 287.877097,
-    "window_days": 1.2
+    "model_cost_usd": 0.0,
+    "window_days": 0.9
   },
   "data_health": {
     "corpus": {
@@ -28,7 +28,7 @@
           "problems": []
         },
         {
-          "checked": 4306449,
+          "checked": 4306502,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -36,7 +36,7 @@
           "problems": []
         },
         {
-          "checked": 3052,
+          "checked": 3105,
           "detail": "as of 2026-07-13",
           "failures": 0,
           "name": "snapshot_not_future_dated",
@@ -81,7 +81,7 @@
           "problems": []
         },
         {
-          "checked": 4306449,
+          "checked": 4306502,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -89,7 +89,7 @@
           "problems": []
         },
         {
-          "checked": 1618,
+          "checked": 0,
           "detail": "",
           "failures": 0,
           "name": "ledger_references_exist",
@@ -112,7 +112,7 @@
       "skipped": false
     },
     "ledger": {
-      "checked": 3712,
+      "checked": 0,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -121,402 +121,58 @@
   },
   "flags": {
     "archived": 0,
-    "blockers": 1,
-    "cells": 140,
-    "infos": 71,
-    "recent": [
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73275185",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": null,
-            "message": "The provisioned snapshot (2026-07-13.json) already contained the outcome (Petition for writ of certiorari before judgment GRANTED on May 11, 2026) despite the cell running in `forward` mode. As instructed, I am ignoring the outcome for the basis of the reasoning, but the prediction aligns with the expected granting for a GVR.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73275185",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The event is marked unresolved and context.json says forward, but the provisioned 2026-07-13 snapshot contains the May 11, 2026 disposition. The cell therefore does not present a genuinely pending event as configured.",
-            "severity": "warning"
-          },
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Outcome leakage from the provisioned baseline: the snapshot states that the petition was granted, the judgment vacated and remanded in light of Louisiana v. Callais, with Justices Sotomayor, Kagan, and Jackson dissenting. No retrieval sought the disposition, and the prediction was reconstructed from the pre-disposition record, but contamination cannot be excluded.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73275185",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Outcome leakage in the provisioned baseline: the snapshot (record/snapshots/2026-07-13.json) itself contains this event's disposition \u2014 the May 11, 2026 docket entries record the petition's resolution and the ensuing judgment. I also recognize the case independently (companion to Allen v. Milligan). I predicted from the pre-decision record only (entries before the May 11 disposition, the BIO, statpack base rates, corpus priors) and made no retrieval about this case, but the cell should be treated as contaminated and discounted accordingly.",
-            "severity": "warning"
-          },
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "Stale cell state: record/context.json says mode=forward and event.yaml says resolved=false, but the case was decided on May 11, 2026 \u2014 two months before this run's snapshot date. The event should have been latched/resolved (outcome.json written) rather than fanned out as a live forward prediction; the ingestion/latch step appears not to have caught this disposition (possibly because the order is a GVR-style entry rather than a plain granted/denied line).",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73275174",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "The provisioned snapshot (2026-07-13.json) contains the actual disposition of the case (Judgment VACATED and case REMANDED on May 18, 2026). I am ignoring this leaked outcome for the prediction per instructions, but flagging it so the evaluation can discount the cell.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73275174",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The required 2026-07-13 snapshot contains a May 18, 2026 entry stating that judgment was vacated and remanded in light of Louisiana v. Callais, plus a June 22 judgment entry, while context.json labels the cell forward and event.yaml says resolved: false. I did not use the disclosed disposition or dissent in forecasting, but the same entry revealed the legal question; evaluators should treat this cell as outcome-contaminated.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73275174",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "Outcome leakage in a forward-mode cell: record/context.json says mode=forward, but the provisioned snapshot (2026-07-13) postdates the disposition and contains it \u2014 a May 18, 2026 entry disposing of the appeal in light of Louisiana v. Callais (with a noted dissent) and a June 22, 2026 'Judgment Issued' entry. The event.yaml still says resolved: false. I disclosed this in reasoning.md, reasoned only from the pre-decision record (entries through the 5/14/2026 conference distribution), and made no retrieval about this case; the cell should still be discounted for evaluation. Suggest the provisioner treat a snapshot containing a disposition-bearing entry as a replay trigger (set DECIDED_BEFORE / truncate the snapshot) rather than provisioning it forward.",
-            "severity": "warning"
-          },
-          {
-            "category": "ambiguous-event",
-            "event_id": "evt-petition-disposition",
-            "message": "This is a mandatory-jurisdiction direct appeal (28 U.S.C. 1253 jurisdictional statement), not a discretionary cert petition. The Disposition enum has no labels for the appeal-specific outcomes (summary affirmance, probable jurisdiction noted, vacate-and-remand without a 'grant' word), and cert_signals' regexes would not match 'Judgment VACATED and case REMANDED' order text, so the outcome former may not auto-resolve this event. I mapped the GVR-family prediction to 'granted' per the repo's convention that petition-stage vacate-and-remand relief lands on the granted side.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73275168",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "This petition is almost certainly being held for Beaird v. United States, No. 25-5343 (cert granted 2026-04-20 on the identical question presented; Poore's conference distributions stopped at the 2026-04-17 conference). Expect no disposition until Beaird is decided (~June 2027), so this event will likely stay open for about a year, and its eventual resolution is most plausibly a GVR \u2014 which the pipeline's cert-signal labeler codes as 'granted'.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73274882",
-        "flags": [
-          {
-            "category": "ambiguous-event",
-            "event_id": "evt-petition-disposition",
-            "message": "The most likely resolution path for this petition is a GVR (grant, vacate, remand) after Viramontes v. Cook County / Grant v. Higgins are decided (~June 2027), as happened to this same case in 2022 in light of Bruen. My prediction codes a GVR as 'granted' (consistent with the corpus deriving disposition from date_cert_granted). If the outcome-former instead codes GVRs as 'other', this cell's predicted_disposition should be read with that mapping in mind; the probability field is P(cert granted in any form, plenary or GVR).",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260712T174542Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73272995",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The provisioned snapshot (2026-07-12.json) includes docket entries through Jan 2026 showing the IFP motion was denied and the case closed, yet context.json marks the cell as mode: forward for evt-petition-disposition. The prediction relies on this provisioned outcome data.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260712T174542Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73272995",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The event is marked unresolved, but the provisioned snapshot says the case was considered closed after IFP leave was denied and the fee/compliant-petition deadline passed. No express certiorari denial or dismissal appears in the snapshot, so the prediction uses dismissed as the closest normalized label.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260712T174542Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73272995",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "Cell is forward-mode and event.yaml says resolved: false, but the provisioned snapshot (record/snapshots/2026-07-12.json) already carries the effective final outcome: IFP denied Oct 6 2025 with a Rule 38(a)/33.1 compliance deadline of Oct 27 2025, no compliant refiling, and a final 'Case considered closed' entry on Jan 15 2026. The closure language carries no machine-readable cert-disposition signal (cert_signals patterns match neither 'forma pauperis is denied' nor 'Case considered closed'), which is presumably why the event stayed open and was provisioned for prediction. The event should be resolved with a recorded outcome rather than predicted; this cell's prediction is determined by the provisioned baseline itself and carries no forward signal. Same pattern as scotus/73272979 in run 20260712T114712Z \u2014 fee-default/Rule 39 closures may need their own termination signal in the outcome former.",
-            "severity": "warning"
-          },
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Outcome-knowledge disclosure per the predict-as-if-undecided rule: I encountered the effective disposition in the provisioned snapshot itself, not via retrieval (no MCP/REST/web lookups were made about this case). reasoning.md separately reasons from the pre-decision record, and those signals (pro se IFP filing, non-legal conspiracy QP naming the lower courts as respondents, zero IFP grants in the Term-2025 slice) independently compel the same non-grant call, but the evaluation should discount this cell.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260712T174542Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73272979",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "The provisioned snapshot (2026-07-12.json) already contained the outcome of the case. The `ProceedingsandOrder` section lists the disposition ('The motion for leave to proceed in forma pauperis is denied, and the petition for a writ of habeas corpus is dismissed. See Rule 39.8.') dated Oct 20 2025. Per the prediction instructions, I noted this here so the evaluation can discount this cell, and I formulated the reasoning based strictly on the pre-decision facts rather than relying on this leaked outcome.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260712T114712Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73272979",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Outcome leakage: the required 2026-07-12 snapshot includes the October 20, 2025 entry stating the actual disposition. I saw it but excluded the revealed result and rationale from my predictive analysis; the cell should nevertheless be treated as outcome-contaminated.",
-            "severity": "warning"
-          },
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The cell is labeled forward and the event definition says resolved: false, but the provisioned snapshot contains a final disposition dated October 20, 2025. No filed-document text was provisioned.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260712T114712Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73272979",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "Cell is marked forward-mode and event.yaml says resolved: false, but the provisioned snapshot (record/snapshots/2026-07-12.json) already contains the final order: on Oct 20 2025 the IFP motion was denied and the original habeas petition dismissed under Rule 39.8, with a Martin v. D.C. Court of Appeals filing bar. The case was decided ~9 months before this run; the event should be resolved and an outcome.json formed rather than predicted. This cell's prediction is determined by the provisioned baseline itself and carries no forward signal.",
-            "severity": "warning"
-          },
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Outcome-knowledge disclosure per the predict-as-if-undecided rule: I encountered the disposition in the provisioned snapshot (not via retrieval). reasoning.md separately reasons from the pre-decision record only, and the pre-decision signals (pro se IFP original habeas petition, repeat abusive filer) independently compel the same call, but the evaluation should discount this cell.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260712T114712Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73274796",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "The single most predictive input for this cell \u2014 the Solicitor General's CVSG amicus recommendation (reported as: hold pending St. Mary Catholic Parish v. Roy, No. 25-581, then dispose as appropriate; preemption question not certworthy) \u2014 could not be read from the primary PDF: supremecourt.gov DocketPDF and justice.gov both returned HTTP 403 to the engine's web fetcher. The recommendation rests on two independent web-search summaries plus corroborating docket behavior (no order after the 6/25/2026 conference). If the pipeline could provision CVSG/SG amicus briefs under record/documents/ the way it provisions the petition and BIO, forward-mode SCOTUS cells would lose this fragility.",
-            "severity": "info"
-          },
-          {
-            "category": "ambiguous-event",
-            "event_id": "evt-petition-disposition",
-            "message": "The most likely resolution path is a hold followed by a GVR after St. Mary (No. 25-581) is decided (~June 2027). I verified that the pipeline's order-list classifier (src/fedcourtsai/pipeline/cert_signals.py) labels a GVR as 'granted', and predicted accordingly (granted, P=0.70). If evaluation intends GVR to score differently from a plenary grant, this cell's disposition label should be read with that in mind. Resolution is also likely ~a year away, so the event will stay open well past this run.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260711T174451Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "ca11/68975767",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-appeal-disposition",
-            "message": "The cell context says forward, but the provisioned snapshot contains a 2024-09-24 docket entry described as 'Opinion Issued.' The entry has no opinion text or disposition. I did not inspect the outcome artifact, seek the opinion, or use the marker to infer direction; the forecast uses the earlier procedural record only.",
-            "severity": "warning"
-          },
-          {
-            "category": "other",
-            "event_id": "evt-appeal-disposition",
-            "message": "Both optional retrieval paths were unavailable: CourtListener MCP lacked its session-store configuration, and the ranged corpus remote failed DNS resolution. The prediction was completed from provisioned inputs and the committed statpack.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260711T091155Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "ca11/68975767",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-appeal-disposition-17",
-            "message": "The event remains marked unresolved, but the latest snapshot contains a September 24, 2024 docket document labeled 'Opinion Issued.' The document is unavailable and no disposition text is present, so the prediction does not use or infer the outcome.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260711T091155Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "ca11/68975767",
-        "flags": [
-          {
-            "category": "ambiguous-event",
-            "event_id": "evt-motion-correct-in-dc-15",
-            "message": "The event definition is formed from the clerk's terminal notice that no action will be taken on filing 15 because it appears intended for another court. It therefore embeds an administrative resolution rather than presenting a genuinely pending motion; the prediction codes this as other.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260711T091155Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "ca11/68975767",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-motion-reconsideration-of-a-panel-order-entered",
-            "message": "The required snapshot contains a later docket entry explicitly revealing this event's disposition. I encountered it but excluded it from the forecast, which uses only information through the motion date.",
-            "severity": "warning"
-          },
-          {
-            "category": "data-quality",
-            "event_id": "evt-motion-reconsideration-of-a-panel-order-entered",
-            "message": "record/context.json labels this cell forward even though the 2026-07-11 snapshot contains the event's 2024 disposition. The point-in-time mode and snapshot contents are inconsistent.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260711T091155Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "ca11/68975767",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-appeal-disposition",
-            "message": "Cell is forward-mode, but the provisioned snapshot's latest docket entry (2024-09-24, entry 26) is 'Opinion Issued' \u2014 the appeal was decided in the world well before this run; only the corpus lacks the outcome. The disposition itself is not in the snapshot and I did not retrieve it (no CourtListener/web lookups on this case, since any live fetch would reveal it), so the prediction is untainted; but forward-mode 'unrestricted retrieval' is unusable for cells like this, and the outcome should be recordable now via pull/reconcile.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20260711T091155Z",
-        "schema_version": "1.0"
-      }
-    ],
-    "total": 207,
-    "warnings": 135,
+    "blockers": 0,
+    "cells": 0,
+    "infos": 0,
+    "recent": [],
+    "total": 0,
+    "warnings": 0,
     "window_days": 14
   },
-  "generated_at": "2026-07-13T11:36:51.218264+00:00",
+  "generated_at": "2026-07-13T19:03:31.788629+00:00",
   "health": [
     {
-      "failures": 3,
+      "failures": 7,
       "last_conclusion": "success",
-      "last_run_at": "2026-07-13T10:45:46Z",
-      "median_seconds": 86,
-      "p95_seconds": 99,
-      "runs_considered": 60,
-      "success_rate": 0.95,
-      "successes": 57,
+      "last_run_at": "2026-07-13T18:55:56Z",
+      "median_seconds": 90,
+      "p95_seconds": 188,
+      "runs_considered": 50,
+      "success_rate": 0.86,
+      "successes": 43,
       "workflow": "ci"
     },
     {
-      "failures": 3,
+      "failures": 6,
       "last_conclusion": "success",
-      "last_run_at": "2026-07-13T10:45:46Z",
-      "median_seconds": 80,
-      "p95_seconds": 91,
-      "runs_considered": 59,
-      "success_rate": 0.9491525423728814,
-      "successes": 56,
+      "last_run_at": "2026-07-13T18:55:56Z",
+      "median_seconds": 84,
+      "p95_seconds": 111,
+      "runs_considered": 50,
+      "success_rate": 0.88,
+      "successes": 44,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-07-12T23:28:26Z",
-      "median_seconds": 11,
-      "p95_seconds": 17,
-      "runs_considered": 10,
+      "last_run_at": "2026-07-13T18:43:13Z",
+      "median_seconds": 28,
+      "p95_seconds": 28,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 10,
+      "successes": 1,
+      "workflow": "integration-corpus"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-07-13T18:20:08Z",
+      "median_seconds": 13,
+      "p95_seconds": 19,
+      "runs_considered": 15,
+      "success_rate": 1.0,
+      "successes": 15,
       "workflow": "lint-actions"
     },
     {
@@ -533,10 +189,10 @@
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-07-13T07:57:34Z",
+      "last_run_at": "2026-07-13T19:02:01Z",
       "median_seconds": 1,
-      "p95_seconds": 2,
-      "runs_considered": 14,
+      "p95_seconds": 9,
+      "runs_considered": 18,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-backtest"
@@ -544,10 +200,10 @@
     {
       "failures": 0,
       "last_conclusion": "skipped",
-      "last_run_at": "2026-07-13T07:57:34Z",
+      "last_run_at": "2026-07-13T19:02:02Z",
       "median_seconds": 1,
-      "p95_seconds": 1,
-      "runs_considered": 14,
+      "p95_seconds": 2,
+      "runs_considered": 18,
       "success_rate": 0.0,
       "successes": 0,
       "workflow": "run-evaluate"
@@ -555,34 +211,34 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-07-13T11:36:32Z",
+      "last_run_at": "2026-07-13T19:03:12Z",
       "median_seconds": 26,
-      "p95_seconds": 31,
+      "p95_seconds": 26,
       "runs_considered": 3,
       "success_rate": 1.0,
       "successes": 2,
       "workflow": "run-ops"
     },
     {
-      "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-07-13T07:57:34Z",
+      "failures": 1,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-07-13T19:02:02Z",
       "median_seconds": 1,
-      "p95_seconds": 674,
-      "runs_considered": 14,
-      "success_rate": 0.21428571428571427,
-      "successes": 3,
+      "p95_seconds": 567,
+      "runs_considered": 17,
+      "success_rate": 0.058823529411764705,
+      "successes": 1,
       "workflow": "run-predict"
     },
     {
-      "failures": 1,
-      "last_conclusion": "success",
-      "last_run_at": "2026-07-13T10:35:43Z",
+      "failures": 0,
+      "last_conclusion": "skipped",
+      "last_run_at": "2026-07-13T19:02:02Z",
       "median_seconds": 1,
-      "p95_seconds": 2040,
-      "runs_considered": 25,
-      "success_rate": 0.4,
-      "successes": 10,
+      "p95_seconds": 649,
+      "runs_considered": 27,
+      "success_rate": 0.3076923076923077,
+      "successes": 8,
       "workflow": "run-pull"
     }
   ],
@@ -598,16 +254,16 @@
   "open_triggers": [],
   "schema_version": "1.0",
   "spend": {
-    "estimated_cost_usd": 287.877097,
-    "mean_cost_usd_per_run": 1.608252,
-    "runs": 179,
-    "total_tokens": 189543784
+    "estimated_cost_usd": 0.0,
+    "mean_cost_usd_per_run": 0.0,
+    "runs": 0,
+    "total_tokens": 0
   },
   "substance": {
     "calibration": {
       "accuracy": null,
-      "base_rate_cases": 204,
-      "deny_base_rate": 0.9265,
+      "base_rate_cases": 8270,
+      "deny_base_rate": 0.948,
       "lift_over_always_deny": null,
       "mean_brier": null,
       "sample": 0
@@ -617,10 +273,10 @@
       "evaluations_forward_delta": null,
       "evaluations_retrospective": 0,
       "evaluations_retrospective_delta": null,
-      "events_predicted": 76,
+      "events_predicted": 0,
       "predicted_resolved": 0,
       "predicted_resolved_delta": null,
-      "predictions": 179,
+      "predictions": 0,
       "predictions_delta": null
     },
     "live_frontier": {
@@ -639,7 +295,7 @@
         },
         {
           "conference": "2026-05-14",
-          "petitions": 2
+          "petitions": 4
         },
         {
           "conference": "2026-06-11",
@@ -662,297 +318,23 @@
           "petitions": 5
         }
       ],
-      "documents_provisioned": 19,
+      "documents_provisioned": 4,
       "generated_on": "2026-07-13",
       "next_conference": "2026-09-28",
       "next_conference_petitions": 5,
       "schema_version": "1.0",
       "skipped": false,
-      "watchlist": 22
+      "watchlist": 24
     },
     "predictor_scores": []
   },
   "tooling": {
-    "base_rate_uses": 157,
-    "corpus_query_uses": 130,
-    "gaps": [
-      {
-        "count": 3,
-        "label": "Working CourtListener MCP session storage"
-      },
-      {
-        "count": 3,
-        "label": "Working CourtListener MCP session store"
-      },
-      {
-        "count": 2,
-        "label": "A documented disposition-label mapping for historical merits cases (affirmed/reversed -> other?) to remove label-choice guesswork"
-      },
-      {
-        "count": 2,
-        "label": "Reachable ranged corpus backend"
-      },
-      {
-        "count": 2,
-        "label": "The committed statpack available in this checkout did not expose a named modern discretionary-cert cut in the rendered Markdown or machine JSON."
-      },
-      {
-        "count": 2,
-        "label": "The provisioned snapshot exposed only a cluster URL, not the cluster metadata or petition-stage order text."
-      },
-      {
-        "count": 2,
-        "label": "Working ranged corpus access"
-      },
-      {
-        "count": 2,
-        "label": "a derived era/Term field on the case row so historical cases can be base-rated against their own period"
-      },
-      {
-        "count": 2,
-        "label": "fedcourts query rows mostly lack case_name/date_filed/topic, which makes it hard to judge whether a prior is actually similar"
-      },
-      {
-        "count": 2,
-        "label": "no way to filter stats/query to cert-stage petition outcomes specifically; the resolved-label mix ('other'-dominated) is hard to interpret for a petition event"
-      }
-    ],
-    "helpful": [
-      {
-        "count": 8,
-        "label": "google_web_search"
-      },
-      {
-        "count": 6,
-        "label": "Committed corpus statpack"
-      },
-      {
-        "count": 6,
-        "label": "metrics/statpack.md by-court base rates"
-      },
-      {
-        "count": 5,
-        "label": "mcp_courtlistener_get_endpoint_item"
-      },
-      {
-        "count": 4,
-        "label": "Provisioned docket snapshot"
-      },
-      {
-        "count": 4,
-        "label": "Provisioned point-in-time docket snapshot"
-      },
-      {
-        "count": 4,
-        "label": "metrics/statpack.md"
-      },
-      {
-        "count": 4,
-        "label": "metrics/statpack.md base rates"
-      },
-      {
-        "count": 3,
-        "label": "Local provisioned snapshot"
-      },
-      {
-        "count": 3,
-        "label": "Resolved path helper"
-      }
-    ],
-    "recent": [
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73275187",
-        "gaps": [
-          "The supplemental brief was not provisioned in record/documents/ despite being filed on the docket. Automatically provisioning supplemental briefs would be highly useful since they often explain a hold."
-        ],
-        "helpful": [
-          "web_fetch was essential for reading the supplemental brief, which explained the 6-month hold.",
-          "mcp_courtlistener_search helped verify the Pung decision."
-        ],
-        "notes": null,
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "run_shell_command",
-          "web_fetch",
-          "mcp_courtlistener_search"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73275187",
-        "gaps": [
-          "The ranged corpus-prior lookup could not resolve the corpus object-store host, so no comparable corpus cases were available.",
-          "The June 25, 2026 supplemental brief was listed in the snapshot but its text was not provisioned."
-        ],
-        "helpful": [
-          "The provisioned petition and brief in opposition exposed both the alleged split and the vehicle objections.",
-          "The committed statpack supplied a calibrated modern certiorari base rate.",
-          "CourtListener MCP identified and supplied the closely timed Pung decision."
-        ],
-        "notes": "The corpus query was attempted but failed before retrieving priors; used_corpus_query is therefore false. General CourtListener research was limited to related legal context and did not search this case's disposition or subsequent history.",
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "CourtListener MCP",
-          "metrics/statpack.md"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73275187",
-        "gaps": [
-          "The statpack's relist-count and CVSG cuts are entirely '(unknown)' buckets, so the two signal cuts the prompt says to anchor on were unusable; populating relist/distribution counts from the docket's DISTRIBUTED entries would directly serve cells like this one",
-          "No hold-detection signal in the corpus row (a long gap between distributions with no disposition); I had to infer the hold from raw docket text and fetch the supplemental brief myself to learn the hold target",
-          "A conditional grant-rate cut for call-for-response petitions (respondent waived, Court requested response) would be the single most predictive base rate for SCOTUS cert cells"
-        ],
-        "helpful": [
-          "Provisioned petition/BIO/QP texts were decisive \u2014 the split framing and the BIO's vehicle attack came straight from them with no fetching",
-          "fedcourts query --era 2020s surfaced sibling petitions granted/denied 2026-06-30 from the same 6/29 conference, which proved this petition survived the cleanup orders list \u2014 the strongest single signal in the cell",
-          "metrics/statpack.md modern-cert section anchored the prior (~4.9% grant)"
-        ],
-        "notes": "Forward-mode web fetch of the docket-linked supplemental brief (identifying the Pung hold) changed the probability by roughly 3x versus snapshot-only reasoning; cheap per-case provisioning of supplemental briefs alongside petition/BIO would capture this systematically.",
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "fedcourts paths",
-          "fedcourts query (ranged backend)",
-          "metrics/statpack.md",
-          "curl + pypdf (docket-linked supplemental brief)",
-          "courtlistener MCP search"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73275185",
-        "gaps": [],
-        "helpful": [
-          "metrics/statpack.md base rates"
-        ],
-        "notes": "The case outcome was accidentally included in the provisioned forward-mode snapshot, which made predicting trivial but necessitated flagging.",
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "cat",
-          "grep"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73275185",
-        "gaps": [
-          "The ranged corpus backend was unreachable because its remote host did not resolve.",
-          "The provisioned document set omitted the petition and a separate questions-presented extract."
-        ],
-        "helpful": [
-          "The committed certiorari statpack supplied disposition and circuit base rates.",
-          "The complete provisioned brief in opposition supplied the questions and developed factual record.",
-          "CourtListener MCP confirmed relevant pre-petition Supreme Court authority."
-        ],
-        "notes": "The corpus query was attempted with a pre-2025 cutoff to avoid this case but returned no results due to DNS failure. The snapshot's outcome leakage was a data-provisioning issue, not a retrieval-tool issue.",
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "committed statpack",
-          "fedcourts query (attempted; remote unavailable)",
-          "CourtListener MCP search"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73275185",
-        "gaps": [
-          "A pre-decision snapshot cut (or DECIDED_BEFORE clock) for cells whose docket already contains the outcome \u2014 I had to self-censor the disposition entries manually",
-          "Relist/CVSG and distribution-count cuts in the statpack are empty (unknown bucket only); a held-case / relisted-petition grant rate would have been the single most useful number here",
-          "The petition and questions-presented documents were not provisioned (only the BIO); QPs had to be taken from the BIO's restatement",
-          "fedcourts query has no free-text/topic match for SCOTUS dockets (citation lookup on 'Allen v. Milligan' returned nothing), so finding doctrinally similar priors is hit-or-miss"
-        ],
-        "helpful": [
-          "metrics/statpack.md modern-cert base rates as the anchor",
-          "Provisioned brief-in-opposition full text (47 pp.)",
-          "fedcourts query priors showing the multi-distribution-to-grant pattern",
-          "Snapshot's full proceedings list (hold pattern, expedite/stay posture were all visible)"
-        ],
-        "notes": "Corpus query is expensive on the ranged backend (~140 MB transferred across two calls for five usable rows); a smaller index for docket-level priors would cut that substantially.",
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "fedcourts query (ranged corpus backend)",
-          "metrics/statpack.md (committed base rates)",
-          "provisioned snapshot + brief-in-opposition.txt"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73275174",
-        "gaps": [],
-        "helpful": [
-          "mcp_courtlistener_search to look up lower court case details and verify the circuit split"
-        ],
-        "notes": "Snapshot leaked the outcome; had to disregard it for reasoning.",
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "mcp_courtlistener_search"
-        ],
-        "used_base_rates": false,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73275174",
-        "gaps": [
-          "Provisioned jurisdictional-statement and motion text",
-          "A consistency check that prevents resolved snapshots from being labeled forward",
-          "Clearer distinction between CourtListener cluster IDs and opinion IDs"
-        ],
-        "helpful": [
-          "Provisioned Supreme Court docket snapshot",
-          "Committed certiorari base-rate statpack",
-          "CourtListener MCP pre-filing opinion search and opinion text"
-        ],
-        "notes": "The legal-research tools were useful, but the required snapshot disclosed the event outcome and no filing text was provisioned. One endpoint fetch returned an irrelevant opinion because a search-result URL exposed a cluster ID where the opinion endpoint required the underlying opinion ID; a follow-up search resolved it.",
-        "role": "predictor",
-        "run_id": "20260713T075800Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "CourtListener MCP search",
-          "CourtListener MCP opinion endpoint",
-          "metrics/statpack.md"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      }
-    ],
-    "reports": 168,
+    "base_rate_uses": 0,
+    "corpus_query_uses": 0,
+    "gaps": [],
+    "helpful": [],
+    "recent": [],
+    "reports": 0,
     "window_days": 14
   }
 }
