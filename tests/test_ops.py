@@ -3,7 +3,6 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
-
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, ops
