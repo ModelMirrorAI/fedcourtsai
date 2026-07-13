@@ -1,0 +1,27 @@
+# Prediction
+
+I predict a **granted** disposition with probability **0.76**. Here, “granted” includes a grant-like summary disposition such as vacatur and remand, not only plenary merits review. I omit individual votes because the most plausible paths include an unsigned summary order, for which a vote-by-vote forecast would imply false precision.
+
+## Data-integrity limitation
+
+This prediction is not blind. Although `record/context.json` labels the cell `forward` and the event definition says it is unresolved, the provisioned `2026-07-13` snapshot expressly states the Court's May 11, 2026 disposition and identifies a three-Justice dissent. I encountered that disclosure while reading the required snapshot. I excluded that entry, the judgment-issued entry, and the mootness entry from the substantive analysis below, but I cannot unsee them; the prediction should therefore be discounted as outcome-exposed. This mismatch is also recorded in `flags.json`.
+
+No filed-document text was provisioned under `record/documents/`. The analysis therefore lacks the jurisdictional statement, motion to affirm, reply, and stay papers themselves and relies on the docket descriptions plus pre-disposition lower-court materials retrieved through CourtListener.
+
+## Question and governing law
+
+The docket concerns Alabama's direct appeal from a three-judge district court's injunction against its 2023 congressional plan. CourtListener's pre-appeal docket identifies 28 U.S.C. § 1253 as the jurisdictional route. This is therefore not an ordinary discretionary certiorari petition, despite the pipeline's generic petition-disposition label. The relevant disposition choices include summary affirmance, dismissal, noting probable jurisdiction for plenary review, or a grant-like vacatur and remand in light of related authority.
+
+On the underlying Voting Rights Act issue, *Allen v. Milligan*, 599 U.S. 1 (2023), retained the *Gingles* framework: plaintiffs must show a sufficiently large and geographically compact minority population capable of forming a reasonably configured district, political cohesion, and white bloc voting usually sufficient to defeat the minority-preferred candidate, followed by the totality-of-circumstances inquiry. On the constitutional intent issue, *Alexander v. South Carolina State Conference of the NAACP*, 602 U.S. 1 (2024), requires challengers to disentangle race from politics and overcome the presumption of legislative good faith; where race and party correlate, an alternative map can be important evidence.
+
+## Case-specific signals
+
+The lower court's May 8, 2025 ruling followed an unusually developed record and was not a routine first-pass redistricting judgment. The retrieved ruling says the Supreme Court had already affirmed the earlier preliminary injunction in *Milligan*; Alabama then enacted a 2023 plan that it conceded lacked the additional opportunity district the earlier order required. The court found intentional discrimination after trial, emphasized that the legislature knowingly refused the ordered remedy, and distinguished *Alexander* as a “round one” case rather than a remedial “round two” case. It also relied on a special-master plan reportedly drawn without displaying racial data as evidence that a lawful two-opportunity-district remedy was feasible. Those features, together with clear-error review of fact findings, give the appellees meaningful arguments for affirmance.
+
+The counterweight is substantial. A finding of intentional legislative discrimination is exceptional, and *Alexander* reinforced a demanding evidentiary standard, the good-faith presumption, and the need to separate race from partisan objectives. The 571-page lower-court decision itself acknowledged the rarity and gravity of its holding. That doctrinal tension supplies a serious federal question and makes simple dismissal or routine affirmance less likely.
+
+The procedural posture is the strongest predictive signal. The jurisdictional statement was distributed for the November 21, 2025 conference but remained pending for months. Several amicus filing names in the snapshot jointly reference docket 25-243 and this appeal, indicating coordinated treatment with closely related redistricting litigation. Alabama later sought expedited consideration, the response was obtained, and the matter was redistributed for a May 2026 conference. A long hold followed by coordinated redistribution commonly points to a disposition keyed to a related decision rather than an unexplained denial-like outcome. Because this is a direct appeal and the related case could alter or clarify the governing standard, a grant-like summary disposition is more likely than not even though the ultimate merits are less certain.
+
+The committed statpack's 4.9% modern cert grant rate is not an appropriate anchor here: it covers discretionary Term-prefixed cert petitions, while this matter is a § 1253 direct appeal from a three-judge court. I used it only as a caution against importing the ordinary cert base rate into this materially different procedural class.
+
+Balancing the strong procedural signal and substantial federal issue against the lower court's extensive record and the possibility of affirmance or dismissal, I assign **0.76** to a granted disposition. Confidence is only **0.64** because the filed Supreme Court briefs were unavailable and, most importantly, the provisioned outcome disclosure compromised blindness.

@@ -1,83 +1,83 @@
 {
-  "corpus_rows": 2151660,
+  "corpus_rows": 2151693,
   "coverage": {
-    "census_filings": 125,
-    "live_slice_resolved": 204,
-    "live_slice_rows": 217
+    "census_filings": 8940,
+    "live_slice_resolved": 1546,
+    "live_slice_rows": 1569
   },
-  "dated_resolved": 227,
-  "machine_readable_resolved": 7166,
-  "open": 2120489,
+  "dated_resolved": 1569,
+  "machine_readable_resolved": 8508,
+  "open": 2119180,
   "overall": {
-    "cases": 2151660,
+    "cases": 2151693,
     "dispositions": [
       {
         "count": 24005,
         "disposition": "other",
-        "share": 0.7701068300664079
+        "share": 0.7383200565927475
       },
       {
-        "count": 6273,
+        "count": 6424,
         "disposition": "dismissed",
-        "share": 0.2012447467197074
+        "share": 0.1975825054593547
       },
       {
-        "count": 629,
+        "count": 1556,
         "disposition": "denied",
-        "share": 0.0201790125437105
+        "share": 0.047857779964937106
       },
       {
-        "count": 258,
+        "count": 522,
         "disposition": "granted",
-        "share": 0.008276924064033877
+        "share": 0.016055116414972474
       },
       {
         "count": 3,
         "disposition": "granted-in-part",
-        "share": 9.624330307016137e-05
+        "share": 9.227078399409467e-05
       },
       {
         "count": 3,
         "disposition": "withdrawn",
-        "share": 9.624330307016137e-05
+        "share": 9.227078399409467e-05
       }
     ],
     "key": "",
-    "open": 2120489,
-    "resolved": 31171
+    "open": 2119180,
+    "resolved": 32513
   },
-  "resolved": 31171,
+  "resolved": 32513,
   "schema_version": "1.0",
   "sections": [
     {
       "buckets": [
         {
-          "cases": 589581,
+          "cases": 589614,
           "dispositions": [
+            {
+              "count": 1129,
+              "disposition": "denied",
+              "share": 0.6129207383279045
+            },
+            {
+              "count": 278,
+              "disposition": "granted",
+              "share": 0.15092290988056462
+            },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.464
+              "share": 0.1259500542888165
             },
             {
-              "count": 202,
-              "disposition": "denied",
-              "share": 0.404
-            },
-            {
-              "count": 52,
+              "count": 203,
               "disposition": "dismissed",
-              "share": 0.104
-            },
-            {
-              "count": 14,
-              "disposition": "granted",
-              "share": 0.028
+              "share": 0.11020629750271443
             }
           ],
           "key": "scotus",
-          "open": 589081,
-          "resolved": 500
+          "open": 587772,
+          "resolved": 1842
         },
         {
           "cases": 247637,
@@ -541,27 +541,27 @@
           "resolved": 3
         },
         {
-          "cases": 32815,
+          "cases": 32848,
           "dispositions": [
             {
-              "count": 189,
+              "count": 1116,
               "disposition": "denied",
-              "share": 0.9264705882352942
+              "share": 0.7218628719275549
             },
             {
-              "count": 10,
+              "count": 274,
               "disposition": "granted",
-              "share": 0.049019607843137254
+              "share": 0.17723156532988357
             },
             {
-              "count": 5,
+              "count": 156,
               "disposition": "dismissed",
-              "share": 0.024509803921568627
+              "share": 0.10090556274256145
             }
           ],
           "key": "2020s",
-          "open": 32611,
-          "resolved": 204
+          "open": 31302,
+          "resolved": 1546
         },
         {
           "cases": 107,
@@ -637,50 +637,50 @@
     {
       "buckets": [
         {
-          "cases": 189,
+          "cases": 7830,
           "dispositions": [
             {
-              "count": 189,
+              "count": 7830,
               "disposition": "denied",
               "share": 1.0
             }
           ],
           "key": "denied",
           "open": 0,
-          "resolved": 189
+          "resolved": 7830
         },
         {
-          "cases": 13,
-          "dispositions": [],
-          "key": "(open)",
-          "open": 13,
-          "resolved": 0
-        },
-        {
-          "cases": 10,
+          "cases": 274,
           "dispositions": [
             {
-              "count": 10,
+              "count": 274,
               "disposition": "granted",
               "share": 1.0
             }
           ],
           "key": "granted",
           "open": 0,
-          "resolved": 10
+          "resolved": 274
         },
         {
-          "cases": 5,
+          "cases": 156,
           "dispositions": [
             {
-              "count": 5,
+              "count": 156,
               "disposition": "dismissed",
               "share": 1.0
             }
           ],
           "key": "dismissed",
           "open": 0,
-          "resolved": 5
+          "resolved": 156
+        },
+        {
+          "cases": 23,
+          "dispositions": [],
+          "key": "(open)",
+          "open": 23,
+          "resolved": 0
         }
       ],
       "cert_stage": true,
@@ -693,236 +693,321 @@
     {
       "buckets": [
         {
-          "cases": 49,
+          "cases": 2366,
           "dispositions": [
             {
-              "count": 42,
+              "count": 2286,
               "disposition": "denied",
-              "share": 0.9767441860465116
+              "share": 0.9707006369426752
             },
             {
-              "count": 1,
+              "count": 43,
               "disposition": "dismissed",
-              "share": 0.023255813953488372
+              "share": 0.018259023354564755
+            },
+            {
+              "count": 26,
+              "disposition": "granted",
+              "share": 0.011040339702760084
             }
           ],
           "key": "(none)",
-          "open": 6,
-          "resolved": 43
+          "open": 11,
+          "resolved": 2355
         },
         {
-          "cases": 22,
+          "cases": 1068,
           "dispositions": [
             {
-              "count": 20,
+              "count": 1021,
               "disposition": "denied",
-              "share": 0.9090909090909091
+              "share": 0.9568884723523898
             },
             {
-              "count": 2,
+              "count": 32,
               "disposition": "granted",
-              "share": 0.09090909090909091
-            }
-          ],
-          "key": "ca6",
-          "open": 0,
-          "resolved": 22
-        },
-        {
-          "cases": 20,
-          "dispositions": [
-            {
-              "count": 15,
-              "disposition": "denied",
-              "share": 0.75
+              "share": 0.02999062792877226
             },
             {
-              "count": 4,
-              "disposition": "granted",
-              "share": 0.2
-            },
-            {
-              "count": 1,
+              "count": 14,
               "disposition": "dismissed",
-              "share": 0.05
+              "share": 0.013120899718837863
             }
           ],
-          "key": "ca4",
-          "open": 0,
-          "resolved": 20
+          "key": "ca9",
+          "open": 1,
+          "resolved": 1067
         },
         {
-          "cases": 19,
+          "cases": 937,
           "dispositions": [
             {
-              "count": 16,
+              "count": 882,
               "disposition": "denied",
-              "share": 0.9411764705882353
+              "share": 0.9433155080213904
             },
             {
-              "count": 1,
+              "count": 44,
               "disposition": "granted",
-              "share": 0.058823529411764705
+              "share": 0.047058823529411764
+            },
+            {
+              "count": 9,
+              "disposition": "dismissed",
+              "share": 0.009625668449197862
             }
           ],
           "key": "ca5",
           "open": 2,
-          "resolved": 17
+          "resolved": 935
         },
         {
-          "cases": 19,
+          "cases": 585,
           "dispositions": [
             {
-              "count": 18,
+              "count": 542,
               "disposition": "denied",
-              "share": 0.9473684210526315
+              "share": 0.9264957264957265
             },
             {
-              "count": 1,
+              "count": 32,
               "disposition": "granted",
-              "share": 0.05263157894736842
+              "share": 0.0547008547008547
+            },
+            {
+              "count": 11,
+              "disposition": "dismissed",
+              "share": 0.018803418803418803
             }
           ],
-          "key": "ca9",
+          "key": "ca4",
           "open": 0,
-          "resolved": 19
+          "resolved": 585
         },
         {
-          "cases": 17,
+          "cases": 550,
           "dispositions": [
             {
-              "count": 15,
+              "count": 501,
               "disposition": "denied",
-              "share": 0.9375
+              "share": 0.912568306010929
             },
             {
-              "count": 1,
+              "count": 27,
               "disposition": "granted",
-              "share": 0.0625
-            }
-          ],
-          "key": "ca2",
-          "open": 1,
-          "resolved": 16
-        },
-        {
-          "cases": 15,
-          "dispositions": [
-            {
-              "count": 14,
-              "disposition": "denied",
-              "share": 0.9333333333333333
+              "share": 0.04918032786885246
             },
             {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.06666666666666667
+              "count": 21,
+              "disposition": "dismissed",
+              "share": 0.03825136612021858
             }
           ],
           "key": "ca11",
-          "open": 0,
-          "resolved": 15
+          "open": 1,
+          "resolved": 549
         },
         {
-          "cases": 13,
+          "cases": 500,
           "dispositions": [
             {
-              "count": 10,
+              "count": 480,
               "disposition": "denied",
-              "share": 0.8333333333333334
+              "share": 0.9619238476953907
             },
             {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.16666666666666666
-            }
-          ],
-          "key": "ca3",
-          "open": 1,
-          "resolved": 12
-        },
-        {
-          "cases": 12,
-          "dispositions": [
+              "count": 16,
+              "disposition": "granted",
+              "share": 0.03206412825651302
+            },
             {
-              "count": 11,
-              "disposition": "denied",
-              "share": 1.0
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.006012024048096192
             }
           ],
           "key": "ca8",
           "open": 1,
-          "resolved": 11
+          "resolved": 499
         },
         {
-          "cases": 10,
+          "cases": 463,
           "dispositions": [
             {
-              "count": 9,
+              "count": 415,
               "disposition": "denied",
-              "share": 1.0
+              "share": 0.8982683982683982
+            },
+            {
+              "count": 26,
+              "disposition": "granted",
+              "share": 0.05627705627705628
+            },
+            {
+              "count": 21,
+              "disposition": "dismissed",
+              "share": 0.045454545454545456
+            }
+          ],
+          "key": "ca2",
+          "open": 1,
+          "resolved": 462
+        },
+        {
+          "cases": 428,
+          "dispositions": [
+            {
+              "count": 404,
+              "disposition": "denied",
+              "share": 0.9439252336448598
+            },
+            {
+              "count": 15,
+              "disposition": "granted",
+              "share": 0.035046728971962614
+            },
+            {
+              "count": 9,
+              "disposition": "dismissed",
+              "share": 0.02102803738317757
+            }
+          ],
+          "key": "ca6",
+          "open": 0,
+          "resolved": 428
+        },
+        {
+          "cases": 324,
+          "dispositions": [
+            {
+              "count": 299,
+              "disposition": "denied",
+              "share": 0.9285714285714286
+            },
+            {
+              "count": 12,
+              "disposition": "granted",
+              "share": 0.037267080745341616
+            },
+            {
+              "count": 11,
+              "disposition": "dismissed",
+              "share": 0.034161490683229816
+            }
+          ],
+          "key": "ca3",
+          "open": 2,
+          "resolved": 322
+        },
+        {
+          "cases": 294,
+          "dispositions": [
+            {
+              "count": 285,
+              "disposition": "denied",
+              "share": 0.976027397260274
+            },
+            {
+              "count": 5,
+              "disposition": "granted",
+              "share": 0.017123287671232876
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.00684931506849315
+            }
+          ],
+          "key": "ca7",
+          "open": 2,
+          "resolved": 292
+        },
+        {
+          "cases": 261,
+          "dispositions": [
+            {
+              "count": 243,
+              "disposition": "denied",
+              "share": 0.9346153846153846
+            },
+            {
+              "count": 13,
+              "disposition": "granted",
+              "share": 0.05
+            },
+            {
+              "count": 4,
+              "disposition": "dismissed",
+              "share": 0.015384615384615385
             }
           ],
           "key": "ca10",
           "open": 1,
-          "resolved": 9
+          "resolved": 260
         },
         {
-          "cases": 8,
+          "cases": 220,
           "dispositions": [
             {
-              "count": 8,
+              "count": 211,
               "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "ca7",
-          "open": 0,
-          "resolved": 8
-        },
-        {
-          "cases": 5,
-          "dispositions": [
-            {
-              "count": 4,
-              "disposition": "denied",
-              "share": 0.8
+              "share": 0.9634703196347032
             },
             {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.2
-            }
-          ],
-          "key": "ca1",
-          "open": 0,
-          "resolved": 5
-        },
-        {
-          "cases": 4,
-          "dispositions": [
-            {
-              "count": 4,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "cadc",
-          "open": 0,
-          "resolved": 4
-        },
-        {
-          "cases": 4,
-          "dispositions": [
-            {
-              "count": 3,
-              "disposition": "denied",
-              "share": 1.0
+              "count": 8,
+              "disposition": "granted",
+              "share": 0.0365296803652968
             }
           ],
           "key": "cafc",
           "open": 1,
-          "resolved": 3
+          "resolved": 219
+        },
+        {
+          "cases": 183,
+          "dispositions": [
+            {
+              "count": 176,
+              "disposition": "denied",
+              "share": 0.9617486338797814
+            },
+            {
+              "count": 5,
+              "disposition": "dismissed",
+              "share": 0.0273224043715847
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.01092896174863388
+            }
+          ],
+          "key": "ca1",
+          "open": 0,
+          "resolved": 183
+        },
+        {
+          "cases": 104,
+          "dispositions": [
+            {
+              "count": 85,
+              "disposition": "denied",
+              "share": 0.8173076923076923
+            },
+            {
+              "count": 16,
+              "disposition": "granted",
+              "share": 0.15384615384615385
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.028846153846153848
+            }
+          ],
+          "key": "cadc",
+          "open": 0,
+          "resolved": 104
         }
       ],
       "cert_stage": true,
@@ -935,27 +1020,96 @@
     {
       "buckets": [
         {
-          "cases": 217,
+          "cases": 6581,
           "dispositions": [
             {
-              "count": 189,
+              "count": 6391,
               "disposition": "denied",
-              "share": 0.9264705882352942
+              "share": 0.9733475479744137
             },
             {
-              "count": 10,
+              "count": 123,
+              "disposition": "dismissed",
+              "share": 0.018732866280840695
+            },
+            {
+              "count": 52,
               "disposition": "granted",
-              "share": 0.049019607843137254
+              "share": 0.007919585744745659
+            }
+          ],
+          "key": "0",
+          "open": 15,
+          "resolved": 6566
+        },
+        {
+          "cases": 1308,
+          "dispositions": [
+            {
+              "count": 1179,
+              "disposition": "denied",
+              "share": 0.9027565084226646
+            },
+            {
+              "count": 102,
+              "disposition": "granted",
+              "share": 0.0781010719754977
+            },
+            {
+              "count": 25,
+              "disposition": "dismissed",
+              "share": 0.01914241960183767
+            }
+          ],
+          "key": "1",
+          "open": 2,
+          "resolved": 1306
+        },
+        {
+          "cases": 213,
+          "dispositions": [
+            {
+              "count": 156,
+              "disposition": "denied",
+              "share": 0.7428571428571429
+            },
+            {
+              "count": 49,
+              "disposition": "granted",
+              "share": 0.23333333333333334
             },
             {
               "count": 5,
               "disposition": "dismissed",
-              "share": 0.024509803921568627
+              "share": 0.023809523809523808
             }
           ],
-          "key": "(unknown)",
-          "open": 13,
-          "resolved": 204
+          "key": "3+",
+          "open": 3,
+          "resolved": 210
+        },
+        {
+          "cases": 181,
+          "dispositions": [
+            {
+              "count": 104,
+              "disposition": "denied",
+              "share": 0.5842696629213483
+            },
+            {
+              "count": 71,
+              "disposition": "granted",
+              "share": 0.398876404494382
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.016853932584269662
+            }
+          ],
+          "key": "2",
+          "open": 3,
+          "resolved": 178
         }
       ],
       "cert_stage": true,
@@ -968,27 +1122,50 @@
     {
       "buckets": [
         {
-          "cases": 217,
+          "cases": 8237,
           "dispositions": [
             {
-              "count": 189,
+              "count": 7799,
               "disposition": "denied",
-              "share": 0.9264705882352942
+              "share": 0.9493609251369446
             },
             {
-              "count": 10,
+              "count": 261,
               "disposition": "granted",
-              "share": 0.049019607843137254
+              "share": 0.0317711503347535
             },
             {
-              "count": 5,
+              "count": 155,
               "disposition": "dismissed",
-              "share": 0.024509803921568627
+              "share": 0.018867924528301886
             }
           ],
-          "key": "(unknown)",
-          "open": 13,
-          "resolved": 204
+          "key": "none",
+          "open": 22,
+          "resolved": 8215
+        },
+        {
+          "cases": 46,
+          "dispositions": [
+            {
+              "count": 31,
+              "disposition": "denied",
+              "share": 0.6888888888888889
+            },
+            {
+              "count": 13,
+              "disposition": "granted",
+              "share": 0.28888888888888886
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.022222222222222223
+            }
+          ],
+          "key": "cvsg",
+          "open": 1,
+          "resolved": 45
         }
       ],
       "cert_stage": true,
@@ -1001,169 +1178,378 @@
     {
       "buckets": [
         {
-          "cases": 49,
+          "cases": 186,
           "dispositions": [
             {
-              "count": 42,
+              "count": 139,
               "disposition": "denied",
-              "share": 0.9767441860465116
+              "share": 0.7513513513513513
             },
             {
-              "count": 1,
+              "count": 32,
+              "disposition": "granted",
+              "share": 0.17297297297297298
+            },
+            {
+              "count": 14,
               "disposition": "dismissed",
-              "share": 0.023255813953488372
+              "share": 0.07567567567567568
             }
           ],
-          "key": "(none)",
-          "open": 6,
-          "resolved": 43
+          "key": "ca9",
+          "open": 1,
+          "resolved": 185
         },
         {
-          "cases": 22,
+          "cases": 172,
           "dispositions": [
             {
-              "count": 20,
+              "count": 117,
               "disposition": "denied",
-              "share": 0.9090909090909091
+              "share": 0.6882352941176471
             },
             {
-              "count": 2,
+              "count": 44,
               "disposition": "granted",
-              "share": 0.09090909090909091
+              "share": 0.25882352941176473
+            },
+            {
+              "count": 9,
+              "disposition": "dismissed",
+              "share": 0.052941176470588235
+            }
+          ],
+          "key": "ca5",
+          "open": 2,
+          "resolved": 170
+        },
+        {
+          "cases": 126,
+          "dispositions": [
+            {
+              "count": 83,
+              "disposition": "denied",
+              "share": 0.6587301587301587
+            },
+            {
+              "count": 32,
+              "disposition": "granted",
+              "share": 0.25396825396825395
+            },
+            {
+              "count": 11,
+              "disposition": "dismissed",
+              "share": 0.0873015873015873
+            }
+          ],
+          "key": "ca4",
+          "open": 0,
+          "resolved": 126
+        },
+        {
+          "cases": 118,
+          "dispositions": [
+            {
+              "count": 69,
+              "disposition": "denied",
+              "share": 0.5897435897435898
+            },
+            {
+              "count": 27,
+              "disposition": "granted",
+              "share": 0.23076923076923078
+            },
+            {
+              "count": 21,
+              "disposition": "dismissed",
+              "share": 0.1794871794871795
+            }
+          ],
+          "key": "ca11",
+          "open": 1,
+          "resolved": 117
+        },
+        {
+          "cases": 112,
+          "dispositions": [
+            {
+              "count": 64,
+              "disposition": "denied",
+              "share": 0.5765765765765766
+            },
+            {
+              "count": 26,
+              "disposition": "granted",
+              "share": 0.23423423423423423
+            },
+            {
+              "count": 21,
+              "disposition": "dismissed",
+              "share": 0.1891891891891892
+            }
+          ],
+          "key": "ca2",
+          "open": 1,
+          "resolved": 111
+        },
+        {
+          "cases": 95,
+          "dispositions": [
+            {
+              "count": 71,
+              "disposition": "denied",
+              "share": 0.7473684210526316
+            },
+            {
+              "count": 15,
+              "disposition": "granted",
+              "share": 0.15789473684210525
+            },
+            {
+              "count": 9,
+              "disposition": "dismissed",
+              "share": 0.09473684210526316
             }
           ],
           "key": "ca6",
           "open": 0,
-          "resolved": 22
+          "resolved": 95
+        },
+        {
+          "cases": 86,
+          "dispositions": [
+            {
+              "count": 66,
+              "disposition": "denied",
+              "share": 0.7764705882352941
+            },
+            {
+              "count": 16,
+              "disposition": "granted",
+              "share": 0.18823529411764706
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.03529411764705882
+            }
+          ],
+          "key": "ca8",
+          "open": 1,
+          "resolved": 85
+        },
+        {
+          "cases": 72,
+          "dispositions": [
+            {
+              "count": 47,
+              "disposition": "denied",
+              "share": 0.6714285714285714
+            },
+            {
+              "count": 12,
+              "disposition": "granted",
+              "share": 0.17142857142857143
+            },
+            {
+              "count": 11,
+              "disposition": "dismissed",
+              "share": 0.15714285714285714
+            }
+          ],
+          "key": "ca3",
+          "open": 2,
+          "resolved": 70
+        },
+        {
+          "cases": 54,
+          "dispositions": [
+            {
+              "count": 36,
+              "disposition": "denied",
+              "share": 0.6792452830188679
+            },
+            {
+              "count": 13,
+              "disposition": "granted",
+              "share": 0.24528301886792453
+            },
+            {
+              "count": 4,
+              "disposition": "dismissed",
+              "share": 0.07547169811320754
+            }
+          ],
+          "key": "ca10",
+          "open": 1,
+          "resolved": 53
+        },
+        {
+          "cases": 51,
+          "dispositions": [
+            {
+              "count": 42,
+              "disposition": "denied",
+              "share": 0.8571428571428571
+            },
+            {
+              "count": 5,
+              "disposition": "granted",
+              "share": 0.10204081632653061
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.04081632653061224
+            }
+          ],
+          "key": "ca7",
+          "open": 2,
+          "resolved": 49
+        },
+        {
+          "cases": 43,
+          "dispositions": [
+            {
+              "count": 37,
+              "disposition": "denied",
+              "share": 0.9024390243902439
+            },
+            {
+              "count": 4,
+              "disposition": "dismissed",
+              "share": 0.0975609756097561
+            }
+          ],
+          "key": "(none)",
+          "open": 2,
+          "resolved": 41
+        },
+        {
+          "cases": 40,
+          "dispositions": [
+            {
+              "count": 31,
+              "disposition": "denied",
+              "share": 0.7948717948717948
+            },
+            {
+              "count": 8,
+              "disposition": "granted",
+              "share": 0.20512820512820512
+            }
+          ],
+          "key": "cafc",
+          "open": 1,
+          "resolved": 39
+        },
+        {
+          "cases": 32,
+          "dispositions": [
+            {
+              "count": 16,
+              "disposition": "granted",
+              "share": 0.5
+            },
+            {
+              "count": 13,
+              "disposition": "denied",
+              "share": 0.40625
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.09375
+            }
+          ],
+          "key": "cadc",
+          "open": 0,
+          "resolved": 32
+        },
+        {
+          "cases": 30,
+          "dispositions": [
+            {
+              "count": 23,
+              "disposition": "denied",
+              "share": 0.7666666666666667
+            },
+            {
+              "count": 5,
+              "disposition": "dismissed",
+              "share": 0.16666666666666666
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.06666666666666667
+            }
+          ],
+          "key": "ca1",
+          "open": 0,
+          "resolved": 30
         },
         {
           "cases": 20,
           "dispositions": [
             {
-              "count": 15,
+              "count": 12,
               "disposition": "denied",
-              "share": 0.75
+              "share": 0.6
             },
             {
-              "count": 4,
+              "count": 8,
+              "disposition": "dismissed",
+              "share": 0.4
+            }
+          ],
+          "key": "Supreme Court of Florida",
+          "open": 0,
+          "resolved": 20
+        },
+        {
+          "cases": 15,
+          "dispositions": [
+            {
+              "count": 11,
+              "disposition": "denied",
+              "share": 0.7333333333333333
+            },
+            {
+              "count": 3,
               "disposition": "granted",
               "share": 0.2
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.05
-            }
-          ],
-          "key": "ca4",
-          "open": 0,
-          "resolved": 20
-        },
-        {
-          "cases": 19,
-          "dispositions": [
-            {
-              "count": 16,
-              "disposition": "denied",
-              "share": 0.9411764705882353
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.058823529411764705
-            }
-          ],
-          "key": "ca5",
-          "open": 2,
-          "resolved": 17
-        },
-        {
-          "cases": 19,
-          "dispositions": [
-            {
-              "count": 18,
-              "disposition": "denied",
-              "share": 0.9473684210526315
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.05263157894736842
-            }
-          ],
-          "key": "ca9",
-          "open": 0,
-          "resolved": 19
-        },
-        {
-          "cases": 17,
-          "dispositions": [
-            {
-              "count": 15,
-              "disposition": "denied",
-              "share": 0.9375
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.0625
-            }
-          ],
-          "key": "ca2",
-          "open": 1,
-          "resolved": 16
-        },
-        {
-          "cases": 15,
-          "dispositions": [
-            {
-              "count": 14,
-              "disposition": "denied",
-              "share": 0.9333333333333333
-            },
-            {
-              "count": 1,
-              "disposition": "granted",
               "share": 0.06666666666666667
             }
           ],
-          "key": "ca11",
+          "key": "Court of Criminal Appeals of Texas",
           "open": 0,
           "resolved": 15
         },
         {
-          "cases": 13,
+          "cases": 14,
           "dispositions": [
             {
-              "count": 10,
+              "count": 12,
               "disposition": "denied",
-              "share": 0.8333333333333334
+              "share": 0.8571428571428571
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.16666666666666666
+              "share": 0.14285714285714285
             }
           ],
-          "key": "ca3",
-          "open": 1,
-          "resolved": 12
+          "key": "Supreme Court of California",
+          "open": 0,
+          "resolved": 14
         },
         {
-          "cases": 12,
-          "dispositions": [
-            {
-              "count": 11,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "ca8",
-          "open": 1,
-          "resolved": 11
-        },
-        {
-          "cases": 10,
+          "cases": 9,
           "dispositions": [
             {
               "count": 9,
@@ -1171,9 +1557,27 @@
               "share": 1.0
             }
           ],
-          "key": "ca10",
-          "open": 1,
+          "key": "Court of Criminal Appeals of Oklahoma",
+          "open": 0,
           "resolved": 9
+        },
+        {
+          "cases": 8,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 0.7142857142857143
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.2857142857142857
+            }
+          ],
+          "key": "Court of Appeal of California, First Appellate District",
+          "open": 1,
+          "resolved": 7
         },
         {
           "cases": 8,
@@ -1184,9 +1588,192 @@
               "share": 1.0
             }
           ],
-          "key": "ca7",
+          "key": "Court of Appeals of Michigan",
           "open": 0,
           "resolved": 8
+        },
+        {
+          "cases": 7,
+          "dispositions": [
+            {
+              "count": 6,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeal of California, Second Appellate District",
+          "open": 1,
+          "resolved": 6
+        },
+        {
+          "cases": 7,
+          "dispositions": [
+            {
+              "count": 7,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Indiana",
+          "open": 0,
+          "resolved": 7
+        },
+        {
+          "cases": 7,
+          "dispositions": [
+            {
+              "count": 7,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, Fifth District",
+          "open": 0,
+          "resolved": 7
+        },
+        {
+          "cases": 7,
+          "dispositions": [
+            {
+              "count": 6,
+              "disposition": "denied",
+              "share": 0.8571428571428571
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.14285714285714285
+            }
+          ],
+          "key": "District Court of Appeal of Florida, Fourth District",
+          "open": 0,
+          "resolved": 7
+        },
+        {
+          "cases": 7,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 0.7142857142857143
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.2857142857142857
+            }
+          ],
+          "key": "Supreme Court of Nevada",
+          "open": 0,
+          "resolved": 7
+        },
+        {
+          "cases": 6,
+          "dispositions": [
+            {
+              "count": 4,
+              "disposition": "denied",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Court of Appeals of New York",
+          "open": 0,
+          "resolved": 6
+        },
+        {
+          "cases": 6,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 3,
+              "disposition": "granted",
+              "share": 0.5
+            }
+          ],
+          "key": "Supreme Court of Colorado",
+          "open": 0,
+          "resolved": 6
+        },
+        {
+          "cases": 6,
+          "dispositions": [
+            {
+              "count": 6,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Virginia",
+          "open": 0,
+          "resolved": 6
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Appeals Court of Massachusetts",
+          "open": 0,
+          "resolved": 5
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 0.6
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.2
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.2
+            }
+          ],
+          "key": "Court of Appeal of California, Third Appellate District",
+          "open": 0,
+          "resolved": 5
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.4
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.4
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.2
+            }
+          ],
+          "key": "Court of Appeals of Texas, Fourteenth District",
+          "open": 0,
+          "resolved": 5
         },
         {
           "cases": 5,
@@ -1194,15 +1781,62 @@
             {
               "count": 4,
               "disposition": "denied",
-              "share": 0.8
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.2
+              "share": 1.0
             }
           ],
-          "key": "ca1",
+          "key": "Court of Appeals of Washington, Division 1",
+          "open": 1,
+          "resolved": 4
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Georgia",
+          "open": 0,
+          "resolved": 5
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Louisiana",
+          "open": 0,
+          "resolved": 5
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Rhode Island",
+          "open": 0,
+          "resolved": 5
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "United States Court of Appeals for the Armed Forces",
           "open": 0,
           "resolved": 5
         },
@@ -1215,7 +1849,46 @@
               "share": 1.0
             }
           ],
-          "key": "cadc",
+          "key": "Appellate Court of Illinois, First District",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 4,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Arizona, Division Two",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 4,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, First District",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 4,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "District Court of Appeal of Florida, First District",
           "open": 0,
           "resolved": 4
         },
@@ -1225,12 +1898,1298 @@
             {
               "count": 3,
               "disposition": "denied",
+              "share": 0.75
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.25
+            }
+          ],
+          "key": "District of Columbia Court of Appeals",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 4,
+              "disposition": "denied",
               "share": 1.0
             }
           ],
-          "key": "cafc",
+          "key": "Supreme Court of Arizona",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 0.75
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.25
+            }
+          ],
+          "key": "Supreme Court of Illinois",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 0.75
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.25
+            }
+          ],
+          "key": "Supreme Court of Indiana",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.5
+            }
+          ],
+          "key": "Supreme Court of Mississippi",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.5
+            }
+          ],
+          "key": "Supreme Court of South Carolina",
+          "open": 0,
+          "resolved": 4
+        },
+        {
+          "cases": 4,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Supreme Court of Texas",
           "open": 1,
           "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Court of Appeal of California, Sixth Appellate District",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Court of Appeal of Louisiana, First Circuit",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeal of Louisiana, Third Circuit",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Arizona, Division One",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "District Court of Appeal of Florida, Fifth District",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "District Court of Appeal of Florida, Second District",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "District Court of Appeal of Florida, Third District",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Superior Court of New Jersey, Appellate Division",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Superior Court of Pennsylvania, Harrisburg Office",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Superior Court of Pennsylvania, Philadelphia Office",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Supreme Court of Montana",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Supreme Court of Oklahoma",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 3,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Pennsylvania, Western District",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.5
+            }
+          ],
+          "key": "Supreme Court of Washington",
+          "open": 1,
+          "resolved": 2
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 0.6666666666666666
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.3333333333333333
+            }
+          ],
+          "key": "Supreme Judicial Court of Massachusetts",
+          "open": 0,
+          "resolved": 3
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Appellate Court of Illinois, Fourth District",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Appellate Division, Supreme Court of New York, First Judicial Department",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.5
+            }
+          ],
+          "key": "Appellate Division, Supreme Court of New York, Fourth Judicial Department",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Commonwealth Court of Pennsylvania",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.5
+            }
+          ],
+          "key": "Court of Appeal of California, Fifth Appellate District",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeal of California, Fourth Appellate District, Division One",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeal of California, Fourth Appellate District, Division Three",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.5
+            }
+          ],
+          "key": "Court of Appeals of Colorado",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Georgia",
+          "open": 1,
+          "resolved": 1
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Minnesota",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Nevada",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of North Carolina",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Cuyahoga County",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.5
+            }
+          ],
+          "key": "Court of Appeals of Oregon",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of South Carolina",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, Thirteenth District",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Wisconsin, District III",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "District Court of Appeals of Florida, Sixth District",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Iowa",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of New Jersey",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of North Dakota",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Pennsylvania, Middle District",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Tennessee, Middle Division",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 2,
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Vermont",
+          "open": 0,
+          "resolved": 2
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 1.0
+            }
+          ],
+          "key": "38th Judicial District Court of Louisiana, Cameron Parish",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Appellate Court of Connecticut",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Appellate Court of Maryland",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Appellate Division, Supreme Court of New York, Second Judicial Department",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Circuit Court of Maryland, Baltimore County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Circuit Court of Michigan, Berrien County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Circuit Court of Michigan, Genesee County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Circuit Court of Michigan, Oakland County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeal of Louisiana, Fifth Circuit",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeal of Louisiana, Fourth Circuit",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Iowa",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Kansas",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Missouri, Eastern District",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Missouri, Western District",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Nebraska",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of New Mexico",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Columbiana County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Franklin County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Montgomery County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Richland County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Ohio, Stark County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, Fourth District",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Texas, Second District",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "Court of Appeals of Texas, Twelfth District",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Utah",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Washington, Division 3",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Wisconsin, District II",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Criminal Appeals of Alabama",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Criminal Appeals of Tennessee, Eastern Division",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Criminal Appeals of Tennessee, Western Division",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "District Court of Iowa, Polk County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Intermediate Court of Appeals of Hawaii",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Superior Court of Arizona, Maricopa County",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Alabama",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "Supreme Court of Alaska",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Appeals of West Virginia",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Arkansas",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Delaware",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Idaho",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Kansas",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Michigan",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of North Carolina",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Ohio",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Pennsylvania, Eastern District",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Puerto Rico",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Wisconsin",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Wyoming",
+          "open": 0,
+          "resolved": 1
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "United States District Court for the Southern District of Mississippi",
+          "open": 1,
+          "resolved": 0
         }
       ],
       "cert_stage": true,
@@ -1244,105 +3203,296 @@
   "terms": [
     {
       "base_rates": {
-        "cases": 217,
+        "cases": 3573,
         "dispositions": [
           {
-            "count": 189,
+            "count": 3390,
             "disposition": "denied",
-            "share": 0.9264705882352942
+            "share": 0.9549295774647887
           },
           {
-            "count": 10,
+            "count": 86,
             "disposition": "granted",
-            "share": 0.049019607843137254
+            "share": 0.024225352112676058
           },
           {
-            "count": 5,
+            "count": 74,
             "disposition": "dismissed",
-            "share": 0.024509803921568627
+            "share": 0.020845070422535212
           }
         ],
         "key": "2025",
-        "open": 13,
-        "resolved": 204
+        "open": 23,
+        "resolved": 3550
+      },
+      "classes": [
+        {
+          "complete": true,
+          "dispositions": [
+            {
+              "count": 1073,
+              "disposition": "denied",
+              "share": 0.9395796847635727
+            },
+            {
+              "count": 58,
+              "disposition": "granted",
+              "share": 0.050788091068301226
+            },
+            {
+              "count": 11,
+              "disposition": "dismissed",
+              "share": 0.009632224168126095
+            }
+          ],
+          "est_grant_rate": 0.050788091068301226,
+          "fee_class": "paid",
+          "filings": 1432,
+          "ingested": 400,
+          "resolved": 386,
+          "timing": {
+            "cases": 1142,
+            "mean_days": 80.9,
+            "median_days": 68.0,
+            "p90_days": 137.0
+          },
+          "weighted_resolved": 1142
+        },
+        {
+          "complete": true,
+          "dispositions": [
+            {
+              "count": 2200,
+              "disposition": "denied",
+              "share": 0.9619588981198076
+            },
+            {
+              "count": 61,
+              "disposition": "dismissed",
+              "share": 0.026672496720594664
+            },
+            {
+              "count": 26,
+              "disposition": "granted",
+              "share": 0.011368605159597726
+            }
+          ],
+          "est_grant_rate": 0.011368605159597726,
+          "fee_class": "ifp",
+          "filings": 2702,
+          "ingested": 433,
+          "resolved": 424,
+          "timing": {
+            "cases": 2287,
+            "mean_days": 65.4,
+            "median_days": 60.0,
+            "p90_days": 96.0
+          },
+          "weighted_resolved": 2287
+        }
+      ],
+      "grants": 86,
+      "ingested": 855,
+      "median_days_to_grant": 147.0,
+      "term": 2025,
+      "timing": {
+        "cases": 3550,
+        "mean_days": 69.6,
+        "median_days": 62.0,
+        "p90_days": 129.0
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 3788,
+        "dispositions": [
+          {
+            "count": 3600,
+            "disposition": "denied",
+            "share": 0.9503695881731784
+          },
+          {
+            "count": 115,
+            "disposition": "granted",
+            "share": 0.030359028511087644
+          },
+          {
+            "count": 73,
+            "disposition": "dismissed",
+            "share": 0.019271383315733897
+          }
+        ],
+        "key": "2024",
+        "open": 0,
+        "resolved": 3788
+      },
+      "classes": [
+        {
+          "complete": true,
+          "dispositions": [
+            {
+              "count": 1200,
+              "disposition": "denied",
+              "share": 0.9195402298850575
+            },
+            {
+              "count": 90,
+              "disposition": "granted",
+              "share": 0.06896551724137931
+            },
+            {
+              "count": 15,
+              "disposition": "dismissed",
+              "share": 0.011494252873563218
+            }
+          ],
+          "est_grant_rate": 0.06896551724137931,
+          "fee_class": "paid",
+          "filings": 1329,
+          "ingested": 225,
+          "resolved": 225,
+          "timing": {
+            "cases": 1305,
+            "mean_days": 101.4,
+            "median_days": 74.0,
+            "p90_days": 179.0
+          },
+          "weighted_resolved": 1305
+        },
+        {
+          "complete": true,
+          "dispositions": [
+            {
+              "count": 2320,
+              "disposition": "denied",
+              "share": 0.9682804674457429
+            },
+            {
+              "count": 54,
+              "disposition": "dismissed",
+              "share": 0.022537562604340568
+            },
+            {
+              "count": 22,
+              "disposition": "granted",
+              "share": 0.009181969949916527
+            }
+          ],
+          "est_grant_rate": 0.009181969949916527,
+          "fee_class": "ifp",
+          "filings": 2529,
+          "ingested": 308,
+          "resolved": 308,
+          "timing": {
+            "cases": 2396,
+            "mean_days": 66.1,
+            "median_days": 60.0,
+            "p90_days": 118.0
+          },
+          "weighted_resolved": 2396
+        }
+      ],
+      "grants": 115,
+      "ingested": 548,
+      "median_days_to_grant": 138.0,
+      "term": 2024,
+      "timing": {
+        "cases": 3788,
+        "mean_days": 78.5,
+        "median_days": 62.0,
+        "p90_days": 146.0
+      }
+    },
+    {
+      "base_rates": {
+        "cases": 922,
+        "dispositions": [
+          {
+            "count": 840,
+            "disposition": "denied",
+            "share": 0.911062906724512
+          },
+          {
+            "count": 73,
+            "disposition": "granted",
+            "share": 0.07917570498915401
+          },
+          {
+            "count": 9,
+            "disposition": "dismissed",
+            "share": 0.009761388286334056
+          }
+        ],
+        "key": "2023",
+        "open": 0,
+        "resolved": 922
       },
       "classes": [
         {
           "complete": false,
           "dispositions": [
             {
-              "count": 126,
+              "count": 840,
               "disposition": "denied",
-              "share": 0.9064748201438849
+              "share": 0.9130434782608695
             },
             {
-              "count": 10,
+              "count": 71,
               "disposition": "granted",
-              "share": 0.07194244604316546
+              "share": 0.07717391304347826
             },
             {
-              "count": 3,
+              "count": 9,
               "disposition": "dismissed",
-              "share": 0.02158273381294964
+              "share": 0.009782608695652175
             }
           ],
-          "est_grant_rate": 0.07194244604316546,
+          "est_grant_rate": 0.07717391304347826,
           "fee_class": "paid",
-          "filings": 125,
-          "ingested": 147,
-          "resolved": 139,
+          "filings": 948,
+          "ingested": 164,
+          "resolved": 164,
           "timing": {
-            "cases": 139,
-            "mean_days": 104.1,
-            "median_days": 84.0,
-            "p90_days": 173.0
+            "cases": 919,
+            "mean_days": 88.9,
+            "median_days": 69.0,
+            "p90_days": 151.0
           },
-          "weighted_resolved": 139
+          "weighted_resolved": 920
         },
         {
           "complete": false,
-          "dispositions": [
-            {
-              "count": 60,
-              "disposition": "denied",
-              "share": 0.967741935483871
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.03225806451612903
-            }
-          ],
-          "est_grant_rate": 0.0,
+          "dispositions": [],
+          "est_grant_rate": null,
           "fee_class": "ifp",
           "filings": null,
-          "ingested": 67,
-          "resolved": 62,
+          "ingested": 0,
+          "resolved": 0,
           "timing": {
-            "cases": 62,
-            "mean_days": 78.8,
-            "median_days": 95.0,
-            "p90_days": 97.0
+            "cases": 0,
+            "mean_days": null,
+            "median_days": null,
+            "p90_days": null
           },
-          "weighted_resolved": 62
+          "weighted_resolved": 0
         }
       ],
-      "grants": 10,
-      "ingested": 217,
-      "median_days_to_grant": 136.0,
-      "term": 2025,
+      "grants": 73,
+      "ingested": 166,
+      "median_days_to_grant": 140.0,
+      "term": 2023,
       "timing": {
-        "cases": 204,
-        "mean_days": 95.9,
-        "median_days": 88.0,
-        "p90_days": 137.0
+        "cases": 921,
+        "mean_days": 89.4,
+        "median_days": 69.0,
+        "p90_days": 151.0
       }
     }
   ],
   "timing": {
-    "cases": 171,
-    "mean_days": 369.4,
-    "median_days": 347.0,
-    "p90_days": 636.0
+    "cases": 322,
+    "mean_days": 233.6,
+    "median_days": 122.0,
+    "p90_days": 533.0
   }
 }
