@@ -1,10 +1,9 @@
 # Security setup (operational runbook)
 
-The concrete configuration behind the principles in [SECURITY.md](../SECURITY.md):
+The concrete configuration behind the invariants in [SECURITY.md](../SECURITY.md):
 the GitHub App, branch protection, the `runner` environment, and the S3 roles.
 SECURITY.md says *what* the invariants are; this says *how* they are wired, so a
-maintainer can reproduce or audit the setup. For the data-side access table see
-[data-pipeline.md](data-pipeline.md).
+maintainer can reproduce or audit the setup.
 
 ## The two GitHub Apps
 
@@ -169,25 +168,41 @@ review.
 Every `runner` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
-## S3 / the DVC remote
+## S3 / the private stores
 
-Two IAM roles, assumed via GitHub OIDC (no static keys); see
-[data-pipeline.md](data-pipeline.md) for the per-workflow access table.
+Two IAM roles, assumed via GitHub OIDC (no static keys), cover both private S3
+stores — the DVC remote (the corpus index and metrics) and the per-case content
+store:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`) —
   **append-only**: `s3:GetObject` / `PutObject` / `ListBucket`, and an explicit
   `Deny` on every delete plus `DeleteBucket` / `PutBucketVersioning`. Content-
-  addressed `dvc push` only ever adds objects, and no run garbage-collects the
+  addressed `dvc push` only ever adds objects, no run garbage-collects the
   remote (the historical job's `dvc gc --workspace` prunes only its local runner cache,
-  never `--cloud`), so the writers never need delete; this means no run can wipe
-  corpus data.
+  never `--cloud`), and the content store's write-once objects and versioned
+  manifests never need a delete; this means no run can wipe corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
   *consumer* job — `GetObject` / `ListBucket` only, so a compromised consumer
   runner cannot write or poison the corpus). Consumers reach it through two
   composites: `corpus-ranged` for the predict/evaluate **cell** jobs
-  (role + backend env only; the cell queries the blob in place, no pull) and
-  `corpus-readonly` for the scan-heavy full-pull consumers (the plan jobs,
-  `run-analytics`, the metrics refresh).
+  (role + backend env only; the cell reads the content store and queries the
+  index blob in place, no pull) and `corpus-readonly` for the scan-heavy
+  full-pull consumers (the plan jobs, `run-analytics`, the metrics refresh).
+
+Access mirrors each workflow's role in the pipeline:
+
+| Workflow                                  | Role / access | Why                              |
+|-------------------------------------------|---------------|----------------------------------|
+| `run-pull` (all three jobs)               | read-write    | corpus writers (`dvc push` + content-store mirror) |
+| `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the whole index (full `dvc pull`) |
+| `run-backtest`                            | read-only     | replay: full index `dvc pull` + redacted snapshots from the content store |
+| `run-predict`, `run-evaluate` — cell jobs | read-only | record provisioning from the content store + ranged index queries (no pull) |
+| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `dvc pull`) |
+| `ci`                                      | none          | gate stays offline/fast          |
+
+The split is deliberate: a cell touches KBs of one case's data, so it reads the
+per-case objects and the immutable index in place and moves no full blob; the
+plan jobs and `run-analytics` scan the index and keep the full pull.
 
 Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-
@@ -200,30 +215,24 @@ a docket must be assumed. The blast radius is bounded and acceptable: the role
 can only read public court data back out of the bucket and spend egress; it
 cannot write or delete (append-only remote, explicit deny, versioning on), and
 the cell's GitHub token cannot push code (the collect job owns git with its own
-token). A billing alarm bounds the egress-spend abuse case. **Narrowing target
-for the read-only role:** the cell path needs only `s3:GetObject` /
-`s3:GetObjectVersion` on the DVC cache prefix (`<remote-prefix>/files/*`) — no
-`ListBucket` (the ranged backend resolves keys from the committed pointer and
-never lists). Splitting that narrower policy out (cells on the narrowed role,
-full-pull consumers on the current one) is a maintainer-side IAM change,
-recorded here as the target. **Caveat (corpus split) — the narrowing and the
-cutover flag are in tension and must be sequenced.** The `casestore` read path *does* list
-(`s3:ListBucket`): any latest-snapshot-style read under the split mode lists a
-case's `snapshots/` to find the newest — `provision-snapshot`, and under
-`FEDCOURTS_CORPUS_SPLIT` also the writer's own change-detection and the signal
-backfill. Pure `GetObject` reads (`materialize-event`'s event/document reads,
-document leaves) do not list. The concrete production lever is now
-**`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`): setting it on the
-`runner` environment flips the *entire* forward predict/evaluate fleet onto the
-casestore path at once, and it **overrides** the env-configured `ranged` backend
-those cells run today (an explicit per-command `--corpus-backend` is the only thing
-that still wins). So this flag *is* the "cells pointed at it in production"
-scenario. Hard ordering: before the flag is turned on, the read-only role must
-retain (or regain) `s3:ListBucket` on the casestore prefix **or** a per-case
-snapshot pointer must exist so the reader can `GetObject` without listing; and
-conversely the `GetObject`-only narrowing target above **cannot** be applied while
-the flag is on. Do not turn on `FEDCOURTS_CORPUS_SPLIT` and narrow the role in the
-same change.
+token). A billing alarm bounds the egress-spend abuse case.
+
+**The corpus-split mode constrains the read-only role's policy.**
+**`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `runner`
+environment: the entire forward predict/evaluate fleet provisions from the
+casestore path (it overrides the env-configured `ranged` backend; an explicit
+per-command `--corpus-backend` is the only thing that still wins), and the
+casestore read path *does* list (`s3:ListBucket`) — a latest-snapshot-style
+read lists a case's `snapshots/` to find the newest (`provision-snapshot`, the
+writer's own change detection, the signal backfill), while pure `GetObject`
+reads (`materialize-event`'s event/document reads, document leaves) do not.
+The read-only role must therefore retain `s3:ListBucket` on the casestore
+prefix for as long as the mode is on. A `GetObject`-only narrowing of the cell
+path (no `ListBucket`; the ranged backend resolves index keys from the
+committed pointer and never lists) remains the recorded target for the *index*
+side, but it cannot be applied to the casestore prefix unless a per-case
+snapshot pointer exists so the reader can `GetObject` without listing — do not
+narrow the role and rely on the split mode in the same change.
 
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, and

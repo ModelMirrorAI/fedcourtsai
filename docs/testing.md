@@ -7,9 +7,8 @@ GitHub Actions. The guiding split mirrors the rest of the architecture: the
 of the local harness is to make everything *around* that judgment runnable without
 a CI round-trip.
 
-For where these commands fit the pipeline, see [pipeline.md](pipeline.md) and
-[architecture.md](architecture.md); for the change workflow every contributor
-follows, see [agent-workflow.md](agent-workflow.md).
+For where these commands fit the pipeline, see [pipeline.md](pipeline.md); for
+the change workflow every contributor follows, see [AGENTS.md](../AGENTS.md).
 
 ## The local gate
 

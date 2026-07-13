@@ -1802,7 +1802,7 @@ def live_rotation(
     The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: pending
     modern-cert petitions (no disposition, no termination, an open event) from
     ``term_floor_year`` forward — the floor the reachability probe established
-    (docs/live-sources-probe.md). **Distributed petitions lead** (nearest
+    (docs/live-sources.md). **Distributed petitions lead** (nearest
     conference first — they are days from resolution, the opposite of
     stalest-first; a past conference date sorts first of all, since that
     petition is overdue for its order-list result), then recent Terms

@@ -210,7 +210,12 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
 - **You run headless** (in CI, no interactive input). If the snapshot is missing or
   the event is malformed, do not stall waiting for input — always explain the
   problem in `reasoning.md` and record a `flags.json` note (`category` `blocked` or
-  `data-quality`) so it reaches a maintainer durably, then finish. Make the most
+  `data-quality`) so it reaches a maintainer durably, then finish. A forward cell
+  may legitimately find itself without a provisioned snapshot (provisioning refuses
+  a forward cell whose snapshot's latest entry reads terminal — the case already
+  looks decided): note the gap in `flags.json` and predict from priors and base
+  rates only, treating the case per the first rule above — do not retrieve its
+  current docket state or outcome. Make the most
   conservative reasonable call rather than guessing widely. (A trigger-issue comment
   is fine as an extra, but the issue is closed when the run lands — `flags.json` is
   the channel that survives.)

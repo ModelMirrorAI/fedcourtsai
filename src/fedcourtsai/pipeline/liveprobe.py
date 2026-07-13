@@ -1,12 +1,11 @@
 """Reachability probe for the supremecourt.gov docket-JSON channel.
 
-The gate on the live-sources loader (docs/live-sources.md): before any ingest
-code is written, establish — per October Term, walking backward from the
-current one — whether the per-docket JSON is actually served, how far back the
-document links reach, whether the schema is stable across Terms, and whether
-the proceedings text carries the machine-matchable disposition orders the
-ingest-time resolution needs. The findings note and the Term-floor decision
-live in docs/live-sources-probe.md.
+Establishes, per October Term walking backward from the current one, whether
+the per-docket JSON is actually served, how far back the document links reach,
+whether the schema is stable across Terms, and whether the proceedings text
+carries the machine-matchable disposition orders the ingest-time resolution
+needs. Re-run it after a cert-pattern change to re-establish the resolver
+recall claim; the standing conclusions live in docs/live-sources.md.
 
 Strictly read-only and budget-free: this is not the CourtListener client — no
 token, no governor. The three access facts from the design doc shape the

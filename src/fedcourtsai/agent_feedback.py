@@ -31,7 +31,7 @@ _ISSUE_TITLE = "Agent feedback"
 _ISSUE_BODY = (
     "Long-lived tracking issue for the agent flags the predict/evaluate `collect` "
     "job rolls up. Each run that surfaces a flag adds a comment below; triage them "
-    "and close the issue only if you retire the channel. See docs/data-model.md "
+    "and close the issue only if you retire the channel. See docs/data-pipeline.md "
     "(the `flags.json` channel) and docs/pipeline.md."
 )
 

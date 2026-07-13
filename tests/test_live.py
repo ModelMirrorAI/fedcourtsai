@@ -34,7 +34,7 @@ from fedcourtsai.supremecourt import (
 from tests.conftest import seed_prediction
 from tests.test_documents import _pdf
 
-# --- payload fixtures (trimmed real shapes, per docs/live-sources-probe.md) -----
+# --- payload fixtures (trimmed real shapes, per docs/live-sources.md) -----
 
 
 def _payload(

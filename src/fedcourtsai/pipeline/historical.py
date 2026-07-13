@@ -2,7 +2,7 @@
 
 The historical half of the live-sources design (docs/live-sources.md): the
 supremecourt.gov docket JSON serves every decided petition of the e-filing era
-(OT2017+, per docs/live-sources-probe.md), through the identical client,
+(OT2017+, per docs/live-sources.md), through the identical client,
 mapping, identity, and ingest seams the forward poller uses — so the historical
 set is built with the actual instrument, not a proxy. It accumulates resolved
 outcomes reverse-chronologically by Term, primarily to give the statpack's
