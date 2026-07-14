@@ -1,0 +1,11 @@
+case_id: scotus/72481910
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-02-01'
+resolved: true
+schema_version: '1.0'
+title: Pablo Guzman, Petitioner v. Ricky D. Dixon, Secretary, Florida Department of
+  Corrections, et al.

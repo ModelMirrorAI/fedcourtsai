@@ -1,0 +1,11 @@
+case_id: scotus/72481908
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-02-01'
+resolved: true
+schema_version: '1.0'
+title: Larry David Davis, Petitioner v. Barry Sims, Judge, 7th Division, Pulaski County
+  Circuit Court, et al.
