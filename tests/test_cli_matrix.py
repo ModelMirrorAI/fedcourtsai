@@ -204,6 +204,32 @@ def test_predict_matrix_drops_stale_unresolvable_scotus_petition(tmp_path: Path)
     assert "stale unresolvable" in result.stderr
 
 
+def test_predict_matrix_drops_a_salience_unselected_case(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    # Both cases are in-scope SCOTUS cert dockets, but 24002 was scored by the
+    # salience gate and NOT selected into the fundable slice, so the matrix defers
+    # it. 24001 is unscored → fail-open → still predicted.
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/24002", court="scotus", docket_number="24-2")],
+        )
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/24002'"
+        )
+        conn.commit()
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {("scotus", 24001)}
+    assert "24002" in result.stderr
+    assert "not selected this salience round" in result.stderr
+
+
 def test_predict_matrix_drops_bare_opinion_import_case(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)

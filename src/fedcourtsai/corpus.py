@@ -38,6 +38,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
 from .schemas import Disposition, EventKind
+from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 
 CORPUS_DB_FILENAME = "corpus.db"
 
@@ -1358,6 +1359,42 @@ def is_non_cert_scotus_form(row: CorpusRow) -> bool:
     )
 
 
+def is_ifp_petition(row: CorpusRow) -> bool:
+    """Whether a SCOTUS cert docket is a pro se / in-forma-pauperis petition.
+
+    Fee class is carried in the docket serial: the paid docket numbers from 1 and
+    the IFP docket from ``IFP_SERIAL_BASE`` (5001), so a modern Term-form number
+    whose serial is at or above the base is an IFP petition. A documented scope
+    decision (see ``docs/salience.md``): IFP petitions are excluded from the
+    predict tournament — the salience gate spends the fundable slice on the paid
+    cert docket. IFP grants are rare but non-zero (Gideon arrived IFP), so this is
+    a deliberate, recorded choice, not a claim IFP cases never matter; relaxing it
+    is additive. Keyed on the parsed serial, so it fires only on a genuine cert
+    docket (applications / original / miscellaneous forms do not parse). SCOTUS-only.
+    """
+    if row.court != "scotus":
+        return False
+    parsed = parse_scotus_docket_number(row.docket_number)
+    return parsed is not None and parsed[1] >= IFP_SERIAL_BASE
+
+
+def is_salience_deferred(row: CorpusRow) -> bool:
+    """Whether a scored cert petition was *not* selected into the tournament slice.
+
+    The read side of the salience gate (see ``docs/salience.md``): the selection
+    pass scores every in-scope petition and latches ``salience_selected`` on the
+    fundable per-conference slice. A row that has been **scored**
+    (``salience_version`` set) but **not selected** is deferred — dropped from the
+    predict matrix and the pull queue this round, but never pruned (this is *not*
+    an out-of-scope reason, so ``cleanup-out-of-scope-predictions`` leaves its
+    committed predictions alone). **Fail-open**: a row with no
+    ``salience_version`` has not been scored — the pass may never have run, or run
+    after this row — so it is treated as selected, never stranded. A pure row
+    predicate, distinct from the destructive hard-scope exclusion.
+    """
+    return row.salience_version is not None and not row.salience_selected
+
+
 def is_disbarment_docket(row: CorpusRow) -> bool:
     """Whether a still-open SCOTUS docket is a disbarment (attorney-discipline) matter.
 
@@ -1533,6 +1570,10 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (
         is_non_cert_scotus_form,
         "SCOTUS application / original-jurisdiction docket — not discretionary cert",
+    ),
+    (
+        is_ifp_petition,
+        "in-forma-pauperis petition — a documented predict-scope exclusion",
     ),
     (
         is_disbarment_docket,

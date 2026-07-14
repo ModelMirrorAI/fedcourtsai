@@ -2621,6 +2621,12 @@ def _scope_filtered(
                 )
             elif (reason := corpus.out_of_scope_reason_full(conn, row)) is not None:
                 typer.echo(f"Skipping {case.court}/{case.docket}: {reason}.", err=True)
+            elif corpus.is_salience_deferred(row):
+                typer.echo(
+                    f"Skipping {case.court}/{case.docket}: not selected this salience round "
+                    f"(scored, below the capacity slice).",
+                    err=True,
+                )
             else:
                 kept.append(case)
     return kept

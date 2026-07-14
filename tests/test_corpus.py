@@ -1405,6 +1405,37 @@ def test_from_record_tolerates_record_without_salience_columns() -> None:
     assert row == _row()
 
 
+def test_ifp_petition_is_out_of_predict_scope() -> None:
+    # The IFP docket serial starts at 5001; a paid cert docket stays in scope.
+    ifp = _row(case_id="scotus/1", court="scotus", docket_number="25-5005")
+    paid = _row(case_id="scotus/2", court="scotus", docket_number="25-100")
+    assert corpus.is_ifp_petition(ifp) is True
+    assert corpus.out_of_scope_reason(ifp) == (
+        "in-forma-pauperis petition — a documented predict-scope exclusion"
+    )
+    assert corpus.is_ifp_petition(paid) is False
+    assert corpus.out_of_scope_reason(paid) is None
+    # A non-cert form (an application) does not parse, so it is not an IFP match.
+    assert corpus.is_ifp_petition(_row(court="scotus", docket_number="25A100")) is False
+    # Non-SCOTUS never matches.
+    assert corpus.is_ifp_petition(_row(court="ca9", docket_number="5005")) is False
+
+
+def test_is_salience_deferred_is_fail_open() -> None:
+    # Unscored (no version) → treated as selected (fail-open), never deferred.
+    assert corpus.is_salience_deferred(_row(salience_version=None)) is False
+    # Scored and selected → in the slice, not deferred.
+    assert (
+        corpus.is_salience_deferred(_row(salience_version="sal-v1", salience_selected=True))
+        is False
+    )
+    # Scored but not selected → deferred (dropped from the tournament this round).
+    assert (
+        corpus.is_salience_deferred(_row(salience_version="sal-v1", salience_selected=False))
+        is True
+    )
+
+
 def test_is_live_slice_reads_the_poll_stamp() -> None:
     assert corpus.is_live_slice(_row(last_live_polled=date(2026, 7, 10))) is True
     assert corpus.is_live_slice(_row(last_live_polled=None)) is False

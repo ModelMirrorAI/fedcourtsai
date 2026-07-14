@@ -164,21 +164,28 @@ class PullQueues:
 
 
 def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
-    """Whether a case is in predict scope: a SCOTUS docket *and* not excluded.
+    """Whether a case is in predict scope: a SCOTUS docket, not excluded, and selected.
 
     The scope predicate is the immutable row property ``court == "scotus"``,
     with the same exclusion reasoning the matrix backstop layers on
     (``corpus.out_of_scope_reason_full`` — the row rules plus the snapshot-aware
-    bare opinion-import rule). Checking it here,
+    bare opinion-import rule), plus the salience gate: a scored petition not
+    selected into the fundable slice (``corpus.is_salience_deferred``) is deferred,
+    not queued. Checking it here,
     at queue time, means pull never opens a ``run-predict`` issue for a case the
     gate would only drop — so a batch of nothing-but-out-of-scope cases never
     files an empty run (the live evaluation also covers cases the scope reconcile
-    has not yet latched ``predict_excluded``).
+    has not yet latched ``predict_excluded``). The salience check is fail-open: an
+    unscored row is treated as selected, so the queue is unaffected until the
+    selection pass has run.
     """
     with corpus.connect(corpus_db_path) as conn:
         row = corpus.get_row(conn, case_id)
         return bool(
-            row and row.court == "scotus" and corpus.out_of_scope_reason_full(conn, row) is None
+            row
+            and row.court == "scotus"
+            and corpus.out_of_scope_reason_full(conn, row) is None
+            and not corpus.is_salience_deferred(row)
         )
 
 

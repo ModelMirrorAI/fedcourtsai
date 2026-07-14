@@ -10,8 +10,10 @@ from fedcourtsai.schemas import Disposition
 
 def _rows() -> list[corpus.CorpusRow]:
     return [
-        # SCOTUS + out of scope (stale unresolvable) -> should be latched out
-        corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="01-7700"),
+        # SCOTUS + out of scope (stale unresolvable) -> should be latched out.
+        # A paid serial (01-700, < IFP base 5001) so the release below tests the
+        # stale->in-scope transition, not the permanent IFP exclusion.
+        corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="01-700"),
         # SCOTUS + in scope (recent Term) -> left alone
         corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="24-101"),
         # a court-of-appeals docket -> outside the reconcile universe, untouched
@@ -64,7 +66,7 @@ def test_reconcile_is_idempotent_and_two_directional(tmp_path: Path) -> None:
                 corpus.CorpusRow(
                     case_id="scotus/1",
                     court="scotus",
-                    docket_number="01-7700",
+                    docket_number="01-700",
                     disposition=Disposition.denied,
                     date_decided=date(2002, 1, 7),
                 )
