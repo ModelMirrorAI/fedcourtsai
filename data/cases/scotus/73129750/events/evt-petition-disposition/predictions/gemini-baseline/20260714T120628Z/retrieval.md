@@ -1,0 +1,4 @@
+- Read `metrics/statpack.md` locally to check the statpack base rates for modern cert petitions (Overall grant rate is ~3%).
+- CourtListener MCP lookup: search with court `ca1`, docket `25-1861`, type `r` (1 result returned: First Circuit docket 71319932, *Barbara v. Trump*).
+- CourtListener MCP lookup: search with court `scotus`, docket `25-365`, type `r` (0 results returned).
+- CourtListener MCP lookup: search with court `scotus`, q `Trump Barbara`, type `r` (0 results returned).

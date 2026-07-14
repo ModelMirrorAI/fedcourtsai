@@ -1,0 +1,1414 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:03.111Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:05.616Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:05.617Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:11.389Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:13.604Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:16.270Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:22.410Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:26.252Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:29.370Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:33.606Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:35.925Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:44.346Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:47.447Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:51.542Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:07:59.065Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:04.478Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:08.421Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:11.844Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:20.315Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:22.972Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:25.714Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:28.718Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:31.108Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:34.729Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:37.498Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:41.048Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:46.504Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:52.544Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:08:56.402Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:09:05.473Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:09:11.412Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:09:14.629Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:09:22.085Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:09:26.182Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-14T12:09:30.376Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73129750",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260714T120628Z",
+  "schema_version": "1.0"
+}

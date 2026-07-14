@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73129750",
+  "run_id": "20260714T120628Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward cell provisioned for an already-resolved event: the provisioned snapshot (record/snapshots/2026-07-14.json) contains the disposition being predicted — 'Petition for a writ of certiorari before judgment GRANTED' (Dec 5, 2025) — plus the subsequent merits argument (Apr 1, 2026) and decision (Jun 30, 2026, AFFIRMED). event.yaml still reads resolved: false and context.json says forward. Provisioning's terminal-entry refusal did not fire, likely because the snapshot's latest entries are merits-stage, not petition-stage. The prediction (granted, p=0.99) is read straight off the sanctioned baseline, so this cell carries no forecasting signal and should be discounted in evaluation; the event should also be marked resolved so future runs don't re-provision it."
+    }
+  ]
+}
