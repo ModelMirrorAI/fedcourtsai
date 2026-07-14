@@ -1,9 +1,51 @@
 {
   "$defs": {
+    "BigCaseLeaderboard": {
+      "additionalProperties": false,
+      "description": "A predictor's big-case-score agreement with the independent evaluator panel.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' independent reads per event), across the\nscored events both sides rated (one per case in the current single-event\nmodel). Never enters the leaderboard ranking; reported alongside it.",
+      "properties": {
+        "cases": {
+          "default": 0,
+          "description": "Cases with both a predictor big_case_score and at least one evaluator big-case read",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "rank_agreement": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Kendall's tau-b between the predictor's big_case_score ordering and the evaluator panel's read ordering, across the cases both scored (+1 = same order, -1 = reversed); null with fewer than 2 comparable cases or when every pair ties on one side",
+          "title": "Rank Agreement"
+        }
+      },
+      "title": "BigCaseLeaderboard",
+      "type": "object"
+    },
     "LeaderboardEntry": {
       "additionalProperties": false,
       "description": "One predictor's standings, aggregated per stratum.\n\nForward and retrospective are the pre-registration (timing) strata; the\nprocedural block segments mootness-basis cells out of both.",
       "properties": {
+        "big_case": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BigCaseLeaderboard"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The predictor's big-case-score rank-agreement with the evaluator panel (see BigCaseLeaderboard); a second, orthogonal skill dimension that never affects the ranking. Null when no case carries both a predictor big_case_score and an evaluator read."
+        },
         "evaluators": {
           "description": "Distinct evaluators that scored this predictor",
           "minimum": 0,

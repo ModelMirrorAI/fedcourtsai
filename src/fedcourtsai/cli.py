@@ -69,7 +69,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .leaderboard import build_leaderboard
+from .leaderboard import big_case_agreement, build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
 from .ops import (
     build_ops_report,
@@ -591,7 +591,10 @@ def leaderboard(
     unchanged ledger reproduce the file byte for byte.
     """
     settings = get_settings()
-    board = build_leaderboard(iter_stratified_evaluations(settings.data_root))
+    board = build_leaderboard(
+        iter_stratified_evaluations(settings.data_root),
+        big_case=big_case_agreement(settings.data_root),
+    )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
     typer.echo(

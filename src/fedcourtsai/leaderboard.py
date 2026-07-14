@@ -22,12 +22,22 @@ override lives with the join in ``store.iter_stratified_evaluations``.
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
+from pathlib import Path
 from typing import Literal
 
-from .schemas import Evaluation, Leaderboard, LeaderboardEntry, LeaderboardStratum
+from .schemas import (
+    BigCaseLeaderboard,
+    Evaluation,
+    Leaderboard,
+    LeaderboardEntry,
+    LeaderboardStratum,
+    Prediction,
+)
+from .serialize import read_model
 
 Stratum = Literal["forward", "retrospective", "procedural"]
 
@@ -107,14 +117,98 @@ def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]
     )
 
 
-def build_leaderboard(cells: Iterable[tuple[Evaluation, Stratum]]) -> Leaderboard:
+def _kendall_tau_b(points: Sequence[tuple[float, float]]) -> float | None:
+    """Kendall's tau-b rank correlation of the (x, y) points, or ``None``.
+
+    Tau-b handles ties (big-case scores can repeat): the denominator excludes
+    pairs tied on each axis, so a perfectly monotone relationship reads +1 even
+    with ties. Returns ``None`` with fewer than two points or when every pair
+    ties on one axis (the correlation is undefined). O(n^2), which is ample for a
+    cohort-sized set.
+    """
+    n = len(points)
+    if n < 2:
+        return None
+    n0 = n * (n - 1) // 2
+    concordant = discordant = tie_x = tie_y = 0
+    for i in range(n):
+        xi, yi = points[i]
+        for j in range(i + 1, n):
+            dx = xi - points[j][0]
+            dy = yi - points[j][1]
+            if dx == 0:
+                tie_x += 1
+            if dy == 0:
+                tie_y += 1
+            if dx != 0 and dy != 0:
+                if (dx > 0) == (dy > 0):
+                    concordant += 1
+                else:
+                    discordant += 1
+    denominator = math.sqrt((n0 - tie_x) * (n0 - tie_y))
+    if denominator == 0:
+        return None
+    return (concordant - discordant) / denominator
+
+
+def big_case_agreement(data_root: Path) -> dict[str, BigCaseLeaderboard]:
+    """Each predictor's big-case rank-agreement with the evaluator panel.
+
+    Deterministic and offline over the committed ledger. For every
+    ``(predictor, case, event)`` an evaluator gave a big-case read on, pairs the
+    predictor's latest ``big_case_score`` with the **mean** of the panel's
+    independent reads for that event, then correlates the predictor's ordering
+    against the panel's with Kendall's tau-b (:func:`_kendall_tau_b`) across the
+    scored events (one per case in the current single-event model). Predictors
+    with no comparable event are absent from the map (their ``big_case`` stays
+    null).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return {}
+    reads: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
+        evaluation = read_model(path, Evaluation)
+        if evaluation.big_case is not None:
+            key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id)
+            reads[key].append(evaluation.big_case.evaluator_score)
+
+    points: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for (predictor_id, case_id, event_id), evaluator_scores in reads.items():
+        prediction_files = sorted(
+            (cases_dir / case_id / "events" / event_id).glob(
+                f"predictions/{predictor_id}/*/prediction.json"
+            )
+        )
+        predictions = [read_model(p, Prediction) for p in prediction_files]
+        if not predictions:
+            continue
+        latest = max(predictions, key=lambda pr: pr.created_at)
+        if latest.big_case_score is None:
+            continue
+        panel_mean = sum(evaluator_scores) / len(evaluator_scores)
+        points[predictor_id].append((latest.big_case_score, panel_mean))
+
+    return {
+        predictor_id: BigCaseLeaderboard(rank_agreement=_kendall_tau_b(pairs), cases=len(pairs))
+        for predictor_id, pairs in points.items()
+    }
+
+
+def build_leaderboard(
+    cells: Iterable[tuple[Evaluation, Stratum]],
+    big_case: Mapping[str, BigCaseLeaderboard] | None = None,
+) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
     One entry per predictor, each carrying its **forward** and **retrospective**
     aggregates separately (a stratum with no cells is null, never zero-filled
     into a blend). Entries rank by forward accuracy (desc), forward Brier (asc,
     missing last), the retrospective pair as tie-break, then ``predictor_id`` —
-    a total order, so the ranking is deterministic even under ties.
+    a total order, so the ranking is deterministic even under ties. ``big_case``
+    (from :func:`big_case_agreement`) attaches each predictor's big-case
+    rank-agreement as a second, orthogonal dimension that never affects the rank;
+    absent from the map (or unsupplied) leaves the entry's ``big_case`` null.
     """
     by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
         lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
@@ -133,6 +227,7 @@ def build_leaderboard(cells: Iterable[tuple[Evaluation, Stratum]]) -> Leaderboar
                 forward=_aggregate(strata[FORWARD]),
                 retrospective=_aggregate(strata[RETROSPECTIVE]),
                 procedural=_aggregate(strata[PROCEDURAL]),
+                big_case=(big_case or {}).get(predictor_id),
             )
         )
 
