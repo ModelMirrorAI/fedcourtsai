@@ -1,0 +1,11 @@
+case_id: scotus/73274950
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-07-22'
+resolved: true
+schema_version: '1.0'
+title: Pierre Alexander Amerson, Petitioner v. Leslie Cooley Dismukes, Secretary,
+  North Carolina Department of Adult Correction, et al.
