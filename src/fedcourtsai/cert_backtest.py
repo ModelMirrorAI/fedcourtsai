@@ -49,6 +49,7 @@ from .registry import enabled_predictors
 from .schemas import (
     CalibrationBin,
     CertBacktest,
+    CertBacktestBigCase,
     CertBacktestEntry,
     CertBacktestSegment,
     Disposition,
@@ -292,7 +293,9 @@ def replay_predictors(
                 case_paths.event(event.event_id).prediction(predictor.id, run_id), Prediction
             )
             collected[predictor.id][item.features.case_id] = BacktestPrediction(
-                Disposition(cell.predicted_disposition), cell.probability
+                Disposition(cell.predicted_disposition),
+                cell.probability,
+                big_case_score=cell.big_case_score,
             )
     return [ReplayedBacktester(id=pid, predictions=preds) for pid, preds in collected.items()]
 
@@ -404,6 +407,23 @@ def _band_segments(band_acc: dict[str, _BandAcc]) -> list[CertBacktestSegment]:
     return segments
 
 
+def _big_case_distribution(scores: list[float]) -> CertBacktestBigCase | None:
+    """Summarize a predictor's pre-registered stakes scores, or ``None`` if it gave none.
+
+    A distribution, not a grade: the replay has no independent evaluator, so it
+    reports coverage and spread (never a correlation with the realized grant —
+    stakes are not grant likelihood).
+    """
+    if not scores:
+        return None
+    return CertBacktestBigCase(
+        scored=len(scores),
+        mean=sum(scores) / len(scores),
+        minimum=min(scores),
+        maximum=max(scores),
+    )
+
+
 def _score_one(
     backtester: Backtester,
     items: list[BacktestItem],
@@ -415,6 +435,7 @@ def _score_one(
     brier_sum = 0.0
     pairs: list[tuple[float, int]] = []
     band_acc: dict[str, _BandAcc] = {}
+    big_case_scores: list[float] = []
     for item in items:
         prediction = backtester.predict(item.features)
         actual_granted = granted_flag(item.actual_disposition)
@@ -426,6 +447,8 @@ def _score_one(
         brier = (prediction.probability_granted - actual_granted) ** 2
         brier_sum += brier
         pairs.append((prediction.probability_granted, actual_granted))
+        if prediction.big_case_score is not None:
+            big_case_scores.append(prediction.big_case_score)
         if segments is not None:
             seg = segments.get(item.features.case_id)
             if seg is not None:
@@ -442,6 +465,7 @@ def _score_one(
         lift_over_always_denied=correct / n - always_denied_accuracy,
         calibration=_calibration(pairs),
         segments=_band_segments(band_acc),
+        big_case=_big_case_distribution(big_case_scores),
     )
 
 

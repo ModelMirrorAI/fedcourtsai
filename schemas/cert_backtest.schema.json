@@ -49,6 +49,68 @@
       "title": "CalibrationBin",
       "type": "object"
     },
+    "CertBacktestBigCase": {
+      "additionalProperties": false,
+      "description": "A predictor's big-case-score distribution over the cert back-test set.\n\nThe replay has no independent evaluator, so \u2014 unlike the live leaderboard's\nrank-agreement dimension \u2014 it cannot *grade* the score; it reports the\npredicted stakes distribution, which confirms the predictor exercised the\ndimension in replay and gives a calibration eyeball (is the 0-1 scale used, or\nclustered?). Deliberately **not** correlated with the realized grant: bigness\nis stakes, not grant likelihood (see ``docs/salience.md``), and conflating the\ntwo is the very thing the pre-registered score exists to avoid.",
+      "properties": {
+        "maximum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Highest big_case_score in the set",
+          "title": "Maximum"
+        },
+        "mean": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean predicted stakes over the scored petitions",
+          "title": "Mean"
+        },
+        "minimum": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Lowest big_case_score in the set",
+          "title": "Minimum"
+        },
+        "scored": {
+          "description": "Replayed petitions that carried a big_case_score",
+          "minimum": 0,
+          "title": "Scored",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scored"
+      ],
+      "title": "CertBacktestBigCase",
+      "type": "object"
+    },
     "CertBacktestEntry": {
       "additionalProperties": false,
       "description": "One predictor's standings over the cert back-test set.",
@@ -59,6 +121,18 @@
           "minimum": 0.0,
           "title": "Accuracy",
           "type": "number"
+        },
+        "big_case": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CertBacktestBigCase"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The predictor's pre-registered big-case-score distribution over the set (stakes, not grade \u2014 the replay has no evaluator to grade against); null when the predictor produced no big_case_score (the offline baselines)"
         },
         "calibration": {
           "description": "P(granted) decile bins: predicted probability vs observed grant rate",

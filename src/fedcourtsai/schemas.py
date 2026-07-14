@@ -791,6 +791,30 @@ class CertBacktestSegment(_Strict):
     )
 
 
+class CertBacktestBigCase(_Strict):
+    """A predictor's big-case-score distribution over the cert back-test set.
+
+    The replay has no independent evaluator, so — unlike the live leaderboard's
+    rank-agreement dimension — it cannot *grade* the score; it reports the
+    predicted stakes distribution, which confirms the predictor exercised the
+    dimension in replay and gives a calibration eyeball (is the 0-1 scale used, or
+    clustered?). Deliberately **not** correlated with the realized grant: bigness
+    is stakes, not grant likelihood (see ``docs/salience.md``), and conflating the
+    two is the very thing the pre-registered score exists to avoid.
+    """
+
+    scored: int = Field(ge=0, description="Replayed petitions that carried a big_case_score")
+    mean: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Mean predicted stakes over the scored petitions"
+    )
+    minimum: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Lowest big_case_score in the set"
+    )
+    maximum: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Highest big_case_score in the set"
+    )
+
+
 class CertBacktestEntry(_Strict):
     """One predictor's standings over the cert back-test set."""
 
@@ -826,6 +850,12 @@ class CertBacktestEntry(_Strict):
         "(high, elevated, baseline; bands with no petition omitted) — the segment-"
         "baseline skill the forward stratum measures. Empty when no statpack was "
         "supplied (offline runs) or no paid-segment petition was scored",
+    )
+    big_case: CertBacktestBigCase | None = Field(
+        default=None,
+        description="The predictor's pre-registered big-case-score distribution over "
+        "the set (stakes, not grade — the replay has no evaluator to grade against); "
+        "null when the predictor produced no big_case_score (the offline baselines)",
     )
 
 

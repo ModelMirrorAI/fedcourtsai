@@ -59,7 +59,10 @@ calibration with vacatur-practice prediction.
   skill breakdown** over the paid scored segment — the mean leakage-safe segment
   base rate (each petition's own prior-Term band grant rate) and the mean Brier
   skill against it — so the back-test measures the same segment-baseline skill the
-  forward stratum does, not just raw Brier. Produced by the maintainer-triggered
+  forward stratum does, not just raw Brier. A replayed predictor's pre-registered
+  **big-case-score distribution** (coverage + mean/min/max stakes) rides alongside
+  — a distribution, not a grade, since the replay has no independent evaluator to
+  rank against. Produced by the maintainer-triggered
   `run-backtest` workflow — a real-engine replay spends tokens, so it never
   runs on a schedule — and labeled retrospective like `backtest.json`. A run
   is an explicit maintainer action: apply the `run:backtest` label to an
