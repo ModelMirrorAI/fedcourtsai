@@ -256,6 +256,15 @@ simultaneously — and **reset to the live tip before mutating**: because
 before `corpus-pull → mutate → corpus-push → commit the pointer`, so it
 always builds on its predecessor's writes (an unrelated tip advance after the
 reset rebases cleanly; a pointer conflict aborts the rebase and fails loudly).
+The commit-and-push is one shared retry loop —
+`.github/actions/commit-corpus-to-main/push_with_retry.sh` — that every writer
+reaches: the `pull` and `live` jobs through the `commit-corpus-to-main` composite
+action wrapping it (the action adds the stage/commit/no-op guard), and the
+historical walk's per-chunk checkpoint and scope-latch step by calling the script
+directly. It rebases onto any advance and retries a *transient* push failure (a
+GitHub `commit_refs` blip, not a branch advance) with exponential backoff, long
+enough to outlast a brief server hiccup; a genuine pointer divergence still fails
+loudly and immediately.
 The content store needs no such lock: its per-case objects are write-once and
 its manifests versioned, so concurrent mirrors cannot drop each other's data.
 
