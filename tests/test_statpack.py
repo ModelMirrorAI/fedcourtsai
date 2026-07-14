@@ -33,6 +33,8 @@ from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
 
+_BANDS = ("high", "elevated", "baseline")
+
 
 def _pack(fc: FixtureCorpus) -> StatPack:
     return analytics.build_statpack(corpus_db_path=fc.db_path)
@@ -112,6 +114,48 @@ def test_build_statpack_relist_and_cvsg_cuts(fixture_corpus: FixtureCorpus) -> N
     cvsg = _section(pack, "Cert petitions by CVSG status")
     # scotus/305 carries the SG invitation; scotus/304 was parsed and has none.
     assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 5)}
+
+
+def test_build_statpack_salience_band_section(fixture_corpus: FixtureCorpus) -> None:
+    # The pack-wide segment board: paid scored segment, live slice, denial-weighted,
+    # split by sal-v1 band. scotus/304 (one relist → elevated, weight 5, denied) and
+    # scotus/305 (CVSG → high, weight 1, open).
+    band = _section(_pack(fixture_corpus), "Cert petitions by salience band")
+    assert band.cert_stage is True and band.court == "scotus"
+    assert band.live_slice is True and band.weighted is True
+    assert band.group_by == "salience_band"
+    assert [(b.key, b.cases, b.resolved) for b in band.buckets] == [
+        ("elevated", 5, 5),
+        ("high", 1, 0),
+    ]
+
+
+def test_salience_band_section_excludes_ifp(fixture_corpus: FixtureCorpus) -> None:
+    # An IFP live-slice cert row is Tier-0 excluded from the scored segment, so the
+    # row_filter keeps it out of the band section entirely (no bucket, not `(none)`).
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9001",
+                    court="scotus",
+                    docket_number="24-5900",  # serial 5900 >= 5001 -> IFP
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=2,
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=fixture_corpus.db_path)
+    band = _section(pack, "Cert petitions by salience band")
+    # Still only the two paid petitions; the IFP row joins no band bucket.
+    assert sum(b.cases for b in band.buckets) == 6  # 5 (elevated) + 1 (high)
+    assert "(none)" not in {b.key for b in band.buckets}
+    # And it never enters a Term's segment counts either.
+    term = _term(pack, 2024)
+    assert sum(s.ingested for s in term.segments) == 1  # only the paid scotus/305
 
 
 def test_build_statpack_originating_court_names(fixture_corpus: FixtureCorpus) -> None:
@@ -270,6 +314,95 @@ def test_per_term_entries_carry_census_classes_and_estimates(
     assert (paid.filings, paid.complete, paid.ingested) == (12, False, 1)
     assert paid.est_grant_rate is None  # nothing resolved
     assert (ifp.filings, ifp.complete) == (None, False)  # never probed
+
+
+def test_per_term_segments_carry_the_salience_band_base_rate(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    pack = _pack(fixture_corpus)
+    # Every Term emits all three bands in the fixed strongest-first order, tagged
+    # with the frozen scorer version — a stable JSON shape even for empty bands.
+    resolved_term = _term(pack, 2022)
+    assert resolved_term.salience_version == "sal-v1"
+    assert [s.band for s in resolved_term.segments] == list(_BANDS)
+    by_band = {s.band: s for s in resolved_term.segments}
+    # scotus/304 is one relist -> elevated; its sampled denial weights the rate 5x.
+    elevated = by_band["elevated"]
+    assert (elevated.ingested, elevated.weighted_resolved) == (1, 5)
+    assert elevated.est_grant_rate == 0.0  # weight-5 denial, none granted
+    # The other bands hold no rows this Term: zero counts, no rate.
+    assert by_band["high"].ingested == 0 and by_band["high"].est_grant_rate is None
+    assert by_band["baseline"].ingested == 0 and by_band["baseline"].est_grant_rate is None
+    # scotus/305 carries the CVSG invitation -> high band; still open, so no rate yet.
+    high_2024 = {s.band: s for s in _term(pack, 2024).segments}["high"]
+    assert (high_2024.ingested, high_2024.weighted_resolved) == (1, 0)
+    assert high_2024.est_grant_rate is None
+
+
+def test_segment_base_rate_is_per_term_not_blended(tmp_path: Path) -> None:
+    # The leakage crux: a high-band grant in a later Term must NOT lift an earlier
+    # Term's high-band rate. Two relist-2 (high) petitions, granted in OT24, denied
+    # in OT23 — each Term's segment rate reflects only its own rows.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="23-500",
+                    disposition=Disposition.denied,
+                    date_filed=date(2023, 10, 1),
+                    date_cert_denied=date(2024, 1, 8),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,  # 2 relists -> high band
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="24-500",
+                    disposition=Disposition.granted,
+                    date_filed=date(2024, 10, 1),
+                    date_cert_granted=date(2025, 1, 6),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,  # 2 relists -> high band
+                ),
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    high_23 = {s.band: s for s in _term(pack, 2023).segments}["high"]
+    high_24 = {s.band: s for s in _term(pack, 2024).segments}["high"]
+    assert high_23.est_grant_rate == 0.0  # OT23: the lone high petition was denied
+    assert high_24.est_grant_rate == 1.0  # OT24: the lone high petition was granted
+
+
+def test_gvr_counts_as_a_grant_in_the_segment_base_rate(tmp_path: Path) -> None:
+    # A GVR grants the petition, so a high-band Term whose only resolved petition is
+    # a gvr reads a 100% segment grant rate (the grant family, not the literal label).
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-400",
+                    disposition=Disposition.gvr,
+                    date_filed=date(2024, 10, 1),
+                    date_cert_granted=date(2025, 1, 6),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,  # high band
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    high = {s.band: s for s in _term(pack, 2024).segments}["high"]
+    assert (high.weighted_resolved, high.est_grant_rate) == (1, 1.0)
 
 
 def test_cursor_only_term_appears_with_census_and_zero_rows(tmp_path: Path) -> None:
@@ -462,6 +595,18 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "| 2024 | 12/— | 1 | 0 | — | — | 0 | — | partial/partial |" in md
     # The replay self-selection rule rides under the Term table, verbatim.
     assert "anchor only on Term rows strictly preceding your clock" in md
+
+
+def test_render_statpack_markdown_renders_the_segment_base_rate(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    md = analytics.render_statpack_markdown(_pack(fixture_corpus))
+    # The pack-wide band section (blended) and the leakage-safe per-Term table.
+    assert "## Cert petitions by salience band" in md
+    assert "### Segment base rate by salience band (sal-v1)" in md
+    assert "| Term | high | elevated | baseline |" in md
+    # OT22's lone elevated petition is a weight-5 denial: 0.0% over n=5, other bands —.
+    assert "| 2022 | — | 0.0% (n=5) | — |" in md
 
 
 def test_render_statpack_markdown_caps_long_sections() -> None:

@@ -12,6 +12,8 @@ from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.pipeline.salience import (
     SALIENCE_VERSION,
     reconcile_salience_selection,
+    salience_band,
+    salience_bands,
     salience_score,
 )
 
@@ -76,6 +78,36 @@ def test_circuit_is_only_a_bounded_nudge_not_a_co_equal_signal() -> None:
 def test_unknown_relist_scores_the_overall_rate() -> None:
     unknown = salience_score(_petition("scotus/u", distribution_count=None))
     assert unknown == pytest.approx(0.024 + 0.1 * 0.05)
+
+
+# --- the frozen sal-v1 bands ---------------------------------------------------
+
+
+def test_bands_track_the_relist_cvsg_tier() -> None:
+    # The band is the petition's grant-likelihood tier: relist-2+ / CVSG are high,
+    # one relist is elevated, relist-0 / never-scanned are baseline.
+    assert salience_band(_petition("scotus/h", distribution_count=3)) == "high"  # 2 relists
+    assert salience_band(_petition("scotus/v", distribution_count=1, cvsg=True)) == "high"
+    assert salience_band(_petition("scotus/e", distribution_count=2)) == "elevated"  # 1 relist
+    assert salience_band(_petition("scotus/b", distribution_count=1)) == "baseline"  # 0 relists
+    assert salience_band(_petition("scotus/u", distribution_count=None)) == "baseline"
+
+
+def test_circuit_nudge_never_carries_a_petition_across_a_band_boundary() -> None:
+    # The cutpoints sit in the gaps between the relist/CVSG tiers, so even the
+    # strongest circuit nudge (cadc) keeps a petition in its trajectory's band.
+    for circuit in ("ca1", "cadc"):
+        assert salience_band(_petition("scotus/0", distribution_count=1, circuit=circuit)) == (
+            "baseline"
+        )
+        assert salience_band(_petition("scotus/1", distribution_count=2, circuit=circuit)) == (
+            "elevated"
+        )
+        assert salience_band(_petition("scotus/2", distribution_count=3, circuit=circuit)) == "high"
+
+
+def test_salience_bands_are_ordered_strongest_first() -> None:
+    assert salience_bands() == ("high", "elevated", "baseline")
 
 
 # --- the selection pass --------------------------------------------------------

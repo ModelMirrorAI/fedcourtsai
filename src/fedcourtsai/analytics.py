@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from . import corpus
 from .corpus import CorpusRow
 from .pipeline.outcome import is_machine_readable
+from .pipeline.salience import SALIENCE_VERSION, salience_band, salience_bands
 from .schemas import (
     AnalyticsReport,
     BaseRateBucket,
@@ -40,6 +41,7 @@ from .schemas import (
     StatPackSection,
     StatPackTerm,
     StatPackTermClass,
+    StatPackTermSegment,
     TimingStats,
 )
 from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
@@ -179,6 +181,22 @@ def _fee_class_key(row: CorpusRow) -> str | None:
     return fee.value if fee is not None else None
 
 
+def _is_scored_segment_row(row: CorpusRow) -> bool:
+    """True for the population the salience scorer scores: paid modern-cert petitions.
+
+    The salience gate excludes IFP petitions at Tier 0, so the scored (and thus
+    predicted) segment is paid-only; the segment base rate must be conditioned on
+    the same population it will anchor. ``is_modern_cert`` already implies a
+    Term-prefixed SCOTUS docket, and the paid fee class narrows it to the scored set.
+    """
+    return corpus.is_modern_cert(row) and _fee_class(row) == FeeClass.paid
+
+
+def _salience_band_key(row: CorpusRow) -> str:
+    """The row's frozen ``sal-v1`` salience band (the pack-wide segment section key)."""
+    return salience_band(row)
+
+
 # Single-valued dimension -> its (possibly absent) key on a row. Judge is the one
 # multi-valued dimension, handled apart in `_bucket_keys`. Rows without a value
 # share the `(none)` bucket — for `originating_court` that visibility matters
@@ -196,6 +214,7 @@ _KEY_FNS: dict[GroupBy, Callable[[CorpusRow], str | None]] = {
     GroupBy.relist_bucket: _relist_bucket_key,
     GroupBy.cvsg: _cvsg_key,
     GroupBy.fee_class: _fee_class_key,
+    GroupBy.salience_band: _salience_band_key,
 }
 
 
@@ -386,7 +405,9 @@ class _SectionSpec:
     import. ``weighted`` counts each row ``sample_weight`` times so the
     historical walker's denial sampling does not bias the rates. ``key_fn``
     overrides the dimension's stock key function where a section wants richer
-    keys under the same ``group_by``.
+    keys under the same ``group_by``. ``row_filter`` narrows the population
+    beyond the court/live/cert flags (the salience-band section restricts to the
+    paid scored segment) — a row failing it joins no bucket.
     """
 
     title: str
@@ -396,6 +417,7 @@ class _SectionSpec:
     weighted: bool
     group_by: GroupBy
     key_fn: Callable[[CorpusRow], str | None] | None = None
+    row_filter: Callable[[CorpusRow], bool] | None = None
 
 
 # The curated breakdowns the statpack publishes. Two populations, deliberately
@@ -430,6 +452,18 @@ _STATPACK_SECTIONS: tuple[_SectionSpec, ...] = (
         "Cert petitions by relist count", "scotus", True, True, True, GroupBy.relist_bucket
     ),
     _SectionSpec("Cert petitions by CVSG status", "scotus", True, True, True, GroupBy.cvsg),
+    # The segment base rate the salience program turns on: the paid scored segment
+    # split by sal-v1 band. Pack-wide (blended across Terms) for the human board;
+    # the leakage-safe per-Term counterpart is `StatPackTerm.segments`.
+    _SectionSpec(
+        "Cert petitions by salience band",
+        "scotus",
+        True,
+        True,
+        True,
+        GroupBy.salience_band,
+        row_filter=_is_scored_segment_row,
+    ),
     _SectionSpec(
         "Petitions by originating court (incl. state courts)",
         "scotus",
@@ -513,7 +547,7 @@ class _Slice:
 class _TermAcc:
     """Streaming accumulator for one October Term's live-slice cert population."""
 
-    __slots__ = ("classes", "grant_days", "grants", "overall")
+    __slots__ = ("classes", "grant_days", "grants", "overall", "segments")
 
     def __init__(self) -> None:
         self.overall = _Slice(cert_timing=True)
@@ -521,6 +555,10 @@ class _TermAcc:
             FeeClass.paid: _Slice(cert_timing=True),
             FeeClass.ifp: _Slice(cert_timing=True),
         }
+        # One slice per frozen sal-v1 band over the paid scored segment — the
+        # leakage-safe per-Term segment base rate. Pre-seeded for every band so a
+        # Term with no rows in a band still emits that band (a stable JSON shape).
+        self.segments: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
         self.grants = 0
         self.grant_days: list[int] = []
 
@@ -529,6 +567,8 @@ class _TermAcc:
         fee = _fee_class(row)
         if fee is not None:
             self.classes[fee].add(row)
+        if _is_scored_segment_row(row):
+            self.segments[salience_band(row)].add(row)
         if row.disposition in (Disposition.granted.value, Disposition.gvr.value):
             self.grants += 1
             if row.date_filed is not None and row.date_cert_granted is not None:
@@ -620,6 +660,23 @@ def _term_entry(
                 timing=entry.timing(weighted=True),
             )
         )
+    segments = []
+    for band in salience_bands():
+        entry = acc.segments[band]
+        weighted = entry.bucket("", weighted=True)
+        segments.append(
+            StatPackTermSegment(
+                band=band,
+                ingested=entry.cases,
+                resolved=entry.bucket("").resolved,
+                weighted_resolved=weighted.resolved,
+                est_grant_rate=(
+                    sum(d.share for d in weighted.dispositions if d.disposition in _GRANT_LABELS)
+                    if weighted.resolved
+                    else None
+                ),
+            )
+        )
     grant_days = sorted(acc.grant_days)
     return StatPackTerm(
         term=year,
@@ -628,6 +685,8 @@ def _term_entry(
         timing=acc.overall.timing(weighted=True),
         classes=classes,
         grants=acc.grants,
+        salience_version=SALIENCE_VERSION,
+        segments=segments,
         median_days_to_grant=_nearest_rank(grant_days, 0.5) if grant_days else None,
     )
 
@@ -680,6 +739,8 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
                 if spec.live_slice and not row_is_live:
                     continue
                 if spec.cert_stage and not corpus.is_modern_cert(row):
+                    continue
+                if spec.row_filter is not None and not spec.row_filter(row):
                     continue
                 keys = (
                     _bucket_keys(row, spec.group_by)
@@ -828,6 +889,21 @@ def render_statpack_markdown(pack: StatPack) -> str:
         ]
         for entry in shown:
             lines.append(_term_row(entry))
+        bands = salience_bands()
+        version = next((t.salience_version for t in shown if t.salience_version), SALIENCE_VERSION)
+        lines += [
+            "",
+            f"### Segment base rate by salience band ({version})",
+            "_Paid scored-segment grant rate per band, this Term's live slice only "
+            "(denial-reweighted); the leakage-safe base rate the predict prompt is designed to "
+            "anchor on and the evaluator will score skill against. `n` is the weighted resolved "
+            "denominator._",
+            "",
+            "| Term | " + " | ".join(bands) + " |",
+            "| --- | " + " | ".join("---" for _ in bands) + " |",
+        ]
+        for entry in shown:
+            lines.append(_term_segment_row(entry, bands))
         lines += [
             "",
             (
@@ -837,6 +913,19 @@ def render_statpack_markdown(pack: StatPack) -> str:
             ),
         ]
     return "\n".join(lines) + "\n"
+
+
+def _term_segment_row(entry: StatPackTerm, bands: tuple[str, ...]) -> str:
+    """One Term's row in the per-salience-band grant-rate table."""
+    by_band = {s.band: s for s in entry.segments}
+
+    def _cell(band: str) -> str:
+        seg = by_band.get(band)
+        if seg is None or seg.est_grant_rate is None:
+            return "—"
+        return f"{_pct(seg.est_grant_rate)} (n={seg.weighted_resolved})"
+
+    return f"| {entry.term} | " + " | ".join(_cell(band) for band in bands) + " |"
 
 
 def _term_row(entry: StatPackTerm) -> str:

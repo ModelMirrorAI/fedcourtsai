@@ -89,6 +89,9 @@ class GroupBy(StrEnum):
     Solicitor General, and ``fee_class`` by the docket serial's numbering
     stream (paid / IFP); rows the live channel never parsed share one
     ``(unknown)`` bucket on the first two, so parse coverage stays visible.
+    ``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band
+    (high / elevated / baseline) over the paid modern-cert petitions — the
+    predicted segment — so a case's base rate is its own salience tier's rate.
     """
 
     court = "court"
@@ -101,6 +104,7 @@ class GroupBy(StrEnum):
     relist_bucket = "relist_bucket"
     cvsg = "cvsg"
     fee_class = "fee_class"
+    salience_band = "salience_band"
 
 
 class UsageRole(StrEnum):
@@ -1233,6 +1237,42 @@ class StatPackTermClass(_Strict):
     )
 
 
+class StatPackTermSegment(_Strict):
+    """One salience-band slice of a Term's live-slice paid modern-cert petitions.
+
+    The **segment base rate** the salience program turns on: with a salience gate
+    the predicted population is a biased subsample (relist-2 petitions grant ~39%,
+    relist-0 ~0.8%), so the whole-docket cert rate is the wrong yardstick both as
+    the predict agent's prior and as the evaluator's naive baseline. Keying on the
+    frozen ``sal-v1`` band gives each predicted case a base rate conditioned on its
+    own grant-likelihood tier. Because the segment lives inside :class:`StatPackTerm`
+    it inherits that surface's **per-Term self-selection contract** — a time-masked
+    replay cell reads only Terms strictly before its clock, so the rate never leaks
+    the current Term. Estimates are sample-weighted (each row counted
+    ``sample_weight`` times), matching the Term's other weighted cuts.
+    """
+
+    band: str = Field(
+        description="The frozen sal-v1 grant-likelihood band: high / elevated / baseline"
+    )
+    ingested: int = Field(default=0, ge=0, description="Live-slice paid-cert rows in this band")
+    resolved: int = Field(
+        default=0, ge=0, description="Rows in this band carrying a disposition (raw count)"
+    )
+    weighted_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Sample-weighted resolved estimate for the band — the base rate's denominator",
+    )
+    est_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Weighted grant-family share (granted + gvr) of the band's resolved "
+        "rows — the segment base rate; None when nothing in the band resolved",
+    )
+
+
 class StatPackTerm(_Strict):
     """One SCOTUS October Term's slice of the statpack: the live-slice cert population.
 
@@ -1269,6 +1309,18 @@ class StatPackTerm(_Strict):
     )
     grants: int = Field(
         default=0, ge=0, description="Cert grants observed in the live slice this Term"
+    )
+    salience_version: str = Field(
+        default="",
+        description="The frozen salience function whose bands segment this Term (e.g. sal-v1); "
+        "default empty only on the pre-enrichment committed pack",
+    )
+    segments: list[StatPackTermSegment] = Field(
+        default_factory=list,
+        description="Per-salience-band grant-rate slices over this Term's paid modern-cert "
+        "petitions (high, elevated, baseline), leakage-safe by construction — the segment "
+        "base rate the predict prompt is designed to anchor on and the evaluator will score "
+        "skill against",
     )
     median_days_to_grant: float | None = Field(
         default=None,
