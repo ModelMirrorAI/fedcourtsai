@@ -3,6 +3,7 @@
   "evaluations_total": 0,
   "forward_evaluations": 0,
   "predictors_ranked": 0,
+  "procedural_evaluations": 0,
   "retrospective_evaluations": 0,
   "schema_version": "1.0"
 }
