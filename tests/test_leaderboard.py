@@ -204,6 +204,20 @@ def test_all_optionals_absent_stay_none() -> None:
     assert stratum.mean_brier_score is None
     assert stratum.mean_vote_accuracy is None
     assert stratum.mean_reasoning_quality is None
+    assert stratum.mean_brier_skill_score is None
+
+
+def test_brier_skill_score_aggregates_over_present_cells() -> None:
+    # The skill column averages only reported cells and admits negative skill
+    # (a forecast worse than the segment base rate).
+    cells = [
+        _forward(_evaluation("alpha", brier_skill_score=0.4)),
+        _forward(_evaluation("alpha", brier_skill_score=-0.2)),
+        _forward(_evaluation("alpha", brier_skill_score=None)),  # skipped, not zero
+    ]
+    stratum = build_leaderboard(cells).entries[0].forward
+    assert stratum is not None
+    assert stratum.mean_brier_skill_score == pytest.approx(0.1)
 
 
 def test_iter_evaluations_missing_ledger_is_empty(tmp_path: Path) -> None:

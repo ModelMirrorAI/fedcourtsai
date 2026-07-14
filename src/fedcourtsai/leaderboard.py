@@ -81,6 +81,9 @@ def _aggregate(evals: Sequence[Evaluation]) -> LeaderboardStratum | None:
         evaluations=len(evals),
         accuracy=sum(ev.correct for ev in evals) / len(evals),
         mean_brier_score=_mean([ev.brier_score for ev in evals if ev.brier_score is not None]),
+        mean_brier_skill_score=_mean(
+            [ev.brier_skill_score for ev in evals if ev.brier_skill_score is not None]
+        ),
         mean_vote_accuracy=_mean(
             [ev.vote_accuracy for ev in evals if ev.vote_accuracy is not None]
         ),

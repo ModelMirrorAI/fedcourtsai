@@ -145,6 +145,20 @@
           "description": "Mean Brier score where reported (lower is better)",
           "title": "Mean Brier Score"
         },
+        "mean_brier_skill_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier skill score vs the salience-segment base rate where reported (higher is better; ~0 = no better than the segment's grant rate, negative = worse). Distinct from raw Brier: it credits beating the biased predicted-segment base rate, not the whole-docket rate",
+          "title": "Mean Brier Skill Score"
+        },
         "mean_reasoning_quality": {
           "anyOf": [
             {

@@ -67,6 +67,16 @@ For each predictor you score, write to
     for a `gvr` outcome — a GVR is a grant).
   - `vote_accuracy` — fraction of predicted judge votes that matched (or omit if no
     votes were predicted).
+  - `segment_base_rate` — the case's **salience-band** grant rate over prior Terms
+    only, read from committed `metrics/statpack.md`. Find the case's band (its
+    relist/CVSG tier, in the per-Term "Segment base rate by salience band" table) and
+    pool that band's rate (resolved-weighted) over Terms **strictly before** this
+    case's Term — the same leakage-safe cut a replay self-selects. Omit when the case
+    has no Term or no prior-Term band resolved.
+  - `brier_skill_score` — `1 - brier_score / (segment_base_rate - actual_granted)**2`:
+    the forecast's skill over the naive baseline that always predicts the segment base
+    rate (positive beats it, ~0 merely parrots it, negative is worse). Omit when
+    `segment_base_rate` is omitted or the baseline is already exact.
   - `reasoning_quality` — your 0–1 qualitative judgment of the predicted reasoning
     (soundness of the legal analysis given the outcome, not just whether it was
     right). `notes_doc` = `evaluation.md`.
@@ -83,8 +93,8 @@ For each predictor you score, write to
     rank-agreement at leaderboard time; you only supply your independent read.
 
   The quantitative pieces are computed identically in code by
-  `fedcourtsai.pipeline.evaluate` (`is_correct`, `brier_score`, `vote_accuracy`) —
-  match those definitions.
+  `fedcourtsai.pipeline.evaluate` (`is_correct`, `brier_score`, `vote_accuracy`,
+  `segment_base_rate`, `brier_skill_score`) — match those definitions.
 - **`evaluation.md`** — your qualitative write-up: what the prediction got right or
   wrong and why, and what drove your `reasoning_quality` score.
 

@@ -127,6 +127,20 @@
       "default": null,
       "title": "Brier Score"
     },
+    "brier_skill_score": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Brier skill score vs `segment_base_rate` (1 - brier / baseline_brier): ~0 when the prediction merely parrots the segment base rate, positive when it beats it, negative when worse. Null when `segment_base_rate` is null, when the baseline is already exact (the base rate matched the outcome), and on records written before the field existed.",
+      "title": "Brier Skill Score"
+    },
     "case_id": {
       "title": "Case Id",
       "type": "string"
@@ -224,6 +238,21 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "segment_base_rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The leakage-safe salience-segment base rate for this case \u2014 its sal-v1 band's grant rate pooled over statpack Terms strictly before the case's Term (see fedcourtsai.pipeline.evaluate.segment_base_rate). The naive baseline the prediction's skill is scored against; null on offline evaluator outputs, when no prior-Term band data exists, and on records written before the field existed.",
+      "title": "Segment Base Rate"
     },
     "vote_accuracy": {
       "anyOf": [
