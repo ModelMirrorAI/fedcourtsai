@@ -120,6 +120,19 @@ def test_evaluation_records_model_when_given() -> None:
     assert _evaluation().model is None
 
 
+def test_evaluation_big_case_is_optional_with_a_required_inner_score() -> None:
+    # Optional on the evaluation (defaults None) so pre-dimension records still
+    # validate; but when present, the inner evaluator_score is required and
+    # range-checked — a present assessment must carry a read.
+    assert _evaluation().big_case is None
+    scored = _evaluation(big_case={"evaluator_score": 0.7, "notes": "watched nationwide"})
+    assert scored.big_case is not None and scored.big_case.evaluator_score == 0.7
+    with pytest.raises(ValidationError):  # inner score required when present
+        _evaluation(big_case={"notes": "no score"})
+    with pytest.raises(ValidationError):  # range-checked
+        _evaluation(big_case={"evaluator_score": 1.5})
+
+
 def test_prediction_records_model_when_given() -> None:
     assert _prediction(model="claude-fable-5").model == "claude-fable-5"
 

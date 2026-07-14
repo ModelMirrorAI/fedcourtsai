@@ -74,6 +74,13 @@ For each predictor you score, write to
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff
     `influenced_prediction` is `possible` or `likely`).
+  - `big_case` (optional) — your **own** independent read of the case's stakes /
+    significance: `{evaluator_score (0–1), notes}`. Form it **before** looking
+    at the predictor's `big_case_score`, so your read is not anchored to theirs.
+    You are a *judge* here, not a blind forecaster — you may use post-decision
+    context available now (the outcome, the reaction). Do **not** compute an
+    agreement number: the predictor's score is graded against the panel's reads by
+    rank-agreement at leaderboard time; you only supply your independent read.
 
   The quantitative pieces are computed identically in code by
   `fedcourtsai.pipeline.evaluate` (`is_correct`, `brier_score`, `vote_accuracy`) —

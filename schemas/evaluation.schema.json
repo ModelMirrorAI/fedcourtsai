@@ -1,5 +1,37 @@
 {
   "$defs": {
+    "BigCaseAssessment": {
+      "additionalProperties": false,
+      "description": "The evaluator's independent read of a case's stakes (the big-case dimension).\n\nThe evaluator forms its **own** opinion of how big / significant the case is,\n**before** it is shown the predictor's ``big_case_score`` \u2014 so, under\ncross-evaluation, the panel's reads stay independent and the agreement is not\ncircular. Unlike the blind grant forecast, this is a *judge's* read: the\nevaluator may use post-decision context available at evaluation time (the\noutcome, the immediate reaction). The predictor's pre-registered score is\ngraded by its agreement with this read \u2014 **rank-agreement across the evaluated\ncohort** at leaderboard time, since bigness is comparative (a per-case\nabsolute delta is a secondary diagnostic); this record stores only the\nindependent read, never the grade. Optional on the evaluation so records\nwritten before the dimension existed still validate. See ``docs/salience.md``.",
+      "properties": {
+        "evaluator_score": {
+          "description": "The evaluator's own 0-1 stakes / significance read, formed before seeing the predictor's big_case_score",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Evaluator Score",
+          "type": "number"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The basis for the read, briefly",
+          "title": "Notes"
+        }
+      },
+      "required": [
+        "evaluator_score"
+      ],
+      "title": "BigCaseAssessment",
+      "type": "object"
+    },
     "Engine": {
       "description": "Agentic coding engine that produced an artifact.",
       "enum": [
@@ -69,6 +101,18 @@
   "additionalProperties": false,
   "description": "``evaluation.json`` \u2014 one evaluator scoring one predictor's prediction.",
   "properties": {
+    "big_case": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BigCaseAssessment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The evaluator's independent big-case read (see BigCaseAssessment); null when not assessed and on records written before the dimension existed. The predictor's big_case_score is graded against these reads by rank-agreement at leaderboard time."
+    },
     "brier_score": {
       "anyOf": [
         {
