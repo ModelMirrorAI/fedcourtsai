@@ -262,6 +262,33 @@ class LeakageAssessment(_Strict):
     )
 
 
+class BigCaseAssessment(_Strict):
+    """The evaluator's independent read of a case's stakes (the big-case dimension).
+
+    The evaluator forms its **own** opinion of how big / significant the case is,
+    **before** it is shown the predictor's ``big_case_score`` — so, under
+    cross-evaluation, the panel's reads stay independent and the agreement is not
+    circular. Unlike the blind grant forecast, this is a *judge's* read: the
+    evaluator may use post-decision context available at evaluation time (the
+    outcome, the immediate reaction). The predictor's pre-registered score is
+    graded by its agreement with this read — **rank-agreement across the evaluated
+    cohort** at leaderboard time, since bigness is comparative (a per-case
+    absolute delta is a secondary diagnostic); this record stores only the
+    independent read, never the grade. Optional on the evaluation so records
+    written before the dimension existed still validate. See ``docs/salience.md``.
+    """
+
+    evaluator_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The evaluator's own 0-1 stakes / significance read, formed "
+        "before seeing the predictor's big_case_score",
+    )
+    notes: str | None = Field(
+        default=None, max_length=2000, description="The basis for the read, briefly"
+    )
+
+
 class Evaluation(_Strict):
     """``evaluation.json`` — one evaluator scoring one predictor's prediction."""
 
@@ -296,6 +323,13 @@ class Evaluation(_Strict):
         "harness-captured retrieval log (see LeakageAssessment). Advisory and "
         "cross-only, like the rest of evaluation; null on records written before "
         "the field existed and on offline evaluator outputs",
+    )
+    big_case: BigCaseAssessment | None = Field(
+        default=None,
+        description="The evaluator's independent big-case read (see "
+        "BigCaseAssessment); null when not assessed and on records written before "
+        "the dimension existed. The predictor's big_case_score is graded against "
+        "these reads by rank-agreement at leaderboard time.",
     )
     notes_doc: str = "evaluation.md"
 
