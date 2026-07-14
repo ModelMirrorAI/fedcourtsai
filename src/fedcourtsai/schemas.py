@@ -1263,6 +1263,36 @@ class ScopeReconcileResult(_Strict):
     sample_released: list[str] = Field(default_factory=list)
 
 
+class SalienceSelectionResult(_Strict):
+    """``reconcile-salience-selection`` result: what the salience pass scored and picked.
+
+    The salience gate's write pass (see ``docs/salience.md``): it scores every
+    in-scope cert petition with the frozen salience function and latches
+    ``salience_selected`` on the per-conference top-N slice plus the always-include
+    carve-outs. The latch is one-way, so ``newly_selected`` counts only cases the
+    run added — never any it removed. ``applied`` is False on a dry run.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    applied: bool = Field(default=False, description="False on a dry run (no corpus write)")
+    version: str = Field(
+        default="", description="The salience-function version applied, e.g. sal-v1"
+    )
+    eligible_cases: int = Field(
+        default=0, ge=0, description="In-scope SCOTUS cert petitions weighed"
+    )
+    scored: int = Field(default=0, ge=0, description="Cases given a salience score this run")
+    conferences: int = Field(
+        default=0, ge=0, description="Distinct conference cohorts the cap was applied within"
+    )
+    newly_selected: int = Field(
+        default=0,
+        ge=0,
+        description="Cases newly latched selected (the one-way latch never removes)",
+    )
+    sample_selected: list[str] = Field(default_factory=list)
+
+
 class LedgerValidation(_Strict):
     """``validate`` result over the git ledger under ``data/`` — schema conformance only.
 

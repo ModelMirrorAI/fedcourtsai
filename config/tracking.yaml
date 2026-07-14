@@ -146,6 +146,20 @@ evaluate:
   # Only evaluate events that have a realized outcome.json.
   require_outcome: true
 
+# salience = the salience gate (see docs/salience.md): ranks in-scope cert
+# petitions by a deterministic score and spends the tournament on the top slice
+# up to a fundable capacity N. N is a guaranteed floor per conference, not a hard
+# ceiling — carve-outs and the sticky latch may push the realized count above it.
+salience:
+  # OT2026 default sized to credit-grant scale (~$10K inference over the term at
+  # the ~$6/case anchor). The long conference (the Term's opening conference)
+  # clears the summer backlog at once, so it carries a larger cap.
+  per_conference_capacity: 150
+  long_conference_capacity: 500
+  # Always-include threshold: a petition at/above this score is selected
+  # regardless of rank (the relist-2 / CVSG grant-rate band).
+  floor: 0.28
+
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
   # court id. pull keeps these current. District courts are intentionally out

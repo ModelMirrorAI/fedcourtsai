@@ -8,10 +8,17 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
 import yaml
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -308,3 +315,42 @@ def load_predict_config(config_root: Path) -> PredictConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return PredictConfig.model_validate((data or {}).get("predict", {}))
+
+
+class SalienceConfig(BaseModel):
+    """The ``salience`` section of ``config/tracking.yaml`` — the selection knobs.
+
+    Capacity ``N`` is the funding dial (see ``docs/budget.md``); it is a
+    guaranteed *floor* of ranked picks per conference, not a hard ceiling —
+    carve-outs and the sticky latch may push the realized count above it. The
+    long conference (the Term's opening conference) carries a larger cap because
+    it clears the summer backlog at once. ``floor`` is the always-include
+    salience threshold (the relist-2 / CVSG grant-rate band).
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    per_conference_capacity: int = Field(default=150, ge=0)
+    long_conference_capacity: int = Field(default=500, ge=0)
+    floor: float = Field(default=0.28, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def _long_conference_is_not_smaller(self) -> Self:
+        """Guard a fat-finger: the long conference must not carry a smaller cap."""
+        if self.long_conference_capacity < self.per_conference_capacity:
+            raise ValueError(
+                "long_conference_capacity must be >= per_conference_capacity "
+                f"({self.long_conference_capacity} < {self.per_conference_capacity})"
+            )
+        return self
+
+
+def load_salience_config(config_root: Path) -> SalienceConfig:
+    """Read the salience selection knobs from ``config_root/tracking.yaml``.
+
+    Falls back to the documented OT2026 defaults if the file or its ``salience``
+    section is absent, so the pass runs with a conservative cap rather than failing.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return SalienceConfig.model_validate((data or {}).get("salience", {}))

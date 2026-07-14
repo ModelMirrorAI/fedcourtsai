@@ -63,6 +63,7 @@ from .config import (
     load_live_config,
     load_predict_config,
     load_pull_config,
+    load_salience_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
@@ -86,6 +87,7 @@ from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, termination_signal
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable
+from .pipeline.salience import reconcile_salience_selection
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
@@ -348,6 +350,45 @@ def reconcile_scope_cmd(
     typer.echo(
         f"reconcile-scope ({'applied' if apply else 'dry-run'}): {verb} "
         f"{result.excluded} / {result.released} of {result.eligible_cases} eligible case(s)"
+    )
+    typer.echo(result.model_dump_json())
+
+
+@app.command("reconcile-salience-selection")
+def reconcile_salience_selection_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply", help="Write the scores and selection latch; omit for a dry-run count."
+        ),
+    ] = False,
+) -> None:
+    """Score the in-scope cert petitions and latch the per-conference selected slice.
+
+    The salience gate's write pass (see `docs/salience.md`): scores every in-scope
+    SCOTUS cert petition with the frozen salience function and latches
+    `salience_selected` on each conference cohort's top-N by score plus the
+    always-include carve-outs (CVSG, above-floor). The latch is one-way (sticky), so
+    a re-run never de-selects a case that later drifts below the cap. Dry-run by
+    default; `--apply` writes (the historical job then pushes the corpus). Prints a
+    `SalienceSelectionResult`. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the salience selection pass.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    config = load_salience_config(settings.config_root)
+    with corpus.connect(db_path) as conn:
+        result = reconcile_salience_selection(conn, config, apply=apply)
+    typer.echo(
+        f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
+        f"scored {result.scored}, newly selected {result.newly_selected} "
+        f"across {result.conferences} conference(s)"
     )
     typer.echo(result.model_dump_json())
 
