@@ -1,0 +1,24 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73129750",
+  "gaps": [
+    "No access to original cert petition text (only BIO provisioned)"
+  ],
+  "helpful": [
+    "CourtListener MCP server",
+    "metrics/statpack.md"
+  ],
+  "notes": "The statpack base rates are helpful to establish a baseline, though this particular petition is virtually guaranteed to be granted. CourtListener MCP was queried but returned 0 results for the SCOTUS docket, which is expected for fictional cases.",
+  "role": "predictor",
+  "run_id": "20260714T120628Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP",
+    "grep_search (statpack.md)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

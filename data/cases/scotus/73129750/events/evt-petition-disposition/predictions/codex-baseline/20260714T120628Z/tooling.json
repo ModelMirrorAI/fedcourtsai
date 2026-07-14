@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73129750",
+  "run_id": "20260714T120628Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed metrics statpack"
+  ],
+  "helpful": [
+    "The statpack supplied calibrated cert, relist, CVSG, and circuit priors.",
+    "The provisioned brief in opposition supplied the questions, procedural posture, and vehicle arguments."
+  ],
+  "gaps": [
+    "A genuinely pre-disposition snapshot was needed; the supplied forward snapshot contained the realized grant and merits outcome.",
+    "The petition text and questions-presented extraction were not provisioned."
+  ],
+  "notes": "No live retrieval was needed. The snapshot contamination was the principal limitation."
+}
