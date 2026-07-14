@@ -8,9 +8,11 @@ from typing import Any
 
 import httpx
 import pytest
+from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import cli, corpus
 from fedcourtsai.config import HistoricalConfig, load_historical_config
+from fedcourtsai.pipeline import historical as historical_module
 from fedcourtsai.pipeline.historical import (
     HistoricalReport,
     StreamProgress,
@@ -21,7 +23,7 @@ from fedcourtsai.pipeline.historical import (
 from fedcourtsai.pipeline.live import ingest_live_payload
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.supremecourt import SupremeCourtClient, live_docket_id
-from tests.conftest import seed_prediction
+from tests.conftest import FixtureCorpus, seed_prediction
 from tests.test_documents import _pdf
 from tests.test_live import _DENIED_ENTRY, _GRANTED_ENTRY, _client, _payload
 
@@ -572,3 +574,60 @@ def test_load_terms_backfills_precapture_live_rows(tmp_path: Path) -> None:
     assert healed is not None
     assert healed.sample_weight == 3  # denied, on the grid, cursor-covered
     assert healed.distribution_count == 0  # re-parsed from the stored snapshot
+
+
+@pytest.mark.parametrize(
+    ("cli_args", "expected_minutes"),
+    [
+        (["--max-run-seconds", "90"], 1.5),  # 90s < config → the override binds
+        (["--max-run-seconds", "6000"], 20.0),  # 100min > config → clamped to config
+        ([], 20.0),  # no flag → the config default is untouched
+    ],
+)
+def test_cli_max_run_seconds_only_lowers_walker_budget(
+    fixture_corpus: FixtureCorpus,
+    monkeypatch: pytest.MonkeyPatch,
+    cli_args: list[str],
+    expected_minutes: float,
+) -> None:
+    """The run-pull loop feeds its remaining budget as ``--max-run-seconds`` so
+    the final chunk stops itself before the job's hard timeout. It can only
+    LOWER the walker's wall clock (never raise it past ``historical.
+    max_run_minutes``), mirroring ``--max-probes`` — and leaves the probe cap
+    alone."""
+    captured: dict[str, float] = {}
+
+    def _fake_load_terms(
+        client: object, db: object, data_root: object, config: HistoricalConfig, **kwargs: object
+    ) -> HistoricalReport:
+        captured["max_run_minutes"] = config.max_run_minutes
+        captured["max_probes_per_run"] = config.max_probes_per_run
+        return HistoricalReport(stopped="time-cap")
+
+    monkeypatch.setattr(historical_module, "load_terms", _fake_load_terms)
+    result = CliRunner().invoke(cli.app, ["historical-terms", *cli_args])
+    assert result.exit_code == 0, result.output
+    assert captured["max_run_minutes"] == pytest.approx(expected_minutes)
+    assert captured["max_probes_per_run"] == 600  # this option never disturbs the probe cap
+
+
+def test_cli_max_run_seconds_rejects_non_positive(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-positive budget would make the walk a silent no-op (model_copy
+    bypasses the field's gt=0 check), so the option is bounded at the boundary:
+    ``0`` is a Click usage error (exit 2) and the walker never runs."""
+    ran = False
+
+    def _fake_load_terms(*args: object, **kwargs: object) -> HistoricalReport:
+        nonlocal ran
+        ran = True
+        return HistoricalReport()
+
+    monkeypatch.setattr(historical_module, "load_terms", _fake_load_terms)
+    result = CliRunner().invoke(cli.app, ["historical-terms", "--max-run-seconds", "0"])
+    # Exit 2 is Click's canonical bad-parameter code; asserting on the rendered
+    # error text is brittle (Rich wraps the option name at narrow terminal
+    # widths). The walker not running proves the boundary rejected the value.
+    assert result.exit_code == 2
+    assert ran is False
