@@ -13,6 +13,10 @@
       "petitions": 1
     },
     {
+      "conference": "2025-12-05",
+      "petitions": 1
+    },
+    {
       "conference": "2026-01-09",
       "petitions": 1
     },
@@ -45,11 +49,11 @@
       "petitions": 5
     }
   ],
-  "documents_provisioned": 7,
+  "documents_provisioned": 8,
   "generated_on": "2026-07-14",
   "next_conference": "2026-09-28",
   "next_conference_petitions": 5,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 24
+  "watchlist": 25
 }
