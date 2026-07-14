@@ -291,6 +291,31 @@ class CorpusRow(BaseModel):
         "split: under the split, the heavy `opinion_text` body moves to the "
         "content store and the corpus keeps only this bit.",
     )
+    salience_score: float | None = Field(
+        default=None,
+        description="The deterministic salience score for this cert petition "
+        "(higher = a historically higher grant rate for cases with these "
+        "features), or None if no salience pass has scored it. Written only by the "
+        "salience selection pass, never by an ingestion channel; see "
+        "docs/salience.md.",
+    )
+    salience_version: str | None = Field(
+        default=None,
+        description="The frozen salience-function version that produced "
+        "`salience_score` (e.g. `sal-v1`), or None if never scored. A scoring "
+        "change is a new version, never an in-place edit, so a past ranking "
+        "replays against the version that produced it. Its presence marks a row as "
+        "salience-scored: enforcement treats a row with no version as selected "
+        "(fail-open), so legacy rows are never stranded.",
+    )
+    salience_selected: bool = Field(
+        default=False,
+        description="Whether the salience selection pass picked this petition into "
+        "the fundable tournament slice. A one-way latch (only 0->1) owned by that "
+        "pass — a case selected once stays selected, so a petition that later "
+        "drifts below the capacity line keeps its committed prediction. Meaningful "
+        "only when `salience_version` is set; see docs/salience.md.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -408,7 +433,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- Presence bit for a linked published opinion (see CorpusRow.has_opinion):
     -- kept in the index so the scope classifiers still work when the corpus
     -- split moves the `opinion_text` body out to the content store.
-    has_opinion         INTEGER NOT NULL DEFAULT 0
+    has_opinion         INTEGER NOT NULL DEFAULT 0,
+    -- Salience gate (see docs/salience.md): the deterministic score, its frozen
+    -- version, and the one-way selection latch. Owned by the salience selection
+    -- pass, never an ingestion channel; a NULL version marks an unscored row.
+    salience_score      REAL,
+    salience_version    TEXT,
+    salience_selected   INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -534,6 +565,9 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "originating_court_name": "TEXT",
     "sample_weight": "INTEGER",
     "has_opinion": "INTEGER NOT NULL DEFAULT 0",
+    "salience_score": "REAL",
+    "salience_version": "TEXT",
+    "salience_selected": "INTEGER NOT NULL DEFAULT 0",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -715,6 +749,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "originating_court_name": row.originating_court_name,
         "sample_weight": row.sample_weight,
         "has_opinion": int(row.has_opinion),
+        "salience_score": row.salience_score,
+        "salience_version": row.salience_version,
+        "salience_selected": int(row.salience_selected),
     }
 
 
@@ -748,6 +785,15 @@ def _optional_str(record: RecordRow, column: str) -> str | None:
     except (KeyError, IndexError):
         return None
     return raw if raw else None
+
+
+def _optional_float(record: RecordRow, column: str) -> float | None:
+    """Read a real column an older remote blob lacks (see ``_optional_date``)."""
+    try:
+        raw = record[column]
+    except (KeyError, IndexError):
+        return None
+    return float(raw) if raw is not None else None
 
 
 def _from_record(record: RecordRow) -> CorpusRow:
@@ -785,23 +831,27 @@ def _from_record(record: RecordRow) -> CorpusRow:
         originating_court_name=_optional_str(record, "originating_court_name"),
         sample_weight=_optional_int(record, "sample_weight"),
         has_opinion=bool(_optional_int(record, "has_opinion")),
+        salience_score=_optional_float(record, "salience_score"),
+        salience_version=_optional_str(record, "salience_version"),
+        salience_selected=bool(_optional_int(record, "salience_selected")),
     )
 
 
 def _update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one column, honoring its latch (if any).
 
-    Most columns take the incoming value (``excluded``). Four latch families are
+    Most columns take the incoming value (``excluded``). Five latch families are
     special: channel-supplied facts (``last_pulled``, the live-parsed signals)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count`` is a max-latch (proceedings
     are append-only, so the count only ever grows); ``sample_weight`` is a
     min-latch (an inclusion probability is only ever learned upward, toward
-    weight 1); and ``predict_excluded`` is owned by the scope reconcile (not an
+    weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
-    it to the model default. ``predict_eligible`` deliberately takes the
-    incoming value: it is a derived mirror of the court predicate, so a
-    re-ingest self-heals a stale value rather than latching it.
+    it to the model default; and the ``salience_*`` columns are owned by the
+    salience selection pass on the same keep-stored rationale. ``predict_eligible``
+    deliberately takes the incoming value: it is a derived mirror of the court
+    predicate, so a re-ingest self-heals a stale value rather than latching it.
     """
     if column in (
         "last_pulled",
@@ -840,6 +890,12 @@ def _update_clause(column: str) -> str:
     if column == "predict_excluded":
         # The scope reconcile owns this flag (it is not an ingestion fact and is not
         # monotonic), so a re-ingest must never clobber it — keep the stored value.
+        return f"{column}=cases.{column}"
+    if column in ("salience_score", "salience_version", "salience_selected"):
+        # The salience selection pass owns these (they are not ingestion facts):
+        # score/version are recomputed by the pass and `salience_selected` is a
+        # one-way latch it maintains, so an upsert must never reset them to the
+        # model default — keep the stored value, exactly like `predict_excluded`.
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
