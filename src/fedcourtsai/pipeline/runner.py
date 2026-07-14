@@ -68,6 +68,10 @@ _STUB_DISPOSITION = Disposition.denied
 _STUB_PROBABILITY = 0.0
 _STUB_GRANTED = 0
 _STUB_REASONING_QUALITY = 0.5
+# A canned mid-scale stakes read, so the stub's prediction carries the same
+# optional field a real predictor emits (exercised by the cert back-test's
+# big-case capture); a fixed value, like the reasoning-quality floor.
+_STUB_BIG_CASE_SCORE = 0.5
 
 
 @dataclass(frozen=True)
@@ -191,6 +195,7 @@ class StubRunner:
             granted=_STUB_GRANTED,
             probability=_STUB_PROBABILITY,
             predicted_disposition=_STUB_DISPOSITION,
+            big_case_score=_STUB_BIG_CASE_SCORE,
         )
         json_path = events.prediction(request.actor_id, request.run_id)
         md_path = events.reasoning(request.actor_id, request.run_id)

@@ -68,10 +68,16 @@ class BacktestItem:
 
 @dataclass(frozen=True)
 class BacktestPrediction:
-    """A predictor's output for one trial."""
+    """A predictor's output for one trial.
+
+    ``big_case_score`` is the predictor's pre-registered stakes read (0-1), carried
+    through from an engine replay so the cert back-test can report its distribution;
+    ``None`` for the offline reference baselines, which produce no such judgment.
+    """
 
     predicted_disposition: Disposition
     probability_granted: float
+    big_case_score: float | None = None
 
 
 class Backtester(Protocol):

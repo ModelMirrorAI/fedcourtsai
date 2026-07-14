@@ -247,6 +247,38 @@ def test_empty_set_yields_empty_report() -> None:
     assert report.stratum == "retrospective"
 
 
+class _BigCaseBacktester:
+    """Predicts denied@0.2 but attaches a per-case pre-registered big_case_score."""
+
+    def __init__(self, id: str, scores: dict[str, float]) -> None:
+        self.id = id
+        self._scores = scores
+
+    def predict(self, features: BacktestFeatures) -> BacktestPrediction:
+        return BacktestPrediction(
+            Disposition.denied, 0.2, big_case_score=self._scores[features.case_id]
+        )
+
+
+def test_big_case_distribution_summarizes_predicted_stakes() -> None:
+    items = [_item("scotus/1", Disposition.granted), _item("scotus/2", Disposition.denied)]
+    bt = _BigCaseBacktester("stakes", {"scotus/1": 0.9, "scotus/2": 0.3})
+    (entry,) = run_cert_backtest([bt], items).entries
+    assert entry.big_case is not None
+    assert entry.big_case.scored == 2
+    assert entry.big_case.mean == pytest.approx(0.6)  # (0.9 + 0.3) / 2
+    assert (entry.big_case.minimum, entry.big_case.maximum) == (0.3, 0.9)
+
+
+def test_offline_baselines_report_no_big_case() -> None:
+    # A predictor that emits no big_case_score (the offline reference baselines)
+    # leaves the dimension null — the replay never fabricates a stakes read.
+    items = [_item("scotus/1", Disposition.granted)]
+    floor = ConstantBacktester(id="constant-denied", disposition=Disposition.denied)
+    (entry,) = run_cert_backtest([floor], items).entries
+    assert entry.big_case is None
+
+
 def test_offline_run_without_a_statpack_carries_no_segments() -> None:
     # The default (no `segments`) path — offline reference baselines — leaves the
     # per-band breakdown empty; it never fabricates a base rate it wasn't given.
@@ -363,6 +395,10 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     report = run_cert_backtest(backtesters, items)
     assert report.events_scored == 1
     assert {e.predictor_id for e in report.entries} == expected
+    # The stub's canned big_case_score survives the replay read-back into the report.
+    for entry in report.entries:
+        assert entry.big_case is not None and entry.big_case.scored == 1
+        assert entry.big_case.mean == 0.5
 
     # The provisioned tree hides the outcome: the snapshot is redacted and the
     # event definition reads unresolved; nothing was written outside work_root.
