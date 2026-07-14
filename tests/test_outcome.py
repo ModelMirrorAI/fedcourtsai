@@ -465,6 +465,93 @@ def test_termination_signal_ignores_a_cbj_expedite_motion_order() -> None:
     assert termination_signal(docket) is None
 
 
+def test_termination_signal_reads_a_cert_before_judgment_grant() -> None:
+    # The grant half of the CBJ disposition, symmetric with the denial: once
+    # cert-before-judgment is granted the petition-disposition event is decided,
+    # so the docket must route out of the forward queue with the grant latest.
+    # The resolver misses it ("before judgment" separates the noun from the
+    # grant verb), so this backstop is its only net.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": "Petition for a writ of certiorari before judgment GRANTED",
+            }
+        ],
+    }
+    assert termination_signal(docket) is not None
+    # The grant is caught on the raw live payload shape too — the window before
+    # argument where the grant is the latest entry, which would otherwise leak.
+    live = {
+        "CaseNumber": "24-1000 ",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Oct 24 2025",
+                "Text": "Petition for a writ of certiorari before judgment filed.",
+            },
+            {
+                "Date": "Dec 05 2025",
+                "Text": "Petition for a writ of certiorari before judgment GRANTED",
+            },
+        ],
+    }
+    assert termination_signal(live) is not None
+
+
+def test_termination_signal_reads_a_scotus_merits_judgment() -> None:
+    # The Court has entered judgment, so nothing about the petition is pending.
+    # Both the "Adjudged to be ..." order-list form and the bare "Judgment
+    # ..." form read terminal.
+    adjudged = {"id": 1, "docket_entries": [{"id": 10, "description": "Adjudged to be AFFIRMED."}]}
+    assert termination_signal(adjudged) is not None
+    reversed_ = {"id": 2, "docket_entries": [{"id": 10, "description": "Judgment REVERSED."}]}
+    assert termination_signal(reversed_) is not None
+
+
+def test_termination_signal_ignores_a_merits_disposition_recital() -> None:
+    # A history recital that merely *names* a below judgment being affirmed
+    # opens the matter ("Notice of appeal ..."), so it must not read terminal —
+    # only the start-anchored disposition entry counts.
+    docket = {
+        "id": 1,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "Notice of appeal filed from the judgment affirmed by the "
+                    "Court of Appeals on 02/01/2026."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(docket) is None
+
+
+def test_termination_signal_reads_a_decided_cbj_docket_on_the_live_shape() -> None:
+    # Regression for the leak three engines flagged: a cert-before-judgment
+    # docket that was granted, argued, and decided on the merits reached a
+    # forward predict cell with the outcome in view. Its latest entry is the
+    # merits judgment, which no branch read before; the raw live payload shape
+    # is exactly what the live channel stores and provisions.
+    docket = {
+        "CaseNumber": "24-1000 ",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Oct 24 2025",
+                "Text": "Petition for a writ of certiorari before judgment filed.",
+            },
+            {
+                "Date": "Dec 05 2025",
+                "Text": "Petition for a writ of certiorari before judgment GRANTED",
+            },
+            {"Date": "Apr 01 2026", "Text": "Argued. For petitioner: ... For respondent: ..."},
+            {"Date": "Jun 30 2026", "Text": "Adjudged to be AFFIRMED."},
+        ],
+    }
+    assert termination_signal(docket) is not None
+
+
 def test_termination_signal_reads_a_circuit_vacate_and_remand_disposition() -> None:
     # The CA disposition shape carries the same judgment-vacated-remand
     # noun-verb order as the SCOTUS GVR, so the one pattern covers both.
