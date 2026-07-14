@@ -74,13 +74,17 @@ calibration with vacatur-practice prediction.
   counted `sample_weight` times so the historical walker's denial sampling
   does not bias them — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
-  by relist count, and by CVSG status, plus a by-originating-court reader
-  table that names state courts. A coverage block states the pack's own
-  denominators, and the per-Term array carries each October Term's
-  cursor-derived filings census by fee class (paid/IFP), walk-complete flags,
-  weighted estimates, grants, and pace-to-grant — the surface a time-masked
-  replay cell self-selects pre-cutoff Terms from. `fedcourts statpack`
-  produces both the machine JSON and a rendered Markdown document — a
+  by relist count, by CVSG status, and by **salience band** (the frozen
+  `sal-v1` grant-likelihood tier over the paid scored segment), plus a
+  by-originating-court reader table that names state courts. A coverage block
+  states the pack's own denominators, and the per-Term array carries each
+  October Term's cursor-derived filings census by fee class (paid/IFP),
+  walk-complete flags, weighted estimates, grants, pace-to-grant, and the
+  per-salience-band **segment base rate** (the leakage-safe grant rate the
+  predict prompt is designed to anchor on and the evaluator will score skill
+  against) — the surface a time-masked replay cell self-selects pre-cutoff
+  Terms from. `fedcourts statpack` produces both the machine JSON and a
+  rendered Markdown document — a
   deterministic, offline roll-up of the corpus — empty
   (zero counts, empty sections) until a corpus is present.
 

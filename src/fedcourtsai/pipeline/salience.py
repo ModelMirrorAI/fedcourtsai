@@ -113,6 +113,40 @@ def salience_score(row: corpus.CorpusRow) -> float:
     return primary + _CIRCUIT_WEIGHT * circuit
 
 
+# Frozen sal-v1 salience bands: score cutpoints that collapse the scored petitions
+# into three interpretable grant-likelihood segments. The cutpoints sit in the gaps
+# *between* the relist/CVSG grant-rate tiers, so the band tracks a petition's primary
+# trajectory signal and the bounded circuit nudge never carries a petition across a
+# boundary — a band is, in effect, "which relist/CVSG tier is this petition in". The
+# band (not the raw score) is what the statpack conditions its per-Term base rate on,
+# so a case's baseline is its own tier's historical grant rate — a relisted petition
+# is not scored against the whole-docket rate. Frozen with sal-v1: a rescore
+# reproduces the band, and a refit is a new version. Ordered strongest-first.
+_SALIENCE_BANDS: tuple[tuple[str, float], ...] = (
+    ("high", 0.20),  # CVSG (0.283) or 2+ relists (0.394) — the always-include tier
+    ("elevated", 0.075),  # one relist (0.078)
+    ("baseline", 0.0),  # relist-0 (0.008) or never-scanned (0.024)
+)
+
+
+def salience_band(row: corpus.CorpusRow) -> str:
+    """The frozen ``sal-v1`` salience band of a row (see :data:`_SALIENCE_BANDS`).
+
+    A pure function of :func:`salience_score`, so it inherits the scorer's
+    determinism: the same row features reproduce the same band.
+    """
+    score = salience_score(row)
+    for band, lower in _SALIENCE_BANDS:
+        if score >= lower:
+            return band
+    return _SALIENCE_BANDS[-1][0]  # unreachable (the baseline cutpoint is 0.0); a guard
+
+
+def salience_bands() -> tuple[str, ...]:
+    """The band names strongest→weakest — the fixed segment order the statpack emits."""
+    return tuple(band for band, _ in _SALIENCE_BANDS)
+
+
 def _capacity(conference: date, config: SalienceConfig) -> int:
     """The per-cohort ``N``: a larger cap for the Term's opening long conference."""
     if conference.month == _LONG_CONFERENCE_MONTH:
