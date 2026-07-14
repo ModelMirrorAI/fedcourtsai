@@ -2,7 +2,7 @@
   "$defs": {
     "ScopeManifestEntry": {
       "additionalProperties": false,
-      "description": "The published prediction-scope decision for one already-public case.\n\nOne row per docket that has a committed directory under ``data/cases`` *and*\na corpus row \u2014 a subset of the git-visible public set (a public docket absent\nfrom the corpus is omitted), and never anything outside it. The fields mirror\nthe corpus's\nscope columns for the case: whether it is in the prediction gate\n(``predict_eligible`` \u2261 court is SCOTUS), whether the reconcile has latched it\nout (``predict_excluded``), the shared exclusion reason when it has, and the\ninclusion weight the sampling channel asserted. ``sample_weight`` is null when\nno channel asserted one; ``out_of_scope_reason`` is null for an in-scope case.",
+      "description": "The published prediction-scope decision for one already-public case.\n\nOne row per docket that has a committed directory under ``data/cases`` *and*\na corpus row \u2014 a subset of the git-visible public set (a public docket absent\nfrom the corpus is omitted), and never anything outside it. The fields mirror\nthe corpus's\nscope columns for the case: whether it is in the prediction gate\n(``predict_eligible`` \u2261 court is SCOTUS), whether the reconcile has latched it\nout (``predict_excluded``), the shared exclusion reason when it has, the\ninclusion weight the sampling channel asserted, and the salience gate's score /\nversion / selection latch. ``sample_weight`` is null when no channel asserted\none; ``out_of_scope_reason`` is null for an in-scope case; the salience fields\nare null / False until a salience pass has scored the row.",
       "properties": {
         "case_id": {
           "description": "``<court>/<docket>`` of an already-public case",
@@ -31,6 +31,38 @@
           "description": "Latched out of scope by the reconcile",
           "title": "Predict Excluded",
           "type": "boolean"
+        },
+        "salience_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The deterministic salience score; null when no salience pass has scored it",
+          "title": "Salience Score"
+        },
+        "salience_selected": {
+          "default": false,
+          "description": "Whether the salience gate selected this petition into the fundable tournament slice (meaningful only when salience_version is set)",
+          "title": "Salience Selected",
+          "type": "boolean"
+        },
+        "salience_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The salience-function version that produced the score (e.g. sal-v1); null when unscored",
+          "title": "Salience Version"
         },
         "sample_weight": {
           "anyOf": [

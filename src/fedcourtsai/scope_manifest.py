@@ -74,6 +74,9 @@ def build_scope_manifest(*, data_root: Path, corpus_db_path: Path) -> ScopeManif
                     predict_excluded=row.predict_excluded,
                     out_of_scope_reason=reason,
                     sample_weight=row.sample_weight,
+                    salience_score=row.salience_score,
+                    salience_version=row.salience_version,
+                    salience_selected=row.salience_selected,
                 )
             )
     entries.sort(key=lambda e: e.case_id)
