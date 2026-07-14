@@ -1,0 +1,10 @@
+case_id: scotus/72482902
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-05-22'
+resolved: true
+schema_version: '1.0'
+title: Tommy Duane Barnes, Petitioner v. Roberto Felix, Jr., et al.
