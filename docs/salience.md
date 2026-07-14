@@ -66,6 +66,14 @@ weighted combination of Tier-1 features. It is reproducible from committed corpu
 inputs; a scoring-function change is a **new version**, never an in-place edit, so
 a skeptic can replay any past ranking against the version that produced it.
 
+`sal-v1`'s weights are **fit to the empirical per-bucket grant rates**, not
+hand-tuned: a case's score approximates `P(grant | its relist / CVSG / circuit /
+fee-class cell)` read off the committed statpack, so the ranking is directly
+interpretable — a higher score means a historically higher grant rate for cases
+like this — and calibrated to reality rather than to arbitrary coefficients. The
+exact coefficients are pinned and documented in the implementing change against
+the statpack numbers in force.
+
 `sal-v1` uses only features that exist today and are available **pre-conference**:
 
 - **Relist count** — `distribution_count − 1`, floored at 0 (a petition
@@ -125,8 +133,9 @@ structurally analogous to the scope reconcile — carries the decision:
    `salience_version`).
 3. **Always-include carve-outs**, unconditionally selected **above** the `N`
    budget: CVSG petitions (`cvsg_date IS NOT NULL`) and anything at or above a
-   documented **salience floor**. A major case can never fall below the capacity
-   line.
+   documented **salience floor** — set at the grant-rate level of clearly
+   cert-worthy cases, ≈ the relist-2 / CVSG band (~25%+ historical grant rate). A
+   major case can never fall below the capacity line.
 4. **Rank the remainder** by score and fill to `N`. **Additive-above-N**: `N` is a
    *guaranteed floor* of ranked picks; carve-outs and sticky latches may push the
    realized count above `N`. This is the simplest policy and never destructive.
@@ -159,13 +168,16 @@ read, not a re-derivation that could drift.
 
 `N` is the single parameter that scales inference cost, and the mechanism the
 budget's "more funding = more cases" equation and the milestones' funding milestone
-both hang on. It is a config value (per conference), and raising it **deepens the
+both hang on. It is a **per-conference** config value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
-sized to credit-grant scale — a ~$10K inference budget, ≈ 1–2k fully-tournamented
-cases at the ~$6/case anchor, roughly the whole long conference with rerun
-headroom. At the top of the same dial, `N` = "every eligible event" makes salience
-purely the public ranking rather than a spend control. `budget.md` works the
-`N → funding` math; this doc owns the default and the knob's semantics.
+sized to credit-grant scale — a ~$10K inference budget over the term at the
+~$6/case anchor: **~150 per regular conference and ~500 for the long conference**
+(which clears the summer backlog of 1,000+ petitions at once). A per-conference cap
+matches the Court's cadence and scopes replay to one conference's candidate pool;
+the long conference carries a larger `N` so a flat cap does not under-serve it. At
+the top of the same dial, `N` = "every eligible event" makes salience purely the
+public ranking rather than a spend control. `budget.md` works the `N → funding`
+math; this doc owns the default and the knob's semantics.
 
 ## The big-case score (a pre-registered stakes opinion)
 
@@ -288,19 +300,24 @@ statpack Term rows behind the `DECIDED_BEFORE` clock.
   pre-registered big-case board, carrying the ranking, the selected set, and the
   segment base rate.
 
-## Open decisions (recorded, with recommended defaults)
+## Ratified decisions (config, tunable)
 
-These are the maintainer's to set; the recommended default is in parentheses and is
-what the first release ships unless changed:
+The knobs are settled for the first release; each is config, so changing one is a
+config edit, not a redesign. `N` **is a guaranteed floor, not a hard ceiling** —
+the posture below keeps selection additive and never destructive:
 
-- Exact `N`, and whether the cap is per-conference or per-Term-of-conferences
-  (per-conference, sized to the credit-grant default above).
-- Whether carve-outs (CVSG, floor) **consume** the `N` budget or sit **above** it
-  (above — they are few and definitionally high-value).
-- Mid-cycle high-salience arrivals: **additive-above-N** vs reserved-headroom
-  (additive-above-N).
-- `sal-v1` feature **weightings / normalization** and the **salience-floor**
-  threshold.
-- The `big_case` agreement metric shape (rank-agreement across the cohort).
-- Whether unspent cohort capacity is ever reclaimed (never de-select; a cohort may
-  simply under-fill).
+- **Capacity `N`** — per-conference, OT2026 default ~150 / regular conference and
+  ~500 / long conference (the credit-grant envelope above).
+- **Carve-outs sit above `N`** (not consuming it): CVSG and above-floor cases are
+  guaranteed in, and `N` still fills with the next-best ranked cases, so no major
+  case is ever crowded out.
+- **Mid-cycle arrivals: additive-above-N** — a late high-salience petition is
+  simply selected too (consistent with the sticky, never-de-select latch); no
+  reserved headroom.
+- **Unspent capacity is never reclaimed** — a small conference may under-fill `N`;
+  reclaiming would break per-cohort replay reproducibility.
+- **`sal-v1` weights are fit to the empirical per-bucket grant rates** (above); the
+  salience floor sits at the relist-2 / CVSG grant-rate band (~25%+). Exact
+  coefficients are pinned in the implementing change.
+- **The `big_case` grade is rank-agreement across the cohort** (bigness is
+  comparative), with a per-case absolute delta kept only as a secondary diagnostic.
