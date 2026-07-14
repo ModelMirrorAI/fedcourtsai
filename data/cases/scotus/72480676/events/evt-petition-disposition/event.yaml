@@ -1,0 +1,11 @@
+case_id: scotus/72480676
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-09-07'
+resolved: true
+schema_version: '1.0'
+title: Noel Brown, Petitioner v. Ken Hollibaugh, Superintendent, State Correctional
+  Institution at Somerset

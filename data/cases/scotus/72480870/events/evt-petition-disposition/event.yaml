@@ -1,0 +1,10 @@
+case_id: scotus/72480870
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-10-05'
+resolved: true
+schema_version: '1.0'
+title: Taquan Rahshe Gullett-El, Petitioner v. Internal Revenue Service, et al.

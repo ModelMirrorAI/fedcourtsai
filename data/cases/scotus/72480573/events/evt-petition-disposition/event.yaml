@@ -1,0 +1,12 @@
+case_id: scotus/72480573
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-08-25'
+resolved: true
+schema_version: '1.0'
+title: Adam P. Strege, Petitioner v. Eric A. Vos, Individually and in His Official
+  Capacity as the Chief Defender for the Office of the Federal Public Defender District
+  of Puerto Rico, et al.
