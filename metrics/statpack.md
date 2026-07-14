@@ -1,21 +1,21 @@
 # Corpus statpack
 
-**2151693** case(s): 32541 resolved, 2119152 open.
+**2151702** case(s): 33139 resolved, 2118563 open.
 
-**Live/historical slice:** 1599 case(s), 1574 resolved — the population behind every live-slice section below; 8940 docketed filing(s) across the walked Terms.
+**Live/historical slice:** 2200 case(s), 2172 resolved — the population behind every live-slice section below; 12478 docketed filing(s) across the walked Terms.
 
-**Overall base rate (resolved):** other 73.8%, dismissed 19.7%, denied 4.9%, granted 1.6%, granted-in-part 0.0%, withdrawn 0.0%
+**Overall base rate (resolved):** other 72.4%, dismissed 19.6%, denied 6.1%, granted 1.9%, granted-in-part 0.0%, withdrawn 0.0%
 
-**Dated share:** 1597 of 8536 machine-readable resolved case(s) carry a resolution date (18.7%) — the slice the time-masked replay clock can anchor.
+**Dated share:** 2195 of 9134 machine-readable resolved case(s) carry a resolution date (24.0%) — the slice the time-masked replay clock can anchor.
 
-**Filing → decision timing:** median 122d, p90 533d (mean 233.1d over 323 dated case(s))
+**Filing → decision timing:** median 79d, p90 491d (mean 203.0d over 396 dated case(s))
 
 ## Cases by court
 _Scope: all courts; includes the frozen bulk import._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 589614 | 1870 | 587744 | denied 61.9%, granted 14.8%, other 12.4%, dismissed 10.9% |
+| scotus | 589623 | 2468 | 587155 | denied 64.3%, granted 15.0%, dismissed 11.2%, other 9.4% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
@@ -41,7 +41,7 @@ _Scope: scotus; includes the frozen bulk import._
 | 2010s | 97053 | 0 | 97053 | — |
 | 1980s | 62149 | 1 | 62148 | other 100.0% |
 | 1970s | 36385 | 3 | 36382 | other 100.0% |
-| 2020s | 32848 | 1574 | 31274 | denied 72.7%, granted 17.3%, dismissed 10.0% |
+| 2020s | 32857 | 2172 | 30685 | denied 72.5%, granted 16.9%, dismissed 10.6% |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
 | 1930s | 10 | 0 | 10 | — |
@@ -57,88 +57,89 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | disposition | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| denied | 7840 | 7840 | 0 | denied 100.0% |
-| granted | 273 | 273 | 0 | granted 100.0% |
-| dismissed | 157 | 157 | 0 | dismissed 100.0% |
-| (open) | 25 | 0 | 25 | — |
+| denied | 11115 | 11115 | 0 | denied 100.0% |
+| granted | 367 | 367 | 0 | granted 100.0% |
+| dismissed | 230 | 230 | 0 | dismissed 100.0% |
+| (open) | 28 | 0 | 28 | — |
 
 ## Modern cert petitions by originating circuit
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 2373 | 2360 | 13 | denied 97.1%, dismissed 1.9%, granted 1.1% |
-| ca9 | 1073 | 1072 | 1 | denied 95.7%, granted 3.0%, dismissed 1.3% |
-| ca5 | 938 | 936 | 2 | denied 94.3%, granted 4.7%, dismissed 1.0% |
-| ca4 | 585 | 585 | 0 | denied 92.6%, granted 5.5%, dismissed 1.9% |
-| ca11 | 551 | 550 | 1 | denied 91.3%, granted 4.9%, dismissed 3.8% |
-| ca8 | 501 | 500 | 1 | denied 96.2%, granted 3.2%, dismissed 0.6% |
-| ca2 | 466 | 465 | 1 | denied 89.9%, granted 5.6%, dismissed 4.5% |
-| ca6 | 430 | 430 | 0 | denied 94.4%, granted 3.5%, dismissed 2.1% |
-| ca3 | 329 | 327 | 2 | denied 93.0%, granted 3.7%, dismissed 3.4% |
-| ca7 | 294 | 292 | 2 | denied 97.6%, granted 1.7%, dismissed 0.7% |
-| ca10 | 261 | 260 | 1 | denied 93.5%, granted 5.0%, dismissed 1.5% |
-| cafc | 212 | 211 | 1 | denied 96.2%, granted 3.8% |
-| ca1 | 175 | 175 | 0 | denied 96.0%, dismissed 2.9%, granted 1.1% |
-| cadc | 107 | 107 | 0 | denied 82.2%, granted 15.0%, dismissed 2.8% |
+| (none) | 3439 | 3429 | 10 | denied 97.4%, dismissed 1.6%, granted 1.0% |
+| ca9 | 1413 | 1412 | 1 | denied 95.0%, granted 3.0%, dismissed 1.9% |
+| ca5 | 1384 | 1382 | 2 | denied 94.1%, granted 4.8%, dismissed 1.1% |
+| ca4 | 859 | 857 | 2 | denied 93.5%, granted 4.6%, dismissed 2.0% |
+| ca11 | 747 | 746 | 1 | denied 92.4%, granted 4.4%, dismissed 3.2% |
+| ca8 | 705 | 704 | 1 | denied 95.6%, granted 3.3%, dismissed 1.1% |
+| ca6 | 628 | 628 | 0 | denied 94.4%, granted 3.5%, dismissed 2.1% |
+| ca2 | 575 | 573 | 2 | denied 90.9%, granted 5.4%, dismissed 3.7% |
+| ca3 | 488 | 486 | 2 | denied 93.2%, dismissed 3.9%, granted 2.9% |
+| ca7 | 409 | 407 | 2 | denied 96.8%, granted 2.0%, dismissed 1.2% |
+| ca10 | 403 | 402 | 1 | denied 93.5%, granted 5.0%, dismissed 1.5% |
+| cafc | 267 | 266 | 1 | denied 93.6%, dismissed 3.4%, granted 3.0% |
+| ca1 | 251 | 250 | 1 | denied 95.2%, dismissed 2.8%, granted 2.0% |
+| cadc | 172 | 170 | 2 | denied 86.5%, granted 11.8%, dismissed 1.8% |
 
 ## Cert petitions by relist count
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| 0 | 6593 | 6578 | 15 | denied 97.3%, dismissed 1.9%, granted 0.8% |
-| 1 | 1305 | 1301 | 4 | denied 90.2%, granted 7.8%, dismissed 1.9% |
-| 3+ | 214 | 211 | 3 | denied 74.4%, granted 23.2%, dismissed 2.4% |
-| 2 | 183 | 180 | 3 | denied 58.9%, granted 39.4%, dismissed 1.7% |
+| 0 | 9348 | 9328 | 20 | denied 97.3%, dismissed 1.8%, granted 0.8% |
+| 1 | 1839 | 1837 | 2 | denied 89.7%, granted 7.6%, dismissed 2.7% |
+| 3+ | 288 | 285 | 3 | denied 76.5%, granted 21.8%, dismissed 1.8% |
+| 2 | 265 | 262 | 3 | denied 64.9%, granted 33.6%, dismissed 1.5% |
 
 ## Cert petitions by CVSG status
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts are denial-reweighted estimates._
 
 | cvsg | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| none | 8248 | 8224 | 24 | denied 94.9%, granted 3.2%, dismissed 1.9% |
-| cvsg | 47 | 46 | 1 | denied 69.6%, granted 28.3%, dismissed 2.2% |
+| none | 11679 | 11653 | 26 | denied 95.0%, granted 3.0%, dismissed 2.0% |
+| cvsg | 61 | 59 | 2 | denied 71.2%, granted 27.1%, dismissed 1.7% |
 
 ## Petitions by originating court (incl. state courts)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice._
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| ca9 | 191 | 190 | 1 | denied 75.8%, granted 16.8%, dismissed 7.4% |
-| ca5 | 173 | 171 | 2 | denied 69.0%, granted 25.7%, dismissed 5.3% |
-| ca4 | 126 | 126 | 0 | denied 65.9%, granted 25.4%, dismissed 8.7% |
-| ca11 | 119 | 118 | 1 | denied 59.3%, granted 22.9%, dismissed 17.8% |
-| ca2 | 115 | 114 | 1 | denied 58.8%, granted 22.8%, dismissed 18.4% |
-| ca6 | 97 | 97 | 0 | denied 75.3%, granted 15.5%, dismissed 9.3% |
-| ca8 | 87 | 86 | 1 | denied 77.9%, granted 18.6%, dismissed 3.5% |
-| ca3 | 77 | 75 | 2 | denied 69.3%, granted 16.0%, dismissed 14.7% |
-| ca10 | 54 | 53 | 1 | denied 67.9%, granted 24.5%, dismissed 7.5% |
-| ca7 | 51 | 49 | 2 | denied 85.7%, granted 10.2%, dismissed 4.1% |
-| (none) | 43 | 41 | 2 | denied 90.2%, dismissed 9.8% |
-| cafc | 41 | 40 | 1 | denied 80.0%, granted 20.0% |
-| cadc | 35 | 35 | 0 | denied 45.7%, granted 45.7%, dismissed 8.6% |
-| ca1 | 31 | 31 | 0 | denied 77.4%, dismissed 16.1%, granted 6.5% |
-| Supreme Court of Florida | 20 | 20 | 0 | denied 60.0%, dismissed 40.0% |
-| Court of Criminal Appeals of Texas | 16 | 16 | 0 | denied 75.0%, granted 18.8%, dismissed 6.2% |
-| Supreme Court of California | 14 | 14 | 0 | denied 85.7%, dismissed 14.3% |
-| Court of Appeals of Michigan | 9 | 9 | 0 | denied 100.0% |
-| Court of Criminal Appeals of Oklahoma | 9 | 9 | 0 | denied 100.0% |
-| Court of Appeal of California, First Appellate District | 8 | 7 | 1 | denied 71.4%, dismissed 28.6% |
-| Court of Appeal of California, Second Appellate District | 7 | 6 | 1 | denied 100.0% |
-| Court of Appeals of Indiana | 7 | 7 | 0 | denied 100.0% |
-| Court of Appeals of Texas, Fifth District | 7 | 7 | 0 | denied 100.0% |
-| District Court of Appeal of Florida, Fourth District | 7 | 7 | 0 | denied 85.7%, granted 14.3% |
-| Supreme Court of Nevada | 7 | 7 | 0 | denied 71.4%, dismissed 28.6% |
-| _… 110 more bucket(s) in the JSON_ | | | | |
+| ca9 | 261 | 260 | 1 | denied 73.1%, granted 16.5%, dismissed 10.4% |
+| ca5 | 250 | 248 | 2 | denied 66.9%, granted 27.0%, dismissed 6.0% |
+| ca4 | 175 | 173 | 2 | denied 67.6%, granted 22.5%, dismissed 9.8% |
+| ca11 | 153 | 152 | 1 | denied 62.5%, granted 21.7%, dismissed 15.8% |
+| ca2 | 134 | 132 | 2 | denied 60.6%, granted 23.5%, dismissed 15.9% |
+| ca6 | 133 | 133 | 0 | denied 73.7%, granted 16.5%, dismissed 9.8% |
+| ca8 | 120 | 119 | 1 | denied 73.9%, granted 19.3%, dismissed 6.7% |
+| ca3 | 110 | 108 | 2 | denied 69.4%, dismissed 17.6%, granted 13.0% |
+| ca10 | 79 | 78 | 1 | denied 66.7%, granted 25.6%, dismissed 7.7% |
+| ca7 | 76 | 74 | 2 | denied 82.4%, granted 10.8%, dismissed 6.8% |
+| cafc | 60 | 59 | 1 | denied 71.2%, dismissed 15.3%, granted 13.6% |
+| (none) | 57 | 55 | 2 | denied 92.7%, dismissed 7.3% |
+| cadc | 55 | 53 | 2 | denied 56.6%, granted 37.7%, dismissed 5.7% |
+| ca1 | 44 | 43 | 1 | denied 72.1%, dismissed 16.3%, granted 11.6% |
+| Supreme Court of Florida | 27 | 27 | 0 | denied 70.4%, dismissed 29.6% |
+| Court of Criminal Appeals of Texas | 19 | 19 | 0 | denied 78.9%, granted 15.8%, dismissed 5.3% |
+| Supreme Court of California | 19 | 19 | 0 | denied 84.2%, dismissed 15.8% |
+| Court of Appeal of California, First Appellate District | 13 | 12 | 1 | denied 83.3%, dismissed 16.7% |
+| Court of Appeal of California, Second Appellate District | 13 | 12 | 1 | denied 83.3%, dismissed 8.3%, granted 8.3% |
+| Court of Appeals of Michigan | 12 | 12 | 0 | denied 100.0% |
+| Appellate Court of Illinois, First District | 10 | 10 | 0 | denied 100.0% |
+| Court of Criminal Appeals of Oklahoma | 10 | 10 | 0 | denied 100.0% |
+| Court of Appeal of California, Third Appellate District | 9 | 9 | 0 | denied 77.8%, dismissed 11.1%, granted 11.1% |
+| Supreme Court of Louisiana | 9 | 9 | 0 | denied 100.0% |
+| Court of Appeals of Indiana | 8 | 8 | 0 | denied 87.5%, dismissed 12.5% |
+| _… 133 more bucket(s) in the JSON_ | | | | |
 
 ## SCOTUS cert petitions by Term
-_Live/historical slice; denial-reweighted estimates. Most recent 3 of 3 Term(s); the JSON artifact carries every Term and the per-fee-class detail._
+_Live/historical slice; denial-reweighted estimates. Most recent 4 of 4 Term(s); the JSON artifact carries every Term and the per-fee-class detail._
 
 | Term | filings (paid/IFP) | ingested | est. resolved | est. base rate | est. grant rate | grants | median days | complete |
 | --- | --- | --: | --: | --- | --- | --: | --: | --- |
-| 2025 | 1432/2702 | 885 | 3560 | denied 95.5%, granted 2.4%, dismissed 2.1% | 2.4% | 86 | 62 | ✓/✓ |
+| 2025 | 1432/2702 | 996 | 3578 | denied 95.4%, granted 2.5%, dismissed 2.1% | 2.5% | 89 | 62 | ✓/✓ |
 | 2024 | 1329/2529 | 548 | 3788 | denied 95.0%, granted 3.0%, dismissed 1.9% | 3.0% | 115 | 62 | ✓/✓ |
-| 2023 | 948/— | 166 | 922 | denied 91.1%, granted 7.8%, dismissed 1.1% | 7.8% | 72 | 69 | partial/partial |
+| 2023 | 1375/2848 | 608 | 4109 | denied 94.7%, granted 3.3%, dismissed 2.0% | 3.3% | 137 | 66 | ✓/✓ |
+| 2022 | 263/— | 48 | 237 | denied 88.6%, granted 11.0%, dismissed 0.4% | 11.0% | 26 | 81 | partial/partial |
 
 _Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): anchor only on Term rows strictly preceding your clock — later Terms post-date what you are allowed to know._
