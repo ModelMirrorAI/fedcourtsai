@@ -21,7 +21,10 @@ gate-checked:
   mean reasoning-quality summary, and counts (events scored, evaluations,
   evaluators), each reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
-  never blended into one number, with only the timing strata ranked.
+  never blended into one number, with only the timing strata ranked. Each entry
+  also carries a `big_case` block — the predictor's `big_case_score`
+  rank-agreement (Kendall's tau-b) with the evaluator panel's independent reads —
+  a second, orthogonal skill dimension that never affects the ranking.
   `fedcourts leaderboard` produces it — a deterministic, offline
   roll-up — empty (`{}` plus the zero counts) until the first evaluation lands.
 

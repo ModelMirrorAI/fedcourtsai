@@ -557,6 +557,35 @@ class LeaderboardStratum(_Strict):
     )
 
 
+class BigCaseLeaderboard(_Strict):
+    """A predictor's big-case-score agreement with the independent evaluator panel.
+
+    A *second* skill dimension, orthogonal to the grant/deny ranking (a model can
+    read a case's significance well while calling grant/deny only modestly, or the
+    reverse). Bigness is comparative, so the agreement is a **rank** correlation —
+    Kendall's tau-b between the predictor's ``big_case_score`` ordering and the
+    panel's (the mean of the evaluators' independent reads per event), across the
+    scored events both sides rated (one per case in the current single-event
+    model). Never enters the leaderboard ranking; reported alongside it.
+    """
+
+    rank_agreement: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall's tau-b between the predictor's big_case_score ordering "
+        "and the evaluator panel's read ordering, across the cases both scored "
+        "(+1 = same order, -1 = reversed); null with fewer than 2 comparable cases "
+        "or when every pair ties on one side",
+    )
+    cases: int = Field(
+        default=0,
+        ge=0,
+        description="Cases with both a predictor big_case_score and at least one "
+        "evaluator big-case read",
+    )
+
+
 class LeaderboardEntry(_Strict):
     """One predictor's standings, aggregated per stratum.
 
@@ -585,6 +614,13 @@ class LeaderboardEntry(_Strict):
         "disposition_basis) — the label tracks vacatur practice rather than "
         "cert-worthiness, so these aggregate separately and never enter the "
         "ranking; null when this predictor has none.",
+    )
+    big_case: BigCaseLeaderboard | None = Field(
+        default=None,
+        description="The predictor's big-case-score rank-agreement with the "
+        "evaluator panel (see BigCaseLeaderboard); a second, orthogonal skill "
+        "dimension that never affects the ranking. Null when no case carries both "
+        "a predictor big_case_score and an evaluator read.",
     )
 
 

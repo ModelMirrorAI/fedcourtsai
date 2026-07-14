@@ -3,6 +3,7 @@
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
@@ -11,11 +12,22 @@ from fedcourtsai.leaderboard import (
     PROCEDURAL,
     RETROSPECTIVE,
     Stratum,
+    _kendall_tau_b,
+    big_case_agreement,
     build_leaderboard,
     classify_stratum,
 )
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.schemas import Disposition, Engine, Evaluation, Leaderboard, Outcome, Prediction
+from fedcourtsai.schemas import (
+    BigCaseAssessment,
+    BigCaseLeaderboard,
+    Disposition,
+    Engine,
+    Evaluation,
+    Leaderboard,
+    Outcome,
+    Prediction,
+)
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations
 
@@ -284,3 +296,162 @@ def test_procedural_cells_aggregate_separately_and_never_rank(tmp_path: Path) ->
     assert board.procedural_evaluations == 1
     assert board.evaluations_total == 2
     assert board.forward_evaluations == 1
+
+
+# --- big-case rank-agreement (Kendall's tau-b) -------------------------------------
+
+
+def test_kendall_tau_b_perfect_and_reversed_and_ties() -> None:
+    assert _kendall_tau_b([(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)]) == 1.0  # concordant
+    assert _kendall_tau_b([(1.0, 3.0), (2.0, 2.0), (3.0, 1.0)]) == -1.0  # reversed
+    assert _kendall_tau_b([(1.0, 1.0)]) is None  # need >= 2 points
+    assert _kendall_tau_b([(1.0, 1.0), (1.0, 1.0)]) is None  # every pair ties → undefined
+    # A monotone set with one x-tie: tau-b's denominator drops the tied pair.
+    tau = _kendall_tau_b([(1.0, 1.0), (2.0, 2.0), (2.0, 3.0)])
+    assert tau is not None and tau == pytest.approx(2 / (6**0.5))
+
+
+def _write_big_case_cell(
+    data_root: Path,
+    predictor_id: str,
+    case_id: str,
+    *,
+    pred_score: float | None,
+    eval_scores: list[float],
+) -> None:
+    court, _, docket = case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event("evt-petition-disposition")
+    write_json(
+        event.prediction(predictor_id, "p1"),
+        Prediction(
+            case_id=case_id,
+            event_id="evt-petition-disposition",
+            predictor_id=predictor_id,
+            engine=Engine.claude_code,
+            run_id="p1",
+            created_at=datetime(2026, 6, 20, tzinfo=UTC),
+            input_snapshot="corpus",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.granted,
+            big_case_score=pred_score,
+        ),
+    )
+    for i, score in enumerate(eval_scores):
+        write_json(
+            event.evaluation(f"eval-{i}", predictor_id, "r1"),
+            Evaluation(
+                case_id=case_id,
+                event_id="evt-petition-disposition",
+                predictor_id=predictor_id,
+                evaluator_id=f"eval-{i}",
+                engine=Engine.claude_code,
+                run_id="r1",
+                created_at=datetime(2026, 6, 24, tzinfo=UTC),
+                correct=1,
+                big_case=BigCaseAssessment(evaluator_score=score),
+            ),
+        )
+    write_json(
+        event.outcome,
+        Outcome(
+            case_id=case_id,
+            event_id="evt-petition-disposition",
+            resolved_at=date(2026, 6, 23),
+            actual_disposition=Disposition.granted,
+            actual_granted=1,
+        ),
+    )
+
+
+def test_big_case_agreement_correlates_predictor_and_panel_orderings(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    # A predictor whose stakes ordering matches the panel's → tau +1.
+    _write_big_case_cell(data_root, "agree", "scotus/1", pred_score=0.9, eval_scores=[0.8])
+    _write_big_case_cell(data_root, "agree", "scotus/2", pred_score=0.5, eval_scores=[0.55])
+    _write_big_case_cell(data_root, "agree", "scotus/3", pred_score=0.1, eval_scores=[0.2])
+    # A predictor whose ordering is reversed vs the panel → tau -1.
+    _write_big_case_cell(data_root, "invert", "scotus/4", pred_score=0.9, eval_scores=[0.1])
+    _write_big_case_cell(data_root, "invert", "scotus/5", pred_score=0.5, eval_scores=[0.5])
+    _write_big_case_cell(data_root, "invert", "scotus/6", pred_score=0.1, eval_scores=[0.9])
+
+    result = big_case_agreement(data_root)
+
+    assert result["agree"].rank_agreement == 1.0
+    assert result["agree"].cases == 3
+    assert result["invert"].rank_agreement == -1.0
+
+
+def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None:
+    # Two evaluators disagree on one case; the panel mean is what the predictor's
+    # score is correlated against.
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[0.2, 1.0])
+    _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.1, 0.1])
+    result = big_case_agreement(data_root)
+    # case1 panel mean = 0.6 > case2's 0.1, and pred 0.9 > 0.1 → concordant → +1.
+    assert result["p"].rank_agreement == 1.0
+    assert result["p"].cases == 2
+
+
+def test_big_case_agreement_uses_the_latest_prediction_score(tmp_path: Path) -> None:
+    # The latest prediction's score wins. Latest scores (0.1, 0.9) are concordant
+    # with the panel (0.2, 0.8) → +1. A stale earlier score of 0.9 on case 1, if
+    # used, would tie the x-axis with case 2 → undefined (None). So +1 proves the
+    # recency latch.
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.1, eval_scores=[0.2])
+    _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.9, eval_scores=[0.8])
+    stale = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition")
+    write_json(
+        stale.prediction("p", "p0"),
+        Prediction(
+            case_id="scotus/1",
+            event_id="evt-petition-disposition",
+            predictor_id="p",
+            engine=Engine.claude_code,
+            run_id="p0",
+            created_at=datetime(2026, 6, 1, tzinfo=UTC),  # earlier than the p1 run
+            input_snapshot="corpus",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.granted,
+            big_case_score=0.9,
+        ),
+    )
+    result = big_case_agreement(data_root)
+    assert result["p"].rank_agreement == 1.0
+    assert result["p"].cases == 2
+
+
+def test_big_case_agreement_single_case_reports_null_agreement(tmp_path: Path) -> None:
+    # One comparable case: the block is present (cases=1) but the rank correlation
+    # is undefined with a single point — distinct from the absent-from-map case.
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.5, eval_scores=[0.5])
+    entry = big_case_agreement(data_root)["p"]
+    assert entry.cases == 1
+    assert entry.rank_agreement is None
+
+
+def test_big_case_agreement_skips_a_predictor_without_a_score(tmp_path: Path) -> None:
+    # An evaluator gave a read but the predictor emitted no big_case_score → the
+    # case is not comparable, so the predictor is absent from the map.
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "p", "scotus/1", pred_score=None, eval_scores=[0.5])
+    assert big_case_agreement(data_root) == {}
+
+
+def test_big_case_agreement_empty_when_no_ledger(tmp_path: Path) -> None:
+    assert big_case_agreement(tmp_path / "nope") == {}
+
+
+def test_build_leaderboard_attaches_big_case_when_supplied() -> None:
+    ev = _evaluation("p1")
+    board = build_leaderboard(
+        [_forward(ev)], big_case={"p1": BigCaseLeaderboard(rank_agreement=0.5, cases=4)}
+    )
+    assert board.entries[0].big_case is not None
+    assert board.entries[0].big_case.rank_agreement == 0.5
+    # Without the map the dimension is simply null (backward-compatible).
+    assert build_leaderboard([_forward(ev)]).entries[0].big_case is None
