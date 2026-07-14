@@ -39,6 +39,7 @@ from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
+    build_segment_context,
     replay_predictors,
     replayable_items,
     run_cert_backtest,
@@ -730,7 +731,12 @@ def cert_backtest_cmd(
                         err=True,
                     )
             backtesters += replayed
-        report = run_cert_backtest(backtesters, items)
+        # The leakage-safe segment context (band + per-Term base rate) mirrors
+        # the forward stratum's yardstick; segment_base_rate masks each item to
+        # Terms strictly before its own, so a full-corpus statpack is safe here.
+        statpack = analytics.build_statpack(corpus_db_path=db_path)
+        segments = build_segment_context(conn, items, statpack)
+        report = run_cert_backtest(backtesters, items, segments=segments)
     write_json(destination, report)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "

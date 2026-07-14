@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import cert_backtest, corpus
+from fedcourtsai import analytics, cert_backtest, corpus
 from fedcourtsai.backtest import (
     BacktestFeatures,
     BacktestItem,
@@ -245,6 +245,96 @@ def test_empty_set_yields_empty_report() -> None:
     report = run_cert_backtest([], [])
     assert (report.events_scored, report.predictors_evaluated) == (0, 0)
     assert report.stratum == "retrospective"
+
+
+def test_offline_run_without_a_statpack_carries_no_segments() -> None:
+    # The default (no `segments`) path — offline reference baselines — leaves the
+    # per-band breakdown empty; it never fabricates a base rate it wasn't given.
+    items = [_item("scotus/1", Disposition.granted), _item("scotus/2", Disposition.denied)]
+    (entry,) = run_cert_backtest([FixedBacktester("f", Disposition.denied, 0.2)], items).entries
+    assert entry.segments == []
+
+
+def _seed_segment_corpus(db: Path) -> None:
+    # A high-band item in OT24 with a prior-Term high-band anchor in OT23, plus an
+    # IFP high-band item (outside the paid scored segment) that must not band.
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-100",  # paid, OT24, 2 relists -> high band
+                    disposition=Disposition.granted,
+                    date_filed=date(2024, 10, 1),
+                    date_cert_granted=date(2025, 1, 6),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900",
+                    court="scotus",
+                    docket_number="23-500",  # paid, OT23 high band -> the prior-Term anchor
+                    disposition=Disposition.denied,
+                    date_filed=date(2023, 10, 1),
+                    date_cert_denied=date(2024, 1, 8),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/5001",
+                    court="scotus",
+                    docket_number="24-5900",  # IFP (serial >= 5001): outside the scored segment
+                    disposition=Disposition.denied,
+                    date_filed=date(2024, 10, 1),
+                    date_cert_denied=date(2025, 1, 8),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,
+                ),
+            ],
+        )
+
+
+def test_segment_context_bands_only_the_paid_scored_segment(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_segment_corpus(db)
+    with corpus.connect(db) as conn:
+        items = select_cert_backtest_set(conn)
+        statpack = analytics.build_statpack(corpus_db_path=db)
+        context = cert_backtest.build_segment_context(conn, items, statpack)
+    # The IFP petition is selected as an item but is not in the scored segment.
+    assert "scotus/5001" not in context
+    assert context["scotus/1"].band == "high"
+    # OT24's high-band rate pools OT23 only (denied) -> 0%; leakage-safe.
+    assert context["scotus/1"].base_rate == 0.0
+    # OT23 has no prior Term to anchor on -> no base rate.
+    assert context["scotus/900"].base_rate is None
+
+
+def test_cert_backtest_reports_per_band_segment_skill(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_segment_corpus(db)
+    with corpus.connect(db) as conn:
+        items = select_cert_backtest_set(conn)
+        statpack = analytics.build_statpack(corpus_db_path=db)
+        segments = cert_backtest.build_segment_context(conn, items, statpack)
+        report = run_cert_backtest(
+            [FixedBacktester("grant-0.9", Disposition.granted, 0.9)], items, segments=segments
+        )
+    (entry,) = report.entries
+    (high,) = entry.segments  # only the paid high-band petitions band
+    assert high.band == "high"
+    assert high.events_scored == 2  # scotus/1 + scotus/900; the IFP row is excluded
+    assert high.accuracy == 0.5  # grants scotus/1 (right), scotus/900 denied (wrong)
+    assert high.mean_brier_score == pytest.approx(0.41)  # (0.01 + 0.81) / 2
+    # Only scotus/1 had a prior-Term base rate (0.0); its skill vs that baseline
+    # is 1 - 0.01/1.0 = 0.99, and the band means fold in only that item.
+    assert high.segment_base_rate == 0.0
+    assert high.mean_brier_skill == pytest.approx(0.99)
 
 
 def test_replay_runs_the_stub_engine_over_redacted_snapshots(

@@ -104,6 +104,14 @@
           "minimum": 1,
           "title": "Rank",
           "type": "integer"
+        },
+        "segments": {
+          "description": "Per-salience-band skill breakdown over the paid scored segment (high, elevated, baseline; bands with no petition omitted) \u2014 the segment-baseline skill the forward stratum measures. Empty when no statpack was supplied (offline runs) or no paid-segment petition was scored",
+          "items": {
+            "$ref": "#/$defs/CertBacktestSegment"
+          },
+          "title": "Segments",
+          "type": "array"
         }
       },
       "required": [
@@ -116,6 +124,74 @@
         "lift_over_always_denied"
       ],
       "title": "CertBacktestEntry",
+      "type": "object"
+    },
+    "CertBacktestSegment": {
+      "additionalProperties": false,
+      "description": "One salience-band slice of a predictor's cert back-test standings.\n\nReconciles the offline cert back-test with the live prediction process: the\nforward tournament now scores skill against the **segment base rate** (the\npredicted slice's own grant rate, not the whole-docket rate), so the back-test\nreports the same, per ``sal-v1`` band, over the paid scored segment (IFP\npetitions are outside it). ``segment_base_rate`` is the mean of the items'\nleakage-safe per-Term band rates (each computed over Terms strictly before its\nown), and ``mean_brier_skill`` the mean skill against them \u2014 null when no item\nin the band had a prior-Term base rate.",
+      "properties": {
+        "accuracy": {
+          "description": "Disposition accuracy over the band's petitions",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "band": {
+          "description": "The frozen sal-v1 band: high / elevated / baseline",
+          "title": "Band",
+          "type": "string"
+        },
+        "events_scored": {
+          "description": "Paid-segment petitions in this band",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "mean_brier_score": {
+          "description": "Mean Brier score of P(granted) over the band",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Mean Brier Score",
+          "type": "number"
+        },
+        "mean_brier_skill": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier skill vs the segment base rate over the band (positive beats the base rate, ~0 parrots it, negative is worse); null when no item had a base rate",
+          "title": "Mean Brier Skill"
+        },
+        "segment_base_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean leakage-safe segment base rate over the band's items (each item's own prior-Term band grant rate); null when none had one",
+          "title": "Segment Base Rate"
+        }
+      },
+      "required": [
+        "band",
+        "events_scored",
+        "accuracy",
+        "mean_brier_score"
+      ],
+      "title": "CertBacktestSegment",
       "type": "object"
     }
   },

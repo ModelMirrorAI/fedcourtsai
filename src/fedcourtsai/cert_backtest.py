@@ -26,11 +26,13 @@ axes the cert task demands:
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from . import corpus
+from .analytics import _is_scored_segment_row
 from .backtest import (
     Backtester,
     BacktestFeatures,
@@ -39,18 +41,22 @@ from .backtest import (
     backtest_features,
 )
 from .paths import CasePaths
+from .pipeline.evaluate import brier_skill, segment_base_rate
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.runner import Runner, RunRequest, get_runner
+from .pipeline.salience import salience_band, salience_bands
 from .registry import enabled_predictors
 from .schemas import (
     CalibrationBin,
     CertBacktest,
     CertBacktestEntry,
+    CertBacktestSegment,
     Disposition,
     EventKind,
     PredictableEvent,
     Prediction,
     PredictorConfig,
+    StatPack,
     UsageRole,
 )
 from .serialize import read_model, write_raw_json, write_yaml
@@ -321,22 +327,110 @@ def _calibration(pairs: list[tuple[float, int]]) -> list[CalibrationBin]:
     return bins
 
 
+@dataclass(frozen=True)
+class _ItemSegment:
+    """A cert item's salience band and its leakage-safe segment base rate."""
+
+    band: str
+    base_rate: float | None
+
+
+def build_segment_context(
+    conn: sqlite3.Connection, items: list[BacktestItem], statpack: StatPack
+) -> dict[str, _ItemSegment]:
+    """Map each **paid scored-segment** petition to its sal-v1 band + base rate.
+
+    The band comes from :func:`salience_band` and the base rate from
+    :func:`segment_base_rate` (leakage-safe: pooled over statpack Terms strictly
+    before the item's own). IFP and other non-scored rows are omitted — they sit
+    outside the population the salience gate predicts, so the per-band breakdown
+    covers the same paid segment the statpack's segment rate is computed over.
+    """
+    context: dict[str, _ItemSegment] = {}
+    for item in items:
+        row = corpus.get_row(conn, item.features.case_id)
+        if row is None or not _is_scored_segment_row(row):
+            continue
+        context[item.features.case_id] = _ItemSegment(
+            band=salience_band(row), base_rate=segment_base_rate(row, statpack)
+        )
+    return context
+
+
+class _BandAcc:
+    """Streaming accumulator for one salience band's cert back-test scores."""
+
+    __slots__ = ("base_rates", "brier_sum", "correct", "events", "skills")
+
+    def __init__(self) -> None:
+        self.events = 0
+        self.correct = 0
+        self.brier_sum = 0.0
+        self.base_rates: list[float] = []
+        self.skills: list[float] = []
+
+    def add(
+        self, disp_correct: bool, brier: float, actual_granted: int, base_rate: float | None
+    ) -> None:
+        self.events += 1
+        self.correct += int(disp_correct)
+        self.brier_sum += brier
+        if base_rate is not None:
+            self.base_rates.append(base_rate)
+        skill = brier_skill(brier, actual_granted, base_rate)
+        if skill is not None:
+            self.skills.append(skill)
+
+
+def _band_segments(band_acc: dict[str, _BandAcc]) -> list[CertBacktestSegment]:
+    """Roll the per-band accumulators into segments, in the fixed band order."""
+    segments = []
+    for band in salience_bands():
+        acc = band_acc.get(band)
+        if acc is None or acc.events == 0:
+            continue
+        segments.append(
+            CertBacktestSegment(
+                band=band,
+                events_scored=acc.events,
+                accuracy=acc.correct / acc.events,
+                mean_brier_score=acc.brier_sum / acc.events,
+                segment_base_rate=(
+                    sum(acc.base_rates) / len(acc.base_rates) if acc.base_rates else None
+                ),
+                mean_brier_skill=(sum(acc.skills) / len(acc.skills) if acc.skills else None),
+            )
+        )
+    return segments
+
+
 def _score_one(
-    backtester: Backtester, items: list[BacktestItem], always_denied_accuracy: float
+    backtester: Backtester,
+    items: list[BacktestItem],
+    always_denied_accuracy: float,
+    segments: Mapping[str, _ItemSegment] | None,
 ) -> CertBacktestEntry:
     correct = 0
     granted_correct = 0
     brier_sum = 0.0
     pairs: list[tuple[float, int]] = []
+    band_acc: dict[str, _BandAcc] = {}
     for item in items:
         prediction = backtester.predict(item.features)
         actual_granted = granted_flag(item.actual_disposition)
-        if prediction.predicted_disposition == item.actual_disposition:
+        disp_correct = prediction.predicted_disposition == item.actual_disposition
+        if disp_correct:
             correct += 1
         if granted_flag(prediction.predicted_disposition) == actual_granted:
             granted_correct += 1
-        brier_sum += (prediction.probability_granted - actual_granted) ** 2
+        brier = (prediction.probability_granted - actual_granted) ** 2
+        brier_sum += brier
         pairs.append((prediction.probability_granted, actual_granted))
+        if segments is not None:
+            seg = segments.get(item.features.case_id)
+            if seg is not None:
+                acc = band_acc.setdefault(seg.band, _BandAcc())
+                acc.add(disp_correct, brier, actual_granted, seg.base_rate)
     n = len(items)
     return CertBacktestEntry(
         predictor_id=backtester.id,
@@ -347,23 +441,35 @@ def _score_one(
         mean_brier_score=brier_sum / n,
         lift_over_always_denied=correct / n - always_denied_accuracy,
         calibration=_calibration(pairs),
+        segments=_band_segments(band_acc),
     )
 
 
-def run_cert_backtest(backtesters: list[Backtester], items: list[BacktestItem]) -> CertBacktest:
+def run_cert_backtest(
+    backtesters: list[Backtester],
+    items: list[BacktestItem],
+    *,
+    segments: Mapping[str, _ItemSegment] | None = None,
+) -> CertBacktest:
     """Replay each backtester over the cert set and roll the scores up best-first.
 
     Entries rank by **lift over the always-deny floor** (desc) — under the
     denial skew that, not raw accuracy, is the signal — then mean Brier (asc),
     then ``predictor_id``; a total order, deterministic under ties. An empty set
-    yields the empty zero-count report.
+    yields the empty zero-count report. When ``segments`` is given (from
+    :func:`build_segment_context`), each entry also carries the per-salience-band
+    skill breakdown vs the leakage-safe segment base rate — the same yardstick the
+    forward stratum uses; omitted on the offline runs that pass no statpack.
     """
     if not items:
         return CertBacktest(events_scored=0, predictors_evaluated=0, entries=[])
     always_denied_accuracy = sum(
         item.actual_disposition == Disposition.denied for item in items
     ) / len(items)
-    entries = [_score_one(backtester, items, always_denied_accuracy) for backtester in backtesters]
+    entries = [
+        _score_one(backtester, items, always_denied_accuracy, segments)
+        for backtester in backtesters
+    ]
     entries.sort(key=lambda e: (-e.lift_over_always_denied, e.mean_brier_score, e.predictor_id))
     for position, entry in enumerate(entries, start=1):
         entry.rank = position

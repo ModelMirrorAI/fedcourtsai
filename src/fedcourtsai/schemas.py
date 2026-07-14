@@ -754,6 +754,43 @@ class CalibrationBin(_Strict):
     )
 
 
+class CertBacktestSegment(_Strict):
+    """One salience-band slice of a predictor's cert back-test standings.
+
+    Reconciles the offline cert back-test with the live prediction process: the
+    forward tournament now scores skill against the **segment base rate** (the
+    predicted slice's own grant rate, not the whole-docket rate), so the back-test
+    reports the same, per ``sal-v1`` band, over the paid scored segment (IFP
+    petitions are outside it). ``segment_base_rate`` is the mean of the items'
+    leakage-safe per-Term band rates (each computed over Terms strictly before its
+    own), and ``mean_brier_skill`` the mean skill against them — null when no item
+    in the band had a prior-Term base rate.
+    """
+
+    band: str = Field(description="The frozen sal-v1 band: high / elevated / baseline")
+    events_scored: int = Field(ge=0, description="Paid-segment petitions in this band")
+    accuracy: float = Field(
+        ge=0.0, le=1.0, description="Disposition accuracy over the band's petitions"
+    )
+    mean_brier_score: float = Field(
+        ge=0.0, le=1.0, description="Mean Brier score of P(granted) over the band"
+    )
+    segment_base_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean leakage-safe segment base rate over the band's items "
+        "(each item's own prior-Term band grant rate); null when none had one",
+    )
+    mean_brier_skill: float | None = Field(
+        default=None,
+        le=1.0,
+        description="Mean Brier skill vs the segment base rate over the band "
+        "(positive beats the base rate, ~0 parrots it, negative is worse); null "
+        "when no item had a base rate",
+    )
+
+
 class CertBacktestEntry(_Strict):
     """One predictor's standings over the cert back-test set."""
 
@@ -782,6 +819,13 @@ class CertBacktestEntry(_Strict):
     calibration: list[CalibrationBin] = Field(
         default_factory=list,
         description="P(granted) decile bins: predicted probability vs observed grant rate",
+    )
+    segments: list[CertBacktestSegment] = Field(
+        default_factory=list,
+        description="Per-salience-band skill breakdown over the paid scored segment "
+        "(high, elevated, baseline; bands with no petition omitted) — the segment-"
+        "baseline skill the forward stratum measures. Empty when no statpack was "
+        "supplied (offline runs) or no paid-segment petition was scored",
     )
 
 
