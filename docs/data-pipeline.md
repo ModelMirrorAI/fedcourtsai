@@ -37,6 +37,12 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predicted, and the lower-court link columns (`originating_court` /
   `originating_docket_number`) are retrieval context — never a scope trigger.
 
+  Within this prediction scope, [salience.md](salience.md) designs a
+  **salience-ordered** gate — hard eligibility filters, then a deterministic
+  ranking that spends the tournament on the most salient slice up to a fundable
+  capacity — plus the two pre-registered scores (deterministic salience and the
+  model-produced big-case score) and the segment base rate that anchors them.
+
 ## The binding constraint: the CourtListener API budget
 
 CourtListener's REST API is throttled per token (see [budget.md](budget.md)
