@@ -124,6 +124,20 @@ def test_prediction_records_model_when_given() -> None:
     assert _prediction(model="claude-fable-5").model == "claude-fable-5"
 
 
+def test_prediction_big_case_score_is_optional_and_range_checked() -> None:
+    # Optional (defaults None) so a record written before the field existed still
+    # validates — the backward-compat contract for the new big-case dimension.
+    plain = _prediction()
+    assert plain.big_case_score is None and plain.big_case_rationale is None
+    scored = _prediction(big_case_score=0.8, big_case_rationale="major separation-of-powers case")
+    assert scored.big_case_score == 0.8
+    for bad in (-0.1, 1.5):
+        with pytest.raises(ValidationError):
+            _prediction(big_case_score=bad)
+    with pytest.raises(ValidationError):  # rationale is length-bounded
+        _prediction(big_case_rationale="x" * 501)
+
+
 def test_evaluation_requires_engine() -> None:
     bad = {
         "case_id": "ca9/123",

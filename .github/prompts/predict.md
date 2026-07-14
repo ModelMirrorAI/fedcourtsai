@@ -161,6 +161,15 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     vacatur — rather than a plenary cert grant; a GVR still counts as a grant, so
     set `granted=1` and let `probability` express P(any grant, GVR included).
   - `votes` — optional per-judge votes; `confidence` — optional 0–1.
+  - `big_case_score` (optional, 0–1) — your pre-registered opinion of the case's
+    **stakes / significance / newsworthiness**, i.e. *how big is this case if
+    decided* — **explicitly not** grant likelihood. A case can be denied yet
+    high-stakes and closely watched, or granted yet narrow and technical; score
+    the stakes, not the odds. Rest it on the same pre-decision material and
+    leakage rule as the grant call (the questions presented, the posture, the
+    parties — never post-hoc press coverage). Optionally add a one-line
+    `big_case_rationale`. It is judged later by an independent evaluator's
+    agreement with its own read, never against a ground truth.
   - `reasoning_doc` — `reasoning.md` (the default).
 - **`reasoning.md`** — your qualitative analysis: the legal question, the governing
   standard, the facts from the snapshot that drive the outcome, and the reasoning
