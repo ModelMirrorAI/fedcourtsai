@@ -1,0 +1,56 @@
+name: Commit corpus + outcomes to main
+description: >-
+  Stage the corpus pointer and any newly-detected outcome.json, commit, and push
+  to the default branch with a rebase-and-backoff retry that outlasts a transient
+  GitHub ref error. The corpus blob must already be pushed to the remote (the
+  committed pointer resolves against it). No-op when there is nothing to commit.
+
+inputs:
+  message:
+    description: The commit message for the corpus/outcomes commit.
+    required: true
+  label:
+    description: Short label naming what is being pushed, for the retry logs.
+    required: false
+    default: corpus pointer + outcomes
+  append-date:
+    description: Append the UTC date " (YYYY-MM-DD)" to the message (the daily-refresh convention).
+    required: false
+    default: 'false'
+
+outputs:
+  committed:
+    description: '"true" when a commit was pushed, "false" when there was nothing to commit.'
+    value: ${{ steps.commit.outputs.committed }}
+
+runs:
+  using: composite
+  steps:
+    - id: commit
+      shell: bash
+      env:
+        COMMIT_MESSAGE: ${{ inputs.message }}
+        PUSH_LABEL: ${{ inputs.label }}
+        APPEND_DATE: ${{ inputs.append-date }}
+      run: |
+        set -euo pipefail
+        # Facts go straight to the default branch: the small corpus pointer (the
+        # blob lives in the S3 remote, pushed earlier) plus any outcome.json the
+        # run deterministically recorded. data/ may not exist yet, so stage it
+        # only when present; an empty staged set is the no-op below.
+        git add corpus/corpus.db.ref
+        if [ -d data ]; then
+          git add data/
+        fi
+        if git diff --cached --quiet; then
+          echo "Nothing to commit (no corpus or outcome change)."
+          echo "committed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        message="$COMMIT_MESSAGE"
+        if [ "$APPEND_DATE" = "true" ]; then
+          message="$message ($(date -u +%Y-%m-%d))"
+        fi
+        git commit -m "$message"
+        "${GITHUB_ACTION_PATH}/push_with_retry.sh" "$PUSH_LABEL"
+        echo "committed=true" >> "$GITHUB_OUTPUT"
