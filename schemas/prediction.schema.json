@@ -46,6 +46,35 @@
   "additionalProperties": false,
   "description": "``prediction.json`` \u2014 one predictor's quantitative output for an event.",
   "properties": {
+    "big_case_rationale": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional one-line rationale for `big_case_score`; null if none",
+      "title": "Big Case Rationale"
+    },
+    "big_case_score": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Pre-registered opinion of the case's stakes / significance / newsworthiness \u2014 *significance if decided*, decoupled from grant likelihood (a case can be denied yet high-stakes, or granted yet narrow). 0-1; judged later by an independent evaluator's agreement, never against a ground truth. Optional (defaults None) so records written before the field existed still validate. See docs/salience.md.",
+      "title": "Big Case Score"
+    },
     "case_id": {
       "title": "Case Id",
       "type": "string"

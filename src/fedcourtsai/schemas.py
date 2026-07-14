@@ -189,6 +189,22 @@ class Prediction(_Strict):
     predicted_disposition: Disposition
     votes: list[JudgeVote] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    big_case_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Pre-registered opinion of the case's stakes / significance / "
+        "newsworthiness — *significance if decided*, decoupled from grant likelihood "
+        "(a case can be denied yet high-stakes, or granted yet narrow). 0-1; judged "
+        "later by an independent evaluator's agreement, never against a ground truth. "
+        "Optional (defaults None) so records written before the field existed still "
+        "validate. See docs/salience.md.",
+    )
+    big_case_rationale: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional one-line rationale for `big_case_score`; null if none",
+    )
     reasoning_doc: str = "reasoning.md"
 
 
