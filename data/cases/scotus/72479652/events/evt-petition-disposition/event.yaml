@@ -1,0 +1,11 @@
+case_id: scotus/72479652
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-06-25'
+resolved: true
+schema_version: '1.0'
+title: Nuclear Regulatory Commission, et al., Petitioners v. Fasken Land and Minerals,
+  Ltd., et al.

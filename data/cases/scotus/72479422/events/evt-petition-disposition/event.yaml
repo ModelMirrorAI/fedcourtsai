@@ -1,0 +1,11 @@
+case_id: scotus/72479422
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-04-16'
+resolved: true
+schema_version: '1.0'
+title: DaBeth Manns, Petitioner v. U.S. Bank, N.A., as Trustee for Banc of America
+  Funding Corporation for Mortgage Pass-Through Certificates 2007-03

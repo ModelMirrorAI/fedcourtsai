@@ -1,0 +1,11 @@
+case_id: scotus/69447478
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-06-07'
+resolved: true
+schema_version: '1.0'
+title: Parents Protecting Our Children, UA, Petitioner v.  Eau Claire Area School
+  District, Wisconsin, et al.
