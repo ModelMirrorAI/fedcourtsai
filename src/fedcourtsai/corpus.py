@@ -1637,6 +1637,37 @@ def set_predict_excluded(conn: sqlite3.Connection, case_id: str, excluded: bool)
         )
 
 
+def set_salience_scores(
+    conn: sqlite3.Connection, scores: Mapping[str, float], version: str
+) -> None:
+    """Stamp the salience score and version on each case. The salience pass's writer.
+
+    Owned here rather than through ``upsert_rows`` so ingestion never disturbs the
+    columns (the upsert keeps the stored value — see :func:`_update_clause`). A
+    single transaction over the whole in-scope set, which the pass rescores every
+    run.
+    """
+    with conn:
+        conn.executemany(
+            "UPDATE cases SET salience_score = ?, salience_version = ? WHERE case_id = ?",
+            [(score, version, case_id) for case_id, score in scores.items()],
+        )
+
+
+def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -> None:
+    """Latch ``salience_selected`` on each case. One-way (0->1): only ever sets, never clears.
+
+    The salience selection pass's sole writer of the latch. Monotonicity lives here
+    — the SQL only assigns 1 — so a case selected once stays selected and its
+    committed prediction is never stranded, and re-running the pass converges.
+    """
+    with conn:
+        conn.executemany(
+            "UPDATE cases SET salience_selected = 1 WHERE case_id = ?",
+            [(case_id,) for case_id in case_ids],
+        )
+
+
 DEFAULT_PRIOR_LIMIT = 20
 
 
