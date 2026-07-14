@@ -896,9 +896,11 @@ class ScopeManifestEntry(_Strict):
     the corpus's
     scope columns for the case: whether it is in the prediction gate
     (``predict_eligible`` ≡ court is SCOTUS), whether the reconcile has latched it
-    out (``predict_excluded``), the shared exclusion reason when it has, and the
-    inclusion weight the sampling channel asserted. ``sample_weight`` is null when
-    no channel asserted one; ``out_of_scope_reason`` is null for an in-scope case.
+    out (``predict_excluded``), the shared exclusion reason when it has, the
+    inclusion weight the sampling channel asserted, and the salience gate's score /
+    version / selection latch. ``sample_weight`` is null when no channel asserted
+    one; ``out_of_scope_reason`` is null for an in-scope case; the salience fields
+    are null / False until a salience pass has scored the row.
     """
 
     case_id: str = Field(description="``<court>/<docket>`` of an already-public case")
@@ -910,6 +912,20 @@ class ScopeManifestEntry(_Strict):
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability the sampling channel asserted; null if none",
+    )
+    salience_score: float | None = Field(
+        default=None,
+        description="The deterministic salience score; null when no salience pass has scored it",
+    )
+    salience_version: str | None = Field(
+        default=None,
+        description="The salience-function version that produced the score (e.g. sal-v1); "
+        "null when unscored",
+    )
+    salience_selected: bool = Field(
+        default=False,
+        description="Whether the salience gate selected this petition into the fundable "
+        "tournament slice (meaningful only when salience_version is set)",
     )
 
 

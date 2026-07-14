@@ -93,6 +93,41 @@ def test_publishes_scope_columns_for_public_cases(tmp_path: Path) -> None:
     assert manifest.eligible == 2  # both are SCOTUS dockets
 
 
+def test_publishes_salience_columns(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="24-1"),
+                corpus.CorpusRow(case_id="scotus/2", court="scotus", docket_number="24-2"),
+            ],
+        )
+        # The selection pass stamped scotus/1; scotus/2 is unscored.
+        conn.execute(
+            "UPDATE cases SET salience_score = 0.42, salience_version = 'sal-v1', "
+            "salience_selected = 1 WHERE case_id = 'scotus/1'"
+        )
+        conn.commit()
+    _make_case_dir(data_root, "scotus/1")
+    _make_case_dir(data_root, "scotus/2")
+
+    by_id = {
+        e.case_id: e for e in build_scope_manifest(data_root=data_root, corpus_db_path=db).entries
+    }
+
+    scored = by_id["scotus/1"]
+    assert scored.salience_score == 0.42
+    assert scored.salience_version == "sal-v1"
+    assert scored.salience_selected is True
+
+    unscored = by_id["scotus/2"]
+    assert unscored.salience_score is None
+    assert unscored.salience_version is None
+    assert unscored.salience_selected is False
+
+
 def test_public_dir_missing_from_corpus_is_omitted(tmp_path: Path) -> None:
     # A public directory whose case is not in the corpus is skipped rather than
     # emitted with guessed-at scope fields.
