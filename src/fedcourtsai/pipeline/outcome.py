@@ -74,7 +74,7 @@ def appears_decided(row: CorpusRow) -> bool:
 
 
 # Docket-entry descriptions that state the matter is over even when the docket
-# row carries no decision date or disposition. Three families:
+# row carries no decision date or disposition. Four families:
 #   - appellate dockets CourtListener stopped indexing years ago
 #     (``date_terminated`` stays null): the clerk's termination entry and the
 #     published-opinion entry;
@@ -84,17 +84,24 @@ def appears_decided(row: CorpusRow) -> bool:
 #     fee-default closure;
 #   - SCOTUS decided-merits orders the resolver's grant-anchored patterns miss:
 #     a vacate-and-remand disposition with no "grant" word ("Judgment VACATED
-#     and case REMANDED for further consideration in light of ..."), and the
+#     and case REMANDED for further consideration in light of ..."), the
 #     "Judgment Issued" entry that follows it (the mandate analog — on a SCOTUS
-#     docket the matter is over once judgment issues).
-# The two new shapes are anchored against pending-shaped near-misses: "judgment
-# issued" is start-anchored (like "opinion issued") so a docketing recital
-# ("NOTICE OF APPEAL filed from the judgment issued on ...") stays pending, and
-# the vacate pair requires the disposition order's noun-verb shape — "judgment
-# ... vacated ... remand" — so the SG's confession-of-error *motion* ("Motion of
-# respondent to vacate the judgment and remand ... filed", verb before noun) and
-# an en banc panel-opinion vacatur ("panel opinion is VACATED and the case is
-# REMANDED to the panel", no judgment) stay pending too.
+#     docket the matter is over once judgment issues), and the merits judgment
+#     itself ("Adjudged to be AFFIRMED", "Judgment REVERSED") — its latest entry
+#     leaked a granted-argued-and-decided cert-before-judgment docket forward;
+#   - the cert-before-judgment disposition — grant, denial, and dismissal — whose
+#     "before judgment" gap separates the noun from the verb, so the resolver
+#     misses all three (a CBJ grant decides the petition-disposition event just
+#     as a denial does).
+# The new shapes are anchored against pending-shaped near-misses: "judgment
+# issued" and the merits and CBJ branches are start-anchored (like "opinion
+# issued") so a docketing recital ("NOTICE OF APPEAL filed from the judgment
+# issued/affirmed on ...", the expedite *motion* reciting the CBJ petition) stays
+# pending, and the vacate pair requires the disposition order's noun-verb shape —
+# "judgment ... vacated ... remand" — so the SG's confession-of-error *motion*
+# ("Motion of respondent to vacate the judgment and remand ... filed", verb
+# before noun) and an en banc panel-opinion vacatur ("panel opinion is VACATED
+# and the case is REMANDED to the panel", no judgment) stay pending too.
 # This is a high-recall *routing* backstop that also feeds the forward-cell
 # provisioning refusal (``provision-snapshot --refuse-terminal``): a match
 # diverts a decided-looking case out of the forward-predict queue for triage
@@ -114,12 +121,23 @@ _TERMINAL_ENTRY_RE = re.compile(
     r"|\bpetition\b.{0,80}?\bdismissed\b"
     r"|^judgment issued\b"
     r"|\bjudgment\b.{0,40}?\bvacated\b.{0,80}?\bremand\w*"
-    # The cert-before-judgment denial/dismissal: a deliberate resolver miss
-    # (its multi-word noun-verb gap would also admit the expedite-motion
-    # recital), so routing is its only net. Start-anchored — the disposition
-    # entry opens with the noun, while the expedite order opens with
-    # "Motion ..." and must stay pending.
-    r"|^petitions? for (?:a )?writs? of certiorari before judgment (?:are |is )?(?:denied|dismiss)",
+    # The SCOTUS merits judgment: once the Court enters judgment the case is
+    # over, so nothing about the petition is pending. Start-anchored to the
+    # disposition entry's own noun ("Adjudged to be AFFIRMED", "Judgment
+    # REVERSED") — a lower-court-history recital opens with "Notice of appeal
+    # ..." / "Motion ..." and stays clear. This is the shape that leaked a
+    # granted-argued-and-decided cert-before-judgment docket into a forward
+    # cell: its latest entry is the merits ruling, which no other branch read.
+    r"|^(?:adjudged|judgment)\b.{0,40}?\b(?:affirmed|reversed)\b"
+    # The cert-before-judgment disposition — grant as well as denial/dismissal.
+    # All three are deliberate resolver misses (the multi-word noun-verb gap
+    # would also admit the expedite-motion recital), so routing is their only
+    # net; once cert-before-judgment is *granted* the petition-disposition
+    # event is decided (granted), so a snapshot showing it must route out too.
+    # Start-anchored — the disposition entry opens with the noun, while the
+    # expedite order opens with "Motion ..." and must stay pending.
+    r"|^petitions? for (?:a )?writs? of certiorari before judgment "
+    r"(?:are |is )?(?:denied|dismiss|granted)",
     re.IGNORECASE,
 )
 

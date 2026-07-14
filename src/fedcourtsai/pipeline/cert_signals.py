@@ -16,12 +16,12 @@ pending-docket entry — a motion order reciting the petition as its object, a
 party paper suggesting a vacatur — must not match. A deliberate miss falls to
 the high-recall routing backstop
 (:func:`fedcourtsai.pipeline.outcome.termination_signal`) for the shapes it
-carries (Rule 39.8 IFP dismissals, cert-before-judgment denials), where a
-false positive only parks a case for triage; anything neither instrument reads
-(a bare CBJ grant set for argument) is an accepted residual, surfaced by
-re-running the reachability probe (``fedcourts probe-live-terms``) — do that
-after any pattern change to re-establish the recall claim over the live
-sample.
+carries (Rule 39.8 IFP dismissals, cert-before-judgment grants, denials, and
+dismissals, and a SCOTUS merits judgment), where a false positive only parks a
+case for triage rather than fabricating ground truth; anything neither
+instrument reads is an accepted residual, surfaced by re-running the
+reachability probe (``fedcourts probe-live-terms``) — do that after any pattern
+change to re-establish the recall claim over the live sample.
 """
 
 from __future__ import annotations
