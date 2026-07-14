@@ -335,6 +335,27 @@ class Evaluation(_Strict):
         "the dimension existed. The predictor's big_case_score is graded against "
         "these reads by rank-agreement at leaderboard time.",
     )
+    segment_base_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The leakage-safe salience-segment base rate for this case — its "
+        "sal-v1 band's grant rate pooled over statpack Terms strictly before the "
+        "case's Term (see fedcourtsai.pipeline.evaluate.segment_base_rate). The naive "
+        "baseline the prediction's skill is scored against; null on offline evaluator "
+        "outputs, when no prior-Term band data exists, and on records written before "
+        "the field existed.",
+    )
+    brier_skill_score: float | None = Field(
+        default=None,
+        le=1.0,
+        description="Brier skill score vs `segment_base_rate` "
+        "(1 - brier / baseline_brier): ~0 when the prediction merely parrots the "
+        "segment base rate, positive when it beats it, negative when worse. Null "
+        "when `segment_base_rate` is null, when the baseline is already exact (the "
+        "base rate matched the outcome), and on records written before the field "
+        "existed.",
+    )
     notes_doc: str = "evaluation.md"
 
 
@@ -552,6 +573,14 @@ class LeaderboardStratum(_Strict):
         ge=0.0,
         le=1.0,
         description="Mean Brier score where reported (lower is better)",
+    )
+    mean_brier_skill_score: float | None = Field(
+        default=None,
+        le=1.0,
+        description="Mean Brier skill score vs the salience-segment base rate where "
+        "reported (higher is better; ~0 = no better than the segment's grant rate, "
+        "negative = worse). Distinct from raw Brier: it credits beating the biased "
+        "predicted-segment base rate, not the whole-docket rate",
     )
     mean_vote_accuracy: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
