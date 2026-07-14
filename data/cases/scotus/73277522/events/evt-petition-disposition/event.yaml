@@ -1,0 +1,11 @@
+case_id: scotus/73277522
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-10-02'
+resolved: true
+schema_version: '1.0'
+title: Adam Pajer, et al., Petitioners v. Disney Parks, Experiences and Products,
+  Inc., et al.
