@@ -54,6 +54,7 @@ def _open_event(tmp_path: Path, event_id: str = "evt-petition-review") -> None:
 def test_granted_flag_maps_partial_grant_to_granted() -> None:
     assert granted_flag(Disposition.granted) == 1
     assert granted_flag(Disposition.granted_in_part) == 1
+    assert granted_flag(Disposition.gvr) == 1  # a GVR grants the petition
     assert granted_flag(Disposition.denied) == 0
     assert granted_flag(Disposition.dismissed) == 0
 

@@ -314,6 +314,10 @@ def normalize_disposition(raw: Any) -> Disposition | None:
     if text is None:
         return None
     lowered = text.lower()
+    # `gvr` first: the resolver's `gvr` value round-trips through here, and the
+    # token never co-occurs with a plain "granted" so this cannot shadow a grant.
+    if "gvr" in lowered:
+        return Disposition.gvr
     if "grant" in lowered:
         return Disposition.granted_in_part if "part" in lowered else Disposition.granted
     keywords: tuple[tuple[str, Disposition], ...] = (
@@ -547,9 +551,9 @@ def _live_resolution(
     reachability-probe sample (``fedcourts probe-live-terms``; re-run it when
     the patterns change to re-establish the recall claim). The first matching
     entry, in docket order, is the cert-stage disposition and its entry date is
-    the decision date: a grant dates ``date_cert_granted``, a denial
-    ``date_cert_denied``, and anything else (dismissed / withdrawn) dates the
-    termination.
+    the decision date: a grant (including a GVR, which grants the petition) dates
+    ``date_cert_granted``, a denial ``date_cert_denied``, and anything else
+    (dismissed / withdrawn) dates the termination.
     """
     for entry in entries:
         matched = match_disposition_signal(str(entry.get("description") or ""))
@@ -557,7 +561,7 @@ def _live_resolution(
             continue
         disposition = matched[0].value
         decided = date.fromisoformat(entry["date_filed"]) if entry.get("date_filed") else None
-        if disposition == Disposition.granted.value:
+        if disposition in (Disposition.granted.value, Disposition.gvr.value):
             return disposition, decided, None, None
         if disposition == Disposition.denied.value:
             return disposition, None, decided, None

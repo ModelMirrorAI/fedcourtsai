@@ -33,20 +33,31 @@ class CaseStatus(StrEnum):
 
 class Disposition(StrEnum):
     """The realized-outcome vocabulary, with the mapping conventions for
-    non-standard SCOTUS forms. Every GVR lands ``granted`` — including the
-    Munsingwear vacatur, whose mootness basis is segmented for scoring via
-    ``Outcome.disposition_basis``, never a distinct label. On mandatory-
-    jurisdiction direct appeals the resolver latches only the vacatur-remand
-    form (granted side); the other direct-appeal forms (probable jurisdiction
-    noted, summary affirmance, dismissal for want of a substantial federal
-    question) are deliberate resolver misses that reach maintainer triage,
-    where the convention is: grant-side for probable jurisdiction, the
-    denied/dismissed side for summary affirmance and want-of-a-question.
+    non-standard SCOTUS forms. A **grant/vacate/remand** is its own label,
+    ``gvr`` — including the Munsingwear vacatur, whose mootness basis is *also*
+    carried by ``Outcome.disposition_basis`` (``gvr`` + ``mootness`` = a
+    Munsingwear vacatur, segmented into the procedural stratum; ``gvr`` +
+    ``standard`` = a merits GVR). ``gvr`` counts as a grant on the **binary axis**
+    (it joins the granted set for ``actual_granted``), so ``probability`` /
+    Brier stay comparable across the label's introduction; only the
+    disposition-label axis distinguishes it. The label is a **forward-convention**
+    change: historical GVRs recorded as ``granted`` before it existed keep that
+    label except the identifiable Munsingwear ones (``granted`` + ``mootness``),
+    which a one-time backfill relabels; a plain-``granted`` merits GVR in history
+    is an accepted residual (indistinguishable post-hoc without re-resolving the
+    source, and immaterial on the binary axis). On mandatory-jurisdiction direct
+    appeals the resolver latches only the vacatur-remand form (now ``gvr``); the
+    other direct-appeal forms (probable jurisdiction noted, summary affirmance,
+    dismissal for want of a substantial federal question) are deliberate resolver
+    misses that reach maintainer triage, where the convention is: grant-side for
+    probable jurisdiction, the denied/dismissed side for summary affirmance and
+    want-of-a-question.
     """
 
     granted = "granted"
     denied = "denied"
     granted_in_part = "granted-in-part"
+    gvr = "gvr"
     dismissed = "dismissed"
     withdrawn = "withdrawn"
     other = "other"
@@ -1122,7 +1133,8 @@ class StatPackTermClass(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted granted share of resolved; None when nothing resolved",
+        description="Weighted grant-family share (granted + gvr) of resolved; "
+        "None when nothing resolved",
     )
     dispositions: list[DispositionShare] = Field(
         default_factory=list,

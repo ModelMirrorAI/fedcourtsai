@@ -34,11 +34,12 @@ from ..schemas import Disposition
 # matched phrase to a :class:`Disposition` and a short human label; the first match
 # (scanned in order) wins, so the more specific GVR patterns precede bare "granted".
 _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
-    # Grant/vacate/remand: the petition is granted, so it lands on the granted side.
-    (re.compile(r"\bgvr\b", re.IGNORECASE), Disposition.granted, "GVR"),
+    # Grant/vacate/remand: its own `gvr` disposition (a grant on the binary axis,
+    # but distinct from a plain merits cert grant on the label axis).
+    (re.compile(r"\bgvr\b", re.IGNORECASE), Disposition.gvr, "GVR"),
     (
         re.compile(r"grant\w*.{0,60}?vacat\w*.{0,60}?remand\w*", re.IGNORECASE | re.DOTALL),
-        Disposition.granted,
+        Disposition.gvr,
         "GVR",
     ),
     # The bare vacate-and-remand order — no "grant" word at all. Two forms carry
@@ -59,7 +60,7 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
             r"^(?:the\s+)?judgment\b.{0,80}?\bvacated\b.{0,80}?\bremand\w*",
             re.IGNORECASE | re.DOTALL,
         ),
-        Disposition.granted,
+        Disposition.gvr,
         "GVR",
     ),
     (

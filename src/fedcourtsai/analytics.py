@@ -55,6 +55,12 @@ _NONE_KEY = "(none)"
 _OPEN_KEY = "(open)"
 _UNKNOWN_KEY = "(unknown)"
 
+# Disposition labels that count as a cert grant for the grant-rate summaries — a
+# GVR grants the petition, so it sums into the grant rate alongside a plain grant
+# (both were a single "granted" bucket before the `gvr` label split them out).
+# `granted-in-part` stays its own bucket, preserving the pre-`gvr` definition.
+_GRANT_LABELS = (Disposition.granted.value, Disposition.gvr.value)
+
 
 class AnalyticsQuery(BaseModel):
     """Structured filter selecting the corpus rows an :class:`AnalyticsReport` aggregates.
@@ -523,7 +529,7 @@ class _TermAcc:
         fee = _fee_class(row)
         if fee is not None:
             self.classes[fee].add(row)
-        if row.disposition == Disposition.granted.value:
+        if row.disposition in (Disposition.granted.value, Disposition.gvr.value):
             self.grants += 1
             if row.date_filed is not None and row.date_cert_granted is not None:
                 days = (row.date_cert_granted - row.date_filed).days
@@ -605,9 +611,10 @@ def _term_entry(
                 ingested=entry.cases,
                 resolved=entry.bucket("").resolved,
                 weighted_resolved=weighted.resolved,
-                est_grant_rate=next(
-                    (d.share for d in weighted.dispositions if d.disposition == "granted"),
-                    0.0 if weighted.resolved else None,
+                est_grant_rate=(
+                    sum(d.share for d in weighted.dispositions if d.disposition in _GRANT_LABELS)
+                    if weighted.resolved
+                    else None
                 ),
                 dispositions=weighted.dispositions,
                 timing=entry.timing(weighted=True),
@@ -846,10 +853,11 @@ def _term_row(entry: StatPackTerm) -> str:
 
     rates = entry.base_rates
     # An all-denied Term has a real grant rate of 0%; only a Term with nothing
-    # resolved has no rate at all.
-    grant_rate = next(
-        (d.share for d in rates.dispositions if d.disposition == "granted"),
-        0.0 if rates.resolved else None,
+    # resolved has no rate at all. Grants sum the grant family (a GVR is a grant).
+    grant_rate = (
+        sum(d.share for d in rates.dispositions if d.disposition in _GRANT_LABELS)
+        if rates.resolved
+        else None
     )
     # `ingested` is the raw row count; every `est.` column is the weighted
     # estimate — mixing the two under one label would publish a false coverage
