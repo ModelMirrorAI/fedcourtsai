@@ -894,10 +894,12 @@ def render_statpack_markdown(pack: StatPack) -> str:
         lines += [
             "",
             f"### Segment base rate by salience band ({version})",
-            "_Paid scored-segment grant rate per band, this Term's live slice only "
-            "(denial-reweighted); the leakage-safe base rate the predict prompt is designed to "
-            "anchor on and the evaluator will score skill against. `n` is the weighted resolved "
-            "denominator._",
+            (
+                "_Paid scored-segment grant rate per band, this Term's live slice only "
+                "(denial-reweighted); the leakage-safe base rate the predict prompt is designed "
+                "to anchor on and the evaluator will score skill against. `n` is the weighted "
+                "resolved denominator._"
+            ),
             "",
             "| Term | " + " | ".join(bands) + " |",
             "| --- | " + " | ".join("---" for _ in bands) + " |",
