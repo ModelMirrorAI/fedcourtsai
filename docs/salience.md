@@ -255,10 +255,19 @@ rather than folding it into an undifferentiated "granted."
   `vacated-moot` label — the basis attribute already carries that distinction.
 - **A GVR still counts as a grant on the binary axis** (`gvr` joins the granted set
   for `actual_granted`), so `probability` (P(granted)) and the Brier score remain
-  **fully comparable across all history**. Only the disposition-label axis gains
-  the new value; historical GVR outcomes recorded as `granted` are relabelled by a
-  one-time deterministic backfill (the resolver already recognizes GVR text — it
-  merely collapsed it to `granted`).
+  **fully comparable across all history** — the binary axis is the comparability
+  anchor; only the disposition-label axis gains the new value.
+- **Migration is a forward-convention change, not a retroactive relabel.** New
+  resolutions label a GVR `gvr`; outcomes recorded before the label keep `granted`,
+  because retroactively flipping a decided outcome would penalize a past
+  `granted` prediction for using the *then-current* vocabulary (its `correct` is
+  frozen and fair). The one exception a one-time deterministic backfill *can* fix
+  from committed data alone is the **identifiable Munsingwear vacatur** (`granted`
+  + `mootness` basis → `gvr`), which is already in the non-ranked procedural
+  stratum, so no metric moves. A plain-`granted` **merits** GVR in history is an
+  accepted residual — indistinguishable post-hoc without re-resolving the source
+  docket text (the `outcome.json` does not carry it), and immaterial on the binary
+  axis.
 - **Routing.** "Is this a likely GVR / mootness-prone case" is a genuine routing
   signal, but deterministic **pre-decision** detection does not exist today (a
   strategically-mooted case reveals itself only through docket text that no

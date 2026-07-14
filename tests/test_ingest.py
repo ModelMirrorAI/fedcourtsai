@@ -131,6 +131,8 @@ def test_blank_optionals_become_none() -> None:
         ("Granted", Disposition.granted),
         ("DENIED", Disposition.denied),
         ("granted in part", Disposition.granted_in_part),
+        ("gvr", Disposition.gvr),  # the resolver's gvr value round-trips through here
+        ("The petition was GVR'd", Disposition.gvr),
         ("Petition dismissed", Disposition.dismissed),
         ("Withdrawn by appellant", Disposition.withdrawn),
         ("affirmed", Disposition.other),

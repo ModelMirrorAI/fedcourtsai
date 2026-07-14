@@ -287,7 +287,7 @@ class _Walk:
             # every other decided disposition is kept with certainty.
             sample_weight=(self.config.denial_sample_every if label == Disposition.denied else 1),
         )
-        if label == Disposition.granted:
+        if label in (Disposition.granted, Disposition.gvr):
             report.ingested_granted += 1
         elif label == Disposition.denied:
             report.ingested_denied += 1

@@ -23,7 +23,7 @@ def test_bare_vacate_and_remand_reads_as_a_gvr() -> None:
     )
     assert matched is not None
     disposition, label, snippet = matched
-    assert disposition == Disposition.granted
+    assert disposition == Disposition.gvr
     assert label == "GVR"
     assert "VACATED" in snippet
 
@@ -33,7 +33,7 @@ def test_comma_form_vacate_and_remand_reads_as_a_gvr() -> None:
         "Judgment VACATED, and case REMANDED for further consideration in "
         "light of Louisiana v. Callais."
     )
-    assert matched is not None and matched[0] == Disposition.granted
+    assert matched is not None and matched[0] == Disposition.gvr
 
 
 def test_prose_form_naming_the_lower_court_reads_as_a_gvr() -> None:
@@ -43,18 +43,18 @@ def test_prose_form_naming_the_lower_court_reads_as_a_gvr() -> None:
         "The judgment of the United States Court of Appeals for the Armed "
         "Forces is vacated, and the case is remanded for further consideration."
     )
-    assert matched is not None and matched[0] == Disposition.granted and matched[1] == "GVR"
+    assert matched is not None and matched[0] == Disposition.gvr and matched[1] == "GVR"
 
 
-def test_cert_before_judgment_grant_with_vacatur_reads_as_granted() -> None:
-    # A granted cert-before-judgment GVR carries the grant recital, so the
-    # grant-anchored GVR row reads it; the bare-CBJ forms without a vacatur
-    # are deliberate misses (see the no-match section).
+def test_cert_before_judgment_grant_with_vacatur_reads_as_a_gvr() -> None:
+    # A cert-before-judgment grant that vacates and remands is a GVR, so the
+    # grant-and-vacate-and-remand row reads it as `gvr`; the bare-CBJ forms
+    # without a vacatur are deliberate misses (see the no-match section).
     matched = match_disposition_signal(
         "Petition for writ of certiorari before judgment GRANTED. Judgment "
         "VACATED and case REMANDED."
     )
-    assert matched is not None and matched[0] == Disposition.granted
+    assert matched is not None and matched[0] == Disposition.gvr
 
 
 def test_existing_shapes_still_read() -> None:
@@ -63,10 +63,10 @@ def test_existing_shapes_still_read() -> None:
         ("Petition DENIED.", Disposition.denied),
         ("Petition GRANTED limited to Question 1.", Disposition.granted),
         ("Petition DISMISSED under Rule 46.", Disposition.dismissed),
-        ("The petition was GVR'd in light of Ramirez.", Disposition.granted),
+        ("The petition was GVR'd in light of Ramirez.", Disposition.gvr),
         (
             "Petition GRANTED. Judgment VACATED and case REMANDED for further consideration.",
-            Disposition.granted,
+            Disposition.gvr,
         ),
         ("certiorari denied", Disposition.denied),
     ):
@@ -152,7 +152,8 @@ def test_ifp_grant_plus_cert_grant_compound_still_reads() -> None:
         "certiorari GRANTED. Judgment VACATED and case REMANDED for further "
         "consideration in light of Hewitt v. United States."
     )
-    assert matched is not None and matched[0] == Disposition.granted
+    # The grant-and-vacate-and-remand compound is a GVR.
+    assert matched is not None and matched[0] == Disposition.gvr
 
 
 def test_party_papers_reciting_a_vacatur_are_not_a_disposition() -> None:

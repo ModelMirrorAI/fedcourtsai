@@ -122,6 +122,23 @@ def test_all_grants_kept_and_denials_sampled_every_nth(tmp_path: Path) -> None:
     assert all(e.resolved for e in events)
 
 
+def test_gvr_counts_as_a_grant_in_the_walk_report(tmp_path: Path) -> None:
+    # A GVR is a grant, so a walked gvr docket increments ingested_granted (not
+    # ingested_other) — the regression if the counter keyed on `granted` alone.
+    gvr_entry = {
+        "Date": "Jul 06 2026",
+        "Text": "Judgment VACATED and case REMANDED for further consideration in light of X v. Y.",
+    }
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with _serving_client({"22-2": _decided("22-2", gvr_entry)}) as client:
+        report = load_terms(client, db, tmp_path / "data", _config(), today=date(2026, 7, 10))
+    assert report.ingested_granted == 1
+    assert report.ingested_other == 0
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9022000002")
+    assert row is not None and row.disposition == "gvr"
+
+
 def test_loader_feeds_no_predict_queue(tmp_path: Path) -> None:
     """Ingested petitions are decided history: their events land resolved, the
     pending rotation never picks them, and the loader emits no queues at all."""

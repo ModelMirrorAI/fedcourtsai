@@ -60,8 +60,11 @@ For each predictor you score, write to
   - `engine` — `claude-code`, `codex`, or `gemini` (the engine you are running as).
   - `model` = `$MODEL_ID` — the model that produced this evaluation; copy the
     cell-identifier value verbatim, never guess.
-  - `correct` (1/0) — did `predicted_disposition` match `actual_disposition`?
-  - `brier_score` — `(probability - actual_granted)**2`, 0–1.
+  - `correct` (1/0) — did `predicted_disposition` match `actual_disposition`? Exact
+    match on the label: `gvr` (grant/vacate/remand) is distinct from `granted`, even
+    though both count as a grant on the binary axis.
+  - `brier_score` — `(probability - actual_granted)**2`, 0–1 (`actual_granted` is 1
+    for a `gvr` outcome — a GVR is a grant).
   - `vote_accuracy` — fraction of predicted judge votes that matched (or omit if no
     votes were predicted).
   - `reasoning_quality` — your 0–1 qualitative judgment of the predicted reasoning

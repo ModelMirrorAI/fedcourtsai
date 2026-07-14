@@ -201,8 +201,8 @@ def test_from_live_docket_reads_a_bare_gvr_order() -> None:
         _payload(proceedings=[_payload()["ProceedingsandOrder"][0], gvr_entry]),
         live_docket_id(25, 274),
     )
-    assert row.disposition == "granted"
-    assert row.date_cert_granted == date(2026, 5, 11)
+    assert row.disposition == "gvr"
+    assert row.date_cert_granted == date(2026, 5, 11)  # a GVR is a grant — dates the grant
     assert row.date_cert_denied is None
 
 
@@ -912,7 +912,7 @@ def test_backfill_live_signals_reparses_snapshots_and_applies_the_weight_rule(
 
 
 def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> None:
-    # The Munsingwear order latches granted (the GVR convention) but its
+    # The Munsingwear order latches `gvr` (a grant/vacate/remand) but its
     # wording is mootness practice — the recorded ground truth carries the
     # basis so scoring segments the cell into the procedural stratum.
     db = corpus.corpus_db_path(tmp_path / "corpus")
@@ -937,5 +937,6 @@ def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> Non
     (event_id,) = decided.resolved
     outcome_path = CasePaths(data_root, "scotus", docket_id).event(event_id).outcome
     outcome = read_model(outcome_path, Outcome)
-    assert outcome.actual_disposition == Disposition.granted
+    assert outcome.actual_disposition == Disposition.gvr
     assert outcome.disposition_basis == "mootness"
+    assert outcome.actual_granted == 1  # a GVR is a grant on the binary axis

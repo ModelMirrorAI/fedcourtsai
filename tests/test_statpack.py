@@ -160,6 +160,38 @@ def test_state_court_petitions_key_on_the_raw_lower_court_name(tmp_path: Path) -
     }
 
 
+def test_gvr_counts_as_a_grant_in_the_term_grant_rate(tmp_path: Path) -> None:
+    # A GVR is a grant: a Term whose only resolved petition is a `gvr` must show
+    # a 100% grant rate and one grant, not zero (the regression if the grant
+    # aggregation keyed on the literal "granted" label alone).
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-10",
+                    disposition=Disposition.gvr,
+                    date_filed=date(2024, 10, 1),
+                    date_cert_granted=date(2025, 1, 6),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=1,
+                )
+            ],
+        )
+    pack = analytics.build_statpack(corpus_db_path=db)
+    term = next(t for t in pack.terms if t.term == 2024)
+    assert term.grants == 1  # the gvr row counts as a grant
+    # The per-fee-class grant rate sums the grant family, so a lone gvr reads 100%.
+    paid = next(c for c in term.classes if c.fee_class == "paid")
+    assert paid.est_grant_rate == 1.0
+    # gvr is tracked as its own disposition bucket, distinct from granted.
+    assert {d.disposition for d in term.base_rates.dispositions} == {"gvr"}
+
+
 def test_unparsed_rows_land_in_the_unknown_buckets(tmp_path: Path) -> None:
     # A live-slice row whose signals were never parsed (NULL distribution_count)
     # must read as coverage-unknown on the cert-signal cuts — never as

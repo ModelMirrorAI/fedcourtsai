@@ -68,6 +68,7 @@ from .config import (
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
+from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .leaderboard import build_leaderboard
 from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
 from .ops import (
@@ -391,6 +392,33 @@ def reconcile_salience_selection_cmd(
         f"across {result.conferences} conference(s)"
     )
     typer.echo(result.model_dump_json())
+
+
+@app.command("migrate-gvr-labels")
+def migrate_gvr_labels_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rewrite the matching outcomes; omit for a dry-run count."),
+    ] = False,
+) -> None:
+    """Relabel identifiable historical GVR outcomes to the `gvr` disposition.
+
+    A one-time, deterministic migration for the introduction of the `gvr` label
+    (see `docs/salience.md`): each committed `granted` outcome whose
+    `disposition_basis` is `mootness` — an identifiable Munsingwear vacatur — is
+    relabeled `actual_disposition = gvr`. Nothing else changes: `actual_granted`
+    stays 1 (a GVR is a grant), the frozen `evaluation.json` records are untouched,
+    and the relabeled cell keeps its `mootness` basis (procedural stratum). Dry-run
+    by default; `--apply` writes.
+    """
+    settings = get_settings()
+    result = relabel_munsingwear_gvr_outcomes(settings.data_root, apply=apply)
+    typer.echo(
+        f"migrate-gvr-labels ({'applied' if apply else 'dry-run'}): "
+        f"{len(result.relabeled)} outcome(s) relabeled to gvr"
+    )
+    if result.relabeled:
+        typer.echo(", ".join(result.relabeled))
 
 
 @app.command("scope-manifest")

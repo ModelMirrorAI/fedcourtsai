@@ -199,3 +199,21 @@ def test_scoring() -> None:
     assert is_correct(pred, outcome) == 1
     assert brier_score(pred, outcome) == pytest.approx(0.0625)
     assert vote_accuracy(pred, outcome) == 1.0
+
+
+def test_is_correct_treats_gvr_as_a_distinct_label_but_a_grant_for_brier() -> None:
+    # gvr is its own label: a `granted` prediction is not `correct` on a gvr
+    # outcome, but the Brier score is unchanged because gvr counts as a grant
+    # (actual_granted == 1), so a confident grant forecast still scores well.
+    gvr_outcome = Outcome(
+        case_id="scotus/1",
+        event_id="evt-petition-disposition",
+        resolved_at=date(2026, 7, 1),
+        actual_disposition=Disposition.gvr,
+        actual_granted=1,
+    )
+    said_granted = _prediction(predicted_disposition=Disposition.granted, probability=0.9)
+    said_gvr = _prediction(predicted_disposition=Disposition.gvr, probability=0.9)
+    assert is_correct(said_granted, gvr_outcome) == 0  # label differs
+    assert is_correct(said_gvr, gvr_outcome) == 1
+    assert brier_score(said_granted, gvr_outcome) == pytest.approx(0.01)  # grant on the binary axis

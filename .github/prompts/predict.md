@@ -155,7 +155,11 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   - `created_at` — current UTC timestamp.
   - `input_snapshot` — identifier/path of the snapshot you used.
   - `granted` (1/0), `probability` (P(granted), 0–1), `predicted_disposition`
-    (one of granted/denied/granted-in-part/dismissed/withdrawn/other).
+    (one of granted/denied/granted-in-part/gvr/dismissed/withdrawn/other). Use
+    `gvr` when the likeliest disposition is a **grant, vacate, and remand** — a
+    summary reversal in light of an intervening decision, or a mootness/Munsingwear
+    vacatur — rather than a plenary cert grant; a GVR still counts as a grant, so
+    set `granted=1` and let `probability` express P(any grant, GVR included).
   - `votes` — optional per-judge votes; `confidence` — optional 0–1.
   - `reasoning_doc` — `reasoning.md` (the default).
 - **`reasoning.md`** — your qualitative analysis: the legal question, the governing
