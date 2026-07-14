@@ -17,6 +17,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 
+from .analytics import _GRANT_LABELS
 from .collect import flags_table
 from .leaderboard import FORWARD, RETROSPECTIVE, Stratum
 from .schemas import (
@@ -176,6 +177,35 @@ def _deny_base_rate(statpack: StatPack | None) -> tuple[float | None, int | None
     return (None, None)
 
 
+def _segment_base_rate(statpack: StatPack | None) -> tuple[float | None, int | None]:
+    """``(grant share, resolved cases)`` over the paid salience-scored segment.
+
+    The base rate for the population the salience gate actually predicts on —
+    read from the statpack's pack-wide salience-band section (matched by its
+    ``salience_band`` grouping, denial-reweighted), grant family pooled across
+    every band. This is the anchor a selected-segment prediction should beat, not
+    the whole-docket rate: with a salience gate the predicted slice grants far
+    more often than the ~few-percent full docket. ``(None, None)`` when the
+    statpack or its salience-band section is absent or nothing resolved.
+    """
+    if statpack is None:
+        return (None, None)
+    for section in statpack.sections:
+        if section.group_by != "salience_band":
+            continue
+        resolved = sum(b.resolved for b in section.buckets)
+        if not resolved:
+            return (None, None)
+        grants = sum(
+            d.count
+            for b in section.buckets
+            for d in b.dispositions
+            if d.disposition in _GRANT_LABELS
+        )
+        return (round(grants / resolved, 4), resolved)
+    return (None, None)
+
+
 def _delta(current: int, previous: int | None) -> int | None:
     return None if previous is None else current - previous
 
@@ -224,8 +254,10 @@ def summarize_substance(
     )
 
     deny_rate, base_cases = _deny_base_rate(statpack)
+    segment_rate, segment_cases = _segment_base_rate(statpack)
     accuracy = round(sum(ev.correct for ev in replay) / len(replay), 4) if replay else None
     briers = [ev.brier_score for ev in replay if ev.brier_score is not None]
+    skills = [ev.brier_skill_score for ev in replay if ev.brier_skill_score is not None]
     calibration = SubstanceCalibration(
         sample=len(replay),
         mean_brier=round(sum(briers) / len(briers), 4) if briers else None,
@@ -237,6 +269,9 @@ def summarize_substance(
             if accuracy is not None and deny_rate is not None
             else None
         ),
+        segment_grant_rate=segment_rate,
+        segment_base_rate_cases=segment_cases,
+        mean_brier_skill=round(sum(skills) / len(skills), 4) if skills else None,
     )
 
     by_predictor: dict[str, list[Evaluation]] = {}
@@ -304,6 +339,14 @@ def render_substance(digest: SubstanceDigest) -> str:
             "live/historical slice, denial-reweighted) · "
             f"lift **{lift}**"
         )
+    if cal.segment_grant_rate is not None:
+        skill = "—" if cal.mean_brier_skill is None else f"{cal.mean_brier_skill:+.3f}"
+        cal_lines.append(
+            f"Salience-scored segment base grant rate **{cal.segment_grant_rate:.0%}** "
+            f"(est. over {cal.segment_base_rate_cases:,} resolved paid-segment petitions, "
+            "denial-reweighted) · replay Brier skill vs baseline "
+            f"**{skill}**"
+        )
     if cal_lines:
         lines += ["", "**Calibration (replay stratum, advisory)**", *cal_lines]
 
@@ -356,8 +399,14 @@ def render_weekly_digest(report: OpsReport) -> str:
             if cal.lift_over_always_deny is None
             else f"lift **{cal.lift_over_always_deny:+.1%}** over always-deny"
         )
+        skill = (
+            ""
+            if cal.mean_brier_skill is None
+            else f", Brier skill **{cal.mean_brier_skill:+.3f}** vs the segment base rate"
+        )
         lines.append(
-            f"- **Replay calibration on {cal.sample} scored cell(s): {lift} — do you believe it?**"
+            f"- **Replay calibration on {cal.sample} scored cell(s): {lift}{skill} — "
+            "do you believe it?**"
         )
     else:
         lines.append("- **No scored replay cells yet — what is blocking the first batch?**")

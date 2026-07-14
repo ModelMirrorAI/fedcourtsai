@@ -135,7 +135,13 @@ count** (repeated conference distributions are the classic pre-grant signal),
 **originating circuit**, and the per-Term table's fee-class detail (paid vs
 IFP filings — IFP petitions grant far more rarely; the per-fee-class rates
 themselves ride in `statpack.json` if you need them). Each cut's buckets carry
-the same base-rate breakdown, so read this case's bucket against the anchor. For a historical case, the era breakdown base-rates it against its
+the same base-rate breakdown, so read this case's bucket against the anchor. The
+per-Term **"Segment base rate by salience band"** table folds the relist/CVSG
+signal into one number: find this case's band (its grant-likelihood tier) and
+anchor on that band's grant rate over Terms **strictly before** this case's own —
+the base rate for the slice the salience gate actually predicts on, and the exact
+yardstick the evaluator scores your skill against. For a selected cert petition
+prefer it to the low whole-docket rate. For a historical case, the era breakdown base-rates it against its
 own period. Weigh every cut against this case's specifics rather than adopting
 it wholesale. Each `query` prior carries its caption, dates, and derived
 `era`, and `--era` restricts retrieval to the case's own period. See

@@ -1697,6 +1697,28 @@ class SubstanceCalibration(_Strict):
     lift_over_always_deny: float | None = Field(
         default=None, description="accuracy - deny_base_rate; null until both exist"
     )
+    segment_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Grant share of the paid salience-scored segment — the base rate "
+        "the predicted slice is judged against (from the statpack's salience-band "
+        "section, denial-reweighted); null when that section is absent. With a "
+        "salience gate the predicted slice grants far above the whole-docket rate, "
+        "so this, not deny_base_rate, is the honest anchor",
+    )
+    segment_base_rate_cases: int | None = Field(
+        default=None,
+        ge=0,
+        description="Estimated resolved petitions behind segment_grant_rate (weighted)",
+    )
+    mean_brier_skill: float | None = Field(
+        default=None,
+        le=1.0,
+        description="Mean Brier skill score over the replay stratum's scored cells "
+        "(skill vs each case's segment base rate; positive beats the base rate, ~0 "
+        "parrots it, negative is worse); null until any replay cell reports one",
+    )
 
 
 class PredictorScoreRow(_Strict):

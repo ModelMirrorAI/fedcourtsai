@@ -17,6 +17,7 @@ from fedcourtsai.schemas import (
     CorpusCheck,
     CorpusValidation,
     DataHealth,
+    DispositionShare,
     Engine,
     Evaluation,
     FlagCategory,
@@ -800,6 +801,7 @@ def _evaluation(
     correct: int = 1,
     brier: float | None = 0.1,
     quality: float | None = 0.8,
+    brier_skill: float | None = None,
     run_id: str = "20260701T000000Z",
 ) -> Evaluation:
     return Evaluation(
@@ -813,6 +815,7 @@ def _evaluation(
         correct=correct,
         brier_score=brier,
         reasoning_quality=quality,
+        brier_skill_score=brier_skill,
     )
 
 
@@ -833,6 +836,89 @@ def _statpack_with_cert_section(denied: int, granted: int) -> StatPack:
         ],
         resolved=resolved,
     )
+
+
+def _statpack_with_salience_section(band_grants: dict[str, tuple[int, int]]) -> StatPack:
+    """A statpack carrying only the pack-wide salience-band section.
+
+    ``band_grants`` maps a band to ``(granted, denied)`` weighted counts.
+    """
+    return StatPack(
+        sections=[
+            StatPackSection(
+                title="Cert petitions by salience band",
+                court="scotus",
+                cert_stage=True,
+                live_slice=True,
+                weighted=True,
+                group_by=GroupBy.salience_band,
+                buckets=[
+                    BaseRateBucket(
+                        key=band,
+                        cases=granted + denied,
+                        resolved=granted + denied,
+                        dispositions=[
+                            DispositionShare(
+                                disposition="granted",
+                                count=granted,
+                                share=granted / (granted + denied),
+                            ),
+                            DispositionShare(
+                                disposition="denied",
+                                count=denied,
+                                share=denied / (granted + denied),
+                            ),
+                        ],
+                    )
+                    for band, (granted, denied) in band_grants.items()
+                ],
+            )
+        ],
+        resolved=sum(g + d for g, d in band_grants.values()),
+    )
+
+
+def test_summarize_substance_segment_base_rate_and_skill() -> None:
+    # The segment base rate pools the grant family across bands; the replay skill
+    # averages the reported brier_skill_score cells (a forward cell is ignored).
+    stratified: list[tuple[Evaluation, Stratum]] = [
+        (_evaluation("alpha", brier_skill=0.5, run_id="20260701T000000Z"), "retrospective"),
+        (_evaluation("alpha", brier_skill=-0.1, run_id="20260702T000000Z"), "retrospective"),
+        (_evaluation("alpha", brier_skill=0.9, run_id="20260703T000000Z"), "forward"),
+    ]
+    digest = ops.summarize_substance(
+        cell_counts=(3, 1, 3),
+        stratified_evaluations=stratified,
+        # high band 40/60, baseline 2/198 -> pooled grants 42 / 300 resolved = 0.14.
+        statpack=_statpack_with_salience_section({"high": (40, 60), "baseline": (2, 198)}),
+    )
+    cal = digest.calibration
+    assert cal.segment_grant_rate == 0.14
+    assert cal.segment_base_rate_cases == 300
+    assert cal.mean_brier_skill == 0.2  # (0.5 - 0.1) / 2, forward cell excluded
+
+
+def test_summarize_substance_without_salience_section_leaves_segment_null() -> None:
+    digest = ops.summarize_substance(
+        cell_counts=(1, 1, 1),
+        stratified_evaluations=[(_evaluation("p", brier_skill=None), "retrospective")],
+        statpack=StatPack(),  # no salience-band section
+    )
+    assert digest.calibration.segment_grant_rate is None
+    assert digest.calibration.segment_base_rate_cases is None
+    assert digest.calibration.mean_brier_skill is None
+
+
+def test_render_substance_shows_the_segment_base_rate_line() -> None:
+    digest = ops.summarize_substance(
+        cell_counts=(2, 1, 2),
+        stratified_evaluations=[(_evaluation("p", correct=1, brier_skill=0.25), "retrospective")],
+        statpack=_statpack_with_salience_section({"high": (30, 70)}),
+    )
+    md = ops.render_substance(digest)
+    assert "Salience-scored segment base grant rate **30%**" in md
+    assert "resolved paid-segment petitions" in md
+    assert "replay Brier skill vs baseline **+0.250**" in md
 
 
 def test_summarize_substance_counts_calibration_and_scores() -> None:
@@ -992,6 +1078,23 @@ def test_render_weekly_digest_asks_the_fixed_questions() -> None:
     assert "35 petition(s) distributed for **2026-09-29**" in md and "28/40" in md
     assert "Oldest stalled trigger: `run:evaluate` (2d old)" in md
     assert "Spend vs budget: $1.50" in md
+
+
+def test_weekly_digest_reports_the_segment_brier_skill_when_present() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-07-11T00:00:00+00:00",
+        runs=[],
+        usage=[],
+        substance=ops.summarize_substance(
+            cell_counts=(2, 1, 2),
+            stratified_evaluations=[
+                (_evaluation("p", correct=1, brier_skill=0.3), "retrospective")
+            ],
+            statpack=_statpack_with_salience_section({"high": (30, 70)}),
+        ),
+    )
+    md = ops.render_weekly_digest(report)
+    assert "Brier skill **+0.300** vs the segment base rate" in md
 
 
 def test_render_weekly_digest_all_absent_still_asks() -> None:
