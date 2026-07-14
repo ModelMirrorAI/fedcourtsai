@@ -1343,6 +1343,68 @@ def test_sample_weight_min_latches_toward_certainty(tmp_path: Path) -> None:
     assert a_after_none is not None and a_after_none.sample_weight == 1
 
 
+def test_salience_columns_roundtrip(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    row = _row(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="25-100",
+        salience_score=0.37,
+        salience_version="sal-v1",
+        salience_selected=True,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/1")
+    assert fetched == row
+
+
+def test_salience_score_zero_survives_roundtrip(tmp_path: Path) -> None:
+    # A real score of 0.0 (a genuinely low-salience petition) must read back as
+    # 0.0, not collapse to None — `_optional_float` guards this with `is not None`,
+    # distinguishing a scored-zero row from an unscored one (score None).
+    db = tmp_path / "corpus.db"
+    row = _row(case_id="scotus/1", court="scotus", salience_score=0.0, salience_version="sal-v1")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "scotus/1")
+    assert fetched is not None and fetched.salience_score == 0.0
+
+
+def test_salience_columns_are_pass_owned_not_clobbered_by_ingest(tmp_path: Path) -> None:
+    # The salience selection pass owns score/version/selected; an ingestion write
+    # (which never carries a salience opinion — the model defaults apply) must
+    # keep the stored values, the same rule predict_excluded uses.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="25-100")])
+        # Simulate the selection pass stamping its columns directly.
+        conn.execute(
+            "UPDATE cases SET salience_score = 0.9, salience_version = 'sal-v1', "
+            "salience_selected = 1 WHERE case_id = 'scotus/1'"
+        )
+        # A later re-ingest carries no salience opinion (defaults: None/None/0).
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="25-100")])
+        after = corpus.get_row(conn, "scotus/1")
+    assert after is not None
+    assert after.salience_score == 0.9
+    assert after.salience_version == "sal-v1"
+    assert after.salience_selected is True
+
+
+def test_from_record_tolerates_record_without_salience_columns() -> None:
+    """A ranged read of a remote blob packed before the salience columns existed."""
+    record = corpus._to_record(_row())
+    del record["salience_score"]
+    del record["salience_version"]
+    del record["salience_selected"]
+    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
+    assert row.salience_score is None
+    assert row.salience_version is None
+    assert row.salience_selected is False
+    assert row == _row()
+
+
 def test_is_live_slice_reads_the_poll_stamp() -> None:
     assert corpus.is_live_slice(_row(last_live_polled=date(2026, 7, 10))) is True
     assert corpus.is_live_slice(_row(last_live_polled=None)) is False
