@@ -1,0 +1,10 @@
+case_id: scotus/72482693
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2024-04-30'
+resolved: true
+schema_version: '1.0'
+title: Raul Zamora-Quinonos, Petitioner v. Illinois
