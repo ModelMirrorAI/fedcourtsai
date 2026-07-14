@@ -31,14 +31,14 @@ real corpus.
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
 | `pull` | Onboard or refresh one docket from the REST API and report whether it changed (the first pull onboards). | `--court`, `--docket` |
-| `historical-terms` | Load one capped chunk of the historical per-Term set through the live channel: walk the configured October Terms' docket serials sequentially (persisted per-(Term, stream) cursors, so runs resume) and ingest every decided petition except denials, which are systematically sampled per `historical:` in `config/tracking.yaml` — the committed sampling frame. Ingested petitions land already resolved (label, snapshot, events, OT2021+ documents) and feed the statpack's per-Term base rates and replay/evaluation only; **writes no handoff queues**. The `run-pull` workflow's `historical` job loops it. | `--report`, `--totals`, `--max-probes`, `--summary-out` |
+| `historical-terms` | Load one capped chunk of the historical per-Term set through the live channel: walk the configured October Terms' docket serials sequentially (persisted per-(Term, stream) cursors, so runs resume) and ingest every decided petition except denials, which are systematically sampled per `historical:` in `config/tracking.yaml` — the committed sampling frame. Ingested petitions land already resolved (label, snapshot, events, OT2021+ documents) and feed the statpack's per-Term base rates and replay/evaluation only; **writes no handoff queues**. The `run-pull` workflow's `historical` job loops it, passing the budget still remaining as `--max-run-seconds` so the final chunk stops itself before the job's hard timeout. | `--report`, `--totals`, `--max-probes`, `--max-run-seconds`, `--summary-out` |
 | `discover` | Onboard newly-filed dockets in the tracked courts, advancing each court's watermark (dormant in production: `pull.discover_new_filings` is off — the live channel onboards SCOTUS filings). | `--since`, `--limit` |
 | `pull-all` | Refresh the stalest tracked cases within the API budget; write the predict/evaluate handoff queues plus the unrecorded-outcome queue (decided but not deterministically recordable, surfaced on the run log). | `--limit`, `--out`, `--evaluate-out`, `--unrecorded-out` |
 | `live-poll` | One SCOTUS live-channel cycle: probe the Term's docket-number frontier for new petitions (persisted per-Term cursor), re-poll the pending watchlist (distributed petitions first, nearest conference first), detect resolution from the proceedings text, and write the same three queues as `pull-all` — with predict queued on **distribution transitions** (fresh distribution or relist), the cert-calendar predict trigger. | `--term`, `--limit`, `--out`, `--evaluate-out`, `--unrecorded-out` |
 | `make-fixture-corpus` | Build a tiny deterministic synthetic corpus (cases/events/snapshots across several courts) so the read commands work offline, no remote. | `--out` |
 
-`--limit` / `--max-probes` may only *lower* the per-run cap from
-`config/`, never raise it, so a run provably stays within budget.
+`--limit` / `--max-probes` / `--max-run-seconds` may only *lower* the per-run cap
+from `config/`, never raise it, so a run provably stays within budget.
 
 ## Corpus inspection — read the corpus
 

@@ -216,8 +216,13 @@ auto-merged PR can only add artifacts under `data/` (see [security.md](security.
 For `run:predict` and `run:evaluate`, `collect` also rolls up any
 agent feedback (`flags.json`) the run surfaced and posts it three ways — the run PR
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
-single latched-issue pattern of `ops-dashboard` / `data-validation`) — so a note
+single latched-issue pattern of `ops-dashboard` / `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.
+The `run-pull` historical walker has its own instance of that pattern: a `guard`
+job raises one long-lived **pipeline-health** issue if the checkpointed walk is
+ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
+it when a later walk finishes clean — so a silent, PR-less writer failure still
+reaches a durable home.
 Separately, every cell may also write a `tooling.json` self-report on its
 environment/tooling, committed with the cell's output rather than rolled into the
 per-run PR/issue; the `run-ops` dashboard scans these into a tooling-feedback

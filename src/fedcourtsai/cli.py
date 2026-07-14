@@ -1363,6 +1363,18 @@ def historical_terms(
             "exceed historical.max_probes_per_run."
         ),
     ] = None,
+    max_run_seconds: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            help="Optional lower cap on this invocation's wall-clock budget, seconds; "
+            "cannot exceed historical.max_run_minutes. The run-pull historical loop "
+            "passes the budget still remaining so the final chunk stops itself "
+            "(stopped=time-cap) before the job's hard timeout instead of overrunning "
+            "it and being killed mid-chunk. Must be >= 1: a non-positive budget would "
+            "make the walk a silent no-op (model_copy bypasses the field's gt=0 check).",
+        ),
+    ] = None,
     summary_out: Annotated[
         Path | None,
         typer.Option(help="Append the Markdown progress table here (e.g. $GITHUB_STEP_SUMMARY)."),
@@ -1387,13 +1399,21 @@ def historical_terms(
     settings = get_settings()
     cfg = load_historical_config(settings.config_root)
     cap = cfg.max_probes_per_run if max_probes is None else min(max_probes, cfg.max_probes_per_run)
+    # The caller can only LOWER the wall-clock budget (mirrors max_probes): the
+    # loop feeds its remaining budget so a chunk never runs past the job's hard
+    # timeout. Both caps still bound the chunk — whichever binds first stops it.
+    run_minutes = (
+        cfg.max_run_minutes
+        if max_run_seconds is None
+        else min(max_run_seconds / 60, cfg.max_run_minutes)
+    )
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
         rep = historical.load_terms(
             client,
             db,
             settings.data_root,
-            cfg.model_copy(update={"max_probes_per_run": cap}),
+            cfg.model_copy(update={"max_probes_per_run": cap, "max_run_minutes": run_minutes}),
             today=date.today(),
         )
     _ensure_corpus_layout(db)

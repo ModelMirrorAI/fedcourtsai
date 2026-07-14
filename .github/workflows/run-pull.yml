@@ -705,10 +705,15 @@ jobs:
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '31 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'historical')
     runs-on: ubuntu-latest
-    # Headroom for the checkpointed walk (LOOP_BUDGET_SECONDS + the fixed setup
-    # and post-loop steps). Deliberately ends before the 04:47 live window so a
-    # hung network step cannot hold the shared corpus-write lock into forward
-    # work's slot.
+    # The checkpointed loop caps each chunk to its remaining LOOP_BUDGET_SECONDS
+    # (--max-run-seconds), so it stops itself at the soft budget; this hard cap
+    # is the backstop headroom above it — the fixed setup + the final
+    # checkpoint/comment steps + slack for one in-flight serial — NOT room for a
+    # whole extra chunk. If the loop ever hits THIS timeout, the walk overran and
+    # the run is cancelled: the guard job below turns that into a loud
+    # escalation. Deliberately ends before the 04:47 live window so a hung
+    # network step cannot hold the shared corpus-write lock into forward work's
+    # slot.
     timeout-minutes: 125
     environment: runner
     # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
@@ -851,6 +856,17 @@ jobs:
           # ----------------------------------------------------------------------
 
           deadline=$(( $(date -u +%s) + LOOP_BUDGET_SECONDS ))
+          # A chunk runs until its probe cap OR historical.max_run_minutes, so a
+          # chunk that STARTS just under the deadline can run a full slice past
+          # it — and timeout-minutes leaves only a slim margin over
+          # LOOP_BUDGET_SECONDS (headroom for the final checkpoint, not a whole
+          # extra chunk). That overshoot is what the runner kills at the hard
+          # timeout. So: never start a chunk under MIN_CHUNK_SECONDS of budget,
+          # and cap each chunk to the budget still remaining (--max-run-seconds)
+          # so the walker stops ITSELF on that wall clock (stopped=time-cap)
+          # rather than overrunning. The cursors are pushed each checkpoint, so a
+          # short final chunk just resumes next run — no work is lost.
+          MIN_CHUNK_SECONDS=120
 
           checkpoint() {
             # Push the blob BEFORE committing the pointer so the committed pointer
@@ -904,27 +920,34 @@ jobs:
           }
 
           while :; do
-            # One checkpoint chunk (historical.max_probes_per_run docket probes).
-            # The per-(Term, stream) cursors advance inside the corpus and are
-            # pushed each pass, so the loop resumes cleanly after any stop; the
-            # totals file accumulates the whole run's counts for the comment.
+            # Don't start a chunk we can't run out fully — that is the overshoot
+            # the hard timeout would kill. The walk resumes next run from the
+            # pushed cursors.
+            remaining=$(( deadline - $(date -u +%s) ))
+            if [ "$remaining" -le "$MIN_CHUNK_SECONDS" ]; then
+              echo "Under ${MIN_CHUNK_SECONDS}s of budget left; the walk resumes next run from the cursors."
+              break
+            fi
+            # One checkpoint chunk (historical.max_probes_per_run docket probes,
+            # or fewer if the remaining budget binds first). The per-(Term,
+            # stream) cursors advance inside the corpus and are pushed each pass,
+            # so the loop resumes cleanly after any stop; the totals file
+            # accumulates the whole run's counts for the comment.
             uv run fedcourts historical-terms \
-              --report historical-report.json --totals historical-totals.json
+              --report historical-report.json --totals historical-totals.json \
+              --max-run-seconds "$remaining"
             checkpoint
 
-            stopped=$(jq -r '.stopped' historical-report.json)
             if [ "$(jq -r '.complete' historical-report.json)" = "true" ]; then
               echo "Term walk complete: every configured stream is at its frontier."
               break
             fi
-            if [ "$stopped" = "stream-errors" ]; then
+            if [ "$(jq -r '.stopped' historical-report.json)" = "stream-errors" ]; then
               echo "::warning::upstream errors stopped the remaining streams; resumes next run."
               break
             fi
-            if [ "$(date -u +%s)" -ge "$deadline" ]; then
-              echo "Wall-clock budget reached; the walk resumes next run from the cursors."
-              break
-            fi
+            # A time-cap stop means the chunk consumed the remaining budget; the
+            # top-of-loop guard ends the loop on the next pass.
           done
 
       # The loop can run for hours, so the up-front App token is long expired by
@@ -1028,3 +1051,78 @@ jobs:
         uses: ./.github/actions/publish-corpus-verdict
         with:
           token: ${{ steps.app-token-post.outputs.token }}
+
+  # Safety net for the historical walker. The walker's own progress comment
+  # cannot run when the job is cancelled — e.g. the hard timeout-minutes kill, or
+  # an OOM — so a cancelled/failed walk would otherwise pass silently (it commits
+  # directly to main; there is no PR gate to redden). This job DEPENDS on
+  # historical but is not cancelled with it, so it can read the result and raise
+  # ONE long-lived escalation issue — and clear it when a later walk finishes
+  # clean. Mirrors run-ops' find-or-create escalation idiom. Gated to exactly the
+  # runs where historical itself runs (same cron/dispatch condition), so the many
+  # issue-triggered run-pull runs that skip every writer never spin this up.
+  guard:
+    needs: [historical]
+    if: >-
+      always() && (
+        (github.event_name == 'schedule' && startsWith(github.event.schedule, '31 ')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.mode == 'historical')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # This job only reads the needs result and writes a NON-triggering issue — no
+    # checkout, no corpus, no contents. Per docs/security.md that is exactly the
+    # ambient-GITHUB_TOKEN-with-job-scoped-issues:write case; the data App token
+    # is reserved for the cross-workflow triggers / contents:write the walker's
+    # own post-loop steps need, and deliberately does NOT carry issue-write. This
+    # mirrors how run-ops writes its escalation issues. Using github.token also
+    # lets GitHub's loop-prevention suppress a phantom run-pull run from the
+    # pipeline-health issue event.
+    permissions:
+      issues: write
+    steps:
+      - name: Escalate a cancelled or failed historical walk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RESULT: ${{ needs.historical.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # `pipeline-health` is a NON-triggering label by design (no run:*
+          # workflow keys on it). Create it idempotently, as run-ops does for its
+          # escalation label.
+          gh label create pipeline-health --repo "$REPO" --force \
+            --color b60205 --description "Long-lived corpus-writer failure (run-pull guard)"
+          num=$(gh issue list --repo "$REPO" --label pipeline-health --state open \
+            --json number --jq '.[0].number')
+          # Only 'success' clears; 'failure'/'cancelled' escalate. Any other
+          # result (the job did run — this condition guarantees it was not
+          # skipped) is treated as not-clean and escalates too.
+          if [ "$RESULT" = "success" ]; then
+            if [ -n "$num" ]; then
+              gh issue comment "$num" --repo "$REPO" \
+                --body "✅ The historical walk finished cleanly again ($RUN_URL) — closing."
+              gh issue close "$num" --repo "$REPO" --reason completed
+            fi
+            exit 0
+          fi
+          {
+            echo "The historical Term-walker job ended **${RESULT}**, not \`success\`."
+            echo
+            echo "A cancelled walk is usually the wall-clock budget: a chunk overran"
+            echo "the job's hard \`timeout-minutes\` (see the historical job's budget"
+            echo "comment in .github/workflows/run-pull.yml). The walk is checkpointed"
+            echo "and resumes next window from the pushed cursors, so **no data action"
+            echo "is normally needed** — but a repeat means the budget or upstream"
+            echo "latency needs a look."
+            echo
+            echo "Run: ${RUN_URL}"
+          } > body.md
+          if [ -z "$num" ]; then
+            gh issue create --repo "$REPO" --title "Historical walk did not finish cleanly" \
+              --label pipeline-health --body-file body.md
+          else
+            # Reuse, don't spam: append the latest occurrence to the open issue.
+            gh issue comment "$num" --repo "$REPO" --body-file body.md
+          fi
