@@ -73,25 +73,53 @@ statpack's per-Term cert base rates. It is small, datable, and end-to-end, and
 it defines the scope cleanly: the petitions on that conference list are SCOTUS
 dockets, exactly the gate the budget sizes.
 
-## After the release
+## Following the cohort through the term
 
-- **Steady state across the OT2026 argument season**: the predict/evaluate
-  loop on the daily cadence, a first leaderboard (`metrics/`) ranking
-  predictors on resolved events — Brier score, accuracy, vote accuracy,
-  reasoning quality — with a possible mid-term update riding the Oct–Dec
-  grant cadence.
-- **Post-cutover follow-ups**: verify the S3 egress projections against the
-  split stores ([budget.md](budget.md)); route the remaining opinion-body
-  reader (`query --full`) through the content store; unify the index's
-  transport onto the same boto3 pattern as the content store; re-anchor the
-  budget once evaluate-side per-run cost is measured.
-- **End-of-term release (~June 2027)**: predictions and evaluations across the
-  full merits docket as the term's ~60–70 decisions land, published as a
-  retrospective accuracy report.
-- **Scope decision — widen the gate?** With a year of cost data, decide whether
-  to predict past the SCOTUS-docket gate — e.g. the originating
-  courts-of-appeals dockets, or a rotating sample of appeals that never reach
-  SCOTUS — using the budget's levers, or to hold the gate as the durable scope.
+The cert release is the entry point, not the end. The ~year that follows is the
+richest evaluation set and the real runway, so the sequence after it is what the
+project is actually building toward.
+
+- **Follow the granted cohort through the term.** Each cert grant opens a stream
+  of downstream events on its SCOTUS docket — emergency / interim-docket
+  applications, merits argument, the decision, and the per-justice votes —
+  predicted and evaluated as they land. The predict/evaluate loop runs on the
+  daily cadence across the OT2026 argument season, and a first leaderboard
+  (`metrics/`) ranks predictors on resolved events (Brier and **Brier skill over
+  the segment base rate**, accuracy, vote accuracy, reasoning quality), with
+  mid-term updates riding the Oct–June grant cadence. This is the ~year of runway
+  and the largest evaluation set the project accumulates.
+- **The salience / big-case board as a public artifact.** Two pre-registered
+  things, both datable and publicly legible, land as releases **distinct from the
+  cert calibration numbers**: the deterministic **salience ranking** ("these are
+  the petitions worth forecasting, ranked, *before* the conference sat") and the
+  models' **big-case scores** ("how big we called them, *before* the term played
+  out"). Together they are the direct answer to the post-hoc *"big case"* critique
+  — the git timestamps prove both calls preceded the outcomes — and the big-case
+  score adds a **second skill dimension** to the leaderboard: a model can read a
+  case's significance well while calling grant/deny only modestly, or the reverse.
+- **End-of-term retrospective (~June 2027).** As the term's ~60–70 merits
+  decisions land, predictions and evaluations across the full cohort publish as a
+  retrospective accuracy report — the **capstone of the year's cohort-follow**, and
+  the first full term of cost and calibration data.
+- **Get funded at all — model-agnostic, tied to `N`.** Inference is the dominant
+  line ([budget.md](budget.md)), so first funding is the **credit programs** —
+  Anthropic startup credits primary, AWS Activate the runner-up — that offset it.
+  The milestone proper is a first **external funding event**, without committing to
+  which form: a grant, an academic collaboration, or a first B2B pilot. Whatever
+  the form, it ties to capacity — a funding event **raises `N`**, deepening the
+  salience-ranked slice the tournament runs on.
+- **The ~1-year decision point.** With a term of cost and calibration data in
+  hand, an explicit pivot: academic collaboration, B2B legal-analytics, or holding
+  as a public-artifact project — including the narrower **scope** call (widen past
+  the SCOTUS-docket gate toward the originating courts of appeals or a rotating
+  appeals sample, per the budget's levers, or hold the gate as the durable scope).
+  Options kept open until the data is in.
+
+**Housekeeping, in parallel:** verify the S3 egress projections against the split
+stores ([budget.md](budget.md)); route the remaining opinion-body reader
+(`query --full`) through the content store; unify the index's transport onto the
+same boto3 pattern as the content store; re-anchor the budget once evaluate-side
+per-run cost is measured.
 
 ## Beyond a year — the automated-research goal
 
