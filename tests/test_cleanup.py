@@ -62,6 +62,32 @@ def test_find_flags_out_of_scope_cases_only(tmp_path: Path) -> None:
     ]
 
 
+def test_find_leaves_salience_deferred_predictions_alone(tmp_path: Path) -> None:
+    # The load-bearing separation: a petition scored but NOT selected by the
+    # salience gate (below the capacity slice) is hard-in-scope, so cleanup must
+    # never prune its committed prediction — only out-of-scope cases are prunable.
+    # Deleting a below-cap forward prediction would destroy a pre-registered
+    # forecast; the salience gate defers at read time, it does not delete.
+    data_root = tmp_path / "data"
+    corpus_db = _seed_corpus(
+        tmp_path / "corpus",
+        [
+            corpus.CorpusRow(
+                case_id="scotus/2400001",
+                court="scotus",
+                docket_number="24-101",
+                salience_version="sal-v1",
+                salience_selected=False,  # scored, not selected → deferred, not out of scope
+            )
+        ],
+    )
+    _write_prediction(data_root, "scotus/2400001")
+
+    prunable = cleanup.find_out_of_scope_predictions(data_root, corpus_db)
+
+    assert prunable == []  # deferred ≠ out of scope; its prediction survives
+
+
 def test_find_flags_bare_opinion_import_case(tmp_path: Path) -> None:
     # A bare bulk-import row (no docket number, no dates, no citation
     # fields) whose snapshot links an opinion cluster is prunable; the same bare

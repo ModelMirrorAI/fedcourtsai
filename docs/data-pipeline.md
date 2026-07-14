@@ -29,9 +29,15 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   long-past October Terms, cases whose only outcome signal is a **published
   opinion with no machine-readable disposition**, **stay/emergency
   applications** (`22A123`) and **original-jurisdiction** matters (`22O141`),
-  and a guard for **internally inconsistent dates**. Each gates prediction
-  only, never ingestion, and the two-directional scope reconcile releases any
-  case that later gains a real disposition. Because the corpus keys a case by
+  **pro se / in-forma-pauperis petitions** (the IFP docket serial ≥ 5001 — a
+  documented scope decision so the salience gate spends the fundable slice on the
+  paid cert docket; see [salience.md](salience.md)), and a guard for
+  **internally inconsistent dates**. Each gates prediction only, never ingestion.
+  The two-directional scope reconcile releases a case latched for **staleness** or
+  a **bare published-opinion import** once it gains a real disposition; the
+  **form-keyed** exclusions (IFP serial, applications, original jurisdiction) are
+  permanent by construction — the docket form never changes, so they never
+  release. Because the corpus keys a case by
   `<court>/<docket>`, a case's SCOTUS docket and its originating
   court-of-appeals docket are **separate rows**: only the SCOTUS row is
   predicted, and the lower-court link columns (`originating_court` /

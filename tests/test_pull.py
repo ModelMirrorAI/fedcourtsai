@@ -259,6 +259,34 @@ def test_in_predict_scope_excludes_scotus_but_out_of_scope_cases(tmp_path: Path)
     assert _in_predict_scope(db, "ca9/5") is False
 
 
+def test_in_predict_scope_defers_a_salience_unselected_case(tmp_path: Path) -> None:
+    # The salience gate defers at queue time: a scored-but-not-selected petition is
+    # not queued, while an unscored one stays in scope (fail-open) and a selected
+    # one is queued.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id="scotus/sel", court="scotus", docket_number="24-1"),
+                corpus.CorpusRow(case_id="scotus/def", court="scotus", docket_number="24-2"),
+                corpus.CorpusRow(case_id="scotus/raw", court="scotus", docket_number="24-3"),
+            ],
+        )
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 1 "
+            "WHERE case_id = 'scotus/sel'"
+        )
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
+            "WHERE case_id = 'scotus/def'"
+        )
+        conn.commit()
+    assert _in_predict_scope(db, "scotus/sel") is True  # selected
+    assert _in_predict_scope(db, "scotus/def") is False  # deferred
+    assert _in_predict_scope(db, "scotus/raw") is True  # unscored → fail-open selected
+
+
 class FakeDiscoverPullClient:
     """One fake covering both discovery (``iter_dockets``) and refresh (``get_docket``).
 
