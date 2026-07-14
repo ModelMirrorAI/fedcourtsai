@@ -55,7 +55,11 @@ calibration with vacatur-practice prediction.
   replayed over the most recently decided modern discretionary-cert petitions,
   outcome hidden behind a redacted snapshot, scored on accuracy, Brier, **lift
   over the always-deny floor** (the honest signal under cert's denial skew), and
-  a P(granted) calibration view. Produced by the maintainer-triggered
+  a P(granted) calibration view. Each entry also carries a **per-salience-band
+  skill breakdown** over the paid scored segment — the mean leakage-safe segment
+  base rate (each petition's own prior-Term band grant rate) and the mean Brier
+  skill against it — so the back-test measures the same segment-baseline skill the
+  forward stratum does, not just raw Brier. Produced by the maintainer-triggered
   `run-backtest` workflow — a real-engine replay spends tokens, so it never
   runs on a schedule — and labeled retrospective like `backtest.json`. A run
   is an explicit maintainer action: apply the `run:backtest` label to an

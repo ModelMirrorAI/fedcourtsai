@@ -56,24 +56,34 @@ def segment_base_rate(row: CorpusRow, statpack: StatPack) -> float | None:
     return weighted_grants / weighted_resolved
 
 
-def brier_skill_score(
-    prediction: Prediction, outcome: Outcome, base_rate: float | None
-) -> float | None:
-    """Brier skill score of the forecast vs the segment base rate.
+def brier_skill(brier: float, actual_granted: int, base_rate: float | None) -> float | None:
+    """Brier skill of a forecast's ``brier`` vs the naive ``base_rate`` baseline.
 
-    ``1 - brier(prediction) / brier(baseline)``, where the baseline is the naive
-    forecaster that always predicts ``base_rate``. A prediction no better than the
-    base rate scores ~0, a better one positive (up to 1), a worse one negative — so
-    parroting the segment's grant rate earns no skill. ``None`` when there is no
-    base rate, or when the baseline is already perfect (``base_rate`` matched the
-    outcome exactly), where the skill ratio is undefined.
+    ``1 - brier / baseline_brier``, where the baseline is the forecaster that
+    always predicts ``base_rate``. ~0 when the forecast is no better than the base
+    rate, positive (up to 1) when better, negative when worse. ``None`` when there
+    is no base rate, or when the baseline is already perfect (its Brier is zero —
+    ``base_rate`` matched the outcome exactly), where the ratio is undefined. The
+    numeric core shared by the evaluate path and the cert back-test.
     """
     if base_rate is None:
         return None
-    baseline_brier = (base_rate - outcome.actual_granted) ** 2
+    baseline_brier = (base_rate - actual_granted) ** 2
     if baseline_brier == 0:
         return None
-    return 1.0 - brier_score(prediction, outcome) / baseline_brier
+    return 1.0 - brier / baseline_brier
+
+
+def brier_skill_score(
+    prediction: Prediction, outcome: Outcome, base_rate: float | None
+) -> float | None:
+    """Brier skill score of a prediction vs the segment base rate.
+
+    Convenience wrapper over :func:`brier_skill` for schema objects: scores the
+    prediction's Brier against the baseline that always predicts ``base_rate``, so
+    parroting the segment's grant rate earns ~0 skill.
+    """
+    return brier_skill(brier_score(prediction, outcome), outcome.actual_granted, base_rate)
 
 
 def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
