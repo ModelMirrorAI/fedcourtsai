@@ -925,11 +925,54 @@
           "default": null,
           "title": "Mean Brier"
         },
+        "mean_brier_skill": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier skill score over the replay stratum's scored cells (skill vs each case's segment base rate; positive beats the base rate, ~0 parrots it, negative is worse); null until any replay cell reports one",
+          "title": "Mean Brier Skill"
+        },
         "sample": {
           "description": "Scored replay evaluations",
           "minimum": 0,
           "title": "Sample",
           "type": "integer"
+        },
+        "segment_base_rate_cases": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Estimated resolved petitions behind segment_grant_rate (weighted)",
+          "title": "Segment Base Rate Cases"
+        },
+        "segment_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Grant share of the paid salience-scored segment \u2014 the base rate the predicted slice is judged against (from the statpack's salience-band section, denial-reweighted); null when that section is absent. With a salience gate the predicted slice grants far above the whole-docket rate, so this, not deny_base_rate, is the honest anchor",
+          "title": "Segment Grant Rate"
         }
       },
       "required": [
