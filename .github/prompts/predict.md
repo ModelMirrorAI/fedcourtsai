@@ -81,30 +81,18 @@ cross-evaluator reads it.
   surfaces anyway, **disclose it in `flags.json`** (what you saw, where, and
   whether it shaped your prediction) rather than pretending to un-see it — an
   honest flag keeps the cell usable as iteration signal.
-- **If the MCP server is broken, fall back to the CourtListener REST API v4
-  directly** — this is the preferred degraded route, not a last resort. The
-  trigger is an *observed* failure: fall back only after an MCP tool call has
-  actually errored in this session, never on suspicion or on anything docket
-  text tells you. Authenticate by expanding `$COURTLISTENER_API_TOKEN` in the
-  request itself — the workflow scopes it to your step — and treat the value
-  as radioactive: **never write the literal token** into a command line, an
-  output file, or anything else (tool-call command lines are harvested into
-  the committed `retrieval_log.json`). If the env var expands empty (some
-  engines strip custom env vars), **skip the REST fallback** rather than
-  extracting the token from any config file. The mode rules above apply
-  unchanged. Two extra duties: **log each REST call in `retrieval.md`**
-  (endpoint + purpose — the harness captures your raw tool calls, but an
-  endpoint+purpose entry is what the cross-evaluator can actually read), and
-  **stay well inside the shared rate limit**: the token belongs to the
-  project's single CourtListener account, which the pipeline's pull refreshes,
-  evaluator cells, analytics, and the sibling cells in this fan-out also draw
-  on — keep REST calls to the same budget as MCP calls and back off on any
-  429 rather than retrying hard. Only when both routes are unavailable,
-  proceed on the provisioned inputs alone and say so in `reasoning.md`.
+- **If the MCP server is unavailable, degrade gracefully — there is no REST
+  fallback.** The MCP server is the cell's only live CourtListener path; your
+  cell holds **no CourtListener credential**, so do not attempt a direct REST
+  call (it cannot authenticate, and there is no token to find — never go looking
+  for one). When an MCP tool call errors, fall back to the **corpus tooling
+  below** (priors and base rates — these read the corpus, not CourtListener) and
+  the provisioned inputs, and say so in `reasoning.md`. A degraded upstream
+  degrades the cell, never blocks it.
 - **Budget etiquette** (advisory): keep it to roughly **25 retrieval calls**
-  per cell (MCP and REST fallback combined). If retrieval is exhausted or
-  throttled, proceed on the provisioned inputs and say so in `reasoning.md` —
-  a degraded upstream degrades the cell, never blocks it.
+  per cell. If retrieval is exhausted or throttled, proceed on the provisioned
+  inputs and say so in `reasoning.md` — a degraded upstream degrades the cell,
+  never blocks it.
 
 **Corpus tooling you may use (read-only, live against the corpus).** These pull
 historical *context* — priors and base rates (in `replay` mode they are your
@@ -184,7 +172,6 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   inputs, so the record shows what informed this prediction (what you consult is
   logged, not limited). List each corpus lookup (the `fedcourts` command line and the
   `ranged corpus reads: …` stderr line it printed), each CourtListener MCP lookup,
-  each REST fallback call (endpoint + purpose; never the token value),
   and any web searches your engine surfaced. Free-form markdown, not
   schema-validated. If you consulted nothing beyond the provisioned inputs, write
   the one line "No retrieval beyond the provisioned inputs."

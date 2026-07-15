@@ -152,8 +152,8 @@ the App token.
 Every secret and both S3 role ARNs live on the `runner` environment — the App
 credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion and, via the cells'
-MCP config and the predict agent steps' scoped env for the REST fallback, by
-agent retrieval; unset degrades the agents to anonymous rate
+MCP config, by agent retrieval — the cells have no REST fallback, so no agent
+step carries the token; unset degrades the agents to anonymous rate
 limits), the AWS role ARNs and region, and the corpus remote URL (referenced by
 role, never committed). Every job that needs any of them declares
 `environment: runner`.

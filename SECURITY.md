@@ -13,20 +13,17 @@ runbook, [docs/security.md](docs/security.md).
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
   engine actions proxy or scope their model API keys so the CLIs never hold
-  them. The lower-sensitivity CourtListener token is passed as a scoped step
-  env only where needed — with two deliberate carve-outs: the cells' MCP-config
-  step writes it into runner-local, gitignored client-config files, and the
-  predict cells' Claude and Codex agent steps carry it in their step env so the
-  prompt contract's REST fallback can expand it by env-var reference (Gemini's
-  CLI strips custom env, so its step stays token-free and its agent is told to
-  skip the fallback). Exposure equals the step-env's own: the files are on an
-  ephemeral runner, never committed, and the artifact upload is an explicit
-  allowlist that excludes them. The
-  prompt forbids ever writing the literal value into a command line or output
-  file (tool-call command lines are harvested into the committed
-  `retrieval_log.json`). The accepted residual: the engines hold that env while
-  processing adversarial docket text — a leaked or injection-abused token
-  spends pull's quota and forces a rotation that touches pull.
+  them. The lower-sensitivity CourtListener token is passed as a scoped step env
+  in exactly one place — the cells' **MCP-config step**, a deterministic step
+  that writes it into a runner-local, gitignored client-config file the MCP
+  server reads. **No agent step holds it:** the cells have no REST fallback, so
+  live CourtListener access is the MCP server only (the agent calls it by tool
+  name, never handling the token), and the token is never in the environment
+  while an engine processes adversarial docket text. Exposure equals that one
+  config-writing step's env: the file is on an ephemeral runner, never committed,
+  and the artifact upload is an explicit allowlist that excludes it. Residual
+  blast radius if the token leaked despite this: it spends pull's quota and
+  forces a rotation that touches pull — it is not a model key or a GitHub token.
 - **Agents get a least-privilege GitHub App token, never a static one.** The
   Claude agent steps in `run:predict` / `run:evaluate` receive a short-lived
   App installation token scoped **comment-only** (`contents: read` + `issues` +
