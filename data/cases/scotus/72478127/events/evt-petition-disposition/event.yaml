@@ -1,0 +1,11 @@
+case_id: scotus/72478127
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-03-21'
+resolved: true
+schema_version: '1.0'
+title: Alexander Cameron, Petitioner v. Harold W. Clarke, Director, Virginia Department
+  of Corrections
