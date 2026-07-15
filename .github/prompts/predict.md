@@ -73,7 +73,15 @@ cross-evaluator reads it.
 - **`forward` mode** (a genuinely pending case): retrieval is **unrestricted**
   — the outcome does not exist yet, so nothing you can find leaks it. Use what
   helps: this case's own docket and filings, related litigation, precedent,
-  circuit-split signals.
+  circuit-split signals. One etiquette caveat, because a web search is not
+  time-bounded the way `--decided-before` corpus retrieval is: if a search
+  nonetheless surfaces **this case's own disposition** — the petition you are
+  predicting turns out already decided — treat the cell as mis-provisioned,
+  **disclose it in `flags.json`** (`data-quality`), and do not fold that outcome
+  into the forecast. Public information that *predates* your snapshot — a
+  companion or lead case's ruling, news or market context — is legitimate forward
+  signal, not leakage: use it, and a one-line `flags.json` note when it is
+  decisive is good hygiene, not a violation.
 - **`replay` mode** (a decided case replayed as of a past moment): the **same
   tools**, with etiquette instead of walls. Do not seek information about
   *this case* postdating the event date (the `DECIDED_BEFORE` clock); corpus
@@ -219,9 +227,12 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   coverage of its decision; the prediction must rest on the pre-decision record
   plus general legal context. If you already know the outcome (a famous case) or
   encounter it inadvertently (a stray search result), say so explicitly in
-  `reasoning.md` and add a `flags.json` note (`category` `other`) so the
-  evaluation can discount the cell — then still reason from the pre-decision
-  record only.
+  `reasoning.md` and add a `flags.json` note so the evaluation can discount the
+  cell — then still reason from the pre-decision record only. Use `category`
+  `data-quality` when the discovery is that a **forward** cell's case is actually
+  already decided (a mis-provisioned cell — see the forward-mode caveat under
+  *Retrieval* above); use `other` when you simply carry the outcome from training
+  on a well-known case.
 - Stay in your lane: write **only** under your own
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or
