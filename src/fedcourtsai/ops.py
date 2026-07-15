@@ -1054,7 +1054,7 @@ def render_markdown(report: OpsReport) -> str:
         f"fixed ${ce.fixed_monthly_usd:,.0f}/mo · model ${ce.model_cost_usd:,.2f} cumulative.",
         "",
         "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
-        "no billing-API access); check the provider billing dashboards for ground truth.",
+        + "no billing-API access); check the provider billing dashboards for ground truth.",
     ]
 
     # Only surface stalled fan-outs when there are any (the empty case is the norm).
