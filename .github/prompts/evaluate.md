@@ -100,10 +100,12 @@ For each predictor you score, write to
 
 **Leakage grading — mode-aware, over the harness-captured log.** Under the
 leakage doctrine, timing is the control: a **forward** prediction was made
-while the event was genuinely unresolved (its retrieval was unrestricted by
-design — nothing it could find leaked an outcome that did not exist), while a
-**replay** prediction ran against a decided case with etiquette instead of
-walls, and grading its retrieval is your job. For each predictor:
+while the event was genuinely unresolved (for a genuinely-open case its
+retrieval was unrestricted by design — nothing it could find leaked an outcome
+that did not exist; the forward branch below covers the mis-provisioned
+exception), while a **replay** prediction ran against a decided case with
+etiquette instead of walls, and grading its retrieval is your job. For each
+predictor:
 
 1. Read its `predictions/<predictor_id>/<run_id>/retrieval_log.json` — the
    tool-call transcript the harness captured from the engine's own log (never
@@ -111,9 +113,22 @@ walls, and grading its retrieval is your job. For each predictor:
    a document date was legible. Its `mode` field tells you whether the
    prediction ran forward or as a replay; a missing log or mode grades as `unknown` (assess from
    `reasoning.md`/`retrieval.md` alone).
-2. **`forward`** → `leakage.influenced_prediction` = `not_applicable` (and
-   `leakage_suspected` = `false`), unless the reasoning itself shows the
-   prediction was somehow made post-resolution.
+2. **`forward`** → the case was open when predicted, so ordinary retrieval could
+   not leak an outcome that did not yet exist: the default is
+   `leakage.influenced_prediction` = `not_applicable` (and `leakage_suspected` =
+   `false`). But do **not** rubber-stamp it — forward retrieval (a web search
+   included) is only clean while the case is genuinely unresolved, and
+   provisioning can mis-route an *already-decided* case into a forward cell. So
+   confirm before passing: scan the log and reasoning for **this case's own
+   disposition** surfacing as already-decided — a `retrieved_doc_date` on or
+   after the event's resolution, a cited order or opinion resolving *this*
+   petition, or reasoning that reads the outcome off the provisioned snapshot. If
+   you find it, grade `retrieved_outcome_material` / `influenced_prediction` as in
+   the `replay` case below, put the evidence in `leakage.notes`, and add a
+   `flags.json` `data-quality` note that a decided case was provisioned forward.
+   Information that merely *predates* the snapshot — a companion or lead case's
+   ruling, news context — is legitimate forward signal, not leakage; a predictor's
+   own honest disclosure of such a signal is a point *for* the cell, not against it.
 3. **`replay`** → grade two things. `retrieved_outcome_material`: does the log
    or reasoning show outcome-revealing material about *this case* was retrieved
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
