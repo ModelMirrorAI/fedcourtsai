@@ -1,0 +1,10 @@
+case_id: scotus/72477097
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-11-22'
+resolved: true
+schema_version: '1.0'
+title: Darvill Jimmy Joseph Bragg, Petitioner v. United States

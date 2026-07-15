@@ -1,0 +1,11 @@
+case_id: scotus/72476964
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-11-08'
+resolved: true
+schema_version: '1.0'
+title: Christopher Lamont Penn, Petitioner v. Bobby Lumpkin, Director, Texas Department
+  of Criminal Justice, Correctional Institutions Division
