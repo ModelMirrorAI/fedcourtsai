@@ -49,8 +49,9 @@ artifacts over several tool-use turns — so effective token usage (≈280–400
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
 `fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary`.
-Measured per-run cost spans **≈$0.50–3.62 by model mix** (recent blended mean
-≈$1.87); the **≈$0.50 optimistic anchor** holds when the byte-stable prefix
+Measured per-run cost spans **≈$0.45–5.39 by model mix** (blended mean **≈$2.15**
+over the 15 predict runs on the ledger: claude-baseline ≈$4.18, codex ≈$1.46,
+gemini ≈$0.80); the cheapest runs approach ≈$0.50 only when the byte-stable prefix
 (AGENTS.md + prompt template + schema) is served from the prompt cache — automatic
 on all three engines, billing cached reads at ≈0.1×, and the reason to keep that
 prefix stable. Budget the range, not the point; evaluate per-run cost is still
@@ -63,19 +64,19 @@ retrieval and back-testing; only the agentic stages are gated. Full 14-court
 scope is the reference ceiling:
 
 ```
-predictions  ≈ 48,000 events   × 3 predictors × $0.50   ≈ $72K
-evaluations  ≈ 42,000 resolved × (3 × 3)      × $0.50   ≈ $189K
-                                                          ───────
-full scope                                                ≈ $261K / yr
+predictions  ≈ 48,000 events   × 3 predictors × $2.15   ≈ $310K
+evaluations  ≈ 42,000 resolved × (3 × 3)      × $2.15   ≈ $813K
+                                                          ────────
+full scope                                                ≈ $1.1M / yr
 ```
 
 The SCOTUS gate is roughly 1/8 of that — ≈5,500 cert decisions per term:
 
 ```
-predict   ≈ 5,500 × 3     × $0.50   ≈ $8K
-evaluate  ≈ 5,500 × (3×3) × $0.50   ≈ $25K
-                                     ───────
-full cert gate                       ≈ $33K / yr
+predict   ≈ 5,500 × 3     × $2.15   ≈ $35K
+evaluate  ≈ 5,500 × (3×3) × $2.15   ≈ $106K
+                                     ────────
+full cert gate                       ≈ $140K / yr
 ```
 
 **Capacity `N`: the funding knob.** Within the gate, [salience.md](salience.md)'s
@@ -84,17 +85,17 @@ petitions per conference plus a few always-include carve-outs, so inference spen
 is `N × per-case`. One fully-tournamented case:
 
 ```
-predict:   3 predictors           × $0.50 = $1.50
-evaluate:  3 evaluators × 3 preds  × $0.50 = $4.50
+predict:   3 predictors           × $2.15 = $6.45
+evaluate:  3 evaluators × 3 preds  × $2.15 = $19.35
                                             ──────
-per case ≈ $6   (optimistic anchor; ≈$22 at the measured blended mean)
+per case ≈ $26   (measured blended mean; ≈$2 for a lean single-engine, single-evaluator release)
 ```
 
-so `N ≈ inference_budget / ($6–22 per case)`. A deliberately lean single-engine,
-single-evaluator release is ≈$1/case. Tier-1 salience scoring is itself ≈$0 (a
-deterministic pure function of corpus features, no model call), so the gate spends
-nothing to *decide* what the tournament runs on. Raising `N` deepens the
-salience-ranked slice; it never reshuffles the ranking.
+so `N ≈ inference_budget / per-case` — from the ≈$26 full three-engine tournament
+down to ≈$2 for a lean single-engine, single-evaluator release. Tier-1 salience
+scoring is itself ≈$0 (a deterministic pure function of corpus features, no model
+call), so the gate spends nothing to *decide* what the tournament runs on. Raising
+`N` deepens the salience-ranked slice; it never reshuffles the ranking.
 
 ### 2. CourtListener API (membership for pull throughput)
 
@@ -163,17 +164,17 @@ The non-inference lines — misc floor ($500/mo), CourtListener ($250–1,200/yr
 (≈$15/mo, the one line that grows with the corpus blob), Codespaces ($0–50/mo),
 Actions ($0) — sum to a near-constant **≈$7K/yr floor**. Everything
 above it is inference `= N × per-case`, so funding moves a single dial: `N`, where
-`N ≈ inference_budget ÷ ($6–22 per case)`. Each order of magnitude in funding buys
-roughly ten times the tournamented cases:
+`N ≈ inference_budget ÷ per-case` (≈$2–26 by engine fan-out). Each order of
+magnitude in funding buys roughly ten times the tournamented cases:
 
 | Scenario | ≈ Annual | Inference (= total − ≈$7K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping / current plan | ≈$10K | ≈$3K | one OT2026 long-conference cert batch (up to ≈2,000 petitions), lean single-to-few engines |
-| Initial funding | ≈$100K | ≈$90K | the full steady-state cert gate uncapped, three-engine cross-evaluated (≈5,500 events/term ≈$33K) with depth and rerun headroom; salience becomes the public ranking, not a spend control |
-| Well funded | ≈$1M | ≈$990K | past the SCOTUS gate toward all-14-court full scope (every event, 3×3 ≈$261K) with headroom for deeper fan-out, higher cadence, or embeddings |
+| Bootstrapping | ≈$10K | ≈$3K | one OT2026 long-conference cert batch — ≈1,500 petitions lean single-engine, or ≈100 fully tournamented |
+| Initial funding | ≈$100K | ≈$90K | ≈3,500 fully-tournamented cases — most of a cert term (the full ≈5,500-event gate runs ≈$140K uncapped, 3×3); salience still a spend control at this `N` |
+| Well funded | ≈$1M | ≈$990K | approaches all-14-court full scope (every event, 3×3 ≈$1.1M); the cert gate is fully covered, so salience becomes the public ranking, not a spend control |
 | **Floor (all scenarios)** | **≈$7K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
 
 Start at **bootstrapping** with a small `N`, let the ledger measure real per-case
-cost against the $6–22 range, then raise `N` as funding lifts it. The funding path
+cost against the $2–26 range, then raise `N` as funding lifts it. The funding path
 to each state — credit programs and external support — is tracked in
 [milestones.md](milestones.md).
