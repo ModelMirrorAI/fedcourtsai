@@ -46,7 +46,7 @@ The machinery for the first release is running:
   [data-pipeline.md](data-pipeline.md)).
 - **Prediction scope is gated and live**: SCOTUS dockets only, with the shared
   deterministic exclusions — see the prediction scope in
-  [data-pipeline.md](data-pipeline.md) and *The pilot slice* in
+  [data-pipeline.md](data-pipeline.md) and the SCOTUS-docket gate in
   [budget.md](budget.md).
 - **The cascade runs on its real triggers**: live cases flow through
   `run:predict` → `run:evaluate`, producing valid ledger artifacts, with
@@ -71,7 +71,8 @@ a blog post / short article — *"We predicted the long conference — here's ho
 we did"* — with the calibration numbers attached, compared against the
 statpack's per-Term cert base rates. It is small, datable, and end-to-end, and
 it defines the scope cleanly: the petitions on that conference list are SCOTUS
-dockets, exactly the gate the budget sizes.
+dockets, exactly the gate the budget sizes for its **bootstrapping** state
+([budget.md](budget.md)).
 
 ## Following the cohort through the term
 
@@ -88,38 +89,39 @@ project is actually building toward.
   the segment base rate**, accuracy, vote accuracy, reasoning quality), with
   mid-term updates riding the Oct–June grant cadence. This is the ~year of runway
   and the largest evaluation set the project accumulates.
-- **The salience / big-case board as a public artifact.** Two pre-registered
-  things, both datable and publicly legible, land as releases **distinct from the
-  cert calibration numbers**: the deterministic **salience ranking** ("these are
-  the petitions worth forecasting, ranked, *before* the conference sat") and the
-  models' **big-case scores** ("how big we called them, *before* the term played
-  out"). Together they are the direct answer to the post-hoc *"big case"* critique
-  — the git timestamps prove both calls preceded the outcomes — and the big-case
-  score adds a **second skill dimension** to the leaderboard: a model can read a
-  case's significance well while calling grant/deny only modestly, or the reverse.
+- **The salience / big-case board as a public artifact.** Two pre-registered,
+  datable releases land **distinct from the cert calibration numbers**: the
+  deterministic **salience ranking** ("the petitions worth forecasting, ranked,
+  *before* the conference sat") and the models' **big-case scores** ("how big we
+  called them, *before* the term played out"). Both answer the post-hoc *"big
+  case"* critique — the git timestamps prove the calls preceded the outcomes — and
+  the big-case score adds a **second skill dimension** to the leaderboard: a model
+  can read significance well while calling grant/deny only modestly, or the reverse.
 - **End-of-term retrospective (~June 2027).** As the term's ~60–70 merits
   decisions land, predictions and evaluations across the full cohort publish as a
   retrospective accuracy report — the **capstone of the year's cohort-follow**, and
   the first full term of cost and calibration data.
-- **Get funded at all — model-agnostic, tied to `N`.** Inference is the dominant
-  line ([budget.md](budget.md)), so first funding is the **credit programs** —
-  Anthropic startup credits primary, AWS Activate the runner-up — that offset it.
-  The milestone proper is a first **external funding event**, without committing to
-  which form: a grant, an academic collaboration, or a first B2B pilot. Whatever
-  the form, it ties to capacity — a funding event **raises `N`**, deepening the
-  salience-ranked slice the tournament runs on.
+- **Get funded at all — model-agnostic, tied to `N`.** Inference dominates the
+  budget, so the near-term play is **bootstrapping** on credit programs (Anthropic
+  startup credits primary, AWS Activate the runner-up) to run the cert release. The
+  milestone proper is a first **external funding event** — a grant, an academic
+  collaboration, or a first B2B pilot — that lifts the budget from bootstrapping to
+  **initial funding** ([budget.md](budget.md)) and, mechanically, **raises `N`**:
+  deepening the salience-ranked slice from the long-conference batch toward most of
+  a cert term.
 - **The ~1-year decision point.** With a term of cost and calibration data in
   hand, an explicit pivot: academic collaboration, B2B legal-analytics, or holding
-  as a public-artifact project — including the narrower **scope** call (widen past
-  the SCOTUS-docket gate toward the originating courts of appeals or a rotating
-  appeals sample, per the budget's levers, or hold the gate as the durable scope).
-  Options kept open until the data is in.
+  as a public-artifact project. Sustained external support here is the
+  **well-funded** state ([budget.md](budget.md)), where `N` can approach the full
+  cert gate and the **scope** call opens up — widen past the SCOTUS-docket gate
+  toward the originating courts of appeals or a rotating appeals sample, or hold
+  the gate as the durable scope. Options kept open until the data is in.
 
 **Housekeeping, in parallel:** verify the S3 egress projections against the split
 stores ([budget.md](budget.md)); route the remaining opinion-body reader
 (`query --full`) through the content store; unify the index's transport onto the
-same boto3 pattern as the content store; re-anchor the budget once evaluate-side
-per-run cost is measured.
+same boto3 pattern as the content store; finish re-anchoring the budget once
+evaluate-side per-run cost is measured (the predict side now is).
 
 ## Beyond a year — the automated-research goal
 
