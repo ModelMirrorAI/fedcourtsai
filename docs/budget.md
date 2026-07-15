@@ -22,6 +22,17 @@ how many evaluators. At full scope it is the entire budget; everything else is
 rounding error. So the controlling decisions are *how many events we predict* and
 *with how many competing agents* — not which runner tier or storage class we pick.
 
+**The shape, in one line: a fixed floor plus three scaling lines.** A deliberate
+**~$500/mo misc floor** (domains, email, the Claude Max dev subscription — the
+fixed individual-use items, driver #5) carries the costs that do not grow with the
+work (dev-usage Codespaces varies a little beside it, but with dev hours, not the
+workload). Above it, exactly three lines scale with the work, in order: **inference**
+(dominant), then the volume-linked **CourtListener membership** and **S3**. And
+inference itself now has a single dial — the salience gate's **capacity `N`**, the
+number of petitions per conference the tournament actually runs (the *how many we
+predict*). `N` is what funding moves, so the whole budget re-cuts as
+`fixed floor + N × per-case + volume lines` — worked out under *Capacity `N`* below.
+
 A second consequence: the flat **Claude Max** subscription cannot absorb
 full-scope volume. The subscription is metered by rolling 5-hour and weekly
 limits intended for interactive use, and per Anthropic's policy the subscription
@@ -43,7 +54,7 @@ Three engines run the agentic stages, routed per registry entry
 
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
-| **Claude Code** (`claude-fable-5`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x). API: **$10 in / $50 out** |
+| **Claude Code** (`claude-fable-5`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: **$200/mo** flat (Max 20x — dev only, in the misc floor #5). API: **$10 in / $50 out** |
 | **Codex** (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | **$5 in / $30 out** |
 | **Gemini** (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | **$2 in / $12 out** (≤200k context; steps up beyond) |
 
@@ -73,12 +84,13 @@ prompt caching on the stable prefix is what keeps the sub-Fable figures near the
 original $0.50 expectation.
 
 The **clean-slate cutover cleared that pilot ledger**, so the committed ledger is
-rebuilding from the first clean round — **3 predict runs so far**, one per engine:
-claude-baseline ~$2.99, codex-baseline ~$1.69, gemini-baseline ~$0.45 (on the
-`claude-fable-5` / `gpt-5.6-sol` / `gemini-3.1-pro-preview` defaults). That is too
-thin to re-anchor on, so the full-scope estimates below still use the historical
-**~$0.50/run** anchor — which understates a Fable-heavy mix (the pilot's
-≈ $1.54/run blended mean); re-anchor once the clean ledger accumulates and the
+rebuilding from the first clean round — **9 predict runs so far**, three per engine:
+claude-baseline ~$3.62/run, codex-baseline ~$1.25/run, gemini-baseline ~$0.75/run
+(on the `claude-fable-5` / `gpt-5.6-sol` / `gemini-3.1-pro-preview` defaults), a
+**~$1.87/run blended mean**. That is still thin, and the Fable-heavy mean sits well
+above the historical **~$0.50/run** anchor the full-scope estimates below use — so
+those estimates are the *optimistic* end; the *Capacity `N`* section budgets the
+measured range explicitly. Re-anchor as the clean ledger accumulates and the
 evaluate side is measured. **Caveats:** these are *predict* figures; no event has
 been evaluated yet, so **evaluate per-run cost is unmeasured**. **Model defaults
 (2026-07):** codex `gpt-5.6-sol` (priced identically to `gpt-5.5` at $5/$30);
@@ -145,6 +157,7 @@ fan-out stay the controlling decisions.
 | Lever | Effect |
 |-------|--------|
 | **Gate the prediction scope** — predict only SCOTUS dockets (the gate; see below) rather than every event | Linear cut; the biggest dial |
+| **Salience rank-and-cap to capacity `N`** — within the SCOTUS gate, run the tournament only on the top-`N` salient petitions per conference | The finer dial; `N` is the funding knob (see *Capacity `N`*) |
 | **One engine per stage** instead of three competing | ~67% predict, more on evaluate (which scales with evaluators × predictors) |
 | **Cheaper competitor model** — run one predictor on `claude-haiku-4-5` ($1/$5) or `claude-sonnet-4-6` ($3/$15) | Large cut on that predictor |
 | **Batch API** for back-testing / bulk re-scoring (not used today) | ~50% on eligible work |
@@ -188,6 +201,62 @@ deliberately lean **single-engine** first release (one predictor, one evaluator)
 would instead be ~$2K predict + evaluate, on the order of **$2–3K**. Either is the
 entry point the OT2026 cert mini-release is sized against; the steady-state gate
 above is where it grows next, still an order of magnitude under full scope.
+
+#### Capacity `N`: the funding knob
+
+The SCOTUS gate bounds *which court*; within it, [salience.md](salience.md)'s
+**capacity `N`** bounds *how many* — the tournament runs on the top-`N` salient
+petitions per conference plus a few always-include carve-outs, so inference spend
+is `N × per-case` and `N` is the single dial funding moves. Raising `N` deepens
+the salience-ranked slice; it never reshuffles the ranking.
+
+**Unit cost, per fully-processed case** — the full three-engine, cross-evaluated
+tournament, at the ~$0.50/run cache-served anchor:
+
+```
+predict:   3 predictors            × $0.50 = $1.50
+evaluate:  3 evaluators × 3 preds   × $0.50 = $4.50
+                                             ──────
+per fully-tournamented case ≈ $6   (consistent with $33K ÷ ~5,500 gated events)
+```
+
+The $0.50/run is the **optimistic anchor** (prompt-cached, cheaper models). The
+measured clean-ledger mean has run higher — **~$1.87/run blended** over the first
+9 predict runs (claude-baseline ~$3.62 on `claude-fable-5`, codex ~$1.25, gemini
+~$0.75) — which puts the same fully-tournamented case (12 runs: 3 predict + 9
+evaluate) near **~$22**. So the real unit is **~$6–22/case by model mix**, and a
+deliberately lean **single-engine,
+single-evaluator** release is **~$1/case** (1 × $0.50 predict + 1 × 1 × $0.50
+evaluate). Budget the range, not the point — and note evaluate per-run cost is
+still projected (no event has been evaluated yet).
+
+**`N` as the funding knob** — read the dial straight off the unit cost:
+
+```
+N ≈ inference_budget / (~$6–22 per case)
+```
+
+Reference points at the **$6 anchor**:
+
+- **$10K** (well within an Anthropic startup / AWS Activate credit grant) →
+  **~1,600 fully-tournamented cases** — most of the ~2,000-petition long
+  conference (the full batch runs ~$12–13K, sized above).
+- **$33K** → the full steady-state cert gate (~5,500 events) with **no cap** — at
+  which point salience is purely the public ranking, not a spend control.
+
+At the measured **~$22/case** those same budgets buy **~450** and **~1,500** cases,
+so the credit-grant capacity is only honest stated as a range: **$10K → ~450–1,600
+cases**. The **cheaper-competitor** lever (one predictor on a smaller model —
+`claude-haiku-4-5` at $1/$5, `claude-sonnet-4-6` at $3/$15) reads here as a
+**capacity multiplier**: it stretches a fixed credit grant over *more* cases, not
+merely a per-run cost saving.
+
+**Tier-1 salience scoring itself is ≈ $0** — a deterministic pure function of
+corpus features, no model call. The optional cheap-model questions-presented
+enrichment pass, if enabled, adds a small per-eligible-case cost (one cheap-model
+call per Tier-0 survivor, well under the tournament's per-case cost); it is off by
+default, so the salience gate spends nothing to *decide* what the tournament runs
+on.
 
 ### 2. CourtListener API (membership for pull throughput)
 
@@ -338,10 +407,26 @@ small multiple:
 > downloaded), so prefer reusing those over regenerating; size it when that
 > lands.
 
+### 5. Misc fixed costs — the non-scaling floor
+
+A flat **$500/mo** bucket for the individual-use, non-scaling items, carried as one
+line so the rest of the budget can stay on what actually scales: the domains
+(`modelmirror.ai`, `fedcourts.ai`), the email provider, the **Claude Max dev
+subscription** (a $200/mo monthly individual plan — interactive dev only, never
+automation; see driver #1), and other small fixed items. The $500 is a deliberate
+**overestimate** meant to cover the bucket without per-item tracking; its defining
+property is that it **does not scale** with events, corpus size, or predictor
+count. Everything that scales sits in the three lines above it — inference
+(driver #1, dialed by `N`), CourtListener membership (#2), and S3 (#4).
+
+> **Line item: $500/mo flat** (a fixed floor, not a variable).
+
 ## Monthly and yearly summary
 
-Fixed/baseline costs are small and predictable; the inference line is the
-variable that scope controls. Two reference points:
+The budget is a **fixed floor plus three scaling lines**: the ~$500/mo misc floor
+(driver #5) is constant, and above it inference (dialed by capacity `N`),
+CourtListener membership, and S3 are the only lines that grow. Two reference
+points bound the range:
 
 ### A. Pilot / low-volume (gated slice, on-demand API)
 
@@ -352,32 +437,35 @@ batch is API-metered (all three engines).
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
-| Claude Max 20x (interactive dev) | $200 | $2,400 |
-| Predict/eval inference — Claude + Codex + Gemini **API** (gated) | ~$150–1,100 | ~$1.8–13K |
+| **Misc fixed floor** (domains, email, Claude Max dev sub, small items; #5) | $500 | $6,000 |
+| Predict/eval inference — Claude + Codex + Gemini **API** (gated, `N`-capped) | ~$150–1,100 | ~$1.8–13K |
 | CourtListener Tier 2 (annual) | ~$21 | $250 |
-| GitHub Actions (public repo) | ~$0 | ~$0 |
-| Codespaces | ~$0–50 | ~$0–600 |
+| Codespaces (dev) | ~$0–50 | ~$0–600 |
 | S3 (corpus + content store; recurring full pulls at today's ~1 GB blob) | ~$15 | ~$180 |
-| **Total** | **≈ $385–1,385/mo** | **≈ $4.6–16K/yr** |
+| GitHub Actions (public repo) | ~$0 | ~$0 |
+| **Total** | **≈ $685–1,685/mo** | **≈ $8–20K/yr** |
 
 ### B. Full scope (all 14 courts, all three engines, every event)
 
 | Item | Monthly | Yearly |
 |------|---------|--------|
 | **Model inference (predict + evaluate, on-demand API)** | **≈ $22K** | **≈ $261K** |
+| Misc fixed floor (#5) | $500 | $6,000 |
 | CourtListener Tier 4 | $100 | $1,200 |
-| GitHub Actions (public repo) | ~$0 | ~$0 |
 | Codespaces | ~$50 | ~$600 |
 | S3 (recurring full pulls at a ~10 GB blob; see §4) | ~$230 | ~$2,760 |
-| **Total** | **≈ $22.3K/mo** | **≈ $266K/yr** |
+| GitHub Actions (public repo) | ~$0 | ~$0 |
+| **Total** | **≈ $22.9K/mo** | **≈ $272K/yr** |
 
-The gap between A and B is almost entirely the prediction *slice* and the
-three-engine fan-out. The budget is governed by choosing where on that line to
-operate: start at **A** (the long-conference batch on the on-demand API), measure
-real per-run token cost (≈$0.50/run, folded into the figures above), then open the
-**SCOTUS-docket gate** to its steady state (≈$33K/yr inference — roughly 1/8
-of B) before deciding, with a year of cost data, whether to widen the gate toward
-full scope.
+The gap between A and B is almost entirely the inference line, and within the
+SCOTUS gate that line is `N × per-case` — so **`N` is where the budget is
+governed**. Start at **A** with a small `N` (the OT2026 long-conference batch on
+the on-demand API), let the clean ledger measure real per-case cost against the
+~$6–22 range, then raise `N` toward the steady-state gate (≈$33K/yr inference at
+`N` = the whole cert docket — roughly 1/8 of B, salience now the public ranking
+rather than a spend control) as funding — a credit grant or a first external
+event — lifts it. Whether to widen *past* SCOTUS toward full scope stays a
+separate, later, year-of-cost-data decision.
 
 ## Possible future options
 
