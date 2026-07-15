@@ -80,7 +80,7 @@ The supremecourt.gov docket JSON serves every SCOTUS petition of the e-filing
 era (OT2017+; see [live-sources.md](live-sources.md)). The channel charters:
 
 - **Historical loading is the historical Term walker**
-  (`fedcourts historical-terms`, `run-pull`'s daily `historical` job) — the
+  (`fedcourts historical-terms`, the `run-seed` workflow) — the
   same client, identity, and ingest seams as the forward poller, landing the
   sampled decided set for the statpack's per-Term base rates and the cert
   back-test set.
@@ -117,15 +117,16 @@ timeline ([live-sources.md](live-sources.md)).
 
 ## Three writer jobs, one shared core
 
-`run-pull` carries three writer jobs on one surface — they differ on every axis
-that matters, while the cron minute keeps at most one running per window:
+Two workflows carry three writer jobs over one corpus — `run-pull`'s **pull** and
+**live**, and `run-seed`'s **historical** walker — differing on every axis that
+matters, while the shared `corpus-write` lock keeps at most one running at a time:
 
-| Axis      | historical (Term walker)                | pull (enrichment)                 | live (forward poll)             |
+| Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|
 | Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           |
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions: discovery, watchlist, outcomes |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        |
-| Cadence   | **daily** (1×, off-peak)                | **daily** (4 windows)             | **daily** (4 windows)           |
+| Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           |
 | Handoffs  | none — lands already-resolved history   | predict/evaluate issues           | predict/evaluate issues         |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a
@@ -246,11 +247,13 @@ The workflow variable is `CORPUS_REMOTE_URL` (the rename off the old
 ### Corpus-writer coordination
 
 `corpus/corpus.db` is one mutable SQLite blob behind one committed pointer, and
-three writer jobs mutate it. A blob has no merge, so the pointer is last-writer-wins:
-concurrent or divergent-base writers would silently drop each other's rows.
-Two rules prevent that: **one lock** — the writer jobs share the `corpus-write`
-concurrency group (`cancel-in-progress: false`), so corpus writers never run
-simultaneously — and **reset to the live tip before mutating**: because
+three writer jobs across two workflows mutate it. A blob has no merge, so the
+pointer is last-writer-wins: concurrent or divergent-base writers would silently
+drop each other's rows. Two rules prevent that: **one lock** — all three writer
+jobs, in `run-pull` (pull, live) and `run-seed` (historical), share the
+repo-level `corpus-write` concurrency group (`cancel-in-progress: false`), so
+corpus writers never run simultaneously even across workflows — and **reset to
+the live tip before mutating**: because
 `actions/checkout` pins the run's *creation-time* sha, each writer job first
 `git fetch`es and `git reset --hard`s to the current tip of the default branch
 before `corpus-pull → mutate → corpus-push → commit the pointer`, so it
@@ -394,26 +397,30 @@ are exercised in pytest with no remote, token, or network.
 
 ## Historical — the Term walker
 
-- **Trigger:** `run-pull`'s daily `historical` cron window (or dispatch
-  mode=historical). No trigger label: nothing an outside actor can file fires it.
+- **Trigger:** the `run-seed` workflow's cron windows (four dead-zone slots a
+  day, or manual dispatch). No trigger label: nothing an outside actor can file
+  fires it. It shares run-pull's `corpus-write` lock, so it still serializes with
+  the forward writers despite the separate schedule.
 - **Each run** (deterministic, no agent, no API secret): loop
   `fedcourts historical-terms` in checkpointed chunks — walk the configured
   October Terms' docket serials newest-first from the persisted per-(Term,
   stream) cursors → ingest each sampled decided petition through the shared
   live path, landing it already resolved (label, snapshot, events latched
   closed, OT2021+ documents provisioned) → push the corpus and commit the
-  pointer per chunk (under the `corpus-write` lock) → comment progress on the
-  day's `pull-log` issue. The cursors advance over every served serial (a 404
-  never advances them), so a capped or crashed run resumes gap-free; see
-  [live-sources.md](live-sources.md) for the walk design.
+  pointer per chunk (under the `corpus-write` lock) → write progress to the
+  Actions step summary. Each window is a bounded chunk (≤40 min) under one App
+  token, so no mid-loop token re-mint is needed. The cursors advance over every
+  served serial (a 404 never advances them), so a capped or crashed run resumes
+  gap-free; see [live-sources.md](live-sources.md) for the walk design.
 - **Sampling frame:** every decided petition is ingested except denials, kept
   when their serial is a multiple of `historical.denial_sample_every` —
   deterministic per serial, so resumed runs keep the identical sample.
   Undecided petitions are skipped entirely (pending matters are the forward
   poller's charter), so the walker writes **no** predict/evaluate handoffs, ever.
 - **Scope maintenance:** after the loop, the job runs `fedcourts
-  reconcile-scope --apply` — the predict-scope latch sweep rides the daily
-  historical window because the corpus is already pulled and pushed there.
+  reconcile-scope --apply` — the predict-scope latch sweep rides one run-seed
+  window a day (gated to keep its daily cadence) because the corpus is already
+  pulled and pushed there.
 
 ## Pull — forward freshness
 

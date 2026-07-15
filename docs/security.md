@@ -36,6 +36,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents, issues | commit facts to `main`; open handoff issues; publish the verdict/frontier JSONs to `ops-metrics` |
+| `run-seed` | data | contents (walker steps); ambient issues (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
@@ -194,7 +195,7 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (all three jobs)               | read-write    | corpus writers (`corpus-push` + content-store mirror) |
+| `run-pull` (pull + live jobs), `run-seed` | read-write    | corpus writers (`corpus-push` + content-store mirror) |
 | `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the named cases — ranged point lookups, no pull |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only | record provisioning from the content store + ranged index queries (no pull) |

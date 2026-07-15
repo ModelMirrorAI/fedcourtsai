@@ -18,7 +18,7 @@ predicted needs no latch. It also normalizes the derived ``predict_eligible``
 convenience column to the scope predicate (``court == 'scotus'``), so rows
 latched under an earlier, broader rule converge — correctness never depends on
 the column (every scope seam reads the court predicate directly).
-``run-pull``'s historical job owns running it where the corpus is
+The ``run-seed`` workflow owns running it where the corpus is
 pulled, with ``fedcourts corpus-push``.
 """
 

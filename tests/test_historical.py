@@ -1,4 +1,4 @@
-"""The historical Term walker (run-pull's historical job): sampling, cursors, caps."""
+"""The historical Term walker (the run-seed workflow): sampling, cursors, caps."""
 
 from __future__ import annotations
 

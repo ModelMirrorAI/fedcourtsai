@@ -7,8 +7,7 @@ mapping, identity, and ingest seams the forward poller uses — so the historica
 set is built with the actual instrument, not a proxy. It accumulates resolved
 outcomes reverse-chronologically by Term, primarily to give the statpack's
 per-Term base rates real coverage, and secondarily to supply the cert back-test
-set. Run by the ``run-pull`` workflow's ``historical`` job via
-``fedcourts historical-terms``.
+set. Run by the ``run-seed`` workflow via ``fedcourts historical-terms``.
 
 How it differs from :func:`~fedcourtsai.pipeline.live.discover_live`, the
 forward frontier prober:
@@ -334,8 +333,8 @@ def load_terms(
     ``max_run_minutes`` wall clock, checked between serials) stops the walk. An
     upstream error stops only its stream — cursor untouched, next invocation
     retries the same serial — and never aborts the invocation. Returns the
-    report the run-pull historical loop reads for its stop conditions and
-    progress comment.
+    report the run-seed walk loop reads for its stop conditions and
+    step summary.
     """
     _migrate_legacy_cursors(corpus_db_path)
     # Pre-capture live rows get their parsed signals and sample weights filled
@@ -369,9 +368,9 @@ def load_terms(
 def fold_totals(totals: HistoricalReport | None, latest: HistoricalReport) -> HistoricalReport:
     """Fold one invocation's report into a run's cumulative totals.
 
-    The run-pull historical loop invokes ``historical-terms`` many times per job
+    The run-seed walk loop invokes ``historical-terms`` many times per job
     (each invocation is one checkpoint chunk); the totals file is what the run's
-    single progress comment renders. Counters and failures accumulate; the walk
+    single step summary renders. Counters and failures accumulate; the walk
     state — per-(Term, stream) progress, ``complete``, ``stopped`` — is the
     latest invocation's view (its cursors already encode all prior progress).
     """
@@ -398,7 +397,7 @@ def fold_totals(totals: HistoricalReport | None, latest: HistoricalReport) -> Hi
 
 
 def render_markdown(report: HistoricalReport) -> str:
-    """The report as the historical job's progress comment / step-summary body."""
+    """The report as the run-seed walk's step-summary body."""
     ingested = report.ingested_granted + report.ingested_denied + report.ingested_other
     lines = [
         "### Historical Term walker progress" + (" — walk complete ✅" if report.complete else ""),

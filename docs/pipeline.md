@@ -6,7 +6,8 @@ stage.
 
 | Label           | Workflow         | Trigger(s)                          | Engine(s)            |
 |-----------------|------------------|-------------------------------------|----------------------|
-| `run:pull`      | `run-pull`       | daily schedules (pull + live + historical jobs), label, manual | script (no agent)    |
+| `run:pull`      | `run-pull`       | daily schedules (pull + live jobs), label, manual | script (no agent)    |
+| _(none)_        | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run:predict`   | `run-predict`    | issue labeled (created by run-pull) | Claude Code + Codex + Gemini |
 | `run:evaluate`  | `run-evaluate`   | issue labeled                       | Claude Code + Codex + Gemini |
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (engine/limit params) | Claude Code + Codex (replay) |
@@ -78,25 +79,27 @@ read set plus an optional stub `local-cascade` cell — dispatched around change
 to corpus access or the corpus-consuming workflows and before releases. See
 *Infra-bound integration* in [testing.md](testing.md).
 
-**run-pull**'s `historical` job (daily) runs the **historical Term walker**
-(supremecourt.gov, budget-free), accumulating resolved outcomes
-reverse-chronologically by Term for the statpack's per-Term base rates and the
-cert back-test set. The **pull** job does targeted CourtListener enrichment
-from the rate-limited **REST API** (it owns that budget; the live job owns
-SCOTUS freshness for free). The historical job also runs the **predict-scope
-reconcile** (`fedcourts reconcile-scope`) — it carries the sweep's daily
-cadence: it latches out-of-scope cases (the shared exclusion rules — era,
-staleness, docket form, date consistency, and the snapshot-aware bare
-opinion-import profile) in the corpus so they leave the predictable set at the
-source, then pushes the blob and commits the pointer like any other corpus
-write. The
-full design — sources, budget boundary, the corpus/ledger storage split, and the
-historical corpus — is in [data-pipeline.md](data-pipeline.md).
+**run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
+accumulating resolved outcomes reverse-chronologically by Term for the statpack's
+per-Term base rates and the cert back-test set. It is a corpus writer split out
+of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
+day); it shares the `corpus-write` concurrency group, so it still serializes with
+run-pull's forward writers. **run-pull**'s **pull** job does targeted
+CourtListener enrichment from the rate-limited **REST API** (it owns that budget;
+the live job owns SCOTUS freshness for free). run-seed also runs the
+**predict-scope reconcile** (`fedcourts reconcile-scope`), gated to one window a
+day so it keeps the sweep's daily cadence: it latches out-of-scope cases (the
+shared exclusion rules — era, staleness, docket form, date consistency, and the
+snapshot-aware bare opinion-import profile) in the corpus so they leave the
+predictable set at the source, then pushes the blob and commits the pointer like
+any other corpus write. The full design — sources, budget boundary, the
+corpus/ledger storage split, and the historical corpus — is in
+[data-pipeline.md](data-pipeline.md).
 
 ## Cascade
 
 ```
-daily ×1 → run-pull (historical job) → walk Terms newest-first, ingest decided petitions (denials sampled)
+daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (denials sampled)
                               └─ checkpointed: corpus-push + pointer commit per chunk
    daily ×4 / run:pull → run-pull (pull job) → open pull-log issue → push fresh facts to the corpus
                                  ├─ refresh active cases (oldest-first, budget-capped)
@@ -168,11 +171,11 @@ pattern rather than rediscovering it:
   unconditionally and guard the rest with `if [ -d data ]; then git add data/; fi`
   (see `run-pull.yml`). The same shape lives in run-predict/evaluate.
 - **Long-running jobs outlive their credentials.** A GitHub App installation token
-  has a hard 1h life and an AWS OIDC session defaults to 1h. A loop that runs for
-  hours (the historical Term walk) must re-mint the App token before it ages out
-  and raise `role-duration-seconds` to cover the run; see the self-refreshing
-  token helper and the `configure-aws-credentials` step in `run-pull.yml`'s
-  historical job.
+  has a hard 1h life and an AWS OIDC session defaults to 1h. A corpus-writer loop
+  must therefore stay within that hour, or re-mint the App token before it ages
+  out and raise `role-duration-seconds` to cover the run. `run-seed`'s walk takes
+  the first path: each window is a bounded chunk (≤40 min) under one token, so it
+  needs no re-mint — a deliberate simplification over a longer walk that would.
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
   expensive shared state once per job and reuse it across a loop's chunks rather
   than per chunk.
@@ -218,7 +221,7 @@ agent feedback (`flags.json`) the run surfaced and posts it three ways — the r
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
 single latched-issue pattern of `ops-dashboard` / `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.
-The `run-pull` historical walker has its own instance of that pattern: a `guard`
+The `run-seed` historical walker has its own instance of that pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
 ever cancelled or fails (e.g. a chunk overran the job's hard timeout), and clears
 it when a later walk finishes clean — so a silent, PR-less writer failure still

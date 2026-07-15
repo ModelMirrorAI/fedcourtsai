@@ -172,8 +172,8 @@ same reason (verified live at implementation).
 The docket JSON serves decided petitions all the way back to OT2017 (the
 e-filing era — the probe's Term floor above), so the cert **back-test set** is
 built through the identical client, mapping, identity, and ingest seams as the
-forward task — the dry run validates the actual instrument, not a proxy. `fedcourts historical-terms` (the `run-pull` workflow's
-`historical` job) walks each configured Term's two numbering streams
+forward task — the dry run validates the actual instrument, not a proxy. `fedcourts historical-terms` (the `run-seed`
+workflow) walks each configured Term's two numbering streams
 sequentially from persisted cursors (`historical-paid` / `historical-ifp` in
 the same cursor table as the forward frontier's, disjoint names so the walkers
 never collide) and **samples deliberately rather than ingesting the sequence**:
