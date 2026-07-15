@@ -335,7 +335,7 @@ def reconcile_scope_cmd(
     (`corpus.out_of_scope_reason_full` — the row rules plus the snapshot-aware bare
     opinion-import rule) and clears it on those back in scope — so `open-events` (and
     thus the predict/queueing paths) drop excluded cases at the source. Dry-run by
-    default; `--apply` writes (the historical job then pushes the corpus). Prints a
+    default; `--apply` writes (the run-seed walk then pushes the corpus). Prints a
     `ScopeReconcileResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -373,7 +373,7 @@ def reconcile_salience_selection_cmd(
     `salience_selected` on each conference cohort's top-N by score plus the
     always-include carve-outs (CVSG, above-floor). The latch is one-way (sticky), so
     a re-run never de-selects a case that later drifts below the cap. Dry-run by
-    default; `--apply` writes (the historical job then pushes the corpus). Prints a
+    default; `--apply` writes (the run-seed walk then pushes the corpus). Prints a
     `SalienceSelectionResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -1518,7 +1518,7 @@ def historical_terms(
         typer.Option(
             min=1,
             help="Optional lower cap on this invocation's wall-clock budget, seconds; "
-            "cannot exceed historical.max_run_minutes. The run-pull historical loop "
+            "cannot exceed historical.max_run_minutes. The run-seed walk loop "
             "passes the budget still remaining so the final chunk stops itself "
             "(stopped=time-cap) before the job's hard timeout instead of overrunning "
             "it and being killed mid-chunk. Must be >= 1: a non-positive budget would "
@@ -1543,8 +1543,8 @@ def historical_terms(
     and filed documents provisioned for OT``document_floor_term``+ — so they
     feed the statpack's per-Term base rates and replay/evaluation only.
     **Writes no handoff queues**: these are decided historical matters and must
-    never queue forward prediction. The ``run-pull`` workflow's ``historical``
-    job loops this command, committing the corpus after each chunk.
+    never queue forward prediction. The ``run-seed`` workflow loops this
+    command, committing the corpus after each chunk.
     """
     settings = get_settings()
     cfg = load_historical_config(settings.config_root)

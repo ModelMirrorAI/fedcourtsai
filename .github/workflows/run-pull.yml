@@ -1,6 +1,6 @@
 name: run-pull
 
-# Refresh tracked dockets — three writer jobs on one surface, at most one per run:
+# Refresh tracked dockets — two forward writer jobs on one surface, at most one per run:
 #
 # - `pull` (the `17 *` crons, dispatch mode=pull, or a `run:pull` label):
 #   targeted CourtListener *enrichment* for the tracked set —
@@ -12,26 +12,18 @@ name: run-pull
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
 #   re-polls the pending watchlist. No CourtListener token, no API budget; the
 #   same corpus-writer plumbing (corpus push, pointer commit, queue handoffs).
-# - `historical` (the `31 2` cron or dispatch mode=historical): the historical
-#   Term walker (docs/live-sources.md) — LOOPS `fedcourts historical-terms`,
-#   which walks the configured October Terms' docket serials newest-first over
-#   the supremecourt.gov docket JSON (no token, no API budget) from persisted
-#   per-(Term, stream) cursors and ingests the sampled decided set: every
-#   decided petition except denials, which are systematically sampled
-#   (`historical:` in config/tracking.yaml IS the committed sampling frame).
-#   Primarily statpack coverage (per-Term base rates), secondarily the cert
-#   back-test set. Ingested petitions land already resolved and feed
-#   replay/evaluation only — this job files NO predict/evaluate handoffs, ever.
 #
-# Each scheduled run fires exactly one of the three (the cron minute is the mode
-# switch), so the shared corpus-write lock serializes writers. Live/forward work
-# keeps structural priority: the historical job's daily 02:31 slot and wall-clock
-# budget sit entirely between the 01:17 pull and 04:47 live windows, so it frees
-# the lock before forward work needs it — no in-run budget split required (the
-# walker spends zero CourtListener budget). Note GitHub keeps only the latest
-# *pending* run per concurrency group: a long dispatch-mode historical run can
-# cause a queued scheduled window to be superseded by the next one — the next
-# window's rotation picks up where it left off.
+# The historical Term walker (the backfill of past Terms) now lives in its own
+# workflow, run-seed.yml, so it can run on a denser schedule; it shares this
+# repo's `corpus-write` concurrency group, so it still serializes with these
+# forward writers. See run-seed.yml for that job.
+#
+# Each scheduled run fires exactly one of the two (the cron minute is the mode
+# switch), so the shared corpus-write lock serializes writers. The live and pull
+# windows interleave every ~3h; a run-seed window sits in a dead zone between
+# them and frees the lock before forward work needs it. Note GitHub keeps only
+# the latest *pending* run per concurrency group: a queued scheduled window
+# superseded by the next one just picks up where its rotation left off.
 # Spreading the refresh over several windows lifts daily throughput toward the
 # CourtListener tier's daily ceiling while each window stays under the hourly one.
 # Deterministic (no agent): re-fetches tracked dockets
@@ -58,16 +50,12 @@ on:
     # ceiling while the day's total approaches the daily one. Separate lines
     # (not a comma-list) so `github.event.schedule` identifies the final daily
     # window, which is the one that closes the shared pull-log issue. The
-    # minute is also the job selector: `17 *` crons run `pull`, `47 *` run
-    # `live`, and `31 2` runs `historical`.
+    # minute is also the job selector: `17 *` crons run `pull` and `47 *` run
+    # `live`. (The historical walker's `31` windows live in run-seed.yml.)
     - cron: "17 1 * * *"
     - cron: "17 7 * * *"
     - cron: "17 13 * * *"
     - cron: "17 19 * * *"
-    # One historical window/day, in the dead zone between the 01:17 pull and
-    # 04:47 live windows; its wall-clock budget ends before the live window so
-    # the shared lock is free when forward work arrives.
-    - cron: "31 2 * * *"
     # Four live windows/day, interleaved between the pull windows so the
     # corpus writers rarely even queue on the shared lock. Budget-free
     # (supremecourt.gov), so cadence is a freshness/politeness choice — the
@@ -79,9 +67,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Which refresh to run"
+        description: "Which refresh to run (the historical walker is dispatched via run-seed.yml)"
         type: choice
-        options: [pull, live, historical]
+        options: [pull, live]
         default: pull
   issues:
     types: [labeled]
@@ -102,9 +90,8 @@ concurrency:
 
 jobs:
   pull:
-    # One writer job per run: the cron minute (17 = pull, 31 = historical,
-    # 47 = live) or the dispatch `mode` input selects the job; a `run:pull`
-    # label always means pull.
+    # One writer job per run: the cron minute (17 = pull, 47 = live) or the
+    # dispatch `mode` input selects the job; a `run:pull` label always means pull.
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull') ||
@@ -113,8 +100,7 @@ jobs:
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
     # releases the shared corpus-write lock far sooner than GitHub's 6h default if
-    # a network step hangs. Below the historical job's budget, since pull does
-    # much less work.
+    # a network step hangs.
     timeout-minutes: 45
     environment: runner
     # Corpus-split (phase 1) dual-write flag, resolved from the `runner` environment
@@ -623,396 +609,3 @@ jobs:
             echo "| run:evaluate cases queued | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
-
-  historical:
-    # The historical Term walker (docs/live-sources.md): walks October Terms'
-    # docket serials newest-first over the supremecourt.gov docket JSON and
-    # ingests the sampled decided set — every decided petition except denials,
-    # which are systematically sampled per config/tracking.yaml's committed
-    # `historical:` frame. No CourtListener token, no API budget; the same
-    # corpus-writer plumbing as the other jobs (checkpointed loop, corpus push,
-    # pointer commit). Deliberately files NO predict/evaluate handoffs: every
-    # ingested petition is decided history, landed already resolved.
-    # Schedule/dispatch only: there is no trigger label for this job, so
-    # nothing an outside actor can file fires it and no issue-form
-    # authorization gate is needed.
-    if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '31 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'historical')
-    runs-on: ubuntu-latest
-    # The checkpointed loop caps each chunk to its remaining LOOP_BUDGET_SECONDS
-    # (--max-run-seconds), so it stops itself at the soft budget; this hard cap
-    # is the backstop headroom above it — the fixed setup + the final
-    # checkpoint/comment steps + slack for one in-flight serial — NOT room for a
-    # whole extra chunk. If the loop ever hits THIS timeout, the walk overran and
-    # the run is cancelled: the guard job below turns that into a loud
-    # escalation. Deliberately ends before the 04:47 live window so a hung
-    # network step cannot hold the shared corpus-write lock into forward work's
-    # slot.
-    timeout-minutes: 125
-    environment: runner
-    # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
-    # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
-    env:
-      FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
-      FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
-    # The ambient GITHUB_TOKEN is never used here (checkout, the corpus push,
-    # and every gh call run on App tokens) — so it carries no write at all.
-    permissions:
-      contents: read
-      id-token: write # assume the AWS role for the corpus S3 remote (read-write)
-    steps:
-      - name: Mint app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
-          permission-contents: write
-
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Sync the working tree to the current tip of the default branch
-        # actions/checkout pins this run's frozen github.sha — the branch tip when
-        # the run was CREATED, not when it starts. A run that queues behind another
-        # corpus writer on the shared corpus-write lock therefore checks out a
-        # stale base, so the corpus blob it pulls and mutates is built on an
-        # obsolete pointer and the final commit cannot rebase onto the advanced tip
-        # (an unmergeable corpus/corpus.db.ref conflict). Reset to the live tip
-        # first, under the lock, so we always mutate the latest committed corpus —
-        # the invariant docs/data-pipeline.md's corpus-writer coordination relies
-        # on. The repo is public, so this read-only fetch needs no credentials.
-        run: |
-          set -euo pipefail
-          git fetch origin "${GITHUB_REF_NAME}"
-          git reset --hard FETCH_HEAD
-
-      - uses: ./.github/actions/setup-python-env
-
-      - name: Configure git identity
-        uses: ./.github/actions/configure-git-identity
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          app-slug: ${{ steps.app-token.outputs.app-slug }}
-
-      # Same read-write (append-only) role as the other jobs: the walker adds
-      # snapshots, rows, and documents to the corpus blob but can never wipe
-      # remote objects. The loop pushes for up to ~2h, so the session must
-      # outlast the wall-clock budget (must stay <= the role's
-      # MaxSessionDuration).
-      - name: Configure AWS credentials (corpus S3 remote, read-write)
-        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ vars.AWS_REGION }}
-          role-duration-seconds: 9000 # 2.5h
-
-      - name: Pull the current corpus from the remote
-        env:
-          # See the pull job: CORPUS_REMOTE_URL variable, same env name.
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
-        run: |
-          # The per-(Term, stream) walk cursors and identity reconciliation
-          # read prior corpus state, so it must be restored; a first run has no
-          # committed pointer yet — warn and start fresh. Checksum-verified.
-          uv run fedcourts corpus-pull --missing-pointer warn
-
-      - name: Walk the Terms in checkpointed chunks until done or out of time
-        env:
-          # The loop's checkpoints push the corpus blob, so the remote URL must
-          # be job-step env here (CORPUS_REMOTE_URL variable).
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
-          # The loop pushes for up to ~2h, but a single installation token lives
-          # at most 1h (GitHub's hard cap). So the loop re-mints its own
-          # short-lived tokens from the App's private key as it goes; these two
-          # feed that.
-          APP_CLIENT_ID: ${{ vars.DATA_APP_CLIENT_ID }}
-          APP_PRIVATE_KEY: ${{ secrets.DATA_APP_PRIVATE_KEY }}
-          # Wall-clock budget for the whole loop, kept under timeout-minutes
-          # with room for setup and the post-loop steps — and sized so the run
-          # ends before the 04:47 live window wants the corpus-write lock.
-          LOOP_BUDGET_SECONDS: "6600" # 1h50m
-        run: |
-          set -euo pipefail
-
-          # --- Self-refreshing App token ----------------------------------------
-          # Mint fresh, repo-scoped `contents: write` tokens from the App's
-          # private key and refresh before they age out (installation tokens
-          # hard-expire at 1h).
-          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
-          mint_app_token() {
-            local now header payload unsigned sig jwt install_id body
-            now=$(date -u +%s)
-            header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
-            # iss = the App's client id; iat backdated 60s for clock skew; exp 9m.
-            payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
-              "$((now - 60))" "$((now + 540))" "$APP_CLIENT_ID" | b64url)
-            unsigned="${header}.${payload}"
-            sig=$(printf '%s' "$unsigned" \
-              | openssl dgst -sha256 -sign <(printf '%s' "$APP_PRIVATE_KEY") -binary \
-              | b64url)
-            jwt="${unsigned}.${sig}"
-            install_id=$(curl -fsS \
-              -H "Authorization: Bearer ${jwt}" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/installation" \
-              | jq -r .id)
-            # Least privilege: scoped to THIS repo, only the push permission the
-            # loop uses (the post-loop comment step mints its own token).
-            body=$(printf '{"repositories":["%s"],"permissions":{"contents":"write"}}' \
-              "${GITHUB_REPOSITORY##*/}")
-            curl -fsS -X POST \
-              -H "Authorization: Bearer ${jwt}" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/app/installations/${install_id}/access_tokens" \
-              -d "$body" \
-              | jq -r .token
-          }
-
-          # persist-credentials is false on checkout, so authenticate the push via
-          # the App token's git credential helper. `gh auth git-credential` reads
-          # $GH_TOKEN at call time, so refreshing the variable mid-loop is enough.
-          GH_TOKEN=$(mint_app_token); export GH_TOKEN
-          gh auth setup-git
-          token_minted=$(date -u +%s)
-          TOKEN_MAX_AGE_SECONDS=3000 # re-mint at 50min, well under the 1h cap
-
-          refresh_token_if_stale() {
-            if [ "$(( $(date -u +%s) - token_minted ))" -lt "$TOKEN_MAX_AGE_SECONDS" ]; then
-              return 0
-            fi
-            GH_TOKEN=$(mint_app_token); export GH_TOKEN
-            token_minted=$(date -u +%s)
-            echo "Re-minted the App token (the previous one neared its 1h expiry)."
-          }
-          # ----------------------------------------------------------------------
-
-          deadline=$(( $(date -u +%s) + LOOP_BUDGET_SECONDS ))
-          # A chunk runs until its probe cap OR historical.max_run_minutes, so a
-          # chunk that STARTS just under the deadline can run a full slice past
-          # it — and timeout-minutes leaves only a slim margin over
-          # LOOP_BUDGET_SECONDS (headroom for the final checkpoint, not a whole
-          # extra chunk). That overshoot is what the runner kills at the hard
-          # timeout. So: never start a chunk under MIN_CHUNK_SECONDS of budget,
-          # and cap each chunk to the budget still remaining (--max-run-seconds)
-          # so the walker stops ITSELF on that wall clock (stopped=time-cap)
-          # rather than overrunning. The cursors are pushed each checkpoint, so a
-          # short final chunk just resumes next run — no work is lost.
-          MIN_CHUNK_SECONDS=120
-
-          checkpoint() {
-            # Push the blob BEFORE committing the pointer so the committed pointer
-            # always resolves against the remote (corpus-push streams straight
-            # from the workspace file — no local cache to prune). Facts go
-            # straight to the default branch under the shared corpus-write lock:
-            # the pointer, plus any outcome.json the walker's resolution recorded
-            # onto a previously-open event under data/.
-            uv run fedcourts corpus-push
-            refresh_token_if_stale
-            git add corpus/corpus.db.ref
-            if [ -d data ]; then
-              git add data/
-            fi
-            if git diff --cached --quiet; then
-              echo "No corpus or outcome change this chunk; nothing to commit."
-              return 0
-            fi
-            local ingested probed
-            ingested=$(jq -r '.ingested_granted + .ingested_denied + .ingested_other' historical-report.json)
-            probed=$(jq -r '.probed' historical-report.json)
-            git commit -m "historical: +${ingested} petition(s) (${probed} probed)"
-            # Push under the shared corpus-write lock; the rebase-and-backoff retry
-            # (loud on a genuine pointer divergence) is the same shared script the
-            # commit-corpus-to-main action uses. set -e turns its exit 1 into a
-            # failed checkpoint — the old `return 1`.
-            bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
-              "checkpoint pointer (${probed} probed)"
-          }
-
-          while :; do
-            # Don't start a chunk we can't run out fully — that is the overshoot
-            # the hard timeout would kill. The walk resumes next run from the
-            # pushed cursors.
-            remaining=$(( deadline - $(date -u +%s) ))
-            if [ "$remaining" -le "$MIN_CHUNK_SECONDS" ]; then
-              echo "Under ${MIN_CHUNK_SECONDS}s of budget left; the walk resumes next run from the cursors."
-              break
-            fi
-            # One checkpoint chunk (historical.max_probes_per_run docket probes,
-            # or fewer if the remaining budget binds first). The per-(Term,
-            # stream) cursors advance inside the corpus and are pushed each pass,
-            # so the loop resumes cleanly after any stop; the totals file
-            # accumulates the whole run's counts for the comment.
-            uv run fedcourts historical-terms \
-              --report historical-report.json --totals historical-totals.json \
-              --max-run-seconds "$remaining"
-            checkpoint
-
-            if [ "$(jq -r '.complete' historical-report.json)" = "true" ]; then
-              echo "Term walk complete: every configured stream is at its frontier."
-              break
-            fi
-            if [ "$(jq -r '.stopped' historical-report.json)" = "stream-errors" ]; then
-              echo "::warning::upstream errors stopped the remaining streams; resumes next run."
-              break
-            fi
-            # A time-cap stop means the chunk consumed the remaining budget; the
-            # top-of-loop guard ends the loop on the next pass.
-          done
-
-      # The loop can run for hours, so the up-front App token is long expired by
-      # the time it returns. Mint a fresh one for the comment/verdict steps.
-      - name: Re-mint app token for the post-loop steps
-        id: app-token-post
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-issues: write
-
-      - name: Summarize the run; comment progress on the open pull-log issue
-        env:
-          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # The body is rendered by the tested library renderer over the run's
-          # cumulative totals; this step only posts it.
-          uv run python - <<'PY'
-          from pathlib import Path
-
-          from fedcourtsai.pipeline.historical import HistoricalReport, render_markdown
-
-          report = HistoricalReport.model_validate_json(Path("historical-totals.json").read_text())
-          Path("historical-summary.md").write_text(render_markdown(report) + "\n")
-          PY
-          cat historical-summary.md >> "$GITHUB_STEP_SUMMARY"
-          # Best-effort progress comment on the day's open pull-log issue, if one
-          # exists (the 01:17 pull window opened it; dispatch runs outside the
-          # schedule may find none and keep the step summary only).
-          num=$(gh issue list --repo "$REPO" --label pull-log --state open \
-            --json number --jq '.[0].number')
-          if [ -n "$num" ]; then
-            gh issue comment "$num" --repo "$REPO" --body-file historical-summary.md
-          else
-            echo "No open pull-log issue; progress lives in the step summary."
-          fi
-
-      # Reconcile predict scope on the now-current corpus: latch the
-      # out-of-scope cases so `open_events` drops them at the source, and clear
-      # the latch on any back in scope. This job carries the daily schedule, so
-      # the sweep's cadence lives here. NON-BLOCKING: a hiccup must not fail
-      # the walker run.
-      - name: Reconcile predict scope (latch out-of-scope cases)
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ steps.app-token-post.outputs.token }}
-          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
-        run: |
-          set -euo pipefail
-          # No committed pointer means no corpus — nothing to reconcile.
-          if [ ! -f corpus/corpus.db.ref ]; then
-            echo "no corpus pointer yet; skipping scope reconcile"; exit 0
-          fi
-          gh auth setup-git  # persist-credentials is false on checkout
-          uv run fedcourts reconcile-scope --apply
-          # Blob before pointer commit, as everywhere.
-          uv run fedcourts corpus-push
-          git add corpus/corpus.db.ref
-          if git diff --cached --quiet; then
-            echo "Scope latch already converged; nothing to persist."
-            exit 0
-          fi
-          git commit -m "historical: latch out-of-scope cases"
-          # Push under the same corpus-write lock via the shared rebase-and-backoff
-          # retry (loud on a genuine pointer divergence) the writer jobs all use.
-          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
-            "scope-latch pointer"
-
-      # Trailing, NON-BLOCKING data-validation, exactly as on the other jobs:
-      # produce the correctness verdict on the now-current corpus and publish it
-      # for run-ops to present and escalate — loud-not-fatal by contract.
-      - name: Produce + publish the corpus validation verdict
-        continue-on-error: true
-        uses: ./.github/actions/publish-corpus-verdict
-        with:
-          token: ${{ steps.app-token-post.outputs.token }}
-
-  # Safety net for the historical walker. The walker's own progress comment
-  # cannot run when the job is cancelled — e.g. the hard timeout-minutes kill, or
-  # an OOM — so a cancelled/failed walk would otherwise pass silently (it commits
-  # directly to main; there is no PR gate to redden). This job DEPENDS on
-  # historical but is not cancelled with it, so it can read the result and raise
-  # ONE long-lived escalation issue — and clear it when a later walk finishes
-  # clean. Mirrors run-ops' find-or-create escalation idiom. Gated to exactly the
-  # runs where historical itself runs (same cron/dispatch condition), so the many
-  # issue-triggered run-pull runs that skip every writer never spin this up.
-  guard:
-    needs: [historical]
-    if: >-
-      always() && (
-        (github.event_name == 'schedule' && startsWith(github.event.schedule, '31 ')) ||
-        (github.event_name == 'workflow_dispatch' && inputs.mode == 'historical')
-      )
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    # This job only reads the needs result and writes a NON-triggering issue — no
-    # checkout, no corpus, no contents. Per docs/security.md that is exactly the
-    # ambient-GITHUB_TOKEN-with-job-scoped-issues:write case; the data App token
-    # is reserved for the cross-workflow triggers / contents:write the walker's
-    # own post-loop steps need, and deliberately does NOT carry issue-write. This
-    # mirrors how run-ops writes its escalation issues. Using github.token also
-    # lets GitHub's loop-prevention suppress a phantom run-pull run from the
-    # pipeline-health issue event.
-    permissions:
-      issues: write
-    steps:
-      - name: Escalate a cancelled or failed historical walk
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          RESULT: ${{ needs.historical.result }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          # `pipeline-health` is a NON-triggering label by design (no run:*
-          # workflow keys on it). Create it idempotently, as run-ops does for its
-          # escalation label.
-          gh label create pipeline-health --repo "$REPO" --force \
-            --color b60205 --description "Long-lived corpus-writer failure (run-pull guard)"
-          num=$(gh issue list --repo "$REPO" --label pipeline-health --state open \
-            --json number --jq '.[0].number')
-          # Only 'success' clears; 'failure'/'cancelled' escalate. Any other
-          # result (the job did run — this condition guarantees it was not
-          # skipped) is treated as not-clean and escalates too.
-          if [ "$RESULT" = "success" ]; then
-            if [ -n "$num" ]; then
-              gh issue comment "$num" --repo "$REPO" \
-                --body "✅ The historical walk finished cleanly again ($RUN_URL) — closing."
-              gh issue close "$num" --repo "$REPO" --reason completed
-            fi
-            exit 0
-          fi
-          {
-            echo "The historical Term-walker job ended **${RESULT}**, not \`success\`."
-            echo
-            echo "A cancelled walk is usually the wall-clock budget: a chunk overran"
-            echo "the job's hard \`timeout-minutes\` (see the historical job's budget"
-            echo "comment in .github/workflows/run-pull.yml). The walk is checkpointed"
-            echo "and resumes next window from the pushed cursors, so **no data action"
-            echo "is normally needed** — but a repeat means the budget or upstream"
-            echo "latency needs a look."
-            echo
-            echo "Run: ${RUN_URL}"
-          } > body.md
-          if [ -z "$num" ]; then
-            gh issue create --repo "$REPO" --title "Historical walk did not finish cleanly" \
-              --label pipeline-health --body-file body.md
-          else
-            # Reuse, don't spam: append the latest occurrence to the open issue.
-            gh issue comment "$num" --repo "$REPO" --body-file body.md
-          fi

@@ -210,7 +210,7 @@ def load_live_config(config_root: Path) -> LiveConfig:
 class HistoricalConfig(BaseModel):
     """The ``historical:`` section of ``tracking.yaml`` — the historical Term walker.
 
-    Drives ``fedcourts historical-terms`` (the run-pull historical job): a
+    Drives ``fedcourts historical-terms`` (the run-seed workflow): a
     sequential reverse-chronological walk of past Terms over the
     supremecourt.gov docket JSON that accumulates resolved outcomes for the
     statpack's per-Term base rates and the cert back-test set. The sampling
