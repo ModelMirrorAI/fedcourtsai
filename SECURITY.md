@@ -24,6 +24,26 @@ runbook, [docs/security.md](docs/security.md).
   and the artifact upload is an explicit allowlist that excludes it. Residual
   blast radius if the token leaked despite this: it spends pull's quota and
   forces a rotation that touches pull — it is not a model key or a GitHub token.
+  **One accepted residual, bounded on the token's low value — not on the
+  controls.** The token is a literal value in that MCP client-config file, which
+  lives in the cell's workspace, so an agent's file tools can read it. This is
+  inherent to stdio-transport MCP (the CLI spawns the server with the token in its
+  launch env) and is present in **both** predict and evaluate; in predict it is
+  further reachable via Gemini's `read_file`, whose config sets
+  `respectGitIgnore:false` to reach the provisioned `record/` snapshot. And an
+  exfiltration path genuinely exists: a prompt-injected agent could read the token
+  and write it into a free-text output field (`reasoning.md`, a rationale), which
+  the `collect` job **auto-merges to this public repo** on a green `validate` —
+  and `validate` checks schema and referential integrity, **not** secret content.
+  This is accepted anyway because the *reachable* secret is not worth stealing: it
+  is the single-account, **read-only** CourtListener token whose worst case is
+  spending pull's quota and forcing a rotation (above) — not a model key or a
+  GitHub credential (the Claude cell's only token is comment-only; Codex and Gemini
+  hold none). The prompt's don't-extract-it rule lowers the odds but is not the
+  barrier — the barrier is the low value of what an injection could reach. The
+  structural fix — a tokenless HTTP sidecar so the config carries only a
+  `localhost` URL, never the token — is deferred, to be taken up the moment a
+  higher-value secret enters this surface or the token gains write scope.
 - **Agents get a least-privilege GitHub App token, never a static one.** The
   Claude agent steps in `run:predict` / `run:evaluate` receive a short-lived
   App installation token scoped **comment-only** (`contents: read` + `issues` +
