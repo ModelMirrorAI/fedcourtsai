@@ -773,7 +773,7 @@ def backfill_live_signals(db_path: Path, *, denial_sample_every: int) -> tuple[i
     Rows the live channel wrote before the signal columns existed carry
     ``NULL`` where a freshly-ingested row would carry a value. Both gaps are
     recoverable from the corpus alone, deterministically, so this runs at a
-    corpus-writer entrypoint (the historical walker's start — the daily job
+    corpus-writer entrypoint (the historical walker's start — the run-seed job
     that sees every pre-capture row; active poller rows also self-heal on
     re-poll) rather than as a one-shot script — correct even if the corpus
     blob is ever rolled back:

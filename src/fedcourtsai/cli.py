@@ -1503,7 +1503,7 @@ def historical_terms(
         typer.Option(
             help="Fold this invocation's counts into the cumulative JSON report at "
             "this path (created if absent) — the historical loop's whole-run totals, "
-            "which its single progress comment renders."
+            "which its single step summary renders."
         ),
     ] = None,
     max_probes: Annotated[
