@@ -10,7 +10,7 @@
     },
     {
       "checked": 2151715,
-      "detail": "2151715 rows vs baseline 2151714",
+      "detail": "2151715 rows vs baseline 2151715",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
@@ -78,7 +78,7 @@
       "problems": []
     },
     {
-      "checked": 1113,
+      "checked": 1133,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
