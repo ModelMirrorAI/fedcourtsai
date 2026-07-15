@@ -231,9 +231,11 @@ jobs:
               # logPrompts:true so tool_call telemetry carries `function_args`,
               # populating retrieval_log.json's query slice (Claude/Codex already
               # capture args). The raw telemetry.log is gitignored and not
-              # uploaded; this step's env is token-free and the CLI strips custom
-              # env from agent shell commands, so a captured arg is a query, not a
-              # secret. See run-predict.yml for the fuller rationale.
+              # uploaded; the captured args come from the Gemini agent step, which
+              # is token-free (the token rides this config step only to reach the
+              # gitignored settings file), and the CLI strips custom env from agent
+              # shell commands, so a captured arg is a query, not a secret. See
+              # run-predict.yml for the fuller rationale.
               mkdir -p .gemini
               printf '%s\n' '{"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
