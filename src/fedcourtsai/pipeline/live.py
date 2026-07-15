@@ -35,6 +35,8 @@ ambiguous resolution lands on ``unrecorded`` for the run log.
 from __future__ import annotations
 
 import sqlite3
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -199,7 +201,7 @@ def provision_documents(
         return corpus.upsert_documents(conn, documents)
 
 
-def discover_live(
+def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -209,6 +211,8 @@ def discover_live(
     frontier_misses: int = 2,
     document_text_cap: int = 150_000,
     today: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
 ) -> LiveDiscovery:
     """Probe the Term's frontier serials and onboard each served petition.
 
@@ -223,13 +227,17 @@ def discover_live(
     if max_new <= 0:
         return result
     for stream, base in STREAMS:
-        if len(result.onboarded) >= max_new:
+        if len(result.onboarded) >= max_new or (deadline is not None and time_fn() >= deadline):
             break
         with corpus.connect(corpus_db_path) as conn:
             cursor = corpus.get_live_cursor(conn, term, stream)
         serial = (cursor + 1) if cursor is not None else base
         misses = 0
-        while misses < frontier_misses and len(result.onboarded) < max_new:
+        while (
+            misses < frontier_misses
+            and len(result.onboarded) < max_new
+            and (deadline is None or time_fn() < deadline)
+        ):
             try:
                 payload = client.get_docket(term, serial)
             except httpx.HTTPError as exc:
@@ -275,7 +283,7 @@ def discover_live(
     return result
 
 
-def poll_live_cases(
+def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -284,6 +292,8 @@ def poll_live_cases(
     scope: PredictScope = PredictScope.all,
     document_text_cap: int = 150_000,
     today: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
 ) -> PullQueues:
     """Refresh each due pending petition and sort it into the handoff queues.
 
@@ -302,6 +312,12 @@ def poll_live_cases(
     queues = PullQueues()
     gated = scope == PredictScope.scotus_docket
     for row in due:
+        if deadline is not None and time_fn() >= deadline:
+            # Soft wall-clock budget reached: stop cleanly with the polls done so
+            # far committed (each poll advances last_live_polled), so the caller
+            # pushes real progress and the next cycle resumes the rotation from
+            # the stalest unpolled rows — never re-doing this cycle wholesale.
+            break
         parsed = parse_scotus_docket_number(row.docket_number)
         docket_id = int(row.case_id.rsplit("/", 1)[-1])
         if parsed is None:
@@ -419,7 +435,7 @@ def _route_result(
         )
 
 
-def live_poll_all(
+def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -428,6 +444,8 @@ def live_poll_all(
     config: LiveConfig,
     scope: PredictScope = PredictScope.all,
     today: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
 ) -> tuple[PullQueues, LiveDiscovery]:
     """One live cycle: frontier discovery, then the pending-petition refresh.
 
@@ -452,6 +470,8 @@ def live_poll_all(
         frontier_misses=config.frontier_misses,
         document_text_cap=config.document_text_cap,
         today=today,
+        deadline=deadline,
+        time_fn=time_fn,
     )
     queues = PullQueues()
     gated = scope == PredictScope.scotus_docket
@@ -485,6 +505,8 @@ def live_poll_all(
         scope=scope,
         document_text_cap=config.document_text_cap,
         today=today,
+        deadline=deadline,
+        time_fn=time_fn,
     )
     queues.predict.extend(refreshed.predict)
     queues.predict_skipped_decided.extend(refreshed.predict_skipped_decided)

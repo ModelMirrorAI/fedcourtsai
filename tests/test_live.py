@@ -564,6 +564,73 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
     assert relisted.distributed_for_conference == date(2026, 10, 10)
 
 
+def test_live_poll_all_expired_budget_is_a_clean_noop(tmp_path: Path) -> None:
+    # A soft budget already spent: the cycle onboards nothing and polls nothing,
+    # writing nothing — so a starved window is a no-op, never a partial-write mess.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {"25-1": _payload("25-1")}
+    with _frontier_client(served) as client:
+        queues, discovery = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            today=date(2026, 7, 9),
+            deadline=0.0,
+            time_fn=lambda: 5.0,  # already past the deadline
+        )
+    assert discovery.onboarded == []
+    assert queues.predict == [] and queues.evaluate == []
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, "scotus/9025000001") is None
+
+
+def test_live_poll_all_soft_budget_stops_the_refresh_partway(tmp_path: Path) -> None:
+    # The refresh commits the polls it completes before the budget trips and
+    # leaves the rest for next cycle (stalest-first) — the anti-livelock property.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    config = LiveConfig()
+    distributed = {"Date": "Jul 07 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+    served = {
+        f"25-{i}": _payload(
+            f"25-{i}", proceedings=[_payload()["ProceedingsandOrder"][0], distributed]
+        )
+        for i in range(1, 5)
+    }
+    with _frontier_client(served) as client:
+        _, discovery = live_poll_all(
+            client, db, data_root, term=25, config=config, today=date(2026, 7, 1)
+        )
+    assert len(discovery.onboarded) == 4  # four distributed, still-pending petitions
+
+    # Cycle 2: max_new=0 makes discovery a no-op that spends no budget (early
+    # return before any clock read), so the deadline governs the refresh alone; a
+    # clock that ticks once per row trips it after two polls.
+    ticks = iter(range(100))
+    refresh_only = config.model_copy(update={"max_new_cases_per_run": 0})
+    with _frontier_client(served) as client:
+        live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=refresh_only,
+            today=date(2026, 7, 2),
+            deadline=2,
+            time_fn=lambda: next(ticks),
+        )
+    with corpus.connect(db) as conn:
+        polled_today = [
+            r.case_id
+            for r in corpus.iter_rows(conn, court="scotus")
+            if r.last_live_polled == date(2026, 7, 2)
+        ]
+    assert len(polled_today) == 2  # two committed this cycle; the other two wait
+
+
 def test_conference_parse_last_distribution_wins() -> None:
     payload = _payload(
         proceedings=[
