@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "d70dfdef69574b1c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4cf9f2199d34652a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "37ada6e16b09bcef",
+      "query": "uv run fedcourts paths --court scotus --docket 73278426 --event evt-petition-disposition 2>&1; echo ---; find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426 -type f | head -50",
+      "result_digest": "545d7dfd4d8ff411",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8755109a0cf30da0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "4fa85f1685823760",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "14a561b7eb286ee1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ff799abfcfc4f47c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/snapshots/2026-07-15.json\"}",
+      "result_digest": "470e62f1151fdf2c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2749483773efffcd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/documents/documents.json\"}",
+      "result_digest": "00791137277a7b2a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "939d0a4092ac2330",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/documents/questions-presented.txt\"}",
+      "result_digest": "15c5f11a9db6e7eb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1102e55709b34105",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/documents/brief-in-opposition.txt",
+      "result_digest": "43dbe8ee689816d2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0c0ff6a0552bd9b9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "50bb702eeebcfb05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1f7717f80f14e2d4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278426/record/documents/brief-in-opposition.txt\", \"limit\": 260}",
+      "result_digest": "f85b847e655f3bdc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "db3ed8504733264b",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && head -100 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "394f2dc03c04b169",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "331c95d18fbbc188",
+      "query": "sed -n 100,220p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9c520385c5d1cd83",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1cb625aeb343e071",
+      "query": "grep -n -A 20 \"salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "75b9f1aa8811f304",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "431a00aa2087ede6",
+      "query": "uv run fedcourts query --court scotus --era 2020s --citation \"597 U.S. 1\" --limit 8 2>ranged.err; echo \"--- stderr:\"; cat ranged.err",
+      "result_digest": "46f6d0f28a25917c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "245a48026bdbc786",
+      "query": "uv run fedcourts query --court scotus --era 2020s --citation \"554 U.S. 570\" --citation \"142 S. Ct. 2111\" --limit 8 2>ranged2.err; echo \"--- stderr:\"; cat ranged2.err",
+      "result_digest": "46f6d0f28a25917c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7259df165a939994",
+      "query": "select:WebSearch,WebFetch",
+      "result_digest": "b39b7e39e3708321",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "4e31ded59f9d8beb",
+      "query": "Supreme Court cert granted assault weapons ban 2026 Duncan v. Bonta OR \"Gator's Custom Guns\" OR Benson",
+      "result_digest": "a0453be85a29a416",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "90e3f974ce8b842c",
+      "query": "Which cases did the Supreme Court grant cert in, on what date? What happened to National Association for Gun Rights v. Lamont (25-421), Duncan v. Bonta, and Gator's Custom Guns? Any details on questions presented, consolidation, and which petitions were denied or held?",
+      "result_digest": "f777205480cea2a2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "136b93da05039c8c",
+      "query": "What happened on the Supreme Court's July 2026 order list regarding assault weapon and magazine ban petitions? Specifically: what happened to NAGR v. Lamont (25-421), Duncan v. Bonta (25-198), Gator's Custom Guns (25-153), Snope-related petitions? Which were granted, denied, or held/relisted? Any explanation of why the Court chose Viramontes and Grant?",
+      "result_digest": "e31b91d39cbbadcc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "5864e35b29844604",
+      "query": "\"NAGR\" OR \"National Association for Gun Rights\" \"25-421\" Lamont Supreme Court held July 2026",
+      "result_digest": "0c479ca97c4fa9d5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "fe74fcb6081514b9",
+      "query": "List all docket entries from June 2026 onward, verbatim. Is there any order granting, denying, or holding the petition? What is the most recent entry and its date?",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "f7bbbc8bb8cf438d",
+      "query": "What is the current status of this petition (25-421)? List the most recent docket proceedings and dates, especially anything in July 2026 \u2014 any grant, denial, hold, or further distribution. Also note the questions presented and any linkage to Grant v. Higgins or Viramontes v. Cook County.",
+      "result_digest": "f5e5c3efc5d9f31b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "dd2697c38d948154",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json | head -80",
+      "result_digest": "14afb125fdffdd1a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b5d13161794bc925",
+      "query": "sed -n 80,140p /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "a36b9ebfdb7282af",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f4a8773185793a67",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73278426\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260715T072005Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-15T07:26:43Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73278426/record/snapshots/2026-07-15.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.71,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"co",
+      "result_digest": "738bf6e45e914c5e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0e3150f5c8c9170f",
+      "query": "{\"content\": \"# NAGR v. Lamont, No. 25-421 \\u2014 petition disposition (forward mode)\\n\\n## The case\\n\\nPetitioners (National Association for Gun Rights and an individual member)\\nchallenge Connecticut's assault-weapons and large-capacity-magazine bans. The\\ndistrict court denied a preliminary injunction (D. Conn., Aug. 3, 2023) and the\\nSecond Circuit affirmed on August 22, 2025 in a consolidated decision that also\\nresolved the companion appeal *Grant v. Lamont* (Nos. 23-1162, 23-1344). The\\nqu",
+      "result_digest": "fb91d8f76653ac6b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "123f5e57ab5889a0",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73278426 \\u00b7 evt-petition-disposition \\u00b7 claude-baseline \\u00b7 20260715T072005Z\\n\\nMode: `forward` (retrieval unrestricted; no outcome exists for this petition).\\n\\n## Corpus / committed base rates\\n\\n- Read committed `metrics/statpack.md` \\u2014 modern discretionary-cert base rates\\n  (grant \\u2248 2.5\\u20133%/Term), relist-count cut (3+ relists \\u2192 granted 21.8%), CVSG\\n  cut, per-circuit cuts. No salience-band table present in this statpac",
+      "result_digest": "bc224a132cf7580f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "91834e088bb05bc2",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73278426\\\",\\n  \\\"run_id\\\": \\\"20260715T072005Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"WebSearch\\\",\\n    \\\"WebFetch\\\",\\n    \\\"provisioned snapshot + filed-document texts\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned questions-prese",
+      "result_digest": "e13a1c41fc539c66",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9d484493595abaf6",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/cases/scotus/73278426",
+      "result_digest": "063a16607fd7255b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "80dc62c093958494",
+      "query": "gh issue comment 682 --body \"claude-baseline \u00b7 scotus/73278426 \u00b7 evt-petition-disposition \u00b7 20260715T072005Z \u2014 prediction written: **gvr**, P(grant incl. GVR) = 0.71. NAGR v. Lamont (25-421) was passed over on the 7/2/2026 order list in favor of the consolidated grants in Grant v. Higgins (same 2d Cir judgment) and Viramontes v. Cook County; modal path is hold \u2192 GVR after the merits decision (~June 2027), denial if the Second Circuit is affirmed. Details in reasoning.md/retrieval.md.\" 2>&1 | tai",
+      "result_digest": "2fb659f01be0c952",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73278426",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260715T072005Z",
+  "schema_version": "1.0"
+}

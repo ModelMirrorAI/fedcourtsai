@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278426",
+  "run_id": "20260715T072005Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "CourtListener MCP search",
+    "CourtListener MCP opinion endpoint",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "The provisioned petition, brief in opposition, and questions presented made the merits and vehicle dispute concrete.",
+    "Relist and paid-petition cuts in the committed statpack materially improved probability calibration.",
+    "CourtListener metadata confirmed that a related final-record appellate vehicle had matured."
+  ],
+  "gaps": [
+    "The remote ranged corpus was unavailable because its host could not be resolved.",
+    "CourtListener returned metadata but no text for the July 9, 2026 Seventh Circuit opinions.",
+    "The statpack did not contain the salience-band table described in the prediction prompt."
+  ],
+  "notes": "The corpus-query command was invoked but returned no priors. The prediction therefore relies on provisioned filings, committed base rates, and limited CourtListener metadata."
+}
