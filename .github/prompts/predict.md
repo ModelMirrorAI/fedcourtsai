@@ -82,13 +82,13 @@ cross-evaluator reads it.
   whether it shaped your prediction) rather than pretending to un-see it — an
   honest flag keeps the cell usable as iteration signal.
 - **If the MCP server is unavailable, degrade gracefully — there is no REST
-  fallback.** The MCP server is the cell's only live CourtListener path; your
-  cell holds **no CourtListener credential**, so do not attempt a direct REST
-  call (it cannot authenticate, and there is no token to find — never go looking
-  for one). When an MCP tool call errors, fall back to the **corpus tooling
-  below** (priors and base rates — these read the corpus, not CourtListener) and
-  the provisioned inputs, and say so in `reasoning.md`. A degraded upstream
-  degrades the cell, never blocks it.
+  fallback.** The MCP server is the cell's only sanctioned live CourtListener
+  path. Your shell env carries no CourtListener token, and you must **not** go
+  extracting one from the MCP client-config file (or anywhere else) to make
+  direct REST calls — MCP is the only path, by design. When an MCP tool call
+  errors, fall back to the **corpus tooling below** (priors and base rates —
+  these read the corpus, not CourtListener) and the provisioned inputs, and say
+  so in `reasoning.md`. A degraded upstream degrades the cell, never blocks it.
 - **Budget etiquette** (advisory): keep it to roughly **25 retrieval calls**
   per cell. If retrieval is exhausted or throttled, proceed on the provisioned
   inputs and say so in `reasoning.md` — a degraded upstream degrades the cell,
