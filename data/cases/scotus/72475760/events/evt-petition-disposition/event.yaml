@@ -1,0 +1,11 @@
+case_id: scotus/72475760
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-11-07'
+resolved: true
+schema_version: '1.0'
+title: Robin Carnahan, Administrator of the General Services Administration, Petitioner
+  v. Carolyn Maloney, et al.

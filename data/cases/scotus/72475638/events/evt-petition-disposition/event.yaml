@@ -1,0 +1,11 @@
+case_id: scotus/72475638
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-10-03'
+resolved: true
+schema_version: '1.0'
+title: A. W., et al., Petitioners v. Princeton Public Schools Board of Education,
+  et al.

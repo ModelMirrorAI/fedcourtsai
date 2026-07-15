@@ -1,0 +1,11 @@
+case_id: scotus/72479117
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-03-02'
+resolved: true
+schema_version: '1.0'
+title: Bailie Bye, Petitioner v. MGM Resorts International, Inc., dba Beau Rivage
+  Resort and Casino

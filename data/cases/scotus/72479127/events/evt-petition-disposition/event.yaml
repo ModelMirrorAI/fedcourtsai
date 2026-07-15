@@ -1,0 +1,11 @@
+case_id: scotus/72479127
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-03-03'
+resolved: true
+schema_version: '1.0'
+title: K. M., Individually and on Behalf of M. M. and S. M., et al., Petitioners v.
+  Eric L. Adams, Mayor of the City of New York, et al.
