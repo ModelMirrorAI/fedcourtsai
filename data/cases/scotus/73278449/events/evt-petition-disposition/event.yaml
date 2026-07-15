@@ -1,0 +1,11 @@
+case_id: scotus/73278449
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-10-09'
+resolved: true
+schema_version: '1.0'
+title: Public Interest Legal Foundation, Petitioner v. Jocelyn Benson, in Her Official
+  Capacity as Michigan Secretary of State, et al.
