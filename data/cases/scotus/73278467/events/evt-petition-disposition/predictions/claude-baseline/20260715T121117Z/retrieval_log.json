@@ -1,0 +1,310 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "d70dfdef69574b1c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4cf9f2199d34652a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a8fa3f682d367607",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467 -type f | head -50",
+      "result_digest": "6739a3f1fcc71808",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "893112ee9b318dd9",
+      "query": "uv run fedcourts paths --court scotus --docket 73278467 --event evt-petition-disposition 2>&1",
+      "result_digest": "d0beac86d43cf42c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e29a7ff40084c2c0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3a311d9756cf5246",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "edbbfe96cc66d088",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "22a85da4a06b6b5a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/snapshots/2026-07-15.json\"}",
+      "result_digest": "b92c6193abe5af9b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ab9e18ecacac7723",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/documents/documents.json\"}",
+      "result_digest": "372fd77e7c871201",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "594860a6469d7f24",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/documents/questions-presented.txt\"}",
+      "result_digest": "6a200f70c24e74cf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "211685651530da6d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "a7e0ae8e962b53cd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0f83eac5a809d02a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/documents/brief-in-opposition.txt\", \"limit\": 300}",
+      "result_digest": "5276dac97e06f66f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "26585c4ccdb4c813",
+      "query": "grep -n \"vehicle\\|interlocutory\\|12(b)(6)\\|qualified immunity\\|moot\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/documents/brief-in-opposition.txt | head -40",
+      "result_digest": "a18f7384dd13902d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bd97220b539aee7b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/record/documents/brief-in-opposition.txt\", \"limit\": 330, \"offset\": 820}",
+      "result_digest": "05c6da114ac58e2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0b0561946cacc67a",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md && grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "a43b8d59ddf0bfc2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bf349d466b14caa6",
+      "query": "sed -n '1,120p' /home/runner/work/fedcourtsai/fedcourtsai/docs/cli.md",
+      "result_digest": "b226e578802d7c0e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fc7d9f580a061e6e",
+      "query": "uv run fedcourts query --court scotus --topic \"transgender\" --limit 8 --corpus-backend ranged 2>&1 | head -30",
+      "result_digest": "1afbdc2c4909729f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3eae4660e4bf81b0",
+      "query": "uv run fedcourts query --court scotus --topic \"prison\" --limit 5 --corpus-backend ranged 2>&1 | head -20; echo ---; uv run fedcourts query --court scotus --topic \"equal protection\" --limit 5 --corpus-backend ranged 2>&1 | head -20",
+      "result_digest": "92cb9f66aeab7d83",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bf56169f59ad0d78",
+      "query": "uv run fedcourts query --court scotus --topic \"strip search\" --limit 5 --corpus-backend ranged 2>&1 | head; echo ---; uv run fedcourts query --court scotus --topic \"inmate\" --limit 5 --corpus-backend ranged 2>&1 | head -10",
+      "result_digest": "92cb9f66aeab7d83",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "8e67b84ed93061e4",
+      "query": "{\"case_name\": \"Hecox\", \"court\": \"scotus\", \"fields\": [\"caseName\", \"dateFiled\", \"docket_id\", \"docketNumber\", \"status\", \"absolute_url\"], \"num_results\": 5, \"type\": \"o\"}",
+      "result_digest": "eb1e7ad0609f4a50",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "c378b22cd4cab7eb",
+      "query": "{\"case_name\": \"B.P.J.\", \"court\": \"scotus\", \"fields\": [\"caseName\", \"dateFiled\", \"docket_id\", \"docketNumber\", \"status\", \"absolute_url\"], \"num_results\": 5, \"type\": \"o\"}",
+      "result_digest": "b99838566d1f7617",
+      "retrieved_doc_date": "2026-06-30",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "402faaa5ec4e48ba",
+      "query": "{\"endpoint_id\": \"clusters\", \"query\": {\"fields\": [\"id\", \"case_name\", \"date_filed\", \"judges\", \"syllabus\", \"headnotes\", \"summary\", \"procedural_history\", \"attorneys\"], \"id\": 10882186}}",
+      "result_digest": "b9eae5f2245f00ad",
+      "retrieved_doc_date": "2026-06-30",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "75e58e0582260592",
+      "query": "\"Equal Protection\" scrutiny",
+      "result_digest": "7306fde152c8836b",
+      "retrieved_doc_date": "2026-06-30",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "69241b062c473697",
+      "query": "{\"case_name\": \"B.P.J.\", \"court\": \"scotus\", \"fields\": [\"caseName\", \"dateFiled\", \"syllabus\", \"posture\", \"opinions\"], \"num_results\": 1, \"type\": \"o\"}",
+      "result_digest": "b971c3e89adfae8a",
+      "retrieved_doc_date": "2026-06-30",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "dbb3b902273ad2aa",
+      "query": "cd /tmp && curl -s -A \"Mozilla/5.0\" -o bpj.pdf \"https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf\" && ls -la bpj.pdf && (pdftotext -f 1 -l 4 bpj.pdf bpj.txt 2>/dev/null && head -c 4000 bpj.txt || echo \"pdftotext unavailable\")",
+      "result_digest": "74a03dbf056977f7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bddee0548e053258",
+      "query": "cd /tmp && uv run --with pypdf python -c \"\nfrom pypdf import PdfReader\nr = PdfReader('bpj.pdf')\nprint('pages:', len(r.pages))\nfor i in range(4):\n    print(r.pages[i].extract_text()[:2200])\n    print('---PAGE---')\n\" 2>/dev/null | head -120",
+      "result_digest": "7463e5e565102570",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5c82b8d753d39088",
+      "query": "cd /tmp && uv run --with pypdf python -c \"\nfrom pypdf import PdfReader\nr = PdfReader('bpj.pdf')\nt = r.pages[2].extract_text() + r.pages[3].extract_text()\nprint(t[:4500])\n\" 2>/dev/null",
+      "result_digest": "cf8482e84dbcf28a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "891a48e9bcb7c285",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20260715T121117Z",
+      "result_digest": "33568c070820138e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "55420343eb905c79",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73278467\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260715T121117Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-15T12:17:17Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73278467/record/snapshots/2026-07-15.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.4,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "4482bd267973d095",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8138417625f5caa9",
+      "query": "{\"content\": \"# Roybal v. Griffith, No. 25-442 \\u2014 cert disposition prediction\\n\\n**Prediction: P(granted, GVR included) = 0.40; modal disposition: denied.**\\n\\n## The case\\n\\nDarlene Griffith, a transgender woman detained pretrial at the El Paso County\\n(Colorado) Jail, sued under \\u00a7 1983 after the jail \\u2014 applying a policy that\\nassigns housing solely by genitalia \\u2014 placed her in a male unit, subjected her\\nto a cross-gender strip search (conducted, per the allegations, in an ab",
+      "result_digest": "09de9bf9dbbbabb0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4c55392bd2855abf",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73278467 / evt-petition-disposition / claude-baseline / 20260715T121117Z\\n\\nBeyond the provisioned inputs (snapshot 2026-07-15, questions-presented,\\npetition, brief-in-opposition, event.yaml, context.json) and the committed\\n`metrics/statpack.md`, I consulted:\\n\\n## Corpus lookups (`fedcourts query`, ranged backend)\\n\\nAll four queries returned **no rows** (no matching priors surfaced); each\\ntransfer line as reported on stderr:\\n\\n1. `uv run fedcourts",
+      "result_digest": "f39e5706f9ce5595",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "25d2808f54e39dee",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73278467\\\",\\n  \\\"run_id\\\": \\\"20260715T121117Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"CourtListener MCP (search, call_endpoint)\\\",\\n    \\\"web fetch of a supremecourt.gov slip opinion\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack CVSG and re",
+      "result_digest": "7bb6fcc27f4b2a3f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9fe809668dd0fb09",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "a340aae8c144efba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b5fe4b82abbeccde",
+      "query": "gh issue comment 684 --body \"**claude-baseline / 20260715T121117Z** \u2014 prediction written for \\`scotus/73278467\\` / \\`evt-petition-disposition\\` (Roybal v. Griffith, No. 25-442).\n\nP(granted, GVR incl.) = **0.40**; modal disposition **denied** (granted=0). Key signal: held ~7 months for West Virginia v. B.P.J. (decided 6/30/2026, sex-based classification upheld under intermediate scrutiny), then CVSG'd the same day rather than denied/GVR'd \u2014 anchored on the statpack CVSG bucket (27.1% grant), adju",
+      "result_digest": "6f8c63f358ea7d9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73278467",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260715T121117Z",
+  "schema_version": "1.0"
+}

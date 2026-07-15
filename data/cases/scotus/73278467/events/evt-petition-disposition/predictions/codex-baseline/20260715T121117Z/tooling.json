@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260715T121117Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint retrieval",
+    "committed statpack"
+  ],
+  "helpful": [
+    "Complete provisioned petition and brief in opposition",
+    "CVSG and distribution history in the provisioned snapshot",
+    "CourtListener access to the intervening June 30, 2026 Supreme Court opinion",
+    "CVSG and fee-class base rates in the committed statpack"
+  ],
+  "gaps": [
+    "The ranged corpus query could not reach the corpus store because DNS resolution failed",
+    "The committed statpack did not include the salience-band table described in the predictor prompt"
+  ],
+  "notes": "The CourtListener MCP and provisioned filings were sufficient to assess the intervening precedent and vehicle issues despite the unavailable corpus-prior lookup."
+}

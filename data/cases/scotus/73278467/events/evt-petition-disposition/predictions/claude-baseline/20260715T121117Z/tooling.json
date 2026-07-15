@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260715T121117Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "CourtListener MCP (search, call_endpoint)",
+    "web fetch of a supremecourt.gov slip opinion"
+  ],
+  "helpful": [
+    "statpack CVSG and relist signal cuts — the CVSG bucket was the anchor for this cell",
+    "provisioned petition/BIO/QP text — the BIO's vehicle arguments drove the downward adjustment",
+    "CourtListener MCP for establishing the holding of the related decided case the petition was held for"
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for every topic tried (transgender, prison, equal protection, strip search, inmate) — either topic matching is too strict or the corpus lacks topical priors for modern cert petitions; a query-by-signal ability (e.g. 'resolved CVSG petitions with their dispositions') would have been more useful than topic search",
+    "statpack CVSG bucket doesn't say whether GVRs are counted in 'granted', which matters for the binary axis on CVSG-heavy cells",
+    "the prompt references a 'Segment base rate by salience band' statpack section that is not present in the committed statpack.md"
+  ],
+  "notes": "Slip-opinion syllabus extraction needed an ad-hoc pypdf install; a small provisioned PDF-text helper would make opinion retrieval cheaper."
+}
