@@ -2412,7 +2412,7 @@ def live_poll(
         typer.Option(
             help="Optional soft wall-clock budget for the cycle, seconds. When reached, "
             "the cycle stops cleanly with progress so far committed and resumes next "
-            "cycle from the stalest unpolled rows — keeps a large watchlist from "
+            "cycle where the rotation left off — keeps a large watchlist from "
             "overrunning the job timeout (the workflow sets it under that timeout)."
         ),
     ] = None,

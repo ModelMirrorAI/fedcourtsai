@@ -589,7 +589,8 @@ def test_live_poll_all_expired_budget_is_a_clean_noop(tmp_path: Path) -> None:
 
 def test_live_poll_all_soft_budget_stops_the_refresh_partway(tmp_path: Path) -> None:
     # The refresh commits the polls it completes before the budget trips and
-    # leaves the rest for next cycle (stalest-first) — the anti-livelock property.
+    # leaves the rest for next cycle (rotation resumes where it left off) — the
+    # anti-livelock property.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     config = LiveConfig()

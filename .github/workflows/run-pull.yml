@@ -413,7 +413,8 @@ jobs:
     # the September long conference) and the S3 transfer. `live-poll` self-bounds
     # to a soft wall-clock budget (`--max-run-seconds` below), committing progress
     # so far and resuming next cycle, so a big watchlist can never overrun this
-    # hard cap — which stays above the soft budget with margin for the push.
+    # hard cap — which stays above the soft budget with margin for the fixed
+    # setup (checkout + corpus-pull) before the poll and the push after it.
     timeout-minutes: 35
     environment: runner
     # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
@@ -514,7 +515,8 @@ jobs:
         # --max-run-seconds is the soft wall-clock budget: the cycle stops
         # cleanly and commits progress so far when reached, so even a peak
         # watchlist stays under the job's 35 min timeout-minutes with room for
-        # the push (1500s = 25 min; the next cycle resumes the rotation).
+        # the fixed setup and the push (1500s = 25 min; the next cycle resumes
+        # the rotation where it left off).
         run: |
           uv run fedcourts live-poll \
             --max-run-seconds 1500 \

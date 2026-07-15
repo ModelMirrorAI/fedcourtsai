@@ -315,8 +315,9 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
         if deadline is not None and time_fn() >= deadline:
             # Soft wall-clock budget reached: stop cleanly with the polls done so
             # far committed (each poll advances last_live_polled), so the caller
-            # pushes real progress and the next cycle resumes the rotation from
-            # the stalest unpolled rows — never re-doing this cycle wholesale.
+            # pushes real progress and the next cycle resumes the rotation where
+            # it left off (nearest-conference-first, staleness breaking ties)
+            # rather than re-doing this cycle wholesale.
             break
         parsed = parse_scotus_docket_number(row.docket_number)
         docket_id = int(row.case_id.rsplit("/", 1)[-1])
