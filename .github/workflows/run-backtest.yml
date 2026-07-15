@@ -31,6 +31,15 @@ on:
         description: "Comma-separated engines to opt out of the replay (e.g. 'gemini'); empty runs all three."
         type: string
         default: ""
+      scope:
+        description: "Population: all = every modern-cert petition; paid = drops IFP; selected = the salience gate's carve-out core (live-comparable)."
+        type: choice
+        options: [all, paid, selected]
+        default: all
+      spread:
+        description: "Sample across conference cohorts (a full term's cadence) instead of the most recently decided N."
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -148,14 +157,21 @@ jobs:
           # empty on the issues event, so this reads '' there with no ternary. An
           # unknown engine name simply matches no predictor.
           SKIP_ENGINES: ${{ inputs.skip_engines }}
+          # A label run takes the defaults (whole modern-cert population, recency
+          # order); dispatch may scope to the live-comparable slice and spread it
+          # across conferences.
+          SCOPE: ${{ github.event_name == 'issues' && 'all' || inputs.scope }}
+          SPREAD: ${{ github.event_name == 'issues' && 'false' || inputs.spread }}
         run: |
           set -euo pipefail
           if [ ! -f corpus/corpus.db ]; then
             echo "::error::no corpus on disk; nothing to back-test" >&2
             exit 1
           fi
+          if [ "$SPREAD" = "true" ]; then SPREAD_FLAG=--spread; else SPREAD_FLAG=--no-spread; fi
           uv run fedcourts cert-backtest \
             --engine "$ENGINE" --limit "$LIMIT" --skip-engines "$SKIP_ENGINES" \
+            --scope "$SCOPE" "$SPREAD_FLAG" \
             --work-dir "$RUNNER_TEMP/backtest-cells"
 
       # The review PR is opened with the dev App token, exactly like the

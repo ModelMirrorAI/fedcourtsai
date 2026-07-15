@@ -40,11 +40,12 @@ from .backtest import (
     BacktestPrediction,
     backtest_features,
 )
+from .config import SalienceConfig
 from .paths import CasePaths
 from .pipeline.evaluate import brier_skill, segment_base_rate
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .pipeline.runner import EngineUnavailable, Runner, RunRequest, get_runner
-from .pipeline.salience import salience_band, salience_bands
+from .pipeline.salience import salience_band, salience_bands, salience_score
 from .registry import enabled_predictors
 from .schemas import (
     CalibrationBin,
@@ -68,8 +69,86 @@ from .serialize import read_model, write_raw_json, write_yaml
 _CALIBRATION_BINS = 10
 
 
+CERT_BACKTEST_SCOPES: tuple[str, ...] = ("all", "paid", "selected")
+
+
+def _in_scope(row: corpus.CorpusRow, scope: str, floor: float) -> bool:
+    """Whether a hard-eligible cert row is in the requested ``scope``.
+
+    ``all`` is every modern-cert petition (the raw predictor-quality view).
+    ``paid`` narrows to the paid segment the salience gate scores (IFP being the
+    dominant Tier-0 exclusion — :func:`analytics._is_scored_segment_row`, the same
+    scored-segment proxy the statpack uses; a non-IFP Tier-0 drop is not modeled
+    here). ``selected`` narrows further to the gate's own **carve-out** rule — a
+    CVSG petition or one at/above the salience ``floor``
+    (:func:`pipeline.salience._select_cohort`) — the ``N``-independent core of the
+    live selected slice. It is that core, not the whole live population: the live
+    slice also fills to ``N`` by rank, a cohort-dependent remainder not
+    reconstructable at back-test time.
+    """
+    if scope == "all":
+        return True
+    if not _is_scored_segment_row(row):  # paid modern-cert only
+        return False
+    if scope == "paid":
+        return True
+    return row.cvsg_date is not None or salience_score(row) >= floor
+
+
+def _conference_key(row: corpus.CorpusRow) -> str:
+    """A cohort key for the spread sampler: the conference, else the Term.
+
+    Prefers the parsed ``distributed_for_conference`` (only the live/REST channels
+    populate it); falls back to the docket's Term year so bulk-seeded rows still
+    spread across terms rather than collapsing into one bucket.
+    """
+    if row.distributed_for_conference is not None:
+        return row.distributed_for_conference.isoformat()
+    term = corpus.scotus_term_year(row.docket_number)
+    return f"term-{term}" if term is not None else "term-unknown"
+
+
+def _spread_sample(rows_recent_first: list[corpus.CorpusRow], limit: int) -> list[corpus.CorpusRow]:
+    """Round-robin across conference cohorts, most-recent within each.
+
+    Most-recent-first ordering alone collapses a small ``limit`` onto the last
+    order lists (a grant/GVR-heavy term-end snapshot); this instead draws the
+    newest petition from each conference, then the next from each, until ``limit``
+    — so the sample mirrors a full term's live cadence across conferences rather
+    than one moment. Deterministic: buckets preserve the recency order they were
+    fed, and cohorts are visited in most-recent-first order.
+    """
+    buckets: dict[str, list[corpus.CorpusRow]] = {}
+    order: list[str] = []
+    for row in rows_recent_first:
+        key = _conference_key(row)
+        if key not in buckets:
+            buckets[key] = []
+            order.append(key)
+        buckets[key].append(row)
+    sampled: list[corpus.CorpusRow] = []
+    depth = 0
+    while len(sampled) < limit:
+        progressed = False
+        for key in order:
+            if depth < len(buckets[key]):
+                sampled.append(buckets[key][depth])
+                progressed = True
+                if len(sampled) >= limit:
+                    return sampled
+        if not progressed:
+            break
+        depth += 1
+    return sampled
+
+
 def select_cert_backtest_set(
-    conn: sqlite3.Connection, *, limit: int | None = None
+    conn: sqlite3.Connection,
+    *,
+    limit: int | None = None,
+    scope: str = "all",
+    spread: bool = False,
+    salience_floor: float | None = None,
 ) -> list[BacktestItem]:
     """The decided cert petitions to back-test, most recently decided first.
 
@@ -77,10 +156,25 @@ def select_cert_backtest_set(
     (:func:`corpus.is_modern_cert` — the Term-prefixed post-1925 form, so the
     mandatory-jurisdiction and application/original regimes never contaminate
     the label space), carries a **machine-readable** disposition (the same bar
-    outcome detection trusts), and has internally consistent dates. Ordered by
-    most recent decision then ``case_id`` (deterministic), so a small ``limit``
-    samples recent cert practice — the population the live task resembles.
+    outcome detection trusts), and has internally consistent dates.
+
+    ``scope`` (:data:`CERT_BACKTEST_SCOPES`) then narrows to the population the
+    live task runs on: ``all`` keeps every modern-cert petition; ``paid`` drops
+    IFP (the gate's Tier-0 exclusion); ``selected`` keeps only the gate's
+    carve-out core (CVSG or at/above ``salience_floor``), the closest replay-safe
+    analog of the live selected slice. ``salience_floor`` defaults to the shipped
+    :class:`SalienceConfig` floor.
+
+    Ordering is by most recent decision then ``case_id`` (deterministic), so a
+    small ``limit`` samples recent cert practice. ``spread`` instead round-robins
+    across conference cohorts (:func:`_spread_sample`), so the sample mirrors a
+    full term's live cadence rather than collapsing onto the last order lists.
     """
+    if scope not in CERT_BACKTEST_SCOPES:
+        raise ValueError(
+            f"unknown scope {scope!r}; choose one of {', '.join(CERT_BACKTEST_SCOPES)}"
+        )
+    floor = salience_floor if salience_floor is not None else SalienceConfig().floor
     rows = [
         row
         for row in corpus.iter_rows(conn, court="scotus", resolved=True)
@@ -88,9 +182,12 @@ def select_cert_backtest_set(
         and is_machine_readable(Disposition(row.disposition))
         and corpus.is_modern_cert(row)
         and not corpus.is_date_inconsistent(row)
+        and _in_scope(row, scope, floor)
     ]
     rows.sort(key=lambda r: (corpus.recency_key(r), r.case_id))
-    if limit is not None:
+    if spread and limit is not None:
+        rows = _spread_sample(rows, limit)
+    elif limit is not None:
         rows = rows[:limit]
     return [BacktestItem(backtest_features(row), Disposition(str(row.disposition))) for row in rows]
 

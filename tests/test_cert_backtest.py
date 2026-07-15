@@ -170,6 +170,89 @@ def test_selection_orders_by_petition_stage_resolution(tmp_path: Path) -> None:
     assert [i.features.case_id for i in items] == ["scotus/2", "scotus/1", "scotus/3"]
 
 
+def _cert_row(
+    case_id: str,
+    docket: str,
+    *,
+    disposition: Disposition = Disposition.denied,
+    distribution_count: int = 1,
+    cvsg: bool = False,
+    conference: date | None = None,
+    decided: date = date(2024, 6, 1),
+) -> corpus.CorpusRow:
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court="scotus",
+        docket_number=docket,
+        disposition=disposition,
+        date_decided=decided,
+        distribution_count=distribution_count,
+        cvsg_date=date(2024, 1, 2) if cvsg else None,
+        distributed_for_conference=conference,
+    )
+
+
+def test_scope_paid_drops_ifp_and_selected_keeps_the_carveout_core(tmp_path: Path) -> None:
+    # all: every modern-cert petition. paid: drops the IFP row (Tier-0). selected:
+    # keeps only the gate's carve-out core — a CVSG petition or one at/above the
+    # salience floor — so a below-floor paid petition is dropped too.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _cert_row(
+                    "scotus/paidlow", "23-100", distribution_count=1
+                ),  # relist-0, below floor
+                _cert_row(
+                    "scotus/paidhot", "23-200", distribution_count=3
+                ),  # relist-2, above floor
+                _cert_row("scotus/cvsg", "23-300", distribution_count=1, cvsg=True),  # carve-out
+                _cert_row("scotus/ifp", "23-5001", distribution_count=3),  # IFP (serial >= 5001)
+            ],
+        )
+    with corpus.connect(db) as conn:
+        all_ids = {i.features.case_id for i in select_cert_backtest_set(conn, scope="all")}
+        paid_ids = {i.features.case_id for i in select_cert_backtest_set(conn, scope="paid")}
+        selected_ids = {
+            i.features.case_id for i in select_cert_backtest_set(conn, scope="selected")
+        }
+    assert all_ids == {"scotus/paidlow", "scotus/paidhot", "scotus/cvsg", "scotus/ifp"}
+    assert paid_ids == {"scotus/paidlow", "scotus/paidhot", "scotus/cvsg"}  # IFP dropped
+    assert selected_ids == {"scotus/paidhot", "scotus/cvsg"}  # below-floor paid dropped too
+
+
+def test_spread_round_robins_across_conferences(tmp_path: Path) -> None:
+    # Recency order alone takes the newest N from one conference; --spread instead
+    # draws the newest from each conference in turn — a term-cadence sample.
+    db = tmp_path / "corpus.db"
+    conf_a, conf_b, conf_c = date(2024, 1, 5), date(2024, 2, 16), date(2024, 3, 15)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _cert_row("scotus/a1", "23-101", conference=conf_a, decided=date(2024, 6, 10)),
+                _cert_row("scotus/a2", "23-102", conference=conf_a, decided=date(2024, 6, 9)),
+                _cert_row("scotus/a3", "23-103", conference=conf_a, decided=date(2024, 6, 8)),
+                _cert_row("scotus/b1", "23-201", conference=conf_b, decided=date(2024, 5, 10)),
+                _cert_row("scotus/b2", "23-202", conference=conf_b, decided=date(2024, 5, 9)),
+                _cert_row("scotus/c1", "23-301", conference=conf_c, decided=date(2024, 4, 10)),
+            ],
+        )
+    with corpus.connect(db) as conn:
+        plain = [i.features.case_id for i in select_cert_backtest_set(conn, limit=3)]
+        spread = [i.features.case_id for i in select_cert_backtest_set(conn, limit=3, spread=True)]
+    assert plain == ["scotus/a1", "scotus/a2", "scotus/a3"]  # all from the newest conference
+    assert spread == ["scotus/a1", "scotus/b1", "scotus/c1"]  # one from each, newest-conf first
+
+
+def test_select_rejects_an_unknown_scope(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_selection_corpus(db)
+    with corpus.connect(db) as conn, pytest.raises(ValueError, match="unknown scope"):
+        select_cert_backtest_set(conn, scope="bogus")
+
+
 def test_redact_snapshot_strips_outcome_fields_only() -> None:
     payload = {
         "id": 304,
@@ -706,6 +789,27 @@ def test_cli_skip_engines_rejects_an_unknown_name(
     )
     assert result.exit_code != 0
     assert "unknown engine(s): gemeni" in result.output
+
+
+def test_cli_scope_selected_runs(fixture_corpus: FixtureCorpus, tmp_path: Path) -> None:
+    # --scope threads through to selection; the fixture's one petition is scored
+    # or scoped out, but the command succeeds and writes a valid report either way.
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--scope", "selected", "--spread"],
+    )
+    assert result.exit_code == 0, result.output
+    read_model(out, CertBacktest)  # a valid report was written
+
+
+def test_cli_rejects_an_unknown_scope(fixture_corpus: FixtureCorpus, tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(tmp_path / "cert-backtest.json"), "--scope", "bogus"],
+    )
+    assert result.exit_code != 0
+    assert "unknown scope 'bogus'" in result.output
 
 
 def test_cli_absent_corpus_writes_empty_report(tmp_path: Path) -> None:

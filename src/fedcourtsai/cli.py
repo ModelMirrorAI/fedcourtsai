@@ -39,6 +39,7 @@ from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
+    CERT_BACKTEST_SCOPES,
     build_segment_context,
     replay_predictors,
     replayable_items,
@@ -680,6 +681,25 @@ def cert_backtest_cmd(
             "binary turns out to be missing is dropped loudly at run time regardless."
         ),
     ] = "",
+    scope: Annotated[
+        str,
+        typer.Option(
+            help="Population to back-test: 'all' every modern-cert petition (raw predictor "
+            "quality); 'paid' the paid segment the salience gate scores (drops IFP); "
+            "'selected' the gate's carve-out core (CVSG or at/above the salience floor) — "
+            "the N-independent core of the live selected slice (which also fills to N by "
+            "rank), the closest replay-safe like-for-live read."
+        ),
+    ] = "all",
+    spread: Annotated[
+        bool,
+        typer.Option(
+            "--spread/--no-spread",
+            help="Sample across conference cohorts (a full term's live cadence) instead of "
+            "the most recently decided N, which collapses onto the last, grant-heavy order "
+            "lists. Applies within --limit.",
+        ),
+    ] = False,
     work_dir: Annotated[
         Path | None,
         typer.Option(
@@ -693,7 +713,12 @@ def cert_backtest_cmd(
     Selects the most recently decided modern discretionary-cert petitions with a
     machine-readable grant/deny label, hides their outcomes, replays predictors,
     and scores them with the honest cert signals: **lift over the always-deny
-    floor** and a P(granted) calibration view, alongside accuracy and Brier. The
+    floor** and a P(granted) calibration view, alongside accuracy and Brier.
+    ``--scope selected`` restricts the set to the salience gate's paid carve-out
+    core — the ``N``-independent core of the live selected slice (which also fills
+    to ``N`` by rank) — and ``--spread`` samples across conferences rather than the
+    last order lists, together the closest replay-safe like-for-live read instead
+    of a grant-heavy term-end snapshot. The
     offline reference baselines always run; ``--engine`` additionally replays
     every enabled predictor over redacted snapshots in a scratch tree, each
     through its own configured engine under ``auto`` (this spends tokens on a
@@ -704,6 +729,11 @@ def cert_backtest_cmd(
     ``data/`` ledger, and the report is labeled retrospective (the outcomes
     predate every modern model's training cutoff).
     """
+    if scope not in CERT_BACKTEST_SCOPES:
+        raise typer.BadParameter(
+            f"unknown scope {scope!r}; choose one of {', '.join(CERT_BACKTEST_SCOPES)}",
+            param_hint="--scope",
+        )
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     destination = out if out is not None else settings.metrics_root / "cert-backtest.json"
@@ -712,7 +742,13 @@ def cert_backtest_cmd(
         typer.echo(f"No corpus at {db_path} — wrote empty cert back-test report -> {destination}")
         return
     with corpus.connect(db_path) as conn:
-        items = select_cert_backtest_set(conn, limit=limit)
+        items = select_cert_backtest_set(
+            conn,
+            limit=limit,
+            scope=scope,
+            spread=spread,
+            salience_floor=load_salience_config(settings.config_root).floor,
+        )
         backtesters = default_backtesters(conn)
         if engine:
             items, unreplayable = replayable_items(db_path, items)
