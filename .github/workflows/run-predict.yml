@@ -251,8 +251,17 @@ jobs:
               # do not gitignore-filter their reads; this brings Gemini in line.
               # The key is namespaced under `context` per the gemini-cli 0.49.0
               # settings schema (a bare top-level fileFiltering is ignored).
+              # logPrompts:true so the tool_call telemetry events carry
+              # `function_args` — without it Gemini logs the tool name but not the
+              # query, leaving retrieval_log.json's query/params null (Claude and
+              # Codex capture args already; this brings Gemini in line). The raw
+              # telemetry.log is gitignored and excluded from the artifact upload,
+              # so only the parsed query slice reaches the committed log; and this
+              # step's env is token-free (COURTLISTENER_API_TOKEN is not set here,
+              # and the CLI strips custom env from agent shell commands), so a
+              # captured arg carries a query, never a secret.
               mkdir -p .gemini
-              printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":false}}' > .gemini/settings.json
+              printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role predictor --actor "$PREDICTOR_ID" \
                 --base-settings .gemini/settings.json > .gemini/settings.json.new
