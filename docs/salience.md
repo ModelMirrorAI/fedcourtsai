@@ -170,9 +170,11 @@ read, not a re-derivation that could drift.
 budget's "more funding = more cases" equation and the milestones' funding milestone
 both hang on. It is a **per-conference** config value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
-sized to credit-grant scale — a ~$10K inference budget over the term at the
-~$6/case anchor: **~150 per regular conference and ~500 for the long conference**
-(which clears the summer backlog of 1,000+ petitions at once). A per-conference cap
+sized to the **bootstrapping** budget — the flagship three-engine long-conference
+release fits the ~$10K envelope (~$5K inference at the measured
+~$26/fully-tournamented-case): **~150 per regular conference and ~200 for the long
+conference** (which clears the summer backlog of 1,000+ petitions at once). A
+per-conference cap
 matches the Court's cadence and scopes replay to one conference's candidate pool;
 the long conference carries a larger `N` so a flat cap does not under-serve it. At
 the top of the same dial, `N` = "every eligible event" makes salience purely the
@@ -316,7 +318,7 @@ config edit, not a redesign. `N` **is a guaranteed floor, not a hard ceiling** �
 the posture below keeps selection additive and never destructive:
 
 - **Capacity `N`** — per-conference, OT2026 default ~150 / regular conference and
-  ~500 / long conference (the credit-grant envelope above).
+  ~200 / long conference (the bootstrapping envelope above).
 - **Carve-outs sit above `N`** (not consuming it): CVSG and above-floor cases are
   guaranteed in, and `N` still fills with the next-best ranked cases, so no major
   case is ever crowded out.
