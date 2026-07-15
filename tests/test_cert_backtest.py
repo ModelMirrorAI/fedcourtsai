@@ -23,7 +23,7 @@ from fedcourtsai.cert_backtest import (
     select_cert_backtest_set,
 )
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.runner import RunRequest, StubRunner
+from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CertBacktest, Disposition
 from fedcourtsai.serialize import read_model
@@ -380,7 +380,7 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     # cell receives it as DECIDED_BEFORE so its retrieval is time-masked.
     assert items[0].features.year == 2022
 
-    backtesters = replay_predictors(
+    backtesters, unavailable = replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -388,6 +388,7 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
         engine_override="stub",
         run_id="20260706T000000Z",
     )
+    assert unavailable == []  # the stub is always available
 
     # One replayed backtester per enabled predictor, each covering the whole set.
     expected = {p.id for p in enabled_predictors(Path("config") / "predictors.yaml")}
@@ -443,13 +444,14 @@ def test_replay_routes_each_predictor_through_its_own_engine(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters = cert_backtest.replay_predictors(
+    backtesters, unavailable = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
         work_root=tmp_path / "replay",
         run_id="20260706T000000Z",
     )
+    assert unavailable == []
     assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline", "gemini-baseline"}
     # No cell ever ran on an engine other than its predictor's own.
     routed = {actor: backend for backend, actor in calls}
@@ -470,13 +472,81 @@ def test_replay_drops_a_predictor_whose_engine_has_no_runner(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls, unrouted="gemini"))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters = cert_backtest.replay_predictors(
+    backtesters, unavailable = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
         work_root=tmp_path / "replay",
         run_id="20260706T000000Z",
     )
+    assert unavailable == []  # a no-runner engine is dropped up front, not "unavailable"
+    assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
+    assert "gemini" not in {backend for backend, _ in calls}
+
+
+def test_replay_opts_a_named_engine_out(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The explicit `--skip-engines` opt-out: a named engine's predictor is dropped
+    # up front, its engine never touched — the two remaining engines stay a
+    # like-for-like comparison. (Distinct from the missing-binary path below,
+    # which is a run-time safety net, not a deliberate choice.)
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    backtesters, unavailable = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+        skip_engines=frozenset({"gemini"}),
+    )
+    assert unavailable == []
+    assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
+    assert "gemini" not in {backend for backend, _ in calls}
+
+
+class _MaybeUnavailableRunner:
+    """Records routing but raises :class:`EngineUnavailable` for one backend."""
+
+    def __init__(self, backend: str, calls: list[tuple[str, str]], missing: str) -> None:
+        self._backend = backend
+        self._calls = calls
+        self._missing = missing
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        if self._backend == self._missing:
+            raise EngineUnavailable(self._backend)  # the CLI binary is not installed
+        self._calls.append((self._backend, request.actor_id))
+        return self._stub.run(request)
+
+
+def test_replay_drops_a_missing_binary_loudly_and_keeps_the_rest(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Config drift (an engine's CLI is absent) must not crash the whole run and
+    # strand the spend already made on the other engines: the engine is dropped,
+    # returned in `unavailable` for the caller to report loudly, and the rest of
+    # the report is produced.
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        cert_backtest,
+        "get_runner",
+        lambda backend="stub": _MaybeUnavailableRunner(backend, calls, "gemini"),
+    )
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    backtesters, unavailable = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert unavailable == ["gemini-baseline"]
     assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
     assert "gemini" not in {backend for backend, _ in calls}
 
@@ -585,6 +655,57 @@ def test_cli_writes_valid_report_with_stub_replay(
     assert {"constant-denied", "prior-vote"} <= ids
     assert {p.id for p in enabled_predictors(Path("config") / "predictors.yaml")} <= ids
     assert "always-deny floor" in result.output
+
+
+def test_cli_skip_engines_reports_the_opt_out_once(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # --skip-engines drops the engine from the replay and reports it once — not
+    # also as a "no registered runner" skip (the reporting branches are guarded).
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        [
+            "cert-backtest",
+            "--out",
+            str(out),
+            "--engine",
+            "stub",
+            "--skip-engines",
+            "gemini",
+            "--work-dir",
+            str(tmp_path / "work"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "opted out of engine(s): gemini" in result.stderr
+    assert "skipped predictor gemini-baseline" not in result.stderr
+    ids = {e.predictor_id for e in read_model(out, CertBacktest).entries}
+    assert "gemini-baseline" not in ids
+    assert {"claude-baseline", "codex-baseline"} <= ids  # the un-skipped engines still run
+
+
+def test_cli_skip_engines_rejects_an_unknown_name(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # A typo must fail loudly rather than silently run the engine it was meant to
+    # skip (real spend) — the same contract --engine has for an unknown backend.
+    result = runner.invoke(
+        app,
+        [
+            "cert-backtest",
+            "--out",
+            str(tmp_path / "cert-backtest.json"),
+            "--engine",
+            "stub",
+            "--skip-engines",
+            "gemeni",  # typo
+            "--work-dir",
+            str(tmp_path / "work"),
+        ],
+    )
+    assert result.exit_code != 0
+    assert "unknown engine(s): gemeni" in result.output
 
 
 def test_cli_absent_corpus_writes_empty_report(tmp_path: Path) -> None:
