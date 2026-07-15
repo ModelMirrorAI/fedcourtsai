@@ -16,8 +16,8 @@ dependencies = [
     "python-dateutil>=2.9",
     # The ranged corpus backend: apsw for the read-only VFS (typed, maintained),
     # boto3 for the S3 ranged GETs behind the transport seam.
-    "apsw>=3.50",
-    "boto3>=1.40",
+    "apsw>=3.53.3.1",
+    "boto3>=1.43.48",
     "pypdf>=6",
 ]
 
@@ -26,8 +26,8 @@ fedcourts = "fedcourtsai.cli:app"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.15.20",
-    "mypy>=2.2.0",
+    "ruff>=0.15.21",
+    "mypy>=2.3.0",
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "types-pyyaml>=6.0",
