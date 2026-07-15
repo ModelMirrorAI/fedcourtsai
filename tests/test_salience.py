@@ -238,7 +238,7 @@ def test_load_salience_config_reads_the_tracking_section(tmp_path: Path) -> None
 def test_load_salience_config_defaults_when_absent(tmp_path: Path) -> None:
     config = load_salience_config(tmp_path)  # no tracking.yaml
     assert config.per_conference_capacity == 150
-    assert config.long_conference_capacity == 500
+    assert config.long_conference_capacity == 200
     assert config.floor == 0.28
 
 

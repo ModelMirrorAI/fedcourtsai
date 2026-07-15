@@ -151,11 +151,14 @@ evaluate:
 # up to a fundable capacity N. N is a guaranteed floor per conference, not a hard
 # ceiling — carve-outs and the sticky latch may push the realized count above it.
 salience:
-  # OT2026 default sized to credit-grant scale (~$10K inference over the term at
-  # the ~$6/case anchor). The long conference (the Term's opening conference)
-  # clears the summer backlog at once, so it carries a larger cap.
+  # Bootstrapping-sized: the long-conference cap keeps the flagship three-engine
+  # OT2026 release inside the ~$10K bootstrapping budget (~$5K inference at the
+  # measured ~$26/fully-tournamented-case, over the ~$5K non-inference floor);
+  # raised as funding lifts N (see docs/budget.md). The long conference (the
+  # Term's opening conference) clears the summer backlog at once, so it carries a
+  # larger cap than a regular conference.
   per_conference_capacity: 150
-  long_conference_capacity: 500
+  long_conference_capacity: 200
   # Always-include threshold: a petition at/above this score is selected
   # regardless of rank (the relist-2 / CVSG grant-rate band).
   floor: 0.28

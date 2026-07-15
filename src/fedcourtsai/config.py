@@ -331,7 +331,7 @@ class SalienceConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     per_conference_capacity: int = Field(default=150, ge=0)
-    long_conference_capacity: int = Field(default=500, ge=0)
+    long_conference_capacity: int = Field(default=200, ge=0)
     floor: float = Field(default=0.28, ge=0.0, le=1.0)
 
     @model_validator(mode="after")

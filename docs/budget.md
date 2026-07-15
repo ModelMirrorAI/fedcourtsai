@@ -10,7 +10,7 @@ the **on-demand API**. For how the phases work, see
 ## The shape: a fixed floor plus one dominant scaling line
 
 Every non-inference line — runners, storage, memberships, subscriptions — sums to
-a near-constant **≈$7K/yr floor**. Agentic model usage for prediction and
+a near-constant **≈$5K/yr floor**. Agentic model usage for prediction and
 evaluation is one to two orders of magnitude larger and scales linearly with how
 many events, by how many predictors, scored by how many evaluators. So the budget
 is that fixed floor plus one dominant line, and that line has a single dial — the
@@ -88,11 +88,10 @@ is `N × per-case`. One fully-tournamented case:
 predict:   3 predictors           × $2.15 = $6.45
 evaluate:  3 evaluators × 3 preds  × $2.15 = $19.35
                                             ──────
-per case ≈ $26   (measured blended mean; ≈$2 for a lean single-engine, single-evaluator release)
+per case ≈ $26   (measured blended mean, three engines cross-evaluated)
 ```
 
-so `N ≈ inference_budget / per-case` — from the ≈$26 full three-engine tournament
-down to ≈$2 for a lean single-engine, single-evaluator release. Tier-1 salience
+so `N ≈ inference_budget / (≈$26 per fully-tournamented case)`. Tier-1 salience
 scoring is itself ≈$0 (a deterministic pure function of corpus features, no model
 call), so the gate spends nothing to *decide* what the tournament runs on. Raising
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
@@ -150,31 +149,32 @@ consumers to ranged/incremental reads).
 
 ### 5. Misc fixed costs — the non-scaling floor
 
-A flat **$500/mo** bucket for the individual-use items carried as one line: the
+A flat **$350/mo** bucket for the individual-use items carried as one line: the
 domains (`modelmirror.ai`, `fedcourts.ai`), the email provider, the **Claude Max
 dev subscription** ($200/mo, interactive dev only, never automation — see driver
-#1), and other small fixed items. A deliberate overestimate; its defining property
-is that it **does not scale** with events, corpus size, or predictor count.
+#1), and other small fixed items. A deliberate buffer over the actual items; its
+defining property is that it **does not scale** with events, corpus size, or
+predictor count.
 
-> **Line item: $500/mo flat** (a fixed floor, not a variable).
+> **Line item: $350/mo flat** (a fixed floor, not a variable).
 
 ## Summary: scaling `N` with funding
 
-The non-inference lines — misc floor ($500/mo), CourtListener ($250–1,200/yr), S3
+The non-inference lines — misc floor ($350/mo), CourtListener ($250–1,200/yr), S3
 (≈$15/mo, the one line that grows with the corpus blob), Codespaces ($0–50/mo),
-Actions ($0) — sum to a near-constant **≈$7K/yr floor**. Everything
+Actions ($0) — sum to a near-constant **≈$5K/yr floor**. Everything
 above it is inference `= N × per-case`, so funding moves a single dial: `N`, where
-`N ≈ inference_budget ÷ per-case` (≈$2–26 by engine fan-out). Each order of
+`N ≈ inference_budget ÷ (≈$26 per fully-tournamented case)`. Each order of
 magnitude in funding buys roughly ten times the tournamented cases:
 
-| Scenario | ≈ Annual | Inference (= total − ≈$7K floor) | Reach |
+| Scenario | ≈ Annual | Inference (= total − ≈$5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$10K | ≈$3K | one OT2026 long-conference cert batch — ≈1,500 petitions lean single-engine, or ≈100 fully tournamented |
-| Initial funding | ≈$100K | ≈$90K | ≈3,500 fully-tournamented cases — most of a cert term (the full ≈5,500-event gate runs ≈$140K uncapped, 3×3); salience still a spend control at this `N` |
-| Well funded | ≈$1M | ≈$990K | approaches all-14-court full scope (every event, 3×3 ≈$1.1M); the cert gate is fully covered, so salience becomes the public ranking, not a spend control |
-| **Floor (all scenarios)** | **≈$7K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
+| Bootstrapping | ≈$10K | ≈$5K | the OT2026 long-conference cert release — ≈200 petitions, all three engines cross-evaluated (the `long_conference_capacity` cap) |
+| Initial funding | ≈$100K | ≈$95K | ≈3,600 fully-tournamented cases — most of a cert term (the full ≈5,500-event gate runs ≈$140K uncapped, 3×3); salience still a spend control at this `N` |
+| Well funded | ≈$1M | ≈$995K | approaches all-14-court full scope (every event, 3×3 ≈$1.1M); the cert gate is fully covered, so salience becomes the public ranking, not a spend control |
+| **Floor (all scenarios)** | **≈$5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
 
 Start at **bootstrapping** with a small `N`, let the ledger measure real per-case
-cost against the $2–26 range, then raise `N` as funding lifts it. The funding path
+cost against the ≈$26 estimate, then raise `N` as funding lifts it. The funding path
 to each state — credit programs and external support — is tracked in
 [milestones.md](milestones.md).
