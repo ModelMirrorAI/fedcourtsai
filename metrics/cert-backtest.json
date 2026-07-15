@@ -1,0 +1,176 @@
+{
+  "always_denied_accuracy": 0.2857142857142857,
+  "entries": [
+    {
+      "accuracy": 0.7142857142857143,
+      "big_case": null,
+      "calibration": [
+        {
+          "lower": 0.6000000000000001,
+          "mean_probability": 0.7,
+          "observed_granted_rate": 0.5,
+          "predictions": 2,
+          "upper": 0.7000000000000001
+        },
+        {
+          "lower": 0.7000000000000001,
+          "mean_probability": 0.75,
+          "observed_granted_rate": 0.8,
+          "predictions": 5,
+          "upper": 0.8
+        }
+      ],
+      "events_scored": 7,
+      "granted_accuracy": 0.7142857142857143,
+      "lift_over_always_denied": 0.4285714285714286,
+      "mean_brier_score": 0.19892857142857143,
+      "predictor_id": "prior-vote",
+      "rank": 1,
+      "segments": [
+        {
+          "accuracy": 0.6666666666666666,
+          "band": "high",
+          "events_scored": 6,
+          "mean_brier_score": 0.22166666666666668,
+          "mean_brier_skill": -0.8275736646283011,
+          "segment_base_rate": 0.3155892255892256
+        }
+      ]
+    },
+    {
+      "accuracy": 0.2857142857142857,
+      "big_case": {
+        "maximum": 0.5,
+        "mean": 0.5,
+        "minimum": 0.5,
+        "scored": 7
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.7142857142857143,
+          "predictions": 7,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 7,
+      "granted_accuracy": 0.2857142857142857,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.7142857142857143,
+      "predictor_id": "claude-baseline",
+      "rank": 2,
+      "segments": [
+        {
+          "accuracy": 0.3333333333333333,
+          "band": "high",
+          "events_scored": 6,
+          "mean_brier_score": 0.6666666666666666,
+          "mean_brier_skill": -0.41435558377906395,
+          "segment_base_rate": 0.3155892255892256
+        }
+      ]
+    },
+    {
+      "accuracy": 0.2857142857142857,
+      "big_case": {
+        "maximum": 0.5,
+        "mean": 0.5,
+        "minimum": 0.5,
+        "scored": 7
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.7142857142857143,
+          "predictions": 7,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 7,
+      "granted_accuracy": 0.2857142857142857,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.7142857142857143,
+      "predictor_id": "codex-baseline",
+      "rank": 3,
+      "segments": [
+        {
+          "accuracy": 0.3333333333333333,
+          "band": "high",
+          "events_scored": 6,
+          "mean_brier_score": 0.6666666666666666,
+          "mean_brier_skill": -0.41435558377906395,
+          "segment_base_rate": 0.3155892255892256
+        }
+      ]
+    },
+    {
+      "accuracy": 0.2857142857142857,
+      "big_case": null,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.7142857142857143,
+          "predictions": 7,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 7,
+      "granted_accuracy": 0.2857142857142857,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.7142857142857143,
+      "predictor_id": "constant-denied",
+      "rank": 4,
+      "segments": [
+        {
+          "accuracy": 0.3333333333333333,
+          "band": "high",
+          "events_scored": 6,
+          "mean_brier_score": 0.6666666666666666,
+          "mean_brier_skill": -0.41435558377906395,
+          "segment_base_rate": 0.3155892255892256
+        }
+      ]
+    },
+    {
+      "accuracy": 0.2857142857142857,
+      "big_case": {
+        "maximum": 0.5,
+        "mean": 0.5,
+        "minimum": 0.5,
+        "scored": 7
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.7142857142857143,
+          "predictions": 7,
+          "upper": 0.1
+        }
+      ],
+      "events_scored": 7,
+      "granted_accuracy": 0.2857142857142857,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.7142857142857143,
+      "predictor_id": "gemini-baseline",
+      "rank": 5,
+      "segments": [
+        {
+          "accuracy": 0.3333333333333333,
+          "band": "high",
+          "events_scored": 6,
+          "mean_brier_score": 0.6666666666666666,
+          "mean_brier_skill": -0.41435558377906395,
+          "segment_base_rate": 0.3155892255892256
+        }
+      ]
+    }
+  ],
+  "events_scored": 7,
+  "predictors_evaluated": 5,
+  "schema_version": "1.0",
+  "stratum": "retrospective"
+}
