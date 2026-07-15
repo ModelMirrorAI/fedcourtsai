@@ -1,0 +1,10 @@
+case_id: scotus/72475426
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-06-23'
+resolved: true
+schema_version: '1.0'
+title: Jorge Armando Ayala Chapa, Petitioner v. Merrick B. Garland, Attorney General

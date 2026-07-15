@@ -1,0 +1,11 @@
+case_id: scotus/72475400
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-06-14'
+resolved: true
+schema_version: '1.0'
+title: Colgate-Palmolive Company, et al., Petitioners v. Rebecca McCutcheon, Individually
+  and on Behalf of all Others Similarly Situated, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72479262
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-04-07'
+resolved: true
+schema_version: '1.0'
+title: James H. Griffith, Jr., dba CJ's Sports Bar, et al., Petitioners v. Joe Hand
+  Promotions, Inc.

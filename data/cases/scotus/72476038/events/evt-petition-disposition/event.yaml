@@ -1,0 +1,10 @@
+case_id: scotus/72476038
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-07-26'
+resolved: true
+schema_version: '1.0'
+title: General Akecheta Morningstar, Petitioner v. Kroger Company

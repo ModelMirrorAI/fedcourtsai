@@ -1,0 +1,11 @@
+case_id: scotus/72475303
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-05-16'
+resolved: true
+schema_version: '1.0'
+title: Paula Parisi, Petitioner v. Peter C. Anderson, United States Trustee for Region
+  16

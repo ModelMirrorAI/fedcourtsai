@@ -1,0 +1,10 @@
+case_id: scotus/72479142
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-03-08'
+resolved: true
+schema_version: '1.0'
+title: Raul Garcia Marin, Petitioner v. Merrick B. Garland, Attorney General

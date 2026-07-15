@@ -1,0 +1,11 @@
+case_id: scotus/72475334
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-05-26'
+resolved: true
+schema_version: '1.0'
+title: Josh Stein, Attorney General of North Carolina, et al., Petitioners v. People
+  for the Ethical Treatment of Animals, Inc., et al.
