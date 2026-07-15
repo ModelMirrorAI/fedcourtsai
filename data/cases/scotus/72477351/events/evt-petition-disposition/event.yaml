@@ -1,0 +1,11 @@
+case_id: scotus/72477351
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-12-21'
+resolved: true
+schema_version: '1.0'
+title: Tyrell Hart, Petitioner v. Kevin Ransom, Superintendent, State Correctional
+  Institution at Dallas, et al.

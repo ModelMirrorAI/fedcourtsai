@@ -1,0 +1,10 @@
+case_id: scotus/72477817
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2023-02-14'
+resolved: true
+schema_version: '1.0'
+title: Anthony LeMarcus Larkins, Petitioner v. Tim Hooper, Warden
