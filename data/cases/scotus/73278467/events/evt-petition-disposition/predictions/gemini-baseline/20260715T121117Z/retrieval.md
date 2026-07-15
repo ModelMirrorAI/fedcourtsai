@@ -1,0 +1,6 @@
+- Read provisioned inputs: `data/cases/scotus/73278467/record/snapshots/2026-07-15.json` (docket text showing 12/12/2025 distribution, 6/29/2026 distribution, and 6/30/2026 CVSG)
+- Read `data/cases/scotus/73278467/record/documents/questions-presented.txt` (questions presented highlighting 3-3 circuit split)
+- Read `data/cases/scotus/73278467/record/documents/petition.txt` (detailing reliance on *Fowler* and the intervening *Skrmetti* decision)
+- Read `data/cases/scotus/73278467/record/documents/brief-in-opposition.txt` (detailing the posture of *Fowler* on remand and the timeline of *Skrmetti* and *B.P.J.*)
+- Read `metrics/statpack.md` to identify base rates for CVSG'd cases (approx. 27% grant rate historically) and overall Tenth Circuit grant rates.
+- Called CourtListener MCP `search` to check the dockets for *Little v. Hecox* (24-38) and *West Virginia v. B.P.J.* (24-43) to confirm they were OT2024 cases decided around June 2026, though no further substantive retrieval was needed beyond the comprehensive filings in the provisioned documents.
