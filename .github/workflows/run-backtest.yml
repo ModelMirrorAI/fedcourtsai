@@ -27,6 +27,10 @@ on:
         description: "Replay the N most recently decided petitions (~one cell per predictor each; model spend scales linearly)."
         type: string
         default: "25"
+      skip_engines:
+        description: "Comma-separated engines to opt out of the replay (e.g. 'gemini'); empty runs all three."
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -52,10 +56,12 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.label.name == 'run:backtest'
     runs-on: ubuntu-latest
-    # Headroom for ~25 petitions x 2 routable predictors of real agent cells
-    # plus the corpus pull (Gemini has no registered runner and is skipped);
-    # the cap keeps a hung engine from burning six billable hours.
-    timeout-minutes: 180
+    # Headroom for ~25 petitions x 3 routable predictors of real agent cells
+    # (claude-code, codex, gemini), run strictly sequentially, plus the corpus
+    # pull — ~75 cells at the default limit, up from ~50 when only two engines
+    # ran, so the cap is raised accordingly while still keeping a hung engine
+    # from burning six billable hours.
+    timeout-minutes: 330
     environment: runner
     permissions:
       contents: read
@@ -97,9 +103,12 @@ jobs:
 
       # The real-engine replay shells out to the agent CLIs through the tested
       # runner seam — the same binaries the devcontainer ships. Installed only
-      # when a real engine will run; the stub backend needs nothing. Gemini
-      # predictors have no registered runner and are skipped under `auto` (the
-      # report names what ran).
+      # when a real engine will run; the stub backend needs nothing. All three
+      # engines are routable (each has a registered runner), so all three CLIs
+      # are installed — gemini pinned to the same version run-predict/run-evaluate
+      # use, claude/codex keeping the existing npm pins this workflow already had
+      # — and the report names what actually ran. A `--skip-engines` opt-out (or a
+      # missing binary, dropped loudly at run time) is what leaves an engine out.
       - name: Install the agent CLIs
         if: github.event_name == 'issues' || inputs.engine == 'auto'
         # zizmor: ignore[adhoc-packages] — top-level exact-version pins, scripts
@@ -108,15 +117,21 @@ jobs:
         run: |
           set -euo pipefail
           npm install --silent --no-audit --ignore-scripts --global \
-            @anthropic-ai/claude-code@2.1.207 @openai/codex@0.144.1
+            @anthropic-ai/claude-code@2.1.207 @openai/codex@0.144.1 \
+            @google/gemini-cli@0.49.0
           claude --version
           codex --version
+          gemini --version
 
       - name: Run the cert back-test
         env:
           # Engine credentials for the replay cells; unused by the stub backend.
+          # One per routable engine — claude, codex, gemini — so `auto` runs the
+          # full three-engine comparison (GEMINI_CLI_TRUST_WORKSPACE is set by the
+          # GeminiRunner seam in pipeline/runner.py, not here).
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the
           # clean-slate cutover switch; unset variable -> '0' -> off) the pulled
           # corpus.db is a payload-free index, and the replay's snapshot reads
@@ -129,6 +144,10 @@ jobs:
           # write-gated spend decision — the PR body echoes what ran.
           ENGINE: ${{ github.event_name == 'issues' && 'auto' || inputs.engine }}
           LIMIT: ${{ github.event_name == 'issues' && '25' || inputs.limit }}
+          # A label run runs every engine; dispatch may opt one out. `inputs` is
+          # empty on the issues event, so this reads '' there with no ternary. An
+          # unknown engine name simply matches no predictor.
+          SKIP_ENGINES: ${{ inputs.skip_engines }}
         run: |
           set -euo pipefail
           if [ ! -f corpus/corpus.db ]; then
@@ -136,7 +155,7 @@ jobs:
             exit 1
           fi
           uv run fedcourts cert-backtest \
-            --engine "$ENGINE" --limit "$LIMIT" \
+            --engine "$ENGINE" --limit "$LIMIT" --skip-engines "$SKIP_ENGINES" \
             --work-dir "$RUNNER_TEMP/backtest-cells"
 
       # The review PR is opened with the dev App token, exactly like the

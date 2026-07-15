@@ -671,6 +671,15 @@ def cert_backtest_cmd(
             "reference baselines."
         ),
     ] = "",
+    skip_engines: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated engines to opt out of the replay (e.g. 'gemini'), by "
+            "the predictor's own configured engine. The default runs every enabled "
+            "predictor's engine — the three-engine comparison. An engine whose CLI "
+            "binary turns out to be missing is dropped loudly at run time regardless."
+        ),
+    ] = "",
     work_dir: Annotated[
         Path | None,
         typer.Option(
@@ -714,17 +723,44 @@ def cert_backtest_cmd(
                     err=True,
                 )
             work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
-            replayed = replay_predictors(
+            skipped_engines = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
+            known_engines = {
+                str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+            }
+            unknown_engines = skipped_engines - known_engines
+            if unknown_engines:
+                # Fail on a typo rather than silently run the engine you meant to
+                # skip (a billable footgun) — the same contract --engine has.
+                raise typer.BadParameter(
+                    f"unknown engine(s): {', '.join(sorted(unknown_engines))}; enabled "
+                    f"engines are {', '.join(sorted(known_engines))}",
+                    param_hint="--skip-engines",
+                )
+            if skipped_engines:
+                typer.echo(
+                    "opted out of engine(s): " + ", ".join(sorted(skipped_engines)), err=True
+                )
+            replayed, unavailable = replay_predictors(
                 items,
                 corpus_db_path=db_path,
                 config_root=settings.config_root,
                 work_root=work_root,
                 engine_override=None if engine == "auto" else engine,
+                skip_engines=skipped_engines,
                 run_id=ids.run_id(),
             )
+            for pid in unavailable:
+                typer.echo(
+                    f"dropped predictor {pid}: its engine's CLI was not available at run time",
+                    err=True,
+                )
             replayed_ids = {b.id for b in replayed}
             for predictor in enabled_predictors(settings.config_root / "predictors.yaml"):
-                if predictor.id not in replayed_ids:
+                if (
+                    predictor.id not in replayed_ids
+                    and predictor.id not in unavailable
+                    and str(predictor.engine) not in skipped_engines
+                ):
                     typer.echo(
                         f"skipped predictor {predictor.id}: engine "
                         f"{predictor.engine} has no registered runner",

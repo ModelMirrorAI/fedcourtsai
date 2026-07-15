@@ -43,7 +43,7 @@ from .backtest import (
 from .paths import CasePaths
 from .pipeline.evaluate import brier_skill, segment_base_rate
 from .pipeline.outcome import granted_flag, is_machine_readable
-from .pipeline.runner import Runner, RunRequest, get_runner
+from .pipeline.runner import EngineUnavailable, Runner, RunRequest, get_runner
 from .pipeline.salience import salience_band, salience_bands
 from .registry import enabled_predictors
 from .schemas import (
@@ -179,7 +179,9 @@ def replayable_items(
 
 
 def _runners_by_predictor(
-    config_root: Path, engine_override: str | None
+    config_root: Path,
+    engine_override: str | None,
+    skip_engines: frozenset[str] = frozenset(),
 ) -> list[tuple[PredictorConfig, Runner]]:
     """Pair each enabled predictor with its runner, dropping unroutable ones.
 
@@ -190,13 +192,23 @@ def _runners_by_predictor(
     through another model. ``engine_override`` routes every predictor through one
     named backend instead (the offline ``stub``/``replay`` runs); an unknown
     override still raises, since that is a caller typo rather than a config gap.
+    ``skip_engines`` is the explicit per-engine opt-out: a predictor whose own
+    configured engine is named there is dropped up front — evaluated on the
+    predictor's declared engine even under an ``engine_override`` sweep, so
+    ``--skip-engines gemini`` means "don't run gemini-baseline" regardless of how
+    the rest is routed. The default runs every enabled predictor's engine.
     """
+    predictors = [
+        p
+        for p in enabled_predictors(config_root / "predictors.yaml")
+        if str(p.engine) not in skip_engines
+    ]
     if engine_override is not None:
         runner = get_runner(engine_override)
-        return [(p, runner) for p in enabled_predictors(config_root / "predictors.yaml")]
+        return [(p, runner) for p in predictors]
     pairs: list[tuple[PredictorConfig, Runner]] = []
     runners: dict[str, Runner] = {}
-    for predictor in enabled_predictors(config_root / "predictors.yaml"):
+    for predictor in predictors:
         backend = str(predictor.engine)
         if backend not in runners:
             try:
@@ -215,7 +227,8 @@ def replay_predictors(
     work_root: Path,
     run_id: str,
     engine_override: str | None = None,
-) -> list[Backtester]:
+    skip_engines: frozenset[str] = frozenset(),
+) -> tuple[list[Backtester], list[str]]:
     """Replay every routable enabled predictor over ``items``, each through its
     own configured engine.
 
@@ -227,17 +240,23 @@ def replay_predictors(
     via its own engine's runner (see :func:`_runners_by_predictor`; a predictor
     whose engine has no registered runner is absent from the result rather than
     mislabeled through another engine, and ``engine_override`` forces one
-    backend for offline ``stub``/``replay`` runs) and collects its
+    backend for offline ``stub``/``replay`` runs, and ``skip_engines`` opts
+    named engines out) and collects its
     ``prediction.json``. Each cell carries the trial's year as its replay clock
     (``DECIDED_BEFORE``), so the agent's own corpus retrieval is masked to
     provably earlier history — the same cutoff the offline prior-vote baseline
-    honors. Returns one :class:`ReplayedBacktester` per routable predictor,
-    ready for :func:`run_cert_backtest`. A real engine spends tokens per cell.
+    honors. Returns the :class:`ReplayedBacktester` list (one per predictor that
+    produced predictions) plus the ids of predictors whose engine turned out to
+    be **unavailable** mid-run — the workflow installs every engine, so this is a
+    safety net for config drift (a missing CLI binary), caught per engine and
+    dropped **loudly** rather than crashing the whole run and stranding the spend
+    already made on the other engines. A real engine spends tokens per cell.
     Callers filter the set through :func:`replayable_items` first; a petition
     with no snapshot or petition event here is an internal-invariant error.
     """
-    pairs = _runners_by_predictor(config_root, engine_override)
+    pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
     collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p, _ in pairs}
+    unavailable: set[str] = set()
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
@@ -274,21 +293,30 @@ def replay_predictors(
             ),
         )
         for predictor, engine_runner in pairs:
-            engine_runner.run(
-                RunRequest(
-                    role=UsageRole.predictor,
-                    court_id=court,
-                    docket_id=docket,
-                    event_id=event.event_id,
-                    actor_id=predictor.id,
-                    run_id=run_id,
-                    prompt=Path(predictor.prompt),
-                    data_root=work_root,
-                    # The replay clock: the cell sees it as DECIDED_BEFORE and
-                    # masks its corpus retrieval to provably earlier history.
-                    decided_before=item.features.year,
+            if predictor.id in unavailable:
+                continue  # this engine's binary was already found missing
+            try:
+                engine_runner.run(
+                    RunRequest(
+                        role=UsageRole.predictor,
+                        court_id=court,
+                        docket_id=docket,
+                        event_id=event.event_id,
+                        actor_id=predictor.id,
+                        run_id=run_id,
+                        prompt=Path(predictor.prompt),
+                        data_root=work_root,
+                        # The replay clock: the cell sees it as DECIDED_BEFORE and
+                        # masks its corpus retrieval to provably earlier history.
+                        decided_before=item.features.year,
+                    )
                 )
-            )
+            except EngineUnavailable:
+                # Config drift (the CLI binary is not installed): drop this engine
+                # from the whole replay rather than crash and lose the spend the
+                # other engines already made. The caller reports the drop loudly.
+                unavailable.add(predictor.id)
+                continue
             cell = read_model(
                 case_paths.event(event.event_id).prediction(predictor.id, run_id), Prediction
             )
@@ -297,7 +325,12 @@ def replay_predictors(
                 cell.probability,
                 big_case_score=cell.big_case_score,
             )
-    return [ReplayedBacktester(id=pid, predictions=preds) for pid, preds in collected.items()]
+    backtesters: list[Backtester] = [
+        ReplayedBacktester(id=pid, predictions=preds)
+        for pid, preds in collected.items()
+        if pid not in unavailable
+    ]
+    return backtesters, sorted(unavailable)
 
 
 def _calibration(pairs: list[tuple[float, int]]) -> list[CalibrationBin]:
