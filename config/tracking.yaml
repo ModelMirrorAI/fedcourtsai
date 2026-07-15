@@ -57,10 +57,22 @@ pull:
 # upstream politeness (~1 req/s), not spend.
 live:
   # Pending petitions re-polled per cycle (recent Terms first, then stalest).
-  max_cases_per_run: 30
+  # Sized to re-poll the whole pending watchlist each cycle even at its seasonal
+  # peak — the September long conference distributes ~276 petitions at once
+  # (regular conferences run a median ~11, p90 ~37). This is a coverage ceiling,
+  # not the wall-clock bound: a re-poll that catches a distribution transition
+  # also fetches up to two document PDFs, and those cluster exactly at that peak,
+  # so cycle time is governed by the run-pull live job's `--max-run-seconds` soft
+  # budget (which commits progress and resumes next cycle), not by this count.
+  # The poller only fetches what is actually pending, so off-peak cycles stay
+  # small; a high ceiling just stops the rotation from truncating coverage.
+  max_cases_per_run: 300
   # New petitions onboarded from the Term's numbering frontier per cycle
-  # (sequential probing: paid from <term>-1, IFP from <term>-5001).
-  max_new_cases_per_run: 25
+  # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
+  # absorb the long-conference onboarding burst within a day (~276 over ~4
+  # cycles) rather than trickling it over a week at the old cap; the same soft
+  # budget bounds the onboarding provisioning cost per cycle.
+  max_new_cases_per_run: 100
   # Oldest October Term the refresh rotation reaches — the reachability probe's
   # floor (docs/live-sources.md): full JSON coverage OT2017+.
   term_floor_year: 2017

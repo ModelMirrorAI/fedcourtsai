@@ -408,9 +408,14 @@ jobs:
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
     runs-on: ubuntu-latest
-    # A cycle is ~60 polite requests at 1 req/s plus the S3 transfer — minutes;
-    # the cap releases the shared corpus-write lock quickly if a network step hangs.
-    timeout-minutes: 30
+    # The cycle re-polls the pending watchlist and onboards the frontier at ~1
+    # req/s, plus document fetches on distribution transitions (which cluster at
+    # the September long conference) and the S3 transfer. `live-poll` self-bounds
+    # to a soft wall-clock budget (`--max-run-seconds` below), committing progress
+    # so far and resuming next cycle, so a big watchlist can never overrun this
+    # hard cap — which stays above the soft budget with margin for the fixed
+    # setup (checkout + corpus-pull) before the poll and the push after it.
+    timeout-minutes: 35
     environment: runner
     # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
     # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
@@ -507,8 +512,14 @@ jobs:
       - name: Poll the live channel
         # No token, no budget env: politeness (browser UA, ~1 req/s) is built
         # into the client; caps come from tracking.yaml's `live:` section.
+        # --max-run-seconds is the soft wall-clock budget: the cycle stops
+        # cleanly and commits progress so far when reached, so even a peak
+        # watchlist stays under the job's 35 min timeout-minutes with room for
+        # the fixed setup and the push (1500s = 25 min; the next cycle resumes
+        # the rotation where it left off).
         run: |
           uv run fedcourts live-poll \
+            --max-run-seconds 1500 \
             --out predict-queue.json \
             --evaluate-out evaluate-queue.json \
             --unrecorded-out unrecorded-queue.json

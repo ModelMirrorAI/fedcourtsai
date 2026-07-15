@@ -168,8 +168,11 @@ class LiveConfig(BaseModel):
     """The ``live:`` section of ``tracking.yaml`` — the SCOTUS live channel.
 
     The supremecourt.gov docket JSON has no API budget, so these caps bound
-    wall-clock per cycle and upstream politeness, not spend: at the default
-    ~1 req/s throttle a full cycle (discovery + refresh) stays around a minute.
+    upstream politeness and coverage, not spend. At the model defaults (30/25) a
+    full cycle stays around a minute; the deployed ``config/tracking.yaml`` runs a
+    much larger cycle whose wall-clock is bounded by the run-pull live job's
+    ``--max-run-seconds`` soft budget (it commits progress and resumes next
+    cycle), so these counts are a per-cycle coverage ceiling, not a time bound.
     """
 
     model_config = ConfigDict(extra="ignore")

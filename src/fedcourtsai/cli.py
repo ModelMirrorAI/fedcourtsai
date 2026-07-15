@@ -2443,6 +2443,15 @@ def live_poll(
             "cannot exceed live.max_cases_per_run."
         ),
     ] = None,
+    max_run_seconds: Annotated[
+        float | None,
+        typer.Option(
+            help="Optional soft wall-clock budget for the cycle, seconds. When reached, "
+            "the cycle stops cleanly with progress so far committed and resumes next "
+            "cycle where the rotation left off — keeps a large watchlist from "
+            "overrunning the job timeout (the workflow sets it under that timeout)."
+        ),
+    ] = None,
 ) -> None:
     """One SCOTUS live-channel cycle: discover new petitions, refresh pending ones.
 
@@ -2459,6 +2468,7 @@ def live_poll(
     live_cfg = load_live_config(settings.config_root)
     scope = load_predict_config(settings.config_root).scope
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
+    deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
     today = date.today()
     probe_term = term if term is not None else current_october_term(today)
     db = corpus.corpus_db_path(settings.corpus_root)
@@ -2471,6 +2481,7 @@ def live_poll(
             config=live_cfg.model_copy(update={"max_cases_per_run": cap}),
             scope=scope,
             today=today,
+            deadline=deadline,
         )
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
