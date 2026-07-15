@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278426",
+  "run_id": "20260715T072005Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "WebSearch",
+    "WebFetch",
+    "provisioned snapshot + filed-document texts"
+  ],
+  "helpful": [
+    "Provisioned questions-presented.txt / petition.txt / brief-in-opposition.txt — posture and vehicle defects were decisive context",
+    "statpack relist-count cut — quantified how far this ~15-relist docket sits outside the normal cert population",
+    "Web retrieval in forward mode — the July 2, 2026 companion-case grants (Grant v. Higgins / Viramontes) completely reframed the prediction"
+  ],
+  "gaps": [
+    "fedcourts query citation matching returned nothing for Heller/Bruen citers; a keyword or caption search over resolved priors would have surfaced Snope/Harrel/Ocean State Tactical analogs",
+    "No statpack cut for held-companion petitions (disposition split of petitions pending while a same-QP case is on the merits docket) — that is the dominant base rate for this cell",
+    "supremecourt.gov docket fetch is blocked (403); a provisioned post-order-list docket refresh or an MCP route to the SCOTUS docket would remove the need to infer current status from secondary sources"
+  ],
+  "notes": "Two corpus query calls transferred ~109 MB each via ranged reads and matched nothing; for citation-based retrieval that cost/benefit is poor. The committed statpack covered the base-rate need."
+}
