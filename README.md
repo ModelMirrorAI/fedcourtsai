@@ -62,25 +62,99 @@ live in the packed corpus instead (see *Data model*).
 
 ## Prediction scope
 
-Ingestion covers all fourteen courts, but the agentic predict/evaluate stages
-are **deliberately narrower** — prediction runs only where the event model fits
-and ground truth is recoverable. The scope is **SCOTUS dockets only**
-(`predict.scope=scotus_docket`: the corpus row's `court == "scotus"`), minus a
-set of deterministic exclusions applied from the corpus at the prediction
-matrix: **pre-1925 mandatory-jurisdiction matters** (heard as of right, so the
-discretionary-cert event model does not apply), **stale, unresolvable
-petitions** (decades-old stubs whose ground truth the corpus can never
-recover), **non-cert SCOTUS docket forms** (stay/emergency applications and
-original-jurisdiction matters resolve as stays or merits rulings, not cert
-grant/deny), **decided-on-paper-only cases** (a published opinion with no
-machine-readable disposition), and **internally inconsistent dates** (a docket
-that reads decided before it was filed).
+Ingestion covers all fourteen courts; the agentic predict/evaluate stages are
+**deliberately narrower**, running on **Supreme Court dockets** — where the event
+model fits, the outcome is recoverable, and the forecast is worth its cost. The
+event model itself is general — cert petitions, emergency applications, and the
+merits events on a granted docket are all predictable *in principle* — but the
+funded scope narrows to the **cert docket** (the filters under *What's out of
+scope* draw that line). Everything outside the gate is still ingested for context
+and retrieval — just not predicted.
 
-Originating court-of-appeals dockets — including remand activity after a grant
-— are ingested for context and retrieval but not predicted. This is a scope
-dial, not a permanent limit; widening is a cost-data-driven decision
-([`docs/budget.md`](docs/budget.md), [milestones](docs/milestones.md)), and
-the mechanics live in [`docs/data-pipeline.md`](docs/data-pipeline.md).
+### What triggers a prediction
+
+A prediction fires when a **new predictable event** appears, or an open one
+**materially changes** — a petition distributed for an upcoming conference, a
+relist, a fresh development on a pending case. A case is predicted once and
+re-forecast only when its facts change, not on a fixed clock. For cert this means
+the forecast is committed **before** the conference and scored against the order
+list days later — a genuine ex-ante prediction, its git timestamp proving it
+preceded the outcome, never hindsight.
+
+### How cases are chosen
+
+The Court decides thousands of cert petitions a term, almost all denied, so
+predicting every one equally would spend the tournament budget on the
+denominator. Instead the scope is **salience-ordered** (design:
+[`docs/salience.md`](docs/salience.md)):
+
+1. **Eligibility** — keep the discretionary-cert petitions the model is built to
+   forecast (see *What's out of scope* below).
+2. **Salience ranking** — a cheap, deterministic score ranks the eligible
+   petitions by how much each is worth forecasting, from features already in the
+   corpus (relist history, a call for the Solicitor General's views, the
+   originating circuit). It publishes as a ranked board **before** the conference
+   sits.
+3. **Capacity `N`** — the three-engine tournament runs on the top-ranked slice up
+   to a fundable capacity `N`, plus a few always-include carve-outs. `N` is the
+   funding dial: raising it deepens the slice without reshuffling the ranking
+   ([`docs/budget.md`](docs/budget.md)).
+
+Two scores are **pre-registered** this way — committed before the term plays out,
+their git timestamps the proof:
+
+- the deterministic **salience score** above (*which* cases are worth forecasting,
+  ranked), and
+- a model-produced **big-case score** on each prediction — its read of the case's
+  *stakes* (explicitly not its grant likelihood), graded later by an independent
+  evaluator.
+
+The grant/deny forecast itself is scored for **skill over its salience segment's
+base rate** — the predicted slice's own historical grant rate, not the low
+whole-docket rate — so simply restating the base rate earns no credit.
+
+### A petition's lifecycle
+
+```mermaid
+flowchart TD
+  A[Petition docketed] --> B{Eligible?<br/>discretionary cert,<br/>not pro se / IFP}
+  B -- no --> X[Out of scope<br/>ingested for retrieval only]
+  B -- yes --> C[Salience score<br/>cheap deterministic ranking]
+  C --> D{Selected?<br/>top-ranked up to capacity N<br/>+ always-include carve-outs}
+  D -- no --> Y[Below the capacity line<br/>scored + ranked, not predicted]
+  D -- yes --> E[Distributed for conference]
+  E -->|distribution / relist| F[Predict — 3-engine tournament<br/>grant/deny + pre-registered big-case score]
+  F -->|facts change| F
+  E --> G[Conference]
+  G --> H[Order list: grant / deny]
+  H --> I[Evaluate — skill vs the segment base rate<br/>+ independent big-case read]
+  H -->|if granted| J[Merits events on the docket<br/>argument, decision, per-justice votes]
+```
+
+The two off-ramps differ: a case that fails eligibility (**X**) is never
+predicted, while a case that is eligible but falls below the capacity line
+(**Y**) is still scored and ranked, and any prediction it already earned is
+**kept** — so the forward record is never rewritten by a later capacity call.
+
+### What's out of scope
+
+Within the Supreme Court, deterministic filters keep prediction on the
+discretionary-cert docket and off everything that does not fit it:
+
+- **Pro se / in-forma-pauperis petitions** — a deliberate choice to spend the
+  fundable slice on the paid cert docket (IFP grants are rare but real, so this is
+  a recorded decision, not a claim they never matter).
+- **Non-cert docket forms** — stay and emergency applications, and
+  original-jurisdiction matters, which resolve as stays or merits rulings rather
+  than a cert grant/deny.
+- **Attorney-discipline and other non-cert dockets**, and cases whose outcome is
+  not machine-readable (a published opinion with no clean disposition).
+
+These gate **prediction only, never ingestion** — the full history stays
+queryable for retrieval and base rates, and a granted case's originating
+court-of-appeals docket is tracked for context but not itself predicted. Scope is
+a cost-driven dial, not a permanent limit; widening it is a decision for
+[`docs/budget.md`](docs/budget.md) / [milestones](docs/milestones.md).
 
 ## Data model
 
