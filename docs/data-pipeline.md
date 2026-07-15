@@ -117,15 +117,16 @@ timeline ([live-sources.md](live-sources.md)).
 
 ## Three writer jobs, one shared core
 
-`run-pull` carries three writer jobs on one surface — they differ on every axis
-that matters, while the cron minute keeps at most one running per window:
+Two workflows carry three writer jobs over one corpus — `run-pull`'s **pull** and
+**live**, and `run-seed`'s **historical** walker — differing on every axis that
+matters, while the shared `corpus-write` lock keeps at most one running at a time:
 
-| Axis      | historical (Term walker)                | pull (enrichment)                 | live (forward poll)             |
+| Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|
 | Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           |
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions: discovery, watchlist, outcomes |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        |
-| Cadence   | **daily** (1×, off-peak)                | **daily** (4 windows)             | **daily** (4 windows)           |
+| Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           |
 | Handoffs  | none — lands already-resolved history   | predict/evaluate issues           | predict/evaluate issues         |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a
@@ -246,11 +247,13 @@ The workflow variable is `CORPUS_REMOTE_URL` (the rename off the old
 ### Corpus-writer coordination
 
 `corpus/corpus.db` is one mutable SQLite blob behind one committed pointer, and
-three writer jobs mutate it. A blob has no merge, so the pointer is last-writer-wins:
-concurrent or divergent-base writers would silently drop each other's rows.
-Two rules prevent that: **one lock** — the writer jobs share the `corpus-write`
-concurrency group (`cancel-in-progress: false`), so corpus writers never run
-simultaneously — and **reset to the live tip before mutating**: because
+three writer jobs across two workflows mutate it. A blob has no merge, so the
+pointer is last-writer-wins: concurrent or divergent-base writers would silently
+drop each other's rows. Two rules prevent that: **one lock** — all three writer
+jobs, in `run-pull` (pull, live) and `run-seed` (historical), share the
+repo-level `corpus-write` concurrency group (`cancel-in-progress: false`), so
+corpus writers never run simultaneously even across workflows — and **reset to
+the live tip before mutating**: because
 `actions/checkout` pins the run's *creation-time* sha, each writer job first
 `git fetch`es and `git reset --hard`s to the current tip of the default branch
 before `corpus-pull → mutate → corpus-push → commit the pointer`, so it

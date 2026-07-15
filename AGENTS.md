@@ -37,7 +37,7 @@ non-interactive** container. Two consequences shape everything you do:
   a branch + PR (in `run:predict` / `run:evaluate` you only *write files* — the
   workflow commits, pushes, and opens the PR; do **not** push yourself).
   Corpus / bulk data goes to the remote stores (the corpus remote and the per-case
-  content store; the run-pull writer jobs own this) — a data file never pushed
+  content store; the run-pull and run-seed writer jobs own this) — a data file never pushed
   to a remote is lost with the runner. See `docs/data-pipeline.md`.
 
 ## The golden rules

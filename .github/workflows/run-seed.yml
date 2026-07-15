@@ -65,8 +65,9 @@ jobs:
     steps:
       # One token up front: a ≤40-min walk plus the trailing steps stay inside
       # its 1h life, so unlike the old run-pull historical job there is no mid-loop
-      # re-mint. Scoped to contents:write (the pushes) + issues:write (the
-      # best-effort progress note); the guard job uses the ambient token instead.
+      # re-mint. Scoped to contents:write only (the corpus pushes) — progress goes
+      # to the Actions step summary, not an issue, so no issues:write is needed;
+      # the guard job files its escalation on the ambient token instead.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3

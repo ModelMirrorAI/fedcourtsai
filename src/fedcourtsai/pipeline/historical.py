@@ -334,7 +334,7 @@ def load_terms(
     upstream error stops only its stream — cursor untouched, next invocation
     retries the same serial — and never aborts the invocation. Returns the
     report the run-seed walk loop reads for its stop conditions and
-    progress comment.
+    step summary.
     """
     _migrate_legacy_cursors(corpus_db_path)
     # Pre-capture live rows get their parsed signals and sample weights filled
@@ -370,7 +370,7 @@ def fold_totals(totals: HistoricalReport | None, latest: HistoricalReport) -> Hi
 
     The run-seed walk loop invokes ``historical-terms`` many times per job
     (each invocation is one checkpoint chunk); the totals file is what the run's
-    single progress comment renders. Counters and failures accumulate; the walk
+    single step summary renders. Counters and failures accumulate; the walk
     state — per-(Term, stream) progress, ``complete``, ``stopped`` — is the
     latest invocation's view (its cursors already encode all prior progress).
     """
