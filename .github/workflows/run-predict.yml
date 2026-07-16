@@ -133,7 +133,7 @@ jobs:
       - name: Mint agent comment token
         id: agent-token
         # Only the Claude step consumes this token (Codex never took one, and
-        # Gemini's CLI strips custom env vars from agent shells in CI): don't
+        # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
         # mint a live credential in cells that cannot use it.
         if: matrix.engine == 'claude-code'
         # Least-privilege token the agent itself uses to comment on the triggering
@@ -339,7 +339,8 @@ jobs:
             }
           # The kickoff prompt is identical across the three engines and carries
           # the cell identifiers inline: some engines sanitize the shell
-          # environment in CI (Gemini strips every custom env var), so the
+          # environment in CI (Gemini strips every custom env var except the
+          # allowlisted cell contract), so the
           # prompt text — not the env — is the contract's delivery channel.
           prompt: |
             Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
@@ -464,18 +465,23 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
-          # No GITHUB_TOKEN here: the Gemini CLI (0.49.0's environment
-          # sanitization runs in strict mode whenever GITHUB_SHA is present)
-          # strips every custom env var from the agent's shell commands in CI,
-          # so a comment token could never be used — flags.json is this
-          # engine's blocked-channel. Re-check on a CLI version bump.
+          # No GITHUB_TOKEN here: it is simply absent from this step's env, so a
+          # comment token could never be used — flags.json is this engine's
+          # blocked-channel. Belt and braces: a token could not reach the agent's
+          # shell even if it were here, because the CLI hard-filters
+          # /TOKEN|SECRET|KEY|AUTH|.../i out of the settings allowlist itself, and
+          # unlisted vars are stripped under strict mode (on whenever GITHUB_SHA
+          # is set). Re-check on a CLI version bump.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Headless runs need the workspace trusted explicitly (the CLI exits 55
           # otherwise); the runner workspace is a fresh clone of this repo.
           GEMINI_CLI_TRUST_WORKSPACE: "true"
-          # The same kickoff prompt as the Claude and Codex steps: the inline
-          # identifiers are what the agent works from, because the env vars
-          # above never survive the CLI's shell sanitization.
+          # The same kickoff prompt as the Claude and Codex steps. The inline
+          # identifiers stay authoritative and are the belt-and-braces channel;
+          # the env vars above now also reach the agent's shell, because the
+          # settings step allowlists the cell contract past the CLI's strict-mode
+          # sanitizer (a harness run with no .gemini/settings.json still has only
+          # the inline channel).
           PROMPT: |
             Read ${{ matrix.prompt }} and AGENTS.md, then produce the prediction
             for this cell:

@@ -12,8 +12,16 @@ runbook, [docs/security.md](docs/security.md).
 - **Least-privilege permissions.** Every workflow sets top-level `permissions: {}`
   and grants only what each job needs.
 - **No static key in the runner's process env where untrusted code runs.** The
-  engine actions proxy or scope their model API keys so the CLIs never hold
-  them. The lower-sensitivity CourtListener token is passed as a scoped step env
+  Claude and Codex engine *actions* proxy or scope their model API keys so those
+  CLIs never hold them. The engines this repo drives directly — Gemini
+  everywhere, and all three in the cert back-test — are the exception: their key
+  is a scoped step env on the agent step, so the control there is the Gemini
+  CLI's own sanitizer, which strips every env var it has not been asked to
+  allowlist and **refuses to allowlist** any name matching
+  `/TOKEN|SECRET|KEY|AUTH|CREDENTIAL|PRIVATE|CERT/i` — so a model key can never
+  reach the agent's shell. That strict mode is forced by `GITHUB_SHA`, i.e. in CI
+  (the residual: off-CI there is no such barrier, which is a local dev run with
+  the dev's own key). The lower-sensitivity CourtListener token is passed as a scoped step env
   in exactly one place — the cells' **MCP-config step**, a deterministic step
   that writes it into a runner-local, gitignored client-config file the MCP
   server reads. **No agent step holds it:** the cells have no REST fallback, so
