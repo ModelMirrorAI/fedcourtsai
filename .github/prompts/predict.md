@@ -106,9 +106,12 @@ cross-evaluator reads it.
 historical *context* — priors and base rates (in `replay` mode they are your
 main retrieval surface beside the provisioned inputs). The corpus blob is not
 on your cell's disk: `fedcourts query` (a handful of similar resolved priors, ranked) and
-`fedcourts open-events` read it in place on the remote via ranged reads, and each
-invocation reports its transfer as a `ranged corpus reads: N GET(s), M byte(s)`
-line on stderr — record those lines in `retrieval.md` (below). For aggregate
+`fedcourts open-events` read it through your cell's local corpus service, which
+holds the ranged remote connection — your shell holds no cloud credentials.
+Each `query` reports its transfer as a `ranged corpus reads: N GET(s), M byte(s)`
+line on stderr — record those lines in `retrieval.md` (below); a warm service
+cache can honestly report `0 GET(s)`, so record the line either way
+(`open-events` prints no transfer line). For aggregate
 disposition **base-rates**, read the committed `metrics/statpack.md`;
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
 Its cert statistics are computed over the live/historical slice with
@@ -179,7 +182,7 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
 - **`retrieval.md`** — your retrieval log: what you consulted beyond the provisioned
   inputs, so the record shows what informed this prediction (what you consult is
   logged, not limited). List each corpus lookup (the `fedcourts` command line and the
-  `ranged corpus reads: …` stderr line it printed), each CourtListener MCP lookup,
+  `ranged corpus reads: …` stderr line it printed, if any), each CourtListener MCP lookup,
   and any web searches your engine surfaced. Free-form markdown, not
   schema-validated. If you consulted nothing beyond the provisioned inputs, write
   the one line "No retrieval beyond the provisioned inputs."

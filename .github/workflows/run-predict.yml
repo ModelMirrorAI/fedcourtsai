@@ -156,10 +156,14 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       # Read-only corpus access (OIDC role; no static keys — a compromised
-      # predict runner cannot write or delete corpus objects). No pull: the cell
-      # queries the immutable corpus blob in place over ranged reads, so the
-      # only corpus bytes this job moves are the KBs its lookups touch.
-      - uses: ./.github/actions/corpus-ranged
+      # predict runner cannot write or delete corpus objects). No pull: corpus
+      # bytes move only as the KBs each ranged lookup touches. The credentials
+      # are scoped to the sidecar action's own steps — the agent steps below
+      # inherit none; they reach the corpus through the localhost sidecar via
+      # the `service` backend, and the deterministic provisioning steps take
+      # the credentials from this action's outputs as step-scoped env.
+      - uses: ./.github/actions/corpus-sidecar
+        id: corpus
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -175,6 +179,15 @@ jobs:
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
+          # Trusted repo code running before the agent: read-only credentials
+          # ride this step's env only (from the sidecar action's outputs),
+          # never the job env, so no agent step inherits them.
+          AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
           # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the clean-slate
           # cutover switch; unset variable -> '0' -> off) provisioning defaults to
           # the per-case content store, which needs its URL. Inert while the flag
@@ -205,6 +218,14 @@ jobs:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
           EVENT_ID: ${{ matrix.event_id }}
+          # Step-scoped read-only credentials, same rationale as the
+          # provisioning step above.
+          AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
           # Corpus-split read side: under FEDCOURTS_CORPUS_SPLIT=1 (the clean-slate
           # cutover switch; unset variable -> '0' -> off) provisioning defaults to
           # the per-case content store, which needs its URL. Inert while the flag
@@ -284,13 +305,35 @@ jobs:
               # out of the allowlist itself) — so a captured arg carries a query,
               # never a secret.
               mkdir -p .gemini
-              printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE"]}}}' > .gemini/settings.json
+              # FEDCOURTS_CORPUS_BACKEND / FEDCOURTS_CORPUS_SERVICE_URL are the
+              # corpus sidecar's cell contract: a backend name and a localhost
+              # URL, non-secret by construction (and structurally so — the
+              # names clear the CLI's credential-name refusal regex). This is
+              # what gives this engine corpus retrieval parity: the sanitizer
+              # could never allowlist AWS credentials, but it accepts these.
+              printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role predictor --actor "$PREDICTOR_ID" \
                 --base-settings .gemini/settings.json > .gemini/settings.json.new
               mv .gemini/settings.json.new .gemini/settings.json
               ;;
           esac
+
+      # The regression tripwire for the whole sidecar design: the agent steps
+      # below must inherit no cloud credential from the job env. The sidecar
+      # action keeps the assumed role's credentials out of $GITHUB_ENV
+      # (step outputs only); this proves it stays that way.
+      - name: Assert the agent env is credential-free
+        run: |
+          set -euo pipefail
+          # Any AWS_* variable except the region names is treated as
+          # credential-conferring (static keys, session tokens, and the
+          # role-ARN/web-identity pair alike).
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables leaked into the job env"
+            exit 1
+          fi
+          echo "agent env is credential-free"
 
       - name: Predict with Claude Code
         id: predict_claude
@@ -307,6 +350,10 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
+          # Corpus queries go through the localhost sidecar (the URL arrived
+          # job-wide from its launch step): the identical `fedcourts query`
+          # surface, no cloud credential in this shell.
+          FEDCOURTS_CORPUS_BACKEND: service
           # No CourtListener token on the agent step: live CL access is the MCP
           # server only (configured in the step above, its token in the gitignored
           # settings file), and there is no REST fallback — so the token is never
@@ -385,6 +432,9 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
+          # Corpus queries go through the localhost sidecar (see the Claude
+          # step): same surface, no cloud credential in this shell.
+          FEDCOURTS_CORPUS_BACKEND: service
           # No CourtListener token on the agent step (see the Claude step): MCP is
           # the only live-CL path and there is no REST fallback.
           # Pin the session log to a known dir so the usage-capture step can read it.
@@ -465,6 +515,12 @@ jobs:
           PREDICTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           MODEL_ID: ${{ matrix.model }}
+          # Corpus queries go through the localhost sidecar (see the Claude
+          # step). For this engine that is the parity fix, not just posture:
+          # its sanitizer could never allowlist AWS credentials, so ranged
+          # queries were impossible — a backend name and a localhost URL are
+          # allowlistable (both named in the settings written above).
+          FEDCOURTS_CORPUS_BACKEND: service
           # No GITHUB_TOKEN here: it is simply absent from this step's env, so a
           # comment token could never be used — flags.json is this engine's
           # blocked-channel. Belt and braces: a token could not reach the agent's
@@ -637,6 +693,20 @@ jobs:
             data
           if-no-files-found: error
           retention-days: 7
+
+      # The sidecar's log carries its startup line and per-request records
+      # (boto3/http.server noise, no secrets — GitHub masks the credentials
+      # regardless): surface it in the job log so a mid-run sidecar death or a
+      # failed query is diagnosable without re-running the cell.
+      - name: Show the corpus sidecar log
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # Indent every replayed line: the log is agent-adjacent bytes, and a
+          # line starting with ::<command>:: would otherwise be parsed as a
+          # workflow command by the runner.
+          [ -f corpus-sidecar.log ] && tail -n 100 corpus-sidecar.log | sed 's/^/  /' || true
 
   collect:
     needs: [plan, predict]

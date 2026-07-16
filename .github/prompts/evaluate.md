@@ -148,9 +148,12 @@ keep the backtest stratum honest as *iteration signal*; backtest results are
 never claimable performance regardless (only the forward stratum is).
 
 You may consult the corpus for context while scoring (never for new case facts):
-`fedcourts query` / `fedcourts open-events` read the corpus blob in place on the
-remote via ranged reads (the blob is not on your cell's disk) and report each
-invocation's transfer as a `ranged corpus reads: …` line on stderr; the committed
+`fedcourts query` / `fedcourts open-events` read the corpus through your cell's
+local corpus service, which holds the ranged remote connection (the blob is not
+on your cell's disk, and your shell holds no cloud credentials); each `query`
+reports its transfer as a `ranged corpus reads: …` line on stderr — a warm
+service cache can honestly report `0 GET(s)`, so record the line either way
+(`open-events` prints none); the committed
 `metrics/statpack.md` carries the base-rates (its cert statistics are
 live/historical-slice, denial-reweighted estimates — each section's scope line
 says so). When you grade a replay cell's base-rate use, the per-Term table is
@@ -158,7 +161,7 @@ the surface it should have self-selected pre-cutoff rows from. Write **one**
 `retrieval.md` for this cell, at
 `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$EVALUATOR_ID/$RUN_ID/retrieval.md`
 — your retrieval log: each corpus lookup (command + its `ranged corpus reads: …`
-line), each CourtListener MCP lookup, and any web searches your engine surfaced
+line, if any), each CourtListener MCP lookup, and any web searches your engine surfaced
 (what you consult is logged, not limited). Free-form markdown, not
 schema-validated. If you consulted nothing beyond the provisioned inputs, write
 the one line "No retrieval beyond the provisioned inputs."
