@@ -1858,6 +1858,8 @@ def corpus_serve(
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        # Ctrl-C is the sidecar's normal shutdown, not an error: fall through
+        # to the close below and exit 0.
         pass
     finally:
         server.server_close()

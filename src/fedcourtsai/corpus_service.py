@@ -240,7 +240,13 @@ class _Handler(BaseHTTPRequestHandler):
     # Route the default stderr chatter to the module logger (the sidecar log),
     # never stdout — the CLI contract owns stdout.
     def log_message(self, format: str, *args: object) -> None:
-        logger.info("%s - %s", self.address_string(), format % args)
+        # The request line is client-supplied bytes; strip control characters
+        # so a crafted path cannot forge extra lines (or terminal escapes) in
+        # the sidecar log, which the workflow replays into the job log.
+        message = "".join(
+            char if char.isprintable() or char == " " else "?" for char in format % args
+        )
+        logger.info("%s - %s", self.address_string(), message)
 
     def _send_json(self, status: int, payload: str) -> None:
         body = payload.encode()
