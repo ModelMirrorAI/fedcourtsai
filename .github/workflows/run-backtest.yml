@@ -132,6 +132,25 @@ jobs:
           codex --version
           gemini --version
 
+      # Gemini's replay cells read the same cell env contract as a live predict
+      # cell (COURT_ID/DOCKET_ID/... from `_cell_env`, plus DECIDED_BEFORE, the
+      # replay clock), but its sanitizer runs strict whenever GITHUB_SHA is set
+      # and strips every custom var from the agent's shell — so `$COURT_ID`
+      # expands empty and the cell cannot resolve its own provisioned snapshot,
+      # silently degrading gemini's replay while claude and codex read the same
+      # files fine. The allowlist restores the identical contract (run-predict.yml
+      # carries the fuller rationale). Workspace-level, so it covers every replay
+      # cell in this run; only non-secret identifiers, and the CLI hard-refuses to
+      # allowlist anything matching /TOKEN|SECRET|KEY|AUTH|.../i regardless. No
+      # MCP or telemetry block here: unlike the live workflows, the back-test
+      # configures no MCP servers and parses no telemetry.
+      - name: Configure the Gemini cell env allowlist
+        if: github.event_name == 'issues' || inputs.engine == 'auto'
+        run: |
+          set -euo pipefail
+          mkdir -p .gemini
+          printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE"]}}}' > .gemini/settings.json
+
       - name: Run the cert back-test
         env:
           # Engine credentials for the replay cells; unused by the stub backend.

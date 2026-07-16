@@ -251,6 +251,24 @@ jobs:
               # do not gitignore-filter their reads; this brings Gemini in line.
               # The key is namespaced under `context` per the gemini-cli 0.49.0
               # settings schema (a bare top-level fileFiltering is ignored).
+              # security.environmentVariableRedaction.allowed: the cell env
+              # contract (COURT_ID/DOCKET_ID/... — see _cell_env and the prompt's
+              # identifier table) reaches the agent's SHELL. Gemini's sanitizer
+              # runs strict whenever GITHUB_SHA is set and otherwise strips every
+              # custom var, so `$COURT_ID` expanded EMPTY in a gemini cell and the
+              # agent looked for its provisioned snapshot at a garbage path and
+              # reported it missing — while claude and codex, reading the same
+              # files, were fine. The allowlist check precedes the strict-mode
+              # blanket redaction, so naming the vars here restores the identical
+              # env contract the other two engines already get: same prompt, same
+              # `fedcourts paths`, same $VAR. (Settings keys are `allowed` /
+              # `blocked` / `enabled`, NOT the internal `allowedEnvironmentVariables`
+              # field name — a wrong namespace is a silent no-op, like the bare
+              # fileFiltering above. `enabled` is deliberately unset: strict mode
+              # already forces redaction in CI, and setting it would newly redact
+              # off-CI, where redaction is off today.) Only non-secret identifiers
+              # go here; the CLI hard-refuses to allowlist anything matching
+              # /TOKEN|SECRET|KEY|AUTH|CREDENTIAL|.../i regardless.
               # logPrompts:true so the tool_call telemetry events carry
               # `function_args` — without it Gemini logs the tool name but not the
               # query, leaving retrieval_log.json's query/params null (Claude and
@@ -261,9 +279,12 @@ jobs:
               # token-free — COURTLISTENER_API_TOKEN rides this MCP-config step's
               # env only to be written into the gitignored settings file, never the
               # agent step, and the CLI strips custom env from agent shell commands
-              # — so a captured arg carries a query, never a secret.
+              # except the non-secret identifiers allowlisted below (a token can
+              # never be allowlisted: the CLI hard-filters /TOKEN|SECRET|KEY|.../i
+              # out of the allowlist itself) — so a captured arg carries a query,
+              # never a secret.
               mkdir -p .gemini
-              printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true}}' > .gemini/settings.json
+              printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE"]}}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role predictor --actor "$PREDICTOR_ID" \
                 --base-settings .gemini/settings.json > .gemini/settings.json.new
