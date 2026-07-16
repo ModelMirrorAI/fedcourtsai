@@ -662,7 +662,9 @@ jobs:
           # Indent every replayed line: the log is agent-adjacent bytes, and a
           # line starting with ::<command>:: would otherwise be parsed as a
           # workflow command by the runner.
-          [ -f corpus-sidecar.log ] && tail -n 100 corpus-sidecar.log | sed 's/^/  /' || true
+          if [ -f corpus-sidecar.log ]; then
+            tail -n 100 corpus-sidecar.log | sed 's/^/  /'
+          fi
 
   collect:
     needs: [plan, evaluate]
