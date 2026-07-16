@@ -116,6 +116,16 @@ def test_uppercase_hex_of_a_hex_shaped_token_is_caught() -> None:
         "See 570 U.S. 205 (2013) and 599 U.S. 1 (2023).",
         "Docket 22-1078; consolidated with 1:22-cv-01234 (D.D.C.).",
         "https://www.courtlistener.com/opinion/4801990/mata-v-avianca-inc/",
+        "https://www.supremecourt.gov/DocketPDF/25/25-962/401003/"
+        + "20260316144707617_25-962acPresidentProTemporeOfTheState.pdf",
+        # The two highest-entropy readable strings in a real predict run's
+        # files (0.802 normalized) — the calibration's upper bound.
+        "https://www.supremecourt.gov/DocketPDF/25/25-918/399221/"
+        + "20260522140121672_COService_RespMotExpedite.pdf",
+        "https://www.supremecourt.gov/DocketPDF/25/25-1019/402118/"
+        + "20260601120539217_E-Filing_Proof_of_Service.pdf",
+        "fetched the BIO from https://www.supremecourt.gov/DocketPDF/25/25-944/"
+        + "398765/20260601120000000_RobinhoodBriefInOppositionToPetition.pdf",
         "params_digest: 9f86d081884c7d65",
         "sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "id: 08bfc68e-3166-4d04-a5d6-90dacf06c4d4",
@@ -324,3 +334,48 @@ def test_cli_missing_extra_file_fails_closed(
     )
     assert result.exit_code == 2
     assert "is missing" in result.output
+
+
+def test_workspace_output_paths_are_not_flagged() -> None:
+    # The regression from the first live trip: a cell's shell commands carry
+    # its own long output path — slashes, dashes, digits, and the run id's
+    # T/Z pushing it past three character classes and (in aggregate) the
+    # entropy bar. Judged per segment, a path is just short wordy pieces.
+    line = (
+        '"query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/'
+        "fedcourtsai/fedcourtsai/data/cases/scotus/73280380/events/"
+        "evt-petition-disposition/predictions/claude-baseline/"
+        '20260716T181711Z; rm -f tmp_stderr1.txt"'
+    )
+    assert _scan(line, known=(_TOKEN,)) == []
+
+
+def test_credential_length_segment_inside_a_path_still_flags() -> None:
+    blob = base64.b64encode(bytes(range(7, 47))).decode().replace("/", "A")
+    assert len(blob) >= 40
+    line = f"cat /tmp/cache/{blob}/payload.bin"
+    assert "high-entropy" in _scan(line)
+
+
+def test_base64_up_to_two_slashes_is_still_judged_whole() -> None:
+    # Two slashes is the boundary: only runs at three or more read as paths
+    # and get the per-segment treatment, so a blob with a couple of incidental
+    # slashes is still scored — and caught — as one opaque token.
+    blob = base64.b64encode(bytes(range(7, 47))).decode().replace("/", "A")
+    seeded = blob[:20] + "/" + blob[20:38] + "/" + blob[38:]
+    assert seeded.count("/") == 2
+    assert "high-entropy" in _scan(f"observed {seeded} in output")
+
+
+def test_known_gap_base64_split_by_three_slashes_is_missed() -> None:
+    # Pins this layer's dominant, deliberate gap (see _PATHLIKE_SLASHES): a
+    # std-base64 secret carrying 3+ incidental slashes is scored per segment,
+    # and segments under the 40-char floor go unscored. url-safe base64 has no
+    # slashes, and a *known* secret is caught by containment regardless — this
+    # test exists so the trade stays visible rather than silently widening.
+    blob = base64.b64encode(bytes(range(7, 47))).decode().replace("/", "A")
+    slashy = "/".join([blob[:14], blob[14:28], blob[28:42], blob[42:]])
+    assert slashy.count("/") == 3
+    assert _scan(f"observed {slashy} in output") == []
+    # ...but containment still catches it when the value is a known secret.
+    assert "known-token" in _scan(f"observed {slashy} in output", known=(slashy,))
