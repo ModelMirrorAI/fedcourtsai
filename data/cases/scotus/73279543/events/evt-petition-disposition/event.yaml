@@ -1,0 +1,10 @@
+case_id: scotus/73279543
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-12-16'
+resolved: true
+schema_version: '1.0'
+title: Las Vegas Sun, Inc., Petitioner v. Sheldon Adelson, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/73279002
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-11-07'
+resolved: true
+schema_version: '1.0'
+title: John Q. Hamm, Commissioner, Alabama Department of Corrections, Petitioner v.
+  Michael Sockwell

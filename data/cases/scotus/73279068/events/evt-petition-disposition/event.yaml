@@ -1,0 +1,11 @@
+case_id: scotus/73279068
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-12-02'
+resolved: true
+schema_version: '1.0'
+title: Michael Clayton Woodruff, Petitioner v. Ricky D. Dixon, Secretary, Florida
+  Department of Corrections

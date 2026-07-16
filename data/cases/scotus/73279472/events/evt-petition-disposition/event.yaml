@@ -1,0 +1,11 @@
+case_id: scotus/73279472
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-12-03'
+resolved: true
+schema_version: '1.0'
+title: Mark Hanneman, Minneapolis Police Officer, et al., Petitioners v. Karen Wells,
+  as Co-Trustee for the Next of Kin of Amir Rahkare Locke, et al.

@@ -1,0 +1,12 @@
+case_id: scotus/73279030
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-11-18'
+resolved: true
+schema_version: '1.0'
+title: SunTrust Bank, Petitioner v. Charles Daniel Bickerstaff, as Administrator of
+  the Estate of Jeff Bickerstaff, Jr., on Behalf of Himself and All Others Similarly
+  Situated

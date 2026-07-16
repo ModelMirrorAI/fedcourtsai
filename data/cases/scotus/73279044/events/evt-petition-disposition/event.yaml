@@ -1,0 +1,11 @@
+case_id: scotus/73279044
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-11-21'
+resolved: true
+schema_version: '1.0'
+title: Vishara Video, Inc., et al., Petitioners v. City of New York, New York, et
+  al.

@@ -1,0 +1,11 @@
+case_id: scotus/73279527
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-12-11'
+resolved: true
+schema_version: '1.0'
+title: Zhi Wu, et al., Petitioners v. Superior Court of California, Alameda County,
+  et al.
