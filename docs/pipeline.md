@@ -214,10 +214,16 @@ any salvageable partial output split into a single companion **draft** PR. So a
 fan-out of dozens of cells yields one (or two) PRs for the run, not one per cell.
 The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in
 `collect` before the commit and again as the required `paths` check, so an
-auto-merged PR can only add artifacts under `data/` (see [security.md](security.md)).
+auto-merged PR can only add artifacts under `data/`; a schema re-validation and a
+secret scan (`fedcourts scan-diff-for-secrets`) run beside it producer-side —
+a validation failure downgrades the PR to a draft, while a secret-scan hit
+**withholds the branch entirely** (nothing pushed; a redacted report lands on
+the trigger issue) since the push itself would publish the secret (see
+[security.md](security.md)).
 
 For `run:predict` and `run:evaluate`, `collect` also rolls up any
-agent feedback (`flags.json`) the run surfaced and posts it three ways — the run PR
+agent feedback (`flags.json`) the run surfaced and posts it three ways — each
+gated on the run's secret scan, since flag messages are agent free text — the run PR
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
 single latched-issue pattern of `ops-dashboard` / `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.

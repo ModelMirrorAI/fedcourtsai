@@ -22,29 +22,47 @@ runbook, [docs/security.md](docs/security.md).
   reach the agent's shell. That strict mode is forced by `GITHUB_SHA`, i.e. in CI
   (the residual: off-CI there is no such barrier, which is a local dev run with
   the dev's own key). The lower-sensitivity CourtListener token is passed as a scoped step env
-  in exactly one place — the cells' **MCP-config step**, a deterministic step
-  that writes it into a runner-local, gitignored client-config file the MCP
-  server reads. **No agent step holds it:** the cells have no REST fallback, so
-  live CourtListener access is the MCP server only (the agent calls it by tool
-  name, never handling the token), and the token is never in the environment
-  while an engine processes adversarial docket text. Exposure equals that one
-  config-writing step's env: the file is on an ephemeral runner, never committed,
-  and the artifact upload is an explicit allowlist that excludes it. Residual
-  blast radius if the token leaked despite this: it spends pull's quota and
-  forces a rotation that touches pull — it is not a model key or a GitHub token.
+  in exactly two deterministic places: the cells' **MCP-config step**, which
+  writes it into a runner-local, gitignored client-config file the MCP server
+  reads, and the collect job's **aggregate step**, where the secret scan
+  (below) needs the live value to search the run's output for it — a step
+  that parses agent bytes with jq/git/tested Python but never executes them.
+  (Pull's ingestion holds the same secret under its own name; the two places
+  here are the agent workflows'.) **No
+  agent step holds it:** the cells have no REST fallback, so live CourtListener
+  access is the MCP server only (the agent calls it by tool name, never
+  handling the token), and the token is never in the environment while an
+  engine processes adversarial docket text. Exposure equals those two
+  deterministic steps' env: the config file is on an ephemeral runner, never
+  committed, and the artifact upload is an explicit allowlist that excludes it.
+  Residual blast radius if the token leaked despite this: it spends pull's
+  quota and forces a rotation that touches pull — it is not a model key or a
+  GitHub token.
   **One accepted residual, bounded on the token's low value — not on the
   controls.** The token is a literal value in that MCP client-config file, which
   lives in the cell's workspace, so an agent's file tools can read it. This is
   inherent to stdio-transport MCP (the CLI spawns the server with the token in its
   launch env) and is present in **both** predict and evaluate; in predict it is
   further reachable via Gemini's `read_file`, whose config sets
-  `respectGitIgnore:false` to reach the provisioned `record/` snapshot. And an
-  exfiltration path genuinely exists: a prompt-injected agent could read the token
-  and write it into a free-text output field (`reasoning.md`, a rationale), which
-  the `collect` job **auto-merges to this public repo** on a green `validate` —
-  and `validate` checks schema and referential integrity, **not** secret content.
-  This is accepted anyway because the *reachable* secret is not worth stealing: it
-  is the single-account, **read-only** CourtListener token whose worst case is
+  `respectGitIgnore:false` to reach the provisioned `record/` snapshot. An
+  exfiltration path exists but is gated: a prompt-injected agent could read the
+  token and write it into a free-text output field (`reasoning.md`, a
+  rationale, a flag message) — free text that `validate` deliberately does not
+  read (it checks schema and referential integrity, not secret content). Before
+  anything is pushed, though, the `collect` job runs a **secret scan**
+  (`fedcourts scan-diff-for-secrets`) over the run's changed files and the PR
+  prose about to be posted: literal containment of the live token in the cheap
+  encodings (base64, hex, URL-escaping), credential-shape patterns, and an
+  entropy heuristic. A hit **withholds the branch** — nothing is pushed and no
+  PR opens; a redacted file/rule/line report (never the matched text) lands on
+  the trigger issue and the files stay in the run's cell artifacts for
+  maintainer review. The scan fails closed: if its token env is missing, the
+  branch is likewise withheld, with a misconfiguration note on the trigger
+  issue in place of a findings report. This *narrows* the residual rather than
+  closing it — it is a heuristic, and the cell's uploaded artifacts remain
+  downloadable from the Actions run by logged-in users regardless — so the
+  acceptance still rests on the *reachable* secret not being worth stealing:
+  the single-account, **read-only** CourtListener token whose worst case is
   spending pull's quota and forcing a rotation (above) — not a model key or a
   GitHub credential (the Claude cell's only token is comment-only; Codex and Gemini
   hold none). The prompt's don't-extract-it rule lowers the odds but is not the
@@ -105,8 +123,9 @@ runbook, [docs/security.md](docs/security.md).
   fixed JSON block rather than free text, and agents are instructed to treat
   docket text as data, not instructions.
 - **`persist-credentials: false`** on read-only checkouts.
-- **Secrets are never written to `data/` or logs.** The `validate` gate and
-  review on every agent PR are the backstops.
+- **Secrets are never written to `data/` or logs.** The `validate` gate, the
+  collect job's secret scan (which withholds a run branch rather than push
+  secret-shaped content), and review on every agent PR are the backstops.
 
 ## Reporting a vulnerability
 

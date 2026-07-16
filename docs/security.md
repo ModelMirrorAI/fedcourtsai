@@ -84,7 +84,15 @@ branch:
     artifact fails the check and cannot auto-merge. It is a no-op that passes on
     every non-`*/run-*` branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
-    the guarantee independently of the workflow that produced the branch.
+    the guarantee independently of the workflow that produced the branch. Two
+    more producer-side gates run beside it there: a schema re-validation
+    (failure downgrades the PR to a draft) and a secret scan (`fedcourts
+    scan-diff-for-secrets`) over the run's changed files and its PR prose — a hit
+    **withholds the branch** (nothing pushed, no PR; a redacted file/rule/line
+    report goes to the trigger issue) because pushing would itself publish the
+    secret. The scan has no merge-time counterpart by design: its job is to act
+    before the push, and it needs a live token env that the merge-time check —
+    running on PR branches without the `runner` environment — cannot hold.
   - `cleanup-paths` is the destructive counterpart for the cleanup sweep. That
     sweep *deletes* out-of-scope predictions (the tested `fedcourts
     cleanup-out-of-scope-predictions`, run locally by a maintainer), so it is the
@@ -152,12 +160,13 @@ the App token.
 
 Every secret and both S3 role ARNs live on the `runner` environment — the App
 credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
-the CourtListener API token (used by pull's ingestion and, via the cells'
+the CourtListener API token (used by pull's ingestion; via the cells'
 MCP config, by agent retrieval — the cells have no REST fallback, so no agent
 step carries the token; unset degrades the agents to anonymous rate
-limits), the AWS role ARNs and region, and the corpus remote URL (referenced by
-role, never committed). Every job that needs any of them declares
-`environment: runner`.
+limits; and by the collect jobs' secret scan, which needs the live value to
+search the run's output for it), the AWS role ARNs and region, and the corpus
+remote URL (referenced by role, never committed). Every job that needs any of
+them declares `environment: runner`.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers and nothing
 else.** Gemini's CLI sanitizer strips every env var from the agent's shell in CI
