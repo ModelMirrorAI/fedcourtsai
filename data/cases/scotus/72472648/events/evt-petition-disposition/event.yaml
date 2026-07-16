@@ -1,0 +1,11 @@
+case_id: scotus/72472648
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-10-27'
+resolved: true
+schema_version: '1.0'
+title: Michael D. J. Eisenberg, Petitioner v. West Virginia Office of Disciplinary
+  Counsel, et al.

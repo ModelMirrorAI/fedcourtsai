@@ -1,0 +1,10 @@
+case_id: scotus/72471644
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-10-13'
+resolved: true
+schema_version: '1.0'
+title: Thomas C. Donald, Petitioner v. James P. Kimberley, et ux.
