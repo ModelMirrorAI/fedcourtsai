@@ -1,0 +1,11 @@
+case_id: scotus/73278537
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-10-21'
+resolved: true
+schema_version: '1.0'
+title: Gillian Filyaw, Petitioner v. Steve Corsi, in His Official Capacity as Chief
+  Executive Officer of the Nebraska Department of Health and Human Services, et al.

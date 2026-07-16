@@ -1,0 +1,10 @@
+case_id: scotus/73279019
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-11-13'
+resolved: true
+schema_version: '1.0'
+title: Donald J. Trump, President of the United States v. E. Jean Carroll

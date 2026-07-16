@@ -1,0 +1,12 @@
+case_id: scotus/73278981
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-11-03'
+resolved: true
+schema_version: '1.0'
+title: Robert G. Hicks, Individually and as Trustee of the Roberta Cherry Hicks Testamentary
+  Trust, Petitioner v. City of Hopkinsville, Sewerage and Water Works Commission,
+  dba Hopkinsville Water Environment Authority
