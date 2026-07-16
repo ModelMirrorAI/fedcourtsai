@@ -1,0 +1,262 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "90ffdf5cbff8fab6",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523 -type f | head -50",
+      "result_digest": "a714c3a62bf85383",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "519140101120da86",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bee8c532f9f052f6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "db9a3ac886820612",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2cac4c0272d2acea",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "6bcfc3441089302c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8a37a634b96c0116",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/documents/documents.json\"}",
+      "result_digest": "f35e5bda8f26ab31",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4efe4738046d91f5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/documents/questions-presented.txt\"}",
+      "result_digest": "a9835e7394a54038",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f6da94d1422446ec",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/documents/petition.txt\"}",
+      "result_digest": "d687140b785a3a2b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2479f3241271f3af",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/documents/petition.txt\", \"limit\": 312, \"offset\": 1222}",
+      "result_digest": "f84d70558d2773aa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6e1fdc3165d852ac",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/documents/brief-in-opposition.txt\", \"limit\": 1200}",
+      "result_digest": "8de6e5ace81a5abb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0168aa921403c179",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279523/record/documents/brief-in-opposition.txt\", \"offset\": 1201}",
+      "result_digest": "2dadaf6625ae234f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e32af40f41feb4bf",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "502b95722a6e233f",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "75b9f1aa8811f304",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d9940390e70fd471",
+      "query": "uv run fedcourts query --court scotus --citation \"TransUnion LLC v. Ramirez\" --citation \"594 U.S. 413\" --corpus-backend ranged 2>&1 | tail -20",
+      "result_digest": "e71b79383c85d353",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "06d5e74ce48972d2",
+      "query": "uv run fedcourts query --court scotus --disposition dismissed --era 2020s --corpus-backend ranged 2>&1 | head -8",
+      "result_digest": "51ced1ad569428d3",
+      "retrieved_doc_date": "2026-06-29",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "23a99e43d3ed390d",
+      "query": "Cleveland Pickett water lien settlement Supreme Court petition defer 2026",
+      "result_digest": "c1fa739caa6a42ea",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "c9e5aaf7956f5661",
+      "query": "select:WebFetch",
+      "result_digest": "c4e348966a824a36",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "5a4e37229636a3ff",
+      "query": "What is the date of this article? What are the terms of the Cleveland water lien lawsuit settlement (Pickett v. Cleveland)? Does it mention the Supreme Court cert petition and what will happen to it? Does it mention whether the settlement requires court (class action / Rule 23(e)) approval and any timeline?",
+      "result_digest": "51b08744053b2e12",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "422aa2870e442382",
+      "query": "uv run fedcourts paths --court scotus --docket 73279523 --event evt-petition-disposition 2>&1; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "594e9f20a8da0c0e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d28d0f6ca9ac8416",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279523\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T07:39:48Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73279523/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.07,\\n  \\\"predicted_disposition\\\": \\\"dismissed\\\",\\n",
+      "result_digest": "246b722ffc08af90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d6b48311262d6b9e",
+      "query": "{\"content\": \"# City of Cleveland, Ohio v. Pickett (No. 25-677) \\u2014 petition disposition\\n\\n**Prediction: dismissed (P(any grant) = 0.07, granted = 0).**\\n\\n## The case\\n\\nCleveland Water places \\\"water liens\\\" (certified to the county auditor) on\\nproperties with water bills \\u2265 $300 delinquent \\u2265 180 days. Respondents \\u2014 Black\\nhomeowners represented by the NAACP Legal Defense Fund \\u2014 brought an FHA\\ndisparate-impact class action alleging the race-neutral policy\\ndisproportion",
+      "result_digest": "557d7ab3645e913c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "980d2770f897cf6d",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73279523 \\u00b7 evt-petition-disposition \\u00b7 claude-baseline \\u00b7 20260716T073449Z\\n\\nMode: `forward` (record/context.json) \\u2014 retrieval unrestricted; nothing\\npostdating the 2026-07-16 snapshot was used.\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"TransUnion LLC v. Ramirez\\\" --citation \\\"594 U.S. 413\\\" --corpus-backend ranged`\\n   - stderr: `ranged corpus reads: 417 GET(s), 109117440 byte(s)`\\n ",
+      "result_digest": "047d989fdd136045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0798cb092df5f9b6",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "9a64e367a7dc4b7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "10930b4cc795a059",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279523\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Decisive pre-snapshot forward signal used: public reporting dated May 7, 2026 (Cleveland Scene) that Cleveland agreed to a $3M settlement of the underlyin",
+      "result_digest": "c9336ce175845a6a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d3400737a22bff09",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279523\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"committed metrics/statpack.md\\\",\\n    \\\"web search + article fetch (forward mode)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned pet",
+      "result_digest": "ea7f621d3a754fc3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "8c3ba0252ee3fbcf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5fec330ac6567b66",
+      "query": "gh issue comment 705 --repo \"$GITHUB_REPOSITORY\" --body \"**claude-baseline \u00b7 scotus/73279523 \u00b7 evt-petition-disposition \u00b7 20260716T073449Z** \u2014 prediction written: **dismissed**, P(grant)=0.07. Cleveland v. Pickett (25-677, the LabCorp/uninjured-class-members question) drew a CFR, three amici, and repeated distributions, but the parties filed a joint motion to defer consideration after Cleveland announced a \\$3M settlement (May 7, 2026, pre-snapshot) \u2014 Rule 46 dismissal on settlement approval is ",
+      "result_digest": "594b7084b2967b7f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73279523",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T073449Z",
+  "schema_version": "1.0"
+}

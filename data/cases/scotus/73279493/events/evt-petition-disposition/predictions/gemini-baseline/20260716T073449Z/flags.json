@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73279493",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "The command `uv run fedcourts query --corpus-backend ranged` failed because CORPUS_REMOTE_URL was not set in the environment. I successfully degraded to using the CourtListener MCP search tool for precedent retrieval.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

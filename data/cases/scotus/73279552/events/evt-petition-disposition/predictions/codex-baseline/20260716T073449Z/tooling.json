@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279552",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed corpus statpack",
+    "fedcourts query (attempted; remote unavailable)",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned petition and complete brief in opposition",
+    "Snapshot conference timing",
+    "Disposition and relist base rates"
+  ],
+  "gaps": [
+    "The remote corpus endpoint was unreachable, so the query returned no historical priors",
+    "CourtListener opinion search did not expose the status of the related pending Supreme Court petition"
+  ],
+  "notes": "The docket snapshot and complete BIO were sufficient for a reasoned forecast despite the failed remote corpus lookup. A sanctioned Supreme Court docket-status lookup for related or lead cases would materially improve calibration of apparent holds."
+}

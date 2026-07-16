@@ -1,0 +1,7 @@
+- `uv run fedcourts paths --court "scotus" --docket "73279493" --event "evt-petition-disposition"`
+- `cat metrics/statpack.md`
+- `uv run fedcourts query --court "scotus" --event "evt-petition-disposition" "bankruptcy 523(a)(6) willful malicious injury discharge circuit split"` (Failed due to missing parameter support)
+- `uv run fedcourts query --help`
+- `uv run fedcourts query --court "scotus" --citation "523 U.S. 57" --disposition "granted" --corpus-backend ranged` (Failed due to missing `CORPUS_REMOTE_URL` environment variable)
+- CourtListener MCP Search Tool: `q="Stanley Kappell Watson" Bradsher, type="d"` (Query ID: 2f043dc9)
+- CourtListener MCP Search Tool: `q="willful and malicious injury" 523(a)(6) "Kawaauhau v. Geiger" "subjective" "objective", type="o"` (Query ID: 58b883f0)

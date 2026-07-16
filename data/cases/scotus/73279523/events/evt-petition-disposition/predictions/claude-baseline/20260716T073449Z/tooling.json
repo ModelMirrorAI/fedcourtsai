@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279523",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "committed metrics/statpack.md",
+    "web search + article fetch (forward mode)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and brief-in-opposition.txt full text — enough to weigh grant signals without any CourtListener calls",
+    "Statpack relist/CFR/circuit cuts for anchoring above the whole-docket rate",
+    "fedcourts query surfaced a matching settlement-dismissal prior (Elephant Insurance v. Holmes)"
+  ],
+  "gaps": [
+    "Citation-based fedcourts query returned no rows for a heavily-cited case (TransUnion); fuzzy or partial citation matching would help",
+    "The statpack section on salience bands referenced in the prompt is absent from the committed statpack.md",
+    "A per-signal cut for call-for-response (CFR) petitions would be more on-point than relist buckets for cases like this one",
+    "No structured cut for petitions with a pending joint motion to defer / settlement posture, which was the dispositive signal here"
+  ],
+  "notes": "Forward cell; ~6 retrieval calls total. The dispositive fact (May 2026 settlement) came from one web search — the provisioned docket's joint-deferral entry was the tell that prompted it."
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279493",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "metrics/statpack.json (per-fee-class detail)",
+    "provisioned snapshot and documents (petition.txt, questions-presented.txt)"
+  ],
+  "helpful": [
+    "statpack relist/CVSG/fee-class cuts",
+    "provisioned full petition text with a separate questions-presented extract",
+    "documents.json truncation metadata"
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for all three attempts (--citation '523 U.S. 57', --topic bankruptcy, --citation '11 U.S.C.') — topical/citation coverage of cert-petition priors seems thin, and the topic vocabulary is undiscoverable",
+    "statpack carries no call-for-response (CFR) cut, which was this cell's strongest docket signal; a CFR base-rate table would sharpen calibration",
+    "the committed statpack.md lacks the salience-band table the prompt tells predictors to prefer",
+    "no safe way to check a stale forward snapshot for post-snapshot, pre-disposition activity (e.g. BIO filed) without risking surfacing the disposition itself"
+  ],
+  "notes": "Prediction anchored on the paid-fee-class per-Term grant rates plus a several-fold CFR multiplier from general cert-practice knowledge, then adjusted on case specifics."
+}

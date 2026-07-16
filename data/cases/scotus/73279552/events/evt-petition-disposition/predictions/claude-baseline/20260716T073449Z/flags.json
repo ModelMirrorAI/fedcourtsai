@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73279552",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Docket pattern (single distribution for the 4/24/2026 conference, then no order, relist, or reschedule through the 7/15/2026 snapshot, surviving the end-of-Term cleanup) indicates this petition is likely being held for St. Mary Catholic Parish v. Roy, No. 25-581 (cert granted 4/20/2026, OT2026 argument). Expect no disposition until roughly June-July 2027; the cell will stay open far longer than the median petition.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279493",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260716T073449Z",
+  "created_at": "2026-07-16T07:38:04Z",
+  "input_snapshot": "data/cases/scotus/73279493/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.09,
+  "predicted_disposition": "denied",
+  "confidence": 0.83,
+  "big_case_score": 0.32,
+  "big_case_rationale": "The case could clarify a nationwide bankruptcy-discharge standard, but it arises from a small private dispute and presents limited public or institutional stakes.",
+  "reasoning_doc": "reasoning.md"
+}
