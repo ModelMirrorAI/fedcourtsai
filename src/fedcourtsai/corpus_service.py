@@ -78,6 +78,11 @@ _MAX_REQUEST_BYTES = 1_048_576
 MAX_QUERY_LIMIT = 500
 
 
+# The served routes, shared by the dispatcher and the request log (which logs
+# the matched constant, never the raw client path).
+_ROUTES = ("/healthz", "/v1/query", "/v1/open-events")
+
+
 class CorpusServiceError(RuntimeError):
     """The service could not be reached or refused the request."""
 
@@ -239,15 +244,19 @@ class _Handler(BaseHTTPRequestHandler):
 
     # Route the default stderr chatter to the module logger (the sidecar log),
     # never stdout — the CLI contract owns stdout.
+    # The sidecar log is replayed into the public job log, so client-supplied
+    # bytes never reach it at all: the per-request line records the matched
+    # route — a server-side constant — and the response code, and any other
+    # stdlib handler note logs its event shape (the format string) without
+    # its client-derived arguments. Nothing to sanitize, nothing to forge.
+    def log_request(self, code: int | str = "-", size: int | str = "-") -> None:
+        path = str(self.path).split("?", 1)[0]
+        route = next((known for known in _ROUTES if known == path), "[unrecognized path]")
+        logger.info("%s - %s -> %s", self.address_string(), route, code)
+
     def log_message(self, format: str, *args: object) -> None:
-        # The request line is client-supplied bytes; neutralize newlines (the
-        # explicit replaces are the log-forgery barrier static analysis keys
-        # on) and then every other control character, so a crafted path
-        # cannot forge extra lines or terminal escapes in the sidecar log,
-        # which the workflow replays into the job log.
-        line = (format % args).replace("\r", "?").replace("\n", "?")
-        message = "".join(char if char.isprintable() or char == " " else "?" for char in line)
-        logger.info("%s - %s", self.address_string(), message)
+        del args  # can carry client bytes (request lines, malformed headers)
+        logger.info("%s - %s", self.address_string(), format)
 
     def _send_json(self, status: int, payload: str) -> None:
         body = payload.encode()
