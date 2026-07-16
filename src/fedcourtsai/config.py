@@ -48,9 +48,11 @@ class Settings(BaseSettings):
     courtlistener_max_wait: float = 300.0
     # How read-only consumers open the corpus: "local" reads the pulled file
     # (`fedcourts corpus-pull`), "ranged" queries the immutable blob in place on
-    # the corpus remote via HTTP range requests (see fedcourtsai.corpus_ranged).
-    # Writers always open local.
-    corpus_backend: Literal["local", "ranged", "casestore"] = "local"
+    # the corpus remote via HTTP range requests (see fedcourtsai.corpus_ranged),
+    # "service" forwards query/open-events to a corpus query service on
+    # localhost (see fedcourtsai.corpus_service) so the caller needs no cloud
+    # credentials at all. Writers always open local.
+    corpus_backend: Literal["local", "ranged", "casestore", "service"] = "local"
     # The corpus remote's bucket URL, supplied out of band (never committed;
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the committed corpus pointer against it. The bare workflow variable names
@@ -77,6 +79,18 @@ class Settings(BaseSettings):
     casestore_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CASESTORE_URL", "CASESTORE_URL"),
+    )
+    # Where the "service" backend forwards corpus queries: the base URL of a
+    # `fedcourts corpus-serve` sidecar, normally on localhost. The sidecar
+    # holds the actual corpus connection — and, in a cell job, the cloud
+    # credentials — so the querying shell holds neither. The variable name
+    # deliberately avoids the Gemini CLI's credential-name refusal regex, so
+    # a cell can allowlist it like the rest of the cell contract (the
+    # allowlist addition itself is a reviewed change, per the security
+    # runbook).
+    corpus_service_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("FEDCOURTS_CORPUS_SERVICE_URL"),
     )
     # Corpus split (phase 4): the mode switch that moves the go-forward system onto
     # the per-case content store. When on, the payload reads default to the casestore

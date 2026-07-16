@@ -300,6 +300,57 @@ substitute an in-memory stand-in). Credit: michalc/sqlite-s3-query and
 litements/s3sqlite (both MIT) are the reference implementations; this is
 in-repo so it is typed, tested, and reviewed under the same gate.
 
+### The corpus query sidecar (the `service` backend)
+
+The decision behind the fourth backend, recorded here because it settles the
+agent retrieval contract. The ranged backend needs cloud credentials **in the
+calling shell**, and the callers that matter most are agent cells processing
+adversarial docket text: two engines hold read-only AWS credentials as an
+accepted residual (see [security.md](security.md)), and the third (Gemini)
+cannot run ranged queries at all — its CLI's env sanitizer refuses to allowlist
+any credential-shaped variable name, which makes corpus retrieval an accident
+of harness rather than a level surface. The alternatives were to accept that
+asymmetry, or to hand the third engine a credentials file (levelling *down* —
+three exposed shells instead of two). The decision levels *up*: corpus
+retrieval becomes a **query service**, so that no agent shell holds any
+credential. This section records the decision and the service; the cell
+workflows still run today's posture until the rewiring that launches the
+sidecar with step-scoped credentials lands (that change also retires the
+security runbook's cells-hold-credentials residual).
+
+`fedcourts corpus-serve` (`fedcourtsai.corpus_service`) serves `query` and
+`open-events` over localhost HTTP. The process holds the one corpus connection
+— and, in a cell job, the cloud credentials from *its own* step environment —
+while callers set `FEDCOURTS_CORPUS_BACKEND=service` plus
+`FEDCOURTS_CORPUS_SERVICE_URL` (a name the Gemini sanitizer accepts) and keep
+running the identical `fedcourts query` commands. It is a transport change,
+not a new surface: rows are shaped by the same `corpus.prior_payload` on both
+paths (byte-identical output, pinned by tests), and each response carries the
+ranged connection's per-request `GET`/byte delta, from which `query` prints
+the same `ranged corpus reads:` stderr evidence line (`open-events` stays
+silent on both paths, as it always has). A warm sidecar cache honestly
+reports `0 GET(s)` — the held connection keeps the ranged block cache warm
+across a cell's whole query budget, so egress *drops* relative to
+one-connection-per-invocation. The startup transfer is charged to whichever
+request triggers the lazy open: in the workflow flow that is the launch
+step's health check (visible in the sidecar log), so the agent's evidence
+lines carry only its own queries' costs.
+
+Deliberate minimalism, and its trade-offs: the server is single-threaded
+stdlib `http.server` (nothing in the read stack is thread-safe; localhost
+queuing is fine at a cell's query volume), the wire contract is a `/v1/` path
+plus a `schema_version` literal on pydantic models with both ends always built
+from the same checkout (so it is an internal protocol, deliberately not in the
+exported data schemas), and a request that fails — sidecar down, backend error
+— degrades exactly like a failed query today: stderr diagnosis, exit 1, the
+cell continues on provisioned inputs. A hung upstream read blocks the
+single-threaded server (including its health endpoint) until the transport
+times out; if the sidecar is ever shared beyond one cell, a threaded server
+with a connection lock is the named fallback. The deferred
+`--full`-via-content-store routing (below, under *Provisioning*) stays
+deferred, but `full` already rides the wire contract, so that work lands
+server-side with no client change.
+
 ### Provisioning: how a cell gets its record
 
 The predict/evaluate provisioning commands (`provision-snapshot`,

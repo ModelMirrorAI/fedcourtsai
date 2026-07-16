@@ -1507,3 +1507,29 @@ def test_latest_live_snapshot_skips_a_newer_rest_snapshot(tmp_path: Path) -> Non
         assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 20), rest_payload)
         assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 10), live_payload)
         assert corpus.latest_live_snapshot(conn, "scotus/none") is None
+
+
+def test_connect_readonly_rejects_service_backend(tmp_path: Path) -> None:
+    # "service" has no client-side connection: query/open-events forward whole
+    # requests to the corpus query service, so any other consumer inheriting
+    # the setting must fail loudly here rather than silently read local.
+    with (
+        pytest.raises(ValueError, match="service backend has no client-side connection"),
+        corpus.connect_readonly(tmp_path / "corpus.db", backend="service"),
+    ):
+        pass
+
+
+def test_prior_payload_shapes_the_query_row() -> None:
+    row = corpus.CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="24-1",
+        date_filed=date(2024, 10, 7),
+        opinion_text="per curiam",
+    )
+    bare = corpus.prior_payload(row)
+    assert bare["era"] == "2020s"
+    assert "opinion_text" not in bare
+    full = corpus.prior_payload(row, full=True)
+    assert full["opinion_text"] == "per curiam"

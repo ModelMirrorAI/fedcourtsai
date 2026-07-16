@@ -648,7 +648,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
-CorpusBackend = Literal["local", "ranged", "casestore"]
+CorpusBackend = Literal["local", "ranged", "casestore", "service"]
 
 
 def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
@@ -692,13 +692,22 @@ def connect_readonly(
     The ``casestore`` backend has no query surface (it serves per-case
     *provisioning* reads from content objects, not SQL), so it is rejected here — a
     command that only reads via this seam cannot serve it and must not silently fall
-    back to ``local``.
+    back to ``local``. ``service`` is likewise rejected: it has no client-side
+    connection at all — ``fedcourts query`` / ``open-events`` forward whole
+    requests to the corpus query service (see :mod:`fedcourtsai.corpus_service`),
+    so any other consumer inheriting that setting must fail loudly here.
     """
     effective = resolve_backend(backend)
     if effective == "casestore":
         raise ValueError(
             "the casestore backend has no queryable connection; it serves only "
             "per-case provisioning reads (see fedcourtsai.provision)"
+        )
+    if effective == "service":
+        raise ValueError(
+            "the service backend has no client-side connection; `fedcourts query` "
+            "and `open-events` forward to the corpus query service "
+            "(see fedcourtsai.corpus_service)"
         )
     if effective == "ranged":
         remote_url = get_settings().corpus_remote_url
@@ -1756,6 +1765,22 @@ class PriorQuery(BaseModel):
     resolved_only: bool = Field(
         default=True, description="Keep only labeled (decided) cases — precedent."
     )
+
+
+def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
+    """Shape one retrieved prior into the ``query`` output row.
+
+    The JSON-mode dump plus the derived decade ``era`` (era is derived, not
+    stored; carrying it on each prior makes relevance judgeable without
+    re-deriving), with ``opinion_text`` omitted unless ``full``. Shared by the
+    CLI's local/ranged path and the corpus query service's handler, so every
+    backend emits byte-identical rows.
+    """
+    payload = row.model_dump(mode="json")
+    payload["era"] = case_era(row)
+    if not full:
+        payload.pop("opinion_text", None)
+    return payload
 
 
 def recency_key(row: CorpusRow) -> tuple[int, int]:
