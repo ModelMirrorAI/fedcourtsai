@@ -1,0 +1,3 @@
+No corpus queries were executed because the case salience factors were sufficient and `fedcourts query` was returning an error for free text.
+CourtListener MCP was used to fetch the docket (endpoint `dockets` with `docket_number` "25-776" and ID "73279903") to determine if an outcome had already occurred, but the fields `date_cert_granted` and `date_cert_denied` were null.
+The committed `metrics/statpack.md` was read to determine the baseline grant rates for the 2025 Term and the Ninth Circuit.

@@ -1,0 +1,3 @@
+- Used CourtListener MCP tool to search for the 9th Circuit opinion `Ugochukwu Nwauzor v. the Geo Group, Inc.` to verify the decision and circuit split on state minimum wage laws applied to federal ICE contractors.
+- Used CourtListener MCP tool to search for `CoreCivic Inc v. Governor of New Jersey` (3rd Cir, 2025) and other cases involving intergovernmental immunity and ICE detainees.
+- Referenced the provided `metrics/statpack.md` to confirm the CVSG base rate (27.1% grant rate).

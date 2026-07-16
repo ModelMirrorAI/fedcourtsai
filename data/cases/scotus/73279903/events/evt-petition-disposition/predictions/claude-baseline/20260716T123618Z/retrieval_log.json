@@ -1,0 +1,310 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "931631d4bc1e0883",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903 -type f | head -50",
+      "result_digest": "4eb8ea9831266478",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "66aa23068f1db463",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "56421c96e784dc58",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "43cb66d39ae5ab72",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f4e1470f51128401",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/documents/documents.json\"}",
+      "result_digest": "70f0d3fd122e5e98",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e87ca84e983ea3e8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "2509a7a7b47ae5c0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "37ca35a423a5e31c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/documents/questions-presented.txt\"}",
+      "result_digest": "d5ac2563df28ed0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "32af72ee19a8feeb",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/documents/brief-in-opposition.txt",
+      "result_digest": "b54f9dc5f1b48aac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7b458e4c0d193a6d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/documents/petition.txt\", \"limit\": 700}",
+      "result_digest": "484b6d9579c727bc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "70650a4b56c7defc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "8e5376716ca1bb3c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "156881e3fc19fdb3",
+      "query": "uv run fedcourts paths --court scotus --docket 73279903 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "96621601a30648eb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e6463d123d357e89",
+      "query": "sed -n '1,120p' metrics/statpack.md",
+      "result_digest": "e1fa247a7d4bfe14",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c6a9b042561c6e2c",
+      "query": "sed -n '120,260p' metrics/statpack.md",
+      "result_digest": "f76962d13512da3c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3b94812968bc74f1",
+      "query": "sed -n '260,400p' metrics/statpack.md; echo ---; grep -n \"salience\" metrics/statpack.md | head",
+      "result_digest": "c518fb659fd0dbac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2c512fdbccc7679f",
+      "query": "ls metrics/; python3 -c \"\nimport json\nd=json.load(open('metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "6648df6b3bbfcecb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2437a8076e01cba5",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('metrics/statpack.json'))\nsecs=d['sections']\nprint(type(secs))\nif isinstance(secs, dict):\n    print(list(secs.keys()))\nelse:\n    for s in secs: print(s.get('title') or s.get('key'))\n\"",
+      "result_digest": "c1f45ec657220dce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "39711660372b370a",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('metrics/statpack.json'))\nfor t in d['terms'][:6]:\n    print(json.dumps(t)[:600]); print()\n\"",
+      "result_digest": "6ea2c898fe25ddf9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4b5789ace1931817",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "75b9f1aa8811f304",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "edc2249ae19a6b83",
+      "query": "uv run fedcourts query --court scotus --citation \"582 U.S. 449\" --citation \"596 U.S. 767\" --citation \"565 U.S. 171\" --citation \"591 U.S. 732\" --era 2020s 2>&1 | tail -15",
+      "result_digest": "16de1eaf52d5411e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "dd14f18ca036aeec",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 --topic \"First Amendment\" 2>&1 | tail -12; echo ===; uv run fedcourts open-events --help 2>&1 | head -15",
+      "result_digest": "2488649216271ebf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "8922d42304ca54bf",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-581\", \"fields\": [\"docketNumber\", \"caseName\", \"dateFiled\", \"docket_id\", \"absolute_url\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "e3f5afafd240e6d9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "b21dc0366eeec121",
+      "query": "{\"case_name\": \"St. Mary Catholic Parish\", \"court\": \"scotus\", \"fields\": [\"docketNumber\", \"caseName\", \"dateFiled\", \"docket_id\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "b76ea96db5a7eda1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "20986b6be85ab988",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 5, \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-581\", \"fields\": \"id,case_name,docket_number,date_filed,date_terminated\"}}",
+      "result_digest": "76c8201aed8743dd",
+      "retrieved_doc_date": "2025-11-17",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "596632637fb8ac3a",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 1, \"query\": {\"fields\": \"id,case_name,docket_number,date_filed,date_last_filing,date_argued,date_cert_granted,date_cert_denied,date_terminated\", \"id\": 73279026}}",
+      "result_digest": "487ca2990bdea341",
+      "retrieved_doc_date": "2025-11-17",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "598e61b384dce156",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 5, \"query\": {\"case_name__icontains\": \"Union Gospel Mission\", \"court\": \"scotus\", \"fields\": \"id,case_name,docket_number,date_filed,date_terminated,date_cert_granted,date_cert_denied\"}}",
+      "result_digest": "34f90a7cd1037fd7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "6deb361d72ee9743",
+      "query": "\"Union Gospel Mission\"",
+      "result_digest": "83d9a2d061aa56ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c9e9c1273468e724",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279903/events/evt-petition-disposition/predictions/claude-baseline/20260716T123618Z",
+      "result_digest": "9440fb3d5b0f954d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "340b4c95b33c8c79",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279903\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T123618Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T12:45:12Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73279903/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.55,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  ",
+      "result_digest": "1dd4e4fdc7a684b6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "49ee3b8eeb263cd7",
+      "query": "{\"content\": \"# Youth 71Five Ministries v. Williams, No. 25-776 \\u2014 cert disposition\\n\\n**Prediction: grant (including GVR), P = 0.55.** Approximate distribution across\\nlabels: plenary grant \\u2248 0.32, GVR \\u2248 0.23, denial \\u2248 0.40, dismissed/other \\u2248 0.05.\\nThe grant family narrowly exceeds one half, so `granted = 1` and the predicted\\ndisposition is `granted`; denial remains a large single-label mass and this is a\\ngenuinely close call.\\n\\n## The legal question\\n\\nYouth 71Five M",
+      "result_digest": "96dbdadc064ede7f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1448d2ef9a5234db",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73279903 / evt-petition-disposition / claude-baseline / 20260716T123618Z\\n\\n## Provisioned inputs (baseline)\\n\\n- `record/snapshots/2026-07-16.json` (supremecourt.gov docket JSON for No. 25-776, generated 2026-07-10)\\n- `record/documents/questions-presented.txt`, `petition.txt` (truncated at 186 pp.), `brief-in-opposition.txt`, per `documents.json`\\n- `events/evt-petition-disposition/event.yaml`, `record/context.json` (mode: forward)\\n\\n## Corpus toolin",
+      "result_digest": "ea293d2eb9c6749c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a5aae4e50e620ad7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279903\\\",\\n  \\\"run_id\\\": \\\"20260716T123618Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"provisioned snapshot + filed-document texts\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"fedcourts query (ranged corpus reads)\\\",\\n    \\\"CourtListener MCP (dockets endpo",
+      "result_digest": "b9147f02f8c4e375",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ad053af3888468b5",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5; git status --short data/cases/scotus/73279903 | head",
+      "result_digest": "1e836da56554d06c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fcbb0de201e4fecb",
+      "query": "gh issue comment 707 --body \"**claude-baseline** (claude-fable-5) \u2014 prediction written for \\`scotus/73279903\\` / \\`evt-petition-disposition\\` / run \\`20260716T123618Z\\`.\n\n**Call: grant, P(grant incl. GVR) = 0.55** for *Youth 71Five Ministries v. Williams* (No. 25-776). Key signals: call for response after Oregon waived, six cert-stage amicus briefs incl. a multi-state coalition, and the provisioned docket JSON (generated 7/10) showing no disposition after the 4/17 conference \u2014 a hold/serial-cons",
+      "result_digest": "f38e1cf488c066bb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73279903",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T123618Z",
+  "schema_version": "1.0"
+}

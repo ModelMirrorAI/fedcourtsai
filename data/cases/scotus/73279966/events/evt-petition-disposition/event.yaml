@@ -1,0 +1,10 @@
+case_id: scotus/73279966
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-01-13'
+resolved: false
+schema_version: '1.0'
+title: The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279903",
+  "run_id": "20260716T123618Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "A related pre-snapshot development materially informed the forecast: on June 18, 2026, the Ninth Circuit granted en banc rehearing and vacated the favorable panel opinion in Union Gospel Mission of Yakima Washington v. Brown. This is not this case's outcome and was used only as a percolation/hold signal."
+    }
+  ]
+}
