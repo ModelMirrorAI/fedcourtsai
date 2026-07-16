@@ -4,9 +4,25 @@ description: Install uv (with cache) and sync the project's dependencies into .v
 runs:
   using: composite
   steps:
+    # The version pin buys reproducibility (no more unpinned "latest" in a
+    # pin-everything repo) and offline checksum validation of the binary; it
+    # does NOT remove the action's per-run manifest fetch, which happens on
+    # the download path regardless. That fetch is a single attempt with a
+    # hard 5s timeout, and one transient blip took down a seed walk — hence
+    # the one retry below. The pin matches the devcontainer's uv at time of
+    # pinning; bump deliberately.
     - name: Install uv
+      id: install-uv
+      continue-on-error: true
       uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
       with:
+        version: "0.11.26"
+        enable-cache: true
+    - name: Install uv (retry after a transient fetch failure)
+      if: steps.install-uv.outcome == 'failure'
+      uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      with:
+        version: "0.11.26"
         enable-cache: true
     - name: Sync dependencies
       shell: bash
