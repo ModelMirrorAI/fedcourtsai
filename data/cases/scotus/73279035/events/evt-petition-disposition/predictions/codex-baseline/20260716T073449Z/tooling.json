@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP endpoints"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition",
+    "CVSG and fee-class base rates",
+    "CourtListener access to related appellate decisions and docket entries"
+  ],
+  "gaps": [
+    "The ranged corpus remote was unreachable because its host did not resolve"
+  ],
+  "notes": "The corpus query was attempted but returned no priors; the forecast degraded cleanly to the provisioned record, committed base rates, and related-case MCP research."
+}

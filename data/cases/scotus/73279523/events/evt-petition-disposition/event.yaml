@@ -1,0 +1,11 @@
+case_id: scotus/73279523
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2025-12-10'
+resolved: false
+schema_version: '1.0'
+title: City of Cleveland, Ohio v. Albert Pickett, Jr., Individually and on Behalf
+  of All Others Similarly Situated, et al.

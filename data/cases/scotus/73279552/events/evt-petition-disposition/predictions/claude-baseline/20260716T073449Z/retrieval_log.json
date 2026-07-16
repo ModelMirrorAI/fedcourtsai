@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d94c5cf6a595ed28",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552 -type f | head -50",
+      "result_digest": "535572c620d9a86d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "64f85a97eadc6c01",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "43eb0e3ea675e8de",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "01660d345aa79bce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6ac9e6844e7df28e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "4cad80e8ffa26a2e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6ed2a184c966a6a9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/documents/documents.json\"}",
+      "result_digest": "a01a5504b73b8366",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "82d6aa999b4126f4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/documents/questions-presented.txt\"}",
+      "result_digest": "f97013de952c6ea1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "642610fe477bb0b9",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/documents/brief-in-opposition.txt",
+      "result_digest": "7061a477342b61e3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3535964dab9976ba",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "7a4fb2c6c878b280",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "240333cd252d8939",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/documents/petition.txt\", \"limit\": 700, \"offset\": 400}",
+      "result_digest": "092a4435f9ed2f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "76c47efdec19b106",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "475b026a5a04e729",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5b35c5524f6c4237",
+      "query": "sed -n 1,120p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "e1fa247a7d4bfe14",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4d315f1a034ed78b",
+      "query": "sed -n 1,80p /home/runner/work/fedcourtsai/fedcourtsai/docs/cli.md",
+      "result_digest": "8c87292629ac91fb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9d4df6383d4f5b28",
+      "query": "grep -n -A 40 \"salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -80",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a9c85a6cdc0a647d",
+      "query": "grep -n -B2 -A 25 \"per-Term\\|by Term\\|fee.class\\|fee_class\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -100",
+      "result_digest": "bfcef0d1c66c44e6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "92ede46fa3d81727",
+      "query": "sed -n 118,160p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md; grep -n \"Segment\\|band\\|salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "3c20edd492bc1f9f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0eade4cedda1fb55",
+      "query": "uv run fedcourts query --court scotus --topic \"free exercise religion church COVID restrictions fines\" --limit 8 2>query_stderr1.txt | head -40; echo \"--- stderr:\"; cat query_stderr1.txt",
+      "result_digest": "839a80a882bb2f9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5483a09f1509c07a",
+      "query": "uv run fedcourts query --court scotus --topic \"free exercise\" --limit 8 2>query_stderr2.txt | python3 -c \"import sys,json;[print(json.dumps({k:v for k,v in json.loads(l).items() if k in ('case_id','caption','disposition','era','term_year','relevance')})) for l in sys.stdin if l.strip()]\"; echo \"--- stderr:\"; cat query_stderr2.txt",
+      "result_digest": "839a80a882bb2f9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0a959b83d58e9f9b",
+      "query": "uv run fedcourts query --court scotus --topic \"church\" --limit 6 2>q3.txt | head -20; echo ---; uv run fedcourts query --court scotus --topic \"religious\" --limit 6 2>q4.txt | head -20; echo \"--- stderr3:\"; cat q3.txt; echo \"--- stderr4:\"; cat q4.txt",
+      "result_digest": "6d0d9eb7969d184c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d071a67dde8a35d9",
+      "query": "select:WebSearch,WebFetch,mcp__courtlistener__search",
+      "result_digest": "cf2a98645bf6dbc4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "68dc021d3ebacc51",
+      "query": "St. Mary Catholic Parish v. Roy Supreme Court 25-581 certiorari granted",
+      "result_digest": "a3e1662cf79d8c1a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "6c71b0b587b7e4fb",
+      "query": "\"Calvary Chapel San Jose\" Supreme Court 25-703 petition held St. Mary conference",
+      "result_digest": "94b0d063ec562843",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "cc33cdee5da5660c",
+      "query": "uv run fedcourts paths --court scotus --docket 73279552 --event evt-petition-disposition 2>&1; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "9dc755562601dea6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a0fd9afbd071ddc9",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73279552/events/evt-petition-disposition/predictions/claude-baseline/20260716T073449Z",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "35d23a75af7db840",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73279552\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T07:41:03Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73279552/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.4,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "ead920dc8aae742b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9ce3ae4dfeb92a20",
+      "query": "{\"content\": \"# Calvary Chapel San Jose v. California, No. 25-703 \\u2014 cert disposition\\n\\n**Prediction: denied (modal), P(any grant, GVR included) = 0.40.** The single\\nlikeliest disposition is a denial, but the probability of a grant is far above\\nthe ~3% base rate because the docket pattern strongly indicates the petition is\\nbeing **held** for *St. Mary Catholic Parish v. Roy*, No. 25-581 (cert granted\\nApril 20, 2026), and held petitions frequently end in a GVR when the lead case\\nresolves",
+      "result_digest": "cf0c920ee3f43757",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d58867aeae4a862d",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73279552 / evt-petition-disposition / claude-baseline / 20260716T073449Z\\n\\nMode: `forward` (retrieval unrestricted; nothing sought or surfaced about this\\ncase's own disposition, which does not yet exist \\u2014 the 2026-07-16 snapshot\\nshows it pending).\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\nAll `query` calls returned **zero rows** (the topic index is sparse for these\\nterms); base rates were taken from the committed `metrics/statpack.m",
+      "result_digest": "e6f67a981982a6ff",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e60af4b6b0f0501f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73279552\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned snapshot + documents (questions-presented, petition, brief-in-opposition)\\\",\\n    \\\"WebSearch\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned filed-document text was excellent: the ",
+      "result_digest": "0a7f8acbc99d9d04",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ae4e1f5cda8d77a6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73279552\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"Docket pattern (single distribution for the 4/24/2026 conference, then no order, relist, or reschedule through the 7/15/2026 snapshot, surviving the end-of-Term cleanup) indicates this petition is likely being held for St. Mary Catholic ",
+      "result_digest": "a47b6707d02d6264",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a0a0cdb246373efa",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "8c3ba0252ee3fbcf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7c68ea6cf9f87560",
+      "query": "gh issue comment 705 --body \"**claude-baseline / scotus/73279552 / evt-petition-disposition / 20260716T073449Z** \u2014 prediction written.\n\nCalvary Chapel San Jose v. California (No. 25-703): **denied** (modal), P(grant incl. GVR) = **0.40**. The docket pattern (distributed once for the 4/24/2026 conference, then ~12 weeks of silence past the end-of-Term cleanup) indicates a hold for *St. Mary Catholic Parish v. Roy* (25-581, granted 4/20/2026, same *Smith* general-applicability question) \u2014 so the g",
+      "result_digest": "25837e6e7c2e30b9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73279552",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T073449Z",
+  "schema_version": "1.0"
+}

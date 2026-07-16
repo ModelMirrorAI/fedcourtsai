@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md + statpack.json base rates",
+    "CourtListener MCP (dockets endpoint, RECAP search)",
+    "provisioned snapshot and documents (petition, QP, BIO)"
+  ],
+  "helpful": [
+    "CVSG-status base-rate cut in the statpack — the single most decision-relevant number for this cell",
+    "Provisioned petition and BIO full text; the BIO's vehicle section drove the downward adjustment",
+    "CourtListener MCP to confirm the docket is still pending and to check the related CA5 Aramark en banc status"
+  ],
+  "gaps": [
+    "fedcourts query returned 0 rows for every filter tried (citation 563 U.S. 421, citation 508 U.S. 248, topic ERISA) — a topic/citation index over SCOTUS cert petitions would make the priors surface usable",
+    "The 'Segment base rate by salience band' table described in the predict prompt is absent from the committed statpack",
+    "A conditional base rate P(grant | CVSG, by SG recommendation) would sharpen post-CVSG cells like this one",
+    "The provisioned documents lacked the petitioners' cert-stage reply (docketed Mar 17 2026) and the Bray amicus"
+  ],
+  "notes": "The snapshot's ProceedingsandOrder list was complete through the Apr 6 2026 CVSG and was sufficient on its own to identify the dominant signal; retrieval was confirmatory."
+}

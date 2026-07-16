@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279523",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive pre-snapshot forward signal used: public reporting dated May 7, 2026 (Cleveland Scene) that Cleveland agreed to a $3M settlement of the underlying Pickett class action, matching the parties' joint motion to defer consideration on the docket (motion PDF dated 2026-05-07, docketed May 29). This predates the 2026-07-16 snapshot and is not the petition's disposition (still pending); it drives the dismissed-on-settlement prediction."
+    }
+  ]
+}

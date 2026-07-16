@@ -1,0 +1,1422 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "write_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "glob"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "read_file"
+    },
+    {
+      "params_digest": null,
+      "query": null,
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9a14d2d3d4b89ce7",
+      "query": "{\"strategic_intent\": \"I am starting by reading the required instruction files to understand the prompt contract and agent guidelines.\", \"summary\": \"I am initiating the task to produce a prediction for a specific case event. I will read the `.github/prompts/predict.md` and `AGENTS.md` files to understand the requirements, expected outputs, and guidelines for generating the prediction.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:42:48.350Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:42:48.359Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:42:48.359Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "480dbab1b511524c",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73279493\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:42:53.912Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "82bb7866c9ccef44",
+      "query": "{\"pattern\": \"data/cases/scotus/73279493/**/*\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:42:56.990Z",
+      "tool": "glob"
+    },
+    {
+      "params_digest": "ee53d1e663acfbe9",
+      "query": "{\"strategic_intent\": \"I need to read the provisioned input files for this specific case to gather the facts required for the prediction.\", \"summary\": \"I've successfully identified the prompt guidelines and the data structure. Now, I will read the provisioned inputs for case scotus/73279493, which include the event definition, the context mode (forward or replay), the case snapshot, and the available document texts (petition, questions presented). These will form the foundation for my prediction.",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:00.444Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "544367f55e7a0cee",
+      "query": "{\"file_path\": \"data/cases/scotus/73279493/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:00.449Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9081fbdaa563447f",
+      "query": "{\"file_path\": \"data/cases/scotus/73279493/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:00.450Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1e5e90fab09a1bdb",
+      "query": "{\"file_path\": \"data/cases/scotus/73279493/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:03.241Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fe38893bac185bca",
+      "query": "{\"file_path\": \"data/cases/scotus/73279493/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:03.242Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9fa45b693995aebe",
+      "query": "{\"file_path\": \"data/cases/scotus/73279493/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:03.242Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "13cacc0a60245a89",
+      "query": "{\"file_path\": \"data/cases/scotus/73279493/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:03.242Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f57af1dcac4a1a59",
+      "query": "uv run fedcourts query --court \"scotus\" --event \"evt-petition-disposition\" \"bankruptcy 523(a)(6) willful malicious injury discharge circuit split\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:09.604Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:13.753Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "489eb0fc0b9259bb",
+      "query": "{\"strategic_intent\": \"I will review the aggregate statistics to establish base rates for cert petition grants, which is essential context for making my prediction.\", \"summary\": \"Having read the case facts and the circuit split argument, my next step is to examine the historical base rates for cert petitions. This involves reading `metrics/statpack.md` to ground my prediction in statistical reality, as instructed by the predictor guidelines.\", \"title\": \"Consulting Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:16.711Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:16.721Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d3975cde0aec062c",
+      "query": "{\"strategic_intent\": \"I will use the CourtListener MCP server to check for any updates on the docket or related information that might inform my prediction, while strictly adhering to the forward-mode leakage rules.\", \"summary\": \"I have reviewed the base rates and the case facts, noting the circuit split and the \\\"Response Requested\\\" docket entry, which increases the likelihood of a grant. Since this is a forward-mode prediction, I will now use the CourtListener MCP tool to gather any unrestric",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:27.547Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "8faec33069006abc",
+      "query": "\"Stanley Kappell Watson\" Bradsher",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:28.060Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "c9776751a7eb9621",
+      "query": "uv run fedcourts query --court \"scotus\" --disposition \"granted\" \"11 U.S.C. 523(a)(6)\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:39.449Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4cf355b94d7d0b30",
+      "query": "uv run fedcourts query --court \"scotus\" --citation \"523 U.S. 57\" --disposition \"granted\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:43.220Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ce8c1492a55f1d47",
+      "query": "uv run fedcourts query --court \"scotus\" --citation \"523 U.S. 57\" --disposition \"granted\" --corpus-backend ranged",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:46.673Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f3dacaae10b41867",
+      "query": "{\"strategic_intent\": \"I will use the CourtListener MCP tool to search for precedent related to \\\"willful and malicious injury\\\" and the circuit split, since the local `fedcourts query` command failed due to a missing environment variable.\", \"summary\": \"Because the `fedcourts query` command requires an environment variable that is missing in my sandbox, I will rely on the unrestricted CourtListener MCP search tool to find precedent. I will search for cases discussing the definition of \\\"willful a",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:51.774Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9f0864c79514dc75",
+      "query": "\"willful and malicious injury\" 523(a)(6) \"Kawaauhau v. Geiger\" \"subjective\" \"objective\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:43:52.253Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "ba8812f2aee56217",
+      "query": "mkdir -p data/cases/scotus/73279493/events/evt-petition-disposition/predictions/gemini-baseline/20260716T073449Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:03.031Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b8e7c04f6cad4bf2",
+      "query": "{\"strategic_intent\": \"I am formulating and writing the prediction output files, including `prediction.json` and `reasoning.md`.\", \"summary\": \"I have evaluated the case facts, the circuit split, and the statistical context. Although the circuit split is genuine and the legal question is cleanly isolated by the lower court's bifurcated ruling, the petitioner's highly unsympathetic facts (an intoxicated public official abusing his power) make this a poor vehicle for Supreme Court review. Therefore,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:11.049Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "e5ffcb119f9258bd",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73279493\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T07:34:49Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73279493/record/snapshots/2026-07-16.json\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"confidence\\\": 0.8,\\n  \\\"big_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:11.056Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "89266fbe06280469",
+      "query": "{\"content\": \"# Reasoning\\n\\n**Legal Question & Standard:**\\nThe petition presents a question regarding the interpretation of 11 U.S.C. \\u00a7 523(a)(6), which excepts from a bankruptcy discharge any debt for a \\\"willful and malicious injury.\\\" Specifically, the petition asks whether the term \\\"injury\\\" denotes mere factual harm (an objective standard) or requires the intent to invade a legally protected interest (a subjective standard). The Supreme Court previously held in *Kawaauhau v. Geiger*,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:23.466Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f069f0f0f0339aac",
+      "query": "{\"content\": \"- `uv run fedcourts paths --court \\\"scotus\\\" --docket \\\"73279493\\\" --event \\\"evt-petition-disposition\\\"`\\n- `cat metrics/statpack.md`\\n- `uv run fedcourts query --court \\\"scotus\\\" --event \\\"evt-petition-disposition\\\" \\\"bankruptcy 523(a)(6) willful malicious injury discharge circuit split\\\"` (Failed due to missing parameter support)\\n- `uv run fedcourts query --help`\\n- `uv run fedcourts query --court \\\"scotus\\\" --citation \\\"523 U.S. 57\\\" --disposition \\\"granted\\\" --corpus-backend ra",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:29.270Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d606057886a08d99",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73279493\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"cat\\\", \\\"uv run fedcourts paths\\\"],\\n  \\\"helpful\\\": [\\\"metrics/statpack.md provided vital statistical context.\\\", \\\"mcp_courtlistener_search provided helpful opinions about the circuit split.\\\"],\\n  \\\"gaps\\\": [\\\"`fedcourts query` ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:34.303Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b20a5b325d0b7a43",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73279493\\\",\\n  \\\"run_id\\\": \\\"20260716T073449Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"The command `uv run fedcourts query --corpus-backend ranged` failed because CORPUS_REMOTE_URL was not set in the environment. I successfully degraded to using the CourtListener MCP search tool for precedent retrieval.\\\",\\n      \\\"event_i",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:39.829Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:44.540Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e6a39718d677a6a3",
+      "query": "gh issue comment 705 -b \"The prediction for scotus/73279493 evt-petition-disposition has been successfully generated. Noted a minor issue with the \\`fedcourts query\\` tool failing due to missing \\`CORPUS_REMOTE_URL\\` env var, but was able to degrade to the CourtListener MCP tool.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:47.742Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1a7a2e2793dadc19",
+      "query": "{\"strategic_intent\": \"I have finalized the prediction process and verified the outputs, successfully completing the assigned task.\", \"summary\": \"I wrote the prediction results (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`, and `flags.json`) for the case `scotus/73279493` to the appropriate directory. I also ran `uv run fedcourts validate data`, which confirmed that all artifacts are schema-compliant. The task is now complete.\", \"title\": \"Task Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T07:44:51.930Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73279493",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T073449Z",
+  "schema_version": "1.0"
+}

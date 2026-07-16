@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73279552",
+  "run_id": "20260716T073449Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged)",
+    "metrics/statpack.md",
+    "provisioned snapshot + documents (questions-presented, petition, brief-in-opposition)",
+    "WebSearch"
+  ],
+  "helpful": [
+    "Provisioned filed-document text was excellent: the QP file plus full BIO made the vehicle-defect analysis possible without any fetching.",
+    "The statpack relist-count and per-Term cuts gave a usable anchor even though the salience-band table is absent."
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for every free-exercise/religion topic tried; a topic index (or full-text fallback) over case captions/summaries would make priors retrieval actually usable.",
+    "No statpack cut captures the 'distributed once, then silent' hold pattern — a days-since-last-distribution or held-pending-lead-case signal would be the single most predictive feature for petitions like this one.",
+    "The snapshot does not carry the Court's conference calendar; knowing how many conferences have passed since distribution had to be inferred from the date."
+  ],
+  "notes": "Grant-side probability here rides almost entirely on an inference (hold for St. Mary Catholic Parish v. Roy, 25-581) that no provisioned input states directly; tooling that surfaced same-issue recent cert grants automatically would harden this class of prediction."
+}
