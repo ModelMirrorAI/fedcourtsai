@@ -26,6 +26,7 @@ from . import (
     corpus_index,
     corpus_ranged,
     corpus_remote,
+    corpus_service,
     ids,
     integration_check,
     mcp,
@@ -1319,19 +1320,24 @@ CorpusBackendOption = Annotated[
     typer.Option(
         "--corpus-backend",
         help="Corpus read backend: local (the pulled file) or ranged (query "
-        "the blob in place on the corpus remote); the provisioning commands also "
-        "accept casestore (read the per-case content objects). Default: the "
-        "corpus-backend setting from the environment.",
+        "the blob in place on the corpus remote); query/open-events also accept "
+        "service (forward to a corpus query sidecar — see corpus-serve), and "
+        "the provisioning commands casestore (read the per-case content "
+        "objects). Default: the corpus-backend setting from the environment.",
     ),
 ]
 
 
-def _corpus_backend(value: str, *, allow_casestore: bool = False) -> corpus.CorpusBackend | None:
+def _corpus_backend(
+    value: str, *, allow_casestore: bool = False, allow_service: bool = False
+) -> corpus.CorpusBackend | None:
     """Parse a --corpus-backend value; empty means \"use the setting\".
 
     ``casestore`` is a provisioning-only backend (it has no query surface), so it is
     accepted only where ``allow_casestore`` is set — the read commands reject it
-    cleanly here rather than crashing later in ``connect_readonly``.
+    cleanly here rather than crashing later in ``connect_readonly``. ``service``
+    is likewise accepted only by the commands that can forward to the corpus
+    query service (``query`` / ``open-events``).
     """
     if not value:
         return None
@@ -1341,9 +1347,39 @@ def _corpus_backend(value: str, *, allow_casestore: bool = False) -> corpus.Corp
         return "ranged"
     if value == "casestore" and allow_casestore:
         return "casestore"
-    choices = "local, ranged, or casestore" if allow_casestore else "local or ranged"
+    if value == "service" and allow_service:
+        return "service"
+    extras = [
+        name for name, ok in (("casestore", allow_casestore), ("service", allow_service)) if ok
+    ]
+    choices = ", ".join(["local", "ranged", *extras])
     typer.echo(f"Unsupported --corpus-backend '{value}'; choose {choices}.", err=True)
     raise typer.Exit(code=2)
+
+
+def _service_url_or_exit() -> str:
+    """The configured corpus-service URL, or a clean exit when unset."""
+    url = get_settings().corpus_service_url
+    if not url:
+        typer.echo(
+            "the service backend needs FEDCOURTS_CORPUS_SERVICE_URL (the "
+            "corpus-serve sidecar's base URL)",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    return url
+
+
+def _echo_service_read_stats(reads: corpus_service.ReadCounters | None) -> None:
+    """Report a service response's transfer counters to stderr.
+
+    The same evidence line :func:`_echo_read_stats` prints for a direct ranged
+    connection, relayed from the sidecar's per-request delta. ``None`` (the
+    sidecar reads a local file) stays silent, matching the local path; a warm
+    sidecar cache honestly reports ``0 GET(s)``.
+    """
+    if reads is not None:
+        typer.echo(f"ranged corpus reads: {reads.gets} GET(s), {reads.bytes} byte(s)", err=True)
 
 
 def _casestore_source() -> provision.CasestoreSource:
@@ -1719,8 +1755,10 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     / ``--disposition`` match exactly; ``--judge`` and ``--citation`` (repeatable)
     match on overlap and rank the results by how much they share. Prints one
     compact JSON row per line, ranked, with ``opinion_text`` omitted unless
-    ``--full``. Reads the pulled file, or the blob in place on the
-    remote with ``--corpus-backend ranged``.
+    ``--full``. Reads the pulled file, the blob in place on the remote with
+    ``--corpus-backend ranged``, or forwards to a corpus query sidecar with
+    ``--corpus-backend service`` (same rows, same read-stats line — a
+    transport change, not a different surface).
 
     Maintained as-is: cells' open-web retrieval moved to the official
     CourtListener MCP server, so this surface gets no further feature work —
@@ -1729,7 +1767,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
     if backend == "local" and not db_path.exists():
         typer.echo(
             f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.",
@@ -1752,17 +1790,77 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         decided_before=decided_before or None,
         resolved_only=not include_open,
     )
+    if backend == "service":
+        try:
+            response = corpus_service.client_query(
+                _service_url_or_exit(), q, limit=limit, full=full
+            )
+        except corpus_service.CorpusServiceError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+        _echo_service_read_stats(response.reads)
+        for payload in response.rows:
+            typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+        return
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         priors = corpus.retrieve_priors(conn, q, limit=limit)
         _echo_read_stats(conn)
     for row in priors:
-        payload = row.model_dump(mode="json")
-        # Era is derived, not stored; carry it on each prior so relevance is
-        # judgeable without re-deriving.
-        payload["era"] = corpus.case_era(row)
-        if not full:
-            payload.pop("opinion_text", None)
-        typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+        typer.echo(
+            json.dumps(corpus.prior_payload(row, full=full), sort_keys=True, separators=(",", ":"))
+        )
+
+
+@app.command("corpus-serve")
+def corpus_serve(
+    corpus_backend: CorpusBackendOption = "",
+    host: Annotated[
+        str, typer.Option(help="Interface to bind; keep the localhost default.")
+    ] = "127.0.0.1",
+    port: Annotated[
+        int, typer.Option(help="Port to bind (0 = an ephemeral port).")
+    ] = corpus_service.DEFAULT_PORT,
+) -> None:
+    """Serve corpus `query`/`open-events` over localhost HTTP (the sidecar).
+
+    The read side of the ``service`` backend: this process holds the one
+    corpus connection (and, on the ranged backend, the cloud credentials from
+    *its* environment), so callers pointing ``FEDCOURTS_CORPUS_SERVICE_URL``
+    at it — agent cells above all — query the corpus holding no credentials
+    at all. Runs until interrupted; built for the cell workflows to launch as
+    a background step, and locally it pairs with
+    ``FEDCOURTS_CORPUS_BACKEND=service`` for a tokenless `query`.
+    """
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend not in ("local", "ranged"):
+        typer.echo(f"corpus-serve serves the local or ranged backend, not '{backend}'.", err=True)
+        raise typer.Exit(code=2)
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        typer.echo(
+            f"warning: binding {host} serves the corpus beyond localhost, unauthenticated",
+            err=True,
+        )
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        server = corpus_service.create_server(db_path, backend=backend, host=host, port=port)
+    except OSError as exc:
+        typer.echo(f"could not bind http://{host}:{port}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    bound_port = server.server_address[1]
+    typer.echo(f"corpus service listening on http://{host}:{bound_port} [{backend}]")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
 @app.command()
@@ -2268,8 +2366,18 @@ def open_events_cmd(
 ) -> None:
     """Print unresolved (predictable) event ids for a case, one per line."""
     settings = get_settings()
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
+    if backend == "service":
+        try:
+            response = corpus_service.client_open_events(_service_url_or_exit(), court, docket)
+        except corpus_service.CorpusServiceError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+        for eid in response.event_ids:
+            typer.echo(eid)
+        return
     db = corpus.corpus_db_path(settings.corpus_root)
-    for eid in open_events(db, court, docket, backend=_corpus_backend(corpus_backend)):
+    for eid in open_events(db, court, docket, backend=backend):
         typer.echo(eid)
 
 

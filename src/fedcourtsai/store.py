@@ -90,12 +90,22 @@ def open_events(
     choice = corpus.resolve_backend(backend)
     if choice == "local" and not corpus_db_path.exists():
         return []
-    case_id = ids.case_id(court_id, docket_id)
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
-        row = corpus.get_row(conn, case_id)
-        if row is not None and row.predict_excluded:
-            return []
-        events = corpus.events_for_case(conn, case_id)
+        return open_event_ids(conn, court_id, docket_id)
+
+
+def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -> list[str]:
+    """:func:`open_events` over an already-open connection.
+
+    The connection-level seam, split out so the corpus query service — which
+    holds one long-lived connection for its whole life — can serve the same
+    read without reopening the corpus per request.
+    """
+    case_id = ids.case_id(court_id, docket_id)
+    row = corpus.get_row(conn, case_id)
+    if row is not None and row.predict_excluded:
+        return []
+    events = corpus.events_for_case(conn, case_id)
     return [event.event_id for event in events if not event.resolved]
 
 

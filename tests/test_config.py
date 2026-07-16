@@ -124,3 +124,17 @@ def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) ->
     assert Settings().corpus_split is True
     monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "0")
     assert Settings().corpus_split is False
+
+
+def test_corpus_service_url_reads_its_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The service backend's target: the name is deliberately clear of the
+    # Gemini CLI's credential-name refusal regex so cells can allowlist it.
+    monkeypatch.delenv("FEDCOURTS_CORPUS_SERVICE_URL", raising=False)
+    assert Settings().corpus_service_url is None
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SERVICE_URL", "http://127.0.0.1:8377")
+    assert Settings().corpus_service_url == "http://127.0.0.1:8377"
+
+
+def test_corpus_backend_accepts_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "service")
+    assert Settings().corpus_backend == "service"
