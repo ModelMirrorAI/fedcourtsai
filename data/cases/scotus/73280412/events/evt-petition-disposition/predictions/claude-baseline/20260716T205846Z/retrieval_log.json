@@ -1,0 +1,326 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8aa65907f8d17b6d",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280412 -type f | head -50 && echo --- && uv run fedcourts paths --court scotus --docket 73280412 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "8df4d1c92a3871c2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3ed04dd53a102102",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280412/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2cb59f5606d564d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280412/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "7edf724a5f7d54c3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7e7575c8bdfdae58",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280412/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "3df2583ab191edfc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "733d69bfe536eddf",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280412/record/documents/documents.json\"}",
+      "result_digest": "696605321d3983fc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9e82e122e317284d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280412/record/documents/questions-presented.txt\"}",
+      "result_digest": "c8ccb2b290ed4f77",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "51725d8526423ef1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280412/record/documents/petition.txt\"}",
+      "result_digest": "119fa7ea54be360f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "faad3f0ec0cc8f05",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6e32f076bf54c051",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fdadd4f95432b473",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nsecs=d['sections']\nprint(type(secs), [s.get('key') or s.get('title') for s in secs] if isinstance(secs,list) else list(secs.keys()))\n\"",
+      "result_digest": "bdbaed6843aec31d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a2ee50b4cb88d71d",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt=d['terms']\nprint(json.dumps(t if isinstance(t,dict) else t[:3], indent=1)[:2500])\n\"",
+      "result_digest": "3944165ce2c80fdc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "64b1b5ec2189a939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "99f374959a7cf3c4",
+      "query": "uv run fedcourts query --court scotus --topic redistricting --limit 8 2>querystderr.txt; echo \"=== stderr ===\"; cat querystderr.txt",
+      "result_digest": "a94e623c39b0cbcf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d32a70102b799ca9",
+      "query": "uv run fedcourts query --court scotus --citation \"600 U.S. 1\" --citation \"585 U.S. 969\" --citation \"602 U.S. 1\" --limit 8 2>q2err.txt | head -20; echo \"=== stderr ===\"; cat q2err.txt",
+      "result_digest": "9e6467fefa089cdd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7259df165a939994",
+      "query": "select:WebSearch,WebFetch",
+      "result_digest": "b39b7e39e3708321",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "eb390c5f9afc1c76",
+      "query": "Louisiana v. Callais Supreme Court decision June 2026 Voting Rights Act Section 2",
+      "result_digest": "f7d9fc10cfea893d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "9c5ccc8ef4ac3877",
+      "query": "Trevino v. Hobbs certiorari Supreme Court Washington redistricting Soto Palmer",
+      "result_digest": "b1a85ac2653d59ca",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "07d34c2fd3bff00e",
+      "query": "What is Washington State's position on the Supreme Court taking the redistricting case (Trevino v. Hobbs)? What docket number is the petition? What is the status of the Garcia v. Hobbs petition if mentioned? What did the state say about Louisiana v. Callais and its effect? Any mention of timing/conference dates or the 2028 elections?",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "dd1cd8459be3dacb",
+      "query": "Summarize the holding of Louisiana v. Callais (decided April 29, 2026): what exactly did the Court hold about Section 2 of the VRA and race-based remedial districts? What is the effect on existing court-ordered remedial maps? Did the Court issue GVRs in related redistricting cases afterwards? Any mention of Washington's Soto Palmer / Garcia v. Hobbs / Trevino v. Hobbs cases?",
+      "result_digest": "bd98ff0acf83d150",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "5ed6879c5ba0f432",
+      "query": "What is the status of the Trevino v. Hobbs cert petition at the US Supreme Court? Docket number? When was it filed, when was the brief in opposition filed, has it been distributed for conference (which date)? Has the Court granted, denied, or GVR'd it? Also any mention of the related Garcia v. Hobbs petition (25-901) and its status.",
+      "result_digest": "97d81b312051fcb9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "8c004eb13bd90b9b",
+      "query": "Trevino v. Hobbs Supreme Court docket \"25-\" petition distributed conference 2026",
+      "result_digest": "1c1240bdd56ca1fb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "ccd9b0fdb833e616",
+      "query": "List the docket entries chronologically for No. 25-918 Trevino v. Ybarra/Hobbs: petition filing date, brief in opposition dates, motion to expedite and any ruling on it, distribution dates for conference (which conference dates), any reschedule/relist, and any disposition (granted/denied/GVR). Also note whether the case is linked with 25-901 Garcia v. Hobbs.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "9b4d94cda1a9a997",
+      "query": "Does this order list contain any order in No. 25-918 (Trevino v. Hobbs) or No. 25-901 (Garcia v. Hobbs)? If so, quote it exactly. Also list any GVR orders citing Louisiana v. Callais.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "f766b559c84d1697",
+      "query": "curl -s -A \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36\" \"https://www.supremecourt.gov/orders/courtorders/052626zor_6j36.pdf\" -o /tmp/order0526.pdf -w \"%{http_code} %{size_download}\\n\" && file /tmp/order0526.pdf",
+      "result_digest": "d577abbd5540786b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e74b18d7287665ae",
+      "query": "cd /tmp && python3 -c \"\nimport zlib,re\nraw=open('order0526.pdf','rb').read()\ntext=[]\nfor m in re.finditer(rb'stream\\r?\\n(.*?)endstream', raw, re.S):\n    try: text.append(zlib.decompress(m.group(1)).decode('latin1'))\n    except Exception: pass\nt=' '.join(text)\n# extract text-show operators\nimport re as r\nchunks=r.findall(r'\\((.*?)\\)\\s*Tj', t)\ns=' '.join(chunks)\nfor kw in ['25-918','25-901','Trevino','Garcia','Callais','Hobbs']:\n    idxs=[m.start() for m in r.finditer(kw, s)]\n    print(kw, len(idx",
+      "result_digest": "36546dc49a9ac180",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "eaafa1fbf9b1a045",
+      "query": "which pdftotext || (pip install pdfplumber -q 2>&1 | tail -1); pdftotext /tmp/order0526.pdf /tmp/order0526.txt 2>/dev/null && grep -n -E \"25-918|25-901|TREVINO|GARCIA|CALLAIS\" /tmp/order0526.txt | head; echo \"---head---\"; head -40 /tmp/order0526.txt 2>/dev/null",
+      "result_digest": "bfaa1cf40b9fd219",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ce3393a29d7b48b0",
+      "query": "pip install pypdf -q 2>&1 | tail -1; python3 -c \"\nfrom pypdf import PdfReader\nr=PdfReader('/tmp/order0526.pdf')\nt='\\n'.join(p.extract_text() or '' for p in r.pages)\nopen('/tmp/order0526.txt','w').write(t)\nimport re\nfor kw in ['25-918','25-901','TREVINO','GARCIA','CALLAIS','HOBBS']:\n    for m in re.finditer(kw, t, re.I):\n        print(kw,'@',m.start()); print(t[max(0,m.start()-300):m.start()+300]); print('---')\n\" 2>&1 | head -60",
+      "result_digest": "5b3d241dc693ded6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d1ec12b8888d79a0",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "c04837fbfdeac922",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8a50dba38b20e21a",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280412\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:06:40Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280412/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.55,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"co",
+      "result_digest": "0957197e02a5def9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8b95d7665d0acc57",
+      "query": "{\"content\": \"# Garcia v. Hobbs, No. 25-901 \\u2014 cert petition disposition\\n\\n**Prediction: grant-side, most likely a GVR. P(any grant, GVR included) = 0.55; predicted disposition `gvr`.**\\n\\n## The case\\n\\nBenancio Garcia III, a Hispanic resident of Washington's Yakima Valley, challenged\\nLegislative District 15 as a racial gerrymander under the Equal Protection Clause. A\\nthree-judge district court (Estudillo, Lasnik, VanDyke) dismissed his claim as moot after\\nJudge Lasnik \\u2014 sitting alo",
+      "result_digest": "70b2ab628bfe8008",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8bee96a21422de63",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73280412 \\u00b7 evt-petition-disposition \\u00b7 claude-baseline \\u00b7 20260716T205846Z\\n\\nForward-mode cell (`record/context.json`: `forward`) \\u2014 retrieval unrestricted. The\\npetition itself is undecided (distributed for the 9/28/2026 conference, after this run's\\ndate), so no search below could surface this case's own disposition; none did.\\n\\n## Corpus lookups (`fedcourts` CLI)\\n\\n1. `uv run fedcourts query --court scotus --topic redistricting --",
+      "result_digest": "d498e1eb6be4785c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5e5fe6e8bf9af1e3",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280412\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"The brief in opposition exists on the docket (StateBOR.pdf, filed Jun 2 2026, per the snapshot's proceedings) but was not among the provisioned doc",
+      "result_digest": "c0e8940e12a68804",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "08202ece8d1f3ce1",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280412\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json (base rates, per-fee-class detail)\\\",\\n    \\\"provisioned snapshot + petition/QP text\\\",\\n    \\",
+      "result_digest": "94c1c51ea944320c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "15778d390283ea05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9692931de3fcd3e5",
+      "query": "gh issue comment 717 --body \"**claude-baseline \u00b7 scotus/73280412 \u00b7 evt-petition-disposition \u00b7 20260716T205846Z** \u2014 prediction written: \\`granted=1\\`, P(grant incl. GVR)=0.55, predicted disposition \\`gvr\\`. Garcia v. Hobbs (25-901, WA racial-gerrymander mootness) is fully briefed after a Court-initiated CFR and distributed for the 9/28/2026 long conference alongside companion Trevino v. Hobbs (25-918); post-*Callais* (4/29/2026) the mootness holding rests on a now-suspect \u00a72 remedial map, making ",
+      "result_digest": "6c22e54538056680",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73280412",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

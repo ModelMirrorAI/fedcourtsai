@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280995",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP (search, call_endpoint: dockets, docket-entries)",
+    "web search + fetch (SCOTUSblog)"
+  ],
+  "helpful": [
+    "Provisioned QP/petition/BIO text — the SG's hold-for-Nielsen request was the single most predictive fact and it lives in the petition itself",
+    "Statpack relist-count and per-circuit cuts for anchoring",
+    "CourtListener dockets endpoint located the companion SCOTUS docket by number"
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for scotus --citation filters (Carlson/Bivens/Egbert) despite ~110MB of ranged reads both times — either citation matching misses SCOTUS cert priors or the corpus has no comparable resolved rows; a hint of why zero rows matched would help",
+    "The prompt's 'Segment base rate by salience band' table is not present in the committed metrics/statpack.md",
+    "CourtListener has no docket entries for SCOTUS dockets (Nielsen's conference/grant history had to come from the open web); a supremecourt.gov docket fetch for a sibling case number would have been the natural tool",
+    "No statpack cut for SG-as-petitioner grant rates, which dominated the priors here"
+  ],
+  "notes": "Forward cell; ~8 retrieval calls total, well under budget. The provisioned documents were high quality (petition truncated at 105pp but included the full cert-stage argument)."
+}

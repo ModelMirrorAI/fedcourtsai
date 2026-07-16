@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281004",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260716T205846Z",
+  "created_at": "2026-07-16T21:22:13Z",
+  "input_snapshot": "data/cases/scotus/73281004/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.002,
+  "predicted_disposition": "dismissed",
+  "confidence": 0.98,
+  "big_case_score": 0.58,
+  "big_case_rationale": "A merits ruling could materially affect statewide prison-emergency administration and qualified-immunity exposure, though the unpublished posture and pending dismissal reduce its practical salience.",
+  "reasoning_doc": "reasoning.md"
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281057",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260716T205846Z",
+  "created_at": "2026-07-16T21:14:56Z",
+  "input_snapshot": "data/cases/scotus/73281057/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.45,
+  "predicted_disposition": "denied",
+  "confidence": 0.55,
+  "votes": [],
+  "big_case_score": 0.7,
+  "big_case_rationale": "A grant would set the First Amendment framework for the growing wave of state transparency mandates (drug pricing, AI, climate) and decide whether 'highly regulated industry' status extinguishes takings protection for trade secrets — industry-wide stakes far beyond Oregon.",
+  "reasoning_doc": "reasoning.md"
+}

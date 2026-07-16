@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c1f1b9a98a2514a9",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057 -type f | head -50",
+      "result_digest": "97dc83bab8f1f41c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7178d149ce6c8558",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e1f001ebb1da9930",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "600d15e8f494ce43",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "29f64d08a45028dd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/record/documents/documents.json\"}",
+      "result_digest": "5f7e9bbd71c863f7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5593c40115ca9f3a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "e9cbeba0041d3627",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0503492dd79ec0ae",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/record/documents/questions-presented.txt\"}",
+      "result_digest": "147f874e8cec450c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "84e314445247da3c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/record/documents/petition.txt\"}",
+      "result_digest": "05c9d978001b5198",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2698dc78ae5b0ead",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/record/documents/petition.txt\", \"offset\": 1082}",
+      "result_digest": "eb45783de7b3dd49",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cec29602d0d054a7",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bab09ec1cb398fbd",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2e84046d1f92abdc",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nfor s in d['sections']:\n    print(s.get('key'), '-', s.get('title'))\n\"",
+      "result_digest": "7ddc8667fa42cb42",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "695f5a43afc201dd",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt = d['terms']\nprint(type(t))\nimport pprint\nif isinstance(t, list):\n    pprint.pprint(t[:2])\nelse:\n    pprint.pprint({k: t[k] for k in list(t)[:2]})\n\" 2>&1 | head -60",
+      "result_digest": "f01208ae2561d9c6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3992afa5de95365d",
+      "query": "uv run fedcourts query --court scotus --citation \"467 U.S. 986\" --citation \"576 U.S. 350\" --era 2020s 2>&1 | head -30",
+      "result_digest": "e00a8f3a801473bf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "500bc3c49b8be669",
+      "query": "uv run fedcourts query --court scotus --citation \"447 U.S. 557\" --citation \"585 U.S. 755\" --citation \"463 U.S. 60\" 2>&1 | head -30",
+      "result_digest": "e00a8f3a801473bf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9cc443b2218b3095",
+      "query": "uv run fedcourts query --court scotus --topic \"First Amendment\" 2>&1 | head -10; echo ---; uv run fedcourts query --court scotus --disposition granted --era 2020s 2>&1 | head -8",
+      "result_digest": "2e856915ba2c3c10",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "ca45a95cfe5c0ce6",
+      "query": "\"drug price transparency\" \"First Amendment\" compelled disclosure",
+      "result_digest": "61bfbc3cace75d51",
+      "retrieved_doc_date": "2025-08-26",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "a5930ff91bf52aa6",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281057/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z",
+      "result_digest": "e946c9ba1fe17908",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d3e8d25840bb1a1f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281057\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:14:56Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281057/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.45,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "0c9252a60831f3ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "bb72fb475772689f",
+      "query": "{\"content\": \"# PhRMA v. O'Day (No. 25-1018) \\u2014 cert disposition prediction\\n\\n**Bottom line: P(grant, GVR included) = 0.45; single most likely disposition = denied,\\nbut this is close to a coin flip and well above the ordinary paid-petition rate.**\\n\\n## The case\\n\\nPhRMA's facial challenge to Oregon HB 4005, the Prescription Drug Price\\nTransparency Act, which compels drug manufacturers to file narrative\\njustifications for price increases and requires the State to publish the\\nreports \\u20",
+      "result_digest": "aba6c3f8e9a1b6f7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9c3077a6cb59d49c",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281057 / evt-petition-disposition / claude-baseline / 20260716T205846Z\\n\\nMode: `forward` (unrestricted retrieval; no disposition exists for this case \\u2014\\nthe CVSG issued 2026-06-22 and the SG has not yet filed).\\n\\n## Corpus lookups (`fedcourts` CLI, ranged reads against the remote corpus)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"467 U.S. 986\\\" --citation \\\"576 U.S. 350\\\" --era 2020s`\\n   \\u2014 `ranged corpus reads: 418 GET(s), ",
+      "result_digest": "6501e81f29aa20f4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c3e7f579169af66b",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281057\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"CourtListener MCP search\\\",\\n    \\\"provisioned snapshot + petition/questions-present",
+      "result_digest": "8f9f330298021712",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "6fbedc9ea119c205",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "edc297a944446aaa",
+      "query": "gh issue comment 717 --repo ModelMirrorAI/fedcourtsai --body \"**claude-baseline / 20260716T205846Z \u2014 scotus/73281057 (PhRMA v. O'Day, No. 25-1018) / evt-petition-disposition**: prediction written. P(grant)=0.45, predicted disposition **denied** (narrowly \u2014 the June 22 CVSG plus response-requested, divided Ninth Circuit panel, and the en banc First Circuit conflict on the trade-secrets takings question put this far above the paid-petition base rate; the corpus CVSG bucket grants 27%). Disposition",
+      "result_digest": "905a4a0aa49417e4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281057",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

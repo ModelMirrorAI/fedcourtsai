@@ -1,0 +1,310 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a57811f259e21518",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002 -type f | head -50",
+      "result_digest": "1f78f9c2f422de4d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "184f66dc37e3a5ac",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e4f798e4ab855402",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "a9a74bd74d0a94dc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "be7ecdd7f3d56d0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/documents.json\"}",
+      "result_digest": "60dd8e47eafcd416",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "60d57375d27c326b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "c1568693f6b24a15",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "beea9efb0fcacc03",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/questions-presented.txt\"}",
+      "result_digest": "19191f1e6b59855f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "44836af676bdd87f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "0c44a256d933f9ae",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3fffa5b0cf9d48bc",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/brief-in-opposition.txt",
+      "result_digest": "768b1e301ddd1496",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "07a7ec3183b538cb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "cc9f0e13023c3040",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9684b947958791d5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/petition.txt\", \"limit\": 330, \"offset\": 400}",
+      "result_digest": "96c380580cd8e9fe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2962d386c26e1de0",
+      "query": "grep -n -i \"vehicle\\|munsingwear\\|moot\\|baxter\\|coalfield\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/petition.txt | head -30",
+      "result_digest": "836ef6c22497759a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4a586230b7cf8d7b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/petition.txt\", \"limit\": 200, \"offset\": 820}",
+      "result_digest": "bae5df10ae2b351c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9d9c1115e630c2c6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/record/documents/petition.txt\", \"limit\": 240, \"offset\": 1490}",
+      "result_digest": "1ef3c17ce3dedd64",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e5b575536e0e3146",
+      "query": "grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "4343cf7205eb5967",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9bd5713f71da2258",
+      "query": "sed -n 55,140p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "48896c608d57722e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ec981fb52390a18a",
+      "query": "sed -n 135,220p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "864558b3afa21d84",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6d2b09945099d83a",
+      "query": "uv run fedcourts paths --court scotus --docket 73281002 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "eee6558ac39d48a9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4becc0d352c9d7c1",
+      "query": "uv run fedcourts query --court scotus --topic \"election law\" --corpus-backend ranged 2>&1 | head -20",
+      "result_digest": "1afbdc2c4909729f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "081e0ac43a7736d2",
+      "query": "uv run fedcourts query --court scotus --citation \"504 U.S. 428\" --citation \"460 U.S. 780\" --citation \"553 U.S. 181\" --corpus-backend ranged 2>&1 | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    try: r=json.loads(line)\n    except Exception: print(line); continue\n    print(r.get('case_id'), '|', r.get('caption','')[:70], '|', r.get('disposition'), '|', r.get('era'), '|', r.get('decided'))\n\" 2>&1 | head -20",
+      "result_digest": "e00a8f3a801473bf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1844510872c73d98",
+      "query": "select:mcp__courtlistener__search,WebSearch",
+      "result_digest": "3fd55b31051aebc6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "7430420061223e3d",
+      "query": "Baxter v. Philadelphia Board of Elections Pennsylvania Supreme Court decision date requirement mail ballot 2026",
+      "result_digest": "0dd3083dcbad1ef7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "566076d173be06fd",
+      "query": "Pennsylvania Supreme Court Baxter undated mail ballots ruling decided",
+      "result_digest": "0b6eb8bc3a082bc4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "2a18669b21b22044",
+      "query": "Supreme Court cert granted election law 2026 \"RNC\" OR \"Republican National Committee\" mail ballots Watson Wetzel",
+      "result_digest": "350175e456264061",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "152dddef2c93ce77",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281002/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z",
+      "result_digest": "d23890765d72a48a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4df2dda832d65225",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281002\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:05:37Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281002/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.62,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  ",
+      "result_digest": "2223bddc5f2043ca",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0b86c3ff7dd3e082",
+      "query": "{\"content\": \"# RNC v. Eakin, No. 25-962 \\u2014 cert disposition prediction\\n\\n**Prediction: grant (P = 0.62), most likely a plenary grant; a meaningful minority\\nof the grant mass is a Munsingwear GVR if the case moots out on state-law grounds.**\\n\\n## The legal question\\n\\nThe Third Circuit (149 F.4th 291, Aug. 26, 2025) held that Pennsylvania's\\nrequirement that mail voters handwrite a date on the ballot-return envelope\\nviolates the First and Fourteenth Amendments under the *Anderson-Burdick*",
+      "result_digest": "8706876c6478b83d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "20605e9222568fec",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281002 evt-petition-disposition (claude-baseline, 20260716T205846Z)\\n\\nMode: `forward` (`record/context.json`), so retrieval was unrestricted. The case\\nis pending a CVSG response (invited June 29, 2026); no disposition exists to leak.\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --topic \\\"election law\\\" --corpus-backend ranged`\\n   - stderr: `ranged corpus reads: 3 GET(s), 786432 byte(s)`\\n   - 0 row",
+      "result_digest": "976cf9b5ac7a7929",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d4c377c1ea91e77c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281002\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts paths\\\",\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"WebSearch\\\"\\n  ],\\n  \\\"tool_manifest\\\": [\\n    \\\"courtlistener\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack CVSG cut (27.1% gra",
+      "result_digest": "5a38440011291736",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "db715a2a38902c82",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json",
+      "result_digest": "cad720eb5a32e3b9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a29ff57aa9330b97",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281002\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"The provisioned record/documents/brief-in-opposition.txt is Northampton County's 9-page BIO (docket entry Jun 01 2026, '25-962 25-967 BIO.pdf'), no",
+      "result_digest": "c4b7e36578c04943",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "15778d390283ea05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "307535de25137685",
+      "query": "gh issue comment 717 --body \"**claude-baseline** \u00b7 \\`scotus/73281002\\` \u00b7 \\`evt-petition-disposition\\` \u00b7 run \\`20260716T205846Z\\` \u2014 done.\n\nRNC v. Eakin (No. 25-962, 3d Cir. mail-ballot date requirement, linked with 25-967): predicted **grant, P(granted incl. GVR) = 0.62** (\u22480.50 plenary grant / \u22480.11 Munsingwear-GVR if Baxter moots it on state grounds). Anchored on the statpack CVSG cut (27% grant) and adjusted up for the invalidated state statute, the Commonwealth as co-petitioner, the 7\u20136 en ba",
+      "result_digest": "e68691ccee5c2ce8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281002",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

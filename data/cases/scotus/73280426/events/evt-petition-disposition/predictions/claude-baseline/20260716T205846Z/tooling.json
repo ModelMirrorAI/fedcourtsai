@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280426",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "web search + web fetch (engine-surfaced)",
+    "provisioned snapshot and filed-document texts"
+  ],
+  "helpful": [
+    "Provisioned petition/BIO full text — the BIO's Callais citations (146 S. Ct. 1131) revealed the intervening landmark without any retrieval",
+    "Snapshot's full proceedings list — CFR, expedite denial, and conference distributions carried most of the docket signal",
+    "statpack.md relist/CVSG/per-Term cuts for anchoring the prior"
+  ],
+  "gaps": [
+    "statpack.md lacks the 'Segment base rate by salience band' table the predict prompt says to anchor on",
+    "statpack has no cut for call-for-response (CFR) petitions — the single most informative docket signal here had no corpus base rate",
+    "fedcourts query citation/topic filters returned zero rows for VRA/redistricting priors on scotus; no free-text or subject-matter retrieval over cert petitions",
+    "The State respondent's brief (StateBOR.pdf) was on the docket but not provisioned; only the Soto Palmer BIO was fetched — provisioning every filed brief-in-opposition/response would have saved the decisive web hunt",
+    "The June 10 cert-stage reply was likewise not provisioned",
+    "supremecourt.gov DocketPDF and several news sites 403 the engine's web fetch, so primary sources had to be triangulated via search snippets"
+  ],
+  "notes": "Forward cell. The outcome hinge (Callais decided 4/29/2026, the May 2026 GVR wave, and Washington's GVR-supporting response brief) was all public pre-snapshot web signal; corpus tooling contributed base rates only."
+}

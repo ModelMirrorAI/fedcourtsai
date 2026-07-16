@@ -1,0 +1,318 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "690a5f3f1b56e11e",
+      "query": "{\"strategic_intent\": \"Read documentation files to understand the prompt contract for prediction.\", \"summary\": \"I am reading `.github/prompts/predict.md` and `AGENTS.md` to understand the workflow and the expected output for the prediction task.\", \"title\": \"Read Documentation\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:20.086Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:20.095Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:20.095Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d855521d0591c91f",
+      "query": "{\"strategic_intent\": \"Locate the provisioned input files for the specific case and event.\", \"summary\": \"I have read the core instructions and the prompt contract. Now, I need to locate the provisioned inputs for `scotus/73280380` event `evt-petition-disposition`. I will run the `fedcourts paths` command or list the directory to find the `record` folder and the inputs like the event definition, snapshot, and document text.\", \"title\": \"Locate Provisioned Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:26.657Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "71821661203f93ec",
+      "query": "{\"dir_path\": \"data/cases/scotus/73280380/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:27.301Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "df3615b269ee14fd",
+      "query": "uv run fedcourts paths --court scotus --docket 73280380 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:27.301Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:27.302Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "37e0dab31ff2c1f7",
+      "query": "{\"strategic_intent\": \"Examine the specific case record and event files to understand the facts to predict on.\", \"summary\": \"I will read the event definition, snapshot, context, and document files provided under the `record/` directory for this case, as instructed by the prediction prompt contract. This is the data I will base the prediction on.\", \"title\": \"Analyze Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:31.199Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ab292ef6fdb12ea0",
+      "query": "{\"dir_path\": \"data/cases/scotus/73280380/record/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:31.207Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "8ac2812679948f3e",
+      "query": "{\"file_path\": \"data/cases/scotus/73280380/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:31.208Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a9b9cafbd20099c1",
+      "query": "{\"dir_path\": \"data/cases/scotus/73280380/record/documents/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:31.208Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "39c86320fbf9c0de",
+      "query": "{\"file_path\": \"data/cases/scotus/73280380/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:31.209Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "10293b70877d45e2",
+      "query": "{\"file_path\": \"data/cases/scotus/73280380/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:34.021Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2b172200d332f32f",
+      "query": "{\"dir_path\": \"data/cases/scotus/73280380/record/snapshots/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:34.021Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "1d09b20c2caf8dd2",
+      "query": "{\"file_path\": \"data/cases/scotus/73280380/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:34.022Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "832c99d78c6dbf4f",
+      "query": "{\"strategic_intent\": \"Examine the docket snapshot to understand the current posture and schedule.\", \"summary\": \"I am reviewing the case snapshot, `2026-07-16.json`, to find out the docket entries, the lower court decision date, and the procedural history. I will also check the statpack to find the base rate for cert petitions.\", \"title\": \"Review Snapshot and Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:37.223Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "2a8aaf4c79340be2",
+      "query": "{\"file_path\": \"data/cases/scotus/73280380/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:37.227Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:37.228Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1a56fc9f9aa31efc",
+      "query": "{\"strategic_intent\": \"Read snippets of the petition and BIO to assess the merits and likelihood of a cert grant.\", \"summary\": \"I am reading the beginning of the petition and the brief in opposition (BIO) to evaluate the legal arguments, circuit split (if any), and the overall strength of the petition for a writ of certiorari.\", \"title\": \"Evaluate Merits from Filings\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:43.295Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ec013af4ebab7a74",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73280380/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:43.300Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "69826ea835b05ef3",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73280380/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:43.301Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b4acd1d90c307986",
+      "query": "{\"strategic_intent\": \"Query the corpus for priors on Rule 11 and Section 1927 sanctions, particularly involving election litigation or where there was a strong en banc dissent.\", \"summary\": \"I will use the `fedcourts query` tool to search the historical corpus for similar cert petitions. I am looking for cases involving Rule 11 sanctions, Section 1927 sanctions, election litigation, and cases with a dissent from denial of rehearing en banc. This will help inform the base rate and the probability",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:49.306Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "0b32730306717cde",
+      "query": "uv run fedcourts query --court scotus --decided-before 2026-07-16 \"Rule 11 sanctions attorneys\" \"send a message\" \"frivolous\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:50.123Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ea5ab48262031e06",
+      "query": "uv run fedcourts query --court scotus --decided-before 2026-07-16 --era 2020s \"Rule 11 sanctions\" \"1927\" \"election\" \"dissent from denial of rehearing en banc\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:50.123Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:52.875Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9e112ea7a033aa4c",
+      "query": "{\"strategic_intent\": \"Search CourtListener for Rule 11 / \\u00a7 1927 sanctions cases at the Supreme Court to identify relevant precedent.\", \"summary\": \"Since I am in forward mode, I can use the CourtListener MCP server to search for Supreme Court cases that discuss Rule 11 or 28 U.S.C. \\u00a7 1927 sanctions, particularly regarding whether they can be used to \\\"send a message\\\" or \\\"chill\\\" certain types of litigation. This will help inform the likelihood of the Court granting this petition.\", \"t",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:58.260Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "5bb53eeb9112a298",
+      "query": "\"Rule 11\" AND (\"sanction\" OR \"sanctions\") AND \"chill\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:59.737Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "fdf5acef9ab435e9",
+      "query": "\"Rule 11\" AND \"1927\" AND \"sanctions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:24:59.738Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "2628a560c9ec1648",
+      "query": "mkdir -p data/cases/scotus/73280380/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:15.851Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "df1fc9f5bbdb4335",
+      "query": "{\"strategic_intent\": \"Write the output files (prediction, reasoning, retrieval, tooling) into the required directory.\", \"summary\": \"I am preparing to write the final output files for the prediction task into the `predictions` directory. I will first read the `agent_tooling.schema.json` to ensure my `tooling.json` strictly complies with the schema. Then I will write all the files and validate them.\", \"title\": \"Write Output Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:30.045Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:30.048Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "aba06d7d2fc0ce4c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280380\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"big_case_score\\\": 0.85,\\n ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:42.812Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "aa112acd4f8735fd",
+      "query": "{\"content\": \"## Legal and Factual Context\\nThis is a petition for a writ of certiorari arising from Rule 11 and 28 U.S.C. \\u00a7 1927 sanctions imposed on attorneys (Petitioners) who represented candidates Kari Lake and Mark Finchem in a 2022 lawsuit challenging Arizona's electronic voting procedures. The district court dismissed the underlying complaint for lack of standing, a decision affirmed by the Ninth Circuit. Subsequently, the district court sanctioned the attorneys to \\\"send a message\\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:42.816Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f0b29e23368ad89f",
+      "query": "{\"content\": \"- `uv run fedcourts query --court scotus --decided-before 2026-07-16 --era 2020s \\\"Rule 11 sanctions\\\" \\\"1927\\\" \\\"election\\\" \\\"dissent from denial of rehearing en banc\\\"` (failed)\\n- `uv run fedcourts query --court scotus --decided-before 2026-07-16 \\\"Rule 11 sanctions attorneys\\\" \\\"send a message\\\" \\\"frivolous\\\"` (failed)\\n- MCP CourtListener `search` query: `\\\"Rule 11\\\" AND (\\\"sanction\\\" OR \\\"sanctions\\\") AND \\\"chill\\\"`\\n- MCP CourtListener `search` query: `\\\"Rule 11\\\" AND \\\"1927\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:42.819Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "74d1ecef19cd164f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280380\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"fedcourts query\\\"],\\n  \\\"helpful\\\": [\\\"The provisioned statpack is highly effective for anchoring base rates. The CourtListener MCP tool helped confirm that 'send a message' or 'chill' in the Rule 11",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:42.823Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6f30a3f46a7508c2",
+      "query": "{\"strategic_intent\": \"Validate the output files using the fedcourts CLI.\", \"summary\": \"I will run `uv run fedcourts validate data` to ensure that all generated files match the schema requirements and are well-formed JSON, as instructed by the core rules.\", \"title\": \"Validate Output\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:46.515Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:48.975Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ee6293df57ee5c2b",
+      "query": "{\"strategic_intent\": \"Finish the task as headless pipeline prediction is complete.\", \"summary\": \"I have successfully generated `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` for the given event, and validated them against the schema. Since this runs headless and no git actions are required, I will now finish the task.\", \"title\": \"Prediction Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:54.592Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73280380",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

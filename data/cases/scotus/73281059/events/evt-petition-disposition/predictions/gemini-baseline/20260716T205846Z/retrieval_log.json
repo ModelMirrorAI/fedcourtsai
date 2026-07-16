@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "38c8983cdc344112",
+      "query": "{\"strategic_intent\": \"Reading the prompt contract and agent instructions to understand prediction requirements.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:23.868Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:26.515Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:26.515Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1fd04567c8245cc5",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281059\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:32.822Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "57520eb3c4353a19",
+      "query": "ls -laR data/cases/scotus/73281059",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:38.450Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "91a579e0ce2cfff1",
+      "query": "{\"file_path\": \"data/cases/scotus/73281059/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:42.742Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "46621c2eb957c277",
+      "query": "{\"file_path\": \"data/cases/scotus/73281059/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:42.742Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:42.742Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "afc3ca544fa6a761",
+      "query": "{\"file_path\": \"data/cases/scotus/73281059/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:42.743Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:46.563Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "836458ffd4966374",
+      "query": "head -n 50 data/cases/scotus/73281059/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:46.563Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1d763eee42f7d34b",
+      "query": "{\"file_path\": \"data/cases/scotus/73281059/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:46.563Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1d10f25edd01d666",
+      "query": "curl -s \"https://www.courtlistener.com/api/rest/v3/dockets/73281059/\" | jq '.date_cert_granted, .date_cert_denied, .date_terminated'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:54.441Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "221946adef6cedd0",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"id\": 73281059}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:57.133Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "e2278c9c08e43d0e",
+      "query": "\"Mi Familia Vota\" Arizona",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:09.887Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "3c41c8e722b0797d",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"National Voter Registration Act preemption citizenship requirement election law state form\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:17.638Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f2b4cd9432cb5bf2",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:21.724Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f35b3fc07bb64ba5",
+      "query": "\"National Voter Registration Act\" \"proof of citizenship\" \"Arizona\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:46.270Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:04.009Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d18d4c5ec8f503b4",
+      "query": "mkdir -p data/cases/scotus/73281059/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:10.077Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6c54b50ad3e45117",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281059\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.95,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.95,\\n  \\\"big_case_rationale\\\": \\\"H",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:20.644Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "379e950d083ffa81",
+      "query": "{\"content\": \"# Prediction: Granted\\n\\n**Probability: 95%**\\n\\n## The Legal Question\\nThe petition presents questions concerning whether the National Voter Registration Act (NVRA) preempts Arizona's laws that require documentary proof of citizenship (DPOC) to vote in federal elections using state-specific forms, and whether the NVRA preempts Arizona's restrictions on mail-in voting for those who have not provided DPOC. It also raises a question about discriminatory animus regarding H.B. 2243.\\n\\n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:20.647Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "54cfbffec54beb38",
+      "query": "{\"content\": \"- `mcp_courtlistener_call_endpoint`: `{\\\"endpoint_id\\\": \\\"dockets\\\", \\\"query\\\": {\\\"id\\\": 73281059}}`\\n- `mcp_courtlistener_search`: `{\\\"q\\\": \\\"\\\\\\\"Mi Familia Vota\\\\\\\" Arizona\\\", \\\"type\\\": \\\"d\\\"}`\\n- `run_shell_command`: `uv run fedcourts query --help`\\n- `mcp_courtlistener_search`: `{\\\"q\\\": \\\"\\\\\\\"National Voter Registration Act\\\\\\\" \\\\\\\"proof of citizenship\\\\\\\" \\\\\\\"Arizona\\\\\\\"\\\", \\\"type\\\": \\\"o\\\"}`\\n- `read_file`: `metrics/statpack.md`\\n- `read_file`: `data/cases/scotus/73281059/recor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:20.650Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5c904bf69aaa0ba7",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281059\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_call_endpoint\\\", \\\"mcp_courtlistener_search\\\", \\\"read_file\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"read_file\\\", \\\"mcp_courtlistener_search\\\"],\\n  \\\"notes\\\": \\\"Attempted to use `fedcourts query` with text search, but realized it takes st",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:20.652Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "67297b663dda6ea3",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:24.680Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f99070e28add1bba",
+      "query": "{\"strategic_intent\": \"Finalizing output and exiting as tasks are complete.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:27.255Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281059",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,286 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "8cacb3243b74e75b",
+      "query": "{\"strategic_intent\": \"Read prediction prompts and agent documentation to understand the task requirements.\", \"summary\": \"I will start by reading the contents of `.github/prompts/predict.md` and `AGENTS.md` to understand the inputs, outputs, and requirements for the prediction task.\", \"title\": \"Read Requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:16.623Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:16.631Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:16.632Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "36da38f9050e9b49",
+      "query": "uv run fedcourts paths --court scotus --docket 73281009 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:21.021Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "27cc185518e14a68",
+      "query": "tree data/cases/scotus/73281009",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:24.620Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b0632e3b5c26bbfc",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs and prediction schema to analyze the case and context.\", \"summary\": \"I have read the prompt and agent rules. Now, I will examine the schema and the provisioned inputs for the specific cell I am tasked to predict on: `scotus/73281009`, event `evt-petition-disposition`. This includes the event definition, snapshot, context mode, and extracted documents.\", \"title\": \"Read Case Data and Schema\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:28.800Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "07277b983fb6c640",
+      "query": "{\"file_path\": \"data/cases/scotus/73281009/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:28.810Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2a583d4ca749c158",
+      "query": "{\"file_path\": \"data/cases/scotus/73281009/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:28.810Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:28.810Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e98b9da11af87ba5",
+      "query": "{\"file_path\": \"data/cases/scotus/73281009/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:28.811Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dfee2a46ec124561",
+      "query": "cat data/cases/scotus/73281009/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:31.539Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b087329ba68edd35",
+      "query": "cat data/cases/scotus/73281009/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:34.985Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5f9934db10d3ead",
+      "query": "cat metrics/statpack.md | grep -A 20 CVSG",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:38.673Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a72040866b9db74",
+      "query": "uv run fedcourts query --court scotus \"Anderson-Burdick\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:44.825Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8bd78a13c433ba4d",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:47.496Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d1e8cc1ab7b7a1a6",
+      "query": "cat record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:49.607Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "953d96d2040e1b8e",
+      "query": "\"Anderson-Burdick\" AND \"handwritten date\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:55.688Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "9beffb2f61dee690",
+      "query": "\"Center for Coalfield Justice\" AND \"Washington County\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:01.569Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f131b599fe608dd2",
+      "query": "cat data/cases/scotus/73281009/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:09.950Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0ba4252463a9f3ae",
+      "query": "grep -iE \"gvr|vacate|remand\" data/cases/scotus/73281009/record/documents/petition.txt | head -n 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:14.571Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "716b38209b490e74",
+      "query": "grep -iE \"gvr|vacate|remand\" data/cases/scotus/73281009/record/documents/brief-in-opposition.txt | head -n 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:22.380Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0835744d47deb6fc",
+      "query": "grep -iC 3 \"Munsingwear\" data/cases/scotus/73281009/record/documents/brief-in-opposition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:26.326Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42b9f77ceec36fda",
+      "query": "grep -iC 5 \"Circuit split\" data/cases/scotus/73281009/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:32.952Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fea9f1d02f6e159d",
+      "query": "cat metrics/statpack.md | grep -i gvr",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:43.904Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "37806324f74a3b62",
+      "query": "grep -iC 5 \"Coalfield\" data/cases/scotus/73281009/record/documents/brief-in-opposition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:49.730Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "71692f8198b13c68",
+      "query": "grep -A 20 \"The Pennsylvania Supreme Court is poised\" data/cases/scotus/73281009/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:56.326Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a09d7171fa65772e",
+      "query": "\"Baxter v. Phila. Bd. of Elections\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:05.442Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "32b7e7f504a00291",
+      "query": "mkdir -p data/cases/scotus/73281009/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:16.515Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be32cc7b3093ce64",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281009\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"big_case_score\\\": 0.95,\\n  \\\"big_case_rationale\\\": \\\"High-profile challenge",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:22.138Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d84c881bfb43c5e0",
+      "query": "{\"content\": \"The issue is whether Pennsylvania's handwritten date requirement on mail-in ballot return envelopes violates the First and Fourteenth Amendments. The Third Circuit held it did, applying the *Anderson-Burdick* balancing test to strike down the requirement.\\n\\nThe petition was filed by the Commonwealth of Pennsylvania, which explicitly asks the Court to grant, vacate, and remand (GVR) the Third Circuit's decision in light of an intervening state supreme court decision, *Center for Coa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:28.600Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "101a22b7132e5398",
+      "query": "{\"content\": \"Consulted the provided snapshot, questions-presented, petition, and brief-in-opposition.\\nChecked base rates for CVSG in `metrics/statpack.md`.\\n\\nCourtListener MCP Lookups:\\n- Searched opinions for `\\\"Anderson-Burdick\\\" AND \\\"handwritten date\\\"` which returned the underlying Third Circuit case *Bette Eakin v. Adams County Board of Elections* (25-1644, 3rd Cir. Aug 26, 2025).\\n- Searched opinions for `\\\"Center for Coalfield Justice\\\" AND \\\"Washington County\\\"` which returned the Pen",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:34.256Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e2066a5be4e574ab",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281009\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"grep\\\",\\n    \\\"cat\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"mcp_courtlistener_search was critical for finding the specific intervening state court decisions (*Center for Coalfield Justice* and *Baxter*) mentioned in the petitio",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:38.499Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "615fd96492dd7c47",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:43.925Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "91683e0212960a82",
+      "query": "{\"strategic_intent\": \"Finalize and complete task.\", \"summary\": \"I have successfully analyzed the case facts, read the provisioned context and inputs, and generated the required prediction, reasoning, retrieval log, and tooling feedback. The schema validation passed, and the files have been written in the correct directory. I am now completing the task.\", \"title\": \"Finalize and Validate\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:50.243Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281009",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

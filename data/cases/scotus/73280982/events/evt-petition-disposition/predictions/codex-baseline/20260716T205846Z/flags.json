@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned questions-presented.txt is a table-of-contents fragment rather than the questions presented, and documents.json marks the petition extraction truncated. Both questions and the full cert-stage argument were intact in petition.txt and the complete brief in opposition, so the prediction used those sources."
+    }
+  ]
+}

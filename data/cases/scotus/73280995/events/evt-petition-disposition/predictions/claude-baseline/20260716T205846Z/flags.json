@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280995",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from a companion case (pre-snapshot public information, not leakage): cert was granted in the lead case Nielsen v. Watanabe, No. 25-417, on 2026-06-22, and this petition's docket shows the classic hold pattern (distributed 6/11 and 6/18/2026, no order since). The prediction (P=0.85 grant, likeliest disposition GVR) is largely derivative of Nielsen's expected outcome, so this cell's realized disposition will not resolve until Nielsen is decided (~June 2027)."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281009",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "web search",
+    "provisioned filed-document texts"
+  ],
+  "helpful": [
+    "CVSG cut in the statpack (27.1% vs 3.0% grant) was the single most decision-relevant number",
+    "Provisioned petition and BIO full texts made the GVR-vs-plenary-vs-mootness structure legible without any PDF fetching",
+    "Web search to confirm the related state case (Baxter) was still pending was cheap and load-bearing"
+  ],
+  "gaps": [
+    "The committed statpack has no 'Segment base rate by salience band' section although the prompt tells predictors to prefer it; the CVSG cut had to substitute",
+    "fedcourts query returned 0 rows for citation-based lookups (Anderson/Burdick/Crawford) at ~110MB of ranged reads per call; a topic or QP-text similarity retrieval would have found comparable cert petitions",
+    "No provisioned text for the petitioner's cert-stage reply or the RNC respondents' brief in support, both of which are on the docket and grant-relevant",
+    "Statpack CVSG bucket is small (59 resolved) and carries no split of grant into plenary vs GVR, which matters for cells like this where GVR paths dominate"
+  ],
+  "notes": "Forward cell with an unusually informative docket (CFR then CVSG). The main forecasting uncertainty is external state litigation (Baxter), which no corpus surface tracks; a 'related pending litigation' hint in provisioning would help."
+}

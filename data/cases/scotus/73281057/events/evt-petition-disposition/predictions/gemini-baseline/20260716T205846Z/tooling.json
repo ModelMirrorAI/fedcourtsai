@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/73281057",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "cat",
+    "grep",
+    "ls"
+  ],
+  "helpful": [
+    "statpack.md base rates",
+    "mcp_courtlistener_search"
+  ],
+  "gaps": [
+    "salience table in statpack.md missing or under different name"
+  ],
+  "schema_version": "1.0"
+}

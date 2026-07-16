@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280995",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed corpus statpack",
+    "CourtListener MCP opinion search and endpoint access",
+    "fedcourts query (attempted; no priors returned)"
+  ],
+  "helpful": [
+    "Provisioned petition, questions presented, and brief in opposition",
+    "Relist and paid-petition base rates in the committed statpack",
+    "CourtListener full text of Goldey v. Fields"
+  ],
+  "gaps": [
+    "The ranged corpus remote was unreachable because its endpoint did not resolve",
+    "CourtListener exposed no docket entries for the related SCOTUS petition"
+  ],
+  "notes": "The failed corpus query is reported as unused because it returned no priors. The provisioned filings and statpack were sufficient to complete the forecast."
+}

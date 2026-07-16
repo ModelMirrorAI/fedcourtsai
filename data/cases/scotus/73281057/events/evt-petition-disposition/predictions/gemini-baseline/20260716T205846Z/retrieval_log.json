@@ -1,0 +1,238 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "0e8d620c1f38625c",
+      "query": "{\"strategic_intent\": \"I am reading the prediction prompt and agent instructions to understand the expected output files and format for the given prediction task.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:54.283Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:56.370Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:56.370Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5ac95f07f1b8694e",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281057\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:01.433Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "581e00e015126226",
+      "query": "ls -la data/cases/scotus/73281057/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:04.555Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d15d9a7309e576d5",
+      "query": "cat data/cases/scotus/73281057/record/context.json && ls -la data/cases/scotus/73281057/record/snapshots && ls -la data/cases/scotus/73281057/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:07.645Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4227ddde5f714465",
+      "query": "cat data/cases/scotus/73281057/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:11.217Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3443354c9d02b58c",
+      "query": "cat data/cases/scotus/73281057/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:11.218Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0072e1c63a6a93f5",
+      "query": "cat data/cases/scotus/73281057/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:11.218Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7ac55f8459245ed1",
+      "query": "cat data/cases/scotus/73281057/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:16.261Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:19.490Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9104d14b4db5d3f1",
+      "query": "cat metrics/statpack.md | grep -A 20 \"CVSG status\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:19.491Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1eb6e0bdcd9c00e2",
+      "query": "grep -i -A 20 \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:21.608Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fe5e5fa5488d63ab",
+      "query": "cat metrics/statpack.md | head -n 100",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:24.835Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3052abb6a6053ade",
+      "query": "cat metrics/statpack.md | grep -A 50 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:28.766Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d374edbccc40cd8c",
+      "query": "grep -i -A 30 \"Term\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:31.305Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8dd0e6ba7d5d6aab",
+      "query": "tail -n 100 metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:34.590Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e597472923b0fc90",
+      "query": "\"Pharmaceutical Research and Manufacturers of America\" O'Day",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:39.928Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "b13b7e839687571b",
+      "query": "head -n 200 data/cases/scotus/73281057/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:45.400Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:00.295Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c48aa28ea8952b0",
+      "query": "mkdir -p data/cases/scotus/73281057/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:03.036Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:08.562Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "504c753347443743",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281057\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281057/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.85,\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:20.582Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0aa4e886d0c944e3",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281057\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"cat\\\",\\n    \\\"grep\\\",\\n    \\\"ls\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md base rates\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"salience table in statpack.md missing or under different name\\\"\\n ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:24.558Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "70579421fc04398b",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Case Context\\nThis is a constitutional challenge brought by the Pharmaceutical Research and Manufacturers of America (PhRMA) against the Director of the Oregon Department of Consumer and Business Services. The petition challenges Oregon's HB 4005, a state transparency law requiring pharmaceutical manufacturers to report and justify their drug prices, and directing the state to publish those reports\\u2014even if they contain trade secrets\\u2014when deemed in the \\\"p",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:30.690Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "435903dcd21b6b9c",
+      "query": "{\"content\": \"# Retrieval Log\\n\\nNo `fedcourts` corpus-query CLI commands were used to pull ranged reads.\\n\\n- Read `metrics/statpack.md` using `cat` and `grep` to consult base rates for CVSG status (grant rate: 27.1%).\\n- Used `mcp_courtlistener_search` to query `court=[\\\"ca9\\\"], q=\\\"\\\\\\\"Pharmaceutical Research and Manufacturers of America\\\\\\\" O'Day\\\", type=\\\"o\\\"` to retrieve the Ninth Circuit opinion and its citation history to understand the lower court's reasoning on the First Amendment and T",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:33.704Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:38.372Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4d844816a3118f6e",
+      "query": "{\"strategic_intent\": \"I have successfully produced and validated the required output files for the prediction task and am concluding the run.\", \"summary\": \"I generated the required outputs `prediction.json`, `reasoning.md`, `tooling.json`, and `retrieval.md` based on the case facts, CourtListener retrieval, and statpack base rates. I then validated the produced artifacts using `uv run fedcourts validate data`, which passed successfully.\", \"title\": \"Prediction Finalized\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:42.575Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281057",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

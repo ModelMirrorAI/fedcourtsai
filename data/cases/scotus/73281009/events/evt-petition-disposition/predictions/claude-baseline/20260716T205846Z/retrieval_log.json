@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a78bb2e03704a16f",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009 -type f | head -50",
+      "result_digest": "e946e7114044b7a4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "dffa714c35ceb665",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a69f6d1385f42e4a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "1ee08925832eab42",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "81cf1fa00ecf1bcd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "6cd1b04a8e3b65ef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "49cb258a9af0ce67",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/documents.json\"}",
+      "result_digest": "d73bb805e63808d9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2cb0d04c2ef42881",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/questions-presented.txt\"}",
+      "result_digest": "c69b835db7a9d49f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "20d5fb84e72300e9",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/*.txt /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9dbd8bf013ea186d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5c2980a4293be19a",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "6648df6b3bbfcecb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "16561705695e20d5",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nsecs=d['sections']\nprint(type(secs))\nif isinstance(secs,list):\n    for s in secs: print(s.get('title') or s.get('key'))\nelse:\n    print(list(secs.keys()))\n\"",
+      "result_digest": "c1f45ec657220dce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4ce01a0ce5c3de33",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/petition.txt\"}",
+      "result_digest": "261e02f001a400f1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "59098ca2026bebbf",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/petition.txt\", \"limit\": 600, \"offset\": 1102}",
+      "result_digest": "29e91a2efd69e2a5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6074daad2b631e0b",
+      "query": "grep -n -E \"^[IVX]+\\.|^[A-D]\\.|QUESTION|INTRODUCTION|SUMMARY|REASONS|ARGUMENT|CONCLUSION\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/brief-in-opposition.txt | head -60",
+      "result_digest": "927851aee5084bc1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5988729f5e8f9614",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/brief-in-opposition.txt\", \"limit\": 190, \"offset\": 394}",
+      "result_digest": "fce9710c6ed11567",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e8cc1b46e26281cf",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/record/documents/brief-in-opposition.txt\", \"limit\": 186, \"offset\": 1800}",
+      "result_digest": "fbe0970323285310",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "502b95722a6e233f",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "326bd247c5f6b307",
+      "query": "uv run fedcourts query --court scotus --citation \"Burdick v. Takushi\" --citation \"Anderson v. Celebrezze\" --citation \"Crawford v. Marion County Election Board\" 2>query_stderr.txt | head -20; echo \"--- stderr ---\"; cat query_stderr.txt",
+      "result_digest": "704225b32ac4d57b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3424e14beb4a2652",
+      "query": "Baxter v. Philadelphia Board of Elections Pennsylvania Supreme Court decision date requirement mail ballots",
+      "result_digest": "aeeff8817c63ac4b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "9c2c8324076f1bb7",
+      "query": "uv run fedcourts query --court scotus --citation \"Crawford v. Marion\" 2>query_stderr2.txt | head -10; echo \"--- stderr ---\"; cat query_stderr2.txt",
+      "result_digest": "704225b32ac4d57b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8ec73e4859dc75be",
+      "query": "Pennsylvania Supreme Court Baxter ruling 2026 undated mail ballots \"free and equal\"",
+      "result_digest": "2276e5d5a454931f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "e21a7069108d0315",
+      "query": "Supreme Court solicitor general views CVSG Pennsylvania v. Eakin RNC 25-962 mail ballot date requirement June 2026",
+      "result_digest": "563f14c457e6614e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3ace9b09d8c64b74",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281009/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z",
+      "result_digest": "fc83024396d48a5d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2d3539cb6999c949",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281009\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:12:22Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281009/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  ",
+      "result_digest": "ea5c88b71fa6c7c3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "951c96f94f7d5d52",
+      "query": "{\"content\": \"# Pennsylvania v. Eakin, No. 25-967 \\u2014 cert disposition prediction\\n\\n**Prediction: P(any grant, GVR included) = 0.65; likeliest single disposition: granted (plenary).**\\n\\n## The case\\n\\nPennsylvania's Election Code requires mail-in voters to handwrite a date next to\\ntheir signature on the ballot return envelope. A Third Circuit panel (Eakin v.\\nAdams County Bd. of Elections, 149 F.4th 291, Aug. 26, 2025) held, applying\\nAnderson-Burdick, that enforcing the date requirement by",
+      "result_digest": "e8571b63ce92f8c8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2ee4e574b7f9f953",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281009 / evt-petition-disposition / claude-baseline / 20260716T205846Z\\n\\n## Provisioned inputs read\\n\\n- `record/snapshots/2026-07-16.json` (baseline snapshot)\\n- `record/documents/questions-presented.txt`, `petition.txt`,\\n  `brief-in-opposition.txt`, `documents.json`\\n- `events/evt-petition-disposition/event.yaml`, `record/context.json`\\n  (mode: forward)\\n\\n## Corpus tooling\\n\\n- `metrics/statpack.md` (committed) \\u2014 anchors used: \\\"Cert petiti",
+      "result_digest": "d1d19c3690bb98e6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9ac8584a50533cd9",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281009\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"metrics/statpack.json\\\",\\n    \\\"web search\\\",\\n    \\\"provisioned filed-document texts\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"CVSG cut in the statpack (27.1% vs 3.0% grant) w",
+      "result_digest": "fbd985940ded4004",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "6fbedc9ea119c205",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "68e3b566ee49893d",
+      "query": "gh issue comment 717 --body \"**claude-baseline** \u00b7 scotus/73281009 \u00b7 evt-petition-disposition \u00b7 run 20260716T205846Z\n\nPrediction written: **P(grant, GVR incl.) = 0.65**, likeliest disposition **granted** (plenary, likely consolidated with No. 25-962). Pennsylvania v. Eakin \u2014 Third Circuit struck the mail-ballot date requirement under Anderson-Burdick; CFR + June 29, 2026 CVSG (statpack CVSG bucket: 27.1% grant vs 3.0%), acknowledged 7\u20134 split, state statute invalidated below, and both off-ramps ",
+      "result_digest": "3960f0f72fe65149",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281009",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

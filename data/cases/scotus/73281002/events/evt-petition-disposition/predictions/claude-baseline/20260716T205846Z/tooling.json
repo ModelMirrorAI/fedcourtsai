@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281002",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "WebSearch"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "statpack CVSG cut (27.1% grant, n=59) was the single most useful number for this cell",
+    "provisioned full petition text incl. the vehicle section (Baxter/Munsingwear concession) drove the grant-vs-GVR split",
+    "fresh same-day snapshot carried the docket through the June 29 CVSG, so no MCP calls were needed"
+  ],
+  "gaps": [
+    "fedcourts query returned 0 rows for both a topic filter and citation filters (Anderson/Burdick/Crawford); the corpus seems to have no retrievable election-law cert priors, so all quantitative anchoring fell to the statpack",
+    "the citation-filter query cost 418 ranged GETs / ~110 MB to return nothing - a cheap emptiness check or index hint would save transfer",
+    "the provisioned brief-in-opposition.txt is a peripheral respondent's (Northampton County) BIO, not the principal Eakin/DSCC BIO also on the docket; a heuristic preferring the lead respondent's BIO would improve the guaranteed-common input",
+    "statpack in this checkout has no 'Segment base rate by salience band' table (the prompt points to it), and no CVSG-conditioned-on-SG-recommendation cut, which is the real driver in CVSG cells"
+  ],
+  "notes": "Forward cell; snapshot fetched the same day as the run, so provisioned inputs were fully current. Three web searches supplied the only material beyond the repo: Baxter (Pa. Supreme Court) still undecided, and Watson v. RNC decided 6/29/2026 as appetite context."
+}

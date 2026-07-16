@@ -1,0 +1,198 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "3ce7811aa2c82250",
+      "query": "{\"strategic_intent\": \"Reading prediction guidelines and agent context to start the prediction task.\", \"summary\": \"I am starting the process of generating a prediction by reading the contract defined in .github/prompts/predict.md and AGENTS.md.\", \"title\": \"Reading Predict Prompt and Context\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:22.881Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:25.058Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:25.058Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c8128677248e9b5f",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281004\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:30.010Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9e0e58bfe2f88bbb",
+      "query": "ls -R data/cases/scotus/73281004",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:32.720Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "59e70c07c2490085",
+      "query": "cat data/cases/scotus/73281004/events/evt-petition-disposition/event.yaml data/cases/scotus/73281004/record/context.json data/cases/scotus/73281004/record/snapshots/2026-07-16.json data/cases/scotus/73281004/record/documents/documents.json schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:36.392Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "665aa2fbfa215f7b",
+      "query": "head -n 50 data/cases/scotus/73281004/record/documents/questions-presented.txt data/cases/scotus/73281004/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:38.802Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e82fa1b62070c706",
+      "query": "uv run fedcourts query --event evt-petition-disposition --era roberts-2010s --court scotus",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:45.465Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f47c0f098f0a203b",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:48.258Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5b0e253c738fa9aa",
+      "query": "cat metrics/statpack.md | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:52.031Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f6e242f57dbea159",
+      "query": "grep -A 20 \"Modern discretionary-cert petitions by disposition\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:55.484Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aed4713391bc69b9",
+      "query": "{\"court\": [\"scotus\"], \"docket_number\": \"25-960\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:00.311Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "e993577b25bf40a4",
+      "query": "{\"case_name\": \"Maney\", \"court\": [\"scotus\"], \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:03.320Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "9d164fab2f78b68f",
+      "query": "mkdir -p data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:10.913Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6edc5de67a714bcf",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:20.211Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f250f5847a8ce237",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.0,\\n  \\\"predicted_disposition\\\": \\\"dismissed\\\",\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"big_case_rationale\\\": \\\"C",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:24.792Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "fc3941546a55d89d",
+      "query": "{\"content\": \"## Legal Question and Posture\\nThe case presents an Eighth Amendment question regarding whether state corrections leadership must implement a \\\"reasonable\\\" aggregate statewide response to a public health emergency (COVID-19), and whether such obligations were clearly established between March 2020 and May 2022 to overcome qualified immunity. The petitioner, the State of Oregon, filed a petition for a writ of certiorari following an adverse decision by the Ninth Circuit.\\n\\n## Dispo",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:28.497Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "564aae9ee0834c22",
+      "query": "{\"content\": \"- `fedcourts query --help` (Checking arguments for query tool)\\n- Corpus statpack read (`metrics/statpack.md`): Read overall base rates and \\\"Modern discretionary-cert petitions by disposition\\\".\\n- CourtListener MCP search: Searched for docket `25-960` and case name `Maney` (returned 0 results; case not found or not leaked).\\n- No further retrieval beyond the provisioned inputs and the local corpus base rates was necessary.\\n\", \"file_path\": \"data/cases/scotus/73281004/events/evt-pe",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:31.522Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d83404c7f9578477",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"statpack.md provided a quick reference for base rates, though the explicit docket entry controlled here.\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"The provisioned record clearly showed the petit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:34.616Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "75da392831af0fc5",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:39.605Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cb55d611875e5afb",
+      "query": "{\"strategic_intent\": \"Recapping the completion of the prediction task.\", \"summary\": \"I have completed the prediction task. I read the prompt constraints, reviewed the case facts, determined the petitioner filed a motion to dismiss, and wrote the valid prediction.json, reasoning.md, retrieval.md, and tooling.json. The files passed the schema validation.\", \"title\": \"Task Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:43.962Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "cb37e44285e4d0c5",
+      "query": "gh issue comment 717 -b \"Prediction for scotus/73281004 completed by gemini-baseline. Prediction: dismissed.\" || true",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:47.525Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c4e973722af9c822",
+      "query": "ls -la data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:51.304Z",
+      "tool": "run_shell_command"
+    }
+  ],
+  "case_id": "scotus/73281004",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

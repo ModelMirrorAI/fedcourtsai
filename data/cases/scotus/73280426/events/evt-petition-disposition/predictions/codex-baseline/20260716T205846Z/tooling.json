@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280426",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "committed statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP endpoint retrieval"
+  ],
+  "helpful": [
+    "Complete provisioned petition and brief in opposition",
+    "Committed fee-class, circuit, and relist base rates",
+    "Official CourtListener copy of the intervening Callais opinion"
+  ],
+  "gaps": [
+    "The ranged corpus remote was unreachable because DNS resolution failed",
+    "A syllabus-only CourtListener opinion field would avoid retrieving a very large combined opinion"
+  ],
+  "notes": "The corpus query was attempted but returned no priors; all live legal research came through the sanctioned CourtListener MCP server."
+}

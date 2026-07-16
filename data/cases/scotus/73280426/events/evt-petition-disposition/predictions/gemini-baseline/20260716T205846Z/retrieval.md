@@ -1,0 +1,4 @@
+- Consulted the provisioned inputs: `event.yaml`, `record/context.json`, `record/snapshots/2026-07-16.json`, and the filings in `record/documents/` (`questions-presented.txt`, `petition.txt`, `brief-in-opposition.txt`).
+- Attempted to query `fedcourts query` but got an error, so no priors were pulled.
+- Read base rate context directly from the committed `metrics/statpack.md` file (Modern discretionary-cert petitions by disposition, by relist count, by CVSG status, etc.).
+- No retrieval beyond the provisioned inputs and committed local files.

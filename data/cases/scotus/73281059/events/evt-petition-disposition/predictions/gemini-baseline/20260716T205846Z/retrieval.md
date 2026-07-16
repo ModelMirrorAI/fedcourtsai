@@ -1,0 +1,6 @@
+- `mcp_courtlistener_call_endpoint`: `{"endpoint_id": "dockets", "query": {"id": 73281059}}`
+- `mcp_courtlistener_search`: `{"q": "\"Mi Familia Vota\" Arizona", "type": "d"}`
+- `run_shell_command`: `uv run fedcourts query --help`
+- `mcp_courtlistener_search`: `{"q": "\"National Voter Registration Act\" \"proof of citizenship\" \"Arizona\"", "type": "o"}`
+- `read_file`: `metrics/statpack.md`
+- `read_file`: `data/cases/scotus/73281059/record/documents/questions-presented.txt`
