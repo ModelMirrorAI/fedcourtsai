@@ -1,0 +1,11 @@
+case_id: scotus/72475068
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-12-20'
+resolved: true
+schema_version: '1.0'
+title: Dominic Bianchi, et al., Petitioners v. Brian Frosh, Attorney General of Maryland,
+  et al.

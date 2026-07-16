@@ -1,0 +1,11 @@
+case_id: scotus/72475065
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-12-17'
+resolved: true
+schema_version: '1.0'
+title: City of Cincinnati, Ohio, et al., Petitioners v. Lamar Advantage GP Company,
+  LLC, et al.
