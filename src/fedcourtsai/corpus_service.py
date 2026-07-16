@@ -286,7 +286,7 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             self._send_json(200, json.dumps(health))
             return
-        self._send_json(404, json.dumps({"error": f"unknown path {self.path!r}"}))
+        self._send_json(404, json.dumps({"error": "unknown path"}))
 
     def do_POST(self) -> None:
         try:
@@ -298,19 +298,22 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(413, json.dumps({"error": f"Content-Length {length} out of bounds"}))
             return
         body = self.rfile.read(length)
+        # Resolve the route to the matched constant up front: the failure
+        # path logs it, and the log must carry no client bytes (see above).
+        route = next((known for known in _ROUTES if known == self.path), None)
+        if route not in ("/v1/query", "/v1/open-events"):
+            self._send_json(404, json.dumps({"error": "unknown path"}))
+            return
         try:
-            if self.path == "/v1/query":
+            if route == "/v1/query":
                 response: BaseModel = self._service.query(QueryRequest.model_validate_json(body))
-            elif self.path == "/v1/open-events":
-                response = self._service.open_events(OpenEventsRequest.model_validate_json(body))
             else:
-                self._send_json(404, json.dumps({"error": f"unknown path {self.path!r}"}))
-                return
+                response = self._service.open_events(OpenEventsRequest.model_validate_json(body))
         except ValidationError as exc:
             self._send_json(400, json.dumps({"error": str(exc)}))
             return
         except Exception as exc:  # a request must never kill the server
-            self._send_failure(f"request to {self.path}", exc)
+            self._send_failure(f"request to {route}", exc)
             return
         self._send_json(200, response.model_dump_json())
 
