@@ -121,8 +121,8 @@ def test_uppercase_hex_of_a_hex_shaped_token_is_caught() -> None:
         "id: 08bfc68e-3166-4d04-a5d6-90dacf06c4d4",
         "run_id: 20260716T123618Z",
         "token: COURTLISTENER_API_TOKEN is configured for the MCP server",
-        "The petition for certiorari presents the question whether the court of "
-        "appeals correctly held that respondents lacked standing.",
+        "The petition for certiorari presents the question whether the court "
+        + "of appeals correctly held that respondents lacked standing.",
         "the CVSG brief recommended a grant limited to the first question presented",
     ],
 )
