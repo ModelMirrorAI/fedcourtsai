@@ -1,0 +1,11 @@
+case_id: scotus/72474670
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-07-21'
+resolved: true
+schema_version: '1.0'
+title: Outdoor Amusement Business Association, Inc., et al., Petitioners v.  Department
+  of Homeland Security, et al.

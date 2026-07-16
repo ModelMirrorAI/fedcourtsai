@@ -1,0 +1,10 @@
+case_id: scotus/72473549
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-07-19'
+resolved: true
+schema_version: '1.0'
+title: Gary E. Albright, et al., Petitioners v. United States
