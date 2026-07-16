@@ -1,0 +1,11 @@
+case_id: scotus/73280992
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-02-10'
+resolved: true
+schema_version: '1.0'
+title: Robert William Moss, Petitioner v. Shawn M. Latourette, Commissioner, New Jersey
+  Department of Environmental Protection

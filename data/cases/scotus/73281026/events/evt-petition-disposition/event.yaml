@@ -1,0 +1,11 @@
+case_id: scotus/73281026
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-02-19'
+resolved: true
+schema_version: '1.0'
+title: Flying T Ranch, Inc., a Washington Corporation, Petitioner v.  Stillaguamish
+  Tribe of Indians, a federally recognized Indian Tribe
