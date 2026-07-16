@@ -1,0 +1,10 @@
+case_id: scotus/73280339
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-01-15'
+resolved: true
+schema_version: '1.0'
+title: Joseph Heid, Petitioner v. Mark Rutkoski, et al.

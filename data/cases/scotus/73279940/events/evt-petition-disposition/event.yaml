@@ -1,0 +1,11 @@
+case_id: scotus/73279940
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-01-08'
+resolved: true
+schema_version: '1.0'
+title: Will McRaney, Petitioner v. The North American Mission Board of the Southern
+  Baptist Convention, Incorporated

@@ -1,0 +1,10 @@
+case_id: scotus/73280331
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-01-13'
+resolved: true
+schema_version: '1.0'
+title: C. S., by Her Next Friend, Adam Stroub v. Craig McCrumb
