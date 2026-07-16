@@ -8,6 +8,7 @@ committed under ``data/`` matches the schema contract.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import time
 from collections.abc import Callable
@@ -34,6 +35,7 @@ from . import (
     repo_gate,
     retrieval,
     scope_manifest,
+    secretscan,
 )
 from .agent_feedback import post_agent_feedback
 from .authz import authorize_trigger
@@ -2933,6 +2935,88 @@ def assert_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"path jail OK ({len(changes)} change(s))")
+
+
+@app.command("scan-diff-for-secrets")
+def scan_diff_for_secrets_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to scan.")
+    ],
+    known_secret_env: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Environment variable holding a live credential to search for "
+            "literally (repeatable). Unset or too-short values fail the scan: "
+            "a misconfigured gate must not pass silently."
+        ),
+    ] = None,
+    extra_file: Annotated[
+        list[Path] | None,
+        typer.Option(
+            help="Rendered text about to be posted (a PR body, a flag roll-up) to "
+            "scan alongside the change set (repeatable). Must exist: the caller "
+            "writes it immediately before scanning."
+        ),
+    ] = None,
+    issue_comment_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Where to append the redacted trigger-issue comment (appended only on findings)."
+        ),
+    ] = None,
+    run_url: Annotated[
+        str, typer.Option(help="Actions run URL, included in the issue comment.")
+    ] = "",
+) -> None:
+    """Scan a change set's changed data/ files for secrets; exit non-zero on a hit.
+
+    The third producer-side gate in the collect job, beside the path jail and
+    the schema check: agent-written artifacts carry free text that schema
+    validation deliberately does not read, so a credential copied into it
+    would otherwise auto-merge to the public repo. Detectors and the
+    redaction guarantee (findings name file/rule/line, never the matched
+    text) live in ``secretscan``. On a hit the collect job withholds the
+    branch — nothing pushed, no PR — because the push itself would publish
+    the secret; a scan misconfiguration (a named env var that is unset or
+    too short, a missing ``--extra-file``) fails the same way rather than
+    silently dropping a detector or a surface.
+    """
+    misconfigured = False
+    secrets: list[str] = []
+    for env_name in known_secret_env or []:
+        value = os.environ.get(env_name, "")
+        if len(value) >= secretscan.MIN_KNOWN_SECRET_LENGTH:
+            secrets.append(value)
+        else:
+            misconfigured = True
+            typer.echo(
+                f"::error::secret-scan: ${env_name} unset or too short; "
+                "the containment detector cannot run",
+                err=True,
+            )
+    changes = parse_name_status(name_status_file.read_text())
+    findings = secretscan.scan_changes(changes, Path(), secrets)
+    for extra in extra_file or []:
+        if extra.is_file():
+            findings.extend(secretscan.scan_file(extra, str(extra), secrets))
+        else:
+            misconfigured = True
+            typer.echo(f"::error::secret-scan: extra file {extra} is missing", err=True)
+    if findings:
+        for line in secretscan.render_warnings(findings):
+            typer.echo(line, err=True)
+        if issue_comment_file is not None:
+            with issue_comment_file.open("a") as handle:
+                handle.write(secretscan.render_issue_comment(findings, run_url) + "\n")
+        raise typer.Exit(code=1)
+    if misconfigured:
+        # Withholding must never be silent on the trigger issue: with no
+        # findings to report, still say why nothing was published.
+        if issue_comment_file is not None:
+            with issue_comment_file.open("a") as handle:
+                handle.write(secretscan.render_misconfigured_comment(run_url) + "\n")
+        raise typer.Exit(code=2)
+    typer.echo(f"secret scan OK ({len(changes)} change(s))")
 
 
 @app.command("assert-cleanup-paths")
