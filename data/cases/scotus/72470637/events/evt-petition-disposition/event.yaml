@@ -1,0 +1,10 @@
+case_id: scotus/72470637
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-03-31'
+resolved: true
+schema_version: '1.0'
+title: Garnet Turner, et al., Petitioners v. Allstate Insurance Company

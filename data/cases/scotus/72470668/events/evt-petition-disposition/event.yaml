@@ -1,0 +1,11 @@
+case_id: scotus/72470668
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-04-11'
+resolved: true
+schema_version: '1.0'
+title: Lynn D. Becker, Petitioner v. Ute Indian Tribe of the Uintah and Ouray Reservation,
+  et al.

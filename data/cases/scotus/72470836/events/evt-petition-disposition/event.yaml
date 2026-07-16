@@ -1,0 +1,11 @@
+case_id: scotus/72470836
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2022-05-31'
+resolved: true
+schema_version: '1.0'
+title: Residents of Gordon Plaza, Inc., Petitioner v. LaToya Cantrell, in Her Official
+  Capacity as Mayor of the City of New Orleans, Louisiana, et al.
