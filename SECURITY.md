@@ -22,34 +22,38 @@ runbook, [docs/security.md](docs/security.md).
   reach the agent's shell. That strict mode is forced by `GITHUB_SHA`, i.e. in CI
   (the residual: off-CI there is no such barrier, which is a local dev run with
   the dev's own key). The lower-sensitivity CourtListener token is passed as a scoped step env
-  in exactly two deterministic places: the cells' **MCP-config step**, which
-  writes it into a runner-local, gitignored client-config file the MCP server
-  reads, and the collect job's **aggregate step**, where the secret scan
-  (below) needs the live value to search the run's output for it — a step
-  that parses agent bytes with jq/git/tested Python but never executes them.
-  (Pull's ingestion holds the same secret under its own name; the two places
-  here are the agent workflows'.) **No
-  agent step holds it:** the cells have no REST fallback, so live CourtListener
-  access is the MCP server only (the agent calls it by tool name, never
-  handling the token), and the token is never in the environment while an
-  engine processes adversarial docket text. Exposure equals those two
-  deterministic steps' env: the config file is on an ephemeral runner, never
-  committed, and the artifact upload is an explicit allowlist that excludes it.
+  in exactly two deterministic places: the cells' **MCP sidecar launch step**,
+  whose background `fedcourts mcp-serve` process inherits it and serves the
+  CourtListener MCP tools over localhost HTTP, and the collect job's
+  **aggregate step**, where the secret scan (below) needs the live value to
+  search the run's output for it — a step that parses agent bytes with
+  jq/git/tested Python but never executes them. (Pull's ingestion holds the
+  same secret under its own name; the two places here are the agent
+  workflows'.) **No agent step holds it, and no file an agent can read
+  carries it:** the client configs name only the sidecar's `localhost` URL —
+  the structural fix that retired the old stdio-transport residual, where the
+  token sat as a literal value in a gitignored client-config file the agent's
+  file tools could read. The cells have no REST fallback, so live
+  CourtListener access is the MCP sidecar only (the agent calls it by tool
+  name, never handling the token), and the token is never in the environment
+  while an engine processes adversarial docket text.
   Residual blast radius if the token leaked despite this: it spends pull's
   quota and forces a rotation that touches pull — it is not a model key or a
   GitHub token.
-  **One accepted residual, bounded on the token's low value — not on the
-  controls.** The token is a literal value in that MCP client-config file, which
-  lives in the cell's workspace, so an agent's file tools can read it. This is
-  inherent to stdio-transport MCP (the CLI spawns the server with the token in its
-  launch env) and is present in **both** predict and evaluate; in predict it is
-  further reachable via Gemini's `read_file`, whose config sets
-  `respectGitIgnore:false` to reach the provisioned `record/` snapshot. An
-  exfiltration path exists but is gated: a prompt-injected agent could read the
-  token and write it into a free-text output field (`reasoning.md`, a
-  rationale, a flag message) — free text that `validate` deliberately does not
-  read (it checks schema and referential integrity, not secret content). Before
-  anything is pushed, though, the `collect` job runs a **secret scan**
+  **The remaining residual is process-level, and the output channel is
+  gated.** On-runner step-scoping is not hard isolation: the sidecar runs as
+  the same user as the agent, so a determinedly-injected agent could still
+  read a sibling process's environment — what the sidecar removes is every
+  casual path (no agent env, no readable config file, no accidental log).
+  And the sidecar is deliberately unauthenticated on `127.0.0.1`: anything on
+  the runner can spend the token's rate limits *through* it, which equals the
+  agent's designed tool access — while off-runner use of the credential now
+  requires that process-environment read, a strictly higher bar than the old
+  read-the-config-file path.
+  Should any secret reach agent output by any means, the exfiltration
+  sink is gated: agent free text (`reasoning.md`, a rationale, a flag
+  message) is exactly what `validate` deliberately does not read, so before
+  anything is pushed the `collect` job runs a **secret scan**
   (`fedcourts scan-diff-for-secrets`) over the run's changed files and the PR
   prose about to be posted: literal containment of the live token in the cheap
   encodings (base64, hex, URL-escaping), credential-shape patterns, and an
@@ -58,18 +62,13 @@ runbook, [docs/security.md](docs/security.md).
   the trigger issue and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
   branch is likewise withheld, with a misconfiguration note on the trigger
-  issue in place of a findings report. This *narrows* the residual rather than
-  closing it — it is a heuristic, and the cell's uploaded artifacts remain
-  downloadable from the Actions run by logged-in users regardless — so the
-  acceptance still rests on the *reachable* secret not being worth stealing:
-  the single-account, **read-only** CourtListener token whose worst case is
-  spending pull's quota and forcing a rotation (above) — not a model key or a
-  GitHub credential (the Claude cell's only token is comment-only; Codex and Gemini
-  hold none). The prompt's don't-extract-it rule lowers the odds but is not the
-  barrier — the barrier is the low value of what an injection could reach. The
-  structural fix — a tokenless HTTP sidecar so the config carries only a
-  `localhost` URL, never the token — is deferred, to be taken up the moment a
-  higher-value secret enters this surface or the token gains write scope.
+  issue in place of a findings report. The scan is a heuristic and the cell's
+  uploaded artifacts remain downloadable from the Actions run by logged-in
+  users regardless, so the last line stays what it always was: the *reachable*
+  secret is not worth stealing — the single-account, **read-only**
+  CourtListener token whose worst case is spending pull's quota and forcing a
+  rotation (above), not a model key or a GitHub credential (the Claude cell's
+  only token is comment-only; Codex and Gemini hold none).
 - **Agents get a least-privilege GitHub App token, never a static one.** The
   Claude agent steps in `run:predict` / `run:evaluate` receive a short-lived
   App installation token scoped **comment-only** (`contents: read` + `issues` +

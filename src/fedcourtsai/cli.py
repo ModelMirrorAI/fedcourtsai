@@ -1276,16 +1276,94 @@ def mcp_config_cmd(
             "(preserves the telemetry block the usage capture reads)."
         ),
     ] = None,
+    http_url: Annotated[
+        list[str] | None,
+        typer.Option(
+            help="Emit this server as a remote streamable-HTTP entry instead of a "
+            "stdio launch: '<id>=<url>', repeatable. The config then carries only "
+            "the URL — no launch command and no token (the mcp-serve sidecar "
+            "holds it)."
+        ),
+    ] = None,
 ) -> None:
     """Emit one engine's MCP client config from the versioned tool manifest.
 
     The single seam between the registry's ``mcp_servers`` manifest and the
     three engines' client formats (Claude ``--mcp-config`` JSON, Codex
     ``config.toml`` tables, Gemini ``settings.json``), so the workflow steps
-    only plumb stdout to a file. Token values are injected from THIS process's
-    environment (see ``fedcourtsai.mcp``); run it in a step whose env holds
-    the tokens the manifest names. An actor with an empty manifest emits an empty
-    config — a cell without retrieval is a valid configuration, not an error.
+    only plumb stdout to a file. For stdio entries, token values are injected
+    from THIS process's environment (see ``fedcourtsai.mcp``); run it in a
+    step whose env holds the tokens the manifest names. ``--http-url``
+    entries carry no token at all — the sidecar does. An actor with an empty
+    manifest emits an empty config — a cell without retrieval is a valid
+    configuration, not an error.
+    """
+    settings = get_settings()
+    if role not in ("predictor", "evaluator"):
+        typer.echo(f"unknown --role '{role}'; choose predictor or evaluator", err=True)
+        raise typer.Exit(code=2)
+    http_urls: dict[str, str] = {}
+    for entry in http_url or []:
+        server_id, separator, url = entry.partition("=")
+        if not separator or not server_id or not url:
+            typer.echo(f"malformed --http-url '{entry}'; expected '<id>=<url>'", err=True)
+            raise typer.Exit(code=2)
+        http_urls[server_id] = url
+    registry_file = settings.config_root / (
+        "predictors.yaml" if role == "predictor" else "evaluators.yaml"
+    )
+    actors: list[Any] = (
+        load_predictors(registry_file) if role == "predictor" else load_evaluators(registry_file)
+    )
+    match = next((a for a in actors if a.id == actor), None)
+    if match is None:
+        typer.echo(f"no {role} '{actor}' in {registry_file}", err=True)
+        raise typer.Exit(code=2)
+    try:
+        servers = resolve_mcp_servers(load_mcp_servers(registry_file), match.mcp_servers)
+    except KeyError as exc:
+        typer.echo(f"manifest id {exc} not in {registry_file} mcp_servers", err=True)
+        raise typer.Exit(code=2) from exc
+    # Fail closed on drift between the caller's --http-url ids and the
+    # resolved manifest: a typo'd id would otherwise silently fall back to a
+    # per-client stdio spawn, bypassing the sidecar.
+    unknown = sorted(set(http_urls) - {server.id for server in servers})
+    if unknown:
+        typer.echo(f"--http-url names no resolved manifest server: {', '.join(unknown)}", err=True)
+        raise typer.Exit(code=2)
+    if engine == "claude-code":
+        typer.echo(mcp.claude_mcp_config(servers, http_urls=http_urls), nl=False)
+    elif engine == "codex":
+        typer.echo(mcp.codex_mcp_config(servers, http_urls=http_urls), nl=False)
+    elif engine == "gemini":
+        base = json.loads(base_settings.read_text()) if base_settings else None
+        typer.echo(mcp.gemini_mcp_settings(servers, base, http_urls=http_urls), nl=False)
+    else:
+        typer.echo(f"unknown --engine '{engine}'", err=True)
+        raise typer.Exit(code=2)
+
+
+@app.command("mcp-serve")
+def mcp_serve(
+    role: Annotated[
+        str, typer.Option(help="Registry to read: predictor (predictors.yaml) | evaluator.")
+    ],
+    actor: Annotated[str, typer.Option(help="The predictor/evaluator id whose manifest to read.")],
+    server: Annotated[
+        str, typer.Option(help="Manifest id of the server to run.")
+    ] = "courtlistener",
+    port: Annotated[
+        int, typer.Option(help="Loopback port to serve on.")
+    ] = mcp.MCP_SIDECAR_DEFAULT_PORT,
+) -> None:
+    """Run one manifest server as the tokenless HTTP sidecar (foreground).
+
+    The write side of ``mcp-config --http-url``: the cell workflows launch
+    this as a background step whose env holds the server's API token, so the
+    token lives in this process — never in a client config file an agent can
+    read. Replaces the current process with the pinned server (uvx) — the
+    same package and shim family the stdio transport launches, in HTTP mode
+    on localhost (see ``fedcourtsai.mcp``).
     """
     settings = get_settings()
     if role not in ("predictor", "evaluator"):
@@ -1306,16 +1384,17 @@ def mcp_config_cmd(
     except KeyError as exc:
         typer.echo(f"manifest id {exc} not in {registry_file} mcp_servers", err=True)
         raise typer.Exit(code=2) from exc
-    if engine == "claude-code":
-        typer.echo(mcp.claude_mcp_config(servers), nl=False)
-    elif engine == "codex":
-        typer.echo(mcp.codex_mcp_config(servers), nl=False)
-    elif engine == "gemini":
-        base = json.loads(base_settings.read_text()) if base_settings else None
-        typer.echo(mcp.gemini_mcp_settings(servers, base), nl=False)
-    else:
-        typer.echo(f"unknown --engine '{engine}'", err=True)
+    entry = next((s for s in servers if s.id == server), None)
+    if entry is None:
+        typer.echo(f"{role} '{actor}' has no manifest server '{server}'", err=True)
         raise typer.Exit(code=2)
+    try:
+        command, args, env = mcp.http_sidecar_launch(entry, port=port)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(f"serving MCP '{entry.id}' ({entry.package}) on http://127.0.0.1:{port}")
+    os.execvpe(command, [command, *args], {**os.environ, **env})
 
 
 CorpusBackendOption = Annotated[

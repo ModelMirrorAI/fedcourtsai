@@ -73,10 +73,13 @@ non-interactive** container. Two consequences shape everything you do:
   `flags.json`. Never invent facts. The prompt template carries the full
   contract; all tool calls are logged harness-side.
 - **No secrets in code or data.** Never print or log API tokens; they arrive
-  as environment variables. One narrow carve-out: the workflow's MCP-config
-  step writes the CourtListener API token into the runner-local, gitignored
-  client-config files the engines read — never into `data/`, a commit, or an
-  artifact; do not copy tokens anywhere else.
+  as environment variables. In the cell workflows no config file carries one
+  either: the MCP client configs name only a localhost sidecar URL, and the
+  sidecar's own launch step holds the CourtListener token. (A local stdio
+  `mcp-config` run — dev's own token — still injects it into the runner-local,
+  gitignored client-config file; that is the one sanctioned file, off-CI
+  only.) Never write a token into `data/`, a commit, or an artifact; do not
+  copy tokens anywhere else.
 
 ## Local gate
 
