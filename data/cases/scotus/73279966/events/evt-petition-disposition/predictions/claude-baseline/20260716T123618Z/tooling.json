@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20260716T123618Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP search",
+    "fedcourts paths",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "CVSG cut in the statpack — the single most decisive quantitative anchor for this cell",
+    "Provisioned petition + BIO text (QP, en banc dissent count, and the no-split/vehicle arguments all came from them)",
+    "Per-Term fee-class grant rates in statpack.json"
+  ],
+  "gaps": [
+    "The per-Term 'Segment base rate by salience band' table the prompt points to is absent from the committed statpack build",
+    "fedcourts query returned 0 rows for scotus/2020s citation- and topic-filtered lookups despite large ranged reads (~109MB for citation filters) — either coverage or filter-matching seems thin for modern SCOTUS priors",
+    "A conditional base rate P(grant | CVSG + SG recommendation) would sharpen CVSG cells; the corpus CVSG bucket pools both recommendation outcomes",
+    "The second respondent's separate BIO (State of Washington) was not provisioned; only the Nwauzor class BIO was"
+  ],
+  "notes": "Forward cell; disposition cannot exist yet (CVSG pending), so leakage risk was nil. One MCP call sufficed (confirming the related Menocal decision date); the provisioned documents plus statpack carried the analysis."
+}
