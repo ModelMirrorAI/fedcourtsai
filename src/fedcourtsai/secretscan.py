@@ -77,8 +77,53 @@ _ENV_VAR_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 # Candidate runs for the entropy detector: long enough that citations, docket
 # numbers, and prose fragments never qualify. `/` is included so a base64 blob
 # is scanned as one run rather than fragments.
-_ENTROPY_CANDIDATE = re.compile(r"[A-Za-z0-9+/=_\-]{40,}")
-_ENTROPY_THRESHOLD_BITS = 4.5
+_MIN_ENTROPY_RUN = 40
+_ENTROPY_CANDIDATE = re.compile(rf"[A-Za-z0-9+/=_\-]{{{_MIN_ENTROPY_RUN},}}")
+
+# The discriminator is *normalized* Shannon entropy — bits/char over the most
+# a run of this length could carry (`log2(min(len, base64_alphabet))`) — not
+# raw bits/char, because a fixed bits/char bar cannot separate the two
+# classes: entropy is length-capped, so a long *readable* string and a short
+# *random* one land at the same raw value, and any bar tuned to clear the
+# former misses a third to a half of 40-43 char random blobs. Normalized, the
+# classes separate length-robustly. Calibrated over 10k+ random samples per
+# length plus the real strings this ledger carries:
+#
+# - readable shapes (document-URL filename segments, camelCase caption slugs)
+#   top out at **0.802** — measured over a real predict run's files;
+# - random base64 / url-safe secrets sit at or above **0.820** at the 1st
+#   percentile for every length from 40 to 86 chars.
+#
+# 0.82 sits in that gap. The tails do touch (a rare random run scores as low
+# as 0.78), so the bar accepts a sub-1% miss (peak 0.85% at len 64, the knee
+# where the ceiling switches from log2(len) to log2(64)) rather than risk
+# withholding a whole clean run — 12 predictions of real model spend — over a
+# filename. Do NOT read the →1.0 limit of normalized entropy as headroom to
+# raise this: at these operating lengths random runs sit at ~0.86-0.90
+# (medians), not near 1.0, so the miss rate climbs steeply — 0.83 misses 3.2%,
+# 0.85 misses 21.5%. This is the last-resort net for opaque blobs; containment
+# carries known secrets and the structured patterns carry distinctive shapes.
+# Hex and other low-alphabet secrets fall below any workable floor and are
+# covered there.
+_BASE64_ALPHABET_SIZE = 64
+_NORM_ENTROPY_THRESHOLD = 0.82
+
+# At three or more slashes a run reads as a filesystem/URL path, not one
+# opaque token: paths concatenate many short wordy segments whose *aggregate*
+# entropy can cross the bar — a cell's own workspace output path (slashes,
+# dashes, digits, a run id's T/Z) once withheld a whole clean run.
+#
+# The sizeable gap this leaves, stated plainly because it is this layer's
+# *dominant* miss — an order of magnitude larger than the threshold's: a
+# standard-base64 secret carrying 3+ incidental `/`s (~1 in 64 per char) is
+# scored per segment, and segments below the 40-char floor are never scored at
+# all. End-to-end that misses ~2.8% of 32-byte and ~7.3% of 64-byte pasted
+# std-base64 secrets (url-safe, which has no `/`, is ≤0.9%). Tune this knob,
+# not the threshold, if the layer ever needs to catch more. Scoring path-like
+# runs with the slashes stripped was measured and rejected: it collapses the
+# separation to zero (the real supremecourt URL scores 0.819 stripped, against
+# a random-blob 1st percentile of 0.819).
+_PATHLIKE_SLASHES = 3
 # Benign high-length shapes the ledger commits routinely.
 _HEX_RUN = re.compile(r"^[0-9a-f]+$")  # content digests (sha256 etc.)
 _RUN_ID_SHAPE = re.compile(r"(?i)^(?:run[_-]?)?20\d{6}t\d{6}z$")
@@ -106,6 +151,21 @@ def _shannon_entropy(text: str) -> float:
     return -sum((n / total) * math.log2(n / total) for n in counts.values())
 
 
+def _normalized_entropy(run: str) -> float:
+    """Shannon entropy as a fraction of the maximum a run this length can carry.
+
+    Length-robust where a raw bits/char score is not: a random run scores near
+    its ceiling while a readable string plateaus below it, at any length. The
+    ceiling is only *approached* asymptotically, though — at the lengths this
+    scans (40-86 chars) random runs land around 0.86-0.90, not near 1.0. See
+    the threshold comment for the measured separation and its calibration.
+    """
+    ceiling = math.log2(min(len(run), _BASE64_ALPHABET_SIZE))
+    if ceiling == 0:  # unreachable via the callers' >= 40-char floor
+        return 0.0
+    return _shannon_entropy(run) / ceiling
+
+
 def _char_classes(text: str) -> int:
     classes = 0
     for predicate in (str.isupper, str.islower, str.isdigit):
@@ -120,14 +180,30 @@ def _is_benign_run(run: str) -> bool:
     return bool(_RUN_ID_SHAPE.match(run))
 
 
+def _entropy_candidate_hits(run: str) -> bool:
+    if _is_benign_run(run):
+        return False
+    # Random credential material mixes cases and digits *and* fills its length
+    # with near-random symbols; readable slugs/URLs/identifiers may reach three
+    # classes but never the normalized-entropy bar.
+    return _char_classes(run) >= 3 and _normalized_entropy(run) >= _NORM_ENTROPY_THRESHOLD
+
+
 def _entropy_hits(line: str) -> bool:
     for match in _ENTROPY_CANDIDATE.finditer(line):
         run = match.group()
-        if _is_benign_run(run):
-            continue
-        # Random credential material mixes cases and digits; slugs, URLs, and
-        # identifiers rarely reach three classes *and* this entropy together.
-        if _char_classes(run) >= 3 and _shannon_entropy(run) >= _ENTROPY_THRESHOLD_BITS:
+        if run.count("/") >= _PATHLIKE_SLASHES:
+            # Path-like: evaluate per segment, so a path is judged by its
+            # pieces (all short and wordy) while a credential-length blob
+            # *inside* a path still flags on its own segment. The accepted
+            # miss — a secret pre-split into short path segments — is the
+            # layered-detector trade: containment carries the real load.
+            if any(
+                len(segment) >= _MIN_ENTROPY_RUN and _entropy_candidate_hits(segment)
+                for segment in run.split("/")
+            ):
+                return True
+        elif _entropy_candidate_hits(run):
             return True
     return False
 
