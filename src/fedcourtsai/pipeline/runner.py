@@ -527,9 +527,14 @@ class GeminiRunner(AgenticRunner):
     inherited ``GEMINI_API_KEY``; a headless run must trust the workspace
     explicitly (``GEMINI_CLI_TRUST_WORKSPACE=true``) or the CLI exits 55. As in
     the workflow, the cell identifiers ride inline in the prompt: Gemini's CLI
-    strips custom env vars from the agent's shell in CI (its sanitizer runs strict
-    whenever ``GITHUB_SHA`` is set), so the inline channel is authoritative and
-    the ``_cell_env`` contract is a secondary channel that survives only off-CI.
+    sanitizer runs strict whenever ``GITHUB_SHA`` is set and strips every custom
+    env var from the agent's shell **unless the workspace's
+    ``.gemini/settings.json`` allowlists it** under
+    ``security.environmentVariableRedaction.allowed`` — which the workflows
+    (run-predict / run-evaluate / run-backtest) write with the ``_cell_env``
+    contract, so in CI that contract reaches the shell too. The inline channel
+    stays authoritative and is the fallback that always holds: a harness run with
+    no such settings file (a bare local invocation) has only the prompt.
     """
 
     backend: str = "gemini"

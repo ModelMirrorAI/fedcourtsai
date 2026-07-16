@@ -159,6 +159,21 @@ limits), the AWS role ARNs and region, and the corpus remote URL (referenced by
 role, never committed). Every job that needs any of them declares
 `environment: runner`.
 
+**The Gemini cell env allowlist carries `_cell_env`'s identifiers and nothing
+else.** Gemini's CLI sanitizer strips every env var from the agent's shell in CI
+(strict mode is forced by `GITHUB_SHA`), so the cell workflows name the cell
+contract — court/docket/event/actor/run/model ids, plus the back-test's
+`DECIDED_BEFORE` clock — under `security.environmentVariableRedaction.allowed` in
+the `.gemini/settings.json` they generate. Those are public identifiers the agent
+already holds inline in its own prompt, so the allowlist adds no information; it
+exists so the agent can resolve its own cell's paths the way Claude and Codex do.
+**Adding a name outside that contract needs a security review**: the CLI refuses
+to allowlist `/TOKEN|SECRET|KEY|AUTH|CREDENTIAL|PRIVATE|CERT/i` names and screens
+a handful of credential-shaped *values*, but both are heuristics — a
+secret-carrying name that dodges the keyword list (and a value that is not one of
+the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
+`GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
+
 **Deployment branches are restricted to `main`.** A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
 **without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
