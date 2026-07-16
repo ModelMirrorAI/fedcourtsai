@@ -202,9 +202,20 @@ def _codex_payload(record: dict[str, Any]) -> dict[str, Any] | None:
 def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
     """Tool calls from a Gemini CLI OpenTelemetry ``telemetry.log``.
 
-    Each ``gemini_cli.tool_call`` event carries the invocation's
+    Each ``gemini_cli.tool_call`` **log record** carries the invocation's
     ``function_name`` / ``function_args``; the local exporter logs no result
     payload, so result digests stay ``None`` for this engine.
+
+    The CLI points its span, log, **and metric** exporters at the same
+    ``outfile``, so the file interleaves log records with metric data points —
+    and ``logToolCall`` records a tool-call *metric* whose attributes carry
+    ``function_name`` but no args, no ``event.name``, and no timestamp. Those
+    points are re-exported **cumulatively every 10s** for the whole session, so
+    admitting them (this once accepted any node with a ``function_name`` and no
+    event name) both drowned the log — ~90% of rows, one per distinct tool per
+    flush — and, because a null timestamp sorts first, pushed real calls past
+    ``_MAX_CALLS``. Requiring the tool-call event name keeps only the log
+    records; a real one always carries it.
     """
     calls: list[RetrievalCall] = []
     stack: list[Any] = [_load_json_objects(telemetry_file)]
@@ -218,7 +229,7 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
         attrs = _gemini_attrs(node)
         name = attrs.get("function_name") or node.get("function_name")
         event_name = str(attrs.get("event.name") or node.get("event.name") or "")
-        if name and (not event_name or event_name.endswith("tool_call")):
+        if name and event_name.endswith("tool_call"):
             params = _maybe_json(attrs.get("function_args") or node.get("function_args"))
             timestamp = attrs.get("event.timestamp") or node.get("event.timestamp")
             calls.append(

@@ -120,6 +120,36 @@ def test_gemini_telemetry_tool_calls(tmp_path: Path) -> None:
     assert calls[0].query == "qualified immunity"
 
 
+def test_gemini_telemetry_ignores_tool_call_metric_points(tmp_path: Path) -> None:
+    # The CLI aims its log AND metric exporters at one outfile, and the tool-call
+    # metric's attributes carry `function_name` with no args, no event.name, and
+    # no timestamp — re-exported cumulatively every ~10s. Only the real log
+    # record counts; the metric points must not become phantom retrievals (they
+    # once made up ~90% of a committed log and, sorting first on a null
+    # timestamp, could push real calls past the cap).
+    telemetry = tmp_path / "telemetry.log"
+    real = {
+        "attributes": [
+            {"key": "event.name", "value": {"stringValue": "gemini_cli.tool_call"}},
+            {"key": "event.timestamp", "value": {"stringValue": "2026-07-16T07:35:00Z"}},
+            {"key": "function_name", "value": {"stringValue": "run_shell_command"}},
+            {"key": "function_args", "value": {"stringValue": '{"command": "fedcourts query"}'}},
+        ]
+    }
+    metric_point = {
+        "attributes": [
+            {"key": "function_name", "value": {"stringValue": "run_shell_command"}},
+            {"key": "success", "value": {"boolValue": True}},
+        ]
+    }
+    events = [real] + [metric_point] * 12  # 12 cumulative re-export flushes
+    telemetry.write_text("\n".join(json.dumps(event) for event in events))
+    calls = parse_gemini_retrieval(telemetry)
+    assert len(calls) == 1  # not 13
+    assert calls[0].tool == "run_shell_command"
+    assert calls[0].query is not None and calls[0].timestamp == "2026-07-16T07:35:00Z"
+
+
 def test_record_retrieval_writes_log_with_manifest(
     fixture_corpus: FixtureCorpus, tmp_path: Path
 ) -> None:
