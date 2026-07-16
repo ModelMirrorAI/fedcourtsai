@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281057",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + statpack.json",
+    "CourtListener MCP search",
+    "provisioned snapshot + petition/questions-presented text"
+  ],
+  "helpful": [
+    "statpack CVSG cut (27.1% grant) — the single most decision-relevant number for this cell",
+    "full provisioned petition text (44pp) — enabled direct assessment of the asserted splits",
+    "statpack.json per-Term fee-class grant rates",
+    "docket proceedings in the snapshot (response-requested and CVSG entries)"
+  ],
+  "gaps": [
+    "The prompt's 'Segment base rate by salience band' statpack section does not exist in the committed statpack — only the separate relist/CVSG cuts do",
+    "brief-in-opposition.txt was not provisioned despite the BIO being on the docket since May 28; the respondent's side had to be inferred",
+    "fedcourts query --citation returned zero rows on canonical SCOTUS citations (Ruckelshaus, Horne, Central Hudson) — the citation index seems empty for modern cert dockets, making similar-prior retrieval by authority ineffective",
+    "a statpack cut conditioning on 'response requested after waiver' would sharpen pre-CVSG cells"
+  ],
+  "notes": "CVSG cells like this one stay open for months after the run; the disposition anchor was the statpack CVSG bucket (n=59) blended with published post-CVSG grant-rate literature. A larger-n CVSG cut, or one split by SG recommendation, would be the highest-value statpack addition for this case class."
+}

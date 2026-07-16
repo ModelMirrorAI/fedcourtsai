@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281002",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned record/documents/brief-in-opposition.txt is Northampton County's 9-page BIO (docket entry Jun 01 2026, '25-962 25-967 BIO.pdf'), not the principal brief in opposition of the lead respondents Bette Eakin, DSCC, DCCC, and AFT Pennsylvania, which was filed the same day and is the substantively central opposition. The prediction folds in the Northampton BIO and infers the lead BIO's existence only from the docket. Document-fetch heuristics preferring the lead respondent's BIO would strengthen the guaranteed-common input for multi-BIO cert cells."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Disposition timing note for evaluation scheduling: the Court issued a CVSG on Jun 29 2026, so this petition will likely not reach disposition until the Solicitor General files (realistically winter 2026 - spring 2027), and a hold pending Baxter v. Philadelphia Board of Elections (Pa. Supreme Court, argued Sep 10 2025, undecided as of the snapshot) could extend that further. A Baxter ruling striking the date requirement on state grounds would likely convert the outcome to a Munsingwear GVR."
+    }
+  ]
+}

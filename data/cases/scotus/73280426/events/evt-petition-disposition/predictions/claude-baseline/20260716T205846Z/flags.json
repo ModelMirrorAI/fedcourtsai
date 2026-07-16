@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280426",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode disclosure: decisive public signals predating the snapshot were used — Louisiana v. Callais (decided 4/29/2026), the Court's May 2026 wave of GVRs in light of Callais, and the State of Washington's 6/2/2026 response brief asking for a GVR. No information about this petition's own (nonexistent) disposition was sought or found."
+    }
+  ]
+}

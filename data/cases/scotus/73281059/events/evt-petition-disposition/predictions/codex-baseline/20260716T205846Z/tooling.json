@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281059",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "committed corpus statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition and questions presented",
+    "Provisioned brief in opposition",
+    "Relist and fee-class cuts in the committed statpack",
+    "CourtListener citation search"
+  ],
+  "gaps": [
+    "Ranged corpus priors were unavailable because the remote endpoint could not resolve",
+    "Only one of several filed briefs in opposition was provisioned"
+  ],
+  "notes": "The provisioned docket and filings were sufficient to finish. The corpus query failed before returning rows, so the forecast used committed aggregate base rates rather than retrieved case-level priors. The provisioned opposition contained its complete main brief but was marked truncated because of its lengthy appendix."
+}

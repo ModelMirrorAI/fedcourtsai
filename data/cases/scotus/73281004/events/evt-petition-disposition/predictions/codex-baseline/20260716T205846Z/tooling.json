@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281004",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "CourtListener MCP search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "Provisioned docket snapshot exposed the pending dismissal motion",
+    "Complete petition and extracted questions presented",
+    "Committed certiorari base rates"
+  ],
+  "gaps": [
+    "The dismissal-motion text was not provisioned",
+    "The ranged corpus host was unavailable through DNS",
+    "CourtListener search did not surface the unpublished lower-court decision"
+  ],
+  "notes": "The snapshot's late procedural entry was much more predictive than general merits priors. The filing metadata identified the motion as joint even though its text was unavailable."
+}

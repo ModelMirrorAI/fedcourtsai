@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73280982",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "mcp_courtlistener_call_endpoint", "google_web_search"],
+  "helpful": ["The Google search tool was essential in discovering the recent CVSG, which dramatically shifted the base rate."],
+  "gaps": ["Would be helpful to have a direct tool to check the SCOTUS docket for CVSG and relist information without relying on generalized web search or CourtListener delays."],
+  "notes": "The Supreme Court docket-entries endpoint in CourtListener did not return results for this case, so I had to rely on a Google web search."
+}

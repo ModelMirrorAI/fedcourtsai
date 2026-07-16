@@ -1,0 +1,358 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "f0350e42263351d4",
+      "query": "{\"strategic_intent\": \"Read .github/prompts/predict.md and AGENTS.md to understand the prediction prompt contract and agent guidelines.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:28.044Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:28.052Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:28.052Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "494fa8614d998b04",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73280982\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:32.619Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "da40c80d0d61b9cd",
+      "query": "ls -la data/cases/scotus/73280982/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:35.522Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3e55a26e0852fc37",
+      "query": "ls -la data/cases/scotus/73280982/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:37.867Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ed868fc45f252139",
+      "query": "cat data/cases/scotus/73280982/events/evt-petition-disposition/event.yaml && echo \"---\" && ls -la data/cases/scotus/73280982/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:40.043Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4093b277afbfb806",
+      "query": "cat data/cases/scotus/73280982/record/context.json && echo \"---\" && ls -la data/cases/scotus/73280982/record/snapshots && echo \"---\" && ls -la data/cases/scotus/73280982/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:42.464Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "abef7a195e994e46",
+      "query": "cat data/cases/scotus/73280982/record/documents/documents.json && echo \"---\" && cat data/cases/scotus/73280982/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:45.764Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f893b45bf56c4458",
+      "query": "head -n 50 data/cases/scotus/73280982/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:47.745Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8debce6cce50b81e",
+      "query": "grep -A 20 -i \"QUESTION PRESENTED\" data/cases/scotus/73280982/record/documents/petition.txt | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:50.186Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ea368f5de1b0f8d8",
+      "query": "grep -A 20 -i \"QUESTIONS PRESENTED\" data/cases/scotus/73280982/record/documents/petition.txt | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:52.137Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5abb9400ee1a726d",
+      "query": "head -n 200 data/cases/scotus/73280982/record/documents/petition.txt | grep -i -C 5 \"QUESTION\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:54.491Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4268d2582151ad54",
+      "query": "head -n 250 data/cases/scotus/73280982/record/documents/petition.txt | grep -A 20 -i \"This petition presents two questions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:56.542Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e967b423e18a4a91",
+      "query": "grep -A 20 -i \"SUMMARY OF ARGUMENT\" data/cases/scotus/73280982/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:59.632Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c3382afa9775d7ef",
+      "query": "head -n 50 data/cases/scotus/73280982/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:01.619Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f06088367c6cb3e0",
+      "query": "grep -i \"REASONS FOR DENYING THE PETITION\" data/cases/scotus/73280982/record/documents/brief-in-opposition.txt -A 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:03.793Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:06.640Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c3527dda1588d88",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:08.863Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c3a0c1d674ee6964",
+      "query": "grep \"^## \" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:10.837Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d30cb79bf4164ceb",
+      "query": "cat metrics/statpack.md | grep -A 50 \"SCOTUS cert petitions by Term\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:12.810Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:15.188Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d4ed8bed8c0a4266",
+      "query": "uv run fedcourts query --event evt-petition-disposition --era 2020s --text \"Section 11(a) Securities Act Item 303 interim financial data\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:18.718Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:21.178Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ae54ba8fa66d752b",
+      "query": "\"Robinhood Markets\" \"Vinod Sodha\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:27.808Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "83e0e89f5c0bb86d",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 big_case_score",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:36.287Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ba35498d959ae89b",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"id\": 73280982}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:41.062Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "a3445b5c38f044e5",
+      "query": "{\"endpoint_id\": \"docket-entries\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:43.837Z",
+      "tool": "mcp_courtlistener_get_endpoint_schema"
+    },
+    {
+      "params_digest": "e0f14a286310465a",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"query\": {\"docket\": 73280982, \"order_by\": \"-date_filed\"}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:46.371Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "c70d27452f060a36",
+      "query": "curl -s 'https://lite.duckduckgo.com/lite/' --data 'q=\"Robinhood v. Sodha\" OR \"Robinhood Markets, Inc. v. Vinod Sodha\" certiorari' | grep -oE '<a [^>]+>' | grep -v 'duckduckgo'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:52.788Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d9679c6a9bde82c2",
+      "query": "\"Robinhood v. Sodha\" OR \"Robinhood Markets\" \"Vinod Sodha\" \"certiorari\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:04.829Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "fb60409caa441776",
+      "query": "\"Robinhood Markets\" \"Vinod Sodha\" \"Solicitor General\" brief filed",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:21.856Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "f3f234e3d951042f",
+      "query": "mkdir -p data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:26.196Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "05007db76d39d5a1",
+      "query": "cat schemas/prediction.schema.json | grep -A 100 properties",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:30.524Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d4f4ffdf61d7a987",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 20 properties",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:41.753Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d99426f05b3c4816",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 50 \"properties\\\": {\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:44.055Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e473fc479493d470",
+      "query": "cat schemas/agent_tooling.schema.json | grep -B 10 -A 20 used_corpus_query",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:46.561Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1379eee0d35d391f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280982\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-16.json\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"confidence\\\": 0.7,\\n  \\\"big_case_score\\\": 0.8,\\n  \\\"big_case_rationale\\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:57.015Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ef39e1cee8c8d244",
+      "query": "{\"content\": \"# Prediction Reasoning: Robinhood Markets, Inc. v. Vinod Sodha\\n\\n**Legal Question & Context:**\\nThis case presents two questions regarding the disclosure obligations of public companies under Section 11(a) of the Securities Act of 1933 and Item 303 of Regulation S-K. Specifically, the petition asks whether an issuer must disclose all material interim financial data without an inquiry into whether the omission rendered an affirmative statement misleading, and whether failing to disc",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:57.019Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8d9e0b941add175a",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n1. Looked up the base rates from the committed `metrics/statpack.md`.\\n2. Looked up the CourtListener docket via `mcp_courtlistener_call_endpoint` (`dockets`, `docket-entries` for `73280982`).\\n3. Ran a Google Web Search for `\\\"Robinhood v. Sodha\\\" OR \\\"Robinhood Markets\\\" \\\"Vinod Sodha\\\" \\\"certiorari\\\"` to check for related news, CVSG, or relists since this is a forward prediction. The search revealed that the Supreme Court invited the Solicitor General to file a",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:57.022Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a6fffc824b573c56",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280982\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"mcp_courtlistener_call_endpoint\\\", \\\"google_web_search\\\"],\\n  \\\"helpful\\\": [\\\"The Google search tool was essential in discovering the recent CVSG, which dramatically shifted the base rate.\\\"],\\n  \\\"gaps\\\": [\\\"Would be helpful to h",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:57.026Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:01.690Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d0fc985e0529f3a8",
+      "query": "{\"strategic_intent\": \"Completed prediction for Robinhood cert petition disposition.\", \"summary\": \"I have completed the task by reviewing the case documents, checking corpus base rates, and using Google search to verify recent developments. I found that the Supreme Court issued a Call for the Views of the Solicitor General (CVSG) in June 2026, which significantly elevates the grant probability. I wrote out `prediction.json` (predicting denial at a 35% probability, anchored to the CVSG base rate),",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:05.354Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73280982",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

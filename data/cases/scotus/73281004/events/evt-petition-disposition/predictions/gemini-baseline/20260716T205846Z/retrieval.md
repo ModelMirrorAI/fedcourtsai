@@ -1,0 +1,4 @@
+- `fedcourts query --help` (Checking arguments for query tool)
+- Corpus statpack read (`metrics/statpack.md`): Read overall base rates and "Modern discretionary-cert petitions by disposition".
+- CourtListener MCP search: Searched for docket `25-960` and case name `Maney` (returned 0 results; case not found or not leaked).
+- No further retrieval beyond the provisioned inputs and the local corpus base rates was necessary.

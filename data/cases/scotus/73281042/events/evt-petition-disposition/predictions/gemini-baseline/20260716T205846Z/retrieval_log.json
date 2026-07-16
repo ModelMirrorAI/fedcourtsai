@@ -1,0 +1,286 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "cd7db7cbb0d63337",
+      "query": "{\"strategic_intent\": \"I am starting to execute the prediction task by reading the instructions in predict.md and AGENTS.md.\", \"summary\": \"I have been assigned a prediction task with specific parameters (COURT_ID=scotus, DOCKET_ID=73281042, EVENT_ID=evt-petition-disposition, PREDICTOR_ID=gemini-baseline, RUN_ID=20260716T205846Z). I am beginning by reviewing the instructions provided in `.github/prompts/predict.md` and `AGENTS.md`.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:38.348Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:38.357Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:38.357Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c9d6493ab807bc92",
+      "query": "{\"strategic_intent\": \"I will now read the prediction schema and use the CLI to resolve the necessary input and output paths for the specific case and event I'm predicting.\", \"summary\": \"I have finished reading the instructions in `predict.md` and `AGENTS.md`. I now understand the pipeline, the outputs expected (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`, and optionally `flags.json`), and the rules for retrieving data. My next step is to examine the JSON schemas and locate ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:45.213Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f166a9a59ec18d10",
+      "query": "uv run fedcourts paths --court scotus --docket 73281042 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:45.840Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:45.841Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b61614289c69c512",
+      "query": "ls -la data/cases/scotus/73281042/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:49.381Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "000a57b856b3bf2a",
+      "query": "cat data/cases/scotus/73281042/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:49.382Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d947a5b5c6e708ce",
+      "query": "cat data/cases/scotus/73281042/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:49.382Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1a7284fc8af5c6b6",
+      "query": "ls -la data/cases/scotus/73281042/record/snapshots/ && ls -la data/cases/scotus/73281042/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:52.749Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a2ca8ee9a8f03a5",
+      "query": "cat data/cases/scotus/73281042/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:55.614Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5a6c3bfdfc23534f",
+      "query": "cat data/cases/scotus/73281042/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:55.614Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "100dc7af9ae8e025",
+      "query": "jq -r '.parties[]' data/cases/scotus/73281042/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:59.498Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2973845abd879435",
+      "query": "cat data/cases/scotus/73281042/record/snapshots/2026-07-16.json | grep -A 20 -B 5 \"docket_entries\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:59.498Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f89a293fa7515364",
+      "query": "jq -r '.entries[] | \"\\(.date_filed): \\(.description)\"' data/cases/scotus/73281042/record/snapshots/2026-07-16.json | tail -n 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:02.418Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01d40b27c6a090fc",
+      "query": "cat data/cases/scotus/73281042/record/snapshots/2026-07-16.json | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:02.418Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a0d05b7ee520a982",
+      "query": "jq 'keys' data/cases/scotus/73281042/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:04.666Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b415a9f8ebb2ca84",
+      "query": "jq -r '.ProceedingsandOrder[] | \"\\(.Date): \\(.Text)\"' data/cases/scotus/73281042/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:07.717Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4331f2870532d419",
+      "query": "cat metrics/statpack.md | grep -A 30 \"CVSG\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:12.436Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "37775771cb2fdfb3",
+      "query": "grep -A 15 \"Modern discretionary-cert petitions\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:26.112Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cf5132d91fff64bc",
+      "query": "grep -A 30 \"Segment base rate by salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:26.113Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aed69ed282c11b9c",
+      "query": "\"Rajeh A. Saadeh v. New Jersey State Bar Association\" cert petition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:26.114Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "089487117d1828f7",
+      "query": "{\"strategic_intent\": \"I will now formulate the prediction and write the required output files based on my analysis of the case facts and statistical baselines.\", \"summary\": \"I have reviewed the docket entries and case background. The case involves a high-profile challenge to a bar association's DEI leadership set-asides, with several conservative amici curiae (including SFFA and 18 states) supporting the petition. Crucially, the Supreme Court has issued a CVSG (Call for the Views of the Solicito",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:36.542Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:36.554Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1ce5d4ca11ce66db",
+      "query": "grep -i \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:38.710Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ffec9e3ba8497c5e",
+      "query": "mkdir -p data/cases/scotus/73281042/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:42.818Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fb2c42dd6dc91c1e",
+      "query": "{\"content\": \"# Reasoning\\n\\n**Case Summary:**\\n*Rajeh A. Saadeh v. New Jersey State Bar Association* (No. 25-1002) involves a challenge to the NJSBA's policy of reserving specific leadership seats for members of underrepresented demographic groups (a DEI \\\"set-aside\\\" policy). The petitioner argues this violates state antidiscrimination laws. The New Jersey Appellate Division ruled for the NJSBA, holding that the bar association is an \\\"expressive association\\\" under the First Amendment (relying",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:04.561Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "43dc8356b1287116",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281042\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.75,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"big_case_score\\\": 0.95,\\n  \\\"big_case_rationale\\\": \\\"H",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:04.568Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "92cdf01a725908f5",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n1. **Provisioned Inputs:**\\n   - Read snapshot `record/snapshots/2026-07-16.json`.\\n   - Read `record/documents/questions-presented.txt`.\\n   - Read `record/documents/documents.json`.\\n   - Mode is `forward` (`record/context.json`).\\n\\n2. **Base Rates (Corpus Tooling):**\\n   - Read `metrics/statpack.md` using `cat` and `grep` to find the base rate for CVSG cases. Found a 27.1% base rate for CVSG cases vs 3.0% for non-CVSG cases.\\n\\n3. **Web Search:**\\n   - Used Go",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:04.571Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e8cddc0fa7ab6ca6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281042\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"google_web_search\\\",\\n    \\\"run_shell_command\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": \\\"The ability to run web searches (which surfaced the specifics of the lower court ruling) and shell commands to grep the statpack was extremely helpful for a forwa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:04.575Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:09.429Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "61b1fb0e29f0902b",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281042\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"google_web_search\\\",\\n    \\\"run_shell_command\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The ability to run web searches (which surfaced the specifics of the lower court ruling) and shell commands to grep the statpack was extremely helpful for ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:13.615Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:18.159Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e861a4eaadf1766a",
+      "query": "{\"strategic_intent\": \"The task is complete. All predictions and necessary artifacts have been validated and saved correctly.\", \"summary\": \"I have successfully generated the required prediction files (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`) for the specified SCOTUS case and event. My prediction correctly synthesized the available record inputs, applied statistical base rates, and formulated a qualitative reasoning analysis. I finally ran the validation command `uv r",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:22.206Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281042",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

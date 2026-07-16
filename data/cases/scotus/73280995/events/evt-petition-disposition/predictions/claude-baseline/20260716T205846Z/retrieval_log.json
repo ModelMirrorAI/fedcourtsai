@@ -1,0 +1,318 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d608149c30279f31",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995 -type f | head -50",
+      "result_digest": "4e4a69a09b26204c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6b85332da985d0bd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e11998ea87aa8a9b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "3a085ed42aabc3c0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "189ffea69ac8f60d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "101f3e7934a91395",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "20973fb75a460905",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/documents.json\"}",
+      "result_digest": "565e316ebb323461",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "dceb6f26bb03204e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/questions-presented.txt\"}",
+      "result_digest": "c1eb091a1cf5b24b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "39113b349f10cd94",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "00eeb4f69ed6083b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f247b3c8e3681df5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/petition.txt\", \"limit\": 500, \"offset\": 400}",
+      "result_digest": "f7bbde21d40e94b4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "16d83cc07992de8c",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/brief-in-opposition.txt",
+      "result_digest": "544a3cb600a4b25e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c1afd0e013631c58",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/brief-in-opposition.txt\", \"limit\": 260}",
+      "result_digest": "f454428cebf8a3be",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b7351c778be7df19",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/brief-in-opposition.txt\", \"limit\": 140, \"offset\": 260}",
+      "result_digest": "7033259c82f11f13",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c23fa154c0fef048",
+      "query": "grep -n -i \"watanabe\\|hold\\|nielsen\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/brief-in-opposition.txt | head -40",
+      "result_digest": "d3cf948d0074db09",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "43dd7a99a5979fb9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280995/record/documents/brief-in-opposition.txt\", \"limit\": 149, \"offset\": 1330}",
+      "result_digest": "1237ca96373deb37",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "68123c4f174f948e",
+      "query": "grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "4343cf7205eb5967",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "24b09731ad95f5dc",
+      "query": "sed -n '55,200p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "3fc261fef8e431a4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "43ded08a4a2071a3",
+      "query": "grep -n -A 20 -i \"salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -50",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "64b1b5ec2189a939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "5d0efa1344a1db34",
+      "query": "uv run fedcourts query --court scotus --citation \"Bivens v. Six Unknown Named Agents\" --citation \"Carlson v. Green\" --citation \"Egbert v. Boule\" --limit 8 2>querystderr.txt; echo \"---STDERR---\"; cat querystderr.txt",
+      "result_digest": "9baaff1298eab210",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f41f3e2d52b7736e",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-417\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"docket_id\", \"absolute_url\"], \"type\": \"d\"}",
+      "result_digest": "85631ea76711f91b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "7cca23551a1a47e9",
+      "query": "uv run fedcourts query --court scotus --citation \"Carlson v. Green\" --limit 8 2>q2err.txt | head -20; echo \"---STDERR---\"; cat q2err.txt",
+      "result_digest": "9baaff1298eab210",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f206d173f5fd8826",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 5, \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-417\"}}",
+      "result_digest": "5dd4fb22e9da9014",
+      "retrieved_doc_date": "2025-10-07",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "0aa818fee26270a1",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 50, \"query\": {\"docket\": 73278422, \"fields\": [\"date_filed\", \"description\", \"entry_number\"], \"order_by\": \"date_filed\"}}",
+      "result_digest": "482666a8ee85d674",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "7259df165a939994",
+      "query": "select:WebSearch,WebFetch",
+      "result_digest": "b39b7e39e3708321",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "8e97f0db38b6c149",
+      "query": "Nielsen v. Watanabe 25-417 Supreme Court cert petition Bivens Carlson",
+      "result_digest": "f32af3bf4897cf17",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "024e48fce12f8998",
+      "query": "What is the current status of the cert petition in Nielsen v. Watanabe (No. 25-417)? Was cert granted, and if so on what date and for which term is argument expected? List the docket proceedings/timeline shown, including conference distributions and any grant order date.",
+      "result_digest": "a288fee6de6a9288",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "98e32d2a46aebd54",
+      "query": "Summarize this article about the cert grant in Nielsen v. Watanabe. Does it mention the government's petition in Mohan v. Watkins (25-952) or any companion/held cases? What question did the Court agree to decide, and what does the article say about the likely outcome or the Court's Bivens trajectory?",
+      "result_digest": "2d26b8d5ee4dd54c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "0c26933b2146bcc4",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "6f74bb1a57744122",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "61913a27be7d7b22",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280995\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:05:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280995/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"co",
+      "result_digest": "73ed4bfc80140c20",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "940b99d376434f3a",
+      "query": "{\"content\": \"# Mohan v. Watkins, No. 25-952 \\u2014 petition disposition\\n\\n## The case\\n\\nThe Solicitor General (D. John Sauer, counsel of record) petitions on behalf\\nof Dr. Brij Mohan and the United States from a divided Seventh Circuit panel\\n(*Watkins v. Mohan*, No. 24-1151, 144 F.4th 926, decided July 16, 2025;\\nrehearing denied November 3, 2025). Jordan Watkins, then a pretrial detainee\\nat the MCC Chicago, alleged deliberate indifference to severe post-surgical\\npain and swelling after he",
+      "result_digest": "adf6042761c2b348",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9ecd3af809c444b0",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73280995 / evt-petition-disposition / claude-baseline / 20260716T205846Z\\n\\nMode: `forward` (retrieval unrestricted). Beyond the provisioned snapshot,\\nQP, petition, and BIO, and the committed `metrics/statpack.md` (base rates):\\n\\n## Corpus lookups (`fedcourts` CLI)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"Bivens v. Six Unknown Named Agents\\\" --citation \\\"Carlson v. Green\\\" --citation \\\"Egbert v. Boule\\\" --limit 8`\\n   - stderr: `range",
+      "result_digest": "efb3e71de2f03930",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "285bddfae6b50058",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280995\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Decisive forward signal from a companion case (pre-snapshot public information, not leakage): cert was granted in the lead case Nielsen v. Watanabe, No. 2",
+      "result_digest": "4e2c490ef5bb5a97",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "83e0ce4d4473f695",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280995\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\n    \\\"courtlistener\\\"\\n  ],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md (committed base rates)\\\",\\n    \\\"CourtListener MCP (search, call_endpoint: dockets, docket-entries)\\",
+      "result_digest": "2344e2967a86fa49",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "15778d390283ea05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5dec3280ed927ab4",
+      "query": "gh issue comment 717 --body \"**claude-baseline** \u00b7 scotus/73280995 \u00b7 evt-petition-disposition \u00b7 run 20260716T205846Z\n\nPrediction written: **granted=1, P(grant)=0.85, predicted disposition GVR**.\n\nNo. 25-952 (*Mohan v. Watkins*, SG petitioner, CA7) is a companion to *Nielsen v. Watanabe* (25-417), which the Court granted on 2026-06-22 out of the same June 18 conference \u2014 exactly the grant-Nielsen-and-hold-this treatment the SG's petition requested. This docket shows the classic hold pattern (dist",
+      "result_digest": "afcc1d9b7a409556",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73280995",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

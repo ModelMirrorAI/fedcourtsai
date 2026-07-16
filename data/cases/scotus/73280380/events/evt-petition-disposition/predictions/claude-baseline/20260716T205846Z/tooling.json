@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280380",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "provisioned snapshot + documents (petition, QP, BIO)"
+  ],
+  "helpful": [
+    "Provisioned petition and brief-in-opposition full text — the BIO's vehicle arguments were decisive for calibrating below the naive CFR-conditional grant rate.",
+    "Statpack relist/CVSG cuts as a proxy for how court-initiated attention shifts grant odds."
+  ],
+  "gaps": [
+    "No statpack cut for called-for-response (CFR) petitions — the strongest signal on this docket has no corpus-derived conditional base rate; had to rely on general background knowledge.",
+    "fedcourts query returned zero rows for citation-based filters (Purcell, Cooter & Gell) despite these being heavily-cited SCOTUS precedents; citation-overlap retrieval seems to have little coverage on the modern cert slice.",
+    "A cut for 'published dissent from denial of rehearing en banc below' would be valuable — it is a known cert signal with no corpus surface."
+  ],
+  "notes": "Forward-mode cell with a same-day snapshot; live CourtListener retrieval added nothing, so the cell ran on provisioned inputs + statpack. Three corpus queries cost ~110 MB of ranged reads each and returned nothing — an expensive null."
+}

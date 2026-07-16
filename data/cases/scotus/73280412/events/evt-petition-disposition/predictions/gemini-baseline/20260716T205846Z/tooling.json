@@ -1,0 +1,15 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73280412",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [],
+  "helpful": [
+    "metrics/statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Relied solely on statpack.md base rates because the provisioned snapshot was missing."
+}

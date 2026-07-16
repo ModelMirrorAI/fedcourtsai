@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The brief in opposition exists on the docket (StateBOR.pdf, filed Jun 2 2026, per the snapshot's proceedings) but was not among the provisioned documents under record/documents/ (only petition.txt and questions-presented.txt were provisioned, and documents.json lists no BIO entry). The prediction was made without the BIO's text; the State's position was partly reconstructed from concessions quoted in the petition and public reporting. If the document fetcher can pick up supremecourt.gov BIOs for CFR'd petitions, this cell's class would benefit."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-signal note (not leakage): this petition is undecided (distributed for the 9/28/2026 conference), but the forecast leans heavily on decisive post-snapshot-adjacent public context that predates the snapshot — Louisiana v. Callais (decided 4/29/2026), the Callais GVR wave (5/18/2026), and the companion petition Trevino v. Hobbs (25-918, expedite denied 5/26/2026, cert supported by respondent Washington). Recording it here so the evaluator sees the prediction is conditioned on the companion case's fate."
+    }
+  ]
+}

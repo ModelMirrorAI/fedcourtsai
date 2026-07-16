@@ -1,0 +1,318 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "d8fa4e041d885be7",
+      "query": "{\"strategic_intent\": \"Reading predict.md and AGENTS.md to understand the prediction task and outputs.\", \"summary\": \"Starting the task by reading the requested documentation to understand the prompt contract and agent guidelines.\", \"title\": \"Understand Task Requirements\", \"wait_for_previous\": false}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:51.466Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f208499712808a1a",
+      "query": "{\"end_line\": 500, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:51.476Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e41d6b10251011a9",
+      "query": "{\"end_line\": 500, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:51.476Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "09e104cde58717bd",
+      "query": "uv run fedcourts paths --court scotus --docket 73281063 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:57.110Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "63465411a46154f4",
+      "query": "ls -la data/cases/scotus/73281063/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:05.498Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "95b2861d55ce9254",
+      "query": "ls -la data/cases/scotus/73281063/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:08.285Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "77694b9ebfc25b2f",
+      "query": "ls -la data/cases/scotus/73281063/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:08.285Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc7353cd453eb40c",
+      "query": "cat data/cases/scotus/73281063/events/evt-petition-disposition/event.yaml data/cases/scotus/73281063/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:12.109Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a7a38bff0add5738",
+      "query": "ls -la data/cases/scotus/73281063/record/snapshots/ data/cases/scotus/73281063/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:12.110Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10f3a6a9570de680",
+      "query": "{\"strategic_intent\": \"Analyzing the case record, including documents and snapshot, to formulate a prediction.\", \"summary\": \"I have read the prompt contracts and verified the target case files. The case is a forward prediction (pending case). I am now proceeding to read the specific inputs: the prediction schema, the case snapshot, and the provisioned documents.\", \"title\": \"Analyze Case Record\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:17.141Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "17674e73dc7ff715",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:17.157Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4e9ec78e430d5af9",
+      "query": "cat data/cases/scotus/73281063/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:17.158Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8333a9f77378975e",
+      "query": "cat data/cases/scotus/73281063/record/snapshots/2026-07-16.json | jq . | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:21.362Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ada37320ea55e648",
+      "query": "cat data/cases/scotus/73281063/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:21.363Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2142855223bc28e",
+      "query": "cat data/cases/scotus/73281063/record/snapshots/2026-07-16.json | grep -A 3 -B 3 -i \"DISTRIBUTED\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:25.859Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5d0d1315718fa01f",
+      "query": "cat data/cases/scotus/73281063/record/snapshots/2026-07-16.json | grep -A 100 '\"Proceedings\"' | grep -A 2 -B 2 -i -E \"DISTRIBUTE|CVSG|Brief|Opposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:25.860Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5398e5db0dcf8b70",
+      "query": "jq '.Proceedings' data/cases/scotus/73281063/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:30.323Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "89c40a8867ee922e",
+      "query": "grep -B 1 -A 10 '\"Text\"' data/cases/scotus/73281063/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:33.539Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "32110f101515cb5b",
+      "query": "uv run fedcourts query --event evt-petition-disposition --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:42.496Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f47c0f098f0a203b",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:45.545Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1181cad2748ed2cd",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:50.301Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e20a7eafaae029e",
+      "query": "cat metrics/statpack.md | grep -A 50 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:50.302Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d70039d9a0a0f4df",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Cert petitions by relist count\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:52.981Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0defe70715681456",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Cert petitions by CVSG status\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:52.982Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a0ec95ac79d83f2b",
+      "query": "cat metrics/statpack.md | grep -A 40 -i \"salience\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:56.324Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a7573ef22be5a79f",
+      "query": "cat metrics/statpack.md | grep -i salience",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:30:59.062Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "885e980a3a059ddf",
+      "query": "ls metrics/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:01.044Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a7bed01ef831a0e1",
+      "query": "\"Arizona v. Promise Arizona\" supreme court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:12.477Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "2af51cb00b846c7e",
+      "query": "{\"strategic_intent\": \"I am proceeding to author the prediction, flags, and reasoning based on the prompt's rules after inadvertently discovering the actual outcome.\", \"summary\": \"I analyzed the case record and performed a web search that revealed the Supreme Court has already granted certiorari on June 29, 2026. Following the predictor rules, I am treating this as a mis-provisioned 'forward' cell. I will document this in flags.json, explain it in reasoning.md, and make an unbiased *ex ante* pred",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:20.556Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "b51aec91f9c1a7da",
+      "query": "mkdir -p data/cases/scotus/73281063/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:20.569Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9917e0c893176c82",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281063\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281063/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"big_case_score\\\": 0.95,\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:26.645Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3d5c7be18470222e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281063\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"warning\\\",\\n      \\\"message\\\": \\\"Cell provisioned as 'forward' (snapshot dates to 2026-07-16), but web retrieval surfaced that the Supreme Court already granted certiorari on June 29, 2026. Treating cell as mis-provisioned and predicting from pre-decision reco",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:30.860Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "eb981a5219130912",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281063\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"google_web_search\\\",\\n    \\\"cat\\\",\\n    \\\"jq\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search was helpful for understanding salience and context, though it revealed the actual disposition.\\\",\\n    \\\"metrics/statpack.md was useful for establishing base ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:35.342Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e492decfe27b9236",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- **Corpus Lookup**: None (Attempted `uv run fedcourts query` but the command syntax was incorrect, and since `metrics/statpack.md` already had the needed base rates, I proceeded with the statpack directly).\\n- **Web Search**:\\n  - `google_web_search` with query `\\\"Arizona v. Promise Arizona\\\" supreme court` surfaced results indicating the case's high profile (voter registration laws, H.B. 2492 and H.B. 2243) and that certiorari had actually been granted on June 2",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:39.515Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d80cc52e309db718",
+      "query": "{\"content\": \"# Prediction Reasoning\\n\\n## Background and Facts\\n*Arizona v. Promise Arizona* (25-1022) is a challenge to Arizona's 2022 laws governing documentary proof of citizenship for voter registration. The state laws were challenged by multiple organizations under the National Voter Registration Act and the Civil Rights Act. The district court found no discriminatory purpose. A panel of the Ninth Circuit reversed, citing clear error under *Arlington Heights* and establishing standing for o",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:47.882Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a737338680aa4a6a",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:52.636Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6e0b72d4324b1744",
+      "query": "gh issue comment 717 --body \"Prediction completed for scotus/73281063. The case was found to be already decided so I left a data-quality flag and completed a pre-decision forecast.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:31:58.650Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d6708bcd58dba7c5",
+      "query": "{\"strategic_intent\": \"I have successfully validated the outputs and completed the prediction run.\", \"summary\": \"The prediction task is fully complete. I've written the requested prediction.json, reasoning.md, retrieval.md, tooling.json, and the flags.json documenting the mis-provisioned forward cell. The data validated successfully against the project schema. I attempted to post a comment on issue #717, but the CLI lacks GitHub authentication, which is expected. The task is complete.\", \"title\": ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:32:02.532Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281063",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/73280995",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "statpack",
+    "mcp_courtlistener_search"
+  ],
+  "gaps": [],
+  "notes": "Used statpack for base rates, used MCP search to see the lower court posture and the related Watanabe case."
+}

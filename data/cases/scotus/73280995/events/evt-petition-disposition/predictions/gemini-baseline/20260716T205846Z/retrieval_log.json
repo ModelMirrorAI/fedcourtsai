@@ -1,0 +1,286 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "6b3835704e4fd624",
+      "query": "{\"strategic_intent\": \"Read the instructions for prediction generation in predict.md and AGENTS.md.\", \"title\": \"Read Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:40.589Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:43.070Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:43.070Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "bc10c374f6eda42b",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73280995\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:47.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "26da76a1c2726579",
+      "query": "find data/cases/scotus/73280995 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:50.552Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1d25520ba48c5ed3",
+      "query": "{\"file_path\": \"data/cases/scotus/73280995/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:54.528Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c054afb42a7e0181",
+      "query": "{\"file_path\": \"data/cases/scotus/73280995/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:54.528Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "35642cd87c17513f",
+      "query": "{\"file_path\": \"data/cases/scotus/73280995/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:54.529Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5ffce3b9b2d28f52",
+      "query": "{\"file_path\": \"data/cases/scotus/73280995/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:54.529Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "714e0a10beca287f",
+      "query": "{\"file_path\": \"data/cases/scotus/73280995/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:56.758Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:02.318Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "708441e8caf0b118",
+      "query": "uv run fedcourts query --court scotus --docket \"25-952\" --era \"2020s\" --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:07.304Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:09.716Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7637bddb24f546c1",
+      "query": "\"pretrial detention\" Bivens \"deliberate indifference\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:16.697Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "d83b1c1d5e940fa4",
+      "query": "\"Brij Mohan\" \"Watkins\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:39.779Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "feb9b390a829440b",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73280995/record/documents/petition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:45.771Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dbb82f2145348b3a",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73280995/record/documents/brief-in-opposition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:48.491Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "51f480a0aebfdd8d",
+      "query": "\"Watanabe\" \"Bivens\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:54.321Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "10c3c2c6b78b278a",
+      "query": "Watanabe",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:58.210Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "3e5b05e7cf69da1a",
+      "query": "Watanabe",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:02.937Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "742b3a177a04c4a0",
+      "query": "Nielsen Watanabe",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:07.103Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "ea86e92bbe38d7bc",
+      "query": "{\"end_line\": 200, \"file_path\": \"data/cases/scotus/73280995/record/documents/petition.txt\", \"start_line\": 150}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:13.248Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ea65f25048bca0c0",
+      "query": "{\"dir_path\": \"data/cases/scotus/73280995/record/documents\", \"pattern\": \"Nielsen v. Watanabe\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:15.553Z",
+      "tool": "grep_search"
+    },
+    {
+      "params_digest": "791c237662116047",
+      "query": "{\"dir_path\": \"data/cases/scotus/73280995/record/documents\", \"pattern\": \"Watanabe\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:17.706Z",
+      "tool": "grep_search"
+    },
+    {
+      "params_digest": "cd50214f1c1ceefb",
+      "query": "{\"dir_path\": \"data/cases/scotus/73280995/record/documents\", \"pattern\": \"Nielsen\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:20.406Z",
+      "tool": "grep_search"
+    },
+    {
+      "params_digest": "f925e4293dad8b85",
+      "query": "{\"end_line\": 40, \"file_path\": \"data/cases/scotus/73280995/record/documents/petition.txt\", \"start_line\": 20}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:23.621Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "bc57456db21a89d7",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73280995/record/documents/petition.txt\", \"start_line\": 41}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:25.981Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c4c020f117e4e646",
+      "query": "mkdir -p data/cases/scotus/73280995/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:45.001Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "06aabeb3257020b4",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280995\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:00:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280995/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"confidence\\\": 0.85,\\n  \\\"big_ca",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:49.496Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d96925631f9d8f55",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question\\nWhether the cause of action recognized in *Carlson v. Green* (1980) for deliberate indifference to a prisoner's serious medical needs in violation of the Eighth Amendment extends to an inmate's claim against prison staff at a pretrial detention center for deliberate indifference to chronic pain. This asks whether the Seventh Circuit erred by extending *Bivens* into a \\\"new context\\\" contrary to *Egbert v. Boule* (2022).\\n\\n## Posture and Facts\\nThe ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:28:57.570Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b4ee1196b378d2cc",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n1. **Base rates context:** Consulted `metrics/statpack.md` to establish baseline grant rates for SG petitions and Seventh Circuit originating cases. The overall base rate for paid cert petitions is low (approx 2.5%), but the rate for SG petitions is historically much higher, particularly when combined with a relist (the case was relisted for the 6/18/2026 conference).\\n2. **MCP CourtListener Search (`q=\\\"pretrial detention\\\" Bivens \\\"deliberate indifference\\\"`):**",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:02.688Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "437bd9ad3b7c2f52",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280995\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Used statpack for base rates, used MCP search to see the lower ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:08.592Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:14.300Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f9cb43aaf0c04c0b",
+      "query": "{\"strategic_intent\": \"Finish the task.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:29:20.759Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73280995",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

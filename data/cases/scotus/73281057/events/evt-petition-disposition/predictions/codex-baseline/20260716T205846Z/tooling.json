@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281057",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (attempted; remote unavailable)",
+    "CourtListener MCP search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned petition and questions-presented text exposed the claimed splits and vehicle posture.",
+    "The committed statpack provided paid-petition, Ninth Circuit, and CVSG calibration anchors.",
+    "CourtListener MCP confirmed pre-snapshot lower-court metadata without exposing the predicted disposition."
+  ],
+  "gaps": [
+    "The corpus-prior remote was unreachable because DNS resolution failed.",
+    "The filed brief in opposition was listed on the docket but not present in the provisioned document set.",
+    "The Solicitor General's invited brief had not yet been filed."
+  ],
+  "notes": "Both corpus-query attempts failed before any ranged-read statistics or prior rows were produced, so the forecast relied on provisioned filings, CourtListener pre-decision context, and committed aggregate base rates."
+}

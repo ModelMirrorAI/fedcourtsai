@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281042",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "fedcourts open-events",
+    "metrics/statpack.md + statpack.json (committed)",
+    "provisioned snapshot and record/documents (petition, QP, BIO)"
+  ],
+  "helpful": [
+    "CVSG cut in the statpack (27.1% grant vs 3.0%) — the single most decision-relevant number for this cell",
+    "Full extracted petition and brief-in-opposition text; the BIO's standing/vehicle sections drove the downweighting",
+    "Same-day snapshot with the complete proceedings list, including the CVSG entry"
+  ],
+  "gaps": [
+    "fedcourts query returned 0 rows for every topic tried (First Amendment / discrimination / bar association); topic retrieval seems to have little recall on doctrinal phrases, so no comparable priors could be pulled",
+    "Statpack has no salience-band table (the prompt describes one) and no CVSG-conditional detail such as time-to-disposition or SG-recommendation splits; a CVSG-specific cut of eventual outcomes by recommending administration would sharpen exactly this kind of cell",
+    "Cert-stage amicus counts are a known grant signal but are not a statpack cut"
+  ],
+  "notes": "Forward cell with a fresh same-day snapshot and full document text made external retrieval unnecessary; the corpus tooling's value here was the statpack, not query."
+}

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73281063",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "Cell provisioned as 'forward' (snapshot dates to 2026-07-16), but web retrieval surfaced that the Supreme Court already granted certiorari on June 29, 2026. Treating cell as mis-provisioned and predicting from pre-decision record only per prompt instructions.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

@@ -1,0 +1,302 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1d2233e6d58e1fdd",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982 -type f | head -50",
+      "result_digest": "eb581bac97d14418",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "22a5be43641b9564",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "47af4427202183a1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "18f041164a31922e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d86208a0af3a6408",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "d79f28de7e004104",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "67f181e5fb01ccbb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/documents.json\"}",
+      "result_digest": "f219e04148003756",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ec6001dac1b80f46",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/questions-presented.txt\"}",
+      "result_digest": "a19d6200d263cd66",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b7a02f4d66bb2c0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/petition.txt\", \"limit\": 200}",
+      "result_digest": "24e3383e98ad8a48",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "218af6b9cead3336",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/*.txt",
+      "result_digest": "f5b9f053c1bedcb8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "aa2ce0f20f20da9c",
+      "query": "grep -n \"CVSG\\|Solicitor General\\|salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -30",
+      "result_digest": "62bde608f05f6fbf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "35897816bbe0e64e",
+      "query": "sed -n '1,200p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "bcfded96049768d7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "802bbda7ea7fc087",
+      "query": "sed -n '200,320p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cbe95119a09c28da",
+      "query": "sed -n '140,199p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md; grep -n \"band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9138c54a93019808",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cdec6eec8ed214d0",
+      "query": "uv run fedcourts query --court scotus --era 2020s --citation \"15 U.S.C. 77k\" --limit 8 2>&1 | tail -20",
+      "result_digest": "e00a8f3a801473bf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3a03336b095921e2",
+      "query": "uv run fedcourts query --court scotus --era 2020s --topic securities --limit 8 2>&1 | tail -12",
+      "result_digest": "1afbdc2c4909729f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "71e4d3d6f83ec894",
+      "query": "uv run fedcourts query --court scotus --citation \"77k\" --limit 8 2>&1 | tail -12; echo ---; uv run fedcourts query --court scotus --era 2020s --limit 5 2>&1 | head -8",
+      "result_digest": "c5724700f636cb62",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "15320718e7f5f74c",
+      "query": "sed -n '1,130p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/brief-in-opposition.txt",
+      "result_digest": "13c60e4d9790b698",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c47deb2f011cedc3",
+      "query": "grep -n \"INTRODUCTION\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/brief-in-opposition.txt | head -3",
+      "result_digest": "cd26049540afc362",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6beb94c4eef0be4",
+      "query": "sed -n '222,330p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/brief-in-opposition.txt",
+      "result_digest": "56ecbd5976624c7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ce3877b5ba9c5e96",
+      "query": "grep -n \"Poor Vehicle\\|POOR VEHICLE\\|interlocutory\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/brief-in-opposition.txt",
+      "result_digest": "83521daef7819ae1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8895225c572f6b49",
+      "query": "sed -n '1300,1390p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/brief-in-opposition.txt",
+      "result_digest": "692de6842b601499",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "afe3ed23d4a8d8b7",
+      "query": "grep -n \"growing conflict\\|square conflict\\|Second Circuit\\|First Circuit\\|Fifth Circuit\\|Eleventh Circuit\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/petition.txt | head -25",
+      "result_digest": "492956690011c9fc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b0294cf64d9fc4e9",
+      "query": "sed -n '425,470p' /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/record/documents/petition.txt",
+      "result_digest": "6673b065f9591865",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ef50970666bb194a",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z",
+      "result_digest": "4b7f11570fdf8667",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0a4b5817e452b0dd",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280982\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:04:26Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280982/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "e48d02cda78b76ca",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "94e985463713f695",
+      "query": "{\"content\": \"# Robinhood Markets, Inc. v. Sodha, No. 25-944 \\u2014 cert disposition\\n\\n**Prediction: denied is still the modal outcome, but P(grant) = 0.35 \\u2014 far above\\nthe baseline for a paid petition \\u2014 because the Court has already CVSG'd the\\ncase.**\\n\\n## The legal question\\n\\nRobinhood, its officers and directors, and its IPO underwriters seek review of\\na divided Ninth Circuit panel decision (Aug. 29, 2025; rehearing en banc denied\\nOct. 8, 2025) that reversed dismissal of a Secu",
+      "result_digest": "8efe2422a0a69f5a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ca7a9422951548db",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73280982 evt-petition-disposition (claude-baseline, 20260716T205846Z)\\n\\n## Corpus base rates\\n\\n- Read the committed `metrics/statpack.md`: modern discretionary-cert\\n  disposition table, originating-circuit cut, relist cut, and the **CVSG cut**\\n  (cvsg: denied 71.2%, granted 27.1%, dismissed 1.7% over 59 resolved) \\u2014 the\\n  primary quantitative anchor. This statpack version carries no per-Term\\n  salience-band table.\\n\\n## Corpus lookups (`fedcou",
+      "result_digest": "24fc5815e542a594",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "f7d9f25503ed91da",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280982\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned snapshot + petition/BIO document texts\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack CVSG cut \\u2014 the decisive base-rate anchor for this ce",
+      "result_digest": "c022ce90fea1bde8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0a4ca79d867205a1",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280982\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Provisioned record/documents/questions-presented.txt captured a table-of-contents fragment rather than the petition's Questions Presented page (the",
+      "result_digest": "814a69edf64fd589",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "15778d390283ea05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "454c5074547762fa",
+      "query": "gh issue comment 717 --body \"**claude-baseline** (\\`claude-fable-5\\`, run \\`20260716T205846Z\\`) \u2014 scotus/73280982 \\`evt-petition-disposition\\` (Robinhood Markets v. Sodha, No. 25-944): predicted **denied**, P(grant) = **0.35**. The June 1, 2026 CVSG lifts this well above the paid-petition baseline (statpack CVSG cut: 27.1% grant), with upward adjustment for the divided Ninth Circuit panel, post-*Macquarie* split claims, and the Grundfest/SIFMA/Chamber/WLF amicus push \u2014 tempered by the interlocut",
+      "result_digest": "871a7671112d73a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73280982",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

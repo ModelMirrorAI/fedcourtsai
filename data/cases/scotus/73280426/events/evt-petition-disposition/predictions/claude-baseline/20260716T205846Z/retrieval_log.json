@@ -1,0 +1,358 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3f08f3a57470e69c",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426 -type f | head -50 && echo --- && uv run fedcourts paths --court scotus --docket 73280426 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "e7201efa04cc5944",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "47cb78373e02f676",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "959bea5589c903cb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "525f83f991fcf0eb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "81f554486d42da26",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/documents.json\"}",
+      "result_digest": "7f08109fb2194e89",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "87242a4a9966eb22",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "a165f91a4de1d0fe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3d21b40b3dae1540",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/questions-presented.txt\"}",
+      "result_digest": "29a0de9d4c101f78",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1041712b0fbc138b",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/brief-in-opposition.txt /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "a193faa26dd95d2a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e7a47e3c9afaa45d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/petition.txt\"}",
+      "result_digest": "8c16f66aa95e62ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fddbf2d33266bf7f",
+      "query": "grep -n -E \"^[A-Z][A-Z .,'\u2019&-]{8,}$|^\\s*(I|II|III|IV|V)\\.\\s|^\\s*[A-D]\\.\\s\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/brief-in-opposition.txt | head -60",
+      "result_digest": "ba61368c05f712a4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8a58956c3de50a43",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/brief-in-opposition.txt\", \"limit\": 70, \"offset\": 223}",
+      "result_digest": "4614b72a43148c1d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2dd6c1e7be71ce38",
+      "query": "grep -n -i \"callais\\|hold\\|GVR\\|pending\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/brief-in-opposition.txt | head -30",
+      "result_digest": "4df5da005b1a1fb5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d5addcfa86278c73",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/brief-in-opposition.txt\", \"limit\": 90, \"offset\": 637}",
+      "result_digest": "5fa3478841492d8d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f989095dd503deae",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280426/record/documents/brief-in-opposition.txt\", \"limit\": 150, \"offset\": 1108}",
+      "result_digest": "68456f83ddae738a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "651de9ebe5bdcc2b",
+      "query": "ls metrics/ && python3 -c \"\nimport json\nd=json.load(open('metrics/statpack.json'))\nprint(list(d.keys()))\n\" 2>/dev/null | head",
+      "result_digest": "6648df6b3bbfcecb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6751cecf0426f449",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('metrics/statpack.json'))\nsecs=d['sections']\nprint(type(secs), len(secs))\nfor s in (secs if isinstance(secs,list) else secs.items()):\n    if isinstance(secs,list):\n        print(s.get('title') or s.get('key'))\n    else:\n        print(s[0])\n\"",
+      "result_digest": "941029cce0e08c4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "35b1bf8f84655877",
+      "query": "uv run fedcourts query --court scotus --citation \"Thornburg v. Gingles\" --citation \"52 U.S.C. \u00a7 10301\" --limit 8 2>query_err1.txt | head -20; echo \"--- stderr:\"; cat query_err1.txt",
+      "result_digest": "e4a9981f6b32bb6a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a51697ccd5a5788d",
+      "query": "uv run fedcourts query --court scotus --citation \"478 U.S. 30\" --limit 8 2>query_err2.txt | head -20; echo \"--- stderr:\"; cat query_err2.txt",
+      "result_digest": "e4a9981f6b32bb6a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "845800e160f130cb",
+      "query": "uv run fedcourts query --court scotus --topic \"voting rights\" --limit 8 2>query_err3.txt | head -20; echo \"--- stderr:\"; cat query_err3.txt; echo; uv run fedcourts query --court scotus --era 2020s --limit 5 2>query_err4.txt | head -10; echo \"--- stderr:\"; cat query_err4.txt",
+      "result_digest": "c5945de588e63ce7",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "55a29984121d9401",
+      "query": "select:mcp__courtlistener__search,WebSearch,mcp__courtlistener__call_endpoint",
+      "result_digest": "048d3f75cc74d35d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "bf9c055114916a75",
+      "query": "Louisiana v. Callais Supreme Court decision holding Voting Rights Act Section 2",
+      "result_digest": "6f43854c96bf3d28",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "1e104b72070026d5",
+      "query": "Supreme Court GVR \"in light of\" Callais redistricting petitions June 2026",
+      "result_digest": "73f88252e3ec526d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "a6116eee9ba5acd0",
+      "query": "\"Garcia v. Hobbs\" Supreme Court cert petition 2026 Washington redistricting mootness",
+      "result_digest": "6c883f5a76d09a99",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "c9e5aaf7956f5661",
+      "query": "select:WebFetch",
+      "result_digest": "c4e348966a824a36",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "b09d73ce2139c114",
+      "query": "What position did the State of Washington take in its Supreme Court brief in Trevino v. Hobbs (No. 25-918)? Does it support granting certiorari, a GVR in light of Louisiana v. Callais, or denial? Summarize the article's key facts, including anything about the Soto Palmer respondents' position and the expected timing of the Court's decision.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "b101ea542b48b0f0",
+      "query": "What position did the State of Washington take in its Supreme Court brief in Trevino v. Hobbs (No. 25-918)? Does it support granting certiorari, a GVR in light of Louisiana v. Callais, or denial? Summarize the article's key facts, including anything about the Soto Palmer respondents' position and expected timing.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "d6c272596a0f9e8f",
+      "query": "Summarize this article about the Washington redistricting case at the US Supreme Court (Trevino v. Hobbs / Soto Palmer). What position does the State of Washington take \u2014 does it support cert, GVR in light of Louisiana v. Callais, or denial? What do other parties say? Any predictions on timing or outcome?",
+      "result_digest": "27ca90952acd8bf4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "5d9ab93d43ff5ece",
+      "query": "This is the State of Washington's brief in Trevino v. Hobbs, No. 25-918. What position does the State take on the petition for certiorari \u2014 grant, deny, or GVR in light of Louisiana v. Callais? Summarize its main arguments and what it asks the Court to do.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "272391d47ddd9fad",
+      "query": "What position did the State of Washington take in its June 2026 Supreme Court brief in the Trevino v. Hobbs / Soto Palmer redistricting case (No. 25-918)? Does the state support granting certiorari, a GVR in light of Louisiana v. Callais, or denial? Give details of what the brief asks for and any other parties' positions.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "ec17c98778909518",
+      "query": "What position did the State of Washington take in its June 2026 Supreme Court brief in the Trevino v. Hobbs redistricting case (No. 25-918)? Does the state support granting certiorari, a GVR in light of Louisiana v. Callais, or denial? Give details of what the brief asks for, quotes from officials, and any other parties' positions.",
+      "result_digest": "96be7b0d7cd54c02",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "7f6c439b122f3075",
+      "query": "Washington attorney general brief Trevino Supreme Court \"Soto Palmer\" Callais grant vacate remand state urges",
+      "result_digest": "c90e7a0071f693f0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "4a8c0def4db36404",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p data/cases/scotus/73280426/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z && cat schemas/agent_flags.schema.json | python3 -c \"import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get('properties',{}),indent=1)[:1500])\"; echo ===; cat schemas/agent_tooling.schema.json | python3 -c \"import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get('properties',{}),indent=1)[:1800])\"",
+      "result_digest": "e1c771690c9c83da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d118bb5dc6852f11",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280426\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:07:23Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280426/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"co",
+      "result_digest": "c03805d04bdedafc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4268ca879cd2f41e",
+      "query": "{\"content\": \"# Trevino v. Hobbs, No. 25-918 \\u2014 petition disposition\\n\\n**Prediction: GVR in light of *Louisiana v. Callais* \\u2014 P(any grant, GVR included) = 0.65; likeliest label `gvr`.**\\n\\n## The case\\n\\nPetitioners Jose Trevino and Rep. Alex Ybarra are Yakima Valley Hispanic voters who\\nintervened (permissively) in *Soto Palmer v. Hobbs* to defend Washington's\\ncommission-drawn Legislative District 15 against a VRA \\u00a72 vote-dilution claim and to\\nassert that any race-conscious reme",
+      "result_digest": "185d69f6538c4859",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "207dbb1c10f76a8d",
+      "query": "{\"content\": \"# Retrieval log \\u2014 claude-baseline / 20260716T205846Z\\n\\n## Corpus tooling\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"Thornburg v. Gingles\\\" --citation \\\"52 U.S.C. \\u00a7 10301\\\" --limit 8`\\n   \\u2192 0 rows. stderr: `ranged corpus reads: 418 GET(s), 109576192 byte(s)`\\n2. `uv run fedcourts query --court scotus --citation \\\"478 U.S. 30\\\" --limit 8`\\n   \\u2192 0 rows. stderr: `ranged corpus reads: 418 GET(s), 109576192 byte(s)`\\n3. `uv run fedcourts query --court s",
+      "result_digest": "49ac5af1160cc5f7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a85fce0f27212e49",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280426\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md (committed base rates)\\\",\\n    \\\"web search + web fetch (engine-surfaced)\\\",\\n    \\\"provisioned snapshot and filed-document texts\\\"\\n  ],\\n  \\\"helpful\\\":",
+      "result_digest": "e7fca099357a8840",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a2f35e1bb8e068d9",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280426\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Forward-mode disclosure: decisive public signals predating the snapshot were used \\u2014 Louisiana v. Callais (decided 4/29/2026), the Court's May 2026 wa",
+      "result_digest": "f58e741f13889974",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "15778d390283ea05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6546814f5a29d22",
+      "query": "gh issue comment 717 --repo \"$GITHUB_REPOSITORY\" --body \"**claude-baseline / 20260716T205846Z** \u2014 scotus/73280426 (Trevino v. Hobbs, No. 25-918), evt-petition-disposition: predicted **GVR in light of Louisiana v. Callais** \u2014 P(grant incl. GVR) = 0.65, modal label \\`gvr\\`. Key signals: CFR after waivers; Callais (146 S. Ct. 1131, 4/29/2026) post-dates the Ninth Circuit decision; the Court's May 2026 GVR wave in \u00a72 cases; and the State of Washington's own response brief requesting a GVR. Distribut",
+      "result_digest": "08d7d522ed4f0fae",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73280426",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

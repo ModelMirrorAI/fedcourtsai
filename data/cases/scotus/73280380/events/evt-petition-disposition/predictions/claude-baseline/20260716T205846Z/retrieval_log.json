@@ -1,0 +1,206 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8a92d1dadb235889",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380 -type f | head -50",
+      "result_digest": "2aa97e9fd80ea48e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7a9181143cefb7e9",
+      "query": "uv run fedcourts paths --court scotus --docket 73280380 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "6486e6279e6cd9c7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ded310cb1284a948",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "05e9c0019a36d527",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6b05ff209d996642",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "aebeff7ff260a3f0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "75c8b9b8d0ea5e84",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "aff495001a17497d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/record/documents/documents.json\"}",
+      "result_digest": "d8dd8c1bd9b9b89d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c011eb2afcb7e91b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/record/documents/questions-presented.txt\"}",
+      "result_digest": "3f43ce0463a6454b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "30ce6254a9c923cf",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/record/documents/petition.txt\"}",
+      "result_digest": "fde08b3337c02e83",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f6912a6024f21e96",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "9f12a321f7eb5a41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f743433de0d1c134",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|Response Requested\\|CVSG\\|relist\\|Relist\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "50031f3227709971",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "64b1b5ec2189a939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "451124b17683dfc6",
+      "query": "uv run fedcourts query --court scotus --citation \"549 U.S. 1\" --citation \"496 U.S. 384\" --limit 5 2>&1 | tail -12",
+      "result_digest": "e00a8f3a801473bf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "418a7518b657a908",
+      "query": "uv run fedcourts query --court scotus --citation \"496 U.S. 384\" --limit 5 2>&1 | tail -8; echo ---; uv run fedcourts query --court scotus --citation \"549 U.S. 1\" --limit 5 2>&1 | tail -8",
+      "result_digest": "8eb2e5662b1c55ce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "723f829d7cd5b764",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73280380/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z",
+      "result_digest": "d36df97962af971c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b9dbf7c79246522f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280380\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T21:02:57Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280380/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.2,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "9f2982ab65f8ee25",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c9d14ee5e99cc4a1",
+      "query": "{\"content\": \"# Parker v. Gates, No. 25-882 \\u2014 cert disposition prediction\\n\\n**Bottom line: deny is the modal outcome, but this petition carries genuinely\\nelevated grant-side risk. P(any grant, GVR included) \\u2248 0.20; predicted\\ndisposition: denied.**\\n\\n## The case\\n\\nPetitioners Andrew D. Parker and Parker Daniels Kibort, LLC were counsel to\\nKari Lake and Mark Finchem in *Lake v. Hobbs* (D. Ariz. 2022), a pre-election\\nchallenge to Arizona's use of electronic vote tabulation. After th",
+      "result_digest": "177be790610a52c5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "37664a22fb7b0fe5",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73280380 / evt-petition-disposition / claude-baseline / 20260716T205846Z\\n\\nBeyond the provisioned inputs (snapshot, questions-presented, petition, BIO,\\n`record/context.json`), I consulted:\\n\\n## Committed base rates\\n\\n- `metrics/statpack.md` \\u2014 modern discretionary-cert disposition split, CA9\\n  originating-circuit cut, relist-count cut, CVSG cut, per-Term grant rates.\\n  (Committed file; no corpus reads.)\\n\\n## Corpus lookups (`fedcourts query`,",
+      "result_digest": "f705e0b800f163bc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "f1606351876b1cf6",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73280380\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned snapshot + documents (petition, QP, BIO)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition and brief-in-opposition full text \\u2014 th",
+      "result_digest": "842e5a4770a8665f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "6fbedc9ea119c205",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "baf96fdad206f934",
+      "query": "gh issue comment 717 --body \"**claude-baseline / scotus/73280380 / evt-petition-disposition / 20260716T205846Z** \u2014 prediction written: \\`denied\\`, P(grant incl. GVR) = 0.20 (paid CA9 petition, CFR + six-judge en banc dissent below push well above the ~3% base rate; fact-bound sanctions posture and the BIO's vehicle arguments keep denial modal). Files under \\`data/cases/scotus/73280380/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/\\`; \\`fedcourts validate data\\` pas",
+      "result_digest": "709b5951f1b200a7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73280380",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

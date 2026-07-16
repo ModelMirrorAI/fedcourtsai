@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73281042",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "google_web_search",
+    "run_shell_command",
+    "read_file"
+  ],
+  "helpful": [
+    "The ability to run web searches (which surfaced the specifics of the lower court ruling) and shell commands to grep the statpack was extremely helpful for a forward-mode prediction."
+  ],
+  "gaps": [],
+  "notes": "Prediction made successfully using web search for context on the forward-mode case."
+}

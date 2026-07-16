@@ -1,0 +1,286 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "028cfc571d07579d",
+      "query": "{\"strategic_intent\": \"Understand the prediction task and the output files required by reading the prompt contract.\", \"title\": \"Understand prediction requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:49.254Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:52.783Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:52.784Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:55.360Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "85f3fd53aece2346",
+      "query": "{\"strategic_intent\": \"Check the exact paths for the inputs.\", \"title\": \"Resolve Input Paths\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:25:59.293Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9b809fa2a8d2e600",
+      "query": "uv run fedcourts paths --court scotus --docket 73280426 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:01.986Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ada99ada289cbb15",
+      "query": "ls -la data/cases/scotus/73280426/events/evt-petition-disposition/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:04.981Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5744969d4c7d3408",
+      "query": "ls -la data/cases/scotus/73280426/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:07.351Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "84322d748692474e",
+      "query": "ls -la data/cases/scotus/73280426/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:10.326Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "75e70db73bea7295",
+      "query": "ls -la data/cases/scotus/73280426/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:12.499Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "54aa33bdf2d3eb40",
+      "query": "cat data/cases/scotus/73280426/record/context.json && ls -la data/cases/scotus/73280426/record/snapshots/ && ls -la data/cases/scotus/73280426/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:14.845Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a05cd85a969359cc",
+      "query": "jq '.case_name' data/cases/scotus/73280426/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:18.113Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3fb62d56000e4a16",
+      "query": "{\"file_path\": \"data/cases/scotus/73280426/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:18.113Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3fd61c1032d9eed7",
+      "query": "cat data/cases/scotus/73280426/record/snapshots/2026-07-16.json | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:20.123Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2a348392ad72e95f",
+      "query": "cat data/cases/scotus/73280426/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:22.080Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8fba1917ef7d37a",
+      "query": "uv run fedcourts query 'standing to challenge remedial map VRA section 2 racial gerrymandering'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:27.460Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10532eaac739a5c6",
+      "query": "cat docs/cli.md | grep -A 20 \"fedcourts query\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:29.776Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:32.384Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:36.137Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c3527dda1588d88",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:38.274Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1b60c0e34cf5d9fb",
+      "query": "grep -i \"salience\" metrics/statpack.md -A 10 -B 2",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:40.373Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "24e6c93cf22c5988",
+      "query": "grep \"^##\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:42.317Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bbaa77189a5b9830",
+      "query": "cat metrics/statpack.md | grep -A 10 \"Cert petitions by relist count\" && echo \"---\" && cat metrics/statpack.md | grep -A 10 \"Cert petitions by CVSG status\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:44.534Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bea2643764d3333a",
+      "query": "grep -A 2 -B 2 \"DISTRIBUTED\" data/cases/scotus/73280426/record/snapshots/2026-07-16.json || echo \"No DISTRIBUTED found\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:47.257Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3803be15846fa9f3",
+      "query": "jq '.ProceedingsandOrder[]' data/cases/scotus/73280426/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:49.423Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "51693c865ec3d427",
+      "query": "grep -A 10 -B 2 -i \"split\" data/cases/scotus/73280426/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:55.130Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5a30f4592a200bd1",
+      "query": "grep -A 20 \"REASONS FOR GRANTING THE PETITION\" data/cases/scotus/73280426/record/documents/petition.txt || grep -A 20 \"REASONS FOR GRANTING\" data/cases/scotus/73280426/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:26:58.137Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0ad0538f28c2cd22",
+      "query": "grep -A 30 \"REASONS FOR DENYING\" data/cases/scotus/73280426/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:02.879Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc4194daaefe195c",
+      "query": "{\"content\": \"# Reasoning for Prediction\\n\\n## The Legal Question and Standard\\nThe petition presents two questions arising from a Voting Rights Act (VRA) Section 2 challenge to Washington state's legislative district 15. The district court found a VRA violation and imposed a remedial map. The petitioners are intervenors who seek to challenge both the underlying VRA liability finding and the remedial map (as an unconstitutional racial gerrymander). The Ninth Circuit held the intervenors lacked Ar",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:17.686Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a3d861a81a2494d5",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280426\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-16T20:58:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73280426/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.04,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.85,\\n  \\\"big",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:22.072Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9fa05323cedab189",
+      "query": "{\"content\": \"- Consulted the provisioned inputs: `event.yaml`, `record/context.json`, `record/snapshots/2026-07-16.json`, and the filings in `record/documents/` (`questions-presented.txt`, `petition.txt`, `brief-in-opposition.txt`).\\n- Attempted to query `fedcourts query` but got an error, so no priors were pulled.\\n- Read base rate context directly from the committed `metrics/statpack.md` file (Modern discretionary-cert petitions by disposition, by relist count, by CVSG status, etc.).\\n- No ret",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:26.219Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "680bb8c710b22836",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73280426\\\",\\n  \\\"run_id\\\": \\\"20260716T205846Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"grep\\\", \\\"jq\\\"],\\n  \\\"helpful\\\": [\\\"Provisioned document text, especially the petition and brief in opposition\\\"],\\n  \\\"gaps\\\": [\\\"The 'fedcourts query' tool requires specific structured flags, not natural language search, making it hard to use without knowing",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:33.733Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:37.956Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "510d51550ee5b69b",
+      "query": "{\"strategic_intent\": \"Task complete. Produced the required prediction files and validated them successfully.\", \"summary\": \"I have examined the provisioned inputs, including the event definition, snapshot, and document texts (petition, questions presented, and brief in opposition). I also read the base rates from the statpack and formulated a prediction. The result was written out to `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`. A final validation check confirmed that all",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-16T21:27:41.753Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73280426",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260716T205846Z",
+  "schema_version": "1.0"
+}

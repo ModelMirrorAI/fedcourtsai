@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode research located the April 29, 2026 decision in Louisiana v. Callais, which predates the July 16 snapshot and materially increased the GVR/grant probability. It is related legal context and does not reveal this petition's disposition."
+    }
+  ]
+}

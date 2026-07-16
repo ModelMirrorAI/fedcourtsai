@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20260716T205846Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The committed statpack supplied directly relevant paid-petition and CVSG calibration.",
+    "The complete petition and brief in opposition made the disputed split and vehicle arguments assessable.",
+    "CourtListener MCP confirmed availability of general pre-petition opinion research."
+  ],
+  "gaps": [
+    "The remote corpus host could not be resolved, so the query tool returned no comparable priors.",
+    "The standalone questions-presented extraction was malformed and the petition text was marked truncated."
+  ],
+  "notes": "The cell remained usable because both briefs contained intact questions presented and substantive arguments. General CourtListener searches added little beyond the provisioned briefs; no direct REST fallback was attempted."
+}
