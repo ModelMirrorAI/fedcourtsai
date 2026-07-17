@@ -826,9 +826,21 @@ jobs:
           for kind in ready partial; do
             pr=$(jq -c ".${kind}" <<<"$plan")
             [ "$pr" = "null" ] && continue
-            git checkout -q main
             branch=$(jq -r '.branch' <<<"$pr")
-            git checkout -q -b "$branch"
+            # Branch from the CURRENT remote main tip, re-fetched each pass,
+            # not the job's local main. The matrix runs long, and the
+            # deterministic writers (live/seed/pull) commit to main directly and
+            # can rewrite its recent history; a branch built on the now-orphaned
+            # local checkout would carry those orphaned commits — including any
+            # recently merged `.github/workflows/*` change — into the push pack.
+            # The app token is deliberately without `workflows` permission, so
+            # GitHub then rejects the whole push. Basing the branch on a freshly
+            # fetched origin/main guarantees the pack is only this run's data/
+            # commit; a force-push landing after the fetch degrades to an
+            # ordinary non-fast-forward reject, loud and retriable, never a
+            # permission failure that strands a run's predictions.
+            git fetch --no-tags -q origin main
+            git checkout -q -B "$branch" origin/main
             # Union each member cell's data/ subtree onto the clean main checkout.
             # Cells write disjoint paths, so the union is conflict-free.
             while IFS= read -r dir; do
