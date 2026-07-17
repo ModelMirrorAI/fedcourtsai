@@ -246,9 +246,9 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   looks decided): note the gap in `flags.json` and predict from priors and base
   rates only, treating the case per the first rule above — do not retrieve its
   current docket state or outcome. Make the most
-  conservative reasonable call rather than guessing widely. (A trigger-issue comment
-  is fine as an extra, but the issue is closed when the run lands — `flags.json` is
-  the channel that survives.)
+  conservative reasonable call rather than guessing widely. `flags.json` is the
+  channel that survives — the trigger issue is closed when the run lands, so do
+  not rely on issue comments.
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure `uv run fedcourts validate data` would pass for your
   files (correct schema, well-formed JSON).

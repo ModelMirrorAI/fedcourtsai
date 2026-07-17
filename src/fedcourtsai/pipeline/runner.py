@@ -370,8 +370,6 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
     now phrase it: some engines sanitize the shell environment in CI, so the
     prompt — not the env — is the contract's delivery channel, and the local
     harness keeps the same shape so a cell reads identically here and in CI.
-    (The workflows' extra sentence about commenting on the triggering issue is
-    omitted: a local cell has no issue.)
     """
     prompt = request.prompt.as_posix()
     if request.role == UsageRole.predictor:

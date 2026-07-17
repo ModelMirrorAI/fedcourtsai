@@ -197,8 +197,8 @@ advisory and never graded.
   prediction is missing or malformed, do not stall waiting for input — always
   explain it in `evaluation.md` and record a `flags.json` note (above) so it reaches
   a maintainer durably, then finish. Make the most conservative reasonable call
-  rather than guessing widely. (A trigger-issue comment is fine as an extra, but the
-  issue is closed when the run lands — `flags.json` is the channel that survives.)
+  rather than guessing widely. `flags.json` is the channel that survives — the
+  trigger issue is closed when the run lands, so do not rely on issue comments.
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure `uv run fedcourts validate data` would pass for your
   files.
