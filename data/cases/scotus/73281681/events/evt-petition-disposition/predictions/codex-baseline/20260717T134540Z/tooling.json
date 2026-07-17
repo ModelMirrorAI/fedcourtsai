@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281681",
+  "run_id": "20260717T134540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search and endpoint retrieval",
+    "committed corpus statpack",
+    "fedcourts query (attempted; remote unavailable)"
+  ],
+  "helpful": [
+    "Provisioned petition and questions-presented text",
+    "Docket snapshot showing the response request and amicus filings",
+    "Paid-petition base rate in statpack.json",
+    "CourtListener access to the 2025 Sheetz remand opinion"
+  ],
+  "gaps": [
+    "The remote corpus host was not resolvable, so similar resolved priors were unavailable",
+    "No brief in opposition was yet provisioned because the response deadline remained pending"
+  ],
+  "notes": "CourtListener supplied useful current doctrinal context without exposing the predicted disposition. The corpus query failed before producing rows or ranged-read statistics."
+}

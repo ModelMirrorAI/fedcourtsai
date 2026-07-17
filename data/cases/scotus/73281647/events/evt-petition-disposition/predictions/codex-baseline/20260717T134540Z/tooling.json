@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281647",
+  "run_id": "20260717T134540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "committed corpus statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "Complete provisioned petition and brief in opposition",
+    "Snapshot with distribution and amicus activity",
+    "Paid-petition and originating-circuit base rates"
+  ],
+  "gaps": [
+    "Ranged corpus query was unavailable because the remote host could not be resolved",
+    "CourtListener did not return the companion SCOTUS docket"
+  ],
+  "notes": "The provisioned filings contained the decisive legal and vehicle arguments. CourtListener MCP worked for general opinion search; the ranged corpus transport did not."
+}

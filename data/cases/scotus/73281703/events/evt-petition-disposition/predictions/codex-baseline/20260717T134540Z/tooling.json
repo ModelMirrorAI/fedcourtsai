@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281703",
+  "run_id": "20260717T134540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed corpus statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint access",
+    "fedcourts query (attempted; unavailable)"
+  ],
+  "helpful": [
+    "The complete petition and questions-presented extraction made the asserted split and vehicle easy to assess.",
+    "The docket snapshot exposed the response request and extension, a material cert-stage signal.",
+    "CourtListener's full lower-court opinion exposed a retaliation-specific vehicle risk not fully conveyed by the question presented.",
+    "The statpack supplied paid-petition and procedural-signal calibration anchors."
+  ],
+  "gaps": [
+    "The ranged corpus query was unavailable because the remote hostname could not be resolved.",
+    "No brief in opposition had yet been filed, leaving the vehicle objections one-sided."
+  ],
+  "notes": "The failed corpus query returned no rows, so used_corpus_query is false; committed base rates and pre-decision CourtListener materials supported the forecast."
+}

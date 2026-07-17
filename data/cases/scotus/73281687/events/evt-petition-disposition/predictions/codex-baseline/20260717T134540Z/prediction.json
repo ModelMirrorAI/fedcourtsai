@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281687",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260717T134540Z",
+  "created_at": "2026-07-17T13:56:19Z",
+  "input_snapshot": "data/cases/scotus/73281687/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.16,
+  "predicted_disposition": "denied",
+  "confidence": 0.73,
+  "big_case_score": 0.84,
+  "big_case_rationale": "A merits ruling for petitioner could require firsthand witnesses for warrants nationwide and unsettle the modern informant-based probable-cause framework.",
+  "reasoning_doc": "reasoning.md"
+}

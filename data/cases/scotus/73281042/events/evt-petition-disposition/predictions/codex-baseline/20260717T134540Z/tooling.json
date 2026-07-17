@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281042",
+  "run_id": "20260717T134540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition",
+    "CVSG and fee-class base rates in the committed statpack",
+    "CourtListener citation search for cited authorities"
+  ],
+  "gaps": [
+    "The runner could not resolve the ranged corpus endpoint, so similar case-level priors were unavailable.",
+    "The statpack referenced by the prompt did not contain a salience-band table for this case."
+  ],
+  "notes": "The provisioned snapshot and complete cert-stage filings were sufficient to finish despite the failed corpus lookup. CourtListener MCP remained available."
+}

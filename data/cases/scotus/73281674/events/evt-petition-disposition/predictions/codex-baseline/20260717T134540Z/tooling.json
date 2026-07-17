@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281674",
+  "run_id": "20260717T134540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filings",
+    "committed corpus statpack",
+    "fedcourts query (failed before returning rows)",
+    "CourtListener MCP opinion search and retrieval"
+  ],
+  "helpful": [
+    "The complete petition and union opposition exposed the decisive vehicle issues.",
+    "The statpack supplied paid-petition and originating-circuit base rates.",
+    "CourtListener confirmed recent appellate treatment of the asserted conflicts."
+  ],
+  "gaps": [
+    "The ranged corpus endpoint was unreachable because its host could not be resolved.",
+    "The docket listed separate federal and union opposition briefs, but only the union brief was provisioned."
+  ],
+  "notes": "The failed corpus query was non-blocking; the prediction rests on the provisioned record, committed base rates, and general CourtListener research."
+}
