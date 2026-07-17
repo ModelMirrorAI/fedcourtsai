@@ -2,7 +2,7 @@
 
 Exercises :mod:`fedcourtsai.integration_check` over the fixture corpus on the
 local backend, and over moto's S3 stand-in on the ranged backend — the offline
-mirror of what the integration-corpus workflow dispatches against the real
+mirror of what the integration-test workflow dispatches against the real
 remote. No test touches the network.
 """
 
@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import boto3
@@ -17,10 +20,15 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, corpus_ranged
+from fedcourtsai import corpus, corpus_ranged, corpus_service
 from fedcourtsai.cli import app
 from fedcourtsai.fixture import build_fixture_corpus
-from fedcourtsai.integration_check import IntegrationReport, render_markdown, run_integration_check
+from fedcourtsai.integration_check import (
+    IntegrationReport,
+    render_markdown,
+    run_integration_check,
+    run_service_check,
+)
 
 REMOTE_URL = "s3://test-bucket/store"
 
@@ -162,3 +170,44 @@ def test_cli_writes_summary_and_exits_by_verdict(corpus_db: Path, tmp_path: Path
         env=env,
     )
     assert failed.exit_code == 1
+
+
+# --- the service-backend counterpart ---------------------------------------
+
+
+@contextmanager
+def _service(db: Path) -> Iterator[str]:
+    server = corpus_service.create_server(db, backend="local")
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_service_check_passes_against_a_live_sidecar(corpus_db: Path) -> None:
+    with _service(corpus_db) as url:
+        report = run_service_check(service_url=url, court=COURT, docket=DOCKET)
+    assert report.ok and report.backend == "service"
+    assert [s.name for s in report.steps] == [
+        f"service query (court {COURT}, limit 5)",
+        "service open-events",
+    ]
+    # Local backend behind the service: no transfer counters, matching the CLI.
+    assert all(s.gets is None for s in report.steps)
+
+
+def test_service_check_fails_on_an_unknown_case(corpus_db: Path) -> None:
+    with _service(corpus_db) as url:
+        report = run_service_check(service_url=url, court="nowhere", docket=1)
+    assert not report.ok
+    assert not report.steps[0].ok and "no resolved priors" in report.steps[0].detail
+    assert not report.steps[1].ok
+
+
+def test_service_check_raises_when_the_sidecar_is_down(corpus_db: Path) -> None:
+    with pytest.raises(corpus_service.CorpusServiceError):
+        run_service_check(service_url="http://127.0.0.1:9", court=COURT, docket=DOCKET)

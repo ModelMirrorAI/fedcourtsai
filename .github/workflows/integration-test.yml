@@ -1,0 +1,169 @@
+name: integration-test
+
+# Live integration scenarios for the pieces a PR branch cannot exercise through
+# the trigger path: the corpus read backends, the credential-scoped corpus
+# sidecar, and the offline cascade over them. Each scenario is one dispatch,
+# strictly side-effect free: no corpus write, no git
+# write, no PR, no issue — results go to the Actions step summary and the run
+# log, and any cell output lands only in the runner's throwaway checkout.
+#
+# Manual dispatch only. Its own workflow rather than a run-analytics mode
+# because it is a preflight of the pipeline *infrastructure* itself, not an
+# analysis that answers a question about the data: it is dispatched around
+# changes to the read seams, the sidecars, and the corpus-consuming workflows —
+# run-analytics included, so the preflight should not live on a surface it
+# exists to check — and a distinct workflow gives release preflights their own
+# run history.
+#
+# The `deploy-environment` input is what makes pre-merge testing possible: a
+# dispatch from main uses the production `runner` environment as always, while
+# a dispatch from a PR branch can name a maintainer-approval-gated environment
+# (deployment-branch policy: any branch; protection rule: required reviewer)
+# holding the same read-only role and remote variables — so a branch's changed
+# read seams run against real infrastructure only after a human approves that
+# specific run. Until such an environment exists, a branch dispatch naming
+# `runner` is refused at its deployment-branch gate, and naming anything else
+# resolves no role variables — fail-closed twice over (the AWS trust policy
+# additionally pins the role to the runner environment; see docs/security.md
+# for what standing up the gated environment actually requires).
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Which integration scenario to run.
+        type: choice
+        default: ranged-reads
+        options:
+          - ranged-reads
+          - corpus-service
+          - stub-cascade
+      # The known-good case the scenarios target: it must exist in the corpus
+      # with at least one open (predictable) event and a stored snapshot. Swap
+      # the defaults if this case ever resolves out of shape.
+      court:
+        description: Court id of a known case with an open event and a snapshot.
+        type: string
+        default: ca1
+      docket:
+        description: Docket id of the known case.
+        type: string
+        default: "1000000"
+      deploy-environment:
+        description: >-
+          Deployment environment supplying the role/remote variables. Main
+          dispatches use `runner`; a branch dispatch names the
+          maintainer-approval-gated environment.
+        type: string
+        default: runner
+
+# Least privilege by default; the job widens only to what the scenarios need.
+permissions: {}
+
+# A superseded check has no value (every scenario is idempotent and
+# side-effect free), so a newer dispatch cancels an in-flight one.
+concurrency:
+  group: integration-test-${{ inputs.scenario }}
+  cancel-in-progress: true
+
+jobs:
+  scenario:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.deploy-environment }}
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role for the corpus reads
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      # --- ranged-reads: the fixed read set against the blob in place --------
+
+      # Ranged reads need only AWS credentials and the remote URL from the
+      # environment — never a full pull, never the blob on disk — so this
+      # assumes the read-only role directly instead of via the corpus-readonly
+      # composite, whose pull serves jobs that read the local file.
+      - name: Configure AWS credentials (read-only)
+        if: ${{ inputs.scenario == 'ranged-reads' || inputs.scenario == 'stub-cascade' }}
+        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # All the logic — the three reads, the non-empty assertions, the
+      # per-read GET/byte counters, the wall-clock budget, the Markdown
+      # summary — lives in the tested `corpus-integration-check` command; this
+      # step is one CLI call that fails the job on any empty read or a blown
+      # budget, so a pathology (a table scan, a cache regression) fails the
+      # run instead of hiding in the logs.
+      - name: Run the fixed ranged read set
+        if: ${{ inputs.scenario == 'ranged-reads' }}
+        env:
+          # Inputs pass through the environment (never interpolated into the
+          # shell) so a maintainer-supplied value cannot inject commands.
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-integration-check \
+            --court "$COURT" --docket "$DOCKET" \
+            --corpus-backend ranged \
+            --summary-out "$GITHUB_STEP_SUMMARY"
+
+      # --- corpus-service: the sidecar surface the live cells retrieve from --
+
+      # The same composite the cell workflows launch: assumes the role with
+      # step-scoped credentials, starts `fedcourts corpus-serve`, health-gates,
+      # and publishes the non-secret service URL job-wide. A branch dispatch
+      # therefore exercises the branch's own composite + service code.
+      - uses: ./.github/actions/corpus-sidecar
+        if: ${{ inputs.scenario == 'corpus-service' }}
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+
+      # The same tested command as the ranged read set, on the service
+      # backend: two reads through the exact client a cell's `service` backend
+      # forwards with, failing on an empty result or a blown budget.
+      - name: Run the service read set against the sidecar
+        if: ${{ inputs.scenario == 'corpus-service' }}
+        env:
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-integration-check \
+            --court "$COURT" --docket "$DOCKET" \
+            --corpus-backend service \
+            --summary-out "$GITHUB_STEP_SUMMARY"
+
+      # --- stub-cascade: provision -> predict -> validate, token-free --------
+
+      # One offline stub cascade cell with every corpus read on the ranged
+      # backend. Deterministic and token-free; the cell writes derived
+      # artifacts only into the runner's throwaway checkout — this job holds
+      # no write credential, so nothing can land anywhere.
+      - name: Run one stub cascade cell over the ranged backend
+        if: ${{ inputs.scenario == 'stub-cascade' }}
+        env:
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          FEDCOURTS_CORPUS_BACKEND: ranged
+        run: |
+          set -euo pipefail
+          {
+            echo ""
+            echo "## Stub cascade over the ranged backend"
+            echo ""
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
+            --engine stub | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
