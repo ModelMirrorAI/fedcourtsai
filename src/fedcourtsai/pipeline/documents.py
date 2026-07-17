@@ -141,14 +141,19 @@ def _entry_link(entry: Mapping[str, Any], *, prefer: str | None) -> tuple[str, s
 def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     """The fetchable predict-input documents on one docket JSON (pure).
 
-    The petition (its own link on the filing entry) and the brief in
-    opposition (the latest matching entry wins — a corrected BIO supersedes).
-    ``QPLink`` is deliberately never selected: it is generated at grant time
-    and leaks the outcome; the questions presented are derived from the
-    petition text instead (:func:`extract_questions_presented`).
+    The petition (its own link on the filing entry) and **every** non-amicus
+    brief in opposition — a petition with multiple respondents draws a BIO from
+    each, and taking only the last silently dropped the lead respondent's (the
+    most predictive one) whenever a secondary respondent filed later. All
+    distinct-URL BIOs are returned, in docket order; :func:`fetch_case_documents`
+    combines them into the single ``brief-in-opposition`` document. ``QPLink``
+    is deliberately never selected: it is generated at grant time and leaks the
+    outcome; the questions presented are derived from the petition text instead
+    (:func:`extract_questions_presented`).
     """
     petition: DocumentRef | None = None
-    bio: DocumentRef | None = None
+    bios: list[DocumentRef] = []
+    seen_bio_urls: set[str] = set()
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
             continue
@@ -160,9 +165,15 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
                 petition = DocumentRef(KIND_PETITION, found[0], entry_date, found[1])
         elif _is_bio_entry(text):
             found = _entry_link(entry, prefer="main document")
-            if found is not None:
-                bio = DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, found[1])
-    return [ref for ref in (petition, bio) if ref is not None]
+            if found is not None and found[0] not in seen_bio_urls:
+                seen_bio_urls.add(found[0])
+                # Carry the docket entry text (it names the respondent) as the
+                # description, not the generic "Main Document" link label — it
+                # heads this brief's block in the combined BIO document.
+                bios.append(
+                    DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, text.strip())
+                )
+    return [ref for ref in (petition, *bios) if ref is not None]
 
 
 def extract_pdf_text(data: bytes, *, char_cap: int) -> ExtractedText:
@@ -217,6 +228,80 @@ def extract_questions_presented(petition_text: str) -> str | None:
     return None
 
 
+def _combine_bio_documents(
+    client: SupremeCourtClient,
+    case_id: str,
+    bio_refs: list[DocumentRef],
+    *,
+    stored_url: str | None,
+    char_cap: int,
+    today: date,
+) -> corpus.CaseDocument | None:
+    """Fetch every opposition brief and combine them into one BIO document.
+
+    A petition with several respondents draws a BIO from each; they are stored
+    as the single ``brief-in-opposition`` document with a per-brief header, so
+    a fan-out reads the whole opposition as one byte-identical input. Idempotent
+    on the *set* of URLs (a canonical join, so single-BIO cases stay
+    byte-compatible with the old single-URL key): the set is re-fetched only
+    when a brief is added or superseded. The combined text is capped at
+    ``char_cap`` total, earliest brief first (the lead respondent's, typically);
+    a failed fetch of one brief never drops the others.
+    """
+    if not bio_refs:
+        return None
+    # Idempotency key is the SELECTED set: skip only when we already hold exactly
+    # these briefs. Because the stored key records the set we actually *fetched*
+    # (below), a brief that failed to download last poll — the rolling-window
+    # "missing document is expected" case — leaves the stored key short of the
+    # selected set, so the next poll re-fetches and self-heals instead of being
+    # skipped forever.
+    if stored_url == "|".join(sorted(ref.url for ref in bio_refs)):
+        return None
+    single = len(bio_refs) == 1
+    fetched_urls: list[str] = []
+    blocks: list[str] = []
+    pages = 0
+    truncated = False
+    for ref in bio_refs:
+        try:
+            data = client.get_document(ref.url)
+        except httpx.HTTPError:
+            continue
+        if data is None:
+            continue
+        extracted = extract_pdf_text(data, char_cap=char_cap)
+        fetched_urls.append(ref.url)
+        if single:
+            blocks.append(extracted.text)  # a lone BIO stays raw (no header)
+        else:
+            heading = ref.description or "Brief in opposition"
+            if ref.entry_date:
+                heading = f"{heading} ({ref.entry_date})"
+            blocks.append(f"=== {heading} ===\n{extracted.text}")
+        pages += extracted.pages
+        truncated = truncated or extracted.truncated
+    if not fetched_urls:
+        return None
+    text = "\n\n".join(blocks)
+    if len(text) > char_cap:
+        text = text[:char_cap]
+        truncated = True
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_BRIEF_IN_OPPOSITION,
+        # The canonical join of the briefs actually FETCHED — the idempotency
+        # key (see above), not a single fetchable URL. Nothing GETs a stored
+        # CaseDocument.url; the individual DocumentRef.url values are what fetch.
+        url="|".join(sorted(fetched_urls)),
+        entry_date=bio_refs[-1].entry_date,  # the latest filing's date
+        fetched_at=today,
+        pages=pages,
+        truncated=truncated,
+        text=text,
+    )
+
+
 def fetch_case_documents(
     client: SupremeCourtClient,
     case_id: str,
@@ -231,15 +316,22 @@ def fetch_case_documents(
     Idempotent against ``stored_urls`` (the already-stored kind → url mapping):
     a document whose URL is unchanged is not re-fetched, so a relist that
     re-fires the distribution trigger costs nothing when the filings are
-    unchanged, while a superseding filing (a re-filed BIO at a new URL) is.
-    The questions presented are **derived** from the petition text — never the
-    outcome-bearing ``QPLink`` — whenever the petition itself was (re)fetched.
-    A missing or unextractable document degrades to a skip / an empty-text row;
-    an upstream error skips just that document, never the poll.
+    unchanged, while a superseding filing (a re-filed BIO at a new URL, or a new
+    respondent's BIO joining the set) is. The multiple opposition briefs of a
+    multi-respondent case are combined into the one ``brief-in-opposition``
+    document (:func:`_combine_bio_documents`). The questions presented are
+    **derived** from the petition text — never the outcome-bearing ``QPLink`` —
+    whenever the petition itself was (re)fetched. A missing or unextractable
+    document degrades to a skip / an empty-text row; an upstream error skips
+    just that document, never the poll.
     """
+    refs = select_documents(payload)
+    bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
     documents: list[corpus.CaseDocument] = []
     petition: corpus.CaseDocument | None = None
-    for ref in select_documents(payload):
+    for ref in refs:
+        if ref.kind == KIND_BRIEF_IN_OPPOSITION:
+            continue  # combined as a group below
         if stored_urls.get(ref.kind) == ref.url:
             continue
         try:
@@ -262,6 +354,16 @@ def fetch_case_documents(
         documents.append(document)
         if ref.kind == KIND_PETITION:
             petition = document
+    bio = _combine_bio_documents(
+        client,
+        case_id,
+        bio_refs,
+        stored_url=stored_urls.get(KIND_BRIEF_IN_OPPOSITION),
+        char_cap=char_cap,
+        today=today,
+    )
+    if bio is not None:
+        documents.append(bio)
     if petition is not None and petition.text:
         questions = extract_questions_presented(petition.text)
         if questions is not None:
