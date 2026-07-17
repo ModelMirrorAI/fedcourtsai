@@ -1,0 +1,358 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "8d8eca2260e24cf2",
+      "query": "{\"strategic_intent\": \"Read the specified files to understand the prediction prompt contract and agent guidelines.\", \"title\": \"Initial Setup and Context Reading\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:40.991Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:43.306Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:43.306Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c37ef423c04bc682",
+      "query": "cat data/cases/scotus/73281681/events/evt-petition-disposition/event.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:48.427Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ef3ea19834c55d3e",
+      "query": "cat data/cases/scotus/73281681/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:48.428Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "49b50dc62c09ee5c",
+      "query": "cat data/cases/scotus/73281681/record/snapshot.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:48.429Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1a000f44d03b487a",
+      "query": "ls -la data/cases/scotus/73281681",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:51.981Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3c97f9fa9a9eb74c",
+      "query": "ls -la data/cases/scotus/73281681/record",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:54.286Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "92e9820b74e27704",
+      "query": "ls -la data/cases/scotus/73281681/events/evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:54.286Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "627f958392fec571",
+      "query": "ls -la data/cases/scotus/73281681/record/snapshots",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:57.180Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f46969020dc4baa9",
+      "query": "cat data/cases/scotus/73281681/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:57.180Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e80e30f1292c05f5",
+      "query": "ls -la data/cases/scotus/73281681/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:57.181Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ca385c68b504f5fe",
+      "query": "cat data/cases/scotus/73281681/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:01.044Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "25ac3b6134ee5b04",
+      "query": "cat data/cases/scotus/73281681/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:01.045Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "31fa7183e58d71a7",
+      "query": "cat data/cases/scotus/73281681/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:01.045Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:05.866Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "767bbcf57de32411",
+      "query": "uv run fedcourts query --court scotus \"unconstitutional conditions doctrine Nollan Dolan Koontz monetary exactions Takings Clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:05.866Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:09.735Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:09.735Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6e64ab6f5917d2bd",
+      "query": "\"Nollan\" AND \"Dolan\" AND \"Koontz\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:14.683Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "181233c64737cd34",
+      "query": "grep -n \"Segment base rate\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:14.683Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "660c327d64652020",
+      "query": "cat metrics/statpack.md | grep -A 30 \"by originating circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:20.621Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c3527dda1588d88",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:20.621Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "24e6c93cf22c5988",
+      "query": "grep \"^##\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:23.374Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0329580f94cc0d2c",
+      "query": "cat metrics/statpack.md | grep -A 40 \"SCOTUS cert petitions by Term\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:25.915Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b61d74d0a06a6509",
+      "query": "\"SoHo\" AND \"NoHo\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:33.084Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "c2c40db4856c9fe0",
+      "query": "uv run fedcourts query --court scotus --limit 1 --full \"Sheetz v. El Dorado County\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:41.199Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10aa4d0ec489a14b",
+      "query": "\"Sheetz\" AND \"monetary demands\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:41.201Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:48.516Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0132189bfaa6c8e9",
+      "query": "uv run fedcourts query --court scotus --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:52.811Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b5195b8d318eb91e",
+      "query": "uv run fedcourts query --court scotus --limit 1 --corpus-backend service",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:57.098Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "017485cd50dd2b4b",
+      "query": "uv run fedcourts query --court scotus --limit 1 --corpus-backend ranged",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:01.722Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fa61c22100da229e",
+      "query": "mkdir -p data/cases/scotus/73281681/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:06.224Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:11.089Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:24.081Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "271db4d3f0e487a7",
+      "query": "cat schemas/agent_flags.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:30.489Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "445e8a46b679ed24",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281681\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:57:11Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.85,\\n  \\\"big_case_rationale\\\": \\\"High-profile Takin",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:42.230Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bbd4bb4fd4706402",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Case Context & Legal Question\\nThe case involves a challenge by SoHo and NoHo loft residents to a New York City zoning regulation. To transition lofts from a restrictive artist-only occupancy designation to standard residential, the City requires residents to pay hundreds of thousands of dollars into a City-administered \\\"Arts Fund\\\" in exchange for a conversion permit. The New York Court of Appeals refused to apply the Takings Clause unconstitutional conditions do",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:42.234Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2daf71ee941ab538",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n### Provisioned Inputs\\n- Event definition: `data/cases/scotus/73281681/events/evt-petition-disposition/event.yaml`\\n- Baseline snapshot: `data/cases/scotus/73281681/record/snapshots/2026-07-17.json`\\n- Petition (`petition.txt`) and Questions Presented (`questions-presented.txt`)\\n\\n### Corpus & Base Rates\\n- Read `metrics/statpack.md` to establish the baseline grant rate for modern discretionary cert petitions and to review the signal cuts for originating circuit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:42.238Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0aab9c29d888410a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281681\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"cat\\\",\\n    \\\"grep\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The MCP search correctly surfaced recent Takings clause cases like *Sheetz* when searching for the main precedents.\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"fedcourts query faile",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:48.641Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "aca6968c9ab0cadd",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281681\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"fedcourts query corpus-backend ranged failed because FEDCOURTS_CORPUS_SERVICE_URL or corpus_remote_url is not set in this environment.\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\"\\n    }\\n  ],\\n  \\\"schema_version\\\": \\\"1.0\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:48.644Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:53.128Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "204e79ed786b9191",
+      "query": "{\"strategic_intent\": \"Finalizing task. All artifacts generated and validated.\", \"title\": \"Complete Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:56.101Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281681",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

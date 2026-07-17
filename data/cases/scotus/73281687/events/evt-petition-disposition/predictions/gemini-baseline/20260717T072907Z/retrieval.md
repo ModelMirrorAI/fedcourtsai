@@ -1,0 +1,4 @@
+- `uv run fedcourts query --topic "Civil Rights: Other" --limit 5` (Failed: `No corpus at corpus/corpus.db`)
+- `uv run fedcourts query --topic "Civil Rights: Other" --corpus-backend ranged --limit 5` (Failed: `RangedBackendError`)
+- CourtListener MCP Server `mcp_courtlistener_search` tool: `q="Michael Mendenhall" Denver`, `type=d` (Found 10th Circuit underlying case `25-1081`)
+- Google Search tool: `"Mendenhall v. Denver" "10th Cir." or "Tenth Circuit" Fourth Amendment hearsay warrant` (Found background on the Institute for Justice's goal to overrule *Jones v. United States*)

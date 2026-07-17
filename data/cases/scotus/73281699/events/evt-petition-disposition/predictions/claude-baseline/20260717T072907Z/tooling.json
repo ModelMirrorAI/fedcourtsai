@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73281699",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "provisioned snapshot + petition/BIO document texts",
+    "WebSearch"
+  ],
+  "helpful": [
+    "The provisioned petition and brief-in-opposition texts were excellent — the BIO in particular carried the vehicle-defect analysis that drove the prediction; no CourtListener retrieval was needed at all.",
+    "The statpack's relist/CVSG signal cuts and per-Term grant rates gave concrete anchors for the CFR adjustment."
+  ],
+  "gaps": [
+    "The statpack has no call-for-response (CFR) cut, which was the single strongest live signal on this docket (respondent waived, Court requested a response); the CFR grant-rate multiplier had to come from general knowledge rather than corpus data.",
+    "The 'Segment base rate by salience band' table the prompt points to is not present in the committed statpack.md, so the recommended band anchor was unavailable.",
+    "Three fedcourts query calls (citation- and topic-filtered, era 2020s) returned zero rows despite the corpus holding ~2,200 live/historical cases — either the citation index does not cover cert-stage papers or the filters are too exact to be useful for issue-similarity retrieval."
+  ],
+  "notes": "Forward-mode cell, cleanly provisioned; snapshot fetched the same day as the run and included the BIO filed four days earlier."
+}

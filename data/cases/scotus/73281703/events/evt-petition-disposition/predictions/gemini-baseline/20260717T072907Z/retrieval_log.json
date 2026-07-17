@@ -1,0 +1,374 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "314935ebac65382f",
+      "query": "{\"strategic_intent\": \"Read the prompt contract and agent guidelines to understand the prediction task.\", \"summary\": \"I am starting by reading the prediction prompt contract (.github/prompts/predict.md) and the agent guidelines (AGENTS.md) to understand the requirements, expected output files, and the rules for generating a prediction.\", \"title\": \"Analyze Prediction Guidelines\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:22.496Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:24.428Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:24.429Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "08cec2ffa0e02308",
+      "query": "{\"strategic_intent\": \"Resolve paths for the provisioned inputs for this specific prediction cell.\", \"summary\": \"I am running the `fedcourts paths` command as instructed by the predictor guidelines to get the exact file paths for the case facts and where I should write my prediction outputs.\", \"title\": \"Retrieve Case Paths\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:29.233Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d7c2d9fa2e4dfb42",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281703\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:34.794Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dd2a0a0f62c095cc",
+      "query": "ls -la data/cases/scotus/73281703/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:36.988Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9b9dcf28e89d6609",
+      "query": "ls -R data/cases/scotus/73281703/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:41.101Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b7c320d90a73fdec",
+      "query": "{\"strategic_intent\": \"Read the provisioned case facts and schema to prepare for prediction.\", \"summary\": \"I am reading the JSON schema for predictions, as well as all provisioned inputs for case 73281703 (snapshot, event definition, context, and document text) to understand the facts of the case before formulating a prediction.\", \"title\": \"Read Case Facts and Schema\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:44.300Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:46.635Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "975c327de89e09ab",
+      "query": "{\"file_path\": \"data/cases/scotus/73281703/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:46.636Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "63e401680a631514",
+      "query": "{\"file_path\": \"data/cases/scotus/73281703/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:46.636Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "aaccd995fb206d7e",
+      "query": "{\"strategic_intent\": \"Read the snapshot and available documents to gather details on the petition.\", \"summary\": \"I am reading the JSON snapshot of the case and checking what document texts (like the petition or questions presented) are available in the record folder. This will give me the substantive facts of Brandi Greer v. Benton School District needed to make the prediction.\", \"title\": \"Read Case Snapshot and Documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:49.642Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "19a967f40e3b9c6c",
+      "query": "{\"file_path\": \"data/cases/scotus/73281703/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:51.957Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c554bc7d4023799a",
+      "query": "{\"file_path\": \"data/cases/scotus/73281703/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:51.957Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e59d2c3dbfb6d2b8",
+      "query": "{\"strategic_intent\": \"Read the specific text of the petition and questions presented to determine the legal issue at stake in Brandi Greer v. Benton School District.\", \"summary\": \"I am reading the questions presented and the beginning of the petition for writ of certiorari. This will help me understand the core legal issue, the circuit split (if any), and the factual background to evaluate the likelihood of the Supreme Court granting the petition.\", \"title\": \"Analyze Questions Presented and Peti",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:56.542Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "1f756fc146991a0b",
+      "query": "{\"end_line\": 50, \"file_path\": \"data/cases/scotus/73281703/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:59.251Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "811f9532816d35c3",
+      "query": "{\"file_path\": \"data/cases/scotus/73281703/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:59.251Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "88cc87bdf68698e2",
+      "query": "{\"strategic_intent\": \"Read the introduction and reasons for granting the petition to assess the strength of the petitioner's argument.\", \"summary\": \"I am reading the beginning of the petition for writ of certiorari to identify the key arguments made by the petitioner, particularly whether they allege a split among lower courts on the issue of independent contractors under the Rehabilitation Act. This split is often the primary reason the Supreme Court grants a petition.\", \"title\": \"Evaluate the ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:02.223Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "08e328843c645c2b",
+      "query": "{\"end_line\": 250, \"file_path\": \"data/cases/scotus/73281703/record/documents/petition.txt\", \"start_line\": 100}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:04.831Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0672dcb9fdf3cdf5",
+      "query": "{\"strategic_intent\": \"Read the statistical base rates from the corpus to anchor the prediction mathematically.\", \"summary\": \"I am reading the project's statpack.md file to determine the base rate for cert grants, specifically looking at the base rate for paid petitions where a response was requested but no relists or CVSG have occurred yet. I will also check the salience bands to see how the statistical model rates cases with these signals.\", \"title\": \"Review Statistical Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:10.614Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ef2af80e14477d2e",
+      "query": "grep -A 20 \"Modern discretionary-cert petitions\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:12.752Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cf5132d91fff64bc",
+      "query": "grep -A 30 \"Segment base rate by salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:12.753Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c3a0c1d674ee6964",
+      "query": "grep \"^## \" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:16.994Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "087a07bf39f8b676",
+      "query": "grep -A 50 \"## SCOTUS cert petitions by Term\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:19.221Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ccfe502c2a3dd197",
+      "query": "grep -A 10 \"## Cert petitions by CVSG status\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:21.755Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8fc52b6505a0fc78",
+      "query": "grep -A 10 \"## Cert petitions by relist count\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:21.755Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c313cb69b6baa7a9",
+      "query": "{\"strategic_intent\": \"Run a query on the corpus to find prior SCOTUS cases dealing with Section 504 of the Rehabilitation Act and independent contractors.\", \"summary\": \"I am using the `fedcourts query` tool to search the corpus for similar historical petitions involving the Rehabilitation Act, Section 504, and independent contractors. This will help determine the baseline grant rate for this specific legal issue and whether the Supreme Court typically grants certiorari to resolve splits on this ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:29.101Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "686cc215f817020a",
+      "query": "uv run fedcourts query --court scotus \"Rehabilitation Act independent contractors section 504\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:32.265Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:34.610Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "85639afd4326bfb1",
+      "query": "{\"strategic_intent\": \"Use the CourtListener MCP search tool to investigate the circuit split regarding the Rehabilitation Act and independent contractors.\", \"summary\": \"Since the corpus query tool doesn't support full-text search, I am using the `mcp_courtlistener_search` tool to search for opinions discussing Section 504 of the Rehabilitation Act and independent contractors. This will confirm the existence and depth of the circuit split claimed in the petition, informing the likelihood of cert ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:38.968Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "763fa78c41363b81",
+      "query": "\"Rehabilitation Act\" AND \"independent contractor\" AND \"504\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:41.846Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "5f72beccd5388a36",
+      "query": "{\"strategic_intent\": \"Find the salience band base rates in the statpack to properly calculate the probability of a grant.\", \"summary\": \"I need to look up the exact base rate for the petition's salience band in `metrics/statpack.md`, as instructed by the predictor guidelines. I am using `grep` to find the term \\\"salience\\\" in the file to locate the correct table.\", \"title\": \"Look Up Salience Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:49.360Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "5da06136bea0aa50",
+      "query": "grep -A 20 -i \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:51.723Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:53.939Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "33859a925c506abb",
+      "query": "jq -c '.tables | keys' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:56.277Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "651031c5c6fde282",
+      "query": "head -n 20 metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:59.291Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2839bffd11d099dc",
+      "query": "grep -C 5 \"salience\" metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:14.690Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f2036c9861c017bf",
+      "query": "{\"strategic_intent\": \"Generate the final prediction output files based on the analyzed facts, circuit split, and statistical base rates.\", \"summary\": \"I am formatting the collected information into the required outputs: `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`. This will fulfill the prediction task by providing a probabilistic forecast of whether the Supreme Court will grant the petition in Brandi Greer v. Benton School District.\", \"title\": \"Generate Prediction Outpu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:23.233Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "c423403e67df6f39",
+      "query": "mkdir -p data/cases/scotus/73281703/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/ && date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:34.190Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9c575563f34e6688",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281703\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T08:00:34Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281703/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:45.637Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d2184160bc13d2f7",
+      "query": "{\"content\": \"# Reasoning: Brandi Greer v. Benton School District\\n\\n## Legal Question\\nWhether independent contractors have the same right as employees to sue for discrimination under section 504 of the Rehabilitation Act, 29 U.S.C. \\u00a7 794.\\n\\n## Case Facts and Posture\\nThis is a paid petition (Case 25-1197) arising from the Supreme Court of Arkansas. The petitioner, represented by the UCLA Supreme Court Clinic, alleges a deep circuit split on whether Section 504 of the Rehabilitation Act ex",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:45.640Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5a9f5d401c9cce24",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Read `metrics/statpack.md` and `metrics/statpack.json` to identify base grant rates for paid cert petitions.\\n- Ran MCP CourtListener search tool: `q=\\\"Rehabilitation Act\\\" AND \\\"independent contractor\\\" AND \\\"504\\\"`. This confirmed the circuit split cited in the petition (e.g., between the 5th Circuit in *Flynn* and the 8th Circuit in *Wojewski*).\", \"file_path\": \"data/cases/scotus/73281703/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:45.643Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f592e8eb43dcb3df",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281703\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\"],\\n  \\\"helpful\\\": [\\\"mcp_courtlistener_search was excellent for confirming the circuit split in lieu of full-text corpus search.\\\"],\\n  \\\"gaps\\\": [\\\"Could not locate the 'Segment base rate by salience band' table mentioned in the pro",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:45.646Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:50.594Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "36d59498b26d7234",
+      "query": "{\"strategic_intent\": \"Complete the prediction task and leave the results for the workflow.\", \"summary\": \"I have successfully generated `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` and validated them against the schema. The files are written to the correct directory, and my task as a predictor is complete.\", \"title\": \"Finish Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T08:00:56.694Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281703",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281702",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "The MCP tool was useful to quickly verify the absence of recent SCOTUS opinions cleanly resolving the 'continuous sexual abuse' unanimity question.",
+    "The statpack provided baseline context."
+  ],
+  "gaps": [
+    "Free-text corpus query for priors would be more direct than relying entirely on MCP for text searches."
+  ],
+  "notes": "Cell ran successfully in forward mode."
+}

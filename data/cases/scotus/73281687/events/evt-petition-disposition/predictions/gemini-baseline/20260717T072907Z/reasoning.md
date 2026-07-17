@@ -1,0 +1,10 @@
+## Legal Question and Standards
+The petitioner, Michael Mendenhall, represented by the Institute for Justice, asks the Supreme Court to overrule *Jones v. United States*, 362 U.S. 257 (1960), and hold that the Fourth Amendment requires a witness with firsthand knowledge to swear an oath before a warrant can issue, effectively arguing that hearsay cannot satisfy the Warrant Clause's "Oath or affirmation" requirement.
+
+## Snapshot Facts and Pre-Decision Record
+The case arises from the Tenth Circuit, which affirmed the dismissal of Mendenhall's claims, noting it was bound by *Jones*. The petition has generated significant interest, supported by four cert-stage amicus briefs (Kenneth Walker et al., Law Enforcement Action Partnership, Civil Rights Attorneys, Law Scholars). The Court distributed the case for the June 18, 2026 conference and issued a Call for Response (CFR) on June 15, prompting the City and County of Denver to file a Brief in Opposition on July 14, 2026.
+
+## Reasoning
+The presence of a Call for Response and four amicus briefs at the cert stage are strong signals that at least one Justice is interested in the case, elevating its chances above the baseline grant rate of 1-3%. The originalist argument against *Jones* might appeal to several current members of the Court.
+
+However, the Court is generally hesitant to overrule long-standing precedent under the doctrine of *stare decisis*. Overruling *Jones* to prohibit hearsay in warrant applications would cause massive disruption to standard police practices and the criminal justice system nationwide, as officers routinely rely on informants and information relayed by other officers to establish probable cause. Even with strong signals of interest, the sweeping nature of the requested relief makes it an unlikely candidate for a grant. The Court may prefer to deny cert or look for a narrower vehicle if it wishes to trim *Jones*. Thus, I predict a denial, but with a non-trivial probability.

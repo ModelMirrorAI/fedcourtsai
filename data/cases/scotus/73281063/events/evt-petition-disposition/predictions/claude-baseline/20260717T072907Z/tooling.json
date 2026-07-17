@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281063",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus reads)",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP call_endpoint (dockets, docket-entries)",
+    "web search + fetch (companion-docket status verification)"
+  ],
+  "helpful": [
+    "Provisioned petition/BIO full text — the SG's split recommendation (grant 25-1017, deny 25-1022) was the single most predictive fact and lived only in the BIO",
+    "Corpus query --include-open: surfaced the companion's date_cert_granted=2026-06-29, the decisive forward signal",
+    "statpack relist-count cut for calibrating the hold/relist pattern"
+  ],
+  "gaps": [
+    "fedcourts query cannot filter by docket number or case name — finding a named companion docket required pulling up to 1000 ranked rows and grepping; a --docket-number/--case-name filter would make companion lookups one call",
+    "CourtListener MCP has no docket entries for SCOTUS dockets (search and docket-entries both empty), so live SCOTUS order-list status has to come from the corpus or the open web",
+    "A provisioned pointer to companion/linked dockets (the snapshot's 'Links: 25A674' and the VIDED entries imply them) with their current status would have saved most of the retrieval budget"
+  ],
+  "notes": "Citation-filtered corpus query returned zero rows for heavily-cited authorities (570 U.S. 1, 555 U.S. 488); citation matching may be sparse for cert-stage dockets."
+}

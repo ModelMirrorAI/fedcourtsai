@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281703",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP search (opinions)",
+    "provisioned petition.txt / questions-presented.txt"
+  ],
+  "helpful": [
+    "The provisioned full petition text was the single most valuable input — the split map, vehicle claims, and respondent's concession all came from it.",
+    "The per-Term paid/IFP fee-class grant rates in statpack.json gave a much better anchor (paid ~5.4%) than the blended ~2.5% rate."
+  ],
+  "gaps": [
+    "A 'response requested (CFR)' cut in the statpack, analogous to the relist and CVSG cuts — the CFR is the dominant observable signal for this cell and I had to estimate its lift from general knowledge.",
+    "The prompt-referenced 'Segment base rate by salience band' table is absent from the committed statpack build.",
+    "fedcourts query --citation returned 0 rows for both a statute and case citations at scotus scope; cert-stage dockets likely lack opinion-text citation indexing, making the priors surface near-useless for cert cells.",
+    "A BIO was not yet filed, so nothing to weigh against the petition — expected for a pending case, not a tooling defect."
+  ],
+  "notes": "Forward cell in clean shape: fresh snapshot (through Jul 15, 2026), full petition text, no leakage encountered."
+}

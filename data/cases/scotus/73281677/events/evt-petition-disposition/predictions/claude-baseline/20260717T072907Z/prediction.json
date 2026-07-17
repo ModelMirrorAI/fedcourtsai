@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281677",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260717T072907Z",
+  "created_at": "2026-07-17T07:40:00Z",
+  "input_snapshot": "data/cases/scotus/73281677/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.01,
+  "predicted_disposition": "denied",
+  "confidence": 0.92,
+  "votes": [],
+  "big_case_score": 0.12,
+  "big_case_rationale": "Narrow military-justice procedural question (CCA authority over a since-abolished Air Force indexing memorandum); Second Amendment-adjacent but the Court denied the identical QP twice this Term and the Air Force has removed the practice.",
+  "reasoning_doc": "reasoning.md"
+}

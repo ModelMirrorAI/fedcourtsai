@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73281063",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["cat", "grep", "head", "ls"],
+  "helpful": ["The statpack.md file is very useful for anchoring base probabilities (relist and overall rates).", "Providing the text of the BIO was crucial for understanding the SG's position."],
+  "gaps": ["Would be nice to have easier access to the `fedcourts query` tool through an MCP interface, as command line parsing of complex strings can fail."]
+}

@@ -1,0 +1,326 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "eba9893e5e6f0c9b",
+      "query": "{\"strategic_intent\": \"Read instructions and prompt constraints for prediction task.\", \"title\": \"Read Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:25.744Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:27.963Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:27.963Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ecabedbbf46a6007",
+      "query": "uv run fedcourts paths --court scotus --docket 73281674 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:33.707Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ab96ea1da786bd49",
+      "query": "ls -la data/cases/scotus/73281674/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:36.628Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "47689c3fe74cee17",
+      "query": "tree data/cases/scotus/73281674",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:40.051Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "52375388cc60da69",
+      "query": "{\"file_path\": \"data/cases/scotus/73281674/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:43.330Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6048297347c9c4dc",
+      "query": "{\"file_path\": \"data/cases/scotus/73281674/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:43.330Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "882d5de0b1831baa",
+      "query": "{\"file_path\": \"data/cases/scotus/73281674/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:43.331Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2337b7b9dcc61af6",
+      "query": "cat data/cases/scotus/73281674/record/documents/questions-presented.txt 2>/dev/null || echo \"No questions-presented.txt\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:46.640Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4aa89a63b7271fdc",
+      "query": "cat data/cases/scotus/73281674/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:50.470Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc6a04c39e92eeb0",
+      "query": "head -n 50 data/cases/scotus/73281674/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:52.846Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5cbdfc8717a604b8",
+      "query": "grep -n \"REASONS FOR GRANTING THE PETITION\" data/cases/scotus/73281674/record/documents/petition.txt -A 100",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:55.702Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "69f1557ae029a5d5",
+      "query": "grep -n \"II. The Third Circuit\" data/cases/scotus/73281674/record/documents/petition.txt -A 100",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:59.480Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7f9e500241fb8520",
+      "query": "grep -n \"III. The Panel\" data/cases/scotus/73281674/record/documents/petition.txt -A 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:01.986Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5655f5b9a4a80c98",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:06.036Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c3527dda1588d88",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:09.807Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1ce5d4ca11ce66db",
+      "query": "grep -i \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:13.120Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b73885dbc2ed7969",
+      "query": "uv run fedcourts query --court scotus \"National Labor Relations Board\" --limit 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:16.682Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:19.601Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f561a3e3ef37c613",
+      "query": "\"Thryv, Inc.\" \"consequential damages\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:27.531Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "7e5eddba8b5fc9e0",
+      "query": "head -n 100 data/cases/scotus/73281674/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:34.705Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ee16abe56542ad42",
+      "query": "grep -A 50 \"INTRODUCTION\" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:37.796Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "53c2da586bcc5f9e",
+      "query": "grep -A 20 \"jurisdictionally barred\" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:40.649Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c1a15b3c3c8292f9",
+      "query": "grep -A 30 \"III.\" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:44.543Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cba8b0169e0a933d",
+      "query": "grep -A 30 \"I. PG\u2019s First Question Presents a Legal\" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:48.041Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4cd8516f3809525c",
+      "query": "grep -n \"I. PG\u2019s First\" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt -A 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:50.870Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "99842b799ef5884b",
+      "query": "grep -n \"^I\\. \" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt -A 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:53.733Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "08fca45153e608a3",
+      "query": "grep -n \"I\\. \" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:56.707Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "800ddd35754b10f0",
+      "query": "grep -n \"REASONS FOR DENYING THE WRIT\" data/cases/scotus/73281674/record/documents/brief-in-opposition.txt -A 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:01.089Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a5fbefe48eaf5793",
+      "query": "mkdir -p data/cases/scotus/73281674/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:17.050Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "807177823d09c011",
+      "query": "cat << 'EOF' > data/cases/scotus/73281674/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/prediction.json\n{\n  \"case_id\": \"scotus/73281674\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"run_id\": \"20260717T072907Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-07-17T07:29:07Z\",\n  \"input_snapshot\": \"data/cases/scotus/73281674/record/snapshots/2026-07-17.json\",\n  \"granted\": 0,\n  \"probability\": 0.04,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:29.449Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:38.142Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "91964f04eae7fb0d",
+      "query": "cat << 'EOF' > data/cases/scotus/73281674/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/reasoning.md\nThis case presents three questions arising from an NLRB finding of bad-faith bargaining and the subsequent remedial order against the Pittsburgh Post-Gazette.\n\n1. **Surface Bargaining:** Whether bad faith can be inferred solely from the substance of an employer's proposals.\n2. **Loper Bright Application:** Whether the Third Circuit's deferential review of the NLRB's",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:43.695Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dcdc3ee52a3666af",
+      "query": "cat << 'EOF' > data/cases/scotus/73281674/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/retrieval.md\n1. **Corpus context (base rates):** Read `metrics/statpack.md` to review the cert grant base rate for modern discretionary-cert petitions and the circuit distribution.\n2. **CourtListener MCP search:** Searched for `q: \"Thryv, Inc.\" \"consequential damages\"`, `type: o` to verify the state of the circuit split regarding the NLRB's *Thryv* remedy. The search confirmed a",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:47.892Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0d920b2a76e090e0",
+      "query": "{\"content\": \"1. **Corpus context (base rates):** Read `metrics/statpack.md` to review the cert grant base rate for modern discretionary-cert petitions and the circuit distribution.\\n2. **CourtListener MCP search:** Searched for `q: \\\"Thryv, Inc.\\\" \\\"consequential damages\\\"`, `type: o` to verify the state of the circuit split regarding the NLRB's *Thryv* remedy. The search confirmed a split, surfacing Fifth Circuit cases (e.g., *Thryv*, *Hiran Management*) that vacated the remedy, alongside other",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:52.606Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "63e482e3a94e11e2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281674\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"CourtListener MCP server\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"CourtListener MCP search was extremely helpful in validating the scope of the circuit split described in the petition.\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"The provided documents and base rate",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:56.228Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:00.321Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c358c7388d8fdf0a",
+      "query": "{\"strategic_intent\": \"Finalize prediction task.\", \"summary\": \"I have completed the prediction task for the SCOTUS petition. The output files `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` have been written to the specified path, and they pass data validation. The case involves an NLRB finding of bad-faith bargaining and the *Thryv* remedy, but vehicle issues make a denial highly likely.\", \"title\": \"Prediction Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:04.036Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281674",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

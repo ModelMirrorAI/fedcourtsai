@@ -1,0 +1,302 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "fc3acbc500eaa770",
+      "query": "{\"strategic_intent\": \"Read the required documentation to understand the prompt contract and agent guidelines.\", \"summary\": \"I will start by reading `.github/prompts/predict.md` and `AGENTS.md` to understand how to produce the required prediction for the specified cell, including the output file formats and any specific rules.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:27.521Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:29.968Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:29.968Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "22d8963957fc419e",
+      "query": "ls -la data/cases/scotus/73281654",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:33.353Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f034c3953963b422",
+      "query": "ls -R data/cases/scotus/73281654/record",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:35.388Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f56640c087ad208e",
+      "query": "{\"file_path\": \"data/cases/scotus/73281654/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:37.935Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fedeb17f3ad48fbe",
+      "query": "{\"file_path\": \"data/cases/scotus/73281654/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:40.131Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f6b33cabc8f8c66f",
+      "query": "{\"file_path\": \"data/cases/scotus/73281654/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:43.123Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c5e309f7d3388841",
+      "query": "{\"file_path\": \"data/cases/scotus/73281654/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:47.922Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d13887ba95bccede",
+      "query": "{\"file_path\": \"data/cases/scotus/73281654/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:47.923Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "77ec10d5c4d3b9a1",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.666Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e0af765380745ca7",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.667Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "29ba96e85e23f23d",
+      "query": "cat metrics/statpack.md | grep -A 20 -i \"salience\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:54.396Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "13c7686f3de74189",
+      "query": "cat metrics/statpack.md | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:56.678Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf07ae7268c7f8c4",
+      "query": "cat metrics/statpack.md | grep \"##\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:02.228Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b0c258bb8fdd9591",
+      "query": "cat metrics/statpack.md | grep -A 40 \"SCOTUS cert petitions by Term\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:04.776Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9caeda34ea80df92",
+      "query": "cat metrics/statpack.json | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:07.339Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "90fa994d3e1ba281",
+      "query": "cat metrics/statpack.json | grep -i \"salience\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:11.028Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a88530dfe888d639",
+      "query": "cat metrics/statpack.md | grep \"cafc\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:14.304Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2c451cf8cbd28806",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"Breach of trust Winters doctrine Indian tribe water rights money mandate\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:21.751Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "94e3760fe6728f31",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:24.513Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a6643e92a09425a5",
+      "query": "Winnemucca Indian Colony",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:27.999Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "3181c5f1e4ea6bed",
+      "query": "\"Navajo Nation\" \"Winters\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:31.457Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "899a3c3a1303562e",
+      "query": "uv run fedcourts query --court scotus --disposition denied --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:41.634Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d961c34f3279eb4d",
+      "query": "uv run fedcourts query --court scotus --corpus-backend ranged --limit 3",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:45.056Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cd406395e4de8a7e",
+      "query": "{\"content\": \"- CourtListener MCP search for `Winnemucca Indian Colony` (0 results).\\n- CourtListener MCP search for opinions citing `Navajo Nation` and `Winters` (found 5 opinions, including *Arizona v. Navajo Nation*, 599 U.S. 555 (2023)).\\n- Attempted `fedcourts query` but encountered a `RangedBackendError` due to missing `corpus_remote_url`.\\n- Consulted `statpack.md` and `statpack.json` for base rates, particularly the overall grant rate for Paid cases (approx. 3.0%) and the originating circ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:52.238Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "be3d66229a1ca81a",
+      "query": "{\"content\": \"The issue in this case is whether the United States has an affirmative, money-mandating fiduciary duty under the *Winters* doctrine and 25 C.F.R. \\u00a7 152.22 to protect an Indian tribe's existing water rights from third-party diversion.\\n\\nIn *Arizona v. Navajo Nation*, 599 U.S. 555 (2023), the Supreme Court recently held that treaties establishing reservations do not require the federal government to take affirmative steps to secure water for a tribe, emphasizing that courts shou",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:58.274Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f4a9ac4011142077",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:02.366Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "062f8cae54aab6eb",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:06.100Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5496b42181bb6821",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281654\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:29:07Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.05,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"big_case_rationale\\\": \\\"Inv",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:12.108Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "054e30232ff44efc",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73281654\\\",\\n  \\\"gaps\\\": [\\n    \\\"No local corpus or reachable remote for fedcourts query\\\",\\n    \\\"No detailed breakdown by CFR or CVSG inside statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"CourtListener MCP search (found relevant priors)\\\",\\n    \\\"statpack.md (for base rates)\\\"\\n  ],\\n  \\\"notes\\\": \\\"fedcourts query failed with a RangedBackendError because the remote URL was not present in the environment. Reverted to s",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:15.995Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0d1b41121e4b1c56",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:21.202Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "06ed1b4ce9fab407",
+      "query": "cat data/cases/scotus/73281654/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:27.862Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aba10642088c7025",
+      "query": "echo -e \"\\n*(Note: The corpus query tool degraded during execution due to missing remote configuration; the prediction relies on the provisioned inputs, MCP search, and statpack base rates.)*\" >> data/cases/scotus/73281654/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:31.263Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e31dc06a97731586",
+      "query": "gh issue comment 727 -b \"Prediction complete for scotus/73281654 evt-petition-disposition: Predicted denied (P=0.05). The Federal Circuit's ruling closely tracks the recent Navajo Nation precedent.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:34.487Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10d816e94bd1cd77",
+      "query": "{\"strategic_intent\": \"Wrap up the prediction task.\", \"summary\": \"I have successfully analyzed the provisioned documents (petition, questions presented) and the case snapshot. I queried the MCP CourtListener search and checked the statpack base rates, observing a 3.0% grant rate for similar cases. Given the recent Supreme Court decision in *Arizona v. Navajo Nation*, the Federal Circuit's ruling appears highly plausible and not a candidate for certiorari without an alleged circuit split. I have w",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:38.532Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281654",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

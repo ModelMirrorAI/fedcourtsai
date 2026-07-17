@@ -1,0 +1,246 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cec04125aa1feb44",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674 -type f | head -50",
+      "result_digest": "f21e488d3e52aeb1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a105e7d210ff8ded",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6812f635669d31fc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "a9d9c9c63fc3d42c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "77501398b3445e8e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "eedfa0388c063ed1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5a64dba1fa9f09df",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/record/documents/documents.json\"}",
+      "result_digest": "f6d3286fc53c9841",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6ec8c69baa360a01",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/record/documents/questions-presented.txt\"}",
+      "result_digest": "deae2fdda9065650",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b382725e7ad984a5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/record/documents/petition.txt\"}",
+      "result_digest": "c6f8832b3d019e62",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "46d96de330e1fcf8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/record/documents/petition.txt\", \"offset\": 1020}",
+      "result_digest": "60372b52a6625769",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a2dc87dde677add8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "82a9ddb78ba9bac2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3e61ae8fa50813b3",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|Segment base rate\\|relist\\|CVSG\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "50031f3227709971",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a644df4a0d1d5c33",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 140, \"offset\": 40}",
+      "result_digest": "79f1c14eec24ba5d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "98137ef6380ada90",
+      "query": "grep -n -A 25 \"salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "64b1b5ec2189a939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "442345d022c856f0",
+      "query": "uv run fedcourts query --court scotus --citation \"Loper Bright Enterprises v. Raimondo\" --citation \"SEC v. Jarkesy\" --citation \"NLRB v. Starbucks Corp.\" --limit 8 2>query_stderr.txt; echo \"---STDERR---\"; cat query_stderr.txt",
+      "result_digest": "f95126c32aa2f393",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c90e3a57648fb956",
+      "query": "uv run fedcourts query --court scotus --citation \"29 U.S.C. 158\" --citation \"NLRB\" --limit 8 2>q2_stderr.txt | head -20; echo \"---STDERR---\"; cat q2_stderr.txt",
+      "result_digest": "f95126c32aa2f393",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e0c4759d990c45ad",
+      "query": "select:mcp__courtlistener__get_endpoint_item",
+      "result_digest": "50e473a4cbff94c4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "bd946645c24d344a",
+      "query": "{\"endpoint_id\": \"dockets\", \"fields\": [\"case_name\", \"docket_number\", \"date_terminated\", \"date_filed\", \"date_last_filing\", \"court_id\"], \"item_id\": 73281674}",
+      "result_digest": "4f4ec6032c49ddad",
+      "retrieved_doc_date": "2026-04-17",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__get_endpoint_item"
+    },
+    {
+      "params_digest": "ed468044f7bac3b6",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281674/events/evt-petition-disposition/predictions/claude-baseline/20260717T072907Z",
+      "result_digest": "b8c57e5bf79003ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "26d1016eb9235ee7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281674\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:40:23Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281674/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "7c358c28eb478b0b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7638bb3fae187bda",
+      "query": "{\"content\": \"# PG Publishing Co. v. NLRB, No. 25-1192 \\u2014 cert petition disposition\\n\\n**Prediction: denied. P(grant, GVR included) = 0.03.**\\n\\n## Posture\\n\\nPaid petition (Term 2025), docketed April 17, 2026, from an **unreported**\\nThird Circuit decision (Nos. 24-2788, 24-3057, Nov. 10, 2025; rehearing denied\\nJan. 14, 2026) enforcing an NLRB order that found the Pittsburgh Post-Gazette\\nbargained in bad faith with its newsroom Guild and unilaterally implemented\\nterms after prematurely de",
+      "result_digest": "1b9231b52955a124",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "553438b441e4b0ea",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281674, evt-petition-disposition, claude-baseline, 20260717T072907Z\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"Loper Bright Enterprises v. Raimondo\\\" --citation \\\"SEC v. Jarkesy\\\" --citation \\\"NLRB v. Starbucks Corp.\\\" --limit 8`\\n   \\u2014 no rows returned.\\n   `ranged corpus reads: 420 GET(s), 110100480 byte(s)`\\n2. `uv run fedcourts query --court scotus --citation \\\"29 U.S.C. 158\\\" --citation \\\"NLRB",
+      "result_digest": "e65ac5a261af53c4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b8d5ce80cc99da52",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281674\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP (get_endpoint_item)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned questions-presented, petition, and BIO texts were excellent \\u2014 the union BIO alo",
+      "result_digest": "d9b249648566f3a5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c82f5a31ac7e8d59",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281674\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Decisive forward signal from a companion case (not leakage): the provisioned union BIO reports certiorari was denied in Macy's, Inc. v. NLRB, No. 25-627, ",
+      "result_digest": "fe1aa59e47316979",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "0121f9974ea518bd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "66a4de69dc9013cd",
+      "query": "gh issue comment 727 --repo \"$GITHUB_REPOSITORY\" --body \"**claude-baseline** (claude-fable-5) \u2014 scotus/73281674 \u00b7 evt-petition-disposition \u00b7 run 20260717T072907Z\n\nPrediction: **denied**, P(grant) = 0.03, big_case_score 0.4.\n\nPaid petition from an unpublished CA3 decision (PG Publishing v. NLRB, 25-1192), distributed for the 9/28/2026 long conference. Strongest QP (Thryv consequential damages) is blocked below by a \u00a710(e) preservation holding, and the union's BIO reports cert was just denied in M",
+      "result_digest": "6ef08ebd69ed64d0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281674",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

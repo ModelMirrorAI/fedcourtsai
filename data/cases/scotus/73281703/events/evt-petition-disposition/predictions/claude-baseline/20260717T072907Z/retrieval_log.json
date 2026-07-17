@@ -1,0 +1,222 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3c266d994534ae47",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281703 -type f | head -50",
+      "result_digest": "4610c683d56ace40",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bce3c837bfd647f1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281703/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "afc24b34f6eaa601",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281703/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "a68ec3e0f8e0b199",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6e83c41b11cbbbca",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281703/record/documents/documents.json\"}",
+      "result_digest": "a085ef1a4e7909d9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0aff7cc7c4b40ac3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281703/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "f7a66dc55a11e319",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a71cc81031399d9d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281703/record/documents/questions-presented.txt\"}",
+      "result_digest": "02f92b697a76cdb8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ab0e952901a23087",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281703/record/documents/petition.txt\"}",
+      "result_digest": "e90c2045854cf217",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5c8f10c6e5c0f745",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ /home/runner/work/fedcourtsai/fedcourtsai/schemas/",
+      "result_digest": "0b3c859868e73349",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "598e3c5d9cf2ab8f",
+      "query": "grep -o '\"salience[^\"]*\"' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json | sort -u; python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "409a205b9c380963",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint([s.get('title') for s in d['sections']])\nprint(json.dumps(d.get('terms',[])[:1],indent=1)[:2000])\n\"",
+      "result_digest": "9497e56b57e74412",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f28be1c9f36ca0a7",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a4e4d5ff7de65957",
+      "query": "uv run fedcourts query --court scotus --citation \"29 U.S.C. \u00a7 794\" --limit 8 2>query_err1.txt; echo \"---stderr---\"; cat query_err1.txt",
+      "result_digest": "6b034a01408ca202",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4a67415da80b9ce5",
+      "query": "uv run fedcourts query --court scotus --citation \"465 U.S. 624\" --citation \"536 U.S. 181\" --limit 8 2>query_err2.txt; echo \"---stderr---\"; cat query_err2.txt",
+      "result_digest": "6b034a01408ca202",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "50c3748fc781dbce",
+      "query": "\"Rehabilitation Act\" \"independent contractor\" \"section 504\"",
+      "result_digest": "afbf26ddd0e7f222",
+      "retrieved_doc_date": "2026-03-12",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "26e364d705dce1ad",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; uv run fedcourts paths --court scotus --docket 73281703 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "e8865f25d7773aa4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c601169e0b9b9601",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281703\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:48:16Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281703/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.25,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "2ddb1fa8bdb550fa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1766e387f949e185",
+      "query": "{\"content\": \"# Greer v. Benton School District, No. 25-1197 \\u2014 cert petition disposition\\n\\n**Prediction: P(grant, GVR included) = 0.25; likeliest single disposition: denied.**\\n\\n## The legal question\\n\\nWhether independent contractors have the same right as employees to sue for\\ndiscrimination under section 504 of the Rehabilitation Act, 29 U.S.C. \\u00a7 794.\\nThe Arkansas Supreme Court (2026 Ark. 53, Mar. 12, 2026) held that\\n\\u00a7 794(d)'s incorporation of ADA Title I \\\"standards\\\" impo",
+      "result_digest": "f2667b7c265ce26d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "43467e65d8241e90",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281703 / evt-petition-disposition / claude-baseline / 20260717T072907Z\\n\\nMode: `forward` (retrieval unrestricted; nothing outcome-revealing surfaced \\u2014\\nthe petition is pending with the response due Aug. 12, 2026).\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"29 U.S.C. \\u00a7 794\\\" --limit 8`\\n   \\u2014 returned 0 rows.\\n   stderr: `ranged corpus reads: 420 GET(s), 110100480 byte(s)`\\n2. `uv run fed",
+      "result_digest": "4447d2c867e81dfc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d5d498ddf088a5eb",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281703\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"courtlistener MCP search (opinions)\\\",\\n    \\\"provisioned petition.txt / questions-presented.txt\\\"\\n  ],\\n  \\\"helpful\\\": [\\n   ",
+      "result_digest": "609a7f5565f6cd84",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "29705bc8992c36b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "71ee150da6860cff",
+      "query": "gh issue comment 727 --body \"claude-baseline / 20260717T072907Z \u2014 scotus/73281703 (Greer v. Benton School District, No. 25-1197), evt-petition-disposition: **P(grant)=0.25**, predicted disposition **denied**. Strong signal package (conceded circuit split, CFR on 6/11, UCLA SCOTUS clinic, final judgment) against the low paid-petition base rate; BIO due Aug 12, 2026. Outputs written and \\`fedcourts validate data\\` passes; no flags.\" 2>&1 | tail -2",
+      "result_digest": "9d73df1bf6fb2e78",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281703",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

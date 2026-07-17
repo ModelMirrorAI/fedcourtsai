@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281654",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Tooling drift, not a case problem: the predict prompt tells predictors to anchor on the statpack's 'Segment base rate by salience band' table, but the committed metrics/statpack.md contains no such section; and fedcourts query returned zero rows for every topic tried (including single-word topics like 'tribe'), so no similar-prior retrieval was possible. Prediction anchors on the modern per-Term cert base rates plus the docket's call-for-response signal instead."
+    }
+  ]
+}

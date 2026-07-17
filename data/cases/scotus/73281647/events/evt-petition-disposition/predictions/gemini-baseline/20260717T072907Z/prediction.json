@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73281647",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20260717T072907Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-17T07:29:07Z",
+  "input_snapshot": "data/cases/scotus/73281647/record/snapshots/2026-07-17.json",
+  "granted": 1,
+  "probability": 0.85,
+  "predicted_disposition": "granted",
+  "big_case_score": 0.65,
+  "big_case_rationale": "High-profile Takings Clause issue addressing police destruction of innocent property, drawing significant amicus support.",
+  "reasoning_doc": "reasoning.md",
+  "votes": []
+}

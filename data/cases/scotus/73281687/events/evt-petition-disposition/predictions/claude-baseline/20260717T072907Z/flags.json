@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281687",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The brief in opposition (docketed Jul 14 2026, three days before provisioning) was not provisioned under record/documents/ — documents.json lists only the petition and questions-presented. Forward mode allowed me to fetch and extract the BIO PDF from supremecourt.gov myself, but predictors on stricter cells would have missed the respondent's vehicle arguments. Separately, fedcourts query returned zero rows for every topic tried, so corpus priors contributed nothing to this cell."
+    }
+  ]
+}

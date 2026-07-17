@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73281687",
+  "gaps": [
+    "FEDCOURTS_CORPUS_REMOTE_URL was not set, preventing use of ranged corpus query"
+  ],
+  "helpful": [
+    "google_web_search for quickly finding the exact issue and amicus parties in the Mendenhall case",
+    "mcp_courtlistener_search for looking up the underlying circuit court case"
+  ],
+  "notes": "Had to fall back to Google Search because the ranged backend wasn't configured in the environment.",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "google_web_search",
+    "run_shell_command",
+    "mcp_courtlistener_search"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

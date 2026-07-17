@@ -1,0 +1,246 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5f73e223e0c44deb",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654 -type f | head -50",
+      "result_digest": "3a81b4c19cbccf50",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d8fb4bac2224c5cd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "83e2bbbdfdbeb1a8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "80a64371213f8cd2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "08e487e6adbaa4f6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "72ef2ddb553c374c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "54e1466bbe77d8c5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654/record/documents/documents.json\"}",
+      "result_digest": "9b08092515ffe0c7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0f422cfe94bd73ab",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654/record/documents/questions-presented.txt\"}",
+      "result_digest": "349f5ab4fb5e3b35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ff44dd5d934ab33e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654/record/documents/petition.txt\"}",
+      "result_digest": "d922f8463f0101d1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9fa326ff451097d9",
+      "query": "grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "4343cf7205eb5967",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6348f6b5b03fa1a5",
+      "query": "uv run fedcourts paths --court scotus --docket 73281654 --event evt-petition-disposition 2>&1",
+      "result_digest": "dcff8ad727477622",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "aa84369c74724e70",
+      "query": "sed -n '1,80p' docs/cli.md 2>/dev/null | grep -n -A20 \"query\" | head -60",
+      "result_digest": "d3c3ea4b46eaab6e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3f5123c6bca4146a",
+      "query": "uv run fedcourts query --court scotus --topic \"Indian tribe breach of trust water rights Tucker Act money-mandating\" --limit 8 2>&1 | head -40",
+      "result_digest": "1afbdc2c4909729f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5aefb1270806dc7e",
+      "query": "uv run fedcourts query --court scotus --topic \"Indian tribe breach of trust\" --limit 8 2>&1 | head -40; echo ---; uv run fedcourts query --court scotus --topic \"water rights\" --limit 8 2>&1 | head -40",
+      "result_digest": "92cb9f66aeab7d83",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "47119b2b35026c1e",
+      "query": "uv run fedcourts query --court scotus --topic \"tribe\" --limit 10 2>&1 | head -30; echo ---; uv run fedcourts query --court scotus --topic \"Federal Circuit\" --limit 5 2>&1 | head -20",
+      "result_digest": "92cb9f66aeab7d83",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8311427006242b5d",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "4fd5a0f3361169c6",
+      "query": "Winnemucca Indian Colony v. United States breach of trust water",
+      "result_digest": "d0edc87603a4388d",
+      "retrieved_doc_date": "2025-10-16",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "59554c2f44f87e8d",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281654/events/evt-petition-disposition/predictions/claude-baseline/20260717T072907Z",
+      "result_digest": "34071d90dbfa9081",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "626ac1821df0fa8c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281654\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:32:39Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281654/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.07,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "e9c9a068cb189edb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fa06f81459b34cab",
+      "query": "{\"content\": \"# Winnemucca Indian Colony v. United States, No. 25-1170 \\u2014 cert prediction\\n\\n**Prediction: deny. P(grant, GVR included) = 0.07.**\\n\\n## The case\\n\\nThe Winnemucca Indian Colony, a small federally recognized tribe in\\nnorth-central Nevada, sued the United States in the Court of Federal Claims\\nunder the Indian Tucker Act for money damages, alleging (Count Three, \\\"Breach\\nof Trust \\u2013 Water\\\") that the BIA breached fiduciary duties by allowing\\nthird-party developers to dive",
+      "result_digest": "a4e6cfcaca260b35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "20f8cdbbc3e6be4b",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281654 evt-petition-disposition (claude-baseline, 20260717T072907Z)\\n\\nBeyond the provisioned inputs (snapshot, questions-presented, petition text)\\nand the committed `metrics/statpack.md`, I consulted:\\n\\n## Corpus lookups (`fedcourts` CLI)\\n\\nAll `query` calls returned **zero rows**; only the read-stats line printed.\\n\\n1. `uv run fedcourts query --court scotus --topic \\\"Indian tribe breach of trust water rights Tucker Act money-mandating\\\" --limit ",
+      "result_digest": "c6d02979aa297e85",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e783d7f7ecf2dd2a",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281654\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"fedcourts paths\\\",\\n    \\\"metrics/statpack.md (committed base rates)\\\",\\n    \\\"courtlistener MCP search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"",
+      "result_digest": "372e968d6bcf9b63",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d574b544ae18420e",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281654\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Tooling drift, not a case problem: the predict prompt tells predictors to anchor on the statpack's 'Segment base rate by salience band' table, but ",
+      "result_digest": "97a46126c96e2aa6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "dde55c09cc7f043a",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5; git status --short data/",
+      "result_digest": "c8eb9a4447145611",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "db1ea9d54faaec52",
+      "query": "gh issue comment 727 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed 's#.*github.com[:/]##; s#\\.git$##')\" --body \"**claude-baseline** \u00b7 scotus/73281654 \u00b7 evt-petition-disposition \u00b7 run 20260717T072907Z\n\nPrediction written: **deny**, P(grant incl. GVR) = **0.07** (big_case_score 0.4).\n\n*Winnemucca Indian Colony v. United States* (25-1170, paid, from CAFC 24-1108): post-*Navajo Nation* Indian-trust water claim. Key upgrade signal is the call for response afte",
+      "result_digest": "d40823c05b6e6d0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281654",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281673",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP search (opinions)",
+    "provisioned documents (petition, BIO, QP)"
+  ],
+  "helpful": [
+    "Provisioned petition + BIO full text — the BIO's jurisdiction/vehicle arguments drove the forecast",
+    "statpack relist/CVSG/per-Term cuts for anchoring",
+    "CourtListener opinion search to confirm the circuit split's 2026 development"
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows on all three attempts (citation- and topic-filtered, era 2020s) — no similar-prior surface for a modern cert petition; citation matching against S.Ct. reporter formats may be too strict",
+    "statpack.md has no 'Segment base rate by salience band' table (the predict prompt tells predictors to anchor on it) and no CFR (call-for-response) cut, which was this docket's strongest signal",
+    "per-fee-class (paid vs IFP) grant rates referenced in the prompt live only in statpack.json, not the committed md"
+  ],
+  "notes": "Two of the three corpus queries transferred ~110 MB in 420 ranged GETs each and still returned nothing; a cheap 'no match' fast path would save cell budget."
+}

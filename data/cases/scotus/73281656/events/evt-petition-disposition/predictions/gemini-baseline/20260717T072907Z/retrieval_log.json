@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "044f0382419d1574",
+      "query": "{\"strategic_intent\": \"Read prediction prompt instructions and agent guidelines.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:43.492Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "3a01b0eb635f9a71",
+      "query": "{\"end_line\": 1000, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:45.958Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6a6cab6c8a8a52f1",
+      "query": "{\"end_line\": 1000, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:45.958Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8a0d81f95665b611",
+      "query": "uv run fedcourts paths --court scotus --docket 73281656 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.341Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4bb1872abd108b6d",
+      "query": "ls -la data/cases/scotus/73281656/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:54.374Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b6c5b7fae91133a1",
+      "query": "find data/cases/scotus/73281656 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:57.399Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f2cd8367ffabcb05",
+      "query": "{\"strategic_intent\": \"Read provisioned inputs for SCOTUS 73281656\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:59.864Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f349910eca8d7971",
+      "query": "{\"file_path\": \"data/cases/scotus/73281656/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:03.918Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b190c84816926627",
+      "query": "{\"file_path\": \"data/cases/scotus/73281656/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:03.919Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0aca949675313045",
+      "query": "{\"file_path\": \"data/cases/scotus/73281656/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:03.919Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f7c2e4cf8c03807a",
+      "query": "{\"file_path\": \"data/cases/scotus/73281656/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:03.919Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c7118a0f424c9df3",
+      "query": "{\"file_path\": \"data/cases/scotus/73281656/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:03.919Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e5083e92c76b4588",
+      "query": "{\"end_line\": 1000, \"file_path\": \"data/cases/scotus/73281656/record/documents/brief-in-opposition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:07.448Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2bcf52ccd2e7a74b",
+      "query": "{\"end_line\": 1000, \"file_path\": \"data/cases/scotus/73281656/record/documents/petition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:07.448Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b1bb6b15e77aaa51",
+      "query": "{\"end_line\": 1000, \"file_path\": \"metrics/statpack.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:07.448Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d58ff168366d3c91",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"cumulative error strickland\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:16.733Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:19.859Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e2150d2c787e32b9",
+      "query": "\"cumulative error\" Strickland",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:23.645Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "bb41aab72304569e",
+      "query": "mkdir -p data/cases/scotus/73281656/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:28.903Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:42.585Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "717f09da7b16d244",
+      "query": "cat << 'EOF' > data/cases/scotus/73281656/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/prediction.json\n{\n  \"case_id\": \"scotus/73281656\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"run_id\": \"20260717T072907Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-07-17T08:00:00Z\",\n  \"input_snapshot\": \"data/cases/scotus/73281656/record/snapshots/2026-07-17.json\",\n  \"predicted_disposition\": \"denied\",\n ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:48.816Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aeafa2691f58636b",
+      "query": "cat << 'EOF' > data/cases/scotus/73281656/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/reasoning.md\n## Analysis of Certiorari Likelihood\n\nThe petitioner, Marion Alexander Lindsey, seeks review of a South Carolina Supreme Court decision affirming his death sentence and the denial of state post-conviction relief. The petition presents two questions:\n1. Whether courts must evaluate the cumulative prejudice of counsel's errors under *Strickland v. Washington* or if th",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:54.516Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "58418e190985f4ce",
+      "query": "cat << 'EOF' > data/cases/scotus/73281656/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/retrieval.md\n1. `uv run fedcourts paths --court \"scotus\" --docket \"73281656\" --event \"evt-petition-disposition\"`\n2. Read provisioned inputs: `event.yaml`, `context.json`, `2026-07-17.json`, `documents.json`, `petition.txt`, `brief-in-opposition.txt`.\n3. Read `metrics/statpack.md` for base rates and relist signals.\n4. CourtListener MCP search for '\"cumulative error\" Strickland' i",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:58.243Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "39a770c6eb6221ec",
+      "query": "{\"content\": \"1. `uv run fedcourts paths --court \\\"scotus\\\" --docket \\\"73281656\\\" --event \\\"evt-petition-disposition\\\"`\\n2. Read provisioned inputs: `event.yaml`, `context.json`, `2026-07-17.json`, `documents.json`, `petition.txt`, `brief-in-opposition.txt`.\\n3. Read `metrics/statpack.md` for base rates and relist signals.\\n4. CourtListener MCP search for '\\\"cumulative error\\\" Strickland' in SCOTUS opinions.\", \"file_path\": \"data/cases/scotus/73281656/events/evt-petition-disposition/predictions/ge",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:05.377Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "aff7235f74cee095",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281656\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"run_shell_command\\\", \\\"read_file\\\", \\\"write_file\\\"],\\n  \\\"helpful\\\": [\\\"The statpack and provisioned documents were sufficient for predicting a standard cert petition without relists.\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Attempted",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:09.513Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4d022dcb041f5b00",
+      "query": "{\"content\": \"## Analysis of Certiorari Likelihood\\n\\nThe petitioner, Marion Alexander Lindsey, seeks review of a South Carolina Supreme Court decision affirming his death sentence and the denial of state post-conviction relief. The petition presents two questions:\\n1. Whether courts must evaluate the cumulative prejudice of counsel's errors under *Strickland v. Washington* or if they may evaluate each error in isolation.\\n2. Whether a trial court's wholesale adoption of the State's proposed orde",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:15.673Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e659f8b3dacac68e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281656\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T08:00:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281656/record/snapshots/2026-07-17.json\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"confidence\\\": 0.8,\\n  \\\"big_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:19.934Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:25.798Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a32d76362e7270cd",
+      "query": "gh issue comment 727 -b \"Prediction complete for SCOTUS 73281656 / evt-petition-disposition. Expected disposition: denied (3% probability). Based on analysis of Strickland split arguments vs vehicle problems and lack of relists.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:29.593Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1311b896bab58a42",
+      "query": "{\"strategic_intent\": \"Finish the task after successful completion of all steps.\", \"summary\": \"The cert petition prediction for SCOTUS case 73281656 is complete. I read the prompt requirements, provisioned inputs, and the state's statpack data. Based on the lack of a relist, base rates for paid cert petitions, and the fact-bound nature of the state court's cumulative error application under Strickland v. Washington, I confidently predicted \\\"denied\\\" with a 3% probability. I wrote prediction.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:35.391Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281656",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}
