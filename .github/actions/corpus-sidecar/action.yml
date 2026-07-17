@@ -28,7 +28,11 @@ outputs:
   aws-access-key-id:
     description: >-
       Read-only credential for the caller's deterministic pre-agent steps,
-      passed as step-scoped env — never job-wide, never on an agent step.
+      passed as step-scoped env — never job-wide, never on an agent step. A
+      step that must both provision and spawn an agent (the integration
+      engine-smoke cascade) is the one sanctioned exception: there the runner
+      seam's scrubbed base env keeps the credentials out of the spawned
+      agent's environment.
     value: ${{ steps.creds.outputs.aws-access-key-id }}
   aws-secret-access-key:
     description: Step-scoped counterpart secret (masked by the credentials action).

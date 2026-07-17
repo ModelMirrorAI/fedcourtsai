@@ -74,9 +74,22 @@ exiting non-zero on a blown wall-clock budget. `corpus-service` launches the
 same corpus sidecar composite the cell workflows use and probes it through the
 exact CLI surface a cell retrieves with. `stub-cascade` runs one offline stub
 `local-cascade` cell over the ranged backend, covering provisioning end to
-end. Dispatch a scenario around the changes it guards: **before and after any
+end. `mcp-sidecar` launches the same CourtListener MCP sidecar composite the
+cell workflows use, deliberately without its optional token input, and runs
+the tested `fedcourts mcp-integration-check` client against it (initialize +
+tools/list, failing unless the handshake completes and tools are advertised).
+`engine-smoke` is the one token-spending scenario: a single real-engine
+predictor cell (the `engine` input picks which; one predict cell's spend
+against the default open-event case — a resolved event also replays
+evaluator cells) driven through `local-cascade` with the agent's retrieval on the
+service sidecar and the cascade's own provisioning reads pinned to `ranged`
+via `--corpus-backend` — the full production cell posture, including each
+engine's real sandbox semantics, which is exactly the layer an engine-level
+integration break (a sandbox denying localhost, a CLI behavior change) hides
+in. Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
-composite, the blob's physical layout) **or to a corpus-consuming workflow**,
+composites, the blob's physical layout) **or to a corpus-consuming workflow**,
+**engine-smoke around any engine CLI version bump or sandbox/config change**,
 and as a preflight **before a release dry run** and **before a prediction
 freeze** — the moments when a silent read regression would be most expensive.
 The `deploy-environment` input names which deployment environment supplies the

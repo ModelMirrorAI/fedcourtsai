@@ -2316,8 +2316,47 @@ def corpus_integration_check(
     _finish_integration_report(report, summary_out)
 
 
+@app.command("mcp-integration-check")
+def mcp_integration_check(
+    url: Annotated[
+        str,
+        typer.Option(help="The MCP endpoint to probe (the tokenless sidecar's localhost URL)."),
+    ] = f"http://127.0.0.1:{mcp.MCP_SIDECAR_DEFAULT_PORT}/mcp",
+    budget_seconds: Annotated[
+        float, typer.Option(help="Wall-clock budget for the whole probe.")
+    ] = 120.0,
+    summary_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Append the Markdown summary here (e.g. $GITHUB_STEP_SUMMARY); "
+            "the machine JSON always goes to stdout.",
+        ),
+    ] = None,
+) -> None:
+    """Probe the CourtListener MCP sidecar; fail unless it hands out tools.
+
+    The integration-test workflow's mcp-sidecar scenario: a minimal MCP client
+    completes the streamable-HTTP handshake (``initialize`` +
+    ``notifications/initialized``) and asserts ``tools/list`` advertises at
+    least one tool — the exact surface every engine's generated cell config
+    points at, exercised without spending a CourtListener call, so the sidecar
+    may run token-free. Emits the machine report JSON on stdout and the
+    Markdown summary on stderr; ``--summary-out`` also appends the Markdown.
+    Exits 2 when the endpoint cannot be probed at all (a setup problem), 1
+    when the protocol disappoints (no server name, no tools) or the budget
+    blows.
+    """
+    try:
+        report = integration_check.run_mcp_check(mcp_url=url, budget_seconds=budget_seconds)
+    except integration_check.McpProbeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    _finish_integration_report(report, summary_out)
+
+
 def _finish_integration_report(
-    report: integration_check.IntegrationReport, summary_out: Path | None
+    report: integration_check.IntegrationReport | integration_check.McpCheckReport,
+    summary_out: Path | None,
 ) -> None:
     """Emit an integration report's JSON + Markdown and exit non-zero on failure."""
     summary = integration_check.render_markdown(report)
@@ -2348,6 +2387,13 @@ def local_cascade(
     run_id: Annotated[
         str, typer.Option(help="Shared run id for the cells; defaults to now (UTC).")
     ] = "",
+    predictor: Annotated[
+        str,
+        typer.Option(
+            help="Run only this enabled predictor id (one cell); default: every enabled predictor."
+        ),
+    ] = "",
+    corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Run the full predict → evaluate → validate cascade for one case locally.
 
@@ -2358,6 +2404,15 @@ def local_cascade(
     ledger — the iteration loop that otherwise only runs inside Actions. Corpus
     reads honor the corpus-backend setting, so a ``ranged``-configured
     environment runs the cascade against the remote blob with no local pull.
+
+    ``--corpus-backend`` overrides that setting for the cascade's own
+    provisioning reads only (``local`` or ``ranged`` — the service surface does
+    not serve them); the spawned agent still inherits the ambient corpus
+    settings, so an environment configured for the corpus query sidecar drives
+    the agent's retrieval through the sidecar while provisioning reads the blob
+    directly — the integration-test workflow's engine-smoke split.
+    ``--predictor`` narrows the fan-out to one enabled predictor id, the
+    one-cell shape a token-spending smoke run wants.
 
     ``--engine stub`` (the default) is deterministic, offline, and token-free.
     ``--engine replay`` is also offline but emits a captured real prediction from
@@ -2382,6 +2437,8 @@ def local_cascade(
             event=event or None,
             engine=engine,
             run_id=run_id or ids.run_id(),
+            predictor=predictor or None,
+            backend=_corpus_backend(corpus_backend),
         )
     except KeyError as exc:
         # Unknown engine backend (get_runner names the available ones).

@@ -234,43 +234,16 @@ jobs:
           FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
-      # Launch the CourtListener MCP server as a tokenless HTTP sidecar (the
-      # tested `mcp-serve` runs the same pinned package the stdio transport
-      # would have spawned, in HTTP mode on localhost). The token rides THIS
-      # step's env only — the background server inherits it — so the client
-      # configs written below carry a localhost URL and no token: the agent
-      # can no longer read one out of any config file. Mirrors the corpus
-      # sidecar above.
-      - name: Launch the CourtListener MCP sidecar
-        env:
-          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
-          PREDICTOR_ID: ${{ matrix.predictor_id }}
-        run: |
-          set -euo pipefail
-          nohup uv run fedcourts mcp-serve --role predictor --actor "$PREDICTOR_ID" \
-            --port 8378 > cl-mcp-sidecar.log 2>&1 &
-          echo "$!" > cl-mcp-sidecar.pid
-
-      # Warn-only, matching the degraded-upstream posture: a cell whose live
-      # CourtListener retrieval is down still runs on corpus tooling and
-      # provisioned inputs (the prompt contract says so), exactly as it did
-      # when each engine spawned the server itself and the spawn could fail.
-      - name: Wait for the CourtListener MCP sidecar
-        run: |
-          set -euo pipefail
-          # 90s budget, not the corpus sidecar's 30: mcp-serve execs into a
-          # fresh `uvx` resolve of the pinned package on a cache-less runner,
-          # which alone can take tens of seconds.
-          for _ in $(seq 1 90); do
-            if curl -fsS http://127.0.0.1:8378/health >/dev/null 2>&1; then
-              exit 0
-            fi
-            if ! kill -0 "$(cat cl-mcp-sidecar.pid)" 2>/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          echo "::warning::CourtListener MCP sidecar not healthy; the cell degrades to corpus tooling"
+      # Tokenless HTTP sidecar for the cell's CourtListener MCP retrieval; the
+      # composite carries the launch/health rationale (token in its launch
+      # step env only; warn-only health so a degraded upstream never blocks
+      # the cell, which runs on corpus tooling and provisioned inputs — the
+      # prompt contract says so). Mirrors the corpus sidecar above.
+      - uses: ./.github/actions/mcp-sidecar
+        with:
+          role: predictor
+          actor: ${{ matrix.predictor_id }}
+          courtlistener-api-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
 
       # Configure the cell's MCP retrieval from the versioned tool
       # manifest (config/predictors.yaml `mcp_servers:`). The tested `mcp-config`
@@ -527,8 +500,8 @@ jobs:
           # agent already controls through its own turn loop. The CLI version
           # is pinned (the action installs whatever npm serves otherwise) so
           # sandbox semantics change only on an explicit maintainer bump —
-          # keep it in lockstep with the evaluate step and run-backtest's npm
-          # pin of the same CLI.
+          # keep it in lockstep with the evaluate step and the npm pins of the
+          # same CLI in run-backtest and integration-test.
           codex-version: "0.144.1"
           codex-args: '["-c","sandbox_workspace_write.network_access=true"]'
 

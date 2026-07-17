@@ -211,6 +211,22 @@ required-reviewer protection rule first, then widen the read-only role's trust
 policy to that environment's `sub` — the reviewer rule is the gate, and
 widening trust before it exists would make the gate decorative.
 
+The workflow's engine-smoke scenario additionally reads one model-provider
+secret — the selected engine's API key, chosen by expression ternary so the
+other engines' keys never enter the job. Like every secret in this repo the
+keys live on the `runner` environment, so the scenario fully resolves only on
+a main dispatch; a branch dispatch gets an empty key and fails closed right
+alongside the role variables, independent of step ordering. Standing up the
+gated pre-merge environment extends to engine-smoke only if the maintainer
+also places the engine keys on it as environment secrets — the
+required-reviewer rule then gates model spend exactly as it gates the
+read-only role. Within a run, the key rides the single cascade step's env,
+alongside the corpus sidecar's step-scoped read-only AWS credentials for the
+cascade's own provisioning reads; the spawned agent sees neither, because the
+runner seam's scrubbed base environment strips every AWS variable and every
+credential-shaped name except the engine's own auth — the same posture as a
+back-test replay cell.
+
 ## S3 / the private stores
 
 Two IAM roles, assumed via GitHub OIDC (no static keys), cover both private S3

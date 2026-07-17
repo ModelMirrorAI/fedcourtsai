@@ -2,10 +2,14 @@ name: integration-test
 
 # Live integration scenarios for the pieces a PR branch cannot exercise through
 # the trigger path: the corpus read backends, the credential-scoped corpus
-# sidecar, and the offline cascade over them. Each scenario is one dispatch,
-# strictly side-effect free: no corpus write, no git
+# sidecar, the tokenless CourtListener MCP sidecar, and cascade cells — stub or
+# one real engine — over them. Each scenario is one dispatch, strictly
+# side-effect free: no corpus write, no git
 # write, no PR, no issue — results go to the Actions step summary and the run
-# log, and any cell output lands only in the runner's throwaway checkout.
+# log, and any cell output lands only in the runner's throwaway checkout. Every
+# scenario is also token-free except engine-smoke, which spends about one
+# predict cell's worth of the selected engine's model tokens and says so on
+# its input.
 #
 # Manual dispatch only. Its own workflow rather than a run-analytics mode
 # because it is a preflight of the pipeline *infrastructure* itself, not an
@@ -37,6 +41,8 @@ on:
           - ranged-reads
           - corpus-service
           - stub-cascade
+          - engine-smoke
+          - mcp-sidecar
       # The known-good case the scenarios target: it must exist in the corpus
       # with at least one open (predictable) event and a stored snapshot. Swap
       # the defaults if this case ever resolves out of shape.
@@ -48,6 +54,24 @@ on:
         description: Docket id of the known case.
         type: string
         default: "1000000"
+      engine:
+        description: >-
+          engine-smoke only — which real engine drives the cell. SPENDS MODEL
+          TOKENS: one predict cell's worth against the default open-event
+          case; a resolved or multi-event case also replays evaluator cells,
+          so narrow with `event` when pointing elsewhere.
+        type: choice
+        default: claude-code
+        options:
+          - claude-code
+          - codex
+          - gemini
+      event:
+        description: >-
+          Optional event id to narrow the cascade scenarios to; empty runs
+          every event the case defines.
+        type: string
+        default: ""
       deploy-environment:
         description: >-
           Deployment environment supplying the role/remote variables. Main
@@ -68,7 +92,9 @@ concurrency:
 jobs:
   scenario:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
+    # real agent cell, which alone can run tens of minutes on a slow model day.
+    timeout-minutes: 45
     environment: ${{ inputs.deploy-environment }}
     permissions:
       contents: read
@@ -119,9 +145,12 @@ jobs:
       # The same composite the cell workflows launch: assumes the role with
       # step-scoped credentials, starts `fedcourts corpus-serve`, health-gates,
       # and publishes the non-secret service URL job-wide. A branch dispatch
-      # therefore exercises the branch's own composite + service code.
+      # therefore exercises the branch's own composite + service code. The
+      # engine-smoke scenario also takes the step-scoped credential outputs
+      # for the cascade's own provisioning reads.
       - uses: ./.github/actions/corpus-sidecar
-        if: ${{ inputs.scenario == 'corpus-service' }}
+        id: corpus
+        if: ${{ inputs.scenario == 'corpus-service' || inputs.scenario == 'engine-smoke' }}
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -153,8 +182,15 @@ jobs:
         env:
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
+          EVENT: ${{ inputs.event }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
           FEDCOURTS_CORPUS_BACKEND: ranged
+          # Corpus-split read side, mirroring the cell workflows' provisioning
+          # steps: under FEDCOURTS_CORPUS_SPLIT=1 the ranged index carries no
+          # snapshot payloads — they are served from the per-case content
+          # store, which needs its URL. Inert while the flag is off.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           {
@@ -164,6 +200,145 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
-            --engine stub | tee -a "$GITHUB_STEP_SUMMARY"
+            --engine stub ${EVENT:+--event "$EVENT"} | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      # --- engine-smoke: one real agent cell over the service sidecar --------
+
+      # The one scenario that spends model tokens: a single real-engine
+      # predictor cell driven through the tested local-cascade seam, with the
+      # agent's corpus retrieval on the service sidecar — the full production
+      # cell posture (credential-scrubbed agent env, tokenless localhost
+      # retrieval, each engine's real sandbox semantics), exercised on demand.
+      # This is the scenario that catches an engine-level integration break —
+      # a sandbox denying localhost, a CLI behavior change — before a live
+      # run finds it. The CLI install is its own SECRET-FREE step: only the
+      # top-level version is exactly pinned (transitive dependencies resolve
+      # fresh at every install), so npm lifecycle scripts must never see
+      # credentials.
+      - name: Install the selected agent CLI
+        if: ${{ inputs.scenario == 'engine-smoke' }}
+        env:
+          ENGINE: ${{ inputs.engine }}
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
+        # scripts disabled, and a secret-free environment are the practical
+        # controls for global CLIs; a lockfile is not expressible for
+        # `npm i -g`. Keep the pins in lockstep with run-predict,
+        # run-evaluate, and run-backtest.
+        run: |
+          set -euo pipefail
+          case "$ENGINE" in
+            claude-code) package="@anthropic-ai/claude-code@2.1.207" binary=claude ;;
+            codex) package="@openai/codex@0.144.1" binary=codex ;;
+            gemini) package="@google/gemini-cli@0.49.0" binary=gemini ;;
+          esac
+          npm install --silent --no-audit --ignore-scripts --global "$package"
+          "$binary" --version
+
+      # Gemini's sanitizer runs strict whenever GITHUB_SHA is set and strips
+      # every custom var from the agent's shell, so the cell env contract and
+      # the service-backend pointers must be allowlisted (run-predict.yml
+      # carries the fuller rationale), and respectGitIgnore lets the cell read
+      # its gitignored provisioned record files. Only non-secret identifiers
+      # belong on this allowlist — it is written raw here, with no
+      # credential-shape screen in the path.
+      - name: Configure the Gemini cell env allowlist
+        if: ${{ inputs.scenario == 'engine-smoke' && inputs.engine == 'gemini' }}
+        run: |
+          set -euo pipefail
+          mkdir -p .gemini
+          printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
+
+      # The backend split that makes this faithful: `--corpus-backend ranged`
+      # pins the cascade's own provisioning reads to the blob (using this
+      # step's scoped credentials), while the ambient
+      # FEDCOURTS_CORPUS_BACKEND=service — which the spawned agent inherits
+      # through the runner's scrubbed base env, along with the service URL the
+      # sidecar composite published job-wide — points the agent's retrieval at
+      # the sidecar, exactly like a live cell. The runner seam scrubs the AWS
+      # credentials and every other engine's key from the agent env, so the
+      # agent holds only its own engine's key (the ternaries below); the
+      # predictor ids map each engine to its baseline in
+      # config/predictors.yaml (an id drift fails loudly, naming the enabled
+      # ids). One predictor cell, so the spend is one cell's worth against
+      # the default open-event case (a resolved event would also replay
+      # evaluator cells — the input description says so). The engine keys
+      # resolve from the deployment environment like every other secret, so
+      # an ungated branch dispatch gets an empty key and the cell fails
+      # closed regardless of step ordering. Output lands only in the
+      # runner's throwaway checkout.
+      - name: Run one real-engine cascade cell over the service sidecar
+        if: ${{ inputs.scenario == 'engine-smoke' }}
+        env:
+          ENGINE: ${{ inputs.engine }}
+          COURT: ${{ inputs.court }}
+          DOCKET: ${{ inputs.docket }}
+          EVENT: ${{ inputs.event }}
+          AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          FEDCOURTS_CORPUS_BACKEND: service
+          # Corpus-split read side for the cascade's own provisioning reads
+          # (see the stub-cascade step); the agent inherits these two
+          # non-secret pointers harmlessly — its own reads go via the sidecar,
+          # and the content store is unreachable without the scrubbed creds.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
+          ANTHROPIC_API_KEY: ${{ inputs.engine == 'claude-code' && secrets.ANTHROPIC_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ inputs.engine == 'codex' && secrets.OPENAI_API_KEY || '' }}
+          GEMINI_API_KEY: ${{ inputs.engine == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+        run: |
+          set -euo pipefail
+          case "$ENGINE" in
+            claude-code) predictor=claude-baseline ;;
+            codex) predictor=codex-baseline ;;
+            gemini) predictor=gemini-baseline ;;
+          esac
+          # The agent's transcript is untrusted model output: it stays in the
+          # run log (plain text) and out of the *rendered* step summary, where
+          # a stray fence-closer could inject live Markdown. Only the
+          # deterministic CascadeReport block — printed by the CLI after the
+          # cells finish — is appended, and only on success (pipefail aborts
+          # before the append otherwise).
+          uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
+            --engine "$ENGINE" --predictor "$predictor" --corpus-backend ranged \
+            ${EVENT:+--event "$EVENT"} | tee cascade-output.log
+          {
+            echo ""
+            echo "## Engine smoke: one $ENGINE cell over the service sidecar"
+            echo ""
+            echo '```'
+            sed -n '/^local-cascade /,$p' cascade-output.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # --- mcp-sidecar: the tokenless CourtListener MCP surface --------------
+
+      # The same composite the cell workflows launch, deliberately token-free:
+      # the probe proves the handshake and the tool listing — everything an
+      # engine's client needs before its first CourtListener call — without
+      # spending one, so this scenario needs no secret and no AWS role at
+      # all. Strict health, unlike the cells: there an unhealthy sidecar
+      # degrades the cell to corpus tooling, but here the sidecar IS the
+      # thing under test. The actor names an enabled predictor whose manifest
+      # includes the CourtListener server (the sidecar scopes tool manifests
+      # per actor).
+      - uses: ./.github/actions/mcp-sidecar
+        if: ${{ inputs.scenario == 'mcp-sidecar' }}
+        with:
+          role: predictor
+          actor: claude-baseline
+          strict-health: "true"
+
+      # The tested MCP client check: initialize + tools/list through the
+      # streamable-HTTP surface the generated cell configs point at, failing
+      # the job unless the sidecar completes the handshake and hands out a
+      # non-empty tool list.
+      - name: Run the MCP client check against the sidecar
+        if: ${{ inputs.scenario == 'mcp-sidecar' }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts mcp-integration-check --summary-out "$GITHUB_STEP_SUMMARY"
 

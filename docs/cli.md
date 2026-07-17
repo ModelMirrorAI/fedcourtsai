@@ -70,6 +70,7 @@ without the explicit flag, so the whole fleet reads one store from one setting.
 | `live-frontier` | Snapshot the live cert watchlist's readiness for the ops dashboard: watchlist size, the distribution calendar with the next conference relative to `--today`, and how many watchlist petitions carry provisioned filed-document text. Produced where the corpus is pulled and published to the `ops-metrics` branch (the corpus-writer path) so the corpus-free `run-ops` presenter can render it. Emits a `LiveFrontier`; skips gracefully when the corpus is absent. | `--out`, `--today` |
 | `provision-snapshot` | Materialize a case's latest corpus snapshot to disk for an agent run — plus any stored filed-document text (petition, questions presented, brief in opposition — fetched pipeline-side by the live poller) under `record/documents/` with a `documents.json` manifest, and the cell's mode context (`record/context.json`). `--refuse-terminal` (the run-predict forward path) refuses to provision a forward cell whose snapshot already shows the outcome — the latest entry reads terminal, or any entry carries a machine-readable disposition order — exit 3, nothing written: a forward prediction on a decided case would be a mislabeled back-test. | `--court`, `--docket`, `--out`, `--mode`, `--refuse-terminal`, `--corpus-backend` |
 | `corpus-integration-check` | Run the fixed read set the `integration-test` workflow's ranged-reads scenario dispatches — a point lookup (open events), a priors retrieval, a snapshot provisioning — each on its own connection so a ranged run reports per-read GET/byte counters. Emits the machine report JSON on stdout and a Markdown summary on stderr; `--summary-out` also appends the summary. Exits non-zero on any empty read or a blown wall-clock budget. | `--court`, `--docket`, `--limit`, `--budget-seconds`, `--snapshot-out`, `--summary-out`, `--corpus-backend` |
+| `mcp-integration-check` | Probe the tokenless CourtListener MCP sidecar the way the `integration-test` workflow's mcp-sidecar scenario does: a minimal MCP client completes the streamable-HTTP handshake and asserts `tools/list` advertises at least one tool — the exact surface the generated cell configs point at, without spending a CourtListener call (so the sidecar may run token-free). Same Markdown table and step/budget JSON shape as `corpus-integration-check`, keyed on the probed URL; exits 2 when the endpoint cannot be probed at all (transport failure or a JSON-RPC-level refusal), 1 when the handshake yields no server name, the tool list is empty, or the budget blows. | `--url`, `--budget-seconds`, `--summary-out` |
 | `materialize-event` | Project a predictable event's `event.yaml` from the corpus into the git ledger. | `--court`, `--docket`, `--event`, `--out`, `--corpus-backend` |
 | `paths` | Print the resolved corpus/case/event paths for a case. | `--court`, `--docket`, `--event` |
 
@@ -169,11 +170,17 @@ CI run.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `local-cascade` | Provision a case's snapshot, predict it with every enabled predictor, evaluate the resulting predictions with every enabled evaluator, and validate the produced ledger. | `--court`, `--docket`, `--event`, `--engine`, `--run-id` |
+| `local-cascade` | Provision a case's snapshot, predict it with every enabled predictor (`--predictor` narrows to one — the one-cell shape a token-spending smoke run wants), evaluate the resulting predictions with every enabled evaluator, and validate the produced ledger. | `--court`, `--docket`, `--event`, `--engine`, `--run-id`, `--predictor`, `--corpus-backend` |
 
 It reads the case from the packed corpus — point it at the synthetic fixture
 (`make-fixture-corpus`) for a fully offline run, a real `corpus-pull`-provisioned
 one, or (via the corpus-backend setting) the blob in place on the corpus remote.
+`--corpus-backend` overrides that setting for the cascade's *own* provisioning
+reads only (`local` or `ranged` — the query sidecar's `service` surface does not
+serve them); the spawned agent still inherits the ambient corpus settings, so an
+environment configured for the sidecar drives the agent's retrieval through it
+while provisioning reads the blob directly — the split the `integration-test`
+workflow's engine-smoke scenario runs on.
 With no `--event` it runs every event the case defines; a resolved event also
 gets its ground-truth `outcome.json` materialized so the evaluate stage has
 something to score. The derived artifacts land under `data/` exactly as a real run

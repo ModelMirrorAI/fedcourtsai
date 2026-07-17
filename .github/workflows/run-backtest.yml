@@ -116,7 +116,8 @@ jobs:
       # engines are routable (each has a registered runner), so all three CLIs
       # are installed — gemini pinned to the same version run-predict/run-evaluate
       # use, claude/codex keeping the existing npm pins this workflow already had
-      # — and the report names what actually ran. A `--skip-engines` opt-out (or a
+      # (keep all three in lockstep with integration-test's engine-smoke
+      # install) — and the report names what actually ran. A `--skip-engines` opt-out (or a
       # missing binary, dropped loudly at run time) is what leaves an engine out.
       - name: Install the agent CLIs
         if: github.event_name == 'issues' || inputs.engine == 'auto'
