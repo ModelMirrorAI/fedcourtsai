@@ -2394,6 +2394,16 @@ def local_cascade(
         ),
     ] = "",
     corpus_backend: CorpusBackendOption = "",
+    require_predictions: Annotated[
+        bool,
+        typer.Option(
+            "--require-predictions",
+            help="Exit non-zero when no predictor cell wrote a prediction. A real "
+            "agent that finishes blocked (sandbox failure, missing inputs) exits 0 "
+            "with an empty — and validly empty — ledger; the integration smoke "
+            "needs that to fail, not pass.",
+        ),
+    ] = False,
 ) -> None:
     """Run the full predict → evaluate → validate cascade for one case locally.
 
@@ -2463,6 +2473,13 @@ def local_cascade(
             typer.echo(f"    {problem}", err=True)
         raise typer.Exit(code=1)
     typer.echo("  validate:    OK")
+    if require_predictions and not report.predictions:
+        typer.echo(
+            "no predictor cell wrote a prediction (--require-predictions): the agent "
+            "finished without output — a blocked cell, not a passing one",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("materialize-event")

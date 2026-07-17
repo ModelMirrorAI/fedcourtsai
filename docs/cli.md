@@ -170,7 +170,7 @@ CI run.
 
 | Command | Purpose | Key flags |
 |---------|---------|-----------|
-| `local-cascade` | Provision a case's snapshot, predict it with every enabled predictor (`--predictor` narrows to one — the one-cell shape a token-spending smoke run wants), evaluate the resulting predictions with every enabled evaluator, and validate the produced ledger. | `--court`, `--docket`, `--event`, `--engine`, `--run-id`, `--predictor`, `--corpus-backend` |
+| `local-cascade` | Provision a case's snapshot, predict it with every enabled predictor (`--predictor` narrows to one — the one-cell shape a token-spending smoke run wants), evaluate the resulting predictions with every enabled evaluator, and validate the produced ledger. `--require-predictions` fails the run when no predictor cell wrote a prediction — a real agent that finishes blocked exits 0 with a validly-empty ledger, which a smoke must treat as failure. | `--court`, `--docket`, `--event`, `--engine`, `--run-id`, `--predictor`, `--corpus-backend`, `--require-predictions` |
 
 It reads the case from the packed corpus — point it at the synthetic fixture
 (`make-fixture-corpus`) for a fully offline run, a real `corpus-pull`-provisioned

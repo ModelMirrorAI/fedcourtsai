@@ -44,16 +44,20 @@ on:
           - engine-smoke
           - mcp-sidecar
       # The known-good case the scenarios target: it must exist in the corpus
-      # with at least one open (predictable) event and a stored snapshot. Swap
-      # the defaults if this case ever resolves out of shape.
+      # with at least one open (predictable) event and — for the snapshot and
+      # cascade reads — a snapshot in the per-case content store, which under
+      # the live corpus split only cases the post-cutover channels mutate
+      # (SCOTUS dockets) have. Pre-cutover index-only rows (circuit courts)
+      # can serve the query/open-events reads but never a snapshot. Swap the
+      # defaults if this case ever resolves out of shape.
       court:
         description: Court id of a known case with an open event and a snapshot.
         type: string
-        default: ca1
+        default: scotus
       docket:
         description: Docket id of the known case.
         type: string
-        default: "1000000"
+        default: "73274837"
       engine:
         description: >-
           engine-smoke only — which real engine drives the cell. SPENDS MODEL
@@ -133,6 +137,12 @@ jobs:
           COURT: ${{ inputs.court }}
           DOCKET: ${{ inputs.docket }}
           CORPUS_REMOTE_URL: ${{ vars.CORPUS_REMOTE_URL }}
+          # The set's provision-snapshot read: under the corpus split the
+          # ranged index carries no snapshot payloads — they are served from
+          # the per-case content store, which needs its URL. Inert while the
+          # flag is off.
+          FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
+          FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: |
           set -euo pipefail
           uv run fedcourts corpus-integration-check \
@@ -200,7 +210,8 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
-            --engine stub ${EVENT:+--event "$EVENT"} | tee -a "$GITHUB_STEP_SUMMARY"
+            --engine stub --require-predictions \
+            ${EVENT:+--event "$EVENT"} | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       # --- engine-smoke: one real agent cell over the service sidecar --------
@@ -234,6 +245,27 @@ jobs:
           esac
           npm install --silent --no-audit --ignore-scripts --global "$package"
           "$binary" --version
+
+      # The codex sandbox (bubblewrap) needs unprivileged user namespaces,
+      # which Ubuntu 24.04 runners restrict via AppArmor: without this, every
+      # command the agent runs — and even its file writes — dies with
+      # `bwrap: setting up uid map: Permission denied` and the cell finishes
+      # blocked. The same prerequisite codex-action applies for the live
+      # cells before dropping sudo (which this job does not do — see the
+      # engine-smoke paragraph in docs/security.md); the other engines
+      # sandbox nothing and need neither sysctl. Each knob is probed before
+      # writing, as upstream does: a kernel without the knob has nothing to
+      # loosen.
+      - name: Enable unprivileged user namespaces for the codex sandbox
+        if: ${{ inputs.scenario == 'engine-smoke' && inputs.engine == 'codex' }}
+        run: |
+          set -euo pipefail
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
 
       # Gemini's sanitizer runs strict whenever GITHUB_SHA is set and strips
       # every custom var from the agent's shell, so the cell env contract and
@@ -302,8 +334,12 @@ jobs:
           # deterministic CascadeReport block — printed by the CLI after the
           # cells finish — is appended, and only on success (pipefail aborts
           # before the append otherwise).
+          # --require-predictions: a real agent that finishes "blocked" exits
+          # 0 with a validly-empty ledger; the smoke must fail on that, not
+          # report green around an empty cell.
           uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
             --engine "$ENGINE" --predictor "$predictor" --corpus-backend ranged \
+            --require-predictions \
             ${EVENT:+--event "$EVENT"} | tee cascade-output.log
           {
             echo ""
