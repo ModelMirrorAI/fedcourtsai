@@ -1799,7 +1799,11 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     ] = None,
     citation: Annotated[
         list[str] | None,
-        typer.Option(help="Citation; repeatable. Matches cases citing any given authority."),
+        typer.Option(
+            help="Reporter citation, e.g. '597 U.S. 1'; repeatable. Matches cases "
+            "whose OWN parallel cites overlap — a lookup of specific known cases, "
+            "not a cases-citing-this-authority search."
+        ),
     ] = None,
     disposition: Annotated[
         str, typer.Option(help="Restrict to one realized outcome label, e.g. granted.")
@@ -1881,11 +1885,16 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
         _echo_service_read_stats(response.reads)
+        for note in response.notes:
+            typer.echo(f"note: {note}", err=True)
         for payload in response.rows:
             typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
         return
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         priors = corpus.retrieve_priors(conn, q, limit=limit)
+        if not priors and limit > 0:
+            for note in corpus.sparse_filter_coverage(conn, q):
+                typer.echo(f"note: {note}", err=True)
         _echo_read_stats(conn)
     for row in priors:
         typer.echo(
@@ -1957,7 +1966,11 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     ] = None,
     citation: Annotated[
         list[str] | None,
-        typer.Option(help="Citation; repeatable. Matches cases citing any given authority."),
+        typer.Option(
+            help="Reporter citation, e.g. '597 U.S. 1'; repeatable. Matches cases "
+            "whose OWN parallel cites overlap — a lookup of specific known cases, "
+            "not a cases-citing-this-authority search."
+        ),
     ] = None,
     disposition: Annotated[
         str, typer.Option(help="Restrict to one realized outcome label, e.g. granted.")

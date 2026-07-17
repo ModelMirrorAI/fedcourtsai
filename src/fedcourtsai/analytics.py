@@ -106,7 +106,11 @@ class AnalyticsQuery(BaseModel):
         "historical merits-era labels.",
     )
     resolved_only: bool = Field(
-        default=False, description="Drop unresolved cases (default keeps them for the open count)."
+        default=False,
+        description="Drop unlabeled cases (default keeps them for the open count). "
+        "Resolved here means disposition-LABELED — deliberately narrower than "
+        "`query`'s resolved reading (which also counts a decision date), because "
+        "the disposition denominators this command aggregates need labels.",
     )
     group_by: GroupBy | None = None
 

@@ -237,6 +237,11 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
             _row("ca9/5", None, judges=["alpha"]),
             # Another court: never mixed into ca9 retrievals.
             _row("ca1/6", Disposition.granted, court="ca1", judges=["alpha"]),
+            # Decided but never disposition-labeled: `retrieve_priors` returns it
+            # (a decision date closes a case), the index deliberately does not
+            # (the prior-vote baseline needs a label to vote with) — the one
+            # designed asymmetry between the two retrieval paths.
+            _row("ca9/7", None, judges=["alpha"], date_decided=date(2026, 4, 1)),
         ],
     )
     queries: list[tuple[str, tuple[str, ...], tuple[str, ...], int | None]] = [
@@ -259,7 +264,10 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
         index = PriorIndex.build(conn)
         for court, judges, citations, decided_before in queries:
             for limit in (1, 3, 10):
-                expected = corpus.retrieve_priors(
+                # Parity holds over the disposition-labeled subset: fetch wide,
+                # drop the label-less rows `retrieve_priors` alone returns, then
+                # truncate — so limits compare like against like.
+                wide = corpus.retrieve_priors(
                     conn,
                     corpus.PriorQuery(
                         court=court,
@@ -268,8 +276,9 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                         decided_before=decided_before,
                         resolved_only=True,
                     ),
-                    limit=limit,
+                    limit=50,
                 )
+                expected = [r for r in wide if r.disposition is not None][:limit]
                 got = index.top(court, judges, citations, limit, decided_before=decided_before)
                 assert [c.case_id for c in got] == [r.case_id for r in expected], (
                     court,
@@ -278,6 +287,11 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                     decided_before,
                     limit,
                 )
+        # The asymmetry itself, pinned: the unlabeled decided row retrieves
+        # through `retrieve_priors` but never through the index.
+        full = corpus.retrieve_priors(conn, corpus.PriorQuery(court="ca9"), limit=50)
+        assert "ca9/7" in [r.case_id for r in full]
+        assert "ca9/7" not in [c.case_id for c in index.top("ca9", (), (), 50)]
 
 
 # --- scoring ------------------------------------------------------------------

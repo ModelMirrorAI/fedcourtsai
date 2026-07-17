@@ -115,6 +115,10 @@ class QueryResponse(BaseModel):
     schema_version: Literal["1.0"]
     rows: list[dict[str, object]]
     reads: ReadCounters | None
+    # Data-coverage notes for an empty result through a sparsely-populated
+    # filter (`corpus.sparse_filter_coverage`) — the client prints them to
+    # stderr so a cell can tell "no data" from "no match".
+    notes: list[str] = Field(default_factory=list)
 
 
 class OpenEventsRequest(BaseModel):
@@ -207,8 +211,15 @@ class CorpusService:
         conn, before = self._baseline()
         priors = corpus.retrieve_priors(conn, request.query, limit=request.limit)
         rows = [corpus.prior_payload(row, full=request.full) for row in priors]
+        # limit=0 legitimately returns nothing scanned — no coverage story to tell.
+        notes = (
+            [] if rows or request.limit <= 0 else corpus.sparse_filter_coverage(conn, request.query)
+        )
         return QueryResponse(
-            schema_version=SCHEMA_VERSION, rows=rows, reads=self._counters_since(conn, before)
+            schema_version=SCHEMA_VERSION,
+            rows=rows,
+            reads=self._counters_since(conn, before),
+            notes=notes,
         )
 
     def open_events(self, request: OpenEventsRequest) -> OpenEventsResponse:
