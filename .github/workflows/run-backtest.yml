@@ -152,6 +152,27 @@ jobs:
           mkdir -p .gemini
           printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE"]}}}' > .gemini/settings.json
 
+      # The codex replay sandbox (bubblewrap) needs unprivileged user
+      # namespaces, which Ubuntu 24.04 runners restrict via AppArmor: without
+      # this, every command a codex replay cell runs — and even its file
+      # writes — dies with `bwrap: setting up uid map: Permission denied`
+      # and the cell finishes blocked. The same prerequisite codex-action
+      # applies for the live cells before dropping sudo — which this job
+      # does not do; the acceptance is stated in docs/security.md's back-test
+      # paragraph. Harmless when codex is skipped. Each knob is probed
+      # before writing, as upstream does: a kernel without the knob has
+      # nothing to loosen.
+      - name: Enable unprivileged user namespaces for the codex sandbox
+        if: github.event_name == 'issues' || inputs.engine == 'auto'
+        run: |
+          set -euo pipefail
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+
       - name: Run the cert back-test
         env:
           # Engine credentials for the replay cells; unused by the stub backend.

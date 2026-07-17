@@ -220,7 +220,12 @@ alongside the role variables, independent of step ordering. Standing up the
 gated pre-merge environment extends to engine-smoke only if the maintainer
 also places the engine keys on it as environment secrets — the
 required-reviewer rule then gates model spend exactly as it gates the
-read-only role. Within a run, the key rides the single cascade step's env,
+read-only role. A codex smoke additionally loosens the runner kernel's
+AppArmor userns restriction (codex-action's own prerequisite for the live
+cells) without dropping sudo afterwards — accepted for the same reason as in
+the back-test residual below: same-user co-residency is already conceded as
+a non-boundary, and this job holds only the read-only role and one engine
+key. Within a run, the key rides the single cascade step's env,
 alongside the corpus sidecar's step-scoped read-only AWS credentials for the
 cascade's own provisioning reads; the spawned agent sees neither, because the
 runner seam's scrubbed base environment strips every AWS variable and every
@@ -319,7 +324,12 @@ parent, so the same-user non-boundary above is more direct in this job.
 only accepts a key via `codex login`, so the runner seam logs in to a
 run-scoped temp `CODEX_HOME` whose `auth.json` holds codex's own key for the
 rest of the job — same-user readable, like the parent's environment already
-is.)
+is.) Running codex here also requires loosening the runner kernel's AppArmor
+restriction on unprivileged user namespaces — the same sysctl prerequisite
+codex-action applies for the live cells — and unlike codex-action, the
+runner-seam jobs do not drop sudo afterwards: accepted out loud, because the
+same-user parent-process residual above already dominates what reachable
+sudo adds, and the other engines have always run unsandboxed in these jobs.
 
 **The corpus-split mode constrains the read-only role's policy.**
 **`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `runner`

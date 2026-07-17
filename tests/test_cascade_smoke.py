@@ -15,10 +15,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline import cascade
 from fedcourtsai.pipeline.cascade import CascadeReport, run_cascade
 
 CONFIG_ROOT = Path("config")
@@ -55,3 +57,33 @@ def test_stub_cascade_smoke(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "valid" in result.output
+
+
+def test_require_predictions_fails_a_cell_that_produced_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The engine-smoke guard: a real agent that finishes "blocked" exits 0
+    with a validly-empty ledger, and the cascade would report green around an
+    empty cell — `--require-predictions` turns that into a failure."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    fixture.build_fixture_corpus(db)
+    env = {
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus"),
+        "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
+    }
+    args = ["local-cascade", "--court", "ca9", "--docket", "103", "--require-predictions"]
+
+    # The stub writes its prediction pair, so the guard is quiet.
+    ok = CliRunner().invoke(app, args, env=env)
+    assert ok.exit_code == 0, ok.output
+
+    class _BlockedRunner:
+        """An engine that exits 0 without writing any artifact."""
+
+        def run(self, request: object) -> list[Path]:
+            return []
+
+    monkeypatch.setattr(cascade, "get_runner", lambda *_: _BlockedRunner())
+    blocked = CliRunner().invoke(app, args, env=env)
+    assert blocked.exit_code == 1
+    assert "no predictor cell wrote a prediction" in blocked.output
