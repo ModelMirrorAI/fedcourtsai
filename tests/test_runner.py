@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import date
@@ -41,6 +42,17 @@ EVENT = "evt-motion-stay"
 PREDICTOR = "stub-baseline"
 EVALUATOR = "stub-judge"
 RUN = "20260628T120000Z"
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_codex_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A set OPENAI_API_KEY makes CodexRunner.run perform a real `codex login`
+    unless the test injects login_runner — on a keyed dev shell that would
+    spawn a real process. Structural guard: every test starts without the
+    key (and without a caller CODEX_HOME); the login tests set it back
+    explicitly."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("CODEX_HOME", raising=False)
 
 
 def _seed_event(data_root: Path) -> None:
@@ -372,7 +384,12 @@ def test_agent_env_is_scrubbed_of_cloud_creds_and_foreign_keys(
     ]
     for cls, own, foreign in by_engine:
         recorder = _Recorder()
-        cls(command_runner=recorder).run(request)
+        if cls is CodexRunner:
+            # A set OPENAI_API_KEY triggers the codex login-first step; stub
+            # it out — this test is about the exec env, not the login.
+            CodexRunner(command_runner=recorder, login_runner=lambda _key, _env: 0).run(request)
+        else:
+            cls(command_runner=recorder).run(request)
         for name in own & set(os.environ):
             assert recorder.env[name] != ""  # every set own auth var survives
         for name in foreign | set(undeclared):
@@ -395,3 +412,91 @@ def test_codex_runner_grants_subprocess_network(tmp_path: Path) -> None:
     flag = recorder.argv.index("-c")
     assert recorder.argv[flag + 1] == "sandbox_workspace_write.network_access=true"
     assert "workspace-write" in recorder.argv  # the sandbox mode itself stays on
+
+
+def test_codex_runner_logs_in_with_the_env_api_key_before_exec(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # `codex exec` never reads OPENAI_API_KEY from the environment (requests
+    # would go out with no credential and 401); the runner must feed it to
+    # `codex login --with-api-key` first, the way codex-action does for the
+    # live cells. The login seam receives the key directly (stdin in the real
+    # runner — never argv) and a scrubbed env.
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAFAKE")
+    calls: list[str] = []
+    login_env: dict[str, str] = {}
+    recorder = _Recorder()
+
+    def login(api_key: str, env: Mapping[str, str]) -> int:
+        calls.append(api_key)
+        login_env.update(env)
+        return 0
+
+    def exec_and_record(argv: Sequence[str], env: Mapping[str, str]) -> int:
+        calls.append("exec")
+        return recorder(argv, env)
+
+    CodexRunner(command_runner=exec_and_record, login_runner=login).run(
+        _predict_request(tmp_path / "data")
+    )
+    # Login happened exactly once, before exec, with the key.
+    assert calls == ["sk-test-key", "exec"]
+    # The key never rides argv, and the login env is the same scrubbed base
+    # the agent gets (own auth kept, cloud credentials gone).
+    assert all("sk-test-key" not in arg for arg in recorder.argv)
+    assert login_env["OPENAI_API_KEY"] == "sk-test-key"
+    assert "AWS_ACCESS_KEY_ID" not in login_env
+    # With no caller CODEX_HOME, login and exec share a run-scoped temp auth
+    # home — an API-key run never touches a dev box's ~/.codex.
+    assert login_env["CODEX_HOME"] == recorder.env["CODEX_HOME"]
+    assert login_env["CODEX_HOME"].startswith(tempfile.gettempdir())
+
+
+def test_codex_runner_honors_a_caller_set_codex_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # An explicit CODEX_HOME (a workflow pointing at its workspace) wins over
+    # the run-scoped default, for login and exec alike.
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "auth-home"))
+    login_env: dict[str, str] = {}
+    recorder = _Recorder()
+
+    def login(_api_key: str, env: Mapping[str, str]) -> int:
+        login_env.update(env)
+        return 0
+
+    CodexRunner(command_runner=recorder, login_runner=login).run(
+        _predict_request(tmp_path / "data")
+    )
+    assert login_env["CODEX_HOME"] == str(tmp_path / "auth-home")
+    assert recorder.env["CODEX_HOME"] == str(tmp_path / "auth-home")
+
+
+def test_codex_runner_skips_login_without_an_env_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # No env key -> no login: an existing CODEX_HOME login (a subscription
+    # dev box) is left to serve, exactly as before.
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    logins: list[str] = []
+
+    def login(api_key: str, _env: Mapping[str, str]) -> int:
+        logins.append(api_key)
+        return 0
+
+    CodexRunner(command_runner=_Recorder(), login_runner=login).run(
+        _predict_request(tmp_path / "data")
+    )
+    assert logins == []
+
+
+def test_codex_runner_fails_loudly_when_login_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key")
+    with pytest.raises(EngineFailed, match="codex login"):
+        CodexRunner(command_runner=_Recorder(), login_runner=lambda _key, _env: 1).run(
+            _predict_request(tmp_path / "data")
+        )

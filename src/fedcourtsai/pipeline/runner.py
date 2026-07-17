@@ -45,6 +45,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import tempfile
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -306,6 +307,12 @@ _MAX_TURNS = 120
 # tests can assert on the constructed command without spawning a real agent.
 CommandRunner = Callable[[Sequence[str], Mapping[str, str]], int]
 
+# The codex login executor: feed the API key (over stdin, never argv) to
+# `codex login --with-api-key` under env, return the exit code. A separate seam
+# from CommandRunner so tests can assert the login happened — with the key on
+# stdin — without changing the shared executor signature.
+CodexLoginRunner = Callable[[str, Mapping[str, str]], int]
+
 
 class EngineUnavailable(RuntimeError):
     """The engine CLI is not installed on PATH."""
@@ -429,6 +436,28 @@ def _run_subprocess(argv: Sequence[str], env: Mapping[str, str]) -> int:
         raise EngineUnavailable(str(argv[0])) from exc
 
 
+def _codex_login(api_key: str, env: Mapping[str, str]) -> int:
+    """Default :data:`CodexLoginRunner`: ``codex login --with-api-key``.
+
+    The key rides stdin — never argv, where any process listing could read
+    it — and the CLI stores it under ``CODEX_HOME`` (``~/.codex`` unset).
+    """
+    try:
+        # stdio is inherited (like the agent spawn) so a login failure explains
+        # itself in the run log; the success message is one line of noise, and
+        # the CLI masks the key in its own output — verified at the pinned
+        # 0.144.1, so a version bump re-checks that log-safety claim.
+        return subprocess.run(
+            ["codex", "login", "--with-api-key"],
+            env=dict(env),
+            input=api_key,
+            text=True,
+            check=False,
+        ).returncode
+    except FileNotFoundError as exc:
+        raise EngineUnavailable("codex") from exc
+
+
 # Any env name of this shape confers — or points at — a credential. Shape-based
 # rather than an enumerated list (the same family the Gemini CLI's sanitizer
 # hard-filters), so the posture holds for names nobody thought to enumerate: a
@@ -493,9 +522,16 @@ class AgenticRunner:
         raise NotImplementedError
 
     def run(self, request: RunRequest) -> list[Path]:
+        return self._run_with(request, {})
+
+    def _run_with(self, request: RunRequest, extra_env: Mapping[str, str]) -> list[Path]:
+        """The shared spawn, with an engine-specific env overlay under the
+        cell contract (CodexRunner's run-scoped auth home)."""
         command = self.build_command(request)
         run_command = self.command_runner or _run_subprocess
-        code = run_command(command.argv, {**_agent_base_env(self.auth_vars), **command.env})
+        code = run_command(
+            command.argv, {**_agent_base_env(self.auth_vars), **extra_env, **command.env}
+        )
         if code != 0:
             raise EngineFailed(
                 f"{self.backend} exited {code} for cell {request.actor_id}/{request.event_id}"
@@ -542,14 +578,43 @@ class CodexRunner(AgenticRunner):
     """Run the ``codex`` CLI headless, mirroring ``run-evaluate``'s codex step.
 
     Codex gets the same inline-identifier kickoff prompt as the other engines
-    (as the workflow's ``prompt`` input now does); auth is the inherited
-    ``OPENAI_API_KEY``.
+    (as the workflow's ``prompt`` input now does). Auth is ``OPENAI_API_KEY``
+    — but unlike the other CLIs, ``codex exec`` never reads it from the
+    environment: with only the variable set, requests go out with no
+    credential at all and 401. The one supported API-key path is ``codex
+    login --with-api-key``, which stores the key under ``CODEX_HOME`` — what
+    codex-action does for the live cells — so :meth:`run` performs that login
+    first whenever the variable is non-empty, into a run-scoped auth home:
+    unless the caller sets ``CODEX_HOME`` itself, login and exec share a
+    temp-dir home, so an API-key run never clobbers a dev box's ``~/.codex``
+    subscription login and a runner's at-rest key stays in the disposable
+    temp dir. Without the variable, an existing login is left to serve.
     """
 
     backend: str = "codex"
     engine: Engine = Engine.codex
     model: str = _CODEX_MODEL
     auth_vars: tuple[str, ...] = ("OPENAI_API_KEY",)
+    # Separate injectable seam for the login step (see CodexLoginRunner);
+    # default resolved in run() for the same reason as command_runner's.
+    login_runner: CodexLoginRunner | None = None
+
+    def run(self, request: RunRequest) -> list[Path]:
+        overlay: dict[str, str] = {}
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if api_key:
+            if "CODEX_HOME" not in os.environ:
+                home = Path(tempfile.gettempdir()) / f"fedcourts-codex-home-{os.getpid()}"
+                home.mkdir(parents=True, exist_ok=True)
+                overlay["CODEX_HOME"] = str(home)
+            login = self.login_runner or _codex_login
+            code = login(api_key, {**_agent_base_env(self.auth_vars), **overlay})
+            if code != 0:
+                raise EngineFailed(
+                    f"codex login --with-api-key exited {code}; "
+                    f"cell {request.actor_id}/{request.event_id} cannot authenticate"
+                )
+        return self._run_with(request, overlay)
 
     def build_command(self, request: RunRequest) -> EngineCommand:
         argv = [
