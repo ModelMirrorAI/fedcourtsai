@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73265705",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener MCP opinion search",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "Complete petition and brief-in-opposition text",
+    "SCOTUS docket snapshot",
+    "Fee-class, originating-circuit, relist, and CVSG base rates",
+    "CourtListener opinion search"
+  ],
+  "gaps": [
+    "Corpus query cannot filter case-level priors by originating court or petition posture"
+  ],
+  "notes": "The provisioned filings supplied the decisive case-specific analysis. Aggregate priors were useful for calibration; the unstructured corpus query results were only weak analogs."
+}

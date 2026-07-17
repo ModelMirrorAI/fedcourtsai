@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272488",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The provisioned petition included the complete merits argument and the relevant lower-court analysis.",
+    "The statpack supplied paid-petition, circuit, and relist calibration.",
+    "The snapshot exposed the response-request signal and current procedural posture."
+  ],
+  "gaps": [
+    "Issue-aware corpus search would produce more comparable cert priors than court-and-era filters.",
+    "CourtListener opinion search did not resolve the recent Tovar citation or quoted case name."
+  ],
+  "notes": "The corpus query returned broad recent grant priors but no issue-level analogues. The MCP searches failed gracefully; the prediction remained well supported by the provisioned record and committed base rates."
+}

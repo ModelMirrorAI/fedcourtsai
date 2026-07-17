@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73298285",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted; corpus service unavailable)",
+    "committed statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP opinion endpoint"
+  ],
+  "helpful": [
+    "Provisioned full petition and questions presented",
+    "Provisioned docket snapshot showing the requested response",
+    "Paid-petition and originating-circuit base rates",
+    "CourtListener access to Goldey and Arias"
+  ],
+  "gaps": [
+    "The corpus query sidecar timed out, so no case-level corpus priors were available",
+    "No brief in opposition was yet available in the provisioned record",
+    "The statpack has no response-request conditional base-rate cut"
+  ],
+  "notes": "The corpus outage was non-blocking. CourtListener research and the committed statpack were sufficient to calibrate the provisioned record."
+}

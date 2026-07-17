@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318742",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "The complete petition and brief in opposition exposed both the proposed rule and the vehicle defects.",
+    "The statpack's Term, fee-class, and originating-circuit cuts provided quantitative calibration."
+  ],
+  "gaps": [],
+  "notes": "The provisioned record was complete enough to forecast without live retrieval. A comparable-petition search keyed to cert-stage features such as represented status, publication status, split allegations, and vehicle defects would improve calibration beyond broad corpus cuts."
+}

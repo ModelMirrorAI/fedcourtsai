@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318133",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260717T214313Z",
+  "created_at": "2026-07-17T22:02:20Z",
+  "input_snapshot": "data/cases/scotus/73318133/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.0005,
+  "predicted_disposition": "denied",
+  "confidence": 0.99,
+  "big_case_score": 0.6,
+  "big_case_rationale": "A merits decision could affect nationally salient aviation-safety, whistleblower, and federal-marijuana-law issues involving Boeing, although the petition does not isolate a viable vehicle for them.",
+  "reasoning_doc": "reasoning.md"
+}

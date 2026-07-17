@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318133",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The provisioned full petition text exposed the vehicle and framing defects.",
+    "The statpack provided fee-class, circuit, relist, and Term calibration.",
+    "CourtListener MCP verified the McDonnell Douglas reference without querying this case."
+  ],
+  "gaps": [
+    "The corpus query surface cannot rank priors by petition text or pro se and fee-class similarity."
+  ],
+  "notes": "The broad corpus rows were useful mainly for docket-signal contrast; the provisioned petition and aggregate base rates carried the forecast."
+}

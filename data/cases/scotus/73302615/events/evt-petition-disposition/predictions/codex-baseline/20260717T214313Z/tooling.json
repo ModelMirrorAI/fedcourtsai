@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73302615",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "full petition and extracted questions presented",
+    "dated docket snapshot showing the requested response",
+    "fee-class and originating-circuit cert base rates",
+    "citation searches confirming the asserted circuit authorities"
+  ],
+  "gaps": [
+    "No issue-level historical cert-outcome search was available for calibrating similarly situated petitions"
+  ],
+  "notes": "The structured corpus query filters could not isolate this statutory issue, so I used the statpack for calibration and limited CourtListener searches for legal context. The brief in opposition was not yet due at the snapshot date."
+}

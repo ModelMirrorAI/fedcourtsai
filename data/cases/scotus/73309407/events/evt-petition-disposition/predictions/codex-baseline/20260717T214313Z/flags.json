@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73309407",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The snapshot dates the petition entry February 6, 2026, but reports docketing May 7 and links a petition dated May 2 with a May 1 PDF timestamp. The inconsistency did not materially affect the prediction.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

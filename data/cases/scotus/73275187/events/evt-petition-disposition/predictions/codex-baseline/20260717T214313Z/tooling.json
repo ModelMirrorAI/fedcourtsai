@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275187",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search and retrieval"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition",
+    "Docket chronology in the provisioned snapshot",
+    "CourtListener access to the intervening Pung opinion",
+    "Paid-petition and relist base rates"
+  ],
+  "gaps": [
+    "The June 25 supplemental brief was listed in the snapshot but its text was not provisioned."
+  ],
+  "notes": "The corpus query was useful for contemporary procedural examples but required a large ranged transfer relative to the ten compact results returned."
+}

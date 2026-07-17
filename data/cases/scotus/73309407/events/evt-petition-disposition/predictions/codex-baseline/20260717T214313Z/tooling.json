@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73309407",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "committed corpus statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "The complete provisioned petition exposed the interlocutory posture and fact-bound framing.",
+    "Fee-class and docket-stage base rates materially improved calibration.",
+    "CourtListener searches confirmed the controlling finality and mootness doctrines."
+  ],
+  "gaps": [
+    "The committed statpack did not include the salience-band table described in the prediction prompt.",
+    "Citation-field searches produced noisy prefix matches, requiring exact case-name searches."
+  ],
+  "notes": "Structured corpus filters do not carry a useful subject field for SCOTUS cert petitions, so no corpus-prior query was made."
+}
