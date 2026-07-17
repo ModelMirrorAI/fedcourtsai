@@ -24,7 +24,9 @@ your shell, substitute the literals from your kickoff prompt.
 | `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5` |
 
 Run `uv run fedcourts paths --court "$COURT_ID" --docket "$DOCKET_ID" --event
-"$EVENT_ID"` to see resolved paths if you are unsure.
+"$EVENT_ID" --role predictor` to see resolved paths if you are unsure. (The
+realized outcome is an evaluator-only file — the listing does not name it for
+you, and you must never read it.)
 
 ## Inputs (read-only)
 
