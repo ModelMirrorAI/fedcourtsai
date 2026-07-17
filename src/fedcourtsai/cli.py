@@ -2104,11 +2104,23 @@ def paths(
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Optional event id to resolve event paths.")] = "",
+    role: Annotated[
+        str,
+        typer.Option(
+            help="Cell role: predictor | evaluator. The realized outcome path is "
+            "resolved only for an evaluator (a predictor never reads it).",
+        ),
+    ] = "",
 ) -> None:
     """Print resolved paths for a case (or event). Useful in scripts.
 
     Raw facts live in the packed corpus, not per-case git files; git holds only
     the derived ledger (events, outcomes, predictions, evaluations).
+
+    The realized ``outcome.json`` is the evaluator's ground truth — never a
+    predictor input. It is resolved only for ``--role evaluator``; a predictor
+    (the default) is not shown the path, so the forward cell's input surface
+    never names the answer file even if a resolved event slips into its queue.
     """
     settings = get_settings()
     cp = CasePaths(settings.data_root, court, docket)
@@ -2117,7 +2129,10 @@ def paths(
     if event:
         ep = cp.event(event)
         typer.echo(f"event     {ep.event_file}")
-        typer.echo(f"outcome   {ep.outcome}")
+        if role == "evaluator":
+            typer.echo(f"outcome   {ep.outcome}")
+        else:
+            typer.echo("outcome   (evaluator-only — never a predictor input)")
 
 
 @app.command("provision-snapshot")
