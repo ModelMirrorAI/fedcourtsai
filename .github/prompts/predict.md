@@ -91,8 +91,9 @@ cross-evaluator reads it.
   honest flag keeps the cell usable as iteration signal.
 - **If the MCP server is unavailable, degrade gracefully — there is no REST
   fallback.** The MCP server is the cell's only sanctioned live CourtListener
-  path. Your shell env carries no CourtListener token, and you must **not** go
-  extracting one from the MCP client-config file (or anywhere else) to make
+  path. Your shell env carries no CourtListener token — neither does any
+  config file (they name only your cell's localhost MCP sidecar) — and you
+  must **not** go extracting one from anywhere on the runner to make
   direct REST calls — MCP is the only path, by design. When an MCP tool call
   errors, fall back to the **corpus tooling below** (priors and base rates —
   these read the corpus, not CourtListener) and the provisioned inputs, and say

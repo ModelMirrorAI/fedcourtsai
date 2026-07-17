@@ -1926,8 +1926,11 @@ class McpServerConfig(_Strict):
     The manifest is the pipeline-attribution record once cells' retrieval
     varies: it pins exactly which retrieval tooling a cell was configured with
     (echoed into each cell's ``retrieval_log.json``), and is frozen before the
-    September prediction freeze. Local-install stdio only — the hosted
-    endpoint's OAuth flow does not fit headless CI.
+    September prediction freeze. Local-install only — the hosted endpoint's
+    OAuth flow does not fit headless CI. The transport is a deployment
+    concern, not a manifest property: the same pinned package runs over stdio
+    (local runs) or as the cells' tokenless localhost HTTP sidecar
+    (``fedcourts mcp-serve`` + ``mcp-config --http-url``).
     """
 
     id: str = Field(description="Manifest key, e.g. `courtlistener`")

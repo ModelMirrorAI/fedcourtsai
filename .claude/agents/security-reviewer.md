@@ -25,11 +25,14 @@ everything outside `.github/workflows`.)
 ## Review checklist
 
 - **Secrets.** No token printed, logged, committed, or written to a path that
-  can reach a commit or an artifact. The one documented carve-out is the
-  MCP-config step writing the CourtListener API token into runner-local
-  gitignored client files — anything beyond it needs the docs updated and a
-  justification. New secrets belong on the `runner` environment and in
-  `docs/security.md`'s inventory.
+  can reach a commit or an artifact. In the cell workflows no config file
+  carries a token at all — the MCP client configs name only the tokenless
+  sidecar's localhost URL, and the token rides the sidecar launch step's env;
+  the one documented file carve-out is a *local* stdio `mcp-config` run
+  injecting the dev's own token into the runner-local gitignored client file.
+  Anything beyond that needs the docs updated and a justification. New
+  secrets belong on the `runner` environment and in `docs/security.md`'s
+  inventory.
 - **Authorization stays fail-closed.** Anything an outside actor can cause
   (issue forms apply labels regardless of permissions!) must be authorized
   before privileged steps (`authorize-trigger` or a permission check), and the

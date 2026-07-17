@@ -21,19 +21,26 @@
 # configs are emitted by `fedcourts mcp-config` from these entries.
 mcp_servers:
   - id: courtlistener
-    # The official Free Law Project server, local-install stdio mode (the hosted
+    # The official Free Law Project server, local-install (the hosted
     # endpoint's OAuth flow does not fit headless CI). Launched via
-    # `uvx --from '<package>'`; exact-version pinned. This release has two
-    # stdio-mode bugs — it ships without its icon assets (crashes at startup),
-    # and its search/call_endpoint tools demand a Redis session store stdio
-    # mode never configures (every call fails with "REDIS_URL is not set") —
-    # so `fedcourtsai.mcp` launches it through a shim keyed to this exact pin
-    # that writes placeholder assets and pre-seeds an in-process fakeredis
-    # store. Bumping the pin to a fixed release self-retires the shim.
+    # `uvx --from '<package>'`; exact-version pinned. Two transports, one
+    # pin: stdio for local runs, and in the cell workflows a tokenless
+    # localhost HTTP sidecar (`fedcourts mcp-serve`) so no client config
+    # carries the token. This release has two bugs — it ships without its
+    # icon assets (crashes at startup), and its search/call_endpoint tools
+    # demand a Redis session store the local modes never configure (every
+    # call fails with "REDIS_URL is not set") — so `fedcourtsai.mcp`
+    # launches it through shims keyed to this exact pin that write
+    # placeholder assets and pre-seed an in-process fakeredis store (the
+    # HTTP shim also builds the server directly, bypassing the release's
+    # hard Redis/OAuth requirements for hosted HTTP). Bumping the pin to a
+    # fixed release self-retires the shims.
     package: "courtlistener-api-client[mcp]==1.0.0"
     command: courtlistener-mcp
-    # The CourtListener API token (repo secret COURTLISTENER_API_TOKEN, wired
-    # to this env var in the cell). Unset degrades to anonymous rate limits.
+    # The CourtListener API token env name. In the cell workflows only the
+    # MCP sidecar's launch step holds it; locally the stdio launch injects
+    # it from the emitting process's env. Unset, this release's tool calls
+    # error and the cell degrades to corpus tooling (never blocks).
     token_env: COURTLISTENER_API_TOKEN
     description: >-
       Official CourtListener MCP: search, endpoint access, and citation tools

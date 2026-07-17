@@ -234,17 +234,54 @@ jobs:
           FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
         run: uv run fedcourts materialize-event --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
 
+      # Launch the CourtListener MCP server as a tokenless HTTP sidecar (the
+      # tested `mcp-serve` runs the same pinned package the stdio transport
+      # would have spawned, in HTTP mode on localhost). The token rides THIS
+      # step's env only — the background server inherits it — so the client
+      # configs written below carry a localhost URL and no token: the agent
+      # can no longer read one out of any config file. Mirrors the corpus
+      # sidecar above.
+      - name: Launch the CourtListener MCP sidecar
+        env:
+          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+        run: |
+          set -euo pipefail
+          nohup uv run fedcourts mcp-serve --role predictor --actor "$PREDICTOR_ID" \
+            --port 8378 > cl-mcp-sidecar.log 2>&1 &
+          echo "$!" > cl-mcp-sidecar.pid
+
+      # Warn-only, matching the degraded-upstream posture: a cell whose live
+      # CourtListener retrieval is down still runs on corpus tooling and
+      # provisioned inputs (the prompt contract says so), exactly as it did
+      # when each engine spawned the server itself and the spawn could fail.
+      - name: Wait for the CourtListener MCP sidecar
+        run: |
+          set -euo pipefail
+          # 90s budget, not the corpus sidecar's 30: mcp-serve execs into a
+          # fresh `uvx` resolve of the pinned package on a cache-less runner,
+          # which alone can take tens of seconds.
+          for _ in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8378/health >/dev/null 2>&1; then
+              exit 0
+            fi
+            if ! kill -0 "$(cat cl-mcp-sidecar.pid)" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          echo "::warning::CourtListener MCP sidecar not healthy; the cell degrades to corpus tooling"
+
       # Configure the cell's MCP retrieval from the versioned tool
       # manifest (config/predictors.yaml `mcp_servers:`). The tested `mcp-config`
       # command emits each engine's client format; this step only plumbs stdout
-      # to the file the engine reads. The CourtListener API token is injected
-      # into the generated file, which is workspace-local, gitignored, and
-      # never part of the uploaded artifact (the upload lists status.json +
-      # data/ explicitly). An unset secret degrades the server to anonymous
-      # rate limits rather than failing the cell.
+      # to the file the engine reads. Each config names only the sidecar's
+      # localhost URL — no launch command and no token (the sidecar's launch
+      # step holds it; unset, CL tool calls error and the cell degrades to
+      # corpus tooling rather than failing) — so the generated file, though
+      # workspace-local and gitignored, contains nothing worth reading.
       - name: Configure agent retrieval (MCP)
         env:
-          COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
           ENGINE: ${{ matrix.engine }}
           PREDICTOR_ID: ${{ matrix.predictor_id }}
         run: |
@@ -252,12 +289,14 @@ jobs:
           case "$ENGINE" in
             claude-code)
               uv run fedcourts mcp-config --engine claude-code \
-                --role predictor --actor "$PREDICTOR_ID" > mcp-servers.json
+                --role predictor --actor "$PREDICTOR_ID" \
+                --http-url courtlistener=http://127.0.0.1:8378/mcp > mcp-servers.json
               ;;
             codex)
               mkdir -p .codex
               uv run fedcourts mcp-config --engine codex \
-                --role predictor --actor "$PREDICTOR_ID" > .codex/config.toml
+                --role predictor --actor "$PREDICTOR_ID" \
+                --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
               ;;
             gemini)
               # The Gemini settings file is (re)written whole here — telemetry
@@ -295,11 +334,10 @@ jobs:
               # query, leaving retrieval_log.json's query/params null (Claude and
               # Codex capture args already; this brings Gemini in line). The raw
               # telemetry.log is gitignored and excluded from the artifact upload,
-              # so only the parsed query slice reaches the committed log; and the
-              # captured args come from the Gemini *agent* step, which is
-              # token-free — COURTLISTENER_API_TOKEN rides this MCP-config step's
-              # env only to be written into the gitignored settings file, never the
-              # agent step, and the CLI strips custom env from agent shell commands
+              # so only the parsed query slice reaches the committed log; and this
+              # step and the Gemini *agent* step are both token-free — the
+              # CourtListener token lives in the MCP sidecar's launch step only,
+              # and the CLI strips custom env from agent shell commands
               # except the non-secret identifiers allowlisted below (a token can
               # never be allowlisted: the CLI hard-filters /TOKEN|SECRET|KEY|.../i
               # out of the allowlist itself) — so a captured arg carries a query,
@@ -314,7 +352,8 @@ jobs:
               printf '%s\n' '{"context":{"fileFiltering":{"respectGitIgnore":false}},"telemetry":{"enabled":true,"target":"local","outfile":".gemini/telemetry.log","logPrompts":true},"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","FEDCOURTS_CORPUS_BACKEND","FEDCOURTS_CORPUS_SERVICE_URL"]}}}' > .gemini/settings.json
               uv run fedcourts mcp-config --engine gemini \
                 --role predictor --actor "$PREDICTOR_ID" \
-                --base-settings .gemini/settings.json > .gemini/settings.json.new
+                --base-settings .gemini/settings.json \
+                --http-url courtlistener=http://127.0.0.1:8378/mcp > .gemini/settings.json.new
               mv .gemini/settings.json.new .gemini/settings.json
               ;;
           esac
@@ -355,10 +394,11 @@ jobs:
           # surface, no cloud credential in this shell.
           FEDCOURTS_CORPUS_BACKEND: service
           # No CourtListener token on the agent step: live CL access is the MCP
-          # server only (configured in the step above, its token in the gitignored
-          # settings file), and there is no REST fallback — so the token is never
-          # in an agent's env while it processes adversarial docket text. If MCP is
-          # down the agent degrades to corpus tooling + provisioned inputs.
+          # sidecar only (a localhost URL in the config above; the token lives in
+          # the sidecar's own step env), and there is no REST fallback — so the
+          # token is never in an agent's env, or any file it can read, while it
+          # processes adversarial docket text. If MCP is down the agent degrades
+          # to corpus tooling + provisioned inputs.
         with:
           # run-pull files this predict issue as the trusted pipeline App
           # (`fedcourtsai-data[bot]`), which the plan job's authorize-trigger gate
@@ -694,21 +734,24 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      # The sidecar's log carries its startup line and per-request records
-      # (boto3/http.server noise, no secrets — GitHub masks the credentials
-      # regardless): surface it in the job log so a mid-run sidecar death or a
-      # failed query is diagnosable without re-running the cell.
-      - name: Show the corpus sidecar log
+      # The sidecars' logs carry their startup lines and per-request records
+      # (server noise, no secrets — GitHub masks the credentials regardless):
+      # surface them in the job log so a mid-run sidecar death or a failed
+      # lookup is diagnosable without re-running the cell.
+      - name: Show the sidecar logs
         if: ${{ always() }}
         continue-on-error: true
         run: |
           set -euo pipefail
-          # Indent every replayed line: the log is agent-adjacent bytes, and a
-          # line starting with ::<command>:: would otherwise be parsed as a
+          # Indent every replayed line: the logs are agent-adjacent bytes, and
+          # a line starting with ::<command>:: would otherwise be parsed as a
           # workflow command by the runner.
-          if [ -f corpus-sidecar.log ]; then
-            tail -n 100 corpus-sidecar.log | sed 's/^/  /'
-          fi
+          for log in corpus-sidecar.log cl-mcp-sidecar.log; do
+            if [ -f "$log" ]; then
+              echo "--- $log"
+              tail -n 100 "$log" | sed 's/^/  /'
+            fi
+          done
 
   collect:
     needs: [plan, predict]

@@ -305,18 +305,19 @@ in-repo so it is typed, tested, and reviewed under the same gate.
 The decision behind the fourth backend, recorded here because it settles the
 agent retrieval contract. The ranged backend needs cloud credentials **in the
 calling shell**, and the callers that matter most are agent cells processing
-adversarial docket text: two engines hold read-only AWS credentials as an
-accepted residual (see [security.md](security.md)), and the third (Gemini)
-cannot run ranged queries at all — its CLI's env sanitizer refuses to allowlist
-any credential-shaped variable name, which makes corpus retrieval an accident
+adversarial docket text: two engines held read-only AWS credentials as an
+accepted residual, and the third (Gemini)
+could not run ranged queries at all — its CLI's env sanitizer refuses to allowlist
+any credential-shaped variable name, which made corpus retrieval an accident
 of harness rather than a level surface. The alternatives were to accept that
 asymmetry, or to hand the third engine a credentials file (levelling *down* —
 three exposed shells instead of two). The decision levels *up*: corpus
 retrieval becomes a **query service**, so that no agent shell holds any
-credential. This section records the decision and the service; the cell
-workflows still run today's posture until the rewiring that launches the
-sidecar with step-scoped credentials lands (that change also retires the
-security runbook's cells-hold-credentials residual).
+credential. The cell workflows launch the sidecar with step-scoped
+credentials (see the security runbook, whose cells-hold-credentials residual
+this retired); the same pattern also serves the CourtListener MCP tools —
+`fedcourts mcp-serve`, the tokenless MCP sidecar whose client configs carry
+only a localhost URL.
 
 `fedcourts corpus-serve` (`fedcourtsai.corpus_service`) serves `query` and
 `open-events` over localhost HTTP. The process holds the one corpus connection
