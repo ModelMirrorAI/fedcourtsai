@@ -1,0 +1,10 @@
+case_id: scotus/73281342
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-03-06'
+resolved: true
+schema_version: '1.0'
+title: Samuel A. Cox v. Brian D. Thie, Individually and as Benewah County Prosecutor

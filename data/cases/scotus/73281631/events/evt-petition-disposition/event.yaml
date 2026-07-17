@@ -1,0 +1,11 @@
+case_id: scotus/73281631
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-03-30'
+resolved: true
+schema_version: '1.0'
+title: Svenhard's Swedish Bakery v. Bakery and Confectionery Union and Industry International
+  Pension Fund

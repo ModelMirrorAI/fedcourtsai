@@ -1,0 +1,10 @@
+case_id: scotus/73281402
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-03-26'
+resolved: true
+schema_version: '1.0'
+title: American Telecom Company, L.L.C. v. Republic of Lebanon
