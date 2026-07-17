@@ -1,0 +1,230 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "54735c6502c3c620",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246 -type f | head -50",
+      "result_digest": "86a234a98cc3935d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c11569593eb8626c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "2958a0698b20f22b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2398862797bba0fb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b7426db12b30fd2f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246/record/documents/documents.json\"}",
+      "result_digest": "313cae207a14b796",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c3487880b7b545ff",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "90ae6d4fc59a4eed",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "238803887606af25",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246/record/documents/questions-presented.txt\"}",
+      "result_digest": "7c621c2c147f045a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "14b7a6688a4beb74",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246/record/documents/petition.txt\"}",
+      "result_digest": "35367c4570a72ea7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "638f50b2247d427c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73300246/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "e039a0a08a9f262d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a016ee44c4394377",
+      "query": "uv run fedcourts paths --court scotus --docket 73300246 --event evt-petition-disposition 2>&1",
+      "result_digest": "99e758208cf71cbf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f4ed9c8e9a87e0ff",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s --text \"takings just compensation Fifth Amendment access\" --limit 5 2>&1 | head -60",
+      "result_digest": "83e4c586cc691432",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8a98acdd9217e552",
+      "query": "uv run fedcourts query --help 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g'",
+      "result_digest": "34f347107c9e3065",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1a78dde64cdd4dcc",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s --limit 8 2>/tmp/q1.err | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    try: r=json.loads(line)\n    except Exception: print(line); continue\n    print(r.get('case_name') or r.get('caption'), '|', r.get('disposition'), '|', r.get('date_filed') or r.get('term'), '|', r.get('era'))\n\"; echo '--- stderr:'; cat /tmp/q1.err",
+      "result_digest": "142702311f5242f8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "7cfa74f64073ca54",
+      "query": "takings clause \"just compensation\" access landlocked",
+      "result_digest": "97a77c736fa78158",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "a6683c69f58388a7",
+      "query": "\"Takings Clause\" access easement",
+      "result_digest": "d4d3391cb5844bc6",
+      "retrieved_doc_date": "2024-04-12",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "50b7a8dd15dd2a09",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0c2f2aa8a2ef9bbb",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73300246\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:14:26Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73300246/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.015,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "eb28b6bcf0e18c74",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "44f53a7c2451c512",
+      "query": "{\"content\": \"# Harvey v. City of Reno, Nevada, et al. \\u2014 No. 25-1254 (petition disposition)\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.015.**\\n\\n## The case\\n\\nThe Harvey Trust owns a parcel near I-580 and Huffaker Place in Reno. When\\nI-580 was built in 1987, a bridge over Dry Creek that had served the parcel's\\nnorthwest corner was removed, and the Trust thereafter reached that corner over\\nan NDOT-owned access road (APN 043-282-03). In 2021 NDOT sold that road parcel\\nat publ",
+      "result_digest": "da3028e0041bfb49",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "098105dac6fd06a0",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73300246 / evt-petition-disposition / claude-baseline / 20260717T180352Z\\n\\nMode: `forward` (retrieval unrestricted; nothing outcome-revealing exists yet \\u2014\\nthe petition is distributed for the 2026-09-28 conference).\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --disposition granted --era 2020s --limit 8`\\n   \\u2014 stderr: `ranged corpus reads: 148 GET(s), 38666240 byte(s)`.\\n   Pulled recent granted priors for c",
+      "result_digest": "4a96f1c152dc3637",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3eab99d1ed098dc7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73300246\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"courtlistener MCP search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition + BIO text (the BIO's vehicle arguments drove the call)\\\",\\n    \\\"statpack relist/CVSG c",
+      "result_digest": "32af111eed1a9c39",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "caa337b1bc67eff1",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5; git status --short data/cases/scotus/73300246/",
+      "result_digest": "9fdcf48581606bba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b9d627903b4d2729",
+      "query": "gh issue comment 759 --body \"claude-baseline / scotus/73300246 / evt-petition-disposition / 20260717T180352Z: prediction written \u2014 **denied**, P(grant)=0.015. Paid petition from the Nevada Supreme Court (25-1254, takings/landlocked access); no split, lead statutory argument waived below, contested factual premise, adequate state grounds, no relist/CVSG signal. All four output files validate.\" 2>&1 | tail -2",
+      "result_digest": "46fe98a0a4c04438",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73300246",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

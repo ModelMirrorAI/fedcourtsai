@@ -1,0 +1,238 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "785b7f83202400e5",
+      "query": "{\"strategic_intent\": \"Understand the prediction task and the required output format.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:38.082Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:40.740Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:40.741Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "74db016f45fc83e3",
+      "query": "cat data/cases/scotus/73287447/events/evt-petition-disposition/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:46.537Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a4f35ab363409f1",
+      "query": "uv run fedcourts paths --court scotus --docket 73287447 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:50.217Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6d70b4c93bafdde5",
+      "query": "ls -R data/cases/scotus/73287447/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:53.037Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ae32729fa259c71b",
+      "query": "find data/cases/scotus/73287447 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:57.265Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3bca3f589884d9db",
+      "query": "{\"file_path\": \"data/cases/scotus/73287447/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:00.054Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "da98b38fc8a22d02",
+      "query": "{\"file_path\": \"data/cases/scotus/73287447/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:00.055Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "40880455d2ef5a77",
+      "query": "{\"file_path\": \"data/cases/scotus/73287447/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:00.055Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "920ddbacffc84dd9",
+      "query": "{\"strategic_intent\": \"Analyze the case facts to predict the cert petition disposition.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:02.581Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d4ddfd4917f5e545",
+      "query": "{\"file_path\": \"data/cases/scotus/73287447/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:05.288Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "61d5a28419553b54",
+      "query": "cat data/cases/scotus/73287447/record/snapshots/2026-07-17.json | jq .",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:05.288Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:11.611Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6e1cbcd711784e91",
+      "query": "head -n 200 data/cases/scotus/73287447/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:15.542Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5378c53e12571ba7",
+      "query": "uv run fedcourts query --court scotus --topic \"antitrust standing\" --decided-before \"2026-07-17\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:24.323Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:27.373Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8669a98516fef348",
+      "query": "\"antitrust standing\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:32.689Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "58cf766a10c81385",
+      "query": "\"Nexstar Media\" DirecTV \"antitrust standing\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:47.882Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:54.756Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:08.298Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9eb71fe9b8526f30",
+      "query": "mkdir -p data/cases/scotus/73287447/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:12.524Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "92fa65d7ba71f4f4",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73287447\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73287447/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.85,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:16.639Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3a3081508e87178d",
+      "query": "{\"content\": \"**Prediction: Denied (Probability: 15%)**\\n\\n*Legal Question:* Whether a plaintiff has antitrust standing to recover purported downstream losses flowing from its decision not to purchase an allegedly price-fixed product.\\n\\n*Governing Standard:* The Supreme Court assesses whether to grant certiorari based on the presence of a genuine split among the circuit courts of appeal on an important question of federal law, particularly one that recurrs and affects substantial economic intere",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:22.252Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "31ae49efb6cc1c21",
+      "query": "{\"content\": \"Consulted the provisioned inputs (snapshot and questions presented).\\nUsed `mcp_courtlistener_search` to search for `\\\"antitrust standing\\\"` (results included *Lexmark*, *Unitherm*, *Matsushita*, *Sedima*, *Associated General Contractors*, *Blue Shield v. McCready*, *Reiter v. Sonotone*, *Illinois Brick*).\\nUsed Google Web Search for `\\\"Nexstar Media\\\" DirecTV \\\"antitrust standing\\\"` to understand the stakes and public salience of the case.\\nConsulted `metrics/statpack.md` for base ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:26.403Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b9a2be43cb3a7020",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73287447\\\",\\n  \\\"gaps\\\": [\\n    \\\"No specific statpack cut for Call for Response (CFR) without a subsequent relist.\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search allowed rapid assessment of the stakes and context of this high-profile case.\\\"\\n  ],\\n  \\\"notes\\\": \\\"The web search was highly effective for evaluating the big_case_score.\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"schema_ve",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:30.229Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:35.492Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6b17b5f985560b1c",
+      "query": "{\"strategic_intent\": \"Finished predicting the cert petition disposition.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:39.044Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73287447",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

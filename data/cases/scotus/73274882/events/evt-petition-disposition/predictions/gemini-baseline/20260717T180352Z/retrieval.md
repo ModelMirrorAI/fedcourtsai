@@ -1,0 +1,8 @@
+# Retrieval Log
+
+1. Read the provided `documents.json` and `2026-07-17.json` snapshot to understand the docket history. The case showed an extraordinary 23 relists for conference.
+2. Read the `statpack.md` to verify base rates. Cert petitions with 3+ relists have a 21.8% grant rate and 76.5% deny rate on average, but a 23-relist streak strongly suggests the case is being held for another merits decision.
+3. Searched the `mcp_courtlistener` tool for opinions matching "Benson" to identify the supplemental briefs' subject matter (the search returned several unrelated cases).
+4. Conducted a web search (`google_web_search`) for `"Benson" "Second Amendment" supreme court`, discovering that *Benson v. United States* (March 2026) was a D.C. Court of Appeals panel ruling striking down a magazine ban, establishing a circuit split before being vacated for en banc rehearing.
+5. Conducted a web search (`google_web_search`) for `"Snope v. Brown" OR "Bevis" "Supreme Court" certiorari granted 2025 2026` to determine if SCOTUS had granted cert in any analogous Second Amendment cases. This revealed that the Supreme Court granted certiorari in *Viramontes v. Cook County* and *Grant v. Higgins* on June 30, 2026 (just before the snapshot date), confirming that *Duncan* is almost certainly being held pending those decisions.
+6. Attempted to run `uv run fedcourts query --court scotus --topic "Second Amendment" --era 2020s` but the corpus sidecar was unreachable (`corpus service at http://127.0.0.1:8377 is unreachable`). No priors retrieved via CLI.

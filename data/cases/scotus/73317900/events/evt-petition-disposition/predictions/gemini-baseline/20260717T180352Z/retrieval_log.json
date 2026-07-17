@@ -1,0 +1,334 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "c0e68d002c9907c0",
+      "query": "{\"strategic_intent\": \"Read project documentation to understand the task requirements for prediction generation.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:12.037Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f16dbc32156dfcab",
+      "query": "{\"end_line\": 100, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:14.851Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "69e5bc9dc29dc1b1",
+      "query": "{\"end_line\": 100, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:14.852Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eee5d6e5f42992e7",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73317900\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:19.704Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "050a60caa3385e63",
+      "query": "ls -la data/cases/scotus/73317900/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:23.437Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc67eaaad0a9cac1",
+      "query": "ls -la data/cases/scotus/73317900/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:26.094Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c3c39aa3b7cc4164",
+      "query": "ls -la data/cases/scotus/73317900/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:28.395Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01a3a2addbe03571",
+      "query": "{\"strategic_intent\": \"Read input files and understand the output schema for the prediction.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:32.535Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "37779664b47da9d6",
+      "query": "{\"end_line\": 100, \"file_path\": \"schemas/prediction.schema.json\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:32.543Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e3e976cbdb5fc10e",
+      "query": "{\"end_line\": 200, \"file_path\": \"schemas/prediction.schema.json\", \"start_line\": 101}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:35.060Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a68623d89bb632d1",
+      "query": "ls -la data/cases/scotus/73317900/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:40.621Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "08ade23c8e9336c0",
+      "query": "ls -la data/cases/scotus/73317900/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:40.621Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6ba68bc8a00445e1",
+      "query": "cat data/cases/scotus/73317900/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:40.621Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8620e31c550aaa81",
+      "query": "{\"strategic_intent\": \"Read the case facts and inputs to generate the prediction.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:44.092Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f0c5901ad55ac3b5",
+      "query": "cat data/cases/scotus/73317900/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:44.113Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4689d11d39f1db90",
+      "query": "cat data/cases/scotus/73317900/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:44.114Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d801683cc4dfe5e5",
+      "query": "cat data/cases/scotus/73317900/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:44.114Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "289116c10714e0b2",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73317900/record/snapshots/2026-07-17.json\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:47.938Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dc8cdf3963e45c66",
+      "query": "{\"end_line\": 200, \"file_path\": \"data/cases/scotus/73317900/record/snapshots/2026-07-17.json\", \"start_line\": 101}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:50.550Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3f8a30e2cfe8b78a",
+      "query": "{\"strategic_intent\": \"Search for the lower court case and related precedents to evaluate the likelihood of cert grant.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:55.855Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "b3ac0d46d7ed47dc",
+      "query": "\"Burford German Funding\" OR \"financialright claims GmbH\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:05.287Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "80eb2f5396980e24",
+      "query": "\"financialright claims\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:09.366Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "a33d0c52ed0166c3",
+      "query": "\"financialright claims\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:13.579Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "e23f9cb8eabe1d9e",
+      "query": "{\"court\": \"ca3\", \"docket_number\": \"24-3171\", \"type\": \"o\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:17.251Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f25d2f578ed63cc0",
+      "query": "cat data/cases/scotus/73317900/record/documents/petition.txt | grep -i \"circuit split\" -B 2 -A 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:23.186Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2570b911a0930667",
+      "query": "cat data/cases/scotus/73317900/record/documents/petition.txt | grep -i \"split\" -B 2 -A 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:25.942Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "19c0397bebe0605d",
+      "query": "cat data/cases/scotus/73317900/record/documents/petition.txt | grep -i \"Jules\" -B 2 -A 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:31.112Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dc905d7c3e70db47",
+      "query": "{\"docket_number\": \"25-83\", \"type\": \"o\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:38.001Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "e6d4ff23a3c9422b",
+      "query": "ls -la data/cases/scotus/73317900/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:44.268Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c0cbba74c6de53df",
+      "query": "cat << 'EOF' > get_jules.py\nimport urllib.request\nimport json\nreq = urllib.request.Request('https://www.courtlistener.com/api/rest/v3/opinions/11326163/')\ntry:\n    with urllib.request.urlopen(req) as response:\n        data = json.loads(response.read().decode())\n        if 'plain_text' in data:\n            print(data['plain_text'][:2000])\n        elif 'html_with_citations' in data:\n            print(\"Has html_with_citations\")\nexcept Exception as e:\n    print(e)\nEOF\npython3 get_jules.py",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:51.788Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "761cfa9cb375a826",
+      "query": "{\"endpoint_id\": \"opinions\", \"fields\": [\"plain_text\", \"html_with_citations\"], \"item_id\": 11326163}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:55.718Z",
+      "tool": "mcp_courtlistener_get_endpoint_item"
+    },
+    {
+      "params_digest": "5345a6c0b7114b83",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:15.136Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a95317e6ebfd7646",
+      "query": "mkdir -p data/cases/scotus/73317900/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:21.996Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "768a36a3f03158f9",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73317900\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.95,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"reasoning_doc\\\": \\\"reasoni",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:26.330Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "85510cea2d931de9",
+      "query": "{\"content\": \"# Reasoning for evt-petition-disposition in scotus/73317900\\n\\nThis is a prediction for the disposition of the certiorari petition in *Burford German Funding LLC, et al. v. financialright claims GmbH*.\\n\\n## Summary\\nThe Supreme Court is highly likely to grant the petition, vacate the Third Circuit's judgment, and remand (GVR) for reconsideration in light of its recent decision in *Jules v. Andre Balazs Properties*, No. 25-83. \\n\\n## Analysis\\nThe petition raises a question of feder",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:36.138Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8159c61af503ae96",
+      "query": "{\"content\": \"{\\n  \\\"notes\\\": \\\"Relied on the intervening Supreme Court decision in Jules v. Andre Balazs Properties (decided May 14, 2026) which directly addressed the jurisdictional question raised in the petition. This is public precedent predating the snapshot and constitutes valid forward signal, strongly pointing to a GVR.\\\"\\n}\", \"file_path\": \"data/cases/scotus/73317900/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/flags.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:42.913Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5aed065968dd873f",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:50.218Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "359087efb08a6c2e",
+      "query": "rm data/cases/scotus/73317900/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/flags.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:57.623Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9fdada8146f10dc8",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:03.162Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "94b372bb6be1dedd",
+      "query": "{\"strategic_intent\": \"Recap the prediction task completion.\", \"summary\": \"I have successfully retrieved the case facts, including the petition and the case snapshot, and used the CourtListener MCP tool to locate the intervening Supreme Court decision (Jules v. Andre Balazs Properties). Based on these facts\\u2014the petitioner's request for a GVR in light of Jules, the decision in Jules undermining the Third Circuit's holding, and the Court's request for a response following a waiver\\u2014I have ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:10.272Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73317900",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

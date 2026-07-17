@@ -1,0 +1,286 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bc379c25c76dd7e4",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73329541 -type f | head -50",
+      "result_digest": "4f27a5b6cfb6f36e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6a6e925b8aabf9a9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73329541/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "9211229fce5775db",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fa1daf50b18ce1d0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73329541/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6cb620b1d76ca7e2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73329541/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "623663b49b9ec8d1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c240f20698914e04",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73329541/record/documents/documents.json\"}",
+      "result_digest": "0f103dfd5af55ed7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e0cd9e3049e035f4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73329541/record/documents/questions-presented.txt\"}",
+      "result_digest": "cc3fffb05df3b5a3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fb88540561f96572",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73329541/record/documents/petition.txt\"}",
+      "result_digest": "a235ed1d9acdd0df",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cec29602d0d054a7",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0a34216d4e511700",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\ndef walk(o, path=''):\n    if isinstance(o, dict):\n        for k,v in o.items():\n            if 'salience' in k.lower() or 'fee' in k.lower():\n                print('KEY:', path+'/'+k)\n            walk(v, path+'/'+k)\n    elif isinstance(o, list) and o and isinstance(o[0], dict):\n        walk(o[0], path+'[0]')\nwalk(d)\nprint(list(d.keys()))\n\"",
+      "result_digest": "cf826ee5530e4221",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5b44ea83d030c1c6",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nfor t in d['terms']:\n    print(t.get('term'), {k:v for k,v in t.items() if k not in ('classes','salience_bands','bands')})\n    for c in t.get('classes', []):\n        print('  fee_class:', c)\n\" 2>&1 | head -40\necho ---\npython3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nsecs = d['sections']\nprint(type(secs))\nif isinstance(secs, dict):\n    print(list(secs.keys()))\nelse:\n    for s in secs: print(s.get('title') o",
+      "result_digest": "5e5cfc50b12e46a3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "00b0e8a711d02012",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f2530498218edc73",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 --query \"habeas corpus 2241 statute of limitations 2244 AEDPA certificate of appealability\" 2>corpus_q1.err; echo \"--- STDERR:\"; cat corpus_q1.err",
+      "result_digest": "cacaddb7acfb7fc3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "61de068124c7c2bc",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,80p'",
+      "result_digest": "931b848a3c18fc41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "52ea4f555e132ebd",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 5 2>q1.err | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','caption','disposition','decided','era')})\n\"; echo '--- stderr:'; cat q1.err; rm -f q1.err corpus_q1.err",
+      "result_digest": "0e2de27f36565d04",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "43f7f3fa37fec7e8",
+      "query": "Bowe v. United States 2244 2255",
+      "result_digest": "059ce676c31e3f60",
+      "retrieved_doc_date": "2026-01-09",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "8a7dd3f28359ecc8",
+      "query": "St. Clair certificate of appealability 2241 executive agreement",
+      "result_digest": "c9513ab428f18b61",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "e925f5ed22bae584",
+      "query": "\"2244\" certiorari jurisdiction",
+      "result_digest": "922b0aff4628e37f",
+      "retrieved_doc_date": "2026-01-09",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "e2079f4a967f1ac3",
+      "query": "St. Clair",
+      "result_digest": "966dfa4b6a31913b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "027daee86bd8828d",
+      "query": "Bowe",
+      "result_digest": "60c4bbf7d8782145",
+      "retrieved_doc_date": "2026-01-09",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "d0c2d1796a5c88ef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5a0e11f05d2c605e",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73329541\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:25:28Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73329541/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.025,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "af625be548ef6ee3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "90114d6a6ff9123d",
+      "query": "{\"content\": \"# St. Clair v. Quick, No. 25-1274 \\u2014 petition disposition\\n\\n**Prediction: denied. P(grant, GVR included) = 0.025.**\\n\\n## The case\\n\\nMichael St. Clair, serving Oklahoma life-without-parole sentences for two 1990s\\nmurder convictions, filed a 28 U.S.C. \\u00a7 2241 habeas petition in the Eastern\\nDistrict of Oklahoma challenging not his convictions but his 2018 transfer from\\nKentucky back to Oklahoma custody, which he says violated a 1995 Executive\\nAgreement between the two st",
+      "result_digest": "3d59ef6c535e7173",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "08883d0ca55342dc",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73329541 evt-petition-disposition (claude-baseline, 20260717T180352Z)\\n\\nMode: `forward` (retrieval unrestricted; nothing outcome-revealing exists yet).\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --era 2020s --limit 5` \\u2014 **failed**:\\n  `corpus service at http://127.0.0.1:8377 is unreachable \\u2014 is the sidecar\\n  running? (fedcourts corpus-serve): timed out`. No `ranged corpus reads:`\\n  line was printed (the query never rea",
+      "result_digest": "0ed7ea301ec967ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "320e6aff3e5beae4",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73329541\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md + statpack.json (committed base rates)\\\",\\n    \\\"CourtListener MCP search (opinions, dockets)\\\",\\n    \\\"provisioned snapshot + petition/questions-presented tex",
+      "result_digest": "d165c2f64ee45d12",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d72283af6029c77e",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73329541\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Corpus query sidecar unreachable this run (fedcourts query -> 'corpus service at http://127.0.0.1:8377 is unreachable ... timed out'), so no ranked simila",
+      "result_digest": "f4f2c407a69eed2b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "a493e504d177efc0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "37616cee992d46b9",
+      "query": "gh issue comment 759 --body \"claude-baseline / scotus/73329541 / evt-petition-disposition (run 20260717T180352Z): prediction written \u2014 **denied**, P(grant incl. GVR) = 0.025. Paid CA10 petition (St. Clair v. Quick, No. 25-1274) on whether \u00a7 2244(d) limitations reach \u00a7 2241 petitions; real but old, lopsided 5\u20131 split, COA-denial posture, and a textually weak Bowe hook. Note: the corpus query sidecar was unreachable this run (statpack-only base rates; see flags.json), and the statpack lacks the sa",
+      "result_digest": "1382d113815851a0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73329541",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

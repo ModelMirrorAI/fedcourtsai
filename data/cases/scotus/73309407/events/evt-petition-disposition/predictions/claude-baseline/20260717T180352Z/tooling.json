@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73309407",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "metrics/statpack.md (committed base rates)",
+    "courtlistener MCP call_endpoint (dockets)",
+    "provisioned petition.txt + questions-presented.txt"
+  ],
+  "helpful": [
+    "Full petition text provisioned in record/documents/ — QP framing and posture were decisive and needed no retrieval",
+    "Statpack relist/CVSG cuts gave a concrete zero-relist anchor (0.8%)",
+    "One MCP docket lookup cheaply confirmed the forward cell is not mis-provisioned"
+  ],
+  "gaps": [
+    "Corpus query sidecar at 127.0.0.1:8377 was unreachable (timed out), so fedcourts query priors were unavailable this run",
+    "Statpack build carries no per-Term salience-band table despite the prompt pointing to it as the preferred anchor"
+  ],
+  "notes": "Attempted one fedcourts query; it timed out against the corpus service, so used_corpus_query is false and base rates came from the committed statpack. For a petition this far from the grant zone the loss was marginal."
+}

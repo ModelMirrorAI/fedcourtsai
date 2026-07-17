@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73303792",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The provisioned petition document was marked empty_text: true (scanned filing with no text layer). Used web search and dockets to establish facts.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292885",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP search (docket)"
+  ],
+  "helpful": [
+    "statpack relist-count cut — the 0-relist 0.8% grant rate is the right anchor for a once-distributed long-conference petition",
+    "provisioned petition full text — the QP and table of authorities alone settle the Rule 10 analysis",
+    "documents.json empty_text marker — made the BIO's content-unavailability explicit instead of a silent blank file"
+  ],
+  "gaps": [
+    "statpack referenced in the prompt carries no 'Segment base rate by salience band' table in this build; had to substitute the relist cut",
+    "no pro-se / counsel-of-record cut in the statpack — pro se status is one of the strongest deny signals and currently has no quantified base rate",
+    "OCR fallback for scanned filings would have recovered the 12-page BIO text"
+  ],
+  "notes": "Straightforward cell: a pro se paid petition from a state protection-order dispute. Provisioned inputs plus the statpack were sufficient; retrieval was 1 corpus query + 1 MCP docket search."
+}

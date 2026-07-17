@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive public forward signal used (legitimate, predates any disposition; disclosed for hygiene): the SG's CVSG response (filed 2026-05-26) recommends holding this petition for St. Mary Catholic Parish v. Roy, No. 25-581 (cert granted 2026-04-20, same Tenth Circuit Smith general-applicability issue). The prediction (P(grant incl. GVR)=0.72, modal disposition gvr) therefore expects resolution only after St. Mary is decided (~June 2027); this cell will stay open well past this run. Petition confirmed still pending as of 2026-07-17."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73286452",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP opinions endpoint"
+  ],
+  "helpful": [
+    "The provisioned petition and questions presented exposed the precise vehicle and claimed split.",
+    "The statpack supplied fee-class and originating-circuit calibration.",
+    "CourtListener opinion text verified the intervening Chiles holding and vote alignment."
+  ],
+  "gaps": [
+    "A calibrated base-rate cut for petitions where the Court requests a response after waiver would materially improve this forecast.",
+    "The committed markdown did not expose the prompt-described per-Term salience-band table."
+  ],
+  "notes": "The corpus query was usable but required many ranged reads for a small sample; CourtListener field filtering kept opinion retrieval focused."
+}

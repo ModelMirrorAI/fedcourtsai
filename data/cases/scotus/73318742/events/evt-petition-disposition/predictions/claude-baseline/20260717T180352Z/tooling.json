@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318742",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "Full provisioned petition and BIO text — the BIO's preservation argument was the single most decision-relevant input",
+    "statpack per-fee-class (paid vs IFP) and relist-count cuts",
+    "documents.json truncation/pages metadata"
+  ],
+  "gaps": [
+    "statpack.md in this build lacks the salience-band table the prompt describes; had to anchor on relist/CVSG/fee-class cuts instead",
+    "fedcourts query has no free-text similarity filter, so 'similar priors' for a niche legal question (judicial immunity) can't be pulled; generic era-ranked results skew to high-salience granted cases",
+    "a statpack cut for pro-se-within-paid petitions would sharpen the prior for exactly this case profile"
+  ],
+  "notes": "Single corpus query cost 429 ranged GETs / ~112 MB for 6 rows; fine for one call but worth knowing before iterating on filters."
+}

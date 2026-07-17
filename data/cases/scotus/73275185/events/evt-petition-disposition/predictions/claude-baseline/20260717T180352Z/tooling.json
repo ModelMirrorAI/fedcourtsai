@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275185",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "provisioned snapshot",
+    "provisioned brief-in-opposition text",
+    "metrics/statpack.md",
+    "fedcourts paths"
+  ],
+  "helpful": [
+    "statpack relist-count cut (hold/relist signal is the load-bearing base rate for a held companion petition)",
+    "provisioned BIO full text (respondents' alternative joinder of the cert-before-judgment request was decisive context)"
+  ],
+  "gaps": [
+    "corpus query sidecar was down (127.0.0.1:8377 timed out) — could not pull similar resolved priors such as the Allen v. Milligan docket",
+    "petition.txt / questions-presented.txt were not provisioned; QPs had to be taken from the BIO's restatement",
+    "a provisioning guard that rejects forward cells whose snapshot tail is terminal would have caught this cell (see flags.json)"
+  ],
+  "notes": "Deliberately made no CourtListener MCP calls: the snapshot already contained the disposition, so live retrieval on this case could only compound leakage."
+}

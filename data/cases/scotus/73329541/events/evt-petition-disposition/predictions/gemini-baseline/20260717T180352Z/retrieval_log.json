@@ -1,0 +1,230 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "a95cdb0b844715e2",
+      "query": "{\"strategic_intent\": \"Read the prompt instructions and agent guidelines to understand the required inputs, output format, and steps for the prediction task.\", \"summary\": \"I am starting to process the prediction task. I will read the provided instructions in `.github/prompts/predict.md` and `AGENTS.md` to learn about the prediction process, the required outputs, and how to use the available tools to complete the task.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:44.839Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:44.847Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:44.847Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb7c01cf87119727",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73329541\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:51.432Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4aa3561be679629c",
+      "query": "ls -la data/cases/scotus/73329541/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/ || echo \"Directory does not exist yet\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:55.490Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f215d0fdd69b74b4",
+      "query": "ls -la data/cases/scotus/73329541/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:03.000Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4040919ee368b834",
+      "query": "find data/cases/scotus/73329541 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:06.211Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4e8cff2a0ee27656",
+      "query": "{\"strategic_intent\": \"Read the case's event definition and provisioned inputs to prepare for prediction.\", \"summary\": \"I have identified the location of the provisioned inputs for this case. I am now proceeding to read the event definition, context (forward or replay), the latest docket snapshot, and the available filed documents (such as the questions presented and petition). This information will form the basis of the prediction.\", \"title\": \"Analyzing Case Data\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:09.924Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "975bad2e71f268df",
+      "query": "{\"file_path\": \"data/cases/scotus/73329541/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:09.932Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7c3da936c5921095",
+      "query": "{\"file_path\": \"data/cases/scotus/73329541/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:09.933Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "18dbbc3627e3d02c",
+      "query": "{\"file_path\": \"data/cases/scotus/73329541/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:09.933Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8e958c96797066fb",
+      "query": "{\"file_path\": \"data/cases/scotus/73329541/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:13.088Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "da8ba11c5b7b327b",
+      "query": "{\"file_path\": \"data/cases/scotus/73329541/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:13.089Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "cc076fe3b6e5f090",
+      "query": "{\"file_path\": \"data/cases/scotus/73329541/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:13.089Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "544939b399461319",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:17.282Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5652d6491f8931cd",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Cert petitions by fee class\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:20.126Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4beb80afb2bc3af4",
+      "query": "grep -A 20 -i \"fee\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:23.111Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e14ef3544d0f9bd4",
+      "query": "uv run fedcourts query --court \"scotus\" --topic \"habeas\" --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:50.170Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "68eb5b8eee2448be",
+      "query": "Bowe v. United States",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:54.994Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "e3550afd9305ce4f",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:18.006Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1daad05e285154aa",
+      "query": "mkdir -p data/cases/scotus/73329541/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:21.362Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "44ff3e1c4f2b2337",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73329541\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:56:18Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73329541/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.1,\\n  \\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:32.111Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1c53184065de030d",
+      "query": "{\"content\": \"This is a paid certiorari petition arising from the Tenth Circuit's dismissal of Michael St. Clair's 28 U.S.C. \\u00a7 2241 habeas corpus petition as time-barred under the one-year statute of limitations in 28 U.S.C. \\u00a7 2244(d)(1). The petitioner, a state prisoner serving sentences of life without parole in Oklahoma for murder, challenges his continued custody following a transfer back to Oklahoma from Kentucky pursuant to an Executive Agreement. He argues that the limitations pe",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:32.115Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "db211492085deb74",
+      "query": "{\"content\": \"- Consulted `metrics/statpack.md` to retrieve base rates for certiorari petitions, noting the low base grant rate and the specific rates for Tenth Circuit originations.\\n- Ran `uv run fedcourts query --court \\\"scotus\\\" --topic \\\"habeas\\\" --limit 5` (Result: `ranged corpus reads: 464 GET(s), 121503744 byte(s)`) which did not yield useful matching priors due to topic string exact-matching.\\n- Used the `mcp_courtlistener_search` tool to search for the case `Bowe v. United States` (No. ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:32.118Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "69c038aff227d855",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73329541\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack provides a very useful anchor for base rates.\\\",\\n    \\\"The MCP search tool effectively verified the recent precedent cited by the petit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:32.122Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ca56d9ac6422e4ec",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:38.089Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ab716de1cf33b1cb",
+      "query": "{\"strategic_intent\": \"Complete the task.\", \"summary\": \"I have successfully completed the task. The prediction has been generated with all required artifacts (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`), and validation passes. No flags were necessary. The workflow handles git, so no commits or pushes are required.\", \"title\": \"Task Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:42.131Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73329541",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

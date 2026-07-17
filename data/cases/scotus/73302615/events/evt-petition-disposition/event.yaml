@@ -1,0 +1,11 @@
+case_id: scotus/73302615
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-05-06'
+resolved: false
+schema_version: '1.0'
+title: "Petr\xF3leos de Venezuela, S.A., et al. v. Helmerich & Payne International\
+  \ Drilling Co."

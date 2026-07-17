@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP: search, get_endpoint_item"
+  ],
+  "helpful": [
+    "statpack relist-bucket and per-Term cert tables — the calibration anchor",
+    "CourtListener opinion search — pinned down the lower-court posture (discretionary 'D'-docket applications) that the snapshot only hinted at",
+    "documents.json empty_text marker — made the missing petition text explicit instead of a silent blank file"
+  ],
+  "gaps": [
+    "OCR for scanned petition PDFs — this cell's petition had no text layer, leaving the questions presented unreadable",
+    "The statpack described in the prompt carries a per-Term salience-band table; the committed statpack.md has none, so the relist cut had to serve as the anchor",
+    "A base-rate cut for pro se (self-represented) paid petitions would sharpen calibration on cells like this one"
+  ],
+  "notes": "Light-retrieval cell by design: the structural signals (pro se, state intermediate-court discretionary denial, waived response, no CFR, zero relists) all point to denial, so three lookups sufficed."
+}

@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73274796",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "google_web_search"],
+  "helpful": ["google_web_search was extremely helpful to find the SG's recommendation from the amicus brief, which was not in the provisioned documents."],
+  "notes": "The amicus brief from the SG was critical for this case since it was a CVSG, and web search found that the SG recommended holding the case pending St. Mary Catholic Parish v. Roy."
+}

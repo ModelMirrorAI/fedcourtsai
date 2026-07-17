@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260717T180352Z",
+  "created_at": "2026-07-17T18:23:20Z",
+  "input_snapshot": "data/cases/scotus/73246321/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.002,
+  "predicted_disposition": "denied",
+  "confidence": 0.92,
+  "votes": [],
+  "big_case_score": 0.02,
+  "big_case_rationale": "A pro se state-law insurance dispute out of a Georgia Court of Appeals discretionary denial, with no apparent federal question, split, or public interest; denial would go unnoticed.",
+  "reasoning_doc": "reasoning.md"
+}

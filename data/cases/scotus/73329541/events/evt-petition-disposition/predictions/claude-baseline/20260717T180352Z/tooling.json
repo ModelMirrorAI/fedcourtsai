@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73329541",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "metrics/statpack.md + statpack.json (committed base rates)",
+    "CourtListener MCP search (opinions, dockets)",
+    "provisioned snapshot + petition/questions-presented text"
+  ],
+  "helpful": [
+    "statpack.json per-Term fee-class detail (paid vs IFP grant rates) — the single most useful anchor for a paid petition",
+    "provisioned petition.txt — full QP, split citations, and posture without any fetching",
+    "CourtListener opinion search — one call verified the petition's key intervening authority (Bowe) and its date"
+  ],
+  "gaps": [
+    "fedcourts query was unusable this run: the corpus service sidecar at 127.0.0.1:8377 timed out, so no ranked similar priors were available",
+    "the statpack lacks the 'Segment base rate by salience band' table the predict prompt tells predictors to anchor on",
+    "no free-text/topic filter on fedcourts query for SCOTUS rows — even when the sidecar is up, there is no way to pull 'habeas / AEDPA limitations' priors specifically; a QP-keyword or issue-tag filter would help",
+    "a per-conference cut (long conference vs regular) in the statpack would sharpen timing-based adjustments"
+  ],
+  "notes": "Degraded gracefully per the contract: corpus sidecar down -> committed statpack only. MCP worked; 4 calls, well under budget."
+}

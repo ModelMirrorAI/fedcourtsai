@@ -1,0 +1,4 @@
+- Read metrics/statpack.md to review base rates for SCOTUS cert petitions and D.C. Circuit origination.
+- MCP CourtListener search: query court=["cadc"], party_name="Helmerich", type="d" to find the D.C. Circuit docket (24-7161).
+- MCP CourtListener search: query docket_number="24-7161", type="o" to find the D.C. Circuit opinion (ID 11156800).
+- MCP CourtListener call_endpoint: endpoint="opinions", query="id: 11156800" to read the D.C. Circuit's decision, which confirms the circuit split on the Second Hickenlooper Amendment.

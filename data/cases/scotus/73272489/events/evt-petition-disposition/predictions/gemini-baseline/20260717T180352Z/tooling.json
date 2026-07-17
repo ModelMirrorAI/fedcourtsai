@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73272489",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "metrics/statpack.md provides excellent base rate anchors (like relist rate and fee status) that are particularly helpful for quickly assessing pro se petitions."
+  ],
+  "gaps": [],
+  "notes": "No MCP tools were needed since the provisioned inputs clearly established this as a routine pro se petition challenging state court evidentiary rulings."
+}

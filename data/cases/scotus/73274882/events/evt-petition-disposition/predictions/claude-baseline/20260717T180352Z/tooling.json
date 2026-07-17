@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274882",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "web search",
+    "web fetch",
+    "provisioned documents (questions-presented, petition, brief-in-opposition)"
+  ],
+  "helpful": [
+    "Provisioned QP/petition/BIO text — carried nearly all the case-specific signal",
+    "Snapshot's full conference-distribution history — the relist count is the decisive covariate here",
+    "statpack relist-count cut (3+ relists -> 21.8% granted) as the quantitative anchor",
+    "fedcourts query rows exposing distribution_count and date_cert_granted for same-conference grants, which proved the petition was carried past the Term-end cleanup"
+  ],
+  "gaps": [
+    "statpack.md lacks the 'Segment base rate by salience band' table the prompt directs cert predictors to anchor on",
+    "The relist table's top bucket is '3+'; an extreme-relist bucket (e.g. 10+) would discriminate exactly the cases where the signal matters most",
+    "No provisioned text of the parties' supplemental briefs (the March/April 2026 'Benson' filings), which were material here; supremecourt.gov blocks direct PDF fetches (403)"
+  ],
+  "notes": "Forward cell in good shape: snapshot current to 7/14/2026, all three documents extracted. CourtListener MCP was configured but unneeded — web search resolved the intervening-decision questions (Benson, Wolford, 3d Cir en banc) faster than endpoint calls would have."
+}

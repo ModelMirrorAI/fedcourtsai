@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bb9d17c5cb0cdabd",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73303792 -type f | head -50",
+      "result_digest": "697789b429ee3cb8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "be1e5d74224d39ea",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73303792/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a574fe3bd23ca7c6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73303792/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "75cff019990867a4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d8b3e64f0cd620bf",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73303792/record/documents/documents.json\"}",
+      "result_digest": "0d15adf788c3bf84",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6debbde0236c40fc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73303792/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "64b7b9ff1c2c5fcd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e25af023c4a8feec",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73303792/record/documents/petition.txt\"}",
+      "result_digest": "389ab60fd2663f6b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ee2517f13b2f27e1",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|relist\\|CVSG\\|fee-class\\|IFP\\|paid\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "39dcba816389e501",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "da863d1fa8b23e89",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 120, \"offset\": 50}",
+      "result_digest": "58a94fff3e13edf9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5e6dfabd22fed350",
+      "query": "grep -n \"salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ccb785612d801855",
+      "query": "uv run fedcourts query --court scotus --era modern --limit 8 2>corpus_stderr.txt | head -20; echo \"--- stderr:\"; cat corpus_stderr.txt",
+      "result_digest": "0e2de27f36565d04",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "d74599869f55224f",
+      "query": "{\"court\": \"ca6\", \"docket_number\": \"24-3840\", \"fields\": [\"caseName\", \"dateFiled\", \"docketNumber\", \"absolute_url\", \"status\", \"snippet\"], \"type\": \"o\"}",
+      "result_digest": "5f632d32b36c414b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "077247c9c29278bb",
+      "query": "{\"case_name\": \"Gomez v. Ryan\", \"court\": \"ca6\", \"fields\": [\"caseName\", \"dateFiled\", \"docketNumber\", \"absolute_url\", \"status\", \"snippet\"], \"type\": \"o\"}",
+      "result_digest": "470243f4b8bf2f78",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "cd136f0ed12f2e81",
+      "query": "{\"court\": \"ca6\", \"docket_number\": \"24-3840\", \"fields\": [\"caseName\", \"dateFiled\", \"docketNumber\", \"absolute_url\", \"suitNature\", \"cause\"], \"type\": \"d\"}",
+      "result_digest": "51da24b8b2647377",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "0e73fbde6dbda54e",
+      "query": "{\"court\": \"ca6\", \"docket_number\": \"24-3840\", \"fields\": [\"caseName\", \"case_name_full\", \"docketNumber\", \"docket_id\", \"docket_absolute_url\", \"party\", \"dateTerminated\", \"dateFiled\"], \"type\": \"d\"}",
+      "result_digest": "288334a196774dc0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "5da6b37422cddc90",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"fields\": \"id,case_name,case_name_full,court_id,docket_number,nature_of_suit,cause,date_filed,date_terminated,appeal_from_str,appellate_case_type_information,assigned_to_str,panel_str\", \"id\": 69636140}}",
+      "result_digest": "9b815c1d7ee1dcf3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "c282bfe0613a381b",
+      "query": "Gomez v. Ryan",
+      "result_digest": "f73d2710e75acc5b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "296386e4786a802c",
+      "query": "Gomez Ryan",
+      "result_digest": "661f5cb7b3c69303",
+      "retrieved_doc_date": "2019-04-02",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "999d9aa5148775f4",
+      "query": "Gomez",
+      "result_digest": "977c2adfeebe19fa",
+      "retrieved_doc_date": "2025-11-05",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "b0d0bf5e638d24db",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bc06b217c82c4a4f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73303792\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:17:45Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73303792/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.002,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "e02c92e45c33f416",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b2c461c0566e1474",
+      "query": "{\"content\": \"# Gomez v. Ryan, No. 25-1258 \\u2014 petition disposition\\n\\n**Prediction: denied. P(grant, GVR included) \\u2248 0.002.**\\n\\n## What the record shows\\n\\nThe provisioned snapshot (`record/snapshots/2026-07-17.json`, docketed May 6,\\n2026, Term 2025, paid) is the primary basis for this prediction. The one\\nprovisioned document, the petition PDF, was fetched but carries\\n`empty_text: true` \\u2014 a 26-page scan with no text layer \\u2014 so the questions\\npresented are not readable; the ",
+      "result_digest": "898cfde61abd73ef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "accb41e3f0a9c06a",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73303792 / evt-petition-disposition / claude-baseline / 20260717T180352Z\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --era modern --limit 8` \\u2014 **failed**:\\n  `corpus service at http://127.0.0.1:8377 is unreachable \\u2014 is the sidecar\\n  running? (fedcourts corpus-serve): timed out`. No `ranged corpus reads` line\\n  was printed (the query never reached the corpus). No further corpus queries\\n  attempted; fell back to the commi",
+      "result_digest": "e06e08e6eab96a92",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8c80524322fc19ee",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73303792\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md (committed base rates)\\\",\\n    \\\"CourtListener MCP: search (opinions, dockets), call_endpoint (dockets)\\\",\\n    \\\"fedcourts query (attempted; corpus sidecar un",
+      "result_digest": "55e7f64e6796adde",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2da4732fff3c864f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73303792\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"The only provisioned document (petition.txt, 26 pp.) has empty_text: true \\u2014 the supremecourt.gov filing is a scan with no text layer, so the q",
+      "result_digest": "38ab14c559c0027e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "453900870482df15",
+      "query": "uv run fedcourts validate data 2>&1 | tail -20",
+      "result_digest": "a493e504d177efc0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6c5dfefc9223e2c6",
+      "query": "gh issue comment 759 --body \"claude-baseline \u00b7 scotus/73303792 \u00b7 evt-petition-disposition \u00b7 run 20260717T180352Z: prediction written \u2014 **denied**, P(grant)=0.002. Pro se paid petition against state judicial officers (judicial immunity posture), respondents waived response with no CFR, distributed for the 9/28/2026 long conference. Notes: petition PDF had no text layer (flagged data-quality), and the corpus query sidecar was unreachable (fell back to committed statpack). \\`fedcourts validate data",
+      "result_digest": "ef3944a23b4d2fd9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73303792",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

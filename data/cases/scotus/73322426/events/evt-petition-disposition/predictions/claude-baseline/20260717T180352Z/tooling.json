@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73322426",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Per-Term paid/IFP fee-class grant rates in statpack.json (the paid ~5.4% anchor)",
+    "Provisioned petition.txt full text (split map and vehicle claims readable without any fetch)",
+    "Relist-count cut in the statpack",
+    "Snapshot's ProceedingsandOrder entries (the call-for-response signal was decisive)"
+  ],
+  "gaps": [
+    "The predict prompt describes a per-Term 'Segment base rate by salience band' statpack section, but the committed statpack.md/json carries no salience-band table; anchored on fee-class and relist cuts instead",
+    "No statpack cut for call-for-response (CFR) petitions — the strongest pre-conference docket signal here had to be weighted from general knowledge rather than corpus data",
+    "No brief-in-opposition existed yet for this cell (response not yet filed); expected per the docket, not a pipeline gap"
+  ],
+  "notes": "Forward-mode cell; one corpus query plus one MCP docket search sufficed on top of the provisioned inputs. fedcourts query's era/disposition filters returned useful recent-grant context (distribution counts) but cannot target a legal issue; an issue/topic search over SCOTUS petitions would have helped confirm the absence of competing vehicles."
+}

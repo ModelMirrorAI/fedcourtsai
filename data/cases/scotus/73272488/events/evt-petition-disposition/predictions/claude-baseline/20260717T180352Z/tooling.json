@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272488",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md + statpack.json (per-fee-class detail)",
+    "CourtListener MCP (search, call_endpoint/dockets)",
+    "provisioned snapshot + petition text + questions-presented"
+  ],
+  "helpful": [
+    "statpack per-fee-class grant rates (paid vs IFP) — the single most useful anchor",
+    "statpack relist/CVSG signal cuts as magnitude calibration for the call-for-response signal",
+    "provisioned petition.txt (full QP, split map, vehicle section, and the Third Circuit opinion appendix)",
+    "CourtListener dockets endpoint for the companion petition's pending status (MCP docket *search* returned 0 for SCOTUS dockets; call_endpoint worked)"
+  ],
+  "gaps": [
+    "statpack has no call-for-response (CFR) cut — for pre-conference paid petitions the waiver→response-requested transition is the strongest observable signal and I had to calibrate it off the relist/CVSG buckets plus outside knowledge",
+    "the prompt's 'Segment base rate by salience band' table is absent from this statpack revision",
+    "fedcourts query rows came back with empty captions and null resolution dates, so ranked priors were hard to use qualitatively",
+    "a brief-in-opposition slot existed but no BIO exists yet (response due 2026-08-10) — expected for a forward cell this early, not a defect"
+  ],
+  "notes": "MCP search(type=d) appears not to index supremecourt.gov dockets; call_endpoint(dockets) does. Worth noting in the prompt so cells don't burn retrieval budget on the search path first."
+}

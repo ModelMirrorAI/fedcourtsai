@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/73286452",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener-mcp search",
+    "provisioned snapshot + petition/QP document text"
+  ],
+  "helpful": [
+    "Provisioned full petition text (29 pp.) was the single most valuable input — the split argument, the dissental content, and the vehicle posture all come from it.",
+    "Per-Term per-fee-class grant rates in statpack.json gave a much better anchor (paid ~5.4%) than the whole-docket rate.",
+    "The docket snapshot's proceedings list made the waiver → CFR sequence legible, which is the strongest live signal on this cell."
+  ],
+  "gaps": [
+    "The 'Segment base rate by salience band' statpack section described in predict.md is absent from the committed statpack, so the promised salience-band anchor could not be used.",
+    "No statpack cut for call-for-response (CFR after waiver) — it is a major cert signal, visible in the docket text, and a CFR-conditioned base rate would beat qualitative multipliers.",
+    "This case's own corpus row (e.g. its salience_score) is not directly queryable by case_id via fedcourts query, so I could not read the salience gate's own score for the case being predicted."
+  ],
+  "notes": "fedcourts query has no filter that maps to 'petitions with en banc dissents' or 'petitions with N cert-stage amici'; those had to be reasoned qualitatively."
+}

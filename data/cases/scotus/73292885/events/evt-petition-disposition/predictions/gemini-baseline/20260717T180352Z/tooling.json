@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73292885",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query"
+  ],
+  "helpful": [
+    "statpack.md provided direct visibility into fee-class and origin-court base rates",
+    "MCP search helped rule out significant related federal proceedings"
+  ],
+  "notes": "The pipeline effectively provided the QP via the provisioned document extraction."
+}

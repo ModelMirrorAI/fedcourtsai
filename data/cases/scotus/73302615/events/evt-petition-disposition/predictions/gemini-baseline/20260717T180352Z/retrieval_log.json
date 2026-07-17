@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "d473460fa39d6a8b",
+      "query": "{\"strategic_intent\": \"Read the prompt contract and agents documentation to understand the required prediction format and workflow.\", \"title\": \"Understanding Prediction Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:39.341Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.939Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.940Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4cbc3b26cb04c72f",
+      "query": "uv run fedcourts paths --court scotus --docket 73302615 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:53.841Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "628ab2ff2ede8542",
+      "query": "find . -type d -name \"record\" -o -name \"73302615\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:57.946Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c978aa60fdca5f7c",
+      "query": "ls -la ./data/cases/scotus/73302615/record",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:00.601Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1ec6f5296b20d918",
+      "query": "ls -la ./data/cases/scotus/73302615/record/snapshots ./data/cases/scotus/73302615/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:03.667Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9fb5a620bc3840a9",
+      "query": "cat ./data/cases/scotus/73302615/record/context.json ./data/cases/scotus/73302615/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:03.667Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fd9dfd3faee83e14",
+      "query": "cat ./data/cases/scotus/73302615/record/documents/documents.json ./data/cases/scotus/73302615/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:06.606Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42b793c0fcce9e03",
+      "query": "{\"file_path\": \"./data/cases/scotus/73302615/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:06.607Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3cfbb910713cee71",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:11.715Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8bb3eaa52d6e1eef",
+      "query": "\"Helmerich & Payne\" \"Petroleos de Venezuela\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:17.122Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f890671d1cb8bac4",
+      "query": "{\"court\": [\"cadc\"], \"party_name\": \"Helmerich\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:21.931Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "842a9328d4a4fdd2",
+      "query": "{\"docket_number\": \"24-7161\", \"type\": \"o\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:25.324Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "98d085f72a5798db",
+      "query": "{\"endpoint_id\": \"opinions\", \"query\": {\"id\": 11156800}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:30.315Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "ea4dc1d2a2b22fc9",
+      "query": "grep -A 20 -B 5 \"split\" ./data/cases/scotus/73302615/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:36.662Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bb30b237bd4d596b",
+      "query": "uv run fedcourts query --court scotus --era 2020s \"Second Hickenlooper Amendment\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:46.454Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "60153340d247e0d1",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:50.257Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e183023bf48f915a",
+      "query": "{\"case_name\": \"Republic of Hungary v. Simon\", \"court\": [\"scotus\"], \"type\": \"o\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:55.660Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "b2d662f0c3e51e63",
+      "query": "cat << 'EOF' > /tmp/reasoning.md\nThis case presents a classic vehicle for a certiorari grant: an acknowledged, mature circuit split on a question of federal statutory interpretation with significant foreign-policy implications.\n\n**1. The Legal Question and Standard**\nThe petition asks whether the Second Hickenlooper Amendment to the Foreign Assistance Act (22 U.S.C. \u00a7 2370(e)(2))\u2014which creates an exception to the act-of-state doctrine for claims based on a confiscation in violation of internatio",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:14.027Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "91550e79802442f1",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:25.783Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be206ba57e52a304",
+      "query": "mkdir -p data/cases/scotus/73302615/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:29.036Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2a4cdc7c080a7d77",
+      "query": "cat << 'EOF' > data/cases/scotus/73302615/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/prediction.json\n{\n  \"case_id\": \"scotus/73302615\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"run_id\": \"20260717T180352Z\",\n  \"created_at\": \"2026-07-17T18:50:00Z\",\n  \"input_snapshot\": \"data/cases/scotus/73302615/record/snapshots/2026-07-17.json\",\n  \"granted\": 1,\n  \"probability\": 0.70,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:35.118Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fc527446cebd5c40",
+      "query": "mv /tmp/reasoning.md data/cases/scotus/73302615/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/reasoning.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:38.473Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0cc25b3a8d8f8412",
+      "query": "cat << 'EOF' > data/cases/scotus/73302615/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\n- `cat metrics/statpack.md` to review base rates for SCOTUS cert petitions and D.C. Circuit origination.\n- MCP CourtListener `search`: query `court=[\"cadc\"]`, `party_name=\"Helmerich\"`, type=\"d\" to find the D.C. Circuit docket (24-7161).\n- MCP CourtListener `search`: query `docket_number=\"24-7161\"`, type=\"o\" to find the D.C. Circuit opinion (ID 11156800).\n- MCP Court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:42.905Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "50e089c8ffc639fe",
+      "query": "{\"content\": \"- Read metrics/statpack.md to review base rates for SCOTUS cert petitions and D.C. Circuit origination.\\n- MCP CourtListener search: query court=[\\\"cadc\\\"], party_name=\\\"Helmerich\\\", type=\\\"d\\\" to find the D.C. Circuit docket (24-7161).\\n- MCP CourtListener search: query docket_number=\\\"24-7161\\\", type=\\\"o\\\" to find the D.C. Circuit opinion (ID 11156800).\\n- MCP CourtListener call_endpoint: endpoint=\\\"opinions\\\", query=\\\"id: 11156800\\\" to read the D.C. Circuit's decision, which conf",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:48.689Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d10e2937cbe62007",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:51.420Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b514da997e1839e3",
+      "query": "cat << 'EOF' > data/cases/scotus/73302615/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/tooling.json\n{\n  \"case_id\": \"scotus/73302615\",\n  \"run_id\": \"20260717T180352Z\",\n  \"role\": \"predictor\",\n  \"actor_id\": \"gemini-baseline\",\n  \"used_corpus_query\": false,\n  \"used_base_rates\": true,\n  \"tools_used\": [\n    \"mcp_courtlistener_search\",\n    \"mcp_courtlistener_call_endpoint\",\n    \"cat\"\n  ],\n  \"helpful\": [\n    \"mcp_courtlistener_search\",\n    \"mcp_courtlistener_call_endpoint\"\n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:55.440Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0f6cae6bb2508259",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:00.882Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cb117c62b388fe46",
+      "query": "{\"strategic_intent\": \"Finalize the task by concluding the run. All files are written and validated successfully.\", \"title\": \"Prediction Finished\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:05.041Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73302615",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

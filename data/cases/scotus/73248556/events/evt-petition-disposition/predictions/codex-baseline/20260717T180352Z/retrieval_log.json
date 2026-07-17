@@ -1,0 +1,182 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "b67bd9855a769818",
+      "query": "const p = await tools.update_plan({plan:[\n  {step:\"Read AGENTS.md and the prediction prompt contract\",status:\"in_progress\"},\n  {step:\"Inspect the provisioned case record and admissible evidence\",status:\"pending\"},\n  {step:\"Write the cell prediction artifacts\",status:\"pending\"},\n  {step:\"Run validation and resolve any artifact errors\",status:\"pending\"}\n]});\nconst r = await tools.exec_command({cmd:\"sed -n '1,260p' AGENTS.md && sed -n '1,320p' .github/prompts/predict.md\",\"workdir\":\"/home/runner/wor",
+      "result_digest": "d1dac1e659014492",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:32:56.674Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "1ac45e06fd1b5485",
+      "query": "const r = await tools.exec_command({cmd:\"sed -n '1,320p' schemas/prediction.schema.json && sed -n '1,260p' schemas/agent_tooling.schema.json && sed -n '1,240p' schemas/agent_flags.schema.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":40000});\ntext(r.output);",
+      "result_digest": "9d291929017b8898",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:00.401Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "ef698f976136acb3",
+      "query": "const u = await tools.update_plan({explanation:\"The stable contract and schemas are read completely; moving to case-specific inputs.\",\"plan\":[\n  {step:\"Read AGENTS.md and the prediction prompt contract\",status:\"completed\"},\n  {step:\"Inspect the provisioned case record and admissible evidence\",status:\"in_progress\"},\n  {step:\"Write the cell prediction artifacts\",status:\"pending\"},\n  {step:\"Run validation and resolve any artifact errors\",status:\"pending\"}\n]});\nconst r = await tools.exec_command({cm",
+      "result_digest": "9ab0115711e1999c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:03.983Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "938cb2b393999128",
+      "query": "const results = await Promise.all([\n  tools.exec_command({cmd:\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts paths --court scotus --docket 73248556 --event evt-petition-disposition\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":30000,\"max_output_tokens\":10000}),\n  tools.exec_command({cmd:\"find data/cases/scotus/73248556 -maxdepth 8 -type f -print | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000}),\n  tools.exec_com",
+      "result_digest": "c3de4e62f6f72e4c",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:09.304Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "695189bd61bc5510",
+      "query": "const r = await tools.exec_command({cmd:\"wc -l -c data/cases/scotus/73248556/record/documents/* && sed -n '1,240p' data/cases/scotus/73248556/events/evt-petition-disposition/event.yaml && sed -n '1,320p' data/cases/scotus/73248556/record/snapshots/2026-07-17.json && sed -n '1,240p' data/cases/scotus/73248556/record/context.json && sed -n '1,260p' data/cases/scotus/73248556/record/documents/documents.json && sed -n '1,260p' data/cases/scotus/73248556/record/documents/questions-presented.txt\",\"wor",
+      "result_digest": "af7c109d8c25d37a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:14.683Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "bda99b2292ffe0e2",
+      "query": "const results = await Promise.all([\n  tools.exec_command({cmd:\"sed -n '1,520p' data/cases/scotus/73248556/record/documents/petition.txt\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":40000}),\n  tools.exec_command({cmd:\"sed -n '1,320p' data/cases/scotus/73248556/record/documents/brief-in-opposition.txt\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000}),\n  tools.exec_command({cmd:\"rg -n -A 120 -",
+      "result_digest": "ef8e38a54cd76df9",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:19.766Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "684593d7e84a33c7",
+      "query": "const results = await Promise.all([\n  tools.exec_command({cmd:\"sed -n '521,960p' data/cases/scotus/73248556/record/documents/petition.txt\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":35000}),\n  tools.exec_command({cmd:\"sed -n '961,1400p' data/cases/scotus/73248556/record/documents/petition.txt\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":35000}),\n  tools.exec_command({cmd:\"wc -l metrics/statpa",
+      "result_digest": "e2521c0269565657",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:31.142Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "c2cd3763204feb45",
+      "query": "const matches = ALL_TOOLS.filter(x => /courtlistener|search.*case|citation|opinion|docket/i.test(x.name+\" \"+x.description));\ntext(matches);",
+      "result_digest": "3b9859f68cf75bba",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:34.617Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "9f60539239a56ba9",
+      "query": "const results = await Promise.all([\n  tools.mcp__courtlistener__search({type:\"o\",case_name:\"United States v. Hemani\",court:\"scotus\",filed_after:\"2026-06-17\",filed_before:\"2026-06-19\",fields:[\"id\",\"caseName\",\"dateFiled\",\"citation\",\"absolute_url\",\"status\",\"snippet\"],num_results:10}),\n  tools.exec_command({cmd:\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts query --help\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":30000,\"max_output_tokens\":20000}),\n  tools.exec_command({cmd:\"",
+      "result_digest": "1ffe03c73d6e5036",
+      "retrieved_doc_date": "2026-06-18",
+      "timestamp": "2026-07-17T18:33:41.726Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "9c660d397ed508e4",
+      "query": "const results = await Promise.all([\n  tools.mcp__courtlistener__search({type:\"o\",case_name:\"United States v. Hemani\",court:\"scotus\",filed_after:\"2026-06-17\",filed_before:\"2026-06-19\",fields:[\"caseName\",\"dateFiled\",\"absolute_url\",\"cluster_id\",\"opinions\",\"syllabus\",\"posture\"],num_results:5}),\n  tools.exec_command({cmd:\"jq '.scotus_cert_by_term // .cert_by_term // keys' metrics/statpack.json | head -200\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\"",
+      "result_digest": "69a36d40930f0565",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:33:49.669Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "0c0fe8f71ff05a77",
+      "query": "{\"cell_id\": \"10\", \"max_tokens\": 40000, \"yield_time_ms\": 20000}",
+      "result_digest": "a4133768cef989fb",
+      "retrieved_doc_date": "2026-06-18",
+      "timestamp": "2026-07-17T18:34:09.232Z",
+      "tool": "wait"
+    },
+    {
+      "params_digest": "5a72b00089622c5d",
+      "query": "const r = await tools.mcp__courtlistener__get_endpoint_item({endpoint_id:\"opinions\",item_id:11344434,fields:[\"id\",\"type\",\"html_with_citations\",\"plain_text\",\"cluster\"]});\nfor (const c of (r.content||[])) {\n  if (c.type === \"text\") text(c.text);\n  else if (c.type === \"image\") image(c);\n}",
+      "result_digest": "3b0ca3794c15a997",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:34:12.733Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "84af1b7b656344db",
+      "query": "const r = await tools.exec_command({cmd:\"jq 'keys, (.terms|type), (.terms|if type==\\\"object\\\" then keys else .[0:2] end), (.sections|keys)' metrics/statpack.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "a3174654387d2bc0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:34:17.790Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "d1d35b870a0ac797",
+      "query": "const r = await tools.exec_command({cmd:\"jq '[.sections[] | {title, key, scope, buckets: (.buckets // .rows // empty)}]' metrics/statpack.json | sed -n '1,320p'\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "e05c101fb3d6dc8a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:34:20.610Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "1d907776a56a1e41",
+      "query": "const r = await tools.exec_command({cmd:\"jq -r '.sections[] | [.title, (.buckets|length|tostring)] | @tsv' metrics/statpack.json && jq '.terms[] | select(.term==2025) | {term,classes}' metrics/statpack.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":16000});\ntext(r.output);",
+      "result_digest": "d2278ff6b366faf2",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:34:24.142Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "32f2db29bcecfe61",
+      "query": "const results = await Promise.all([\n  tools.mcp__courtlistener__search({type:\"d\",case_name:\"United States v. Cockerham\",court:\"scotus\",filed_after:\"2026-01-01\",filed_before:\"2026-07-17\",fields:[\"caseName\",\"dateFiled\",\"dateTerminated\",\"docketNumber\",\"absolute_url\"],num_results:5}),\n  tools.mcp__courtlistener__search({type:\"d\",case_name:\"United States v. Mitchell\",court:\"scotus\",filed_after:\"2026-01-01\",filed_before:\"2026-07-17\",fields:[\"caseName\",\"dateFiled\",\"dateTerminated\",\"docketNumber\",\"absol",
+      "result_digest": "7be8415a516f9a9b",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:34:34.093Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "d4248c55d731e3e3",
+      "query": "const u = await tools.update_plan({explanation:\"Case inputs, the committed statpack, corpus priors, and pre-snapshot Hemani precedent have been reviewed. The forecast is ready to write.\",\"plan\":[\n  {step:\"Read AGENTS.md and the prediction prompt contract\",status:\"completed\"},\n  {step:\"Inspect the provisioned case record and admissible evidence\",status:\"completed\"},\n  {step:\"Write the cell prediction artifacts\",status:\"in_progress\"},\n  {step:\"Run validation and resolve any artifact errors\",status",
+      "result_digest": "b88c858e978865f4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:35:05.394Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "b26c1959c8072140",
+      "query": "const r = await tools.exec_command({cmd:\"mkdir -p data/cases/scotus/73248556/events/evt-petition-disposition/predictions/codex-baseline/20260717T180352Z\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":10000});\ntext(r.output);",
+      "result_digest": "272405f7ce09c6ad",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:35:12.682Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "573cf5e11fdbc8aa",
+      "query": "const patch = \"*** Begin Patch\\n*** Add File: /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/events/evt-petition-disposition/predictions/codex-baseline/20260717T180352Z/prediction.json\\n+{\\n+  \\\"schema_version\\\": \\\"1.0\\\",\\n+  \\\"case_id\\\": \\\"scotus/73248556\\\",\\n+  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n+  \\\"predictor_id\\\": \\\"codex-baseline\\\",\\n+  \\\"engine\\\": \\\"codex\\\",\\n+  \\\"model\\\": \\\"gpt-5.6-sol\\\",\\n+  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n+  \\\"created_at\\\": \\\"2026-07-1",
+      "result_digest": "5e018b5943ed7d22",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:35:46.282Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "d6c10b0265de7186",
+      "query": "const u = await tools.update_plan({explanation:\"The four required cell artifacts are written; no flags file is warranted because the record is complete and no outcome leakage or blocking defect occurred.\",\"plan\":[\n  {step:\"Read AGENTS.md and the prediction prompt contract\",status:\"completed\"},\n  {step:\"Inspect the provisioned case record and admissible evidence\",status:\"completed\"},\n  {step:\"Write the cell prediction artifacts\",status:\"completed\"},\n  {step:\"Run validation and resolve any artifac",
+      "result_digest": "08d65ef86d22ab10",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:35:52.899Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "26f790077d97c874",
+      "query": "const r = await tools.update_plan({explanation:\"All four cell artifacts pass repository-wide data validation.\",\"plan\":[\n  {step:\"Read AGENTS.md and the prediction prompt contract\",status:\"completed\"},\n  {step:\"Inspect the provisioned case record and admissible evidence\",status:\"completed\"},\n  {step:\"Write the cell prediction artifacts\",status:\"completed\"},\n  {step:\"Run validation and resolve any artifact errors\",status:\"completed\"}\n]});\ntext(r);",
+      "result_digest": "d3a7ce3a7c7347db",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:35:59.796Z",
+      "tool": "exec"
+    }
+  ],
+  "case_id": "scotus/73248556",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

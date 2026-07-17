@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "8ffdb9a15c2a73d2",
+      "query": "{\"strategic_intent\": \"Read predict.md and AGENTS.md to understand the prompt contract and instructions for making a prediction.\", \"summary\": \"I am reading the prompt contract for predictions and the AGENTS.md guide to understand the exact output files required and how to format the prediction results for this specific cell.\", \"title\": \"Understand Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:34.966Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:34.974Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:34.974Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a52629b110b8ca6e",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73286452\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:39.766Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a9028ad4d26de65f",
+      "query": "ls -la data/cases/scotus/73286452/events/evt-petition-disposition/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:45.536Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e83edaf9a55b678",
+      "query": "ls -la data/cases/scotus/73286452/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:48.006Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3e46e3f334bbc3b8",
+      "query": "{\"file_path\": \"data/cases/scotus/73286452/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:51.114Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:55.814Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4d7c1a6ae75ba2b9",
+      "query": "\"Azadeh Khatibi\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:00.885Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "8981c9aa5c807d0c",
+      "query": "{\"endpoint_id\": \"dockets\", \"item_id\": \"73286452\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:04.616Z",
+      "tool": "mcp_courtlistener_get_endpoint_item"
+    },
+    {
+      "params_digest": "6e4b5b2054cf52c9",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"query\": {\"docket_id\": 73286452}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:09.000Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "a3445b5c38f044e5",
+      "query": "{\"endpoint_id\": \"docket-entries\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:11.684Z",
+      "tool": "mcp_courtlistener_get_endpoint_schema"
+    },
+    {
+      "params_digest": "b0ded0830754f7ce",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"query\": {\"docket\": 73286452}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:15.403Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "00edb3c1c34d81fc",
+      "query": "\"Azadeh Khatibi\" \"Kristina Lawson\" Supreme Court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:31.951Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "7b92059061d4a0d5",
+      "query": "mkdir -p data/cases/scotus/73286452/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:38.962Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:44.043Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e7960172a78fd291",
+      "query": "{\"file_path\": \"schemas/agent_flags.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:58.390Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:01.456Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "18052eff69dbd0dc",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73286452\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"missing\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.6,\\n  \\\"big_case_score\\\": 0.7,\\n  \\\"big_case_rationale\\\": \\\"High",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:06.273Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bc59250f957fa2b2",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Data Quality Issue\\nThe cell was not provisioned with a `record/` directory (the snapshot and `context.json` were missing). I predicted from priors and base rates, supplemented by an external web search to identify the case details since this is a forward-mode cell (the event is `resolved: false` and there is no indication that the Supreme Court has already ruled). \\n\\n## Case Context\\n*Azadeh Khatibi v. Kristina D. Lawson* (Docket 25-1240) is a First Amendment cha",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:13.192Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ce9fb3f826f54133",
+      "query": "{\"content\": \"# Retrieval\\n\\n- Read `metrics/statpack.md` to establish the baseline grant rate for SCOTUS cert petitions (Ninth Circuit originating court: ~3.0%).\\n- Used CourtListener MCP tool `search` (query: \\\"Azadeh Khatibi\\\") to find the district court and appellate court history.\\n- Used CourtListener MCP tool `call_endpoint` (`dockets`) to find SCOTUS docket 25-1240 information.\\n- Used Google Web Search (query: `\\\"Azadeh Khatibi\\\" \\\"Kristina Lawson\\\" Supreme Court`) to identify the core F",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:16.637Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e7fd05f940fbaad8",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73286452\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"mcp_courtlistener_get_endpoint_item\\\",\\n    \\\"mcp_courtlistener_call_endpoint\\\",\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided a very clear breakdown of base rates.\\\",\\n    \\\"goo",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:21.166Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9104954e4161580e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73286452\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"warning\\\",\\n      \\\"message\\\": \\\"The provisioned record directory (data/cases/scotus/73286452/events/evt-petition-disposition/record/) was completely missing. Predicted from base rates and external retrieval (MCP and Web Search).\\\",\\n      \\\"event_id\\\": \\\"evt-",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:26.461Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:32.294Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2b559433e6123ec7",
+      "query": "gh issue comment 759 -b \"Prediction complete for SCOTUS 73286452. Note that the provisioned record directory was missing, so I flagged this as a data-quality issue and generated the prediction based on priors and external retrieval. See flags.json and reasoning.md for details.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:35.918Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7dda01ff0174b117",
+      "query": "{\"strategic_intent\": \"Prediction completed. All required files generated successfully.\", \"summary\": \"I have completed the prediction task for the `evt-petition-disposition` event on SCOTUS docket 73286452. The prediction relies on priors and external retrieval (MCP CourtListener searches and Google Search) due to a missing provisioned `record/` directory. The issue has been durably recorded in a `flags.json` file. All generated files passed schema validation using `uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:39.468Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73286452",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

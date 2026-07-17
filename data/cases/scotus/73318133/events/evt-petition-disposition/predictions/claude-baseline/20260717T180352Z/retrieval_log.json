@@ -1,0 +1,206 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f94ee604b01788e6",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133 -type f | head -50",
+      "result_digest": "159c54b9d7fe8069",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "814aae1902baec83",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ffed15ef578d4f36",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "2e6bcf4082e3ae0f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0252fbe4c58bacae",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "1bd65758e0eeecca",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "039342891cb56bc2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133/record/documents/documents.json\"}",
+      "result_digest": "a57540a6f34b26e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "70b729ce27198764",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133/record/documents/petition.txt\"}",
+      "result_digest": "67a247a034892279",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bdcb4d118f37412c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133/record/documents/petition.txt\", \"offset\": 1234}",
+      "result_digest": "12ee86bd1a3c0485",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c734a31e917a0e59",
+      "query": "uv run fedcourts paths --court scotus --docket 73318133 --event evt-petition-disposition 2>&1",
+      "result_digest": "db5020f08d86aa22",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2e9cb58836b385fe",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 2>corpus_query_stderr.txt | head -20; echo \"--- stderr ---\"; cat corpus_query_stderr.txt; rm -f corpus_query_stderr.txt",
+      "result_digest": "b5081dd3ac7caf11",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a9e1b99ece3df83c",
+      "query": "select:mcp__courtlistener__get_endpoint_item",
+      "result_digest": "50e473a4cbff94c4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "ba4a2d327fd5c389",
+      "query": "{\"endpoint_id\": \"dockets\", \"fields\": [\"id\", \"case_name\", \"docket_number\", \"court_id\", \"date_filed\", \"date_terminated\", \"date_last_filing\"], \"item_id\": 73318133}",
+      "result_digest": "5c8716f4d587e6ac",
+      "retrieved_doc_date": "2026-05-08",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__get_endpoint_item"
+    },
+    {
+      "params_digest": "b9d5c2debe170914",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\" && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73318133/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+      "result_digest": "d246c8efd36cb3e2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cf0839f43ede6592",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73318133\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:19:57Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73318133/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.002,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "754ebf616367251a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8b567b34a0c9c24a",
+      "query": "{\"content\": \"# Veto v. The Boeing Company, No. 25-1270 \\u2014 petition disposition\\n\\n**Prediction: denied. P(grant, GVR included) \\u2248 0.002.**\\n\\n## The case\\n\\nChristopher Veto, proceeding pro se (paid docket, no counsel of record), petitions\\nfrom an unpublished Ninth Circuit memorandum (No. 24-7060, decided February 6,\\n2026) affirming summary judgment for Boeing in a California wrongful-termination /\\nwhistleblower-retaliation action (C.D. Cal. No. 8:24-cv-00509). Veto alleges he was\\nsu",
+      "result_digest": "cc0ca7ce5799003e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0dd946361749cc45",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73318133 / evt-petition-disposition / claude-baseline / 20260717T180352Z\\n\\nMode: `forward` (`record/context.json`); no `DECIDED_BEFORE` clock.\\n\\n## Corpus lookups\\n\\n1. `uv run fedcourts query --court scotus --era 2020s --limit 8`\\n   - stderr: `ranged corpus reads: 429 GET(s), 112328704 byte(s)`\\n   - Purpose: recent resolved SCOTUS priors for context. The granted rows returned\\n     (e.g. Monsanto v. Salas, Petersen v. Doe, Viramontes v. Cook County",
+      "result_digest": "ff267e22f59f87b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1c477e7f68e5bf64",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73318133\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (service backend)\\\",\\n    \\\"fedcourts paths\\\",\\n    \\\"CourtListener MCP get_endpoint_item (dockets)\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition.txt \\u2014 the full QP/",
+      "result_digest": "36ec9a79ca21d79c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fcc6d8edb9c9b5c4",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/",
+      "result_digest": "3f3f787217d131b9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "14950f88a265bb75",
+      "query": "gh issue comment 759 --body \"**claude-baseline** \u00b7 scotus/73318133 (25-1270, *Veto v. Boeing*) \u00b7 evt-petition-disposition \u00b7 run 20260717T180352Z\n\nPrediction written: **denied**, P(grant) = 0.002. Pro se paid petition from an unpublished CA9 memorandum affirming summary judgment in a state-law whistleblower-retaliation case \u2014 no split, advisory-style QPs, remedies unavailable on cert; single distribution to the 9/28/2026 long conference, no BIO/relist/CVSG. Anchored on the statpack relist-0 bucke",
+      "result_digest": "2daadbc8fedd2132",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73318133",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

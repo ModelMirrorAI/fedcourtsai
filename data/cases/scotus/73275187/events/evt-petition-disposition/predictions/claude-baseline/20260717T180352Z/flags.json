@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275187",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The cell's corpus query sidecar (127.0.0.1:8377) was unreachable ('is the sidecar running? ... timed out'), so `fedcourts query` priors were unavailable; the cell degraded gracefully to the committed statpack plus provisioned inputs, per contract. Flagging in case sidecar provisioning is broken for other cells in this run."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Not leakage, just context for the evaluator: forward-mode web checks confirmed the petition is still pending (no disposition anywhere). The June 25, 2026 supplemental brief (fetched from the snapshot's own docket URL) shows the Court held this petition for Pung v. Isabella County, 609 U.S. ___ (2026), which resolved only the threshold 'is it a fine' question — legitimate pre-decision signal that this prediction relies on."
+    }
+  ]
+}

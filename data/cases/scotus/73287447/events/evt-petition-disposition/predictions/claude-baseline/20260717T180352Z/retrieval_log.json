@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e95d5a7f3477f521",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447 -type f | head -50",
+      "result_digest": "dd08516e58ba8b49",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c16372838857c8fc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f86d928ad00c380a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "faece64ea5907f03",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "45299a14ad6ae1e9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "eb7cb9b8478f6bd6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3380650ee2feaeed",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/record/documents/documents.json\"}",
+      "result_digest": "06a39ccc57b82378",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e99633dbd157781a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/record/documents/questions-presented.txt\"}",
+      "result_digest": "66a662c17e550331",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a727442d1e2b83b3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/record/documents/petition.txt\"}",
+      "result_digest": "e26ef6378a1e3ee6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5c8f10c6e5c0f745",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ /home/runner/work/fedcourtsai/fedcourtsai/schemas/",
+      "result_digest": "0b3c859868e73349",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "48e901e59b5533b1",
+      "query": "uv run fedcourts paths --court scotus --docket 73287447 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "ba00f0d5ef4eb535",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5b315c03885991cd",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\" 2>&1",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7313be86c79fdf9a",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint([s['title'] for s in d['sections']])\nprint()\nt = d['terms']\nprint(type(t))\nprint(json.dumps(t, indent=1)[:3000])\n\" 2>&1",
+      "result_digest": "e4a76f0a2e50e51a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "616a24b3b3804974",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 8 2>querylog1.stderr | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    try:\n        r = json.loads(line)\n    except Exception:\n        print(line[:200]); continue\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:80], '|', r.get('disposition'), '|', r.get('date_resolved') or r.get('resolved_at') or '')\n\"; echo '--- stderr:'; cat querylog1.stderr",
+      "result_digest": "87ca8fe310be71a1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f910ec9e92a63e65",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 3 2>querylog2.stderr | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(json.dumps(r, indent=1)[:1200])\n    print('---')\n\"; echo 'stderr:'; cat querylog2.stderr",
+      "result_digest": "3198812ef9598e27",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b779e21ff21218e7",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 500 2>querylog3.stderr | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    if r['case_id'] == 'scotus/73287447' or '25-1243' in (r.get('docket_number') or ''):\n        print(json.dumps(r, indent=1))\n\" ; echo 'stderr:'; cat querylog3.stderr",
+      "result_digest": "55ff0d3ccd53114d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "a5cb1d2d631d2e81",
+      "query": "DirecTV Nexstar antitrust standing",
+      "result_digest": "72f4c12ea87fa5de",
+      "retrieved_doc_date": "2025-12-16",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "5c318cca19e820b2",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+      "result_digest": "5d75901c511bfad7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "808451300662370d",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73287447\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:08:59Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73287447/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.22,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "e0b5d08084a5e8ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "bd828199c8f9e562",
+      "query": "{\"content\": \"# Nexstar Media Group, Inc. v. DirecTV, LLC \\u2014 No. 25-1243 (cert petition disposition)\\n\\n**Prediction: denied is the modal outcome; P(grant, GVR included) = 0.22.**\\n\\n## The legal question\\n\\nWhether a plaintiff has antitrust standing to recover downstream losses flowing\\nfrom its decision *not* to purchase an allegedly price-fixed product. The\\nSecond Circuit (24-981, published Dec. 16, 2025, divided panel) reversed a\\nS.D.N.Y. dismissal and held that DirecTV \\u2014 which wal",
+      "result_digest": "b30d8c3121e80c27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fbba0836301fd55d",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73287447 evt-petition-disposition (claude-baseline, 20260717T180352Z)\\n\\nBeyond the provisioned inputs (snapshot, questions-presented.txt, petition.txt,\\ndocuments.json, event.yaml, context.json), I consulted:\\n\\n## Committed base rates\\n\\n- `metrics/statpack.md` \\u2014 \\\"Modern discretionary-cert petitions by disposition\\\",\\n  originating-circuit, relist, CVSG, and per-Term tables.\\n- `metrics/statpack.json` \\u2014 per-fee-class Term detail (Term 2025 ",
+      "result_digest": "695b4edbddb789b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "78efdcc2e5dd0f1c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73287447\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (service backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"CourtListener MCP search\\\",\\n    \\\"provisioned snapshot + petition/QP documents\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned full pet",
+      "result_digest": "77b3097eb4153176",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "5b5e19d7a5cf632f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d5d4506aa1e19dc0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73287447/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z/tooling.json\", \"new_string\": \"  \\\"notes\\\": \\\"Corpus 'granted' priors were useful as pattern checks (distribution_count on granted rows) even without a similarity filter that fits this case; --topic/--citation are circuit-row-only so were not usable here.\\\"\", \"old_string\": \"  \\\"notes\\\": [\\n    \\\"Corpus 'granted' priors were useful as patt",
+      "result_digest": "e91a079f54c85982",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Edit"
+    },
+    {
+      "params_digest": "c20f04351c0fa319",
+      "query": "uv run fedcourts validate data 2>&1 | tail -3",
+      "result_digest": "1878d04d1a0358f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5620ed8bb92f48c5",
+      "query": "gh issue comment 759 --body \"**claude-baseline** cell done: \\`scotus/73287447\\` (Nexstar Media Group v. DirecTV, No. 25-1243) / \\`evt-petition-disposition\\` / run \\`20260717T180352Z\\`.\n\nP(grant) = **0.22**, modal disposition **denied**; big_case_score 0.55. Paid petition anchored at the Term-2025 paid grant rate (~5.4%), lifted several-fold by the June 23 call for response after DirecTV's waiver, the asserted 2\u20131 split (CA9/CA10 vs CA2) with a published Sullivan dissent, and a clean pleading-sta",
+      "result_digest": "33c1f1699bf8730b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73287447",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

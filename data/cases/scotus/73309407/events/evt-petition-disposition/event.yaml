@@ -1,0 +1,10 @@
+case_id: scotus/73309407
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-05-07'
+resolved: false
+schema_version: '1.0'
+title: Ricky Darnell Patterson v. Michigan

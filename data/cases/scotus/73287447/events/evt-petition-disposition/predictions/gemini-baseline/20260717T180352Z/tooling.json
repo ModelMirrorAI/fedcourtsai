@@ -1,0 +1,20 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73287447",
+  "gaps": [
+    "No specific statpack cut for Call for Response (CFR) without a subsequent relist."
+  ],
+  "helpful": [
+    "google_web_search allowed rapid assessment of the stakes and context of this high-profile case."
+  ],
+  "notes": "The web search was highly effective for evaluating the big_case_score.",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "google_web_search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

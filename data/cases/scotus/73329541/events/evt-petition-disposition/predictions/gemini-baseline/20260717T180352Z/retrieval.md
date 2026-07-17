@@ -1,0 +1,3 @@
+- Consulted `metrics/statpack.md` to retrieve base rates for certiorari petitions, noting the low base grant rate and the specific rates for Tenth Circuit originations.
+- Ran `uv run fedcourts query --court "scotus" --topic "habeas" --limit 5` (Result: `ranged corpus reads: 464 GET(s), 121503744 byte(s)`) which did not yield useful matching priors due to topic string exact-matching.
+- Used the `mcp_courtlistener_search` tool to search for the case `Bowe v. United States` (No. 24-5438) cited in the petition. Verified that the case was decided on January 9, 2026, authored by Justice Sotomayor, confirming the petitioner's premise about the recent precedent.

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73286452",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The provisioned record directory (data/cases/scotus/73286452/events/evt-petition-disposition/record/) was completely missing. Predicted from base rates and external retrieval (MCP and Web Search).",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

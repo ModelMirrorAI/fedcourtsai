@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "03e162aa519c9c9c",
+      "query": "{\"strategic_intent\": \"Produce a prediction for a case event based on predictor instructions.\", \"title\": \"Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:33.604Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f208499712808a1a",
+      "query": "{\"end_line\": 500, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:36.036Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e41d6b10251011a9",
+      "query": "{\"end_line\": 500, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:36.036Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a33f6e2a6174c23b",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73275185\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:41.368Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4003a6bae9befa1e",
+      "query": "ls -la data/cases/scotus/73275185/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:45.483Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "98b58f4613eea523",
+      "query": "find . -type d -name \"record\" -o -name \"73275185\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:48.115Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7e02ffdfd2724273",
+      "query": "ls -la ./data/cases/scotus/73275185/record",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:50.603Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5122eae64d322779",
+      "query": "cat ./data/cases/scotus/73275185/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:53.386Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "60513305ffb7d080",
+      "query": "ls -la ./data/cases/scotus/73275185/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:53.387Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5b67666c2ec72531",
+      "query": "ls -la ./data/cases/scotus/73275185/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:53.387Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4af4c5806089fa72",
+      "query": "cat ./data/cases/scotus/73275185/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:56.654Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf1184ec07f4cd82",
+      "query": "cat ./data/cases/scotus/73275185/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:56.655Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9cd9cb4fadd02015",
+      "query": "cat ./data/cases/scotus/73275185/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:56.655Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3612d30d1141c624",
+      "query": "cat ./data/cases/scotus/73275185/record/documents/brief-in-opposition.txt | head -n 100",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:07.114Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "525402b1d88da7eb",
+      "query": "uv run fedcourts query --court scotus --topic \"Voting\" --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:41.410Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7663d84ae7e6c507",
+      "query": "cat metrics/statpack.md | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:44.932Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "35001f04a2e597db",
+      "query": "Louisiana v. Callais",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:52.548Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "ab85919396c9d16d",
+      "query": "mkdir -p data/cases/scotus/73275185/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:04.475Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a60134cb8559828e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73275185\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"big_case_score\\\": 0.85,\\n  \\\"big_case_rationale\\\": \\\"High-stakes congressio",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:08.735Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1ab240a3b98a5f2d",
+      "query": "{\"content\": \"# Reasoning\\n\\n## The Legal Question\\nThis case (*Allen v. Caster*, No. 25-243) presents a petition for a writ of certiorari before judgment. The petitioners (the State of Alabama) seek review of a district court order concerning the state's 2023 congressional redistricting plan and its compliance with Section 2 of the Voting Rights Act. \\n\\n## The Governing Standard\\nA petition for a writ of certiorari before judgment is granted only upon a showing that the case is of such imperati",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:16.553Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "645224f8e46d3e81",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Read `metrics/statpack.md` for base rates (did not use a `fedcourts` tool because it requires a pulled corpus).\\n- Used CourtListener MCP server tool `mcp_courtlistener_search` with query `Louisiana v. Callais` and type `o` to verify the timing of the *Louisiana v. Callais* decision (decided April 29, 2026).\\n- `fedcourts query` was attempted (`uv run fedcourts query --court scotus --topic \\\"Voting\\\" --limit 5`) but failed because the local corpus service was un",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:20.711Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a0c21fefbd58e110",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73275185\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"warning\\\",\\n      \\\"message\\\": \\\"Mis-provisioned cell: The provisioned snapshot (2026-07-17.json) for this forward cell contains the actual disposition of the event (May 11, 2026 GVR). The prediction was formulated based on the pre-decision record as required.",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:25.360Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "38426a7732de580a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73275185\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"run_shell_command\\\", \\\"read_file\\\"],\\n  \\\"helpful\\\": [\\\"The mcp_courtlistener_search tool was very helpful for looking up the timing of the companion case (Louisiana v. Callais).\\\"],\\n  \\\"gaps\\\": [\\\"The local corpus sidecar was un",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:29.777Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d187e6963d7fdf00",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:33.900Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "80fd226cfcc9f421",
+      "query": "gh issue comment 759 --body \"Cell prediction for SCOTUS docket 73275185 completed by gemini-baseline. Note: The cell was mis-provisioned (forward mode but the snapshot contains the May 2026 GVR). I've recorded this in flags.json and formulated a prediction based on the pre-decision record (predicting a GVR in light of *Callais*).\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:37.645Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b69abc8de00169b5",
+      "query": "{\"strategic_intent\": \"Prediction completed and validated.\", \"title\": \"Prediction Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:40.820Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73275185",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

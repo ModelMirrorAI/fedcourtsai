@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/73266074",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "MCP search was helpful for quickly identifying the lower court opinion and docket number (A170255)."
+  ],
+  "gaps": [
+    "The ranged backend for fedcourts query requires environment variables that were not available in the cell."
+  ],
+  "notes": "Attempted to use fedcourts query with ranged backend but it failed due to missing `corpus_remote_url` in the environment. Fell back to MCP CourtListener search."
+}

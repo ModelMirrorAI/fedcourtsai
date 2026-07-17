@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "22d22d6b93747ad5",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285 -type f | head -50",
+      "result_digest": "2df17fe3565f3715",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "74c3d98e5384382c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3e0b35ab52732bbe",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "a51a689639b199a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fa88272a9b7af631",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "3f7e107364614c8b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ad8a84314b07438a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285/record/documents/documents.json\"}",
+      "result_digest": "12d5c9ff95d72f5e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4b93e4e67eeea059",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285/record/documents/questions-presented.txt\"}",
+      "result_digest": "b411e13a6a98cb0c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a6720ca9c723b7c2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285/record/documents/petition.txt\"}",
+      "result_digest": "4674c37a379316cd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "de0143703dcddfde",
+      "query": "grep -n \"Modern discretionary-cert\\|salience\\|relist\\|CVSG\\|Response Requested\\|call for response\\|Segment base rate\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "50031f3227709971",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "64eb638ef2a7b964",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\" 2>&1 | head",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "91e9a8fe1daacc7d",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nfor s in d['sections']:\n    print(s.get('title') or s.get('key'))\n\"",
+      "result_digest": "6ce29af6ca49e54d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b123814376d8acd6",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt = d['terms']\nprint(type(t))\nprint(json.dumps(t, indent=1)[:3000])\n\"",
+      "result_digest": "4401a3d8c0cafa4d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "077ff662f49e391f",
+      "query": "uv run fedcourts query --court scotus --text \"Bivens implied cause of action Fourth Amendment false arrest federal agents\" --limit 8 2>querystderr.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    r=json.loads(line)\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:80], '|', r.get('disposition'), '|', r.get('date_resolved') or r.get('resolved_at') or '')\n\"; echo '--- stderr:'; cat querystderr.txt",
+      "result_digest": "51f460317222fcac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8bcbdd435e630a74",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,90p'",
+      "result_digest": "8610f0a942081b48",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e5b1da8152a770fa",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 10 2>querystderr.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    r=json.loads(line)\n    print('|'.join(str(r.get(k,'')) for k in ('case_id','caption','disposition','era'))[:130])\n\"; echo '--- stderr:'; cat querystderr.txt",
+      "result_digest": "b842c400413d01cd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "18c43394c32c8021",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__get_endpoint_item",
+      "result_digest": "b07fd3d144603abd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "411f46b3ae304400",
+      "query": "Bivens",
+      "result_digest": "8402c0f21de80406",
+      "retrieved_doc_date": "2026-06-23",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "60c1ec46c28fc4d1",
+      "query": "Supreme Court cert petition Bivens \"new context\" circuit split 2026 Arias Herzon Schwartz Miller",
+      "result_digest": "87aeb3ac9e88ad6a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "a3feeb56065f7c86",
+      "query": "\"Nielsen\" \"Watanabe\" Supreme Court cert granted 25-417 Bivens",
+      "result_digest": "9feb6c3d61ee3513",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "f0c9a62eaf904b89",
+      "query": "SCOTUSblog \"Supreme Court agrees to hear case on the ability to sue federal officials\" Nielsen Watanabe June 2026 Mohan",
+      "result_digest": "12993ee659941c2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2005d730b881de96",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73298285/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+      "result_digest": "bfd5d7179e63bdc1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "99245921083fa1fe",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73298285\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:16:14Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73298285/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "a8fbc1afa9fa9ce5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "bd5717de90a5c309",
+      "query": "{\"content\": \"# Sigalovskaya v. Braden, No. 25-1250 \\u2014 cert disposition\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.15.**\\n\\n## The case\\n\\nPaid petition (Term 2025, docketed May 5, 2026) from the Second Circuit\\n(No. 23-7625, 149 F.4th 226, decided Aug. 27, 2025; rehearing en banc denied\\nDec. 2, 2025). HSI agents entered Sigalovskaya's home without a warrant,\\nsearched it, and \\u2014 per the complaint \\u2014 Agent Braden fabricated a confession and\\narrested her without probable",
+      "result_digest": "e40554a76303a2ec",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8f947c30877cbfca",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73298285 / evt-petition-disposition / claude-baseline / 20260717T180352Z\\n\\nMode: `forward` (retrieval unrestricted; nothing outcome-revealing exists \\u2014 the\\npetition is pending, response due Aug. 17, 2026).\\n\\n## Committed base rates\\n\\n- `metrics/statpack.md` \\u2014 \\\"Modern discretionary-cert petitions by disposition\\\",\\n  originating-circuit, relist, CVSG, and per-Term tables.\\n- `metrics/statpack.json` \\u2014 per-Term fee-class detail (paid est",
+      "result_digest": "896d7f820be2eefd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "6efb6b8ff5abda7e",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73298285\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (corpus service backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"CourtListener MCP search\\\",\\n    \\\"web search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Prov",
+      "result_digest": "a74edff2e43b562b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "1878d04d1a0358f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "37c8f6e500cd7ef1",
+      "query": "gh issue comment 759 --repo \"$GITHUB_REPOSITORY\" --body \"claude-baseline / scotus/73298285 / evt-petition-disposition / 20260717T180352Z: prediction written \u2014 **denied**, P(grant incl. GVR) = 0.15. Paid CA2 Bivens petition (25-1250) with a strong CFR-after-waiver signal, but the Court granted Nielsen v. Watanabe (25-417) in June 2026 as its OT2026 Bivens vehicle and is holding Mohan (25-952); likeliest path here is hold \u2192 deny after Nielsen, with GVR as the main grant-side mass. Outputs validate",
+      "result_digest": "b9db0fcd84caad5c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73298285",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

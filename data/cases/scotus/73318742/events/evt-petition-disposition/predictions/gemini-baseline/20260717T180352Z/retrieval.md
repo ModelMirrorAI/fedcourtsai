@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I reviewed the provided `statpack.md` and the provisioned documents (`questions-presented.txt` and `brief-in-opposition.txt`) from the case record.

@@ -1,0 +1,262 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "54d45eafe64bb0e1",
+      "query": "{\"strategic_intent\": \"Reading prompt and agent documentation to understand prediction requirements.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:36.749Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "3a01b0eb635f9a71",
+      "query": "{\"end_line\": 1000, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:39.333Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6a6cab6c8a8a52f1",
+      "query": "{\"end_line\": 1000, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:39.333Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "bd44ef632a22ceb6",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73286453\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:45.969Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d206781f2b7e53b2",
+      "query": "ls -la data/cases/scotus/73286453/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:48.420Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "add35ec4f30d51c9",
+      "query": "find data/cases/scotus/73286453 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:52.594Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6eb9e7ffce1bae07",
+      "query": "{\"strategic_intent\": \"Reading the provisioned case record files to analyze the cert petition.\", \"summary\": \"I have read the prompts and instructions and learned the input locations. I will now read the specific case facts including the event definition, snapshot, and document texts.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:55.916Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ea6ae3c2314c26e9",
+      "query": "{\"end_line\": 1000, \"file_path\": \"data/cases/scotus/73286453/record/documents/documents.json\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:59.072Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d685089438526a6f",
+      "query": "{\"end_line\": 1000, \"file_path\": \"data/cases/scotus/73286453/record/context.json\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:59.072Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4d5c4848751833e5",
+      "query": "{\"end_line\": 1000, \"file_path\": \"data/cases/scotus/73286453/events/evt-petition-disposition/event.yaml\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:59.072Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4c7cc62b1a5dbb2b",
+      "query": "jq . data/cases/scotus/73286453/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:01.675Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "73ecdce60577bf50",
+      "query": "cat data/cases/scotus/73286453/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:04.338Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "202db9936d0ade23",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:09.817Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "70f81e2809cdedf0",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:15.231Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f19b1a3ca7fd61d4",
+      "query": "grep -i salience metrics/statpack.md -A 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:17.496Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5bcda74e945cf7a3",
+      "query": "grep \"^## \" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:19.879Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "38f3b6879dab1e5c",
+      "query": "cat metrics/statpack.md | grep -A 10 \"Cert petitions by relist count\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:22.243Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e3bef4e4d9a8bfac",
+      "query": "Hughes v. Locure",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:26.156Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "fe788bdcbe9f4f9f",
+      "query": "{\"court\": [\"ca11\"], \"docket_number\": \"23-10954\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:29.615Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "9fbafe8ebfda445f",
+      "query": "{\"court\": [\"ca11\"], \"docket_number\": \"23-10954\", \"type\": \"o\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:32.724Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "3498ce58509b1160",
+      "query": "grep -A 50 -i \"circuit split\" data/cases/scotus/73286453/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:35.585Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ad054ccf92e7a867",
+      "query": "grep -A 50 -i \"split\" data/cases/scotus/73286453/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:40.726Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d0adea47f9c58a60",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:51.727Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1cc7f007c2eb4a3d",
+      "query": "{\"content\": \"# Reasoning\\n\\n## The Legal Question\\nThe petition asks whether, under *County of Sacramento v. Lewis* (1998), a law enforcement officer who injures or kills a civilian through the \\\"intentional misuse\\\" of a police vehicle in a non-emergency situation (here, driving intoxicated without headlights) can be denied qualified immunity because the right to be free from such substantive due process violations is clearly established.\\n\\n## Governing Standard and Base Rates\\nThe base rate f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:05.251Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "72464866c5b7fbf8",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:08.194Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8409307aa95f0631",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:13.816Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f9565a4ff7f2d9bf",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73286453\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73286453/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.70,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:20.823Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "cdd82ff5557ae327",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73286453\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"run_shell_command to read statpack.md\\\",\\n    \\\"mcp_courtlistener_search for docket and opinion context\\\"\\n  ]\\n}\\n\", \"file_path\": \"data/cases/scotus/73286453/events/ev",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:20.826Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bcd1dfd0b5681e82",
+      "query": "{\"content\": \"- `mcp_courtlistener_search` on `Hughes v. Locure` in CA11 and SCOTUS to find the lower court opinion and dockets.\\n- Checked `metrics/statpack.md` using `grep` to fetch `ca11` and salience band base rates.\\n\", \"file_path\": \"data/cases/scotus/73286453/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:20.830Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "23adf6f8382d2c20",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:27.819Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8f2c60fa7a9d9180",
+      "query": "{\"strategic_intent\": \"Completed prediction and validation for the case.\", \"summary\": \"I have successfully created the prediction.json, reasoning.md, retrieval.md, and tooling.json artifacts for the evt-petition-disposition event on docket 73286453. I have validated all output files using the fedcourts validate command.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:31.890Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73286453",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

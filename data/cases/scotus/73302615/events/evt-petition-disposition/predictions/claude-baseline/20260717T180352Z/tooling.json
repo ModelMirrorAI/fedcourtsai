@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73302615",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md + statpack.json",
+    "CourtListener MCP (search, call_endpoint)",
+    "provisioned petition.txt / questions-presented.txt"
+  ],
+  "helpful": [
+    "Full provisioned petition text — the split/vehicle sections drove most of the adjustment off base rates",
+    "statpack originating-circuit and per-fee-class cuts (CADC 11.8%, paid ~5-7%)",
+    "CVSG/relist cuts as forward scenario anchors even though neither applies yet"
+  ],
+  "gaps": [
+    "The 'Segment base rate by salience band' statpack section the predict prompt points to is absent from the committed statpack.md/json",
+    "No statpack cut for call-for-response (CFR) status — the strongest live signal on this docket had to be weighted from general knowledge rather than corpus data",
+    "fedcourts query --citation lookups timed out against the corpus sidecar (two calls); only the era/disposition query succeeded",
+    "clusters endpoint id-filter via call_endpoint returned an unrelated cluster, so panel/dissent composition below could not be confirmed from CourtListener"
+  ],
+  "notes": "Forward cell with clean provisioned inputs. A CFR-conditional grant-rate cut (paid petitions where the Court requested a response after waiver) would have been the single most useful base rate for this cell."
+}

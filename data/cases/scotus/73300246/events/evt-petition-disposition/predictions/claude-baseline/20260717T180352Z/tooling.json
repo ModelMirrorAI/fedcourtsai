@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73300246",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener MCP search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned petition + BIO text (the BIO's vehicle arguments drove the call)",
+    "statpack relist/CVSG cut tables",
+    "CourtListener opinion search to rule out a pending merits case (GVR source)"
+  ],
+  "gaps": [
+    "The statpack.md lacks the 'Segment base rate by salience band' table the predict prompt tells cells to anchor on",
+    "fedcourts query has no topic/issue filter on SCOTUS rows, so 'similar takings petitions' priors are unreachable through it"
+  ],
+  "notes": "One fedcourts query cost 148 ranged GETs (~38 MB) for near-zero signal; a topical filter or embedding rank on SCOTUS rows would make the priors surface earn its transfer."
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73291758",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "metrics/statpack.md + statpack.json (base rates)",
+    "CourtListener MCP call_endpoint (dockets)",
+    "provisioned snapshot and petition/QP document text"
+  ],
+  "helpful": [
+    "Provisioned petition.txt full text — the vehicle defects (state-ground forfeiture, no-BIO posture) are visible only in the petition body, not the snapshot",
+    "Statpack relist-count and originating-court cuts — exactly the priors this petition needed",
+    "documents.json truncation/pages metadata"
+  ],
+  "gaps": [
+    "Corpus query sidecar at 127.0.0.1:8377 was unreachable (timed out), so fedcourts query priors were unavailable this run",
+    "The 'Segment base rate by salience band' table referenced in the predict prompt is absent from the committed statpack build",
+    "A snapshot field for whether a waiver of response was filed (vs. the deadline simply passing) would sharpen the no-BIO signal"
+  ],
+  "notes": "Degradation was immaterial for this cell: a pro se, fact-bound, forfeiture-blocked family protective-order petition distributed to the long conference without a response is priced almost entirely off the statpack cuts."
+}

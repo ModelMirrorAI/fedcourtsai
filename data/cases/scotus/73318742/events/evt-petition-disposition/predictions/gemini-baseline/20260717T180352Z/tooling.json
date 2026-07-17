@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73318742",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["read_file", "run_shell_command"],
+  "helpful": ["Provisioned documents (questions-presented.txt, brief-in-opposition.txt) were sufficient to analyze the legal issues without needing external search."],
+  "gaps": [],
+  "notes": "Straightforward case of pro se litigants suing state judges; facts and issues were very clear from the BIO and QP."
+}

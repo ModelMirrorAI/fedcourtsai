@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73299074",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "google_web_search",
+    "read_file"
+  ],
+  "helpful": [
+    "google_web_search",
+    "metrics/statpack.md"
+  ],
+  "gaps": [
+    "No provisioned documents were available in the cell, and the CourtListener MCP search turned up empty for this SCOTUS docket. A fallback to web search was strictly necessary to determine the nature of the mandamus petition."
+  ],
+  "notes": "Web search was critical to understand the procedural history of this follow-up petition."
+}

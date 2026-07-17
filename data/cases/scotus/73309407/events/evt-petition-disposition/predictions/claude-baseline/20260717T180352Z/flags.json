@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73309407",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Corpus query sidecar (127.0.0.1:8377) was unreachable this cell — `fedcourts query` timed out, so no corpus priors were retrieved. Prediction rests on the provisioned inputs, the committed statpack base rates, and one CourtListener MCP docket check; degradation was marginal for this cell but the outage may affect other cells in this run."
+    }
+  ]
+}

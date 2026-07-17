@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73303792",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_get_endpoint_schema",
+    "google_web_search",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "google_web_search was essential for finding the facts of the Sixth Circuit case because the provisioned petition document was empty (scanned image) and the Sixth Circuit opinion was not available directly through the CourtListener search endpoint."
+  ]
+}

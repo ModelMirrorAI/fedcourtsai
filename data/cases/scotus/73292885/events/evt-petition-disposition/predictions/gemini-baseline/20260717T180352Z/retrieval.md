@@ -1,0 +1,4 @@
+- Consulted provisioned inputs: `event.yaml`, `context.json`, `snapshots/2026-07-17.json`, and `documents/petition.txt` (the questions presented).
+- Reviewed overall cert base rates from the committed `metrics/statpack.md`, noting the ~3% overall grant rate for modern paid discretionary-cert dockets, and the <1% rate for petitions from state courts.
+- Searched CourtListener MCP (`"Pestarino v."`) to identify any related federal collateral litigation.
+- Executed `uv run fedcourts query --court scotus --disposition denied --limit 3` to verify the corpus query tool was functioning, producing: `ranged corpus reads: 201 GET(s), 52559872 byte(s)`.

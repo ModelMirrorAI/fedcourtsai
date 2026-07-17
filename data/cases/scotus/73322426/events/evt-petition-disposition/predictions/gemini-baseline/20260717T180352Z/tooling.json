@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73322426",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned documents (petition text) were highly useful for determining the exact split alleged and the quality of the vehicle.",
+    "The base rates in the statpack are essential for grounding the probability."
+  ],
+  "gaps": [
+    "The corpus query service was unreachable from the runner environment when I attempted to use `uv run fedcourts query` without `local` or `ranged`, and `ranged` failed due to missing env var, while `local` failed due to no local DB."
+  ],
+  "notes": "Relied on MCP for legal context instead of corpus query."
+}

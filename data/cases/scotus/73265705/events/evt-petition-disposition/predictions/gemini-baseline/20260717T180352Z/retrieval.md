@@ -1,0 +1,5 @@
+# Retrieval Log
+
+1. Read `metrics/statpack.md` to establish modern base rates for cert petitions, including variations by relist status, CVSG status, and fee class.
+2. `fedcourts query` (failed): Attempted `uv run fedcourts query --court scotus --topic "Patent" --decided-before "2026-07-17"` to pull related priors. The command failed because `--decided-before` expects an integer year, not a full date string. Relied on general knowledge and statpack instead.
+3. MCP CourtListener Search: Called `mcp_courtlistener_search` for `"inter partes review" AND "settled expectations"` to find recent Federal Circuit cases. Surfaced `LKQ Corp. v. GM Global Technology Operations` and `Cascades Projection LLC v. Epson America, Inc.`, confirming that "settled expectations" as a categorical IPR denial ground is a novel or recently contested policy.

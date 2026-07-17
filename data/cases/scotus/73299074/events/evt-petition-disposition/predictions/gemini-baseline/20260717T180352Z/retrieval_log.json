@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "879d09a308e9d97a",
+      "query": "{\"strategic_intent\": \"Read prompt and agent instructions to understand prediction task.\", \"summary\": \"I will start by reading the prediction prompt and the agents documentation to understand the expected inputs, process, and output files.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:30.943Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:33.585Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:33.585Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "54c009e305111651",
+      "query": "{\"pattern\": \"data/cases/scotus/73299074/**/*\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:38.501Z",
+      "tool": "glob"
+    },
+    {
+      "params_digest": "7ffdd9579a67ef15",
+      "query": "{\"strategic_intent\": \"Read provisioned case inputs and context.\", \"summary\": \"I will read the event definition, snapshot, and context files for the case scotus/73299074 to understand what needs to be predicted and what information is available.\", \"title\": \"Reading Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.307Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "efd84e8f39bd6bff",
+      "query": "{\"file_path\": \"data/cases/scotus/73299074/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:44.103Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "69b70de163fb7249",
+      "query": "{\"file_path\": \"data/cases/scotus/73299074/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:44.103Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8932855618827f07",
+      "query": "{\"file_path\": \"data/cases/scotus/73299074/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:44.103Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0fb9e6b70c3d4662",
+      "query": "{\"strategic_intent\": \"Search CourtListener for the case to gather more context.\", \"summary\": \"I will search CourtListener for the docket 73299074 (Supreme Court case 25-1252, In re Richard Devillier) to see if we can find more information about the mandamus petition, such as the actual document text.\", \"title\": \"Retrieving CourtListener Data\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:49.927Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ac8ad86c175f84b0",
+      "query": "{\"docket_number\": \"25-1252\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:54.723Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "fda5aa000ca8f444",
+      "query": "Devillier",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:54.724Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "96b8295ef4f2846e",
+      "query": "Devillier",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:59.221Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "bd7600ced446c526",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1252\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:59.221Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "62d06239089ed9a8",
+      "query": "{\"strategic_intent\": \"Search the web for information about the Devillier mandamus petition.\", \"summary\": \"Since CourtListener did not return the Supreme Court docket, I will perform a Google web search for \\\"In Re Richard Devillier\\\" and Supreme Court docket \\\"25-1252\\\" to see if there is news or commentary about this mandamus petition.\", \"title\": \"Web Search for Case Context\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:04.011Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "52ca88b94915ff82",
+      "query": "\"25-1252\" Supreme Court mandamus Devillier",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:31.974Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "ef783c545cd73718",
+      "query": "\"In Re Richard Devillier\" Supreme Court mandamus 2026",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:31.974Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "c62f79f27fc170c8",
+      "query": "{\"strategic_intent\": \"Analyze base rates and retrieve priors for mandamus petitions.\", \"summary\": \"I will read the statpack to find the base rate for extraordinary writs/mandamus petitions. I will also query the corpus using `fedcourts query` to look for similar cases (mandamus petitions) to establish a strong prior for the prediction.\", \"title\": \"Base Rates and Priors\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:38.061Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "478e2e75f33c87fe",
+      "query": "uv run fedcourts query --court scotus --era roberts --decided-before 2026-06-24",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:41.861Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:41.862Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "70ba716dbbf3a649",
+      "query": "mkdir -p data/cases/scotus/73299074/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:53.829Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddbb274535c7e925",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73299074\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.95,\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"big_case_rationale\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:59.435Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "baa3b4bfbb73b1c6",
+      "query": "{\"content\": \"### Legal Question\\nThe petition asks the Supreme Court to issue a writ of mandamus compelling the lower courts to remand the case to Texas state court following the Supreme Court's 2024 decision in *DeVillier v. Texas* (601 U.S. 285). The central issue is whether the Fifth Circuit and the federal district court failed to execute the Supreme Court's mandate by retaining jurisdiction over the case rather than returning it to the state court where it was originally filed.\\n\\n### Gover",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:08.378Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "02fbb1116422260c",
+      "query": "{\"content\": \"- **CourtListener MCP Search:** Attempted to search for docket \\\"25-1252\\\" and case name \\\"Devillier\\\" restricted to the SCOTUS court. CourtListener did not have this docket in its database yet.\\n- **Web Search (`google_web_search`):** Searched for `\\\"In Re Richard Devillier\\\" Supreme Court mandamus 2026` and `\\\"25-1252\\\" Supreme Court mandamus Devillier` to establish the context of the mandamus petition. This confirmed the petition stems from the lower courts' handling of the reman",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:13.601Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7edbb32c69bd2d48",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73299074\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"No provisioned documents were available in the cell, and the CourtList",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:18.893Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:27.172Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:29.974Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4006aafac54bd81e",
+      "query": "{\"allow_multiple\": false, \"file_path\": \"data/cases/scotus/73299074/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/prediction.json\", \"instruction\": \"Update input_snapshot to be the repo-relative path\", \"new_string\": \"  \\\"input_snapshot\\\": \\\"data/cases/scotus/73299074/record/snapshots/2026-07-17.json\\\",\", \"old_string\": \"  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:34.811Z",
+      "tool": "replace"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:39.729Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "af3708e9392ba007",
+      "query": "gh issue comment 759 --body \"Prediction for \\`scotus/73299074\\` (\\`evt-petition-disposition\\`) completed. \n\nDue to the absence of the docket on CourtListener and missing provisioned documents, I fell back to a web search to gather context. I found that this is a mandamus petition following up on the 2024 *DeVillier v. Texas* decision, centered on a procedural remand/removal dispute. Given the extraordinary nature of mandamus and standard base rates, I've predicted a denial. All output files (\\`p",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:44.314Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f41a1b085b8b3c16",
+      "query": "{\"strategic_intent\": \"Finalize prediction output and conclude the task.\", \"summary\": \"I have generated the prediction based on the gathered information. The outputs (prediction.json, reasoning.md, retrieval.md, tooling.json) have been written to the specified directory and successfully validated. The task is now complete.\", \"title\": \"Finalizing Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:48.437Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73299074",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

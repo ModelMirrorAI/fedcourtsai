@@ -1,0 +1,3 @@
+* Read the committed statpack `metrics/statpack.md` for base rates regarding SCOTUS cert petitions.
+* Used CourtListener MCP tool `search` with query `"United States v. Hemani"`, finding docket `24-1234` and the opinion decided on 2026-06-18.
+* Used CourtListener MCP tool `get_endpoint_item` to retrieve the `plain_text` opinion for *United States v. Hemani* (item_id `11344434`) to confirm its holding.

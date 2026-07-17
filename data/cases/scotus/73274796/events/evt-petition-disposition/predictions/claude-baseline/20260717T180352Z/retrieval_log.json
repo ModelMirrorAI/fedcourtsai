@@ -1,0 +1,294 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a81c324f1a57bc86",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796 -type f | sort",
+      "result_digest": "b13b68951caf7b03",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "526ee97402a441d5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "c277e952903e7c63",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b8a7472630a35586",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3a1d0d39c6a3b5d0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "4ef996acafbaad41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "681ec620f527fd4d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/documents/documents.json\"}",
+      "result_digest": "3436b063d428f4f0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "96c41f38d19973ce",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/documents/questions-presented.txt\"}",
+      "result_digest": "92b0469094671ca2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1786e190f5174618",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/documents/brief-in-opposition.txt",
+      "result_digest": "4eb20b417d598c17",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a04d8aa7483d7307",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/documents/petition.txt\", \"limit\": 700}",
+      "result_digest": "2ad863339a927093",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "17bb35a49672bb70",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/documents/petition.txt\", \"limit\": 900, \"offset\": 700}",
+      "result_digest": "2f1df38495a51a1d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d452aac81a26e410",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "6caafb1ed9755614",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bbc8be0302351831",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -50",
+      "result_digest": "9e4c6840a79d862b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "945641d8d8b8ea69",
+      "query": "sed -n 55,200p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "3fc261fef8e431a4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fe9e7674f83fef19",
+      "query": "grep -n -i \"salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head; sed -n 1,54p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "063f64115a6021c0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b578e10a0d62f4df",
+      "query": "select:WebFetch,WebSearch",
+      "result_digest": "e0a647fd70eb8461",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "673747b688ea27a2",
+      "query": "Renteria v. New Mexico Office of Superintendent of Insurance solicitor general brief 25-113 health care sharing ministry",
+      "result_digest": "b8cfaab58d2569b8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "71b942fe5546e361",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s 2>&1 | tail -12",
+      "result_digest": "e11e1228b77619db",
+      "retrieved_doc_date": "2026-05-27",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e2194a7d731a4f66",
+      "query": "What did the Solicitor General recommend in this amicus brief in Renteria v. New Mexico Office of the Superintendent of Insurance (25-113)? Quote the recommendation/conclusion precisely, including any case it recommends holding for.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "941f9815be7ead4c",
+      "query": "\"St. Mary Catholic Parish\" v. Roy Supreme Court 25-581 cert granted",
+      "result_digest": "a4f2b278035f4a95",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "1616a30b68db317b",
+      "query": "List all docket entries from June 2026 onward, verbatim with dates. Has the petition for certiorari been granted, denied, or otherwise disposed of? What is the most recent entry on the docket?",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "b28808cb9364e7a2",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s >/dev/null 2>/tmp/qerr.txt; grep -i \"ranged corpus reads\\|note:\" /tmp/qerr.txt",
+      "result_digest": "30ca67371b7dbd7c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "737f73c43cd3e43f",
+      "query": "List the most recent docket entries (June-July 2026) for this Supreme Court case, 25-113 Renteria v. New Mexico Office of the Superintendent of Insurance. Has the petition been granted, denied, relisted, or is it still pending? Any conference distributions after June 25, 2026?",
+      "result_digest": "4075311967a1ceaa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9ebded3de7aa9357",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274796/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z && uv run fedcourts paths --court scotus --docket 73274796 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "1945830f24e5de74",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4971cc171bd3b13e",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274796\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:32:44Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73274796/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.72,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"co",
+      "result_digest": "bd8128f158737215",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b350bceaa6f0ea0f",
+      "query": "{\"content\": \"# Renteria v. New Mexico Office of the Superintendent of Insurance (25-113) \\u2014 cert disposition\\n\\n**Prediction: GVR (grant, vacate, and remand) as the likeliest disposition; P(any grant, GVR included) = 0.72.**\\n\\n## The case\\n\\nPetitioners are two New Mexico members of Gospel Light Mennonite Church Medical\\nAid Plan, a health care sharing ministry (HCSM) recognized under the ACA's\\nindividual-mandate exemption, 26 U.S.C. \\u00a7 5000A(d)(2)(B). New Mexico's Office of\\nthe Super",
+      "result_digest": "75e40b45f445d1f8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "54133bf9fd9e4661",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73274796 evt-petition-disposition (claude-baseline, 20260717T180352Z)\\n\\nMode: `forward` (retrieval unrestricted; all context below predates any disposition \\u2014\\nthe petition is confirmed still pending).\\n\\n## Provisioned inputs read\\n\\n- `record/snapshots/2026-07-17.json` (baseline docket snapshot, SCOTUS No. 25-113)\\n- `record/documents/questions-presented.txt`, `petition.txt` (217 pp., truncated),\\n  `brief-in-opposition.txt` (32 pp.); `documents.",
+      "result_digest": "b6e1329e83a56922",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b9f615cba9f39dc7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274796\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"WebSearch\\\",\\n    \\\"WebFetch\\\",\\n    \\\"provisioned record/documents (QP, petition, BIO)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"CVSG cut in statpack.md (27.1% grant vs 3.0% b",
+      "result_digest": "0b2e547fbab7b248",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "67954167013c813b",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274796\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Decisive public forward signal used (legitimate, predates any disposition; disclosed for hygiene): the SG's CVSG response (filed 2026-05-26) recommends ho",
+      "result_digest": "f462696fb2511038",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fcc6d8edb9c9b5c4",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/",
+      "result_digest": "682587d26efb6bde",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1cf4864b69d02ecb",
+      "query": "gh issue comment 759 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed 's#.*github.com[:/]##;s#\\.git$##')\" --body \"**claude-baseline \u00b7 scotus/73274796 \u00b7 evt-petition-disposition \u00b7 20260717T180352Z** \u2014 prediction written: **P(grant incl. GVR) = 0.72, modal disposition \\`gvr\\`** (granted=1, confidence 0.6, big_case_score 0.45). Key signal: the SG's CVSG response (5/26/2026) recommends holding No. 25-113 for *St. Mary Catholic Parish v. Roy* (25-581, cert grante",
+      "result_digest": "fb786aa95d21f0c7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73274796",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

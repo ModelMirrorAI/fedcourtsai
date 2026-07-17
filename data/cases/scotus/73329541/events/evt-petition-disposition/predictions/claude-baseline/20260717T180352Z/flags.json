@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73329541",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Corpus query sidecar unreachable this run (fedcourts query -> 'corpus service at http://127.0.0.1:8377 is unreachable ... timed out'), so no ranked similar priors informed this cell; prediction rests on the committed statpack, the provisioned inputs, and 4 CourtListener MCP calls. Not blocking, but if the sidecar was expected to be up for this fan-out, other cells in run 20260717T180352Z likely hit the same outage. Separately: the predict prompt directs predictors to the statpack's 'Segment base rate by salience band' table, but the committed statpack.md/json carries no such section."
+    }
+  ]
+}

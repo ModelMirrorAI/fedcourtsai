@@ -1,0 +1,214 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "d58ea723c54b0294",
+      "query": "{\"strategic_intent\": \"To read the instructions for the prediction task and the agent workflow.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:19.105Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:21.512Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:21.513Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6716df3d885e5d41",
+      "query": "ls -R data/cases/scotus/73274882/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:27.509Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "499a342ce5201f38",
+      "query": "cat data/cases/scotus/73274882/events/evt-petition-disposition/event.yaml data/cases/scotus/73274882/record/context.json data/cases/scotus/73274882/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:31.539Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c887c6096abb6812",
+      "query": "cat data/cases/scotus/73274882/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:34.823Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b525ef0da17a73b7",
+      "query": "cat data/cases/scotus/73274882/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:34.823Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42fdf89847a0a452",
+      "query": "grep \"Benson\" data/cases/scotus/73274882/record/documents/*",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:44.247Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "43e1601864311693",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:46.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ce54a345e3b1ae5f",
+      "query": "Benson",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:52.244Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "116aa75275d58f5a",
+      "query": "Benson",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:08.614Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "1e124ba6fdf85bb8",
+      "query": "{\"court\": [\"scotus\"], \"party_name\": \"Benson\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:12.633Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "7c028823da791eef",
+      "query": "uv run fedcourts query --court scotus --topic \"Second Amendment\" --era 2020s",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:49.797Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b730570fac88c030",
+      "query": "env | grep FEDCOURTS",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:53.314Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6b838cb1655e55df",
+      "query": "\"Benson\" \"Second Amendment\" supreme court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:11.862Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "4e0ab8a6f5e5c3f2",
+      "query": "\"Snope v. Brown\" OR \"Bevis\" \"Supreme Court\" certiorari granted 2025 2026",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:26.651Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "6be9172ebcfe8838",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:36.244Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3b3c625b1e07fc62",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:40.999Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4d5334747d66ed82",
+      "query": "mkdir -p data/cases/scotus/73274882/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:44.857Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b8b0e9271a4d276e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274882\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73274882/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:49.272Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2e59e425d8f1f25b",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73274882\\\",\\n  \\\"gaps\\\": [\\n    \\\"The corpus sidecar was unavailable locally, preventing the use of `fedcourts query`.\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\",\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\",\\n    \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:53.917Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a4ac4630a7bc6c67",
+      "query": "{\"content\": \"# Reasoning\\n\\n**Case:** *Virginia Duncan, et al. v. Rob Bonta, Attorney General of California* (No. 25-198)\\n\\n## Legal Question & Standard\\nThe petition presents a challenge to California's ban on ammunition feeding devices holding more than ten rounds (commonly referred to as \\\"high-capacity magazines\\\") and its retrospective application without compensation (a Takings Clause claim). Following the Supreme Court's decisions in *Heller* and *Bruen*, the core Second Amendment inquir",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:01:03.223Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "aa168637bf5ec568",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n1. Read the provided `documents.json` and `2026-07-17.json` snapshot to understand the docket history. The case showed an extraordinary 23 relists for conference.\\n2. Read the `statpack.md` to verify base rates. Cert petitions with 3+ relists have a 21.8% grant rate and 76.5% deny rate on average, but a 23-relist streak strongly suggests the case is being held for another merits decision.\\n3. Searched the `mcp_courtlistener` tool for opinions matching \\\"Benson\\\" t",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:01:08.736Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ac627759eeb0403b",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:01:13.976Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4450906bc0dc8da0",
+      "query": "{\"strategic_intent\": \"Prediction generated and files successfully written.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:01:17.034Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73274882",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}
