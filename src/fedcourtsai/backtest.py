@@ -172,8 +172,12 @@ class PriorIndex:
     court, the candidate list in the zero-score rank order (most recent decision
     first, then ``case_id`` — :func:`corpus.recency_key`'s order) plus inverted
     judge/citation postings, and :meth:`top` reproduces ``retrieve_priors``'
-    exact semantics (overlap filters required when given; rank by overlap score,
-    then the candidate order). Parity is pinned by tests.
+    semantics over the **disposition-labeled subset** of its results (overlap
+    filters required when given; rank by overlap score, then the candidate
+    order). The subset is deliberate: ``retrieve_priors`` also returns decided
+    rows whose disposition was never machine-labeled, but the prior-vote
+    baseline needs a label to vote with, so the index feeds from the labeled
+    slice only. Parity against that subset is pinned by tests.
     """
 
     def __init__(self) -> None:

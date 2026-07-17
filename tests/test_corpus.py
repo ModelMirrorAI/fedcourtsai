@@ -1533,3 +1533,43 @@ def test_prior_payload_shapes_the_query_row() -> None:
     assert "opinion_text" not in bare
     full = corpus.prior_payload(row, full=True)
     assert full["opinion_text"] == "per curiam"
+
+
+def test_resolved_only_counts_a_decision_date_as_decided(tmp_path: Path) -> None:
+    # The rotation's closed-case reading: a decision date closes a case even
+    # when no disposition label was machine-derived — such rows must retrieve
+    # as precedent rather than being invisibly excluded.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(case_id="ca9/1"),  # labeled + dated
+                _row(case_id="ca9/2", disposition=None),  # dated, never labeled
+                _row(case_id="ca9/3", disposition=None, date_decided=None),  # open
+            ],
+        )
+        priors = corpus.retrieve_priors(conn, corpus.PriorQuery(court="ca9"), limit=10)
+    assert [r.case_id for r in priors] == ["ca9/1", "ca9/2"]
+
+
+def test_sparse_filter_coverage_names_the_data_gap(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(case_id="ca9/1", citations=["597 U.S. 1"]),
+                _row(case_id="ca9/2", citations=[], topic=None),
+            ],
+        )
+        none = corpus.sparse_filter_coverage(conn, corpus.PriorQuery(court="ca9"))
+        cites = corpus.sparse_filter_coverage(
+            conn, corpus.PriorQuery(court="ca9", citations=["1 U.S. 1"])
+        )
+        topic = corpus.sparse_filter_coverage(conn, corpus.PriorQuery(court="ca9", topic="tribe"))
+    assert none == []
+    assert len(cites) == 1 and "1 of 2 rows in scope (ca9)" in cites[0]
+    assert "OWN reporter cites" in cites[0]
+    assert len(topic) == 1 and "1 of 2 rows in scope (ca9)" in topic[0]
+    assert "exact" in topic[0]

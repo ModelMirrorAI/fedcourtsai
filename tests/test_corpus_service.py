@@ -193,3 +193,21 @@ def test_client_rejects_limit_past_service_ceiling(fixture_corpus: FixtureCorpus
         corpus_service.client_query(
             "http://127.0.0.1:1", q, limit=corpus_service.MAX_QUERY_LIMIT + 1, full=False
         )
+
+
+def test_query_empty_result_carries_coverage_notes(fixture_corpus: FixtureCorpus) -> None:
+    # A zero-row result through a sparse filter names the data gap so a cell
+    # can tell "no data" from "no match"; a non-empty result carries no notes.
+    with _running_server(fixture_corpus.db_path) as url:
+        empty = corpus_service.client_query(
+            url,
+            corpus.PriorQuery(court="ca9", citations=["999 U.S. 999"]),
+            limit=5,
+            full=False,
+        )
+        matched = corpus_service.client_query(
+            url, corpus.PriorQuery(court="ca9", judges=["smith"]), limit=5, full=False
+        )
+    assert empty.rows == []
+    assert len(empty.notes) == 1 and "citations filter" in empty.notes[0]
+    assert matched.rows and matched.notes == []

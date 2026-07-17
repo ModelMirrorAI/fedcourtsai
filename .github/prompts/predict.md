@@ -112,7 +112,16 @@ holds the ranged remote connection — your shell holds no cloud credentials.
 Each `query` reports its transfer as a `ranged corpus reads: N GET(s), M byte(s)`
 line on stderr — record those lines in `retrieval.md` (below); a warm service
 cache can honestly report `0 GET(s)`, so record the line either way
-(`open-events` prints no transfer line). For aggregate
+(`open-events` prints no transfer line). Filter on what the corpus actually
+carries: on SCOTUS rows `--court`, `--disposition`, and `--era` are
+well-populated (and `--decided-before` always applies — it masks by derived
+year, not a data column), while `--judge` is populated on
+circuit rows only (live-channel SCOTUS rows carry no judges); `--citation`
+matches a case's *own* reporter cites (a known-case lookup, not a
+cases-citing-authority search) and `--topic` is an exact nature-of-suit
+string on circuit rows only — both are sparse, and an empty result through
+them prints a `note:` line naming the coverage gap rather than meaning "no
+such precedent". Don't burn turns retrying sparse filters. For aggregate
 disposition **base-rates**, read the committed `metrics/statpack.md`;
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
 Its cert statistics are computed over the live/historical slice with

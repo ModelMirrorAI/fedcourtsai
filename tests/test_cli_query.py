@@ -206,3 +206,19 @@ def test_corpus_serve_rejects_env_inherited_service_backend(
     result = runner.invoke(app, ["corpus-serve"])
     assert result.exit_code == 2
     assert "corpus-serve serves the local or ranged backend" in result.stderr
+
+
+def test_query_empty_sparse_filter_prints_coverage_note_on_stderr(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A zero-row result through a sparse filter must explain itself on stderr,
+    # never stdout — cells parse stdout as one JSON row per line.
+    result = runner.invoke(app, ["query", "--court", "ca9", "--citation", "999 U.S. 999"])
+    assert result.exit_code == 0
+    assert _rows(result.stdout) == []
+    assert "note: citations filter" in result.stderr
+    # A zero limit scans nothing, so there is no coverage story to tell.
+    capped = runner.invoke(
+        app, ["query", "--court", "ca9", "--citation", "999 U.S. 999", "--limit", "0"]
+    )
+    assert "note:" not in capped.stderr

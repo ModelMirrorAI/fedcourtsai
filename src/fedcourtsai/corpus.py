@@ -459,8 +459,10 @@ CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
 -- The governor rotates oldest-last_pulled-first over the unresolved set.
 CREATE INDEX IF NOT EXISTS idx_cases_last_pulled ON cases(last_pulled);
--- retrieve_priors pushes its exact-match filters into SQL; each must be
--- index-served so a ranged remote read never scans the full cases table.
+-- retrieve_priors pushes its exact-match filters into SQL; court / topic /
+-- disposition are index-served so a ranged remote read narrows before it
+-- scans. (The resolved-only OR-predicate itself is not index-served; real
+-- queries carry a court filter, which narrows first.)
 CREATE INDEX IF NOT EXISTS idx_cases_topic ON cases(topic);
 
 -- Predictable event definitions: raw facts, one or more per case.
@@ -1673,8 +1675,11 @@ def iter_rows(
     The filters cover the common retrieval and back-test selections; richer
     querying (by judge, topic, citation, or semantic similarity) is layered on
     top of this same store. ``resolved`` keeps only rows carrying (``True``) or
-    lacking (``False``) a realized disposition — pushed into SQL so a consumer of
-    the small resolved slice never pays a full-corpus scan.
+    lacking (``False``) a realized disposition **label** — deliberately narrower
+    than ``retrieve_priors``' resolved reading (which also counts a decision
+    date), because this seam's consumers (the prior-vote index, disposition
+    aggregation) need the label itself — pushed into SQL so a consumer of the
+    small resolved slice never pays a full-corpus scan.
     """
     clauses: list[str] = []
     params: list[object] = []
@@ -1778,7 +1783,12 @@ class PriorQuery(BaseModel):
         default_factory=list, description="Match cases sharing any of these judges."
     )
     citations: list[str] = Field(
-        default_factory=list, description="Match cases citing any of these authorities."
+        default_factory=list,
+        description="Match cases whose OWN reporter citations overlap any of these "
+        "(a case's `citations` column holds its own parallel cites, e.g. "
+        "`597 U.S. 1` for the case reported there) — a way to look up specific "
+        "known cases, NOT a cases-citing-this-authority search (the corpus "
+        "carries no citation graph).",
     )
     disposition: Disposition | None = Field(
         default=None, description="Restrict to one realized outcome label."
@@ -1797,7 +1807,11 @@ class PriorQuery(BaseModel):
         "every resolved prior genuinely precedes an open case.",
     )
     resolved_only: bool = Field(
-        default=True, description="Keep only labeled (decided) cases — precedent."
+        default=True,
+        description="Keep only decided cases — precedent. A case counts as "
+        "decided when it carries a disposition label OR a decision date (the "
+        "same closed-case reading the refresh rotation uses), so a decided "
+        "docket whose disposition was never machine-labeled still retrieves.",
     )
 
 
@@ -1861,7 +1875,11 @@ def retrieve_priors(
         clauses.append("disposition = ?")
         params.append(Disposition(query.disposition).value)
     if query.resolved_only:
-        clauses.append("disposition IS NOT NULL")
+        # Match the rotation's closed-case reading: a decision date closes a
+        # case even when no disposition label was ever machine-derived —
+        # otherwise decided-but-unlabeled rows are invisibly excluded from
+        # precedent retrieval.
+        clauses.append("(disposition IS NOT NULL OR date_decided IS NOT NULL)")
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
 
     want_judges = set(query.judges)
@@ -1888,6 +1906,54 @@ def retrieve_priors(
         scored.append((-score, recency_key(row), row.case_id, row))
     scored.sort(key=lambda item: (item[0], item[1], item[2]))
     return [row for *_, row in scored[:limit]]
+
+
+def _scope_coverage(
+    conn: ReadConnection, predicate: str, where: str, params: Sequence[object]
+) -> tuple[int, int]:
+    """``(rows matching predicate, total rows)`` within the query's court scope."""
+    total = int(conn.execute(f"SELECT count(*) AS n FROM cases{where}", params).fetchone()["n"])
+    clause = f"{where} AND {predicate}" if where else f" WHERE {predicate}"
+    populated = int(
+        conn.execute(f"SELECT count(*) AS n FROM cases{clause}", params).fetchone()["n"]
+    )
+    return populated, total
+
+
+def sparse_filter_coverage(conn: ReadConnection, query: PriorQuery) -> list[str]:
+    """Coverage notes for the sparse columns a zero-row query filtered on.
+
+    ``citations`` and ``topic`` are sparsely populated — neither the
+    supremecourt.gov live channel nor the bulk docket seeds carry them — so a
+    zero-row result through those filters usually means *missing data*, not
+    *no match*: a distinction a predict cell cannot see from an empty result
+    set, and exactly the silence that misleads it into retrying doomed query
+    shapes. For each sparse filter the query uses, count how many rows in its
+    court scope carry the column at all and render one note; empty when no
+    sparse filter is in use. Callers surface the notes only on empty results,
+    so the two count queries are paid on the already-wasted path.
+    """
+    notes: list[str] = []
+    where = " WHERE court = ?" if query.court is not None else ""
+    params: list[object] = [query.court] if query.court is not None else []
+    scope = query.court if query.court is not None else "any court"
+    if query.citations:
+        populated, total = _scope_coverage(conn, "citations != '[]'", where, params)
+        notes.append(
+            f"citations filter: {populated} of {total} rows in scope ({scope}) carry "
+            "citation data, and the column holds a case's OWN reporter cites (not a "
+            "cases-citing-this-authority graph) — an empty result here usually means "
+            "missing data, not no match"
+        )
+    if query.topic is not None:
+        populated, total = _scope_coverage(conn, "topic IS NOT NULL", where, params)
+        notes.append(
+            f"topic filter: {populated} of {total} rows in scope ({scope}) carry a topic, "
+            "and matching is exact against nature-of-suit strings like "
+            "'3440 Other Civil Rights' (circuit rows only) — an empty result here "
+            "usually means missing data or an inexact string, not no match"
+        )
+    return notes
 
 
 def _rotation_rows(
