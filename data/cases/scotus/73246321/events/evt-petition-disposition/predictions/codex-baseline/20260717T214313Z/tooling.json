@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "official Supreme Court PDF retrieval",
+    "temporary PDF page rendering and visual inspection"
+  ],
+  "helpful": [
+    "The document manifest accurately identified the petition as a scan with empty extracted text.",
+    "The official filing URL allowed recovery of the questions presented.",
+    "Fee-class and procedural-signal base rates supported calibrated probability adjustment."
+  ],
+  "gaps": [
+    "Provisioned OCR text for scanned filings would avoid manual visual recovery.",
+    "The corpus query lacks originating-court and cert-stage filters for genuinely similar priors."
+  ],
+  "notes": "The broad SCOTUS corpus query returned a salience-ranked recent set rather than close analogues, so the statpack and petition-specific record carried substantially more weight."
+}

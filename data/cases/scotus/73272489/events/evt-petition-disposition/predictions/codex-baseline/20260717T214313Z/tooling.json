@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272489",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "The provisioned petition and snapshot supplied the decisive posture and vehicle facts.",
+    "The statpack's paid-filing, zero-relist, and no-CVSG rates supported calibrated probability adjustments."
+  ],
+  "gaps": [
+    "Corpus query cannot filter SCOTUS petitions by originating state court or a useful subject field, so the returned priors were weak analogues."
+  ],
+  "notes": "The two five-result corpus queries required 346 ranged GETs and about 90.6 MB while providing little similarity value; the committed aggregate cuts were materially more useful."
+}

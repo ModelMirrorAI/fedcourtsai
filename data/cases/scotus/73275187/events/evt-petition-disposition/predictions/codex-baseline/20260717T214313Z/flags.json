@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275187",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "A CourtListener search surfaced the June 23, 2026 decision in Pung v. Isabella County, which predates the July 17 snapshot and appears to explain the docket's hold and June 25 supplemental brief. This legitimate forward signal materially informed the forecast; no disposition information about Jouppi was sought or used.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

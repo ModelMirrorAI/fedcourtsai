@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The snapshot dates the petition entry October 14, 2025, while its DocketedDate, the event opened_at date, document URL, and official PDF receipt stamp indicate April 24, 2026. I did not treat the mismatch as a jurisdictional signal.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

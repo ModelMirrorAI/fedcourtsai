@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed corpus statpack",
+    "official Supreme Court docket PDF retrieval",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The docket snapshot exposed the CVSG and conference timing signals.",
+    "The committed statpack supplied calibrated cert, paid-petition, and CVSG base rates.",
+    "The official docket links allowed retrieval of the dispositive SG recommendation."
+  ],
+  "gaps": [
+    "Provision the Solicitor General's CVSG brief and post-CVSG supplemental brief as filed-document text when they are present on the snapshot docket."
+  ],
+  "notes": "The CourtListener searches did not locate the lower-court St. Mary opinion, but the SG brief stated the granted questions and the overlap needed for this forecast."
+}

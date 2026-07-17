@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73317900",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "A CourtListener lookup found the May 14, 2026 decision in the lead case, Jules v. Andre Balazs Properties. That decision predates the July 17 snapshot, is legitimate forward-mode context, and materially shaped the GVR forecast.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

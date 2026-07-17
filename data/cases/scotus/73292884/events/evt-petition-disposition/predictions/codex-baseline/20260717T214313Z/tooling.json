@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292884",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "CourtListener MCP opinions endpoint",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "The complete petition and extracted questions presented made the asserted legal theory and absence of a claimed circuit split clear.",
+    "The docket snapshot exposed selection signals such as the requested response, amici, and procedural timing.",
+    "CourtListener supplied the lower-court majority's vehicle facts and related post-Bonta disclosure decisions.",
+    "The fee-class and originating-circuit base rates supported quantitative calibration."
+  ],
+  "gaps": [
+    "No brief in opposition was available by the snapshot date, leaving the respondent's cert-stage framing unobserved."
+  ],
+  "notes": "The provisioned record was sufficient for a completed forward prediction. Live legal research was useful for testing whether the petition presented a developed circuit conflict; no corpus query was needed because its structured filters would not target this legal issue."
+}

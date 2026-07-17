@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275185",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The forward-mode snapshot dated 2026-07-17 contains terminal May 11, 2026 docket entries revealing a grant-side summary disposition tied to Louisiana v. Callais and a dissent, while event.yaml still marks the petition event unresolved. I excluded the terminal and later entries and made no further case retrieval, but the prediction is unavoidably outcome-contaminated and should be discounted.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

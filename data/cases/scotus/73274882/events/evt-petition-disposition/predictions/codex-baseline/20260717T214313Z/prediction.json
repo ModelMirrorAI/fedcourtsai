@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274882",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260717T214313Z",
+  "created_at": "2026-07-17T21:52:49Z",
+  "input_snapshot": "data/cases/scotus/73274882/record/snapshots/2026-07-17.json",
+  "granted": 1,
+  "probability": 0.68,
+  "predicted_disposition": "granted",
+  "confidence": 0.7,
+  "big_case_score": 0.9,
+  "big_case_rationale": "A merits ruling could set nationwide limits on state bans of commonly owned magazines and clarify Bruen's common-use methodology.",
+  "reasoning_doc": "reasoning.md"
+}

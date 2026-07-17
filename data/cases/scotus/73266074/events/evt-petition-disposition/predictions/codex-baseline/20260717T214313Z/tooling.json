@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73266074",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "CourtListener MCP opinion endpoint",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "The provisioned petition and questions presented supplied the complete petitioner-side record.",
+    "The statpack supplied fee-class and docket-signal base rates.",
+    "CourtListener supplied the lower court's full pre-petition opinion."
+  ],
+  "gaps": [
+    "A calibrated base rate conditional on a Supreme Court request for response would materially improve this forecast.",
+    "The brief in opposition was not yet available because the response deadline had not passed."
+  ],
+  "notes": "The available tools were sufficient for a forward forecast. The response-request signal required judgment because it is not represented in the current statpack."
+}

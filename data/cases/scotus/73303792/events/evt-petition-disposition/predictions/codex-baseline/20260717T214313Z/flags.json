@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73303792",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The provisioned 26-page petition had empty_text=true and a blank text file even though its scanned pages were legible. The prediction used the exact official PDF URL in the snapshot and local page rendering to recover the questions and argument.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

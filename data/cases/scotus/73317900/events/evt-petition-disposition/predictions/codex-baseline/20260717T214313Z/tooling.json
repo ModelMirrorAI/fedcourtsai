@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73317900",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP"
+  ],
+  "helpful": [
+    "The provisioned petition and current docket snapshot exposed the response-request signal.",
+    "CourtListener supplied the intervening Jules opinion.",
+    "The statpack supplied paid-petition and circuit base rates."
+  ],
+  "gaps": [
+    "The filed supplemental brief was listed on the snapshot but its text was not provisioned.",
+    "Corpus GVR priors lack issue-level similarity for this FAA posture."
+  ],
+  "notes": "The CourtListener lead-case opinion materially improved this forecast; the corpus query was useful mainly as disposition context rather than a substantive analogue."
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73299074",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260717T214313Z",
+  "created_at": "2026-07-17T21:57:39Z",
+  "input_snapshot": "data/cases/scotus/73299074/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.006,
+  "predicted_disposition": "denied",
+  "votes": [],
+  "confidence": 0.98,
+  "big_case_score": 0.52,
+  "big_case_rationale": "The petition concerns the federal forum for more than 120 owners' constitutional takings claims and enforcement of a recent Supreme Court mandate, but arrives in a narrow procedural posture.",
+  "reasoning_doc": "reasoning.md"
+}

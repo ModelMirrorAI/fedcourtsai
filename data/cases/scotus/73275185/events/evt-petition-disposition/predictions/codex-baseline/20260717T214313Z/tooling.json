@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275185",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned docket snapshot",
+    "provisioned filed-document text",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "The filed-document manifest clearly reported completeness and extraction status.",
+    "The statpack supplied modern-cert, circuit, relist, and paid-petition baselines."
+  ],
+  "gaps": [
+    "A genuinely pre-disposition snapshot was needed; the supplied snapshot revealed the outcome.",
+    "The petition and reply text were not provisioned, leaving only the opposition's account of Alabama's arguments."
+  ],
+  "notes": "I deliberately avoided MCP and corpus case retrieval after the provisioned snapshot revealed the disposition."
+}

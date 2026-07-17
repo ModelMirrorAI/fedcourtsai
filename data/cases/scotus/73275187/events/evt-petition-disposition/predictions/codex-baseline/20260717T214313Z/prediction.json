@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275187",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260717T214313Z",
+  "created_at": "2026-07-17T21:54:23Z",
+  "input_snapshot": "data/cases/scotus/73275187/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.29,
+  "predicted_disposition": "denied",
+  "confidence": 0.64,
+  "big_case_score": 0.67,
+  "big_case_rationale": "The petition presents a nationally important Excessive Fines rule with substantial forfeiture consequences, though in a factually unusual criminal-aircraft setting.",
+  "reasoning_doc": "reasoning.md"
+}

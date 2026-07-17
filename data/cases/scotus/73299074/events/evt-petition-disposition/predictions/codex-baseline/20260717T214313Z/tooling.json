@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73299074",
+  "run_id": "20260717T214313Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search and endpoint access",
+    "committed corpus statpack",
+    "direct retrieval of the Supreme Court petition linked in the snapshot"
+  ],
+  "helpful": [
+    "The snapshot identified the extraordinary-writ posture and linked the petition",
+    "The petition text exposed the exact mandate argument and lower-court chronology",
+    "CourtListener supplied the prior Supreme Court and Fifth Circuit opinions"
+  ],
+  "gaps": [
+    "The petition text was not provisioned under record/documents even though the snapshot contained a working filing link",
+    "The statpack does not provide a separate base rate for Supreme Court original or extraordinary-writ petitions"
+  ],
+  "notes": "Ordinary cert base rates were used only as an upper-level calibration reference because Rule 20 mandamus is a distinct and substantially rarer posture."
+}
