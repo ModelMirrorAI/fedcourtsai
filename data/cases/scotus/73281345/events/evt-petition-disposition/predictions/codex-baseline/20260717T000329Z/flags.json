@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281345",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The cell supplied the event definition but no record/context.json, snapshot, documents.json, or filed-document text. Following the missing-forward-snapshot rule, the prediction uses only committed aggregate base rates and does not retrieve the case's current docket or outcome.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

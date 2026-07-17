@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281327",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged)",
+    "fedcourts open-events (ranged)",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "provisioned documents (petition, QP, brief-in-opposition)"
+  ],
+  "helpful": [
+    "Provisioned filed-document text was decisive: the BIO's concession that the petition should be held for Salazar v. Paramount Global settled the disposition shape without any external retrieval.",
+    "Statpack per-Term and per-circuit cuts gave usable anchors for the residual probability mass."
+  ],
+  "gaps": [
+    "fedcourts query --topic returned zero rows for every topical probe (VPPA, privacy, statutory interpretation), so no similar-prior retrieval was possible; topic matching seems too sparse for issue-based lookup.",
+    "No corpus signal for held-pending-lead-case petitions: a cut of dispositions for petitions held for a granted companion QP (GVR vs deny split) would be the exactly-relevant base rate for cells like this one.",
+    "The predict prompt references a statpack 'Segment base rate by salience band' table that is not present in the committed metrics/statpack.md.",
+    "CourtListener MCP does not cover supremecourt.gov dockets, so the lead case's SCOTUS-side status (e.g. argument date for 25-459) could not be checked."
+  ],
+  "notes": "Forward cell whose outcome is almost entirely a function of a different, already-granted case (Salazar, No. 25-459). The binary probability here is really P(reversal in the lead case); scoring will lag until Salazar is decided (~June 2027)."
+}

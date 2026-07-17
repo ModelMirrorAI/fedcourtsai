@@ -1,0 +1,198 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "a69bb6800825f432",
+      "query": "{\"strategic_intent\": \"Understand the prediction cell task and agent guidelines\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:32.889Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:35.461Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:35.461Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "29eba1e53ab7f419",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281628\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:40.091Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2fbd6fc94928d30a",
+      "query": "find . -name \"record\" -o -name \"context.json\" -o -name \"snapshot.json\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:43.185Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "90b3c670a31de70d",
+      "query": "ls -la ./data/cases/scotus/73281628/record && cat ./data/cases/scotus/73281628/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:45.692Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ab43dfea3d754269",
+      "query": "ls -la ./data/cases/scotus/73281628/record/snapshots && ls -la ./data/cases/scotus/73281628/record/documents && cat ./data/cases/scotus/73281628/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:47.941Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "70da76d87ce76984",
+      "query": "cat ./data/cases/scotus/73281628/record/documents/documents.json && cat ./data/cases/scotus/73281628/record/documents/questions-presented.txt && cat ./data/cases/scotus/73281628/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:51.070Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "28f9e1c6c9554896",
+      "query": "\"Munsingwear\" AND \"Jones v. Hendrix\" AND \"2241\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:58.101Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "dcea869508d85fb1",
+      "query": "uv run fedcourts query --event evt-petition-disposition \"Munsingwear vacatur\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:01.448Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:03.710Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:06.294Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf6c39ff772714a7",
+      "query": "\"Munsingwear\" mootness complete sentence before certiorari filed",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:21.538Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "8dfab00a2f9032ba",
+      "query": "\"Munsingwear\" vacatur completion of sentence Supreme Court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:13.845Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:19.633Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "861435724a15daaa",
+      "query": "mkdir -p data/cases/scotus/73281628/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:23.862Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "70148380ff7097df",
+      "query": "{\"content\": \"I used the following tools to gather context beyond the provisioned inputs:\\n\\n1. Web Search (Google):\\n   - Searched for `\\\"Munsingwear\\\" mootness complete sentence before certiorari filed`. Found reference to *Azar v. Garza*, 584 U.S. 726 (2018), which confirms that mootness before a cert petition is filed does not limit the Court's discretion to grant *Munsingwear* vacatur.\\n   - Searched for `\\\"Munsingwear\\\" vacatur completion of sentence Supreme Court`. Confirmed that completio",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:27.944Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8830e4b3358389d6",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73281628\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"used_base_rates\\\": true,\\n  \\\"used_corpus_query\\\": false,\\n  \\\"helpful\\\": [\\\"metrics/statpack.md\\\", \\\"google_web_search\\\"],\\n  \\\"notes\\\": \\\"Used Google web search rather than CourtListener for Munsingwear general context since it was faster to find doctrinal summaries.\\\"\\n}\", \"file_path\": \"data/cases/scotus/73281628/events/evt-petition-di",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:31.182Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5249e0be08ccdd88",
+      "query": "{\"content\": \"The petitioner, Jason Tywann Bell, seeks a *Munsingwear* vacatur of a Fourth Circuit decision that applied *Jones v. Hendrix* to deny him relief under 28 U.S.C. \\u00a7 2241. Bell argues his sentence was unconstitutionally enhanced under a residual clause identical to the one struck down in *Johnson*. Three weeks after the Fourth Circuit issued its mandate, Bell completed his term of supervised release, mooting the case before he filed his cert petition.\\n\\n**Analysis**\\n\\n1.  ***Mun",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:38.740Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "03dbf1e7c6e39de4",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281628\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281628/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"big_case_score\\\": 0.4,\\n  \\\"big",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:45.747Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:49.841Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7a2c6ea68ba4c2e3",
+      "query": "gh issue comment 722 -b \"gemini-baseline has completed prediction for cell: scotus/73281628, evt-petition-disposition.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:53.036Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b77aebb7b55211a6",
+      "query": "{\"strategic_intent\": \"Wrap up the task as all files have been written and validated\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:56.520Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281628",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

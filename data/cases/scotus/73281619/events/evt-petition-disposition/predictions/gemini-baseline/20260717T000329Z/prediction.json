@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73281619",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "run_id": "20260717T000329Z",
+  "created_at": "2026-07-17T00:03:29Z",
+  "input_snapshot": "none",
+  "granted": 0,
+  "probability": 0.03,
+  "predicted_disposition": "denied",
+  "confidence": 0.90,
+  "big_case_score": 0.1,
+  "big_case_rationale": "Without context on the issues, assigning a very low salience baseline.",
+  "reasoning_doc": "reasoning.md"
+}

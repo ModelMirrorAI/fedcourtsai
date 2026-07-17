@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281386",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot",
+    "provisioned documents (questions-presented, petition, brief-in-opposition)"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO full texts -- the decisive inputs; the prior SCOTUS stay/GVR history is only visible there, not in the docket snapshot",
+    "statpack per-Term and originating-circuit cert base rates as the anchor to adjust from"
+  ],
+  "gaps": [
+    "No statpack cut for SG/US-as-petitioner grant rates -- the single strongest cert signal for cases like this one",
+    "The statpack version in the repo lacks the salience-band table the prompt tells predictors to anchor on",
+    "citation-based fedcourts query returned zero rows (corpus priors seem not to carry citation indexing for SCOTUS stay-order caselaw); each query also costs ~110MB of ranged reads",
+    "No indexed link from a docket to its prior SCOTUS trips (e.g. 24A1122) -- had to reconstruct the case history from the petition text"
+  ],
+  "notes": "Forward cell; skipped the CourtListener MCP since the 1-day-old snapshot plus full filed-document texts left nothing material to fetch."
+}

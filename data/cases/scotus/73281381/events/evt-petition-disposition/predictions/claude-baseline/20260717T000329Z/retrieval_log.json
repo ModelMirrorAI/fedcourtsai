@@ -1,0 +1,286 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "735426a5d0a96b94",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381 -type f | head -50",
+      "result_digest": "680041edcab3ecc3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "20d763694a25bf69",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5fae719b21ed4cff",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "1f6db788dcf94c7b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "257ba260bcb0d8bf",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/record/documents/documents.json\"}",
+      "result_digest": "01eeda495d6d3c44",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "02a5ac0ac1644460",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "1ca193de2985bbe3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bb258ecbfd9fc2e9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/record/documents/questions-presented.txt\"}",
+      "result_digest": "678d08b25f9a391b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "22d200ab43583942",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/record/documents/petition.txt\"}",
+      "result_digest": "f335d5cfbcbaa634",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e28af6e5cf8a2be0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "e0a6183219d15126",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9eb54f69c7c8912f",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|Response requested\\|CVSG\\|relist\\|Salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "50031f3227709971",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3cf9e5e70fb4b6e4",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "6648df6b3bbfcecb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "585f83f0af31550e",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nsecs = d['sections']\nprint(type(secs), list(secs.keys()) if isinstance(secs, dict) else [s.get('title') for s in secs])\n\"",
+      "result_digest": "bdbaed6843aec31d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "23bb329c10473b27",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nfor t in d['terms']:\n    if isinstance(t, dict):\n        keys = list(t.keys())\n        print(keys)\n        break\nfor t in d['terms']:\n    print(json.dumps(t)[:600])\n\"",
+      "result_digest": "4820a8e2e9466962",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9c64619085995397",
+      "query": "uv run fedcourts query --court scotus --citation \"598 U.S. 631\" --limit 8 2>corpus_stderr1.txt; echo \"---STDERR---\"; cat corpus_stderr1.txt",
+      "result_digest": "21820454e8482b0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "23084ddac7cf1fd0",
+      "query": "uv run fedcourts query --court scotus --citation \"516 U.S. 442\" --limit 8 2>corpus_stderr2.txt; echo \"---STDERR---\"; cat corpus_stderr2.txt; echo; uv run fedcourts query --court scotus --topic takings --limit 8 2>corpus_stderr3.txt; echo \"---STDERR3---\"; cat corpus_stderr3.txt",
+      "result_digest": "8e4e41972432036b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "2db21d2b2c3a08f8",
+      "query": "Hadley v. City of South Bend",
+      "result_digest": "522e9f9221e87454",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "35c0cecfb5407ff8",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1158\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"docket_id\", \"absolute_url\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "30b5079bfac03197",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "e04dca1daed2e1de",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1163\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"docket_id\", \"absolute_url\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "0639af9858d83961",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "93c91d5128e591a2",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 3, \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-1158\", \"fields\": \"id,case_name,docket_number,date_filed,date_terminated\"}}",
+      "result_digest": "006bf61bf3458f7e",
+      "retrieved_doc_date": "2026-04-08",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "ce536f36a4d726d1",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 40, \"query\": {\"docket\": 73281642, \"fields\": \"date_filed,description\", \"order_by\": \"date_filed\"}}",
+      "result_digest": "7747420de39e4efc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "6af28fd7b1d7606d",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 3, \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-1163\", \"fields\": \"id,case_name,docket_number,date_filed,date_terminated\"}}",
+      "result_digest": "f97d9f2aea47e755",
+      "retrieved_doc_date": "2026-04-09",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7b60e8b32d948e5c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281381/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "26e453b6ae2d599d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "49f309e5b982abe0",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281381\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:12:42Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281381/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.13,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "8b0cf28c21558837",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "25275830074190bc",
+      "query": "{\"content\": \"# O'Donnell v. City of Chicago, No. 25-1098 \\u2014 cert disposition\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.13.**\\n\\n## The legal question\\n\\nPetitioners challenge Chicago's vehicle impound-and-sale ordinance (MCC\\n\\u00a7 9-100-120): once an owner has two-to-three unpaid parking-ticket judgments,\\nthe City may boot, tow, impound, and ultimately dispose of *every* vehicle\\nregistered to the owner \\u2014 including vehicles never involved in any infraction \\u2014\\nkeepi",
+      "result_digest": "264c1be7e0c39cba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "50558ed36b6c1bdf",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281381, run 20260717T000329Z\\n\\nMode: `forward` (retrieval unrestricted; nothing outcome-revealing exists yet).\\n\\n## Corpus lookups (`fedcourts` CLI)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"598 U.S. 631\\\" --limit 8`\\n   \\u2014 0 rows. `ranged corpus reads: 419 GET(s), 109707264 byte(s)`\\n2. `uv run fedcourts query --court scotus --citation \\\"516 U.S. 442\\\" --limit 8`\\n   \\u2014 0 rows. `ranged corpus reads: 419 GET(s), 109707264 byt",
+      "result_digest": "96323f2b1fc8057a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "12f4907f81349528",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281381\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"metrics/statpack.json\\\",\\n    \\\"courtlistener MCP (search, call_endpoint: dockets, docket-entries)\\\"\\n  ],\\n  \\\"helpful\\\": [",
+      "result_digest": "66d6be170e1f6e16",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "05701cb38cbae453",
+      "query": "gh issue comment 722 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed -E 's#.*github.com[:/]##; s#\\.git$##')\" --body \"claude-baseline / scotus/73281381 (evt-petition-disposition, run 20260717T000329Z): **denied**, P(grant incl. GVR) = 0.13. Paid CA7 takings petition (O'Donnell v. Chicago, 25-1098) challenging the impound-and-sell ordinance post-Tyler. Grant-side: Court called for a response after both respondents waived; pending companion petitions Hadley (2",
+      "result_digest": "24349f09cd97eb94",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281381",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

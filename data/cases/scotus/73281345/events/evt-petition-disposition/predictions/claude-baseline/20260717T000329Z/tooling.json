@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281345",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP search (dockets)",
+    "provisioned snapshot + petition/BIO/QP document texts"
+  ],
+  "helpful": [
+    "Provisioned full petition and BIO texts were decisive — the BIO's no-square-split and alternative-instrumentalities arguments drove the estimate down from the CFR-adjusted base.",
+    "Per-fee-class grant rates in statpack.json (paid vs IFP) gave a much better anchor than the whole-docket rate."
+  ],
+  "gaps": [
+    "The prompt describes a per-Term 'Segment base rate by salience band' statpack section, but the committed statpack has no such section — no salience-band anchor was available.",
+    "No statpack cut for call-for-response (CFR) petitions; CFR is the strongest signal on this docket and had to be weighed from general knowledge rather than corpus data.",
+    "fedcourts query citation-overlap matching returned 0 rows for both SCOTUS citation queries; corpus rows appear to lack usable citation metadata for topical prior retrieval."
+  ],
+  "notes": "Forward cell; ~2 corpus queries + 3 MCP searches, well under budget."
+}

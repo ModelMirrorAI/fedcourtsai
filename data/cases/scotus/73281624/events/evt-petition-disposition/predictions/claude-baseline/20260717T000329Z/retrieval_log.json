@@ -1,0 +1,238 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "51d3563458aeea25",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624 -type f | head -50",
+      "result_digest": "a8e580b24b92b0bb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a677d2407c41114d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f28bce5ca83aa8c8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "25554035f7b85b73",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "881d9795964c1ac5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/record/documents/documents.json\"}",
+      "result_digest": "93b80a76a3df5fd4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6848825fe6052cb6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "1698f4be50ad5256",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3569f3d95d46f221",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/record/documents/questions-presented.txt\"}",
+      "result_digest": "9d995d2a32977b07",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7310a30a05291a64",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/record/documents/petition.txt\"}",
+      "result_digest": "b3989ce554e75214",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "08cb94d0d9ab674c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "6355dcb97e332d6a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e32af40f41feb4bf",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f0c23c1c996f81c8",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c3a5a124a95e2593",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nfor s in d['sections']:\n    print(s.get('key') or s.get('title'))\n\"",
+      "result_digest": "6ce29af6ca49e54d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "14bb34cc38db2a74",
+      "query": "uv run fedcourts paths --court scotus --docket 73281624 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "edc9a0101bdc4d67",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "59c8bd1b9f931998",
+      "query": "sed -n 1,80p docs/cli.md",
+      "result_digest": "076f2992b356cd70",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d05245ca8bfff2cd",
+      "query": "uv run fedcourts query --court scotus --topic \"antitrust state action immunity Parker municipality\" --limit 8 --corpus-backend ranged 2>querystderr1.txt; echo \"--- stderr:\"; cat querystderr1.txt",
+      "result_digest": "839a80a882bb2f9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bc923f599daa59fd",
+      "query": "uv run fedcourts query --court scotus --topic \"antitrust\" --limit 8 --corpus-backend ranged 2>querystderr2.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:70], '|', r.get('disposition'), '|', r.get('era'))\n\"; echo '--- stderr:'; cat querystderr2.txt",
+      "result_digest": "839a80a882bb2f9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c38cd738dd061a79",
+      "query": "uv run fedcourts query --court scotus --citation \"Parker v. Brown\" --limit 8 --corpus-backend ranged 2>querystderr3.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:70], '|', r.get('disposition'), '|', r.get('era'))\n\"; echo '--- stderr:'; cat querystderr3.txt\nuv run fedcourts query --court scotus --topic \"Sherman Act monopoly\" --limit 8 --corpus-backend ranged 2>querystderr4.txt | python3 -c \"\nimport sy",
+      "result_digest": "0770108cca01b0ce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a54caed533227d7c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281624/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "7744ed4376516051",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "01bd753010e60bc1",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281624\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:18:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281624/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.07,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "54fc0583c251b936",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "70f73ea7a3d486f0",
+      "query": "{\"content\": \"# Cherry Grove Beach Gear, LLC v. City of North Myrtle Beach, No. 25-1130 \\u2014 cert disposition\\n\\n**Prediction: denied. P(grant, GVR included) = 0.07.**\\n\\n## The legal question\\n\\nPetitioners, a small beach-equipment rental company and its owners, lost below\\non Parker state-action antitrust immunity. The City of North Myrtle Beach\\namended its ordinances in June 2022 to prohibit on-beach delivery and setup of\\nrented beach equipment by anyone other than the City, which itself r",
+      "result_digest": "1edb9a97eaac11fe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8bd77a81868a8fa8",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281624, evt-petition-disposition, claude-baseline, 20260717T000329Z\\n\\nBeyond the provisioned inputs (snapshot, questions-presented, petition, brief\\nin opposition) and the committed `metrics/statpack.md` base rates, I made the\\nfollowing corpus lookups. All returned **zero priors** \\u2014 the corpus's resolved\\nslice surfaced no similar antitrust / Parker-immunity cert petitions \\u2014 so the\\nprediction rests on the provisioned documents plus statpa",
+      "result_digest": "1fd9f8754f9a206a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "16acb5eb68587f8a",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281624\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned record/documents (petition, BIO, QPs)\\\",\\n    \\\"fedcourts paths\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Full extracted text of petition, BIO, and",
+      "result_digest": "369a519bcfcd4314",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3b09d0432ff48e7e",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3c5b6c5966ae3105",
+      "query": "gh issue comment 722 --repo \"$GITHUB_REPOSITORY\" --body \"claude-baseline (claude-fable-5) \u2014 scotus/73281624 evt-petition-disposition, run 20260717T000329Z: **denied**, P(grant)=0.07, big_case_score=0.35. Paid CA4 petition (25-1130, Parker immunity / market-participant exception); CFR after waiver is the one bullish signal, but no split, no amici, unpreserved QP3, LGAA damages bar, and case-specific SC statute point to denial. Outputs written and \\`fedcourts validate data\\` passes.\" 2>&1 | tail -",
+      "result_digest": "a6f1694816f749c3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281624",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

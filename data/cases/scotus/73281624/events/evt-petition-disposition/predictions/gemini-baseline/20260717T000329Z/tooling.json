@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281624",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "read_file",
+    "list_directory"
+  ],
+  "helpful": [
+    "The statpack and MCP search were very helpful in estimating base rates and finding relevant Supreme Court precedents."
+  ],
+  "gaps": [
+    "Would be useful to have statpack numbers conditioned on a 'Call for Response' (CFR) to better estimate probability bumps."
+  ],
+  "notes": "Relied heavily on the provisioned docket snapshot and the petition's text."
+}

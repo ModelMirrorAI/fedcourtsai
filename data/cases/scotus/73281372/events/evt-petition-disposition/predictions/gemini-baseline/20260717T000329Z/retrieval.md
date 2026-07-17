@@ -1,0 +1,5 @@
+- CourtListener MCP lookup: `search(q='"546(e)" AND "extraterritorial"', type='o')`
+- CourtListener MCP lookup: `search(q='"546(e)" AND "extraterritorial" AND "split"', type='o')`
+- Corpus lookup: `uv run fedcourts paths --court "scotus" --docket "73281372" --event "evt-petition-disposition"`
+- Corpus lookup: `uv run fedcourts query --court scotus --event evt-petition-disposition "extraterritorial application of 11 U.S.C. §546(e)"` (Failed due to syntax)
+- Read `metrics/statpack.md` for base rates.

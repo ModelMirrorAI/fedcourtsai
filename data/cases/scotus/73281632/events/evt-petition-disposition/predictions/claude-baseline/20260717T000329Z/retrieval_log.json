@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "69a58a7ee51da321",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632 -type f | head -50",
+      "result_digest": "e50f2db046e842d3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "184815de135bf8e2",
+      "query": "uv run fedcourts paths --court scotus --docket 73281632 --event evt-petition-disposition 2>&1",
+      "result_digest": "c3d877a457ebbb85",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "36a25458f84dbf22",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "6f1dabce9e72e213",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0a2bec8a49c2f99b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a59daf669bd178de",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "869741a884a2b6b7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "91c6a5880aece19e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/record/documents/documents.json\"}",
+      "result_digest": "722f693ab228f93a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ea0c0df07c905532",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/record/documents/questions-presented.txt\"}",
+      "result_digest": "f649553f2526836d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "10db1c5f221de641",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/record/documents/petition.txt\"}",
+      "result_digest": "143a953020963333",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c9b5596bda197524",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "81784fe99baea537",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "077e51a0a2aedaf6",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|Relist\\|relist\\|CVSG\\|Response Requested\\|response-requested\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "50031f3227709971",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4151afefb07623e3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 150, \"offset\": 40}",
+      "result_digest": "79f1c14eec24ba5d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8a7c9192595e6d39",
+      "query": "grep -n -A 25 \"salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "61aeb3d1927deb7d",
+      "query": "grep -n \"^##\\|^#\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "4343cf7205eb5967",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1a9c996fa9988404",
+      "query": "uv run fedcourts query --court scotus --event-kind petition \"FHFA funding Appropriations Clause nondelegation constitutional challenge to agency self-funding mechanism\" --limit 6 2>&1",
+      "result_digest": "413bb2cdccde2cf7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8a98acdd9217e552",
+      "query": "uv run fedcourts query --help 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g'",
+      "result_digest": "22bb3f26545834b3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4973ac9a02b7b858",
+      "query": "uv run fedcourts query --court scotus --citation \"601 U.S. 416\" --citation \"594 U.S. 220\" --citation \"606 U.S. 656\" --limit 6 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | cut -c1-600",
+      "result_digest": "51f451149ca7dbcf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f0cb64d337062215",
+      "query": "uv run fedcourts query --court scotus --citation \"601 U.S. 416\" --limit 5 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | cut -c1-400",
+      "result_digest": "51f451149ca7dbcf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "20ba21c186e33f47",
+      "query": "FHFA \"Appropriations Clause\" funding 4516",
+      "result_digest": "876a6dc1dfaf28db",
+      "retrieved_doc_date": "2026-01-02",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "31b712aa29e06103",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281632/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "6d1c4cfe2b37e118",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1f02918faa2936f6",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281632\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:23:27Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281632/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.05,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "bbdc6a152fbfae44",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5b73930f6c469e6a",
+      "query": "{\"content\": \"# Daisey Trust v. FHFA, No. 25-1144 \\u2014 cert disposition prediction\\n\\n**Prediction: deny. P(any grant, GVR included) = 0.05.**\\n\\n## The case\\n\\nPetitioners are Nevada investment entities (Daisey Trust, Cape Jasmine Ct.\\nTrust, Saticoy Bay LLC Series 10007 Liberty View) that bought homes at HOA\\nlien-foreclosure sales in 2012\\u20132013, lost earlier state-court quiet-title\\nfights with the enterprises' loan servicers, and \\u2014 facing foreclosure on the\\nenterprises' surviving ",
+      "result_digest": "5be0c9f966fe9fbe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a52e69dd72894e70",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281632, evt-petition-disposition, claude-baseline, 20260717T000329Z\\n\\nMode: `forward` (`record/context.json`). Retrieval beyond the provisioned\\ninputs:\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --citation \\\"601 U.S. 416\\\" --citation \\\"594 U.S. 220\\\" --citation \\\"606 U.S. 656\\\" --limit 6`\\n  - stderr: `ranged corpus reads: 419 GET(s), 109707264 byte(s)`\\n  - 0 rows returned (no resolved corpus priors matched those citations).\\n",
+      "result_digest": "c3ce8b7c799145a3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d99416c39b30686c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281632\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md base rates\\\",\\n    \\\"courtlistener MCP search (opinions)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned question",
+      "result_digest": "32fdf675dbe3cffd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f5c4af631d530eb3",
+      "query": "gh issue comment 722 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s/\\.git$//')\" --body \"claude-baseline / scotus/73281632 / evt-petition-disposition / 20260717T000329Z: prediction written \u2014 **deny**, P(grant)=0.05. Daisey Trust v. FHFA (25-1144), post-CFSA Appropriations Clause + nondelegation challenge to FHFA's uncapped self-funding. CFR is a real signal, but no circuit split, dissent-derived theory, and a",
+      "result_digest": "63ff0e96906fae18",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281632",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

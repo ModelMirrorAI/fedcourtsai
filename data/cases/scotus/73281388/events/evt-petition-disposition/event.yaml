@@ -1,0 +1,10 @@
+case_id: scotus/73281388
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-03-23'
+resolved: false
+schema_version: '1.0'
+title: Frank Thompson v. Carl Wilson, Commissioner, Maine Department of Marine Resources

@@ -1,0 +1,4 @@
+- Read provisioned snapshot `data/cases/scotus/73281345/record/snapshots/2026-07-16.json`
+- Read provisioned document `data/cases/scotus/73281345/record/documents/questions-presented.txt`
+- Read provisioned statpack `metrics/statpack.md`
+- CourtListener MCP lookup for the Fifth Circuit opinion (`United States v. Elkins`) and the docket (`25-1061`) to ensure the case was not already decided (it is currently pending, confirming the forward mode).

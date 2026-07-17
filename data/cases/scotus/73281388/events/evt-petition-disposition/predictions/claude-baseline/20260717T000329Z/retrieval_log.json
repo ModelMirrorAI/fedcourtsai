@@ -1,0 +1,278 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5e2c01e5a56ed1ff",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388 -type f | head -50",
+      "result_digest": "8fc6b2719c808d7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "450d6b765c83822c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "200705804ea6ea66",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "3d8eaccf779563db",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d1181ea965bd9df0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "c666cc89906cedd8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8754ca77c5a53ba1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/record/documents/documents.json\"}",
+      "result_digest": "5a5e39b887918e56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "63be27a3ee23a415",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/record/documents/questions-presented.txt\"}",
+      "result_digest": "047c3f0fb049a118",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "731fd36a38cbf875",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/record/documents/petition.txt\"}",
+      "result_digest": "1d7bec08ca38fa1e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac874c1884fa04c6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/record/documents/petition.txt\", \"offset\": 1201}",
+      "result_digest": "3d73bded6a4adc29",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3b3672702b925d9e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281388/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "4a1d720f3caff53a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e0d6ca94092ea0bd",
+      "query": "uv run fedcourts paths --court scotus --docket 73281388 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "dd31cdae1535c509",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4fc5cc2a4841d243",
+      "query": "grep -n \"Modern discretionary\\|salience band\\|Relist\\|CVSG\\|Response Requested\\|fee-class\\|Segment base rate\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -30",
+      "result_digest": "0ce9c105abcb5338",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bc0c3f46913eb60c",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    d = json.load(f)\nprint(list(d.keys()))\n\" 2>&1",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "63e6d691e4bd1396",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    d = json.load(f)\nsecs = d['sections']\nprint([s.get('title') for s in secs] if isinstance(secs, list) else list(secs.keys()))\n\"",
+      "result_digest": "4b16ec35155c7b67",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "23e3814dd140b7ca",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    d = json.load(f)\nterms = d['terms']\nif isinstance(terms, dict):\n    for k,v in list(terms.items())[:6]:\n        print(k, json.dumps(v)[:800]); print()\nelse:\n    print(json.dumps(terms[:2], indent=1)[:3000])\n\"",
+      "result_digest": "d4d308841df48e25",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "86cd35da24abeda2",
+      "query": "grep -c \"salience\" metrics/statpack.json metrics/statpack.md 2>/dev/null; echo ---; uv run fedcourts query --court scotus --docket 73281388 --event evt-petition-disposition --k 6 2>corpus_query_err.txt; echo \"== stderr ==\"; cat corpus_query_err.txt",
+      "result_digest": "7fd4be11f3193569",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "19e0bb3c142d9689",
+      "query": "uv run fedcourts query --court scotus --citation \"565 U.S. 400\" --citation \"482 U.S. 691\" --era 2020s -k 6 2>corpus_query_err.txt | head -20; echo \"== stderr ==\"; cat corpus_query_err.txt",
+      "result_digest": "0dbc9262b6ca005a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c61220d9116c4e55",
+      "query": "uv run fedcourts query --help 2>&1 | tail -30",
+      "result_digest": "171004db4d29e669",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "887b43bc4bf43e4d",
+      "query": "uv run fedcourts query --court scotus --citation \"565 U.S. 400\" --citation \"482 U.S. 691\" --era 2020s --limit 6 2>corpus_query_err.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    line = line.strip()\n    if not line: continue\n    r = json.loads(line)\n    print({k: r.get(k) for k in ('case_id','caption','disposition','decided','era','topic','citations_matched') if k in r} or list(r.keys()))\n\"; echo '== stderr =='; cat corpus_query_err.txt",
+      "result_digest": "00931577eceeb2e8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "02d6c279b0692fb1",
+      "query": "uv run fedcourts query --court scotus --citation \"565 U.S. 400\" --era 2020s --limit 8 2>e1.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    r=json.loads(line)\n    print(json.dumps({k: r.get(k) for k in ('case_id','caption','disposition','decided_at','era','topic')}))\n\"; echo '== stderr =='; cat e1.txt",
+      "result_digest": "00931577eceeb2e8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "cae5c95df0923920",
+      "query": "uv run fedcourts query --court scotus --topic \"Fourth Amendment\" --era 2020s --limit 8 2>e2.txt | head -c 2000; echo; echo '== stderr =='; cat e2.txt",
+      "result_digest": "6524422aa29addb4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2b1f8ee8ecf26910",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p data/cases/scotus/73281388/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "b9eddae2f680fbba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bef371def883e5b1",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281388\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:13:23Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281388/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.1,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "07d134bfcd2fe904",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "86fa4468efabdff0",
+      "query": "{\"content\": \"# Thompson v. Wilson, No. 25-1105 \\u2014 cert-stage disposition prediction\\n\\n**Prediction: denied. P(grant, GVR included) = 0.10.**\\n\\n## The case\\n\\nFrank Thompson, a Maine lobsterman represented by Pacific Legal Foundation,\\nchallenges Maine's DMR Rule (13-188 C.M.R. ch. 25.98), which \\u2014 implementing\\nASMFC Addendum XXIX \\u2014 requires federally permitted lobstermen to keep a GPS\\ntracking device on their vessels, transmitting position once per minute while\\nmoving and every",
+      "result_digest": "0632201afb6e7ff6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "29d1a0c06b34e9f3",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281388 \\u00b7 evt-petition-disposition \\u00b7 claude-baseline \\u00b7 20260717T000329Z\\n\\nBeyond the provisioned inputs (snapshot, questions-presented, petition, brief\\nin opposition) and the committed `metrics/statpack.md` / `metrics/statpack.json`,\\nthe following corpus lookups were made. All returned zero rows; the prediction\\ntherefore rests on the provisioned inputs and the statpack base rates.\\n\\n1. `uv run fedcourts query --court scotus --citati",
+      "result_digest": "c2fb05895c18a910",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7a640a19bbcac76f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281388\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus reads)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"provisioned snapshot and filed-document text\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Full petition and brief-in-opposition text were dec",
+      "result_digest": "70380159df83b3cb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "95dd482cdae577da",
+      "query": "rm -f corpus_query_err.txt e1.txt e2.txt && git status --short | head",
+      "result_digest": "25da4f083d87aac0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7b0e3c68e4bf13c9",
+      "query": "gh issue comment 722 --body \"**claude-baseline \u00b7 scotus/73281388 \u00b7 evt-petition-disposition \u00b7 run 20260717T000329Z** \u2014 prediction written: **denied**, P(grant) = 0.10 (confidence 0.65, big_case_score 0.55). Thompson v. Wilson, No. 25-1105 (Maine lobster-vessel GPS tracking, Fourth Amendment / Burger). The call-for-response after the State's waiver plus five cert-stage amici argue up from the ~5-7% paid base rate; the BIO's preservation argument (trespass theory not raised in CA1) and the contest",
+      "result_digest": "90e41e9371bfa412",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281388",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

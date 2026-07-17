@@ -1,0 +1,302 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "3a029daddf294ada",
+      "query": "{\"strategic_intent\": \"Read the prediction instructions and agent documentation to understand the prediction task.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:35.646Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:37.815Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:37.816Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f8286ee020cca4e6",
+      "query": "ls -la data/cases/scotus/73281354/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:41.542Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "73a7c9c036c88b30",
+      "query": "ls -la data/cases/scotus/73281354/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.073Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f1b51d494ce8dbdd",
+      "query": "ls -la data/cases/scotus/73281354/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:46.868Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "07bb9ee0ee374dca",
+      "query": "ls -la data/cases/scotus/73281354/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:49.591Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f4a4849ccb08098e",
+      "query": "ls -la data/cases/scotus/73281354/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:49.591Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bb76ca279c2046d7",
+      "query": "cat data/cases/scotus/73281354/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:49.591Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6dc606479a5a8512",
+      "query": "cat data/cases/scotus/73281354/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:52.119Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "70ae2091f6cdb7cb",
+      "query": "cat data/cases/scotus/73281354/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:54.799Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "96d6ad1217dedcb0",
+      "query": "cat data/cases/scotus/73281354/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:54.799Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7e3d7700beff588c",
+      "query": "cat data/cases/scotus/73281354/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:54.800Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a3e840d1d4e2547d",
+      "query": "cat data/cases/scotus/73281354/record/documents/petition.txt | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:01.341Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:01.342Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a99d4da2309d078b",
+      "query": "grep -in \"Segment base rate by salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:03.542Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "353fe8544543a4ac",
+      "query": "cat metrics/statpack.md | grep -A 20 -i \"salience\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:05.684Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "14505b4b5c249a9e",
+      "query": "head -n 40 metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:08.246Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2aa0ec745d4963fe",
+      "query": "cat metrics/statpack.md | grep -n \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:10.957Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3520e091e9e6016f",
+      "query": "sed -n '55,100p' metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:12.987Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "adbf60ec86cd0057",
+      "query": "sed -n '101,150p' metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:15.070Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c847396dcb998f7e",
+      "query": "sed -n '151,200p' metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:17.081Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4257bb1b0993321c",
+      "query": "wc -l metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:19.073Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c8565bc7891986ef",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"antitrust Illinois Brick indirect purchaser lost profit opportunity to conspire\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:24.697Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:27.583Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9e0b3a3488027427",
+      "query": "\"AstraZeneca\" \"Mosaic Health\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:34.187Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "ad8f978787c236bd",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 properties",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:41.693Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:43.736Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d4e3291fb1920333",
+      "query": "mkdir -p data/cases/scotus/73281354/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:47.814Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:00.405Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2b09f8ce241ab3b4",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281354\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281354/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.18,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.7,\\n  \\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:10.668Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2dd303ffa4e46c3a",
+      "query": "{\"content\": \"# Reasoning: AstraZeneca Pharmaceuticals LP v. Mosaic Health, Inc.\\n\\n## The Case\\nThis petition for certiorari arises from a Second Circuit antitrust decision regarding the application of the *Illinois Brick* indirect-purchaser rule to \\\"lost profit\\\" damages and the pleading standards for an antitrust conspiracy based on an \\\"opportunity to conspire\\\" under *Twombly*.\\n\\n## The Record\\nThe case is currently in a \\\"forward\\\" pending state. The petition was filed on March 5, 2026. T",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:10.673Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e7db8920d0528a0d",
+      "query": "{\"content\": \"* CourtListener MCP Search: `mcp_courtlistener_search` type `o` for \\\"AstraZeneca\\\" and \\\"Mosaic Health\\\" - Found Second Circuit opinions (Docket 24-598).\\n* Read `metrics/statpack.md` for base rates on modern discretionary-cert petitions and originating circuit (Second Circuit).\\n\", \"file_path\": \"data/cases/scotus/73281354/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:10.676Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "328d5457d174d634",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281354\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"cat\\\",\\n    \\\"sed\\\",\\n    \\\"grep\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided valuable base rate context.\\\",\\n    \\\"mcp_courtlistener_search successfully located the lower court opinion.\\\"\\n  ],\\n  \\\"ga",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:10.680Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:15.400Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc44d444011c3e0f",
+      "query": "{\"strategic_intent\": \"Prediction tasks completed and output files validated successfully.\", \"title\": \"Finishing Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:18.821Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281354",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

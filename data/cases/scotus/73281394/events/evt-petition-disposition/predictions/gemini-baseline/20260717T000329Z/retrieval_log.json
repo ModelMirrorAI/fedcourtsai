@@ -1,0 +1,358 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "4a6322335d3bcc2c",
+      "query": "{\"strategic_intent\": \"Reading prediction prompts and agent context to understand the expected output formats and process for generating a legal prediction.\", \"title\": \"Read Predict Prompts\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:20.181Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:22.161Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:22.162Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "bd1babc8eadbdf7f",
+      "query": "uv run fedcourts paths --court scotus --docket 73281394 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:26.876Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ecfdcb0efc6cb92f",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281394/events/evt-petition-disposition/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:29.957Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:33.403Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "40823e1d971e1bc3",
+      "query": "{\"file_path\": \"data/cases/scotus/73281394/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:33.403Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ecfdcb0efc6cb92f",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281394/events/evt-petition-disposition/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:36.396Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "57bd752369a64fc5",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281394/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:38.563Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "3da46ab1be3b17f4",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281394/record/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:41.390Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b36d821485800cc0",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281394/record/documents/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:43.800Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "0b33ab0aa739c1e7",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281394/record/snapshots/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:43.800Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b5e510708296852c",
+      "query": "{\"file_path\": \"data/cases/scotus/73281394/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:46.778Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f60c1afe341110df",
+      "query": "{\"file_path\": \"data/cases/scotus/73281394/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:46.778Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b9fa50d713fc1036",
+      "query": "{\"file_path\": \"data/cases/scotus/73281394/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:46.779Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fba30a1a2723a59f",
+      "query": "{\"file_path\": \"data/cases/scotus/73281394/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:49.954Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "32e72315dd0e12b4",
+      "query": "head -n 25 data/cases/scotus/73281394/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:49.955Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cd9fba1f00920195",
+      "query": "grep -i -C 5 \"reasons for granting\" data/cases/scotus/73281394/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:55.483Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "73ca5aa0726622dc",
+      "query": "grep -i -C 2 \"REASONS FOR GRANTING THE PETITION\" data/cases/scotus/73281394/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:58.211Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc27b8d7555f5b39",
+      "query": "grep -C 2 -i \"split\" data/cases/scotus/73281394/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:01.037Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b635b292cc75af4c",
+      "query": "grep -i -C 2 \"split\" data/cases/scotus/73281394/record/documents/brief-in-opposition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:03.808Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ca2dcb1185f813b5",
+      "query": "cat metrics/statpack.md | grep -i -C 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:07.907Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "05577c6ec806f349",
+      "query": "cat metrics/statpack.md | grep -i -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:10.509Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a174fd481ec45a87",
+      "query": "grep '^## ' metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:12.928Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7eee52bed9f8e81c",
+      "query": "cat metrics/statpack.md | grep -i -A 30 \"SCOTUS cert petitions by Term\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:15.876Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "84f849af0073cbb0",
+      "query": "uv run fedcourts stats --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:19.926Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f028cdd811912b5e",
+      "query": "jq '.sections[] | select(.title | test(\"SCOTUS cert petitions by Term\")) | .groups[] | select(.group_value == \"2025\")' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:22.450Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ce38dd61a4d76592",
+      "query": "jq '.reports[]? | select(.name | test(\"Term\"))' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:25.194Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6eef6a8db28bfa29",
+      "query": "jq '. | keys' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:28.772Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "211c90ef71447491",
+      "query": "jq '.terms[\"2025\"]' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:31.005Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "600fc3ec3a9c5cec",
+      "query": "jq '.terms[] | select(.term == 2025)' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:33.631Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6b21902bcc132749",
+      "query": "grep -i -C 5 \"jurisdiction\" data/cases/scotus/73281394/record/documents/brief-in-opposition.txt | head -n 35",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:38.074Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "082e4218ea0b1dd7",
+      "query": "grep -i -C 3 \"alternative\" data/cases/scotus/73281394/record/documents/petition.txt | head -n 25",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:44.984Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2a78dd7ac1acce89",
+      "query": "grep -i -C 3 \"misapprehended\" data/cases/scotus/73281394/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:47.685Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:03.167Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "59aba8891f56f0b6",
+      "query": "mkdir -p data/cases/scotus/73281394/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:10.792Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dda029be8f136405",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281394\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281394/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.015,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:15.312Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7e765cd8021f28b1",
+      "query": "{\"content\": \"**Legal Question:**\\nWhether the Eighth Amendment prohibits imposing a sentence of life without parole on a juvenile offender if the sentencing court finds or suggests that the juvenile is capable of change and not permanently incorrigible.\\n\\n**Governing Standard:**\\nThe Court's decision in *Jones v. Mississippi*, 593 U.S. 98 (2021), held that a sentencer is not required to make a separate factual finding of permanent incorrigibility before sentencing a juvenile to life without par",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:21.485Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "78b6f3e49e5c6949",
+      "query": "{\"content\": \"- `fedcourts query` / `fedcourts open-events`: None used because `fedcourts stats` output is available in the statpack.\\n- `cat metrics/statpack.md | grep ...` and `jq ...`: Looked up the base rate for Term 2025 in `metrics/statpack.md` and `metrics/statpack.json`. \\n- No CourtListener MCP searches were used because the case is in forward mode and I avoided looking up the actual disposition of the case. \\n- No web searches were performed.\\n- No retrieval beyond the provisioned input",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:24.874Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "13309d7f7a0c13c4",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281394\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"grep\\\",\\n    \\\"jq\\\",\\n    \\\"cat\\\",\\n    \\\"ls\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The committed statpack was helpful for checking base rates, particularly the breakdown by Term and fee class in the JSON.\\\"\\n  ],\\n  \\\"gaps\\\": [",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:28.916Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:34.195Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f4c083611c327ebb",
+      "query": "gh issue comment 722 --body \"Finished prediction for cell scotus/73281394/evt-petition-disposition (gemini-baseline). The petition (Utah v. Morris Thomas Mullins) has severe jurisdictional and vehicle flaws (interlocutory posture and an alternative state-law ground not challenged), making it an exceedingly poor vehicle for SCOTUS review despite the asserted split. Predicted disposition: denied.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:39.947Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "388c44370566c989",
+      "query": "{\"strategic_intent\": \"Completed prediction. The output files are saved and validated.\", \"title\": \"Finish\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:43.008Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281394",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

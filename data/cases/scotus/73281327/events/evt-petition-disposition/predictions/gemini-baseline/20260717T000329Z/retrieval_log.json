@@ -1,0 +1,302 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "fb46738592c89068",
+      "query": "{\"strategic_intent\": \"Investigate the requirements for generating the prediction by reading predict.md and AGENTS.md.\", \"title\": \"Understand Prediction Requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:01.494Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:03.269Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:03.269Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3ffdf67c7c3f74e4",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281327\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:08.913Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f3fc880dee33b3b4",
+      "query": "ls -la data/cases/scotus/73281327/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:11.137Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "313065d751ddf6b7",
+      "query": "cat data/cases/scotus/73281327/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:13.469Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7e1fc855634cb15b",
+      "query": "ls -R data/cases/scotus/73281327/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:17.394Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a141ec2c9339cfc0",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs from the record directory to prepare for prediction.\", \"title\": \"Read Provisioned Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:19.526Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc97ff22ee74a1f",
+      "query": "cat data/cases/scotus/73281327/record/context.json && echo \"---\" && cat data/cases/scotus/73281327/record/documents/documents.json && echo \"---\" && head -n 30 data/cases/scotus/73281327/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:22.274Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be32e4a932a4db94",
+      "query": "jq .ProceedingsandOrder data/cases/scotus/73281327/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:24.768Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a9261d7abd41848f",
+      "query": "jq '.[-1]' <<< $(jq .ProceedingsandOrder data/cases/scotus/73281327/record/snapshots/2026-07-16.json)",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:27.822Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a9d6d12bfd68209d",
+      "query": "jq '.ProceedingsandOrder[-1]' data/cases/scotus/73281327/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:29.732Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2bd12278c48e46c0",
+      "query": "jq '.ProceedingsandOrder' data/cases/scotus/73281327/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:31.758Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "15bdf6a4a07ba301",
+      "query": "cat data/cases/scotus/73281327/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:33.544Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2c150c13e1ccadb",
+      "query": "uv run fedcourts query --court scotus --docket \"25-459\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:38.352Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:40.732Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6ada2b8ad029dc8a",
+      "query": "\"Salazar v. Paramount Global\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:53.819Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "5ad5bc7115f4fa88",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-459\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:59.049Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "ade8d2031e30b2f0",
+      "query": "\"Salazar v. Paramount Global\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:02.178Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f6d2a0129ec731b7",
+      "query": "Salazar Paramount",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:05.172Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "722ad335673c45d2",
+      "query": "cat data/cases/scotus/73281327/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:09.566Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:15.644Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1397468f96861653",
+      "query": "uv run fedcourts query --topic \"Other Statutory Actions\" --court scotus --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:18.838Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a8313e94d54e0330",
+      "query": "uv run fedcourts query --topic \"Other Statutory Actions\" --court scotus --limit 5 --corpus-backend ranged",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:21.684Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c256fbd136ca3349",
+      "query": "{\"strategic_intent\": \"Draft the prediction, reasoning, and metadata files.\", \"title\": \"Generate Output Artifacts\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:27.891Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:36.196Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "271db4d3f0e487a7",
+      "query": "cat schemas/agent_flags.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:41.791Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:44.151Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b0753f5c39fcf5d6",
+      "query": "mkdir -p data/cases/scotus/73281327/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:48.832Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b0302e387c75ab5e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281327\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:05:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281327/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"confidence\\\": 0.8,\\n  \\\"big_cas",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:52.640Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a94141f3f76fb388",
+      "query": "{\"content\": \"# Reasoning: Pileggi v. Washington Newspaper Publishing Co.\\n\\n## The Legal Question\\nThe case asks whether the Video Privacy Protection Act (VPPA) requires a plaintiff to purchase, rent, or subscribe to an *audio-visual* good or service to qualify as a \\\"consumer,\\\" or whether subscribing to *any* good or service (such as a free email newsletter) from a video tape service provider suffices. \\n\\n## Case Posture and Key Facts\\nPetitioner Nicole Pileggi subscribed to a free email news",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:01.463Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ad0b50cdc6e96e2b",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n## Corpus Lookups\\n* Attempted `uv run fedcourts query --topic \\\"Other Statutory Actions\\\" --court scotus --limit 5 --corpus-backend ranged`. This failed because the environment lacked the `corpus_remote_url` setting required for ranged reads.\\n* Read `metrics/statpack.md` to check SCOTUS disposition base rates, specifically relying on the background knowledge that SCOTUS reverses >60% of cases it reviews on the merits, driving the GVR probability for a held petit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:05.688Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "dd46ab166a212101",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73281327\\\",\\n  \\\"gaps\\\": [\\n    \\\"Corpus remote URL was missing in the environment, preventing `fedcourts query` from working via the ranged backend.\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned documents correctly captured the explicit request for a hold from both parties, which streamlined the prediction.\\\"\\n  ],\\n  \\\"notes\\\": \\\"The failure of `fedcourts query` was not a blocker here since the petition is clearly a h",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:09.739Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:14.142Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ecbedfe2755c9508",
+      "query": "gh issue comment 722 -b \"Prediction for scotus/73281327 (evt-petition-disposition) completed. Both petitioner and respondent ask the Court to hold for Salazar v. Paramount Global. Output files written and schema validation passed.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:16.828Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fbb6b1ef38f26d34",
+      "query": "{\"strategic_intent\": \"Finished generating all artifacts and validated data.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:19.524Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281327",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

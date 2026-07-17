@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281327",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search and endpoint retrieval",
+    "fedcourts query (attempted; remote unavailable)",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "Provisioned petition and complete brief in opposition exposed both parties' agreement on a hold",
+    "CourtListener supplied the lead case's majority and dissent",
+    "The statpack provided calibrated certiorari anchors"
+  ],
+  "gaps": [
+    "The ranged corpus remote was unavailable because its host could not be resolved",
+    "The committed statpack did not contain the salience-band table described in the prediction prompt"
+  ],
+  "notes": "The case-specific hold signal was much more probative than ordinary certiorari priors. Failed corpus commands returned no priors and emitted no ranged-read statistics."
+}

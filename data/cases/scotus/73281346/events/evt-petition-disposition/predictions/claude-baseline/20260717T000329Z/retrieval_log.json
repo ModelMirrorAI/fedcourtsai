@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "88d5658a69ea8a3b",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346 -type f | head -50",
+      "result_digest": "20a20c506b0456ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2a5c785fc98d4069",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0d3db882db225c63",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "8ba4a7b132354570",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "266d75888f4a1c2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/record/documents/documents.json\"}",
+      "result_digest": "4540981a14b79dce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0b5f4fb4cc2667a0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "4469d44e5a7949b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cb29d39b5980f464",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/record/documents/questions-presented.txt\"}",
+      "result_digest": "e366aa75df10411b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3013dfa6c9851fba",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/record/documents/petition.txt\", \"limit\": 300}",
+      "result_digest": "59e9fba649da4829",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b9a0f330b81743dd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/record/documents/petition.txt\", \"limit\": 260, \"offset\": 300}",
+      "result_digest": "7aa94f770c512507",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "72715f499a7a7844",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "e12cf16c55f3a884",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "41dd68eb974b0cbb",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6e32f076bf54c051",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3069d226e6096167",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nfor s in d['sections']:\n    print(s.get('key') or s.get('title'))\n\"",
+      "result_digest": "6ce29af6ca49e54d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c9faf067869363bc",
+      "query": "timeout 300 uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3911eed3cdc704db",
+      "query": "timeout 300 uv run fedcourts query --court scotus --citation \"City of Tahlequah v. Bond\" --citation \"Kisela v. Hughes\" --citation \"Graham v. Connor\" --era 2020s --limit 8 2>query_stderr1.txt; echo \"---STDERR---\"; cat query_stderr1.txt",
+      "result_digest": "21820454e8482b0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5b5c93aac72e2fc0",
+      "query": "timeout 300 uv run fedcourts query --court scotus --citation \"595 U.S. 9\" --citation \"584 U.S. 100\" --citation \"490 U.S. 386\" --citation \"471 U.S. 1\" --era 2020s --limit 8 2>query_stderr2.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','caption','disposition','decided','filed','era','topic')})\n\"; echo '---STDERR---'; cat query_stderr2.txt",
+      "result_digest": "21820454e8482b0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "901374d8cc56378b",
+      "query": "timeout 300 uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>query_stderr3.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    r=json.loads(line)\n    print(json.dumps({k:r.get(k) for k in ('case_id','caption','disposition','decided','filed','era','topic')}))\n\"; echo '---STDERR---'; cat query_stderr3.txt",
+      "result_digest": "3e3128042ffc7348",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "adc0b599f9992cf3",
+      "query": "Burke v. Pitts qualified immunity",
+      "result_digest": "89a3192ddea37254",
+      "retrieved_doc_date": "2025-11-04",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5100eb7c7bac9ab0",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281346/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "172dddf865257964",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "aad28eece7d503d9",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281346\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:08:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281346/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.1,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "526bfdec392296af",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1add26463be456a4",
+      "query": "{\"content\": \"# Pitts v. Burke, No. 25-1062 \\u2014 cert petition disposition\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.10.**\\n\\n## The case\\n\\nOfficers Jessica Pitts and William Lewis (Bartlesville, Oklahoma) seek review\\nof the Tenth Circuit's published decision in *Burke v. Pitts*, No. 24-5134,\\n157 F.4th 1326 (10th Cir. Nov. 4, 2025), which affirmed the denial of\\nqualified immunity at summary judgment in a \\u00a7 1983 excessive-force suit. On\\nthe summary-judgment record taken i",
+      "result_digest": "7f5f20b687feab07",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "eef58d3d48614621",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281346, evt-petition-disposition, claude-baseline, 20260717T000329Z\\n\\nForward-mode cell; retrieval beyond the provisioned inputs listed below.\\n\\n## Corpus / statpack\\n\\n- Read the committed `metrics/statpack.md` (and section listing of\\n  `metrics/statpack.json`) for the modern discretionary-cert base rates, the\\n  originating-circuit (ca10), relist-count, CVSG, and per-Term cuts. No\\n  salience-band section exists in the committed statpack.\\n- `uv ",
+      "result_digest": "8c8f32b76cfd1b6e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ea6b6d97f1fdd939",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281346\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\n    \\\"courtlistener\\\"\\n  ],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md (committed base rates)\\\",\\n    \\\"CourtListener MCP search\\\",\\n    \\\"provisioned snapshot + questions",
+      "result_digest": "68dd7b84a0daaf0b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5ce59c5c2e956907",
+      "query": "timeout 600 uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "580595f5c5e5420b",
+      "query": "gh issue comment 722 --body \"**claude-baseline / claude-fable-5** \u2014 scotus/73281346 (Pitts v. Burke, No. 25-1062), evt-petition-disposition, run 20260717T000329Z: **denied**, P(grant incl. GVR) = **0.10**. CFR + two police-org amici + the Barnes-reserved reckless-creation QP push it well above the paid base rate, but the BIO's vehicle arguments (panel arguably didn't rest on the reckless-creation theory; fact-bound Johnson v. Jones problems; no split briefed) and a record hostile to summary reve",
+      "result_digest": "f012a7a945176588",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281346",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

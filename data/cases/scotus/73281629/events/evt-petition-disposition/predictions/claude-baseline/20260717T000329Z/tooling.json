@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281629",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "web search"
+  ],
+  "helpful": [
+    "Provisioned questions-presented.txt / petition.txt / brief-in-opposition.txt — the QP-vs-BIO comparison carried most of the analysis",
+    "Statpack per-Term and per-circuit cert base rates as the anchor",
+    "Web search to confirm the petition is genuinely pending and check for a companion Premera cert petition"
+  ],
+  "gaps": [
+    "fedcourts query returned zero priors on both citation-overlap and --topic ERISA filters; a subject-matter/QP-text similarity search over resolved cert petitions would have been the most useful retrieval here",
+    "No call-for-response (CFR) cut in the statpack — CFR is the strongest signal on this docket and I had to rely on external empirical literature for its conditional grant rate",
+    "This statpack version lacks the salience-band table the prompt describes",
+    "CourtListener RECAP/docket search does not cover SCOTUS dockets, so the MCP server contributed nothing for a SCOTUS cert cell"
+  ],
+  "notes": "Forward cell, clean inputs, no flags. The petition text was truncated at 120 pages but the extracted portion covered everything through the Ninth Circuit memorandum appendix, so truncation cost nothing material."
+}

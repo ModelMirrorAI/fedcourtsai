@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281346",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP search",
+    "provisioned snapshot + questions-presented.txt + petition.txt + brief-in-opposition.txt"
+  ],
+  "helpful": [
+    "Provisioned document texts (QP, petition, BIO) carried nearly all the signal; the BIO especially",
+    "Statpack relist/CVSG/circuit cuts gave usable quantitative anchors",
+    "documents.json truncation metadata made it clear what was and wasn't readable"
+  ],
+  "gaps": [
+    "No call-for-response (CFR) cut in the statpack, and CFR is the strongest docket signal on this cell; a CFR base-rate table would directly sharpen petitions like this one",
+    "The prompt's described 'Segment base rate by salience band' table is absent from the committed statpack.md/json",
+    "fedcourts query citation matching returned 0 rows for both case-name and reporter-format citations, and the rows it does return for scotus/2020s carry null caption/topic/dates, so similar-prior retrieval was effectively unusable",
+    "A statpack cut for petition-stage amicus count would help"
+  ],
+  "notes": "Forward cell, genuinely pending (first conference 9/28/2026). Corpus query spent ~110MB of ranged reads per citation query to return nothing; the committed statpack did the real quantitative work."
+}

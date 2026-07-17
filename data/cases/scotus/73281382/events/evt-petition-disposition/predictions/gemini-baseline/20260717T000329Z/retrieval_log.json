@@ -1,0 +1,318 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "471e52ea1e201a03",
+      "query": "{\"strategic_intent\": \"Reading prediction instructions and agent guidelines to formulate the prediction for the specified cell.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:12.674Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:14.517Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:14.518Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a092b69ee0d2ecc3",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281382\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:18.597Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1474087805312fda",
+      "query": "ls -lR data/cases/scotus/73281382",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:21.489Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0d786be3d9883c54",
+      "query": "{\"strategic_intent\": \"Reading case data and provisioned inputs for SCotUS docket 73281382.\", \"title\": \"Reading Case Data\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:24.887Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7eb620d2449f379c",
+      "query": "cat data/cases/scotus/73281382/record/context.json data/cases/scotus/73281382/events/evt-petition-disposition/event.yaml data/cases/scotus/73281382/record/documents/documents.json data/cases/scotus/73281382/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:27.583Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "57e7d94d7b5c3342",
+      "query": "uv run fedcourts query scotus/73281382",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:31.767Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "44443e651f99348e",
+      "query": "cat data/cases/scotus/73281382/record/snapshots/2026-07-16.json | grep -i '\"relist' -B 5 -A 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:31.768Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d3520b25a225c2a3",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:35.254Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6df5b67670e02d79",
+      "query": "cat data/cases/scotus/73281382/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:35.255Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "775241ff31d30626",
+      "query": "\"Quashaun Reel\" OR \"State v. Reel\" North Carolina",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:40.882Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "47645457a07a9411",
+      "query": "cat data/cases/scotus/73281382/record/documents/brief-in-opposition.txt | head -n 80",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:46.475Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c4358a5667bfe397",
+      "query": "cat data/cases/scotus/73281382/record/documents/petition.txt | head -n 80",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:46.475Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc4e3ee42e5c8b50",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:50.362Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c222b312191bbe46",
+      "query": "cat data/cases/scotus/73281382/record/documents/petition.txt | grep -i 'split' -B 2 -A 5 | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:50.363Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "80efe219de6c5e16",
+      "query": "cat data/cases/scotus/73281382/record/documents/brief-in-opposition.txt | grep -i -A 30 \"This case is a poor vehicle\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:54.954Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb2c0439880f46ce",
+      "query": "cat data/cases/scotus/73281382/record/documents/petition.txt | grep -i -C 5 \"preserv\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:58.067Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "627e9cc5dce32f92",
+      "query": "cat data/cases/scotus/73281382/record/documents/petition.txt | grep -i -C 5 \"split\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:01.723Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "455c36c286e1477a",
+      "query": "cat data/cases/scotus/73281382/record/documents/petition.txt | grep -i -C 2 \"courts of appeals\" | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:04.619Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aa35e5bee3c0ebf0",
+      "query": "cat data/cases/scotus/73281382/record/documents/petition.txt | grep -i -C 2 \"lower courts\" | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:07.659Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a66cbf067bf65a4",
+      "query": "cat metrics/statpack.md | grep -A 5 \"Modern cert petitions by originating circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:12.598Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b81e0f763984dcf8",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Modern cert petitions by originating circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:15.691Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0a249be822f25c6d",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:19.514Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6754f965a072e689",
+      "query": "cat metrics/statpack.md | grep -i \"salience\" -B 2 -A 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:22.275Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be74d26f15d6cea9",
+      "query": "cat metrics/statpack.md | grep -i \"Term\" -B 2 -A 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:25.077Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e49bac95a54e44d",
+      "query": "mkdir -p data/cases/scotus/73281382/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:34.063Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "61d1fb8fed834848",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:44.008Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "32af4e2d3aa7521e",
+      "query": "cat << 'EOF' > data/cases/scotus/73281382/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/reasoning.md\n# Reasoning\n\n## Legal Question and Context\nThe petition asks whether police conduct a search within the meaning of the Fourth Amendment when they enter the curtilage of a home to conduct a \"knock-and-talk\" investigation with the subjective purpose of gathering incriminating evidence against the homeowner. This is a claim rooted in *Florida v. Jardines*, 569 U.S. 1 (",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:50.722Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "abc91ce6430c2c6f",
+      "query": "cat << 'EOF' > data/cases/scotus/73281382/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/prediction.json\n{\n  \"case_id\": \"scotus/73281382\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"run_id\": \"20260717T000329Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-07-17T00:44:44Z\",\n  \"input_snapshot\": \"2026-07-16.json\",\n  \"granted\": 0,\n  \"probability\": 0.04,\n  \"predicted_disposition\": \"denied\",\n  \"con",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:50.722Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "06ff8a3dec53547b",
+      "query": "cat << 'EOF' > data/cases/scotus/73281382/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/tooling.json\n{\n  \"case_id\": \"scotus/73281382\",\n  \"run_id\": \"20260717T000329Z\",\n  \"role\": \"predictor\",\n  \"actor_id\": \"gemini-baseline\",\n  \"used_corpus_query\": false,\n  \"used_base_rates\": true,\n  \"tools_used\": [\n    \"mcp_courtlistener_search\",\n    \"run_shell_command\"\n  ],\n  \"helpful\": true,\n  \"gaps\": [],\n  \"notes\": \"Used MCP search to locate the state court opinions; relied heavil",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:55.833Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f569e4060b2db5ba",
+      "query": "cat << 'EOF' > data/cases/scotus/73281382/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/retrieval.md\n# Retrieval Log\n\n- Searched CourtListener MCP server using `mcp_courtlistener_search` for `q=\"Quashaun Reel\" OR \"State v. Reel\" North Carolina` (type=\"o\") to identify the lower court opinions.\n- Read provisioned snapshot `data/cases/scotus/73281382/record/snapshots/2026-07-16.json` to review docket entries and note the Call for Response (CFR) and amicus briefs.\n- Re",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:55.833Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0b5ecd0a2279826a",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Searched CourtListener MCP server using `mcp_courtlistener_search` for `q=\\\"Quashaun Reel\\\" OR \\\"State v. Reel\\\" North Carolina` (type=\\\"o\\\") to identify the lower court opinions.\\n- Read provisioned snapshot `data/cases/scotus/73281382/record/snapshots/2026-07-16.json` to review docket entries and note the Call for Response (CFR) and amicus briefs.\\n- Read provisioned documents `petition.txt` and `brief-in-opposition.txt` to analyze the Questions Presented, the",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:59.898Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5aed065968dd873f",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:07.897Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8c085453d52fc3b",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281382\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Used MCP search to locate the state court opinions; relied heavily on prov",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:11.633Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6b02d3e2005b06a6",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:16.194Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ec581764e7fab84d",
+      "query": "gh issue comment 722 --body \"Completed prediction for cell SCOTUS/73281382 event evt-petition-disposition.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:23.449Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cf9290e46fcfce3e",
+      "query": "{\"strategic_intent\": \"Completed the prediction generation and validated the output against schemas.\", \"title\": \"Task Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:26.323Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281382",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

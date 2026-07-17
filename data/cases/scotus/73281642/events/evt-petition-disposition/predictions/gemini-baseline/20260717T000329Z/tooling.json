@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/73281642",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "google_web_search",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "Google Web Search was extremely helpful in quickly identifying the circuit split context and previous Supreme Court actions (cert denied in Lech and Baker, including the Sotomayor/Gorsuch statement)."
+  ],
+  "gaps": [
+    "None, the tools provided sufficient context for this prediction."
+  ]
+}

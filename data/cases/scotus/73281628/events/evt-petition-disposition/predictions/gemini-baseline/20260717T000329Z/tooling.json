@@ -1,0 +1,10 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73281628",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "used_base_rates": true,
+  "used_corpus_query": false,
+  "helpful": ["metrics/statpack.md", "google_web_search"],
+  "notes": "Used Google web search rather than CourtListener for Munsingwear general context since it was faster to find doctrinal summaries."
+}

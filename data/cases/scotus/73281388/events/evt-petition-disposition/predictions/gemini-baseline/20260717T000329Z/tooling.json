@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281388",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "grep"
+  ],
+  "helpful": [
+    "Provisioned document text, specifically the BIO which quickly revealed the waiver issue.",
+    "The statpack which provides clear base rate probabilities."
+  ],
+  "gaps": [
+    "The corpus remote URL was missing from the environment, preventing `fedcourts query` from working via the ranged backend."
+  ],
+  "notes": "The prompt contract was clear and easy to follow. A fallback path for corpus query without the remote URL would be helpful."
+}

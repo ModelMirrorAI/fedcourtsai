@@ -1,0 +1,230 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "c5bc627915fba4d4",
+      "query": "{\"strategic_intent\": \"Understand the requirements for executing the prediction cell by reading the relevant prompt and agent documentation.\", \"title\": \"Read Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:40.867Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:43.056Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:43.057Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e6e24133a41f6da8",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281630\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:49.905Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "53eb014a394d2a45",
+      "query": "ls -la data/cases/scotus/73281630/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:52.017Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bdb567623736d710",
+      "query": "find . -name \"context.json\" -o -name \"snapshot.json\" -o -name \"documents.json\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:54.527Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "59a68ac0412d1d09",
+      "query": "ls -la data/cases/scotus/73281630/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:56.376Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e3b000609575fdf0",
+      "query": "ls -la data/cases/scotus/73281630/record/snapshots/ data/cases/scotus/73281630/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:58.340Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "43f6aba91240d051",
+      "query": "{\"strategic_intent\": \"Read the case-specific provisioned inputs to prepare for prediction.\", \"title\": \"Read Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:01.544Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "157f00a1f2fe41a9",
+      "query": "cat data/cases/scotus/73281630/events/evt-petition-disposition/event.yaml data/cases/scotus/73281630/record/context.json data/cases/scotus/73281630/record/documents/documents.json data/cases/scotus/73281630/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:05.109Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6c00ef5bf9e86680",
+      "query": "cat data/cases/scotus/73281630/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:09.596Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "840108b3ab0d7b33",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:14.664Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d752cd973fc70c5e",
+      "query": "head -n 20 data/cases/scotus/73281630/record/documents/brief-in-opposition.txt data/cases/scotus/73281630/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:18.608Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5c84f31b481fd744",
+      "query": "uv run fedcourts query scotus evt-petition-disposition \"student speech school disrupt political apparel Fraser\" --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:22.352Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e0e31e2fac95756d",
+      "query": "cat docs/cli.md | grep -A 15 \"fedcourts query\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:25.621Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a2e3054011574bf",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:28.063Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aaedb949883cd2ec",
+      "query": "\"Let's Go Brandon\" OR \"plainly profane\" AND Fraser",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:35.492Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "72464866c5b7fbf8",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:43.009Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6532705a73eeb1bd",
+      "query": "mkdir -p data/cases/scotus/73281630/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:46.128Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bd32fc092241f325",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281630\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281630/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.8,\\n  \\\"big_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:50.132Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a98966cddd2ffca8",
+      "query": "{\"content\": \"# Reasoning: D.A. v. Tri County Area Schools (SCOTUS 25-1143)\\n\\n## The Legal Question\\nThe petition asks whether *Bethel Sch. Dist. No. 403 v. Fraser*, 478 U.S. 675 (1986), permits public schools to censor non-disruptive political speech that is not \\\"plainly\\\" profane or lewd. Specifically, the case involves students wearing apparel bearing the slogan \\\"Let's Go Brandon,\\\" which a divided Sixth Circuit panel held could be banned under *Fraser* because school administrators reasona",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:58.328Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a7ae9f637b2f15ce",
+      "query": "{\"content\": \"# Retrieval Log\\n\\nNo retrieval beyond the provisioned inputs and the statpack.\\n\\n- Consulted `metrics/statpack.md` to establish the baseline grant rate for modern discretionary-cert petitions and the base rate for petitions originating from the Sixth Circuit.\\n- Used the official CourtListener MCP server:\\n  - `mcp_courtlistener_search` with query `\\\"Let's Go Brandon\\\" OR \\\"plainly profane\\\" AND Fraser` (returned 0 results).\", \"file_path\": \"data/cases/scotus/73281630/events/evt-pe",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:01.502Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8409307aa95f0631",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:03.308Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2f5214c51d43f6f6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281630\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"cat\\\",\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md provided a very clear baseline for different circuits and disposition probabilities.\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"I attempted to use `fedcourts que",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:07.215Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "fd0d16703da81e28",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:12.418Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4fa7e6fd52e4f768",
+      "query": "gh issue view 722",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:15.643Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3372e05a436772da",
+      "query": "{\"strategic_intent\": \"Complete the prediction cell by successfully saving all required outputs and verifying data validity.\", \"summary\": \"I have read the event context and current snapshot, identifying the high-profile nature of the case (4 amici, response requested after waiver). Using base rates from `statpack.md`, I estimated the probability and generated the required prediction, reasoning, retrieval, and tooling files. I confirmed the schema and referential integrity using the built-in valid",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:20.534Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281630",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

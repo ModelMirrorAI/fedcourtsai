@@ -1,0 +1,13 @@
+The petitioner, Jason Tywann Bell, seeks a *Munsingwear* vacatur of a Fourth Circuit decision that applied *Jones v. Hendrix* to deny him relief under 28 U.S.C. § 2241. Bell argues his sentence was unconstitutionally enhanced under a residual clause identical to the one struck down in *Johnson*. Three weeks after the Fourth Circuit issued its mandate, Bell completed his term of supervised release, mooting the case before he filed his cert petition.
+
+**Analysis**
+
+1.  ***Munsingwear* Mootness:** The *Munsingwear* doctrine allows the Supreme Court to vacate a lower court's judgment when a case becomes moot due to circumstances outside the appellant's control ("happenstance") while pending review. The Court has clarified in cases like *Azar v. Garza* (2018) that the fact that a case became moot *before* a petition for certiorari was filed does not eliminate the Court's equitable discretion to grant vacatur. Completion of a sentence is typically considered happenstance rather than voluntary evasion.
+2.  **The Court's Interest:** The Solicitor General initially waived the right to respond to the petition on April 9, 2026. However, on April 22, 2026, the Court affirmatively requested a response from the SG. This strongly signals that the Court is actively considering the request for a GVR (Grant, Vacate, Remand). 
+3.  **SG's Likely Position:** The SG often acquiesces to *Munsingwear* vacatur in criminal cases where the defendant has completed their sentence, to avoid having unreviewable circuit precedent remain on the books. Even if the SG opposes it, the fact that the Court called for a response indicates that at least one Justice thinks the mootness warrants attention and potentially a summary vacatur to clear the Fourth Circuit precedent regarding the intersection of *Johnson* and *Jones v. Hendrix*.
+
+Given the Court's affirmative request for a response following the SG's waiver on a straightforward *Munsingwear* petition, a GVR is highly probable. The base rate for GVRs is generally low overall, but a requested response on a mootness vacatur petition significantly elevates the probability of a grant.
+
+**Conclusion**
+
+I assign an 85% probability that the Court will issue a GVR (which counts as a grant). The stakes of the case are moderate: while the underlying legal question (whether *Jones v. Hendrix* precludes § 2241 relief for constitutional claims, raising Suspension Clause issues) is significant, a *Munsingwear* vacatur would simply wipe the slate clean rather than resolve the merits of that question.

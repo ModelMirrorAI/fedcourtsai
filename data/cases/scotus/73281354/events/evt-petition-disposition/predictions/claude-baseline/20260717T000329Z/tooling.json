@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281354",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md + statpack.json",
+    "CourtListener MCP search",
+    "provisioned snapshot + petition.txt + questions-presented.txt"
+  ],
+  "helpful": [
+    "Full petition text (39 pp., untruncated) made the split/vehicle analysis possible without any document fetching",
+    "Per-Term paid/IFP fee-class grant rates in statpack.json — the paid-class rate is the right anchor for this cell",
+    "Snapshot's ProceedingsandOrder list cleanly captured the call-for-response signal, the strongest single predictor here"
+  ],
+  "gaps": [
+    "The prompt points to a per-Term 'Segment base rate by salience band' statpack table, but this statpack build has no such section — I had to band the CFR/split/counsel signals manually",
+    "No statpack cut for call-for-response (response-requested) petitions, which is the dominant signal in this cell; a CFR bucket alongside the relist/CVSG cuts would sharpen calibration",
+    "fedcourts query citation/topic filters returned zero rows for classic antitrust anchors (Illinois Brick, Twombly, topic=antitrust), so no similar priors were retrievable",
+    "SCOTUS dockets are absent from the CourtListener RECAP index, so companion-petition checks by docket number come up empty"
+  ],
+  "notes": "Forward cell; ~7 retrieval calls total, well under budget. No outcome-revealing material encountered."
+}

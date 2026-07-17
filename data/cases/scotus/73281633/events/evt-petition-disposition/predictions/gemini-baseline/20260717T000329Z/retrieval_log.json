@@ -1,0 +1,310 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "cef04a8a7646097d",
+      "query": "{\"strategic_intent\": \"Understand the prompt contract for prediction runs and the guidelines for agents.\", \"summary\": \"I am reading the project's agent instructions and the prediction prompt contract to understand the required inputs, the specific task, and the expected output files for this prediction run on docket 73281633.\", \"title\": \"Reviewing prediction instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:54.229Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:56.080Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:56.081Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "532a5a0015840be7",
+      "query": "cat data/cases/scotus/73281633/events/evt-petition-disposition/event.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:00.502Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42e04dd64b9b8ecc",
+      "query": "cat data/cases/scotus/73281633/events/evt-petition-disposition/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:00.502Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "90c2094405049424",
+      "query": "cat data/cases/scotus/73281633/events/evt-petition-disposition/record/snapshot.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:00.503Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9821db4221d7e8ac",
+      "query": "uv run fedcourts paths --court scotus --docket 73281633 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:03.056Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5db905f1152eedc7",
+      "query": "ls -alR data/cases/scotus/73281633",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:06.296Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3a61afdbf7c33aef",
+      "query": "cat data/cases/scotus/73281633/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:08.811Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "817bbeba6f624eff",
+      "query": "cat data/cases/scotus/73281633/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:08.812Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aac821724c8ee412",
+      "query": "cat data/cases/scotus/73281633/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:08.812Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3e9bf0c0b92f5a48",
+      "query": "cat data/cases/scotus/73281633/record/snapshots/2026-07-16.json | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:11.594Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c3005307c4c030c4",
+      "query": "cat data/cases/scotus/73281633/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:13.464Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "26fb95d2b44d8689",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1145\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:16.896Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "31e0a38b135f8f91",
+      "query": "{\"case_name\": \"Council For Responsible Nutrition v. Letitia James\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:20.872Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "43c378b4b4f2b43d",
+      "query": "\"Council For Responsible Nutrition v. Letitia James\" scotus",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:53.042Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "36869dc3f023c98d",
+      "query": "cat data/cases/scotus/73281633/record/documents/brief-in-opposition.txt | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:56.312Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "97ae0765bdbabb15",
+      "query": "grep -i -A 3 -B 3 \"split\" data/cases/scotus/73281633/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:58.525Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f2796b21557f545c",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:01.404Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:03.779Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3c20354e1487c3de",
+      "query": "cat metrics/statpack.md | grep -i \"Modern discretionary-cert petitions\" -A 15",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:05.910Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be90707a9b3c8a57",
+      "query": "cat metrics/statpack.md | grep -i -A 15 \"Modern cert petitions by originating circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:08.834Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2aaa1bd51957ce6",
+      "query": "cat data/cases/scotus/73281633/record/snapshots/2026-07-16.json | grep -i -A 10 \"ProceedingsAndOrders\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:11.493Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "36888fae919ff050",
+      "query": "cat data/cases/scotus/73281633/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:13.437Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4210142f6ea6b62c",
+      "query": "grep -i -A 30 \"No actual or emerging split exists\" data/cases/scotus/73281633/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:19.258Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4637fbacefa3e26b",
+      "query": "grep -i -A 20 \"The Second Circuit's ruling deepens a split\" data/cases/scotus/73281633/record/documents/petition.txt || grep -i -A 20 \"circuit split\" data/cases/scotus/73281633/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:22.078Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e39cefeea9b0c2a8",
+      "query": "cat << 'EOF' > data/cases/scotus/73281633/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/reasoning.md\n# Prediction: Denied\n\n## The Legal Question\nThe petitioner, Council for Responsible Nutrition (CRN), challenges a New York law (N.Y. Gen. Bus. Law \u00a7 391-oo) that bans the sale of dietary supplements marketed for \"weight loss\" or \"muscle building\" to minors. CRN argues the law is a content-based restriction on commercial speech that fails intermediate scrutiny under ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:34.322Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "89f59c9fd1572448",
+      "query": "mkdir -p data/cases/scotus/73281633/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:36.355Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e39cefeea9b0c2a8",
+      "query": "cat << 'EOF' > data/cases/scotus/73281633/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/reasoning.md\n# Prediction: Denied\n\n## The Legal Question\nThe petitioner, Council for Responsible Nutrition (CRN), challenges a New York law (N.Y. Gen. Bus. Law \u00a7 391-oo) that bans the sale of dietary supplements marketed for \"weight loss\" or \"muscle building\" to minors. CRN argues the law is a content-based restriction on commercial speech that fails intermediate scrutiny under ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:42.092Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c01ad93f8a960c30",
+      "query": "cat << 'EOF' > data/cases/scotus/73281633/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/prediction.json\n{\n  \"case_id\": \"scotus/73281633\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"run_id\": \"20260717T000329Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-07-17T00:03:29Z\",\n  \"input_snapshot\": \"2026-07-16.json\",\n  \"predicted_disposition\": \"denied\",\n  \"granted\": 0,\n  \"probability\": 0.12,\n  \"big",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:45.872Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9eb5a43fdafe282a",
+      "query": "cat << 'EOF' > data/cases/scotus/73281633/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/retrieval.md\n- Google search: `\"Council For Responsible Nutrition v. Letitia James\" scotus`\n  Result confirmed the case is pending at the Supreme Court (docketed 25-1145) and the Second Circuit decision was 159 F.4th 155.\n- Read provisioned documents (`brief-in-opposition.txt`, `petition.txt`, `questions-presented.txt`).\n- `metrics/statpack.md` consulted for base rates: \"Modern ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:49.189Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e866427b97488375",
+      "query": "{\"content\": \"- Google search: `\\\"Council For Responsible Nutrition v. Letitia James\\\" scotus`\\n  Result confirmed the case is pending at the Supreme Court (docketed 25-1145) and the Second Circuit decision was 159 F.4th 155.\\n- Read provisioned documents (`brief-in-opposition.txt`, `petition.txt`, `questions-presented.txt`).\\n- `metrics/statpack.md` consulted for base rates: \\\"Modern discretionary-cert petitions by disposition\\\" and \\\"Modern cert petitions by originating circuit\\\".\\n- MCP `court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:53.715Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "48b3afe716ba4590",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281633\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search for general case background\\\",\\n    \\\"metrics/statpack.md for base rate metrics\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Attempted to use fedcourts qu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:57.021Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:00.732Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fc5ac2c5f97027ac",
+      "query": "gh issue comment 722 -b \"Prediction for \\`scotus/73281633\\` completed. Predicted **denied** with 12% probability. The amicus support from business and taxpayers groups elevates the odds above the 5.4% Second Circuit baseline, but the alleged *Central Hudson* split appears heavily fact-bound on the evidentiary record.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:07.021Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c6a36f84cc9d314e",
+      "query": "ls -al data/cases/scotus/73281633/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:11.600Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c87fc926f068eec3",
+      "query": "{\"strategic_intent\": \"Conclude the prediction run for scotus/73281633.\", \"summary\": \"I have completed the prediction for docket 73281633. I analyzed the cert petition, the brief in opposition, and the questions presented regarding the Second Circuit's application of the Central Hudson test. I retrieved base rate statistics from the statpack, and drafted a prediction of \\\"denied\\\" with a 12% probability, writing the required prediction.json, reasoning.md, retrieval.md, and tooling.json files. The",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:15.450Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281633",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

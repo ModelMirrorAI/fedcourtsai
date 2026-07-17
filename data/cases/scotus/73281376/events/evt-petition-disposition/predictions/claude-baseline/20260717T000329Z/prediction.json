@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281376",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260717T000329Z",
+  "created_at": "2026-07-17T00:12:01Z",
+  "input_snapshot": "data/cases/scotus/73281376/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.08,
+  "predicted_disposition": "denied",
+  "confidence": 0.6,
+  "votes": [],
+  "big_case_score": 0.35,
+  "big_case_rationale": "A decision on Monell delegation liability for privatized jail healthcare would matter to thousands of counties that outsource inmate medical care, but the question is doctrinally technical and the case itself is low-profile.",
+  "reasoning_doc": "reasoning.md"
+}

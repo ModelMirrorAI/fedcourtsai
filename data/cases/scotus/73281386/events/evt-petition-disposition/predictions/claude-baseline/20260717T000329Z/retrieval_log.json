@@ -1,0 +1,222 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "65ec65f76fe7d692",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386 -type f | head -50",
+      "result_digest": "1422a7cc231b6fa1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a324a9df974cc208",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9fb70b2eac5bff99",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "1b75f078e05dd713",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "66ff6fbb308c0779",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "72abf4727450422e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a0df4ed5b967148e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/record/documents/documents.json\"}",
+      "result_digest": "604be7895135be09",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "748cdf6658ab435d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/record/documents/questions-presented.txt\"}",
+      "result_digest": "0ac75b13656823aa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3f6a3f51cfb09524",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "a0b54c0f23208c00",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e94043b744bad83e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/record/documents/brief-in-opposition.txt\", \"limit\": 300}",
+      "result_digest": "86d79cac173d188c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6cfe5fa82e18b2c9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/record/documents/brief-in-opposition.txt\", \"limit\": 280, \"offset\": 300}",
+      "result_digest": "1b8238c5d172a0f4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8dde1514bbc4939e",
+      "query": "sed -n '1,120p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "e1fa247a7d4bfe14",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8d2a036981d0d111",
+      "query": "grep -n -A 40 \"salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -80; grep -n -B2 -A 15 \"fee-class\\|fee class\\|Paid\\|IFP\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "558d7e3734277008",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a5869aae363237b6",
+      "query": "grep -n -A 30 \"Segment base rate by salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f91adda45b3c325b",
+      "query": "grep -n \"^##\\|^Segment\\|salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "c13ebca873a71ec7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "502b95722a6e233f",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c2d8e8f27e937e02",
+      "query": "uv run fedcourts query --court scotus --citation \"542 U.S. 367\" --limit 8 2>query_stderr1.txt; echo \"---STDERR---\"; cat query_stderr1.txt",
+      "result_digest": "21820454e8482b0a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "53107d2b9f408c2f",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 2>query_stderr2.txt | head -20; echo \"---STDERR---\"; cat query_stderr2.txt",
+      "result_digest": "f3f9cb9d9e7c4152",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1594835d44ce4915",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json; echo ===; cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "8daff1baf2bf6375",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7e85f7f7e1fb4fe6",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281386/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "4bc62f16c2b3de04",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b30eda889572c7e3",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281386\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:13:58Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281386/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.7,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\",
+      "result_digest": "7c1307c6ef8bd939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "38b1ca979fa8bbe9",
+      "query": "{\"content\": \"# U.S. DOGE Service v. U.S. District Court for D.C. (No. 25-1103) \\u2014 cert disposition\\n\\n**Prediction: grant (P = 0.70), most likely a plenary grant; a summary\\nreversal/vacatur is the leading alternative form of grant.**\\n\\n## The legal question\\n\\nCREW sued under FOIA claiming the U.S. DOGE Service (USDS) \\u2014 nominally an\\nadvisory body within the Executive Office of the President \\u2014 is an \\\"agency\\\"\\nsubject to FOIA because it wields \\\"substantial independent authority",
+      "result_digest": "b7b93fded6bba705",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "891ff15e0624c9d2",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281386 / evt-petition-disposition / claude-baseline / 20260717T000329Z\\n\\nMode: `forward` (pending petition; distributed for the 2026-09-28 conference).\\n\\n## Corpus lookups (`fedcourts` CLI)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"542 U.S. 367\\\" --limit 8`\\n   \\u2014 zero rows returned (no corpus priors indexed as citing *Cheney*).\\n   stderr: `ranged corpus reads: 419 GET(s), 109707264 byte(s)`\\n2. `uv run fedcourts query --court s",
+      "result_digest": "86e28b8bc24a6f11",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "33c6aaa495f0aa7c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281386\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned snapshot\\\",\\n    \\\"provisioned documents (questions-presented, petition, brief-in-opposition)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition and BIO",
+      "result_digest": "58e62dc6c4446d47",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6ee6381e6adafbdb",
+      "query": "gh issue comment 722 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed -E 's#.*github.com[:/]##; s#\\.git$##')\" --body \"claude-baseline / 20260717T000329Z \u2014 scotus/73281386 (*U.S. DOGE Service v. U.S. District Court for D.C.*, No. 25-1103): predicted **grant**, P(grant)=0.70, big_case_score 0.80. Second trip after the June 2025 GVR + discovery stay; SG petitioner pressing Cheney/mandate-compliance QPs. Files written and \\`fedcourts validate data\\` passes.\" 2>&",
+      "result_digest": "af67787a614797e9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281386",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

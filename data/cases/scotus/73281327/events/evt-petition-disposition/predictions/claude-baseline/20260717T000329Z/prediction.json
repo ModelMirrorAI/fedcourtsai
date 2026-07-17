@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281327",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260717T000329Z",
+  "created_at": "2026-07-17T00:07:04Z",
+  "input_snapshot": "data/cases/scotus/73281327/record/snapshots/2026-07-16.json",
+  "granted": 1,
+  "probability": 0.52,
+  "predicted_disposition": "gvr",
+  "confidence": 0.55,
+  "votes": [],
+  "big_case_score": 0.2,
+  "big_case_rationale": "Tag-along companion to Salazar v. Paramount Global (No. 25-459); its own disposition will be a one-line GVR or denial, though the underlying VPPA question matters commercially.",
+  "reasoning_doc": "reasoning.md"
+}

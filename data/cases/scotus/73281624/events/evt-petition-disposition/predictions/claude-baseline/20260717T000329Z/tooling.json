@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281624",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "provisioned record/documents (petition, BIO, QPs)",
+    "fedcourts paths"
+  ],
+  "helpful": [
+    "Full extracted text of petition, BIO, and appended Fourth Circuit opinion — the BIO's vehicle arguments were decisive",
+    "statpack relist/CVSG/circuit cuts for calibration",
+    "documents.json manifest (pages/truncation at a glance)"
+  ],
+  "gaps": [
+    "statpack has no cut for call-for-response (response requested after waiver) — the strongest pre-conference signal on this docket; a CFR bucket beside the relist/CVSG cuts would anchor cells like this one",
+    "the salience-band table referenced in the predict prompt is absent from this statpack version",
+    "fedcourts query returned zero rows for antitrust/Parker topic and citation searches; topical recall over the resolved slice seems thin for doctrinal areas outside the high-volume ones"
+  ],
+  "notes": "Forward cell, fully provisioned; no MCP or web retrieval needed. The Parker v. Brown citation query cost 419 ranged GETs (~110 MB) and still returned nothing - citation search may be scanning rather than using an index."
+}

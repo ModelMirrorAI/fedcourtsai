@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73281327",
+  "gaps": [
+    "Corpus remote URL was missing in the environment, preventing `fedcourts query` from working via the ranged backend."
+  ],
+  "helpful": [
+    "Provisioned documents correctly captured the explicit request for a hold from both parties, which streamlined the prediction."
+  ],
+  "notes": "The failure of `fedcourts query` was not a blocker here since the petition is clearly a hold, but it would have degraded a prediction requiring historical priors.",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "mcp_courtlistener_search"
+  ],
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281628",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned petition and questions presented exposed the dispositive Munsingwear equities.",
+    "The docket snapshot showed the response request and the absence of a filed response.",
+    "The statpack provided the whole-docket and Fourth Circuit base rates."
+  ],
+  "gaps": [
+    "The ranged corpus remote was unreachable, so no structured comparable-case priors could be pulled.",
+    "CourtListener search result identifiers did not map reliably to the opinion-item endpoint."
+  ],
+  "notes": "CourtListener MCP search was available for general pre-disposition doctrine research. The failed corpus query produced no rows and is therefore reported as unused rather than as a successful corpus lookup."
+}

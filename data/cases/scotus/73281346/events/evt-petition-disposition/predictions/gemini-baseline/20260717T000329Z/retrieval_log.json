@@ -1,0 +1,270 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "53df50e8b4a8442b",
+      "query": "{\"strategic_intent\": \"Read predict.md and AGENTS.md to understand the prediction task and the output contract.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:27.350Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:29.057Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:29.057Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8a0e66d7ac48d18a",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281346\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:33.761Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "65edc16d638cb375",
+      "query": "ls -la data/cases/scotus/73281346/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:36.059Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8e60b28ed25dd9e3",
+      "query": "ls -la data/cases/scotus/73281346/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:38.493Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8839a83cf7766b3e",
+      "query": "{\"strategic_intent\": \"Read the case-specific provisioned inputs to form the prediction.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:41.717Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d914e5a578b3548c",
+      "query": "cat data/cases/scotus/73281346/record/context.json && ls -la data/cases/scotus/73281346/record/snapshots/ && ls -la data/cases/scotus/73281346/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:41.731Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.752Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ba3a538635d69e87",
+      "query": "{\"file_path\": \"data/cases/scotus/73281346/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.753Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d46415f6f7b701f7",
+      "query": "{\"file_path\": \"data/cases/scotus/73281346/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.754Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d122757a34a13f0c",
+      "query": "{\"file_path\": \"data/cases/scotus/73281346/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.754Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "46c4f0441cd5639e",
+      "query": "cat data/cases/scotus/73281346/record/snapshots/2026-07-16.json | grep -i -A 10 \"docket_entries\" | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:48.629Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "55c851c8aa1ced8f",
+      "query": "jq '.docket_entries[] | {date_filed, description}' data/cases/scotus/73281346/record/snapshots/2026-07-16.json | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:50.897Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f15cbb2ded6433e5",
+      "query": "jq 'keys' data/cases/scotus/73281346/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:52.950Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1552c3cbdaadd669",
+      "query": "jq '.ProceedingsandOrder[] | {Date, Text}' data/cases/scotus/73281346/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:55.027Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "984f4ee7bff3ac15",
+      "query": "jq '{LowerCourt, LowerCourtDecision}' data/cases/scotus/73281346/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:00.852Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "641e9069c1ea8e6b",
+      "query": "cat metrics/statpack.md | grep -i -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:04.393Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0634122cb99f8355",
+      "query": "cat metrics/statpack.md | grep -i -A 30 \"Modern cert petitions by originating circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:07.263Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "30c1e69daa349a63",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"qualified immunity excessive force reckless creation escalation Barnes\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:12.083Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "140bdacbc80f5426",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:14.559Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9b221c418f64cae6",
+      "query": "\"Barnes v. Felix\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:17.838Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "85c7eb4cbb249fd6",
+      "query": "jq '.\"$defs\".Disposition.description' schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:28.525Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "654cc74a6ebdec6c",
+      "query": "cat data/cases/scotus/73281346/record/documents/brief-in-opposition.txt | grep -i -C 2 \"Barnes\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:33.435Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "59f7b0fdc19bbdb1",
+      "query": "grep -i -C 2 \"reservation\" data/cases/scotus/73281346/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:36.209Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2b43b74814c417a5",
+      "query": "mkdir -p data/cases/scotus/73281346/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:52.515Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ac4c68a08347d15d",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281346\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281346/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"big_case_score\\\": 0.35,\\n  \\\"bi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:59.514Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6ec2b750f519f34a",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question and Standard\\nThis case involves the denial of qualified immunity to police officers in a 4th Amendment excessive force claim. The central question is whether the Tenth Circuit erred in denying qualified immunity by relying on a circuit-specific \\\"reckless creation\\\" or \\\"escalation\\\" theory, and whether the court defined clearly established law at an impermissibly high level of generality. The Supreme Court recently and explicitly reserved judgment ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:05.704Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bed8a520307c9b99",
+      "query": "{\"content\": \"- Read the provisioned context, snapshot, and document text (petition, brief-in-opposition, and questions-presented).\\n- Consulted `metrics/statpack.md` for base rates regarding the Tenth Circuit (5.0% grant base rate) and relist count.\\n- Used CourtListener MCP to search for `Barnes v. Felix` to confirm the date and context of the intervening Supreme Court decision:\\n  - `mcp_courtlistener_search(q=\\\"Barnes v. Felix\\\", type=\\\"o\\\")` - confirmed *Barnes v. Felix*, 145 S. Ct. 1353, wa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:09.127Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2ecfb80e3719e45f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281346\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command (jq, cat, grep)\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The provisioned snapshot and extracted documents (QP, BIO) were very helpful.\\\",\\n    \\\"CourtListener MCP was helpful for quickly verifying the date and",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:13.209Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0a40a67cd8280b85",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:17.830Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f135e0103a1bf702",
+      "query": "{\"strategic_intent\": \"Prediction artifacts written and validated successfully. Completing task.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:20.555Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281346",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

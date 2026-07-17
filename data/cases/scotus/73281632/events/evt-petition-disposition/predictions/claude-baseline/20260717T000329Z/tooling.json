@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281632",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md base rates",
+    "courtlistener MCP search (opinions)"
+  ],
+  "helpful": [
+    "Provisioned questions-presented.txt / petition.txt / brief-in-opposition.txt — the QP text plus the SG's BIO carried most of the predictive signal",
+    "Statpack relist-count and originating-circuit cuts for anchoring",
+    "One CourtListener opinion search to confirm the no-circuit-split claim in the BIO"
+  ],
+  "gaps": [
+    "Statpack has no salience-band table in this build, though the prompt tells predictors to prefer it",
+    "No statpack cut for call-for-response (CFR) petitions — the strongest docket signal here had no in-repo base rate; I had to rely on general knowledge (~8-10% grant for CFR'd petitions)",
+    "fedcourts query citation matching returned 0 rows even for 601 U.S. 416; citation-overlap retrieval seems to have little coverage for recent SCOTUS petition dockets"
+  ],
+  "notes": "petition.txt was truncated (117 pages, flag truncated=true) but the QPs, statement, and core cert-stage argument were within the provisioned portion, so truncation did not materially degrade the prediction."
+}

@@ -1,0 +1,262 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5ebb4eb5a2068504",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354 -type f | head -50",
+      "result_digest": "6577becda6326357",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "955acd1815d0343e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "dbbe568f39223882",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "218a4d2dcb54e271",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "80d37b943e8b7a0b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "881e9c4a915f7bd4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3686007821468ff6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354/record/documents/documents.json\"}",
+      "result_digest": "de4e98aa8d0a8180",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b01180e20ad9c159",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354/record/documents/questions-presented.txt\"}",
+      "result_digest": "fd1241f8c2570ff4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fb82a5946ec1ffdc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354/record/documents/petition.txt\"}",
+      "result_digest": "59b92e67f3b92f86",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "81668ac330c2c27c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281354/record/documents/petition.txt\", \"offset\": 1129}",
+      "result_digest": "2f9d9cdfd0dd6c54",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e32af40f41feb4bf",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "18d7a82e35ce6694",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "60bc36c86df6b845",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nsecs = d['sections']\nprint(type(secs))\nif isinstance(secs, dict):\n    print(list(secs.keys()))\nelse:\n    for s in secs:\n        print(s.get('title') or s.get('id'))\n\"",
+      "result_digest": "c1f45ec657220dce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c861cc77cabdcf8b",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nt = d['terms']\nprint(type(t))\nif isinstance(t, dict):\n    print(json.dumps(list(t.items())[:1], indent=1)[:3000])\nelse:\n    print(json.dumps(t[:1], indent=1)[:3000])\n\"",
+      "result_digest": "dc9e4e164e5741c3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d292489d860390af",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nfor t in d['terms']:\n    print(t['term'], list(t.keys()))\n\"",
+      "result_digest": "480bafc1d70a3bdc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4664a104df60aec9",
+      "query": "uv run fedcourts query --court scotus --citation \"431 U.S. 720\" --citation \"550 U.S. 544\" --era 2020s --limit 8 2>&1 | tail -20",
+      "result_digest": "51f451149ca7dbcf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d712b9d824540c9e",
+      "query": "uv run fedcourts query --court scotus --citation \"550 U.S. 544\" --limit 8 2>&1 | tail -5; echo ---; uv run fedcourts query --court scotus --topic antitrust --limit 8 2>&1 | tail -5",
+      "result_digest": "9a29227d974387ee",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "97559145d015e768",
+      "query": "uv run fedcourts query --court scotus --topic Antitrust --limit 8 2>&1 | tail -3; echo ---; uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>&1 | head -8 | cut -c1-400",
+      "result_digest": "0b4c0cd507ed24ec",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "1fa22c345a6c92c7",
+      "query": "\"Academy of Allergy\" OR \"Amerigroup\"",
+      "result_digest": "2746d3793ac878e8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "4383fb3ccab14539",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1070\", \"fields\": [\"docketNumber\", \"caseName\", \"dateFiled\", \"dateTerminated\", \"docket_id\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "c3ff784bd8914c39",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "b528403f275be337",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && uv run fedcourts paths --court scotus --docket 73281354 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "b81a634434628327",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e097a07df31472c6",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281354\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:07:49Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281354/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "ec8392dd95ae2764",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "645d7848cc142895",
+      "query": "{\"content\": \"# AstraZeneca Pharmaceuticals LP v. Mosaic Health, Inc. (No. 25-1070) \\u2014 cert disposition\\n\\n**Prediction: P(grant, GVR included) = 0.35; likeliest single disposition remains denied.**\\n\\n## The case\\n\\nPaid petition (Term 2025, docketed March 11, 2026) by AstraZeneca, Eli Lilly, Novo\\nNordisk, and Sanofi from the Second Circuit's amended decision in *Mosaic Health v.\\nSanofi-Aventis*, 156 F.4th 68 (2d Cir. 2025), which reversed a Rule 12 dismissal of a\\nputative antitrust class",
+      "result_digest": "2b95105df057557c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4efc86fccb772956",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281354, evt-petition-disposition, claude-baseline, 20260717T000329Z\\n\\n## Corpus lookups (`fedcourts query`, ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"431 U.S. 720\\\" --citation \\\"550 U.S. 544\\\" --era 2020s --limit 8`\\n   \\u2192 0 rows. `ranged corpus reads: 419 GET(s), 109707264 byte(s)`\\n2. `uv run fedcourts query --court scotus --citation \\\"550 U.S. 544\\\" --limit 8`\\n   \\u2192 0 rows. `ranged corpus reads: 419 GET(s),",
+      "result_digest": "8cdf732c422dc888",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2dd5fd860814feb8",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281354\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"CourtListener MCP search\\\",\\n    \\\"provisioned snapshot + petition.txt + questions-presented.txt\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Full",
+      "result_digest": "62a972051930b393",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8adb1b951aa84549",
+      "query": "gh issue comment 722 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed -E 's#.*github.com[:/]##; s#\\.git$##')\" --body \"claude-baseline / 20260717T000329Z \u2014 scotus/73281354 (AstraZeneca v. Mosaic Health, No. 25-1070), evt-petition-disposition: **P(grant) = 0.35**, predicted disposition \\`denied\\` (grant odds well above the ~5% paid-petition base rate on the call-for-response, the acknowledged Illinois Brick split flagged by Sixth Circuit judges, elite counsel,",
+      "result_digest": "539597b963baf640",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281354",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

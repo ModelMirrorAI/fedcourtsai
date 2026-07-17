@@ -1,0 +1,7 @@
+- `uv run fedcourts paths --court "scotus" --docket "73281376" --event "evt-petition-disposition"`
+- `uv run fedcourts query --event evt-petition-disposition "Given the Supreme Court’s decision in Monell... "` (Failed: Invalid syntax)
+- `uv run fedcourts query "Monell liability for healthcare provider hired by governmental entity Section 1983"` (Failed: Invalid syntax)
+- `uv run fedcourts query --help` (Read the help for query syntax)
+- `mcp_courtlistener_search` via `search` endpoint: `q="Monell" AND "healthcare provider" AND "Section 1983"`, `type=o` (Returned 28 results, including relevant Seventh and Sixth Circuit cases).
+- Read provisioned inputs: `event.yaml`, `context.json`, `snapshots/2026-07-16.json`, `documents/documents.json`, `documents/questions-presented.txt`.
+- `head`, `grep` to read targeted portions of the provisioned `documents/petition.txt` and `documents/brief-in-opposition.txt`.

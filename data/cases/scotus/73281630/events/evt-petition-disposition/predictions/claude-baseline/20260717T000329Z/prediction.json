@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281630",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "run_id": "20260717T000329Z",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "created_at": "2026-07-17T00:23:41Z",
+  "input_snapshot": "data/cases/scotus/73281630/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.15,
+  "predicted_disposition": "denied",
+  "confidence": 0.6,
+  "votes": [],
+  "big_case_score": 0.65,
+  "big_case_rationale": "A grant would produce the first clarification of Fraser's scope in 40 years, on a politically charged student-speech question (\"Let's Go Brandon\" apparel) with nationwide reach into every public school; closely watched even if denied."
+}

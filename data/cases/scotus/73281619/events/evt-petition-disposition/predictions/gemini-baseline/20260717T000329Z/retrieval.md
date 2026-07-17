@@ -1,0 +1,2 @@
+- `cat metrics/statpack.md | grep -A 20 "Modern discretionary-cert petitions"`: consulted statpack for overall base rates.
+- `mcp_courtlistener_call_endpoint` (dockets, 73281619): confirmed case basic metadata (25-1131, Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux.).

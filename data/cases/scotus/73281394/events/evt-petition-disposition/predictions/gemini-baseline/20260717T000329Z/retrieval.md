@@ -1,0 +1,5 @@
+- `fedcourts query` / `fedcourts open-events`: None used because `fedcourts stats` output is available in the statpack.
+- `cat metrics/statpack.md | grep ...` and `jq ...`: Looked up the base rate for Term 2025 in `metrics/statpack.md` and `metrics/statpack.json`. 
+- No CourtListener MCP searches were used because the case is in forward mode and I avoided looking up the actual disposition of the case. 
+- No web searches were performed.
+- No retrieval beyond the provisioned inputs and the committed statpack.

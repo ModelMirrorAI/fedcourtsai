@@ -1,0 +1,10 @@
+# Reasoning
+
+**Legal Question & Governing Standard:**
+The core legal question is whether the City of Chicago's ordinance—which allows the city to impound vehicles for unpaid parking tickets and retain any surplus sales proceeds—violates the Takings Clause of the Fifth Amendment. The governing standard involves the boundary between the government's police power (often permitting forfeiture without compensation, e.g., *Bennis v. Michigan*) and its taxing or debt collection power (where keeping a surplus constitutes a taking under *Tyler v. Hennepin County*). The case also implicates the strict standard for a facial constitutional challenge (requiring the plaintiff to show no set of circumstances under which the law would be valid).
+
+**Facts & Posture:**
+Petitioners' vehicles were impounded and sold by the City of Chicago for unpaid parking tickets, and the City retained the surplus proceeds rather than refunding them. Petitioners brought a facial challenge to the ordinance under the Takings Clause. The district court dismissed the claim, and the Seventh Circuit affirmed. The case is now distributed for the September 28, 2026, "long conference" without any relists or a Call for the Views of the Solicitor General (CVSG).
+
+**Prediction & Probability:**
+The probability of a grant is very low (estimated at 2%). While the application of *Tyler* to municipal fines and police-power impoundments is a highly salient and developing area of law, this petition suffers from significant vehicle flaws. The respondents heavily emphasize that petitioners brought an exclusively facial challenge to the ordinance, a posture the Supreme Court generally disfavors for resolving novel constitutional questions. Furthermore, there is currently no mature circuit split on the precise issue of applying *Tyler* to traffic-related vehicle impoundments; the lower courts are only just beginning to grapple with *Tyler*'s reach. Given the lack of a split, the facial challenge posture, and the absence of any pre-grant signals (like a CVSG or relist), the Court is highly likely to deny certiorari and allow the issue to percolate further in the lower courts.

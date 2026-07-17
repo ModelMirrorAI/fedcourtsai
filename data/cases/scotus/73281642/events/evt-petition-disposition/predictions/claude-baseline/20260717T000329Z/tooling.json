@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281642",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + metrics/statpack.json",
+    "courtlistener MCP search (docket + opinion indexes)",
+    "provisioned filed-document texts (petition, BIO, QP)"
+  ],
+  "helpful": [
+    "Full-text petition.txt and brief-in-opposition.txt were the decisive inputs — both readable end-to-end and untruncated",
+    "statpack.json per-Term fee-class detail (paid ~5.4% vs IFP ~1.1% for Term 2025) gave a much better anchor than the whole-docket rate"
+  ],
+  "gaps": [
+    "No way to look up a related SCOTUS cert docket's disposition history: fedcourts query matched nothing on takings citations, and CourtListener's search indexes don't cover SCOTUS dockets, so predecessor petitions in the same doctrinal line (Lech, Baker, Slaybaugh) and the companion Pena petition (25-1163) had to come from the petition's own citations and training knowledge",
+    "The statpack section predict.md calls the primary anchor ('Segment base rate by salience band') is absent from the committed statpack",
+    "A relist-tracker signal (distributions/conferences for this docket) would be the single most predictive live input for cert cells; the snapshot only shows the initial distribution"
+  ],
+  "notes": "fedcourts query by --citation appears to be a no-op against this corpus for SCOTUS takings precedents (two queries, 0 rows, ~110MB ranged reads each). If citation metadata isn't populated, a --caption or keyword filter would make the priors surface usable."
+}
