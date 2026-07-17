@@ -1,0 +1,10 @@
+case_id: scotus/59780419
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-10-19'
+resolved: true
+schema_version: '1.0'
+title: National Collegiate Athletic Association, Petitioner v. Shawne Alston, et al.

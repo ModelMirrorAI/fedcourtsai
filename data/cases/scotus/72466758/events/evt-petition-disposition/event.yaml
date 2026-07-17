@@ -1,0 +1,11 @@
+case_id: scotus/72466758
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-10-26'
+resolved: true
+schema_version: '1.0'
+title: Alaska Native Village Corporation Association, Inc., et al., Petitioners v.
+  Confederated Tribes of the Chehalis Reservation, et al.
