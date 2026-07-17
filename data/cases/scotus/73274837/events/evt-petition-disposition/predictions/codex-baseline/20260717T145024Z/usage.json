@@ -1,0 +1,17 @@
+{
+  "actor_id": "codex-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 2362026,
+  "case_id": "scotus/73274837",
+  "created_at": "2026-07-17T14:50:24Z",
+  "engine": "codex",
+  "estimated_cost_usd": 2.105198,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 111241,
+  "model": "gpt-5.6-sol",
+  "output_tokens": 12266,
+  "pipeline_sha": "2cf5c9045e6bb11fab22dacac3174d57a437507c",
+  "role": "predictor",
+  "run_id": "20260717T145024Z",
+  "schema_version": "1.0"
+}

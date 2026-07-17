@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274837",
+  "run_id": "20260717T145024Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + statpack.json",
+    "web search (forward mode)"
+  ],
+  "helpful": [
+    "statpack relist-count bucket table (the single most on-point base-rate cut for a serially relisted petition)",
+    "per-Term fee-class grant rates in statpack.json",
+    "docket snapshot's full distribution history (made the ~20-relist / held-over pattern legible)"
+  ],
+  "gaps": [
+    "fedcourts query matched nothing on citation for a SCOTUS cert cell (tried case-name and reporter forms); a topic/issue-area or free-text filter would make corpus priors reachable",
+    "the statpack build in the repo lacks the salience-band table the predict prompt tells cells to anchor on",
+    "no provisioned filed-document text (questions-presented.txt / petition.txt / BIO) for this cell; the QP had to be reconstructed from public reporting",
+    "a relist/hold-pattern prior keyed on 'companion case granted' would beat the raw relist bucket for cells like this one"
+  ],
+  "notes": "Two fedcourts query calls read ~110 MB each via ranged GETs and returned zero rows; cheap misses would be nicer. The forward-mode web-search allowance did the real work here (companion cert grant in Viramontes/Grant)."
+}

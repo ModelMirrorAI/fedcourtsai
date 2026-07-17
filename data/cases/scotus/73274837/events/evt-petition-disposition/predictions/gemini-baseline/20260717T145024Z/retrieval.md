@@ -1,0 +1,5 @@
+- CourtListener MCP Search for `Gator's Custom Guns` in Washington courts to identify the underlying opinion (10572433).
+- CourtListener MCP Opinion retrieval for `11039021` to read the Washington Supreme Court's decision.
+- Looked up base rates in `metrics/statpack.md`, noting the ~3.2% general grant rate and the 21.8% grant rate for 3+ relists.
+- Web search for `"Benson" Second Amendment "Supreme Court" OR "certiorari"` to understand the context of the supplemental briefs (identifying the D.C. Court of Appeals case *Benson v. United States*).
+- Web search for `"Duncan v. Bonta" Supreme Court "certiorari" 2025 2026` to discover that on July 1, 2026, the Court granted cert in *Viramontes* and *Grant* while carrying over magazine cases like *Duncan*, strongly signaling a hold-for-GVR posture.
