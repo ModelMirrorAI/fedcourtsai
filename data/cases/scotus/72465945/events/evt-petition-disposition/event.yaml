@@ -1,0 +1,10 @@
+case_id: scotus/72465945
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-08-19'
+resolved: true
+schema_version: '1.0'
+title: Daniel Sohn, et ux., Petitioners v. Mariposa County, California, et al.
