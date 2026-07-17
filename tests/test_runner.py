@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import date
@@ -334,3 +335,52 @@ def test_stub_artifacts_pass_validate(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "valid" in result.output
+
+
+def test_agent_env_is_scrubbed_of_cloud_creds_and_foreign_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The back-test's calling process holds the read-only cloud credentials
+    # (corpus pull + content-store reads) and every provider's key; the spawned
+    # agent must inherit only its own engine's auth — the live cell workflows'
+    # guard-asserted posture, enforced here at the shared runner seam.
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAFAKE")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "fake-secret")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "fake-session")
+    monkeypatch.setenv("AWS_REGION", "us-east-2")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-anthropic")
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "fake-oauth")
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-openai")
+    monkeypatch.setenv("GEMINI_API_KEY", "fake-gemini")
+    monkeypatch.setenv("GOOGLE_API_KEY", "fake-google")
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/tmp/fake-sa.json")
+    # Credential-shaped names no runner declares: the shape predicate must drop
+    # them for every engine (a dev shell's tokens, an SSH agent socket).
+    undeclared = ("GITHUB_TOKEN", "GH_TOKEN", "COURTLISTENER_AGENT_API_TOKEN", "SSH_AUTH_SOCK")
+    for name in undeclared:
+        monkeypatch.setenv(name, "fake-undeclared")
+
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+
+    gemini_vars = {"GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS"}
+    claude_vars = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"}
+    by_engine = [
+        (CodexRunner, {"OPENAI_API_KEY"}, claude_vars | gemini_vars),
+        (ClaudeCodeRunner, claude_vars, {"OPENAI_API_KEY"} | gemini_vars),
+        (GeminiRunner, gemini_vars, claude_vars | {"OPENAI_API_KEY"}),
+    ]
+    for cls, own, foreign in by_engine:
+        recorder = _Recorder()
+        cls(command_runner=recorder).run(request)
+        for name in own & set(os.environ):
+            assert recorder.env[name] != ""  # every set own auth var survives
+        for name in foreign | set(undeclared):
+            assert name not in recorder.env
+        # Credential-shaped AWS vars are gone; the non-secret region stays.
+        assert "AWS_ACCESS_KEY_ID" not in recorder.env
+        assert "AWS_SECRET_ACCESS_KEY" not in recorder.env
+        assert "AWS_SESSION_TOKEN" not in recorder.env
+        assert recorder.env["AWS_REGION"] == "us-east-2"
+        # The cell contract still rides on top of the scrubbed base.
+        assert recorder.env["COURT_ID"] == COURT

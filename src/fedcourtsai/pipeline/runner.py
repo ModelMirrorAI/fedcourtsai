@@ -43,8 +43,9 @@ scoring is exactly the consume path under test); only the prediction is replayed
 from __future__ import annotations
 
 import os
+import re
 import subprocess
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -336,8 +337,9 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate), and the model the
     engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
     field). ``DECIDED_BEFORE`` appears only on back-test replay cells (the live
-    workflows never set ``decided_before``). Auth and any other secrets are
-    inherited from the ambient environment, never assembled here.
+    workflows never set ``decided_before``). Auth is never assembled here: the
+    agent inherits it from the scrubbed base environment
+    (:func:`_agent_base_env`), which passes through only the engine's own.
     """
     actor_var = "PREDICTOR_ID" if request.role == UsageRole.predictor else "EVALUATOR_ID"
     env = {
@@ -427,20 +429,60 @@ def _run_subprocess(argv: Sequence[str], env: Mapping[str, str]) -> int:
         raise EngineUnavailable(str(argv[0])) from exc
 
 
+# Any env name of this shape confers — or points at — a credential. Shape-based
+# rather than an enumerated list (the same family the Gemini CLI's sanitizer
+# hard-filters), so the posture holds for names nobody thought to enumerate: a
+# dev shell's GitHub or CourtListener token, a service-account file pointer, an
+# SSH agent socket — not just the provider keys the runners declare.
+_CREDENTIAL_SHAPE = re.compile(r"TOKEN|SECRET|PASSWORD|CREDENTIAL|API_KEY|AUTH")
+
+# AWS_* variables the agent may keep: region names are non-secret routing
+# config, the same exception the cell workflows' credential-free guard makes.
+_AWS_REGION_VARS = frozenset({"AWS_REGION", "AWS_DEFAULT_REGION"})
+
+
+def _agent_base_env(own_auth: Collection[str]) -> dict[str, str]:
+    """The scrubbed base environment an agent subprocess inherits.
+
+    The calling process legitimately holds cloud credentials (the back-test's
+    corpus pull and mid-replay content-store reads) and every provider's API
+    key, but the agent it spawns must hold only its own engine's auth — the
+    same no-credential-in-agent-env posture the live cell workflows
+    guard-assert before their agent steps. Drops every ``AWS_*`` variable
+    except the region names, and every credential-shaped name
+    (:data:`_CREDENTIAL_SHAPE`) not in ``own_auth``.
+    """
+    keep = set(own_auth)
+    return {
+        name: value
+        for name, value in os.environ.items()
+        if name in keep
+        or not (
+            (name.startswith("AWS_") and name not in _AWS_REGION_VARS)
+            or _CREDENTIAL_SHAPE.search(name)
+        )
+    }
+
+
 @dataclass(frozen=True)
 class AgenticRunner:
     """Drive a headless coding-agent CLI over one cell, off the shared seam.
 
-    Subclasses supply :meth:`build_command`; this overlays the ambient environment
-    with the cell contract, runs the command, fails loudly on a non-zero exit, and
-    returns the artifacts the agent produced at the canonical paths. The
-    ``command_runner`` seam lets tests assert on the built command without spawning
-    an agent.
+    Subclasses supply :meth:`build_command` and name their engine's own auth
+    variables in ``auth_vars``; this overlays a scrubbed ambient environment
+    (:func:`_agent_base_env` — no cloud credentials, no other provider's key)
+    with the cell contract, runs the command, fails loudly on a non-zero exit,
+    and returns the artifacts the agent produced at the canonical paths. The
+    ``command_runner`` seam lets tests assert on the built command without
+    spawning an agent.
     """
 
     backend: str
     engine: Engine
     model: str
+    # The auth variable(s) this engine's CLI reads; every other
+    # credential-shaped name is scrubbed from the spawned environment.
+    auth_vars: tuple[str, ...] = ()
     # Default resolved in run() rather than stored as the field default: a
     # function-valued dataclass default reads to static analysis as a method on
     # the instance, so `self.command_runner(argv, env)` looks like a 3-arg call
@@ -453,7 +495,7 @@ class AgenticRunner:
     def run(self, request: RunRequest) -> list[Path]:
         command = self.build_command(request)
         run_command = self.command_runner or _run_subprocess
-        code = run_command(command.argv, {**os.environ, **command.env})
+        code = run_command(command.argv, {**_agent_base_env(self.auth_vars), **command.env})
         if code != 0:
             raise EngineFailed(
                 f"{self.backend} exited {code} for cell {request.actor_id}/{request.event_id}"
@@ -473,6 +515,11 @@ class ClaudeCodeRunner(AgenticRunner):
     backend: str = "claude-code"
     engine: Engine = Engine.claude_code
     model: str = _CLAUDE_MODEL
+    auth_vars: tuple[str, ...] = (
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+    )
     max_turns: int = _MAX_TURNS
 
     def build_command(self, request: RunRequest) -> EngineCommand:
@@ -502,6 +549,7 @@ class CodexRunner(AgenticRunner):
     backend: str = "codex"
     engine: Engine = Engine.codex
     model: str = _CODEX_MODEL
+    auth_vars: tuple[str, ...] = ("OPENAI_API_KEY",)
 
     def build_command(self, request: RunRequest) -> EngineCommand:
         argv = [
@@ -540,6 +588,11 @@ class GeminiRunner(AgenticRunner):
     backend: str = "gemini"
     engine: Engine = Engine.gemini
     model: str = _GEMINI_MODEL
+    auth_vars: tuple[str, ...] = (
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GOOGLE_APPLICATION_CREDENTIALS",
+    )
 
     def build_command(self, request: RunRequest) -> EngineCommand:
         argv = [

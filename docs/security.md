@@ -273,9 +273,20 @@ alarm bounds the egress-spend abuse case. On-runner step-scoping is a strict
 improvement, not hard isolation: processes of the same runner user are not a
 security boundary against a determined co-resident process; the boundary this
 buys is that no agent's env, config file, or casual file read ever contains a
-credential. One follow-up inherits the old posture: the cert back-test's
-replay cells still take job-wide credentials via `corpus-readonly` (they need
-a full local pull), out of scope here.
+credential. The cert back-test's replay cells hold the same line at a
+different seam: their workflow process legitimately keeps the read-only
+credentials job-wide (`corpus-readonly` — the replay needs a full local pull,
+and under the corpus-split mode mid-replay content-store reads), so the shared
+runner seam spawns each agent CLI from a scrubbed base environment instead —
+every `AWS_*` variable except the region names is dropped, along with every
+credential-shaped name (token/secret/password/credential/api-key/auth) that is
+not the running engine's own declared auth, so the posture holds for names
+nobody enumerated (a dev shell's GitHub token, an SSH agent socket). The
+result matches the live cells — no agent process env carries a cloud
+credential or another provider's key, enforced in one tested seam that also
+covers the local cascade — with one residual stated plainly: unlike a live
+cell, the credentialed process here is the agent's own concurrently-running
+parent, so the same-user non-boundary above is more direct in this job.
 
 **The corpus-split mode constrains the read-only role's policy.**
 **`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `runner`
