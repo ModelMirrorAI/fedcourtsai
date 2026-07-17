@@ -17,14 +17,22 @@ finish inside a generous wall-clock budget, so a pathology — a table scan wher
 a point lookup belongs, a block-cache regression — fails the check instead of
 hiding in a run log. The decisions live here, typed and tested; the workflow
 step is one ``fedcourts corpus-integration-check`` call.
+
+:func:`run_mcp_check` is the same posture pointed at the other sidecar: a
+minimal MCP client (initialize → tools/list over streamable HTTP) that proves
+the tokenless CourtListener MCP sidecar completes the protocol handshake and
+advertises tools — the surface every engine's cell config points at — without
+spending a CourtListener call or needing the token at all.
 """
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
 from pathlib import Path
 
+import httpx
 from pydantic import BaseModel, Field
 
 from . import corpus, corpus_service, ids
@@ -37,7 +45,8 @@ class IntegrationStep(BaseModel):
 
     ``gets`` / ``bytes_fetched`` are the read's ranged transfer counters —
     the egress evidence that a lookup moved KBs, not the blob — and ``None``
-    on the local backend, where nothing is transferred.
+    wherever transfer is not a measured concept (the local backend, the MCP
+    probe's steps).
     """
 
     name: str = Field(description="Which read shape this step exercises")
@@ -190,7 +199,9 @@ def run_service_check(
     if query.rows:
         detail = f"{len(query.rows)} prior(s), first {query.rows[0].get('case_id')}"
     else:
-        detail = f"no resolved priors for court {court}"
+        # The service's data-coverage notes explain a sparse-filter empty
+        # result; surface them so the failed step reads as diagnosis.
+        detail = "; ".join([f"no resolved priors for court {court}", *query.notes])
     steps = [
         IntegrationStep(
             name=f"service query (court {court}, limit {limit})",
@@ -230,10 +241,180 @@ def run_service_check(
     )
 
 
-def render_markdown(report: IntegrationReport) -> str:
+class McpCheckReport(BaseModel):
+    """``fedcourts mcp-integration-check`` verdict, one per run.
+
+    The MCP-sidecar sibling of :class:`IntegrationReport`: same steps/budget
+    shape (so the CLI renders and finishes both the same way), keyed on the
+    probed endpoint URL instead of a corpus case and backend.
+    """
+
+    url: str = Field(description="The MCP endpoint the probe spoke to")
+    steps: list[IntegrationStep] = Field(description="The protocol probes, in execution order")
+    seconds: float = Field(ge=0.0, description="Wall clock for the whole probe")
+    budget_seconds: float = Field(ge=0.0, description="The budget the probe must beat")
+    within_budget: bool = Field(description="seconds <= budget_seconds")
+    ok: bool = Field(description="Every step ok and the budget held")
+
+
+class McpProbeError(RuntimeError):
+    """The MCP sidecar cannot be probed at all — transport failure, a
+    non-success HTTP status, a body that is not a JSON-RPC response, or a
+    JSON-RPC *error* reply (a refusal to converse, e.g. rejecting the
+    protocol version, is graded with the setup problems rather than the
+    protocol disappointments). Mirrors how the corpus checks treat an
+    unreachable backend."""
+
+
+# The protocol revision the pinned CourtListener MCP release speaks; the server
+# echoes the version it settles on, which the initialize step's detail records.
+_MCP_PROTOCOL_VERSION = "2025-03-26"
+
+
+def _mcp_post(
+    client: httpx.Client, url: str, payload: dict[str, object], session_id: str | None
+) -> httpx.Response:
+    """One streamable-HTTP POST to the MCP endpoint; raises on transport failure."""
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "Content-Type": "application/json",
+    }
+    if session_id is not None:
+        headers["Mcp-Session-Id"] = session_id
+    try:
+        response = client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise McpProbeError(f"MCP endpoint {url} unreachable or refusing: {exc}") from exc
+    return response
+
+
+def _mcp_result(response: httpx.Response) -> dict[str, object]:
+    """The JSON-RPC result object from a JSON or SSE-framed response body."""
+    content_type = response.headers.get("content-type", "")
+    message: object = None
+    if "text/event-stream" in content_type:
+        # Streamable HTTP may frame the response as one-shot SSE; the reply is
+        # the first data event carrying a JSON-RPC result or error.
+        for line in response.text.splitlines():
+            if not line.startswith("data:"):
+                continue
+            try:
+                candidate = json.loads(line.removeprefix("data:").strip())
+            except ValueError:
+                # A ping payload or a multi-line data field split by this
+                # line-by-line parse; keep scanning for the JSON-RPC reply.
+                continue
+            if isinstance(candidate, dict) and ("result" in candidate or "error" in candidate):
+                message = candidate
+                break
+    else:
+        message = response.json()
+    if not isinstance(message, dict):
+        raise McpProbeError(f"no JSON-RPC response in a {content_type or 'untyped'} body")
+    if "error" in message:
+        raise McpProbeError(f"JSON-RPC error: {message['error']}")
+    result = message.get("result")
+    if not isinstance(result, dict):
+        raise McpProbeError("JSON-RPC response carried no result object")
+    return result
+
+
+def run_mcp_check(*, mcp_url: str, budget_seconds: float = 120.0) -> McpCheckReport:
+    """Probe the MCP sidecar: complete the handshake, list the tools.
+
+    Two steps, mirroring the corpus checks' shape: ``initialize`` must return
+    a named server (the detail records name, version, and the negotiated
+    protocol revision), and ``tools/list`` must advertise at least one tool
+    (the detail names them). Token-free by design — no tool is *called*, so
+    the probe exercises exactly what a cell's engine client needs before its
+    first CourtListener call, and a sidecar launched without the token still
+    checks green. Transport failures raise :class:`McpProbeError`; a
+    protocol-level disappointment (no server name, an empty tool list)
+    reports as a failed step.
+    """
+    started = time.monotonic()
+    steps: list[IntegrationStep] = []
+    with httpx.Client(timeout=30.0) as client:
+        t0 = time.monotonic()
+        response = _mcp_post(
+            client,
+            mcp_url,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": _MCP_PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {"name": "fedcourts-mcp-integration-check", "version": "0"},
+                },
+            },
+            None,
+        )
+        session_id = response.headers.get("mcp-session-id")
+        result = _mcp_result(response)
+        server_info = result.get("serverInfo")
+        if isinstance(server_info, dict) and server_info.get("name"):
+            initialized = True
+            detail = (
+                f"{server_info.get('name')} {server_info.get('version', '?')} "
+                f"(protocol {result.get('protocolVersion', '?')})"
+            )
+        else:
+            initialized = False
+            detail = "initialize returned no serverInfo.name"
+        steps.append(
+            IntegrationStep(
+                name="initialize", ok=initialized, detail=detail, seconds=time.monotonic() - t0
+            )
+        )
+
+        # The handshake's completion notification — required before further
+        # requests; a notification, so there is no result to parse.
+        _mcp_post(
+            client, mcp_url, {"jsonrpc": "2.0", "method": "notifications/initialized"}, session_id
+        )
+
+        t0 = time.monotonic()
+        response = _mcp_post(
+            client, mcp_url, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, session_id
+        )
+        tools = _mcp_result(response).get("tools")
+        names = (
+            [str(t["name"]) for t in tools if isinstance(t, dict) and t.get("name")]
+            if isinstance(tools, list)
+            else []
+        )
+        steps.append(
+            IntegrationStep(
+                name="tools/list",
+                ok=bool(names),
+                detail=", ".join(names) if names else "the server advertises no tools",
+                seconds=time.monotonic() - t0,
+            )
+        )
+
+    seconds = time.monotonic() - started
+    within_budget = seconds <= budget_seconds
+    return McpCheckReport(
+        url=mcp_url,
+        steps=steps,
+        seconds=seconds,
+        budget_seconds=budget_seconds,
+        within_budget=within_budget,
+        ok=within_budget and all(step.ok for step in steps),
+    )
+
+
+def render_markdown(report: IntegrationReport | McpCheckReport) -> str:
     """The human summary of a report, for the Actions step summary."""
+    if isinstance(report, McpCheckReport):
+        title = f"## CourtListener MCP check — {report.url}"
+    else:
+        title = f"## Corpus integration check — {report.case_id} [{report.backend}]"
     lines = [
-        f"## Corpus integration check — {report.case_id} [{report.backend}]",
+        title,
         "",
         "| read | result | detail | transfer | seconds |",
         "| --- | --- | --- | --- | --- |",
@@ -242,7 +423,7 @@ def render_markdown(report: IntegrationReport) -> str:
         transfer = (
             f"{step.gets} GET(s), {step.bytes_fetched} byte(s)"
             if step.gets is not None and step.bytes_fetched is not None
-            else "n/a (local)"
+            else "n/a"
         )
         verdict = "ok" if step.ok else "**FAILED**"
         lines.append(

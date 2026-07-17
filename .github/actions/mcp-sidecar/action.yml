@@ -1,0 +1,85 @@
+name: CourtListener MCP sidecar
+description: >-
+  Launch the CourtListener MCP server as a tokenless HTTP sidecar: the tested
+  `fedcourts mcp-serve` runs the same pinned package the stdio transport would
+  have spawned, in HTTP mode on localhost. The CourtListener token rides the
+  launch step's env only — the background server inherits it — so the client
+  configs the caller writes afterwards carry a localhost URL and no token: an
+  agent can never read one out of a config file. Launched without a token the
+  server still handshakes and lists tools; only tool *calls* error, and the
+  cell degrades to corpus tooling — which is why the health wait defaults to
+  warn-only (the degraded-upstream posture the prompt contract promises) and
+  the token input itself is optional (the integration-test probe runs
+  token-free on purpose). The corpus query sidecar's sibling
+  (`corpus-sidecar`); one port, 8378, hard-coded here and in the callers'
+  generated configs.
+
+inputs:
+  role:
+    description: The cell role the server is scoped to (predictor | evaluator).
+    required: true
+  actor:
+    description: The actor id (predictor/evaluator id) the server is scoped to.
+    required: true
+  courtlistener-api-token:
+    description: >-
+      The CourtListener API token (pass secrets.COURTLISTENER_API_TOKEN).
+      Optional: unset, tool calls error and the cell degrades to corpus
+      tooling — the shape the integration probe exercises deliberately.
+    required: false
+    default: ""
+  strict-health:
+    description: >-
+      "true" fails the job when the sidecar never becomes healthy — for the
+      integration scenario whose whole point is this sidecar. Default "false"
+      warns and lets the cell degrade, matching the posture from when each
+      engine spawned the server itself and the spawn could fail. Note the
+      strict failure path tails the server log into the run log, so strict
+      callers should be token-free (today's only one is).
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Launch the CourtListener MCP sidecar
+      shell: bash
+      env:
+        COURTLISTENER_API_TOKEN: ${{ inputs.courtlistener-api-token }}
+        MCP_ROLE: ${{ inputs.role }}
+        MCP_ACTOR: ${{ inputs.actor }}
+      run: |
+        set -euo pipefail
+        # An empty token input must reach the server as *unset*, not as an
+        # empty string a client would send in a broken auth header.
+        if [ -z "$COURTLISTENER_API_TOKEN" ]; then
+          unset COURTLISTENER_API_TOKEN
+        fi
+        nohup uv run fedcourts mcp-serve --role "$MCP_ROLE" --actor "$MCP_ACTOR" \
+          --port 8378 > cl-mcp-sidecar.log 2>&1 &
+        echo "$!" > cl-mcp-sidecar.pid
+
+    - name: Wait for the CourtListener MCP sidecar
+      shell: bash
+      env:
+        STRICT_HEALTH: ${{ inputs.strict-health }}
+      run: |
+        set -euo pipefail
+        # 90s budget, not the corpus sidecar's 30: mcp-serve execs into a
+        # fresh `uvx` resolve of the pinned package on a cache-less runner,
+        # which alone can take tens of seconds.
+        for _ in $(seq 1 90); do
+          if curl -fsS http://127.0.0.1:8378/health >/dev/null 2>&1; then
+            exit 0
+          fi
+          if ! kill -0 "$(cat cl-mcp-sidecar.pid)" 2>/dev/null; then
+            break
+          fi
+          sleep 1
+        done
+        if [ "$STRICT_HEALTH" = "true" ]; then
+          echo "::error::CourtListener MCP sidecar failed to become healthy"
+          tail -n 50 cl-mcp-sidecar.log || true
+          exit 1
+        fi
+        echo "::warning::CourtListener MCP sidecar not healthy; the cell degrades to corpus tooling"

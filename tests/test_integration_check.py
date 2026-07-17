@@ -1,9 +1,11 @@
-"""The fixed corpus read set behind ``fedcourts corpus-integration-check``.
+"""The integration probes behind ``fedcourts corpus-integration-check`` and
+``fedcourts mcp-integration-check``.
 
 Exercises :mod:`fedcourtsai.integration_check` over the fixture corpus on the
-local backend, and over moto's S3 stand-in on the ranged backend — the offline
-mirror of what the integration-test workflow dispatches against the real
-remote. No test touches the network.
+local backend, over moto's S3 stand-in on the ranged backend, and against
+fake localhost sidecars for the service and MCP probes — the offline mirror
+of what the integration-test workflow dispatches against the real remote. No
+test touches the network.
 """
 
 from __future__ import annotations
@@ -13,7 +15,9 @@ import json
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import ClassVar
 
 import boto3
 import pytest
@@ -25,8 +29,10 @@ from fedcourtsai.cli import app
 from fedcourtsai.fixture import build_fixture_corpus
 from fedcourtsai.integration_check import (
     IntegrationReport,
+    McpProbeError,
     render_markdown,
     run_integration_check,
+    run_mcp_check,
     run_service_check,
 )
 
@@ -211,3 +217,135 @@ def test_service_check_fails_on_an_unknown_case(corpus_db: Path) -> None:
 def test_service_check_raises_when_the_sidecar_is_down(corpus_db: Path) -> None:
     with pytest.raises(corpus_service.CorpusServiceError):
         run_service_check(service_url="http://127.0.0.1:9", court=COURT, docket=DOCKET)
+
+
+# --- the MCP-sidecar probe ---------------------------------------------------
+
+
+class _FakeMcpHandler(BaseHTTPRequestHandler):
+    """A minimal streamable-HTTP MCP endpoint: initialize, then tools/list.
+
+    Subclass per test to vary the framing (``sse``) and the advertised tools;
+    ``seen_sessions`` records the Mcp-Session-Id each post-handshake request
+    carried, asserted from the test body rather than the handler thread.
+    """
+
+    sse = False
+    tools: ClassVar[list[dict[str, object]]] = [{"name": "search"}, {"name": "lookup_citation"}]
+    seen_sessions: ClassVar[list[str | None]]
+
+    def do_POST(self) -> None:  # BaseHTTPRequestHandler's casing contract
+        length = int(self.headers.get("Content-Length") or 0)
+        payload = json.loads(self.rfile.read(length)) if length else {}
+        method = payload.get("method")
+        if method == "initialize":
+            self._reply(
+                payload["id"],
+                {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "serverInfo": {"name": "fake-cl-mcp", "version": "9.9"},
+                },
+                session="sess-1",
+            )
+        elif method == "notifications/initialized":
+            type(self).seen_sessions.append(self.headers.get("Mcp-Session-Id"))
+            self.send_response(202)
+            self.end_headers()
+        elif method == "tools/list":
+            type(self).seen_sessions.append(self.headers.get("Mcp-Session-Id"))
+            self._reply(payload["id"], {"tools": type(self).tools})
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def _reply(self, rpc_id: object, result: dict[str, object], session: str | None = None) -> None:
+        message = json.dumps({"jsonrpc": "2.0", "id": rpc_id, "result": result})
+        if type(self).sse:
+            body = f"event: message\ndata: {message}\n\n".encode()
+            content_type = "text/event-stream"
+        else:
+            body = message.encode()
+            content_type = "application/json"
+        self.send_response(200)
+        if session is not None:
+            self.send_header("Mcp-Session-Id", session)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_: object) -> None:  # keep the test output quiet
+        pass
+
+
+@contextmanager
+def _mcp_server(handler: type[_FakeMcpHandler]) -> Iterator[str]:
+    handler.seen_sessions = []
+    server = HTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/mcp"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_mcp_check_passes_and_threads_the_session() -> None:
+    class Handler(_FakeMcpHandler):
+        pass
+
+    with _mcp_server(Handler) as url:
+        report = run_mcp_check(mcp_url=url)
+
+    assert report.ok and report.url == url
+    assert [s.name for s in report.steps] == ["initialize", "tools/list"]
+    assert "fake-cl-mcp 9.9" in report.steps[0].detail
+    assert report.steps[1].detail == "search, lookup_citation"
+    # Both post-handshake requests carried the session the server issued.
+    assert Handler.seen_sessions == ["sess-1", "sess-1"]
+    assert f"CourtListener MCP check — {url}" in render_markdown(report)
+
+
+def test_mcp_check_parses_sse_framed_responses() -> None:
+    class Handler(_FakeMcpHandler):
+        sse = True
+
+    with _mcp_server(Handler) as url:
+        report = run_mcp_check(mcp_url=url)
+    assert report.ok, [s.detail for s in report.steps]
+
+
+def test_mcp_check_fails_on_an_empty_tool_list() -> None:
+    class Handler(_FakeMcpHandler):
+        tools: ClassVar[list[dict[str, object]]] = []
+
+    with _mcp_server(Handler) as url:
+        report = run_mcp_check(mcp_url=url)
+    assert not report.ok
+    assert report.steps[0].ok
+    assert not report.steps[1].ok and "no tools" in report.steps[1].detail
+
+
+def test_mcp_check_raises_when_the_sidecar_is_down() -> None:
+    with pytest.raises(McpProbeError):
+        run_mcp_check(mcp_url="http://127.0.0.1:9/mcp")
+
+
+def test_mcp_cli_writes_summary_and_exits_by_verdict(tmp_path: Path) -> None:
+    class Handler(_FakeMcpHandler):
+        pass
+
+    summary_out = tmp_path / "summary.md"
+    with _mcp_server(Handler) as url:
+        passed = CliRunner().invoke(
+            app, ["mcp-integration-check", "--url", url, "--summary-out", str(summary_out)]
+        )
+    assert passed.exit_code == 0, passed.output
+    assert json.loads(passed.stdout)["ok"] is True
+    assert "CourtListener MCP check" in summary_out.read_text()
+
+    down = CliRunner().invoke(app, ["mcp-integration-check", "--url", "http://127.0.0.1:9/mcp"])
+    assert down.exit_code == 2

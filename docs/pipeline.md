@@ -13,7 +13,7 @@ stage.
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (engine/limit params) | Claude Code + Codex (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
-| _(none)_        | `integration-test` | manual dispatch                 | script (no agent)    |
+| _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
@@ -73,13 +73,17 @@ each as its own least-privilege job holding only the credentials its mode needs:
   place by the next tick rather than stacking.
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
-a manual-dispatch, strictly read-only scenario runner over the **corpus read
-backends and the corpus sidecar** against the real corpus remote — the tested
-`fedcourts corpus-integration-check` read set, a cell's-eye probe of the
-service sidecar, or a stub `local-cascade` cell — dispatched around changes to
-corpus access or the corpus-consuming workflows and before releases, from main
-or (via an approval-gated deployment environment) from a PR branch. See
-*Infra-bound integration* in [testing.md](testing.md).
+a manual-dispatch, strictly side-effect-free scenario runner over the **corpus
+read backends, the two sidecars, and cascade cells** against the real corpus
+remote — the tested `fedcourts corpus-integration-check` read set, a
+cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
+sidecar under the tested `mcp-integration-check` client, a stub
+`local-cascade` cell, or (the one token-spending scenario) a single
+real-engine cell over the service sidecar — dispatched around changes to
+corpus access, the sidecars, engine CLIs, or the corpus-consuming workflows
+and before releases, from main or (via an approval-gated deployment
+environment) from a PR branch. See *Infra-bound integration* in
+[testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
@@ -155,7 +159,7 @@ writers). Everything else — a new analysis, a new derived
 artifact, a new maintenance sweep — should land as a mode/job on `run-analytics`
 (or the closest existing surface), reusing the shared composite actions
 (`setup-python-env`, `corpus-readonly`, `corpus-ranged`, `corpus-sidecar`,
-`configure-git-identity`).
+`mcp-sidecar`, `configure-git-identity`).
 
 When you add a new `run:*` workflow or edit one, the existing workflows are the
 canonical reference — each handles these cross-cutting traps inline, so copy the

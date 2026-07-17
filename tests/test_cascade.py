@@ -139,6 +139,42 @@ def test_unknown_engine_is_rejected(corpus_db: Path, tmp_path: Path) -> None:
         _run(corpus_db, data_root, RESOLVED_COURT, RESOLVED_DOCKET, engine="gpt")
 
 
+def test_predictor_filter_narrows_the_fanout_to_one_cell(corpus_db: Path, tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    report = _run(corpus_db, data_root, OPEN_COURT, OPEN_DOCKET, predictor="claude-baseline")
+
+    assert report.valid, report.problems
+    # One predictor pair (prediction.json + reasoning.md), not the whole registry.
+    assert len(report.predictions) == 2
+    assert all("claude-baseline" in p.parts for p in report.predictions)
+
+
+def test_unknown_predictor_is_rejected_naming_the_enabled_ids(
+    corpus_db: Path, tmp_path: Path
+) -> None:
+    with pytest.raises(CascadeError, match=r"not enabled \(have: .*claude-baseline"):
+        _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET, predictor="nope-baseline")
+
+
+def test_explicit_backend_override_beats_the_ambient_setting(
+    corpus_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The engine-smoke split: the ambient setting says `service` for the
+    # spawned agent's benefit, while the cascade's own provisioning reads run
+    # on the explicit override.
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "service")
+    report = _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET, backend="local")
+    assert report.valid, report.problems
+
+
+def test_ambient_service_backend_without_override_is_rejected(
+    corpus_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "service")
+    with pytest.raises(CascadeError, match="local or ranged"):
+        _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET)
+
+
 def test_cascade_is_deterministic(corpus_db: Path, tmp_path: Path) -> None:
     # Same inputs (incl. run id + output root) → byte-identical prediction artifact.
     data_root = tmp_path / "data"

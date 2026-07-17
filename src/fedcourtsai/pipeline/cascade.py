@@ -36,7 +36,7 @@ from typing import Literal
 from .. import corpus, ids
 from ..paths import CasePaths
 from ..registry import enabled_evaluators, enabled_predictors
-from ..schemas import Outcome, PredictableEvent, UsageRole
+from ..schemas import Outcome, PredictableEvent, PredictorConfig, UsageRole
 from ..serialize import write_json, write_raw_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
 from .outcome import disposition_basis, granted_flag, is_machine_readable
@@ -79,6 +79,30 @@ def _select_events(events: list[corpus.CorpusEvent], event: str | None) -> list[
     if not events:
         raise CascadeError("the case has no predictable events in the corpus")
     return events
+
+
+def _provisioning_backend(backend: corpus.CorpusBackend | None) -> corpus.CorpusBackend:
+    """Resolve and vet the backend for the cascade's *own* provisioning reads."""
+    chosen = corpus.resolve_backend(backend)
+    if chosen not in ("local", "ranged"):
+        raise CascadeError(
+            f"cascade provisioning reads need a local or ranged corpus backend, not "
+            f"{chosen!r}; pass an explicit override (--corpus-backend on local-cascade) "
+            "— the spawned agent still inherits the ambient corpus settings"
+        )
+    return chosen
+
+
+def _select_predictors(config_root: Path, predictor: str | None) -> list[PredictorConfig]:
+    """The enabled predictors to fan out over: the one named, or all of them."""
+    predictors = enabled_predictors(config_root / "predictors.yaml")
+    if predictor is None:
+        return predictors
+    chosen = [p for p in predictors if p.id == predictor]
+    if not chosen:
+        available = ", ".join(p.id for p in predictors) or "none"
+        raise CascadeError(f"predictor {predictor!r} is not enabled (have: {available})")
+    return chosen
 
 
 def _outcome_for_resolved(
@@ -124,7 +148,7 @@ def _event_definition(event: corpus.CorpusEvent) -> PredictableEvent:
     )
 
 
-def run_cascade(
+def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one arg each
     *,
     corpus_db_path: Path,
     data_root: Path,
@@ -134,6 +158,8 @@ def run_cascade(
     event: str | None = None,
     engine: str = "stub",
     run_id: str,
+    predictor: str | None = None,
+    backend: corpus.CorpusBackend | None = None,
 ) -> CascadeReport:
     """Run the full predict → evaluate → validate cascade for one case.
 
@@ -148,18 +174,28 @@ def run_cascade(
     :class:`CascadeError` for a missing corpus/case/event and
     :class:`fedcourtsai.pipeline.runner.EngineUnavailable` /
     ``EngineFailed`` for a real-engine problem.
+
+    ``predictor`` narrows the predictor fan-out to one enabled id — a real
+    engine spends real tokens, so a smoke run wants one cell, not three.
+    ``backend`` overrides the ambient corpus-backend setting for the cascade's
+    *own* provisioning reads only. The split matters because the spawned agent
+    inherits the ambient environment (minus credentials): a workflow can point
+    the agent's retrieval at the corpus query sidecar (``service`` in the
+    ambient env) while these in-process reads — which the service surface
+    deliberately does not serve, and :func:`~fedcourtsai.corpus.connect_readonly`
+    therefore rejects — go straight to the blob via ``ranged``.
     """
     runner = get_runner(engine)
     case_id = ids.case_id(court, docket)
     case_paths = CasePaths(data_root, court, docket)
 
-    backend = corpus.resolve_backend()
-    if backend == "local" and not corpus_db_path.exists():
+    chosen_backend = _provisioning_backend(backend)
+    if chosen_backend == "local" and not corpus_db_path.exists():
         raise CascadeError(
             f"no corpus at {corpus_db_path}; run `fedcourts make-fixture-corpus` first"
         )
 
-    with corpus.connect_readonly(corpus_db_path, backend=backend) as conn:
+    with corpus.connect_readonly(corpus_db_path, backend=chosen_backend) as conn:
         row = corpus.get_row(conn, case_id)
         if row is None:
             raise CascadeError(f"case {case_id} is not in the corpus at {corpus_db_path}")
@@ -202,10 +238,12 @@ def run_cascade(
             data_root=data_root,
         )
 
+    predictors = _select_predictors(config_root, predictor)
+
     predictions: list[Path] = []
     for ev in targets:
-        for predictor in enabled_predictors(config_root / "predictors.yaml"):
-            request = _request(UsageRole.predictor, predictor.id, predictor.prompt, ev.event_id)
+        for entry in predictors:
+            request = _request(UsageRole.predictor, entry.id, entry.prompt, ev.event_id)
             predictions.extend(runner.run(request))
 
     evaluations: list[Path] = []
