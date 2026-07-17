@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281412",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search",
+    "fedcourts query (attempted but unavailable)"
+  ],
+  "helpful": [
+    "The response-request history in the snapshot materially improved calibration.",
+    "The petition and opposition exposed both the asserted conflicts and the vehicle objections.",
+    "Paid-fee-class and circuit-specific statpack rates supplied an appropriate baseline."
+  ],
+  "gaps": [
+    "The ranged corpus backend was unreachable because its hostname could not be resolved.",
+    "Only one of the two oppositions listed in the snapshot was provisioned."
+  ],
+  "notes": "The MCP search remained available when the corpus-prior backend failed. No direct network fallback was attempted."
+}

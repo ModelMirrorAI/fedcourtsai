@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281412",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The July 16 snapshot lists separate July 13 oppositions from the Henderson County respondents and the Taft respondents, but documents.json provisions only the Henderson County opposition. The prediction was completed from that opposition and the petition; the missing opposition may contain additional vehicle arguments.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}
