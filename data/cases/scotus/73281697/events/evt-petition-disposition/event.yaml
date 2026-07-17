@@ -1,0 +1,11 @@
+case_id: scotus/73281697
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-04-24'
+resolved: true
+schema_version: '1.0'
+title: Henry L. Klein, the Succession of Frederick P. Heisler v. Lewis Title Insurance
+  Company, Inc.
