@@ -14,6 +14,7 @@ from fedcourtsai.pipeline.outcome import (
     is_machine_readable,
     record_outcomes,
     resolve_case,
+    snapshot_shows_disposition,
     termination_signal,
 )
 from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
@@ -598,6 +599,44 @@ def test_termination_signal_latest_entry_rule_holds_on_the_live_shape() -> None:
         ],
     }
     assert termination_signal(docket) is None
+
+
+def test_snapshot_shows_disposition_catches_a_cbj_grant_masked_by_trailing_cleanup() -> None:
+    # The leak shape (scotus/25-243): a cert-before-judgment GRANT is decided,
+    # but the docket tail carries post-disposition cleanup ("Judgment Issued", a
+    # stay application denied as moot). termination_signal (latest entry) misses
+    # it; the whole-snapshot scan the provisioning leakage guard uses catches it.
+    docket = {
+        "CaseNumber": "25-243 ",
+        "ProceedingsandOrder": [
+            {"Date": "May 11 2026", "Text": "Motion to expedite GRANTED."},
+            {
+                "Date": "May 11 2026",
+                "Text": "Petition for writ of certiorari before judgment GRANTED.",
+            },
+            {"Date": "May 11 2026", "Text": "Judgment Issued."},
+            {
+                "Date": "May 11 2026",
+                "Text": "Application (25A1229) denied as moot by Justice Thomas.",
+            },
+        ],
+    }
+    assert termination_signal(docket) is None  # latest-entry rule still misses it
+    signal = snapshot_shows_disposition(docket)
+    assert signal is not None and "certiorari before judgment GRANTED" in signal
+
+
+def test_snapshot_shows_disposition_none_for_a_pending_snapshot() -> None:
+    # No disposition-shaped entry anywhere — a live, pending petition.
+    docket = {
+        "CaseNumber": "25-900 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
+            {"Date": "Jul 01 2026", "Text": "Brief of respondents in opposition filed."},
+            {"Date": "Jul 08 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."},
+        ],
+    }
+    assert snapshot_shows_disposition(docket) is None
 
 
 def test_disposition_basis_reads_the_payload_and_threads_into_the_outcome() -> None:

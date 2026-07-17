@@ -109,7 +109,11 @@ def appears_decided(row: CorpusRow) -> bool:
 # This is a high-recall *routing* backstop that also feeds the forward-cell
 # provisioning refusal (``provision-snapshot --refuse-terminal``): a match
 # diverts a decided-looking case out of the forward-predict queue for triage
-# (``predict_skipped_decided``), or leaves a fanned-out cell snapshot-less. It
+# (``predict_skipped_decided``), or leaves a fanned-out cell snapshot-less.
+# Routing (``termination_signal``) reads only the latest entry (pendency, so a
+# reactivation reopens the docket); the provisioning leakage guard
+# (``snapshot_shows_disposition``) scans every entry with no reactivation
+# exception (the outcome must not be legible anywhere in the cell's snapshot). It
 # never records an ``outcome.json``, so — unlike broadening the resolving
 # instrument (:func:`fedcourtsai.pipeline.cert_signals.match_disposition_signal`) —
 # a false positive is cheap (a case parked for triage or one degraded cell, its
@@ -198,6 +202,29 @@ def termination_signal(docket: Mapping[str, Any]) -> str | None:
     last_description = descriptions[-1] if descriptions else ""
     if last_description and _TERMINAL_ENTRY_RE.search(last_description):
         return f"latest docket entry reads as terminal: {last_description!r}"
+    return None
+
+
+def snapshot_shows_disposition(docket: Mapping[str, Any]) -> str | None:
+    """A terminal disposition visible **anywhere** in the snapshot, or ``None``.
+
+    The whole-snapshot counterpart of :func:`termination_signal` for the
+    forward-cell provisioning leakage guard. The question here is not docket
+    *pendency* (:func:`termination_signal`'s latest-entry, reactivation-aware
+    rule) but whether the outcome is *visible in the snapshot a forward cell
+    would read* — so it deliberately scans every entry and takes no reactivation
+    exception: once a disposition order sits in the snapshot, a predictor can
+    read it even if a later filing reopened the docket. Uses the same high-recall
+    :data:`_TERMINAL_ENTRY_RE` as the routing backstop (a false positive only
+    parks a cell snapshot-less), which catches the shapes the resolver
+    deliberately omits — the cert-before-judgment grant, the merits judgment,
+    "Judgment Issued" — that trailing administrative notations ("Application ...
+    denied as moot") hide from the latest-entry rule. Pure, over either payload
+    shape (:func:`entry_descriptions`).
+    """
+    for description in entry_descriptions(docket):
+        if _TERMINAL_ENTRY_RE.search(description):
+            return f"snapshot entry reads as terminal: {description!r}"
     return None
 
 
