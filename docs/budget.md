@@ -96,6 +96,28 @@ scoring is itself ≈$0 (a deterministic pure function of corpus features, no mo
 call), so the gate spends nothing to *decide* what the tournament runs on. Raising
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
 
+**Monthly spend by provider.** The per-case cost splits across the three API
+bills (measured predict means per engine; evaluate projected at the same
+per-run means, three judge-runs per provider per case), so at a cadence of `C`
+tournamented cases per month each provider's bill is its per-case line × `C`:
+
+| Provider (engine) | Predict $/case | Evaluate $/case (proj.) | $/case | Share | At `C` = 150/mo |
+|-------------------|---------------:|------------------------:|-------:|------:|----------------:|
+| Anthropic (`claude-fable-5`) | $4.06 | $12.18 | $16.24 | ≈66% | ≈$2,440 |
+| OpenAI (`gpt-5.6-sol`) | $1.51 | $4.53 | $6.04 | ≈24% | ≈$910 |
+| Google (`gemini-3.1-pro-preview`) | $0.61 | $1.83 | $2.44 | ≈10% | ≈$370 |
+| **Total** | **$6.18** | **$18.54** | **≈$25** | | **≈$3.7K** |
+
+Two-thirds of every inference dollar goes to Anthropic — size that provider's
+spend limit accordingly, and expect a limit breach there to cost a third of a
+run's coverage (the other engines are billed independently). The `C` = 150
+column is a reference Term month at the per-conference cap; mid-Term cohorts
+run well under it (median ~11 petitions per conference), while September's
+long-conference month is the peak — clearing the summer backlog at the
+larger cap is ≈200 × $25 ≈ $5K, the bootstrapping envelope. Until evaluate
+goes live only the predict column is being spent (≈$6.18/case, ≈$930 at
+`C` = 150).
+
 ### 2. CourtListener API (membership for pull throughput)
 
 Historical loading walks the supremecourt.gov docket JSON — $0, no rate limit.
