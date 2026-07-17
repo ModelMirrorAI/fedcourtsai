@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import httpx
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, supremecourt
@@ -94,6 +95,51 @@ def test_select_documents_petition_and_bio_never_qplink() -> None:
         (KIND_BRIEF_IN_OPPOSITION, "https://example/bio.pdf"),
     ]
     assert all("qp" not in r.url for r in refs)  # QPLink leaks the outcome
+
+
+def _bio_url(entry_text: str, *, links: list[dict[str, str]] | None = None) -> str | None:
+    """Run select_documents over a petition + one candidate entry; the BIO url or None."""
+    payload = {
+        "ProceedingsandOrder": [
+            _PAYLOAD["ProceedingsandOrder"][0],  # the petition entry
+            {
+                "Date": "Jul 15 2026",
+                "Text": entry_text,
+                "Links": links
+                or [{"Description": "Main Document", "DocumentUrl": "https://example/bio.pdf"}],
+            },
+        ]
+    }
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    return refs.get(KIND_BRIEF_IN_OPPOSITION)
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        # Real docket phrasings that the "filed ... in opposition" regex missed:
+        "Brief of Scott Fuqua in opposition submitted.",  # 25-1108: submitted, not filed
+        "Brief of respondent Washington filed.",  # 25-901: no "in opposition"
+        "Brief of respondents Philip R. Taft Psy D and Associates, et al. filed.",  # 25-1128
+        "Brief of respondents Bette Eakin, et al. in opposition filed.  VIDED.",  # 25-962
+    ],
+)
+def test_select_documents_recognizes_respondent_and_submitted_bios(entry_text: str) -> None:
+    assert _bio_url(entry_text) == "https://example/bio.pdf"
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        "Brief amicus curiae of the Cato Institute filed.",  # amicus, not a party BIO
+        "Reply of petitioner Acme Corp. filed.",  # petitioner's reply
+        "Supplemental brief of respondent Washington filed.",  # supplemental, not the BIO
+        "Brief of respondent in support of the petition filed.",  # supports cert, not opposition
+        "Waiver of right of respondent Berks County to respond filed.",  # a waiver, no brief
+    ],
+)
+def test_select_documents_excludes_non_opposition_briefs(entry_text: str) -> None:
+    assert _bio_url(entry_text) is None
 
 
 def test_select_documents_latest_bio_supersedes() -> None:

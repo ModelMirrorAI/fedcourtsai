@@ -47,14 +47,40 @@ KIND_PETITION = "petition"
 KIND_BRIEF_IN_OPPOSITION = "brief-in-opposition"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
 
-# The proceedings entries whose links carry each fetched kind. The BIO window
-# is generous — the entry names every respondent ("Brief of respondents Gina
-# Raimondo, Secretary of Commerce, et al. in opposition filed.") — but an
-# amicus brief is excluded in code, not by the pattern.
+# The proceedings entry whose link carries the petition PDF. The BIO entry is
+# matched by :func:`_is_bio_entry` below (its phrasing varies more).
 _PETITION_ENTRY_RE = re.compile(
     r"petition for a writ of certiorari(?: and motion\b[^.]*)? filed", re.IGNORECASE
 )
-_BIO_ENTRY_RE = re.compile(r"brief\b.{0,120}\bin opposition\b.{0,30}\bfiled", re.IGNORECASE)
+# A respondent's brief opposing the petition, as it reads on the docket. Two
+# phrasings appear: the explicit "... in opposition ...", and — once the Court
+# has called for a response — the bare "Brief of respondent(s) X ...". Both post
+# as "filed" or, the day they land (before the Clerk formally accepts them),
+# "submitted"; matching only "filed ... in opposition" systematically missed
+# both a just-submitted BIO and a respondent's response brief that omits the
+# "in opposition" words. Amicus / petitioner / reply / supplemental / in-support
+# briefs are not oppositions.
+_BIO_VERB_RE = re.compile(r"\b(?:filed|submitted)\b", re.IGNORECASE)
+_BIO_OPPOSITION_RE = re.compile(r"\bin opposition\b", re.IGNORECASE)
+_BIO_RESPONDENT_BRIEF_RE = re.compile(r"\bbrief\s+of\s+respondents?\b", re.IGNORECASE)
+_BIO_EXCLUDE_RE = re.compile(
+    r"\bamic|\breply\b|\bsupplement|\bpetitioner\b|\bin support\b", re.IGNORECASE
+)
+
+
+def _is_bio_entry(text: str) -> bool:
+    """Whether a proceedings entry is a respondent's brief in opposition.
+
+    Requires a filed/submitted brief that is either explicitly "in opposition"
+    or a respondent's brief (the response the Court called for), and is not an
+    amicus, petitioner, reply, supplemental, or in-support brief.
+    """
+    if "brief" not in text.lower() or not _BIO_VERB_RE.search(text):
+        return False
+    if _BIO_EXCLUDE_RE.search(text):
+        return False
+    return bool(_BIO_OPPOSITION_RE.search(text) or _BIO_RESPONDENT_BRIEF_RE.search(text))
+
 
 # Where the questions-presented section of a petition ends: the next standard
 # front-matter heading. Petitions front the QP page, so the section runs from
@@ -132,7 +158,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
             found = _entry_link(entry, prefer="petition")
             if found is not None:
                 petition = DocumentRef(KIND_PETITION, found[0], entry_date, found[1])
-        elif _BIO_ENTRY_RE.search(text) and "amic" not in text.lower():
+        elif _is_bio_entry(text):
             found = _entry_link(entry, prefer="main document")
             if found is not None:
                 bio = DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, found[1])
