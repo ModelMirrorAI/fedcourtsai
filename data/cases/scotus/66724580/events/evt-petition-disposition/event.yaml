@@ -1,0 +1,10 @@
+case_id: scotus/66724580
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-08-28'
+resolved: true
+schema_version: '1.0'
+title: Candice Lue, Petitioner v. JPMorgan Chase & Co., et al.

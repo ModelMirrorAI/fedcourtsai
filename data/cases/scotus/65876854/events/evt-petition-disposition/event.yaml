@@ -1,0 +1,11 @@
+case_id: scotus/65876854
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-07-11'
+resolved: true
+schema_version: '1.0'
+title: Cora Kerton, Petitioner v. Society Hill at Droyers Point Condominium Association,
+  et al.

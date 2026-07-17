@@ -1,0 +1,10 @@
+case_id: scotus/16938428
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-08-05'
+resolved: true
+schema_version: '1.0'
+title: Department of Homeland Security, et al., Petitioners v. Vijayakumar Thuraissigiam

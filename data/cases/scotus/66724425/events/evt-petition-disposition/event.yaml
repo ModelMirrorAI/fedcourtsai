@@ -1,0 +1,11 @@
+case_id: scotus/66724425
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-07-17'
+resolved: true
+schema_version: '1.0'
+title: Lexington H-L Services, Inc., dba Lexington Herald Leader, Petitioner v. Lexington-Fayette
+  Urban County Government

@@ -1,0 +1,11 @@
+case_id: scotus/17128564
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-08-08'
+resolved: true
+schema_version: '1.0'
+title: Agency for International Development, et al., Petitioners v. Alliance for Open
+  Society International, Inc., et al.
