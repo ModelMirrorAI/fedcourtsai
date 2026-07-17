@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281702",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus reads)",
+    "metrics/statpack.md + statpack.json",
+    "CourtListener MCP search (dockets + opinions)",
+    "provisioned snapshot and filed-document text"
+  ],
+  "helpful": [
+    "statpack.json per-fee-class Term detail (paid ~5.4% vs IFP ~1.1%) — the single most useful base-rate cut for this cell",
+    "provisioned petition.txt including the full lower-court opinion in the appendix — enough to assess the vehicle without any PDF fetching",
+    "CourtListener opinion search to confirm no SCOTUS merits precedent on the question"
+  ],
+  "gaps": [
+    "statpack has no call-for-response (CFR) cut — the dominant docket signal here had to be weighed from general knowledge rather than corpus data",
+    "the 'Segment base rate by salience band' table the predict prompt points to is absent from the committed statpack version",
+    "fedcourts query --citation matched nothing (citations appear unpopulated for modern cert dockets), so topical prior retrieval from the corpus was effectively unavailable",
+    "no way to retrieve outcomes of prior SCOTUS petitions raising the same QP (issue-level prior petitions) — CourtListener SCOTUS docket full-text search returned nothing"
+  ],
+  "notes": "Forward cell, clean inputs. The BIO does not exist yet (extended to 2026-07-24), so the prediction rests on the petition side plus docket signals; a CFR-conditioned base rate in the statpack would have tightened calibration materially."
+}

@@ -1,0 +1,366 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "bcd082dd63c2d74f",
+      "query": "{\"strategic_intent\": \"Understanding the prediction task requirements from the prompt contract.\", \"summary\": \"I will read .github/prompts/predict.md and AGENTS.md to understand the exact task I need to perform, including which files to write and what the prediction entails for the given parameters.\", \"title\": \"Understanding Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:21.672Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:23.819Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:23.819Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "449ec6e5afaab3b1",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281345\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:31.817Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f93a3e32355dccbf",
+      "query": "find data/cases/scotus/73281345 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:34.323Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10b7612817e163de",
+      "query": "{\"strategic_intent\": \"Reading input files and schemas for the prediction cell.\", \"summary\": \"I will read the schemas to ensure correct output structure and then read the case context, event definition, and provided snapshots/documents to formulate the prediction.\", \"title\": \"Reading Inputs and Schemas\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:38.760Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "c7175f5f48fa62d2",
+      "query": "cat data/cases/scotus/73281345/record/context.json data/cases/scotus/73281345/events/evt-petition-disposition/event.yaml data/cases/scotus/73281345/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:42.257Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e14446df025bab4",
+      "query": "cat data/cases/scotus/73281345/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:46.861Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "65329bb1b9c5c892",
+      "query": "cat data/cases/scotus/73281345/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:46.862Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "98a78b7d83461e37",
+      "query": "cat metrics/statpack.md | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.291Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:53.503Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:56.918Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e9c039072c1de730",
+      "query": "cat metrics/statpack.md | grep -i -A 10 \"salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:59.806Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fff9d41147547014",
+      "query": "cat metrics/statpack.md | grep -i -A 10 \"Segment base rate\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:02.125Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "852965856b46d0f2",
+      "query": "\"United States v. Elkins\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:07.028Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "ccb2b5385d163930",
+      "query": "\"United States v. Chavarria\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:10.707Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "e4b79a1c78eb5e65",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"circuit split commerce clause instrumentality categorical approach\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:16.197Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:19.893Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0132189bfaa6c8e9",
+      "query": "uv run fedcourts query --court scotus --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:23.864Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8a09081b403f0c19",
+      "query": "uv run fedcourts query --court scotus --limit 5 --corpus-backend ranged",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:28.093Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "67f727ce6893b7b1",
+      "query": "cat data/cases/scotus/73281345/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:33.578Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "54401890fc639a78",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 '\"properties\": {'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:42.779Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "802cfa5505158f09",
+      "query": "cat schemas/prediction.schema.json | jq '.properties | keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:45.660Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1797af1eac31956f",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.properties | keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:48.283Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "12c32846e9b25cc7",
+      "query": "cat schemas/prediction.schema.json | jq '.properties.predicted_disposition'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:50.926Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7dbbce5598bab8ce",
+      "query": "cat schemas/prediction.schema.json | jq '.\"$defs\".Disposition'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:53.640Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e9c4e5c55c78e3e3",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 20 '\"properties\": {'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:06.807Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bb5d75e79f06625a",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.required'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:09.995Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8b10c67179f34063",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.properties.role'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:12.333Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c8ade382f62bee55",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.\"$defs\".UsageRole'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:14.748Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "13bbdda15f9747c7",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.properties.used_base_rates'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:17.294Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e3e58622dcddb2f8",
+      "query": "cat schemas/prediction.schema.json | jq '.required'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:23.922Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc56b4e9c5472d3b",
+      "query": "cat schemas/prediction.schema.json | jq '.properties.engine'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:27.985Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a8884b7ff94525e",
+      "query": "cat schemas/prediction.schema.json | jq '.\"$defs\".Engine'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:33.576Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "43f8702350fd4700",
+      "query": "cat schemas/prediction.schema.json | jq '.properties.granted'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:36.157Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a890fe27b813a94c",
+      "query": "cat schemas/prediction.schema.json | jq '.properties.probability'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:38.777Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "50e4c1fb116472f1",
+      "query": "mkdir -p data/cases/scotus/73281345/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:42.593Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "264c8422682e8814",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281345\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:29:07Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.20,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.8,\\n  \\\"big_case_rationale\\\": \\\"Directly implicates ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:47.060Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2ad60156207636e2",
+      "query": "{\"content\": \"# Reasoning: Holly Ann Elkins v. United States\\n\\n## The Legal Question\\nThe core issue is whether the Fifth Circuit's categorical approach to \\\"instrumentalities of interstate commerce\\\" is constitutional under the Commerce Clause, specifically concerning mobile phones. The Fifth Circuit (*United States v. Elkins*, 2025) held that phones are categorically instrumentalities of interstate commerce, whereas the Tenth Circuit (*United States v. Chavarria*, 2025) rejected a categorical ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:54.158Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7e60df35abe61c12",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Consulted `metrics/statpack.md` to establish modern discretionary-cert base rates (general grant rate ~3.2%; Fifth Circuit origin grant rate ~4.8%).\\n- Executed MCP CourtListener search (`court: [\\\"ca5\\\"], q: \\\"United States v. Elkins\\\"`) to verify the Fifth Circuit decision and found cluster 10750700 (161 F.4th 899).\\n- Executed MCP CourtListener search (`court: [\\\"ca10\\\"], q: \\\"United States v. Chavarria\\\"`) to verify the Tenth Circuit decision and found clust",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:58.160Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "daef2174fd9b52e7",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281345\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"mcp_courtlistener_search was helpful to confirm the existence and citations of the split cases.\\\",\\n    \\\"statpack.md provided necessary baseline probabilities.\\\"\\n  ],",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:02.168Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:06.547Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "82c05cf00da9941a",
+      "query": "gh issue comment 727 -b \"Completed prediction run for scotus/73281345 (evt-petition-disposition) as gemini-baseline.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:10.551Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b9f98f418abd1112",
+      "query": "{\"strategic_intent\": \"Completed prediction task.\", \"summary\": \"I have analyzed the provided inputs and CourtListener data to formulate a prediction for the petition's disposition in scotus/73281345. I authored the requisite output artifacts (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`), passed the data validation step, and am now complete.\", \"title\": \"Prediction Task Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:14.197Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281345",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,5 @@
+- `fedcourts query --help` (Checking commands available).
+- CourtListener MCP lookup: `search` for `"strict scrutiny" "First Amendment" "sitting judges"` with court=scotus (returned cases like *Williams-Yulee v. Florida Bar*, 575 U.S. 433 and *Republican Party of Minnesota v. White*, 536 U.S. 765).
+- Read provisioned inputs: `context.json`, `2026-07-17.json`, `documents.json`, `questions-presented.txt`.
+- Read snippets of `brief-in-opposition.txt` and `petition.txt` to evaluate the claimed circuit split and vehicle issues.
+- Read `metrics/statpack.md` to establish the baseline grant rate for recent terms (Term 2025: 2.5% grant rate).

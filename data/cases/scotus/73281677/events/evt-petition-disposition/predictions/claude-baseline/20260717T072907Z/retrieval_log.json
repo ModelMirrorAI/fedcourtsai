@@ -1,0 +1,238 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3373ad4ec3ab4a9f",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677 -type f | head -50",
+      "result_digest": "60e686f46c9d754b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "327cfc9bf4bb8031",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a75e95875bbe1cdd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "96cacfc627186788",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e3e77ba211496363",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "d46b512c3b473cbe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "44c8f23dbf0a3e86",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/record/documents/documents.json\"}",
+      "result_digest": "9221d4423e9d19ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "65972988a03e8556",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/record/documents/questions-presented.txt\"}",
+      "result_digest": "29907dd758fc9ff9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "93163081cff67a4c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/record/documents/petition.txt\"}",
+      "result_digest": "eb51ecfe43df0dff",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ed7b938de3f66da7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "bd42c9b819ade11f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a357ca41a12e1a2d",
+      "query": "grep -n -A 30 \"Modern discretionary-cert petitions by disposition\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "6cabb2334a3b751d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "aad836dc944cccff",
+      "query": "grep -n -B2 -A 25 \"salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -80; echo ---; grep -n -A 15 \"relist count\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -25",
+      "result_digest": "45d61d5a9fa29924",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6180264a81fc1e71",
+      "query": "grep -n \"^##\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md; echo ---; grep -n -A 20 \"fee\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "a4f9e83aba1ae7bf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6bc4143186a3add6",
+      "query": "uv run fedcourts query --court scotus --citation \"10 U.S.C. \u00a7 866\" --limit 5 2>&1 | tail -10",
+      "result_digest": "4a9776741be9dc8d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a84b7d838939c7c6",
+      "query": "uv run fedcourts query --court scotus --citation \"597 U.S. 1\" --limit 5 2>&1 | tail -8",
+      "result_digest": "4a9776741be9dc8d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "339007a6411f8bdc",
+      "query": "Zhong v. United States",
+      "result_digest": "8097cef6d99fc100",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "1e52f446a8fd31eb",
+      "query": "Zhong",
+      "result_digest": "ec7f223996fc9243",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "9dee3748a90b5479",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281677/events/evt-petition-disposition/predictions/claude-baseline/20260717T072907Z",
+      "result_digest": "4d61fb1a4078b5fc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "23a029064ebfdb98",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281677\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:40:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281677/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "e4e43562e924a1ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fcabd212f1f2ccb0",
+      "query": "{\"content\": \"# Myslow v. United States, No. 25-1148 \\u2014 cert petition disposition\\n\\n**Prediction: denied. P(grant, GVR included) \\u2248 0.01.**\\n\\n## The case\\n\\nSecond Lieutenant Parker C. Myslow pleaded guilty at an Air Force general\\ncourt-martial to using delta-8 and delta-9 THC (violation of a general\\nregulation, Art. 92 UCMJ, and wrongful use of a controlled substance,\\nArt. 112a UCMJ) and was sentenced to dismissal. Under then-operative Air Force\\nregulations, a judge advocate signed",
+      "result_digest": "6f0505661e36f6c2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ec0612f88bc5831c",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281677 / evt-petition-disposition / claude-baseline / 20260717T072907Z\\n\\nMode: `forward` (retrieval unrestricted).\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --citation \\\"10 U.S.C. \\u00a7 866\\\" --limit 5`\\n  \\u2192 no matching priors returned.\\n  stderr: `ranged corpus reads: 420 GET(s), 110100480 byte(s)`\\n- `uv run fedcourts query --court scotus --citation \\\"597 U.S. 1\\\" --limit 5`\\n  \\u2192 no matching priors returned.\\n  std",
+      "result_digest": "49c6fa62ddd37964",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "91f7cb9371278afa",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281677\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition + BIO full text \\u2014 the BIO's companion-case history (Schneider/Dominguez-Garcia/John",
+      "result_digest": "80bbb4cb629b7979",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "29705bc8992c36b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a3ca2ce9e4c7b41f",
+      "query": "gh issue comment 727 --repo \"$GITHUB_REPOSITORY\" --body \"claude-baseline / 20260717T072907Z \u2014 scotus/73281677 (Myslow v. United States, No. 25-1148), evt-petition-disposition: **denied**, P(grant) \u2248 0.01. Identical QP was denied twice this Term (Schneider, No. 25-685, consolidating 13 cases; Dominguez-Garcia, No. 25-730), no split on the Art. 66(d)(2) question, and the Air Force's Feb 2026 guidance memo removed First Indorsements going forward. Outputs written and \\`fedcourts validate data\\` pas",
+      "result_digest": "92abf571d53fa415",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281677",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

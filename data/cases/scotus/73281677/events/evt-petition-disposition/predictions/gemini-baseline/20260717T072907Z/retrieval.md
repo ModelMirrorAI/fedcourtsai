@@ -1,0 +1,2 @@
+- Consulted `metrics/statpack.md` to identify the base rate of grants for discretionary-cert dockets.
+- No CourtListener or corpus queries were necessary because the provisioned Brief in Opposition directly referenced recent dispositive Supreme Court actions (cert denied in *Johnson*, No. 25-682 and *Schneider*, No. 25-685) and an Air Force Guidance Memorandum from February 2026 that resolves the issue prospectively.

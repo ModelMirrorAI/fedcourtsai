@@ -1,0 +1,302 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "5bd348a97914dc3a",
+      "query": "{\"strategic_intent\": \"Reading the prompt constraints and agent instructions to perform the prediction.\", \"summary\": \"I am starting the prediction task by reading `.github/prompts/predict.md` and `AGENTS.md` to understand the exact output contract, file paths, and predictor behavior expected for this cell.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:06.891Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:06.900Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:06.900Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2a84fd898e8c3135",
+      "query": "{\"strategic_intent\": \"Locating and reading the provisioned inputs for this specific case and event cell.\", \"summary\": \"I am exploring the `data/cases/scotus/73281702` directory to find the provisioned snapshot, event definition, and any document texts. I will also read the schema for the prediction output to ensure my response strictly conforms.\", \"title\": \"Reading Provisioned Inputs and Schema\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:12.836Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:12.862Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b8b27f6a3c95ea3b",
+      "query": "ls -la data/cases/scotus/73281702/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:12.862Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7ee7f4ddb381e793",
+      "query": "{\"strategic_intent\": \"Resolving the exact paths to the provisioned inputs using the fedcourts CLI.\", \"summary\": \"I need to locate the provisioned snapshot, record context, and document texts for docket 73281702. I'm executing the `fedcourts paths` command as instructed by the prediction prompt to find where these files reside in the workspace.\", \"title\": \"Resolving Input Paths\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:16.202Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "db4c4c6c1c7807ea",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281702\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:16.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "20f0d18e3392148c",
+      "query": "find data/cases/scotus/73281702/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:20.110Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "68a420840a65a522",
+      "query": "{\"strategic_intent\": \"Reading the snapshot, document text, and event context to perform the prediction.\", \"summary\": \"I am now reading all the provisioned inputs from the `data/cases/scotus/73281702` directory. This includes the snapshot (`2026-07-17.json`), document metadata, the questions presented from the petition, the petition itself, and the event definition. I will also read the context to determine if this is a forward or replay cell.\", \"title\": \"Reading Case Record and Documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:24.896Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "73ffd33a204ac586",
+      "query": "cat data/cases/scotus/73281702/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:24.918Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c334152bcd5b4f07",
+      "query": "cat data/cases/scotus/73281702/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:24.919Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0b017e14c388defd",
+      "query": "cat data/cases/scotus/73281702/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:24.919Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "536585502e11209c",
+      "query": "cat data/cases/scotus/73281702/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:24.919Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "64b662750cf1ac9d",
+      "query": "cat data/cases/scotus/73281702/record/documents/petition.txt | head -n 100",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:28.654Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1f4a89e1fbdb56eb",
+      "query": "cat data/cases/scotus/73281702/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:28.654Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5be947335bede25c",
+      "query": "uv run fedcourts query --era roberts \"Texas continuous sexual abuse unanimous jury Ramos\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:35.141Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "94e3760fe6728f31",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:38.257Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "db4c4c6c1c7807ea",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281702\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:41.242Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "22cbf5e227d0878e",
+      "query": "\"21.02\" unanimous",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:44.465Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "bc549056c8008030",
+      "query": "\"continuous sexual abuse\" unanimous",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:46.922Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "36dc9b577c397276",
+      "query": "\"continuous sexual abuse\" unanimous",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:49.444Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "56081bba18b32444",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:53.476Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3b135746ef09ec37",
+      "query": "cat data/cases/scotus/73281702/record/documents/petition.txt | grep -A 30 \"REASONS FOR GRANTING\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:01.413Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0e3708f58c02f84a",
+      "query": "mkdir -p data/cases/scotus/73281702/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:06.937Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf0f113185e48c93",
+      "query": "{\"strategic_intent\": \"Writing the predicted outputs and saving the prediction rationale.\", \"summary\": \"I have formulated my prediction: a denial of the petition. While the Court requested a response, indicating some interest in the *Ramos* unanimity issue for continuous offenses, the petition does not demonstrate a mature circuit split. I am now writing `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` to the output directory.\", \"title\": \"Writing Predictions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:27.186Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "354d0bdd8e66bf91",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281702\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:29:07Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281702/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.04,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:27.192Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "62387ce26b098f29",
+      "query": "{\"content\": \"# Prediction for scotus/73281702: evt-petition-disposition\\n\\n## Legal Question\\nDoes the Texas continuous-sexual-abuse statute, which allows a jury to convict without unanimously agreeing on which specific acts of sexual abuse the defendant committed, violate the Sixth and Fourteenth Amendments under *Ramos v. Louisiana*?\\n\\n## Analysis\\nThe petitioner, John David Trice, was convicted under Texas Penal Code \\u00a7 21.02(d), which explicitly provides that \\\"members of the jury are n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:27.197Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b38ebc42c2e8be02",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the CourtListener MCP server.\\n\\nMCP tool calls made:\\n- `mcp_courtlistener_search` with query `\\\"21.02\\\" unanimous` (0 results)\\n- `mcp_courtlistener_search` with query `\\\"continuous sexual abuse\\\" unanimous` (0 results in dockets, 4 results in opinions, revealing no obvious split-inducing SCOTUS precedent)\\n\\nCorpus tool calls made:\\n- Base rates retrieved via `cat metrics/statpack.md | grep -A 20 \\\"Modern discretionary-cert petitions",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:27.201Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c1c3d36dae247b05",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281702\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": \\\"The MCP tool was useful to quickly verify the absence of recent SCOTUS opinions cleanly resolving the 'continuous sexual abuse' unanimity question. The statpack provided basel",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:27.204Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d4058502a92bc75a",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:32.389Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "401dc683893e3ef2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281702\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The MCP tool was useful to quickly verify the absence of recent SCOTUS opinions cleanly resolving the 'continuous sexual abuse' unanimity question.\\\",\\n    \\\"The statpa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:36.225Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a5a8465c2c1b3fd1",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:41.483Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf167a5327ffbd68",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281702\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The MCP tool was useful to quickly verify the absence of recent SCOTUS opinions cleanly resolving the 'continuous sexual abuse' unanimity question.\\\",\\n    \\\"The statpa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:45.623Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1f366731b884e3d1",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:49.991Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "491b6044606fbccf",
+      "query": "{\"strategic_intent\": \"Concluding the prediction task.\", \"summary\": \"I have successfully written the required prediction artifacts to the correct output path for this event, and they have all passed the validation script (`uv run fedcourts validate data`). The workflow will now handle committing and submitting the result via PR.\", \"title\": \"Prediction Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:59:54.139Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281702",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

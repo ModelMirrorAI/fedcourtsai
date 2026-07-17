@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281694",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned filed-document text (questions-presented, petition, brief-in-opposition)"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO full text — the BIO's waiver/vehicle argument (with the trial-court orders in its appendix) was the decisive input and would have been invisible from the docket snapshot alone",
+    "Statpack modern-cert and CVSG/relist cuts as quantitative anchors"
+  ],
+  "gaps": [
+    "fedcourts query returned no rows for citation- or topic-filtered scotus/2020s lookups (three attempts), so no comparable priors could be retrieved; a 'petitions where the Court requested a response after waiver' signal cut in the statpack would have been the most on-point base rate for this cell",
+    "The reply brief (filed Jul 14, 2026) was on the docket but not provisioned; it presumably contests the waiver finding and would have sharpened the vehicle-defect weighing",
+    "This statpack build lacks the salience-band table the prompt points to as the primary anchor"
+  ],
+  "notes": "Forward-mode cell; retrieval stayed within the corpus tooling — the provisioned record was rich enough that live CourtListener retrieval added no expected value before the 9/28/2026 conference."
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281654",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "fedcourts paths",
+    "metrics/statpack.md (committed base rates)",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt + questions-presented.txt (the whole analysis anchors on them)",
+    "statpack relist/CVSG/per-Term cuts for calibrating the CFR upgrade",
+    "CourtListener MCP for confirming the decision below"
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for every topic tried (5 queries, incl. very broad ones like 'tribe') — either the topic index has no coverage here or the matcher is too strict; no similar-prior retrieval was possible",
+    "statpack has no response-requested (CFR) cut — this docket's dominant signal — and the 'Segment base rate by salience band' section the predict prompt references is absent from the committed statpack.md",
+    "no BIO existed yet (SG extension to 2026-07-27); a re-run after the BIO lands would be much better informed"
+  ],
+  "notes": "Forward-mode cell; retrieval kept to 6 calls total. The CFR-after-waiver signal had to be calibrated from general knowledge because no corpus cut conditions on it."
+}

@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73281654",
+  "gaps": [
+    "No local corpus or reachable remote for fedcourts query",
+    "No detailed breakdown by CFR or CVSG inside statpack.md"
+  ],
+  "helpful": [
+    "CourtListener MCP search (found relevant priors)",
+    "statpack.md (for base rates)"
+  ],
+  "notes": "fedcourts query failed with a RangedBackendError because the remote URL was not present in the environment. Reverted to statpack.md.",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query",
+    "statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

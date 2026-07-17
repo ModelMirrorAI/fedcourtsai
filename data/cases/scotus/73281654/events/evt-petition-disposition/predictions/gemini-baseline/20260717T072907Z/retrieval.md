@@ -1,0 +1,4 @@
+- CourtListener MCP search for `Winnemucca Indian Colony` (0 results).
+- CourtListener MCP search for opinions citing `Navajo Nation` and `Winters` (found 5 opinions, including *Arizona v. Navajo Nation*, 599 U.S. 555 (2023)).
+- Attempted `fedcourts query` but encountered a `RangedBackendError` due to missing `corpus_remote_url`.
+- Consulted `statpack.md` and `statpack.json` for base rates, particularly the overall grant rate for Paid cases (approx. 3.0%) and the originating circuit (`cafc`).

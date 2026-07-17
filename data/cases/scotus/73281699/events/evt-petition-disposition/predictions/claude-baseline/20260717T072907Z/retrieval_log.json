@@ -1,0 +1,222 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2f676acee5f2d27e",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699 -type f | head -50",
+      "result_digest": "9ae0a7c305cb0098",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2823950850dca703",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "30b4c9fe5663b297",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "227814f14d4450f8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5782f082f750ecd7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/documents/documents.json\"}",
+      "result_digest": "1ef22ff0a89d3784",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "25b622a6820387ff",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "e38a22e0e935ad77",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e557586f327c18db",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/documents/questions-presented.txt\"}",
+      "result_digest": "4b6c39fd5e75ce9b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ba00fb22cd5b0a4a",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/documents/brief-in-opposition.txt /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "50ab687e66ed2b8b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d971acb0be962b48",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/documents/petition.txt\", \"limit\": 1200}",
+      "result_digest": "882df4d89afdfe9e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0bd52c8ec0c9fa0b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "a4506d1aa0867d3f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ae3e1602466b601f",
+      "query": "uv run fedcourts paths --court scotus --docket 73281699 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "943e68085b034d1d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e44e50dd993bb65d",
+      "query": "uv run fedcourts query --court scotus --citation \"Republican Party of Minnesota v. White\" --citation \"Williams-Yulee v. Florida Bar\" --citation \"Pickering v. Board of Education\" --era 2020s --corpus-backend ranged 2>querystderr.txt | head -20; echo \"--- stderr:\"; cat querystderr.txt",
+      "result_digest": "fe4e872465c85089",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "53d52c858cdf61bd",
+      "query": "uv run fedcourts query --court scotus --citation \"Pickering\" --era 2020s --corpus-backend ranged 2>q2err.txt | head -10; echo \"--- stderr:\"; cat q2err.txt; echo; uv run fedcourts query --court scotus --topic \"First Amendment\" --era 2020s --corpus-backend ranged 2>q3err.txt | head -10; echo \"--- stderr:\"; cat q3err.txt",
+      "result_digest": "4cb9534762ac01c9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "3aacf5ea3cebfffc",
+      "query": "Cohen v. Judicial Conduct Board of Pennsylvania certiorari 25-1215 Supreme Court judge Facebook First Amendment",
+      "result_digest": "bd2f2a892e34ba43",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "9e3ec9dfcf79a93e",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281699/events/evt-petition-disposition/predictions/claude-baseline/20260717T072907Z",
+      "result_digest": "973638cba186fe03",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "23e8f8cc85975d47",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281699\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:47:28Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281699/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.1,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "d6a58b73ee4c5466",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "10d3f615447f99d4",
+      "query": "{\"content\": \"# Cohen v. Judicial Conduct Board of Pennsylvania, No. 25-1215 \\u2014 cert prediction\\n\\n**Prediction: deny. P(grant, GVR included) = 0.10.**\\n\\n## The case\\n\\nMark B. Cohen, a former 42-year Democratic Pennsylvania legislator elected in 2017\\nto the Philadelphia Court of Common Pleas, was permanently suspended without pay by\\nPennsylvania's Court of Judicial Discipline (CJD) \\u2014 three months before his mandatory\\nretirement \\u2014 for 66 Facebook posts the CJD found collectively",
+      "result_digest": "54ca9309a5160acb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b4bde45a2fa9a9a8",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281699 / evt-petition-disposition / claude-baseline / 20260717T072907Z\\n\\nMode: `forward` (`record/context.json`), so retrieval was unrestricted; nothing\\noutcome-revealing surfaced (the petition is genuinely pending \\u2014 BIO filed\\n2026-07-13, no redistribution yet).\\n\\n## Corpus lookups (`fedcourts query`, ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"Republican Party of Minnesota v. White\\\" --citation \\\"Williams-Yulee ",
+      "result_digest": "033c7c7115070b35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4dae53fad0c5ee52",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281699\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned snapshot + petition/BIO document texts\\\",\\n    \\\"WebSearch\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The provisioned petition and brief-in-opposition texts were excellent \\u2014 t",
+      "result_digest": "90fd8a7c3bcc9180",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "999198b6ead6ff49",
+      "query": "uv run fedcourts validate data 2>&1 | tail -10",
+      "result_digest": "29705bc8992c36b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bd1354aa1051ad39",
+      "query": "gh issue comment 727 --repo \"$GITHUB_REPOSITORY\" --body \"**claude-baseline / 20260717T072907Z \u2014 scotus/73281699 (Cohen v. Judicial Conduct Board of Pennsylvania, No. 25-1215): prediction written.**\n\nP(grant) = **0.10**, predicted disposition **denied**, big_case_score 0.5. Key tension: a Court-requested response after respondent's waiver plus a genuinely acknowledged 25-year split on the scrutiny standard for sitting judges' speech (grant-side) vs. the Court's long record of denying this exact q",
+      "result_digest": "fff6abab8e0938ca",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281699",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

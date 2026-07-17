@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281699",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "run_shell_command"],
+  "helpful": ["statpack.md provided a very clear baseline for cert grant rates. Reading the BIO through bash tools allowed for quick evaluation of vehicle problems."],
+  "gaps": ["Text search over corpus priors would be helpful (fedcourts query lacks a --text option, requiring fallback to MCP search which may not cover lower court priors as effectively without exact citations)."],
+  "notes": "Used MCP search to pull up the main precedents cited (Williams-Yulee, White)."
+}

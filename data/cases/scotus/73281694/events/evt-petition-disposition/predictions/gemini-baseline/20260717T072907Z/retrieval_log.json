@@ -1,0 +1,206 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "c08a0b1743811b03",
+      "query": "{\"strategic_intent\": \"Read predict.md and AGENTS.md to understand the prediction task constraints and output requirements.\", \"title\": \"Understanding Prediction Requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:45.733Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:48.047Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:48.047Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6796072accf0bbcc",
+      "query": "uv run fedcourts paths --court scotus --docket 73281694 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:54.298Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "18a47978a9ab59ab",
+      "query": "find data/cases/scotus/73281694 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:56:56.871Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a4076209640ae86e",
+      "query": "{\"file_path\": \"data/cases/scotus/73281694/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:02.063Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:02.063Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fd70c30bf381da50",
+      "query": "{\"file_path\": \"data/cases/scotus/73281694/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:02.064Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d57f96ea85b9a9f9",
+      "query": "{\"file_path\": \"data/cases/scotus/73281694/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:05.550Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ccc8b846dccc952e",
+      "query": "cat data/cases/scotus/73281694/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:05.551Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "33f7638ee2000430",
+      "query": "cat data/cases/scotus/73281694/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:10.073Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2232b180af807493",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:15.987Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "18b4b3e5588fe373",
+      "query": "cat metrics/statpack.md | grep -A 40 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:18.366Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b7226439d401ae66",
+      "query": "grep -i -C 10 \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:20.839Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d0a4917be7a5c0fc",
+      "query": "grep -i -C 2 \"band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:23.434Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "98a78b7d83461e37",
+      "query": "cat metrics/statpack.md | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:27.905Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0f1d29078a9db48d",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the statpack.\", \"file_path\": \"data/cases/scotus/73281694/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:36.437Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7fd16395b6245fe2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281694\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true\\n}\", \"file_path\": \"data/cases/scotus/73281694/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:39.570Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "af38af215542e8e2",
+      "query": "{\"content\": \"# Reasoning\\n\\n**The Legal Question:** \\nWhether Pennsylvania's assertion of jurisdiction over an out-of-state company in a suit brought by an out-of-state plaintiff on claims wholly unrelated to Pennsylvania violates the dormant Commerce Clause.\\n\\n**The Governing Standard:**\\nThis is a direct follow-up to the Court's decision in *Mallory v. Norfolk S. Ry.*, 600 U.S. 122 (2023). In that case, the Court held that Pennsylvania's corporate registration statute, which extracts consent ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:48.040Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:51.204Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ea634e4268aa4f19",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281694\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:57:51Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281694/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.90,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:57:56.551Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:01.740Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "178703c617a84a9a",
+      "query": "gh issue comment 727 -b \"Prediction complete for case scotus/73281694. Wrote \\`prediction.json\\`, \\`reasoning.md\\`, \\`retrieval.md\\`, and \\`tooling.json\\` to the corresponding cell directory.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:06.928Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d4d81974a4ce26ad",
+      "query": "{\"strategic_intent\": \"Conclude the prediction task.\", \"summary\": \"I read the provided context, the statpack, and the provisioned documents. I then wrote `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` with my prediction that the Supreme Court will grant certiorari in Norfolk Southern v. Mallory (Dormant Commerce Clause challenge). I successfully ran `uv run fedcourts validate data` to verify my outputs.\", \"title\": \"Prediction Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:58:10.195Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281694",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

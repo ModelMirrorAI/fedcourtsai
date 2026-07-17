@@ -1,0 +1,318 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "78088db42004e392",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687 -type f | head -50",
+      "result_digest": "f6ee3a13816cbc20",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "713640acd9967eb9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "03952ffe0dbd4e8e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "55f21634d142d817",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c8f0dc43a44fbe42",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "85f4a506a11acef7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "466c1f7e004a32e4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/documents/documents.json\"}",
+      "result_digest": "7518cec629ce6090",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c9a0cd6bca6632ad",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/documents/questions-presented.txt\"}",
+      "result_digest": "852329fcdbdeb5c2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "397e43647afc9b63",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/documents/petition.txt\", \"limit\": 300}",
+      "result_digest": "7dc0ab8c421fabda",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cdd148a15ae83063",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/documents/petition.txt\", \"limit\": 400, \"offset\": 300}",
+      "result_digest": "32c3e3272047ebb7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7c2e38cfd0db2afe",
+      "query": "grep -n \"vehicle\\|Monell\\|municipal\\|qualified immunity\\|split\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/documents/petition.txt | head -30",
+      "result_digest": "b1b7e8303b96e60f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "01496b432b626e4a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/record/documents/petition.txt\", \"limit\": 120, \"offset\": 980}",
+      "result_digest": "76ed13e2511177bb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6d24cfc462da4f6c",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|Segment base rate\\|Relist\\|CVSG\\|relist\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -30",
+      "result_digest": "50031f3227709971",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8685e2eed1d4b905",
+      "query": "sed -n '1,80p' docs/cli.md 2>/dev/null | grep -n -A6 \"fedcourts query\"",
+      "result_digest": "2257c78670510dc8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1a1361af4ad385f4",
+      "query": "grep -n -B2 -A8 '`query`' docs/cli.md | head -40",
+      "result_digest": "308d33206b93b76e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b9ee93265b246e3d",
+      "query": "uv run fedcourts query --court scotus --topic \"Fourth Amendment warrant oath probable cause hearsay overrule precedent\" --limit 8 2>&1 | tail -12",
+      "result_digest": "1afbdc2c4909729f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fbb446bf5c26b6e3",
+      "query": "uv run fedcourts query --court scotus --topic \"Fourth Amendment search warrant\" --limit 8 2>/tmp/q2.err; echo \"---\"; cat /tmp/q2.err",
+      "result_digest": "62ece4072279d1d3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "797ada17aed081c2",
+      "query": "uv run fedcourts query --court scotus --topic \"Fourth Amendment\" --limit 5 2>/tmp/q3.err | head -5; echo \"---stderr---\"; cat /tmp/q3.err; echo \"---\"; uv run fedcourts query --court scotus --topic \"warrant\" --include-open --limit 5 2>/tmp/q4.err | wc -l; cat /tmp/q4.err",
+      "result_digest": "c1ae8582acec4a74",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3df8ec06f11b26a0",
+      "query": "uv run fedcourts query --court scotus --topic \"police officer civil rights\" --disposition granted --limit 5 2>/tmp/q5.err | head -5; cat /tmp/q5.err",
+      "result_digest": "1afbdc2c4909729f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "19e5fd563aa40673",
+      "query": "cd /tmp && curl -sL --max-time 60 -o bio.pdf \"https://www.supremecourt.gov/DocketPDF/25/25-1205/416485/20260714161739468_2026.07.08%20Respondent%20Brief%20In%20Opposition%20to%20Cert.pdf\" && ls -la bio.pdf && file bio.pdf",
+      "result_digest": "6eb0657a4c78e775",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0642ddcfb24c998c",
+      "query": "which pdftotext || (cd /tmp && python3 -c \"\nimport zlib,re\n\" 2>/dev/null); pdftotext -v 2>&1 | head -2",
+      "result_digest": "b6293619bd83502c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fa6b06b08c08f9f6",
+      "query": "cd /tmp && uv run --with pypdf python3 -c \"\nfrom pypdf import PdfReader\nr = PdfReader('bio.pdf')\ntext = '\\n'.join(p.extract_text() or '' for p in r.pages)\nopen('bio.txt','w').write(text)\nprint(len(text))\n\" 2>&1 | tail -2",
+      "result_digest": "0346c419f36076ca",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1090dd0355a9b1be",
+      "query": "{\"file_path\": \"/tmp/bio.txt\", \"limit\": 200}",
+      "result_digest": "a946c85a36d26edd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fde5426e07578377",
+      "query": "grep -n -A30 \"POOR VEHICLE\" /tmp/bio.txt | head -60",
+      "result_digest": "60fb83a902a6eb47",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "e7cf776d4638cea8",
+      "query": "\"Broken Fourth Amendment Oath\" OR (Sacharoff AND oath)",
+      "result_digest": "1f8c89e247da5a54",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "aed3d4ff5860efe0",
+      "query": "\"oath or affirmation\" AND \"firsthand knowledge\" AND warrant",
+      "result_digest": "1b39e065a87bd985",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "9044808a30046b9f",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "9a64e367a7dc4b7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6335d540bd2a8532",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281687/events/evt-petition-disposition/predictions/claude-baseline/20260717T072907Z",
+      "result_digest": "7665255de8405177",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "007f0bfd37c0ef09",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281687\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:46:13Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281687/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.06,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "1764a1a57212d6ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5fc82ffd5bb96d43",
+      "query": "{\"content\": \"# Mendenhall v. City and County of Denver, No. 25-1205 \\u2014 cert disposition\\n\\n**Prediction: denied. P(grant, GVR included) = 0.06.**\\n\\n## The question presented\\n\\nThe petition asks the Court to overrule *Jones v. United States*, 362 U.S. 257\\n(1960), and hold that the Fourth Amendment's \\\"Oath or affirmation\\\" requirement\\nmeans a witness with firsthand knowledge must swear before the issuing\\nmagistrate \\u2014 i.e., that hearsay cannot supply probable cause for a warrant. It\\",
+      "result_digest": "96f07ff214bd80e6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e420d31f324bbdf1",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281687, evt-petition-disposition, claude-baseline, 20260717T072907Z\\n\\nCell mode: `forward` (retrieval unrestricted; no outcome exists to leak).\\n\\n## Corpus lookups (`fedcourts` CLI)\\n\\nAll four `query` attempts returned **zero rows**; each printed the same\\nranged-read stats line.\\n\\n1. `uv run fedcourts query --court scotus --topic \\\"Fourth Amendment warrant oath probable cause hearsay overrule precedent\\\" --limit 8`\\n   \\u2014 `ranged corpus reads",
+      "result_digest": "35129de8fe20fb4d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a803a8fa1dfc8022",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281687\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"CourtListener MCP search (opinions)\\\",\\n    \\\"direct fetch of supremecourt.gov BIO PDF + local pypdf text extraction\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"",
+      "result_digest": "2d30868f4e18feb3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "046e979a9f3cb5b9",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281687\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"The brief in opposition (docketed Jul 14 2026, three days before provisioning) was not provisioned under record/documents/ \\u2014 documents.json li",
+      "result_digest": "4c271bdca26e6bf7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "0121f9974ea518bd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "47166d29042d8459",
+      "query": "gh issue comment 727 --repo \"$GITHUB_REPOSITORY\" --body \"claude-baseline / 20260717T072907Z \u2014 scotus/73281687 (Mendenhall v. Denver, No. 25-1205), evt-petition-disposition: **denied**, P(grant) = 0.06, big_case_score 0.7. CFR + 4 cert-stage amici make it a strong petition, but a no-split first-ask to overrule Jones (1960) on a contested Monell vehicle stays a heavy underdog. Note (also in flags.json): the BIO was on the docket Jul 14 but not provisioned; fetched it directly (forward mode). fedco",
+      "result_digest": "8f1cd286396fbfd5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281687",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,262 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "53de824eeebd77bf",
+      "query": "{\"strategic_intent\": \"Read the predict prompt contract and agents file to understand the task.\", \"summary\": \"Starting the prediction task by reading .github/prompts/predict.md and AGENTS.md to understand the exact output contract and expectations for the gemini-baseline predictor.\", \"title\": \"Read Prompt Contract\", \"wait_for_previous\": false}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:34.202Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:34.211Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:34.212Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7556e5ce406637fc",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281673\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:39.955Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "52ba826ed509b19e",
+      "query": "ls -la data/cases/scotus/73281673/ || echo \"not found\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:43.264Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "31605dce3ed72a33",
+      "query": "find data/cases/scotus/73281673/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:45.372Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "227c84b568a251e9",
+      "query": "{\"strategic_intent\": \"Read provisioned inputs for case scotus/73281673 to gather case facts and context.\", \"summary\": \"Reading the provisioned inputs for the prediction, including context.json, event.yaml, the latest snapshot, and the document texts (questions-presented, petition, brief-in-opposition). This will give me the baseline facts required to predict the outcome.\", \"title\": \"Read Provisioned Inputs\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:49.453Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "858e3c11576fec89",
+      "query": "{\"file_path\": \"data/cases/scotus/73281673/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:49.462Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9f67ef2240f9ef66",
+      "query": "{\"file_path\": \"data/cases/scotus/73281673/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:49.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "df8139f8a2a3a540",
+      "query": "{\"file_path\": \"data/cases/scotus/73281673/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:49.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a882f55bf4bd569c",
+      "query": "{\"file_path\": \"data/cases/scotus/73281673/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:49.464Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6be7d2787df21085",
+      "query": "{\"strategic_intent\": \"Read the provisioned document text to understand the legal issues.\", \"summary\": \"Reading the questions presented, the petition, and the brief in opposition to understand the legal question at stake. This will allow me to assess the merits and salience of the petition.\", \"title\": \"Read Document Text\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:55.873Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "167eb3bd30ddc1d5",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73281673/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:55.881Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fbd7a7d555504660",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73281673/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:55.881Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "881e91f340540d48",
+      "query": "{\"file_path\": \"data/cases/scotus/73281673/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:55.881Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9fd795251195ed99",
+      "query": "{\"strategic_intent\": \"Check base rates and priors for cert petitions involving interlocutory state court decisions and private search doctrine cases.\", \"summary\": \"Using the fedcourts corpus tooling to query for base rates and similar cases involving the private search doctrine (NCMEC CyberTips) and the finality requirement for state court judgments under 28 U.S.C. 1257. This will inform the likelihood of a cert grant.\", \"title\": \"Query Corpus for Base Rates and Priors\", \"wait_for_previous\": tru",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:02.326Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d8857f7d04e4db01",
+      "query": "uv run fedcourts query --court scotus --era modern \"private search doctrine NCMEC cybertip\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:03.159Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:03.160Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "42dc2d6ff2d07522",
+      "query": "uv run fedcourts query --court scotus --era modern \"interlocutory state court criminal appeal final judgment 28 U.S.C. 1257\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:03.160Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cf73d479f3608dab",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:08.731Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "af85c66d9462f549",
+      "query": "{\"strategic_intent\": \"Continue reading the petition and brief in opposition to assess the merits and salience of the Fourth Amendment question.\", \"summary\": \"Reading further into the petition and brief in opposition to evaluate the legal arguments, particularly the State's argument that the petition is a poor vehicle due to finality and other issues. This will shape the reasoning document and the probability of a grant.\", \"title\": \"Analyze Legal Arguments\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:12.795Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "0506cb4846d565a4",
+      "query": "{\"end_line\": 200, \"file_path\": \"data/cases/scotus/73281673/record/documents/petition.txt\", \"start_line\": 101}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:12.800Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "71d14fca3da83e42",
+      "query": "{\"end_line\": 200, \"file_path\": \"data/cases/scotus/73281673/record/documents/brief-in-opposition.txt\", \"start_line\": 101}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:12.801Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "315203147c9407fa",
+      "query": "mkdir -p data/cases/scotus/73281673/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:25.355Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "37da2da1d95e3fa8",
+      "query": "{\"strategic_intent\": \"Write the required output files (prediction.json, reasoning.md, retrieval.md, tooling.json) to complete the prediction task.\", \"summary\": \"Writing the final prediction files to the designated output directory. The prediction is a denial due to the lack of a final judgment under 28 U.S.C. 1257, which makes it a poor vehicle despite the high salience of the underlying Fourth Amendment issue.\", \"title\": \"Write Prediction Outputs\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:40.871Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "498921d896dfdd02",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281673\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:35:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"confidence\\\": 0.85,\\n  \\\"big_case_score\\\": 0.8,\\n  \\\"big_case_rationale\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:40.878Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ec620028897c2bb8",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question and Standard\\nThe petition presents a significant Fourth Amendment question regarding the application of the \\\"private search doctrine\\\" to virtual computer scans and NCMEC CyberTips generated by Electronic Service Providers (ESPs) like Snapchat. The core issue is whether a law enforcement officer's warrantless viewing of a video flagged by an ESP's automated hash-matching algorithm expands the scope of the initial private search. This area of digita",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:40.882Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "27704217f16460fd",
+      "query": "{\"content\": \"* Consulted the committed `metrics/statpack.md` for baseline rates of paid cert petitions, CFR status, and state court originating cases.\\n* Attempted `uv run fedcourts query` with free-text but failed due to syntax, so no priors were pulled.\\n* No MCP tool lookups were performed.\", \"file_path\": \"data/cases/scotus/73281673/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:40.885Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "637396f29c638fed",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281673\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The committed statpack.md provided excellent base rate context.\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"Would be helpful to have fedcourts query support basic full-text search.\\\"\\n  ]\\n}\", \"fil",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:40.889Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6dab96c897636dec",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:46.020Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4eaf3e54b552bb18",
+      "query": "{\"strategic_intent\": \"Finish task and inform that the prediction files have been written.\", \"summary\": \"The prediction has been successfully written and validated. I have outputted `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` as requested. The task is complete.\", \"title\": \"Task Complete\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:55:49.544Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281673",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

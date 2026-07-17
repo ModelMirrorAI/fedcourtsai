@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73281673",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20260717T072907Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-17T07:35:00Z",
+  "input_snapshot": "2026-07-17.json",
+  "predicted_disposition": "denied",
+  "granted": 0,
+  "probability": 0.03,
+  "confidence": 0.85,
+  "big_case_score": 0.8,
+  "big_case_rationale": "Resolving the application of the private search doctrine to NCMEC CyberTips and cloud data is a major, closely watched Fourth Amendment issue."
+}

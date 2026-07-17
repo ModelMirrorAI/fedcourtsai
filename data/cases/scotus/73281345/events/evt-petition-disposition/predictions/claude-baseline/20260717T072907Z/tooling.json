@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281345",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP search (dockets)"
+  ],
+  "helpful": [
+    "Provisioned filed-document text (QP, full petition incl. CA5 opinion appendix, BIO) — the BIO was decisive for weighing the split claim",
+    "statpack.json per-Term fee-class detail (paid vs IFP grant rates)",
+    "CourtListener docket search for companion petitions (Chavarria, Bryan)"
+  ],
+  "gaps": [
+    "The 'Segment base rate by salience band' table the predict prompt points to is absent from the committed statpack build",
+    "No call-for-response (CFR) cut in the statpack — the strongest signal on this docket had no corpus base rate to anchor on",
+    "fedcourts query returned scotus priors without captions/topics, so relevance to the QP could not be judged; a citation filter (Lopez) matched nothing"
+  ],
+  "notes": "Provisioned inputs were complete and current (snapshot dated day-of-run, BIO fetched 3 days after filing). Corpus priors added nothing for this cell; the statpack and the provisioned documents did nearly all the work."
+}

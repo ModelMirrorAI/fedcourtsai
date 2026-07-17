@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281656",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + statpack.json base rates",
+    "provisioned snapshot and filed-document texts"
+  ],
+  "helpful": [
+    "Full petition and BIO text under record/documents/ — the BIO's preservation argument was the single most load-bearing input",
+    "Per-Term paid/IFP grant-rate detail in statpack.json",
+    "Relist/CVSG signal cuts in statpack.md"
+  ],
+  "gaps": [
+    "Citation-filtered fedcourts query returned 0 rows: ingested SCOTUS rows carry empty citations lists, so citation-based prior retrieval is effectively dead for this slice",
+    "The salience-band segment table the predict prompt points to is not present in the committed statpack (no 'salience'/'band' keys in statpack.json)",
+    "A capital-case or case-type cut in the statpack (state-PCR capital petitions grant at a very different rate than the paid aggregate) would sharpen the anchor",
+    "The reply brief (filed Jul 14, on the docket) was not provisioned under record/documents/; petition and BIO had to stand in for it"
+  ],
+  "notes": "Forward cell; no CourtListener MCP calls needed — the provisioned record was complete through the 2026-07-15 distribution. Each fedcourts query session cost ~420 ranged GETs (~110 MB) even when returning 0 rows, which feels heavy for a null result."
+}

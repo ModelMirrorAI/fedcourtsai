@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281647",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot + record/documents (petition, BIO, QP)"
+  ],
+  "helpful": [
+    "Full petition and BIO text under record/documents — the cert-stage arguments drove nearly all case-specific adjustment",
+    "Statpack relist/CVSG/per-Term cuts gave clean quantitative anchors",
+    "Snapshot's ProceedingsandOrder timeline (amicus count, distribution date) was a strong salience signal"
+  ],
+  "gaps": [
+    "fedcourts query returned 0 rows on both citation- and topic-based lookups for a modern SCOTUS takings petition; a text/keyword or QP-similarity search over resolved cert petitions would have surfaced comparable priors (e.g. the Lech/Baker/Slaybaugh denials of this same question)",
+    "This statpack version has no salience-band table, though the prompt describes one; the band grant-rate would have been the natural anchor for a heavily-amicus'd paid petition",
+    "No structured relist tracker for the pending case itself (relists are the classic pre-grant signal but must be inferred from the docket)"
+  ],
+  "notes": "Forward cell with a same-day snapshot and full filed-document text; no MCP retrieval was needed. The two corpus queries transferred ~110 MB of ranged reads to return nothing, which suggests citation-overlap ranking is expensive relative to its hit rate on modern SCOTUS dockets."
+}

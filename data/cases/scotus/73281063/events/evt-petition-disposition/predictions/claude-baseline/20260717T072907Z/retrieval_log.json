@@ -1,0 +1,358 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ba4f58fa3d482b76",
+      "query": "uv run fedcourts paths --court scotus --docket 73281063 --event evt-petition-disposition 2>&1; echo ---; find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063 -type f | head -50",
+      "result_digest": "736a84cb3c3eeace",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "767833f633a8c5c2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "240c9521afe80007",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0a930020dc1b8bf1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e7307f683d9ff2f8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "5956b085668a9434",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "42c9529e4fae0358",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/documents.json\"}",
+      "result_digest": "48ff74b75f795dc6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ff8f14a7f9abceca",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/questions-presented.txt\"}",
+      "result_digest": "42eb0257c5ee0e77",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6f388c1d79bfec17",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/brief-in-opposition.txt",
+      "result_digest": "d2063ea0c12630e2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fa1acb09f553b277",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/petition.txt\"}",
+      "result_digest": "0bd75c819e3550ab",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c649404f2c093780",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/petition.txt\", \"limit\": 425, \"offset\": 1210}",
+      "result_digest": "436f9a0de0c6578d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1cb86642478afc43",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "bcc2cb41a0daa290",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ebf416cc3f869125",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/record/documents/brief-in-opposition.txt\", \"limit\": 360, \"offset\": 1062}",
+      "result_digest": "c52b0671db58cfd2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4fd8d127957e8250",
+      "query": "sed -n 1,120p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "e1fa247a7d4bfe14",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "810da2ceb050ca7f",
+      "query": "grep -n -A 40 \"salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -80; echo ===; grep -n -B2 -A 25 \"fee-class\\|fee class\\|per-Term\\|by Term\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -70",
+      "result_digest": "ce817dd812e46970",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f2c8b8121b6824eb",
+      "query": "sed -n 100,134p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md; sed -n 145,220p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "50b242da399d0364",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1a8e59cc94db555c",
+      "query": "uv run fedcourts query --court scotus --docket 73281063 --event evt-petition-disposition 2>&1 | tail -60",
+      "result_digest": "d627eef94824e0a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "26c58b4519703e36",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n 1,40p",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ccfe80796667176d",
+      "query": "uv run fedcourts query --court scotus --era 2020s --citation \"570 U.S. 1\" --citation \"555 U.S. 488\" --citation \"594 U.S. 647\" 2>&1 | head -20",
+      "result_digest": "4a9776741be9dc8d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "82601c45b2679da7",
+      "query": "uv run fedcourts query --court scotus --era 2020s 2>&1 | head -8",
+      "result_digest": "f82ec0bc5c03375e",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "e6c69723cf2ef857",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1017\", \"fields\": [\"docketNumber\", \"caseName\", \"dateFiled\", \"docket_id\", \"absolute_url\"], \"type\": \"d\"}",
+      "result_digest": "f27bed30126d1ef0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "a64cbc25a58ad10e",
+      "query": "\"Republican National Committee\" \"Mi Familia Vota\"",
+      "result_digest": "87a413f1563b6ea8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "c85703a45e0e0a33",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-1017\", \"fields\": \"id,case_name,docket_number,date_filed,date_terminated\"}}",
+      "result_digest": "6c4d043e797f6da1",
+      "retrieved_doc_date": "2026-02-24",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "f926a009d70f6922",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 8, \"query\": {\"docket\": 73281056, \"fields\": \"date_filed,description\", \"order_by\": \"-date_filed\"}}",
+      "result_digest": "7df4d963b84e2d65",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "7aa63a5ea529cc35",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n 40,80p",
+      "result_digest": "52c2b0ad2c3395e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "048bdeb54d567cc2",
+      "query": "uv run fedcourts query --court scotus --era 2020s --include-open --limit 200 2>/dev/null | grep -E '\"docket_number\":\"25-101[79]\"|\"docket_number\":\"25-1022\"' | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(json.dumps({k: r[k] for k in ('docket_number','case_name','disposition','date_cert_granted','date_cert_denied','distributed_for_conference','distribution_count','last_live_polled')}))\n\"",
+      "result_digest": "157a3c7d26043d86",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9078a2cd623d6937",
+      "query": "uv run fedcourts query --court scotus --era 2020s --include-open --limit 1000 2>/dev/null | grep -E '\"docket_number\":\"25-10(17|19|22)\"' | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(json.dumps({k: r[k] for k in ('docket_number','case_name','disposition','date_cert_granted','date_cert_denied','distributed_for_conference','distribution_count','last_live_polled')}))\n\"",
+      "result_digest": "157a3c7d26043d86",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "83ee826947061325",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-1019\", \"fields\": \"id,case_name,docket_number,date_filed,date_terminated\"}}",
+      "result_digest": "54ee520d4ccae954",
+      "retrieved_doc_date": "2026-02-24",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "36d00f7119382fbc",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/ | head; echo ---; ls /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281056 2>/dev/null; ls /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281059 2>/dev/null; echo ---; grep -rl \"25-1019\\|25-1017\" /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus --include=\"*.json\" -l 2>/dev/null | grep -v 73281063 | head",
+      "result_digest": "f50aef263fa155ef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1715f3e015ab8852",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "933bdae75e816979",
+      "query": "Supreme Court grants Republican National Committee v. Mi Familia Vota 25-1017 cert June 2026 Petersen 25-1019 Arizona 25-1022",
+      "result_digest": "77086e8ab4b04598",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "c9e5aaf7956f5661",
+      "query": "select:WebFetch",
+      "result_digest": "c4e348966a824a36",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "46efe855878e5941",
+      "query": "Which Supreme Court petition(s) did the Court grant certiorari in? Does the article mention what happened to the related petitions Petersen v. Mi Familia Vota (25-1019) and Arizona v. Promise Arizona (25-1022) \u2014 were they granted, denied, or held/pending? Quote the relevant text.",
+      "result_digest": "28e633583af4e35b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "a254f8fac4706ea6",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json; echo ===FLAGS===; cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json; echo ===TOOLING===; cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "7e19e5221752ff46",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "497f6f971af15f6d",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281063/events/evt-petition-disposition/predictions/claude-baseline/20260717T072907Z",
+      "result_digest": "cda882c6e8c02784",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6fd1c5f9b0247a31",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281063\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:41:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281063/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.2,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "a2da5c05c5cfd2f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b2f8d7f06a37fbbf",
+      "query": "{\"content\": \"# Arizona v. Promise Arizona, No. 25-1022 \\u2014 cert disposition\\n\\n## The case\\n\\nArizona and Attorney General Kris Mayes petition from the Ninth Circuit's\\ndecision in *Mi Familia Vota v. Fontes*, 129 F.4th 691 (9th Cir. Feb. 25,\\n2025), rehearing en banc denied over eleven dissents, 152 F.4th 1153 (Sept.\\n22, 2025). The panel majority (Bumatay, J., dissenting) held that Promise\\nArizona had associational standing to appeal \\u2014 on the theory that an unknown\\nnumber of its unid",
+      "result_digest": "8456b8bfa9ab340d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2bab41f2cc8bada5",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281063 evt-petition-disposition (claude-baseline, 20260717T072907Z)\\n\\nMode: `forward` (record/context.json). Beyond the provisioned snapshot and\\ndocuments, this cell consulted:\\n\\n## Committed base rates\\n\\n- `metrics/statpack.md` \\u2014 modern discretionary-cert base rates (grant ~2.5\\u20133.3%\\n  per recent Term), relist-count cuts (1 relist \\u2192 7.6% grant, 2 \\u2192 33.6%),\\n  originating-circuit (ca9) cut, per-Term table.\\n\\n## Corpus (`fedcou",
+      "result_digest": "a85593d07bb90b7a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9a08cef101496e0a",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281063\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Decisive forward signal from a companion case: the Court granted certiorari in the lead companion petition, RNC v. Mi Familia Vota (No. 25-1017), on 2026-",
+      "result_digest": "525d0562504e3a03",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "72014a9e07761a9a",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281063\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus reads)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP search\\\",\\n    \\\"courtlistener MCP call_endpoint (dockets, docket-entries)\\\",\\n    \\\"web search + fetch (companion-docket statu",
+      "result_digest": "3609f83464bb8b25",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3efd86f2cdcbf3ac",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/cases/scotus/73281063/",
+      "result_digest": "b87b701ca2bd3aad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "25ee0f44fe6813c1",
+      "query": "gh issue comment 727 --repo \"$GITHUB_REPOSITORY\" --body \"**claude-baseline** prediction written for \\`scotus/73281063\\` / \\`evt-petition-disposition\\` (run \\`20260717T072907Z\\`): **denied**, P(grant incl. GVR) = **0.20**, big_case_score 0.75.\n\nKey driver: this is No. 25-1022 (Arizona v. Promise Arizona), companion to RNC v. Mi Familia Vota (25-1017). The Acting SG's consolidated BIO recommended granting 25-1017 and denying this petition; the Court granted 25-1017 on 2026-06-29 and left 25-1022/2",
+      "result_digest": "b009c1a008e6eafd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281063",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281063",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from a companion case: the Court granted certiorari in the lead companion petition, RNC v. Mi Familia Vota (No. 25-1017), on 2026-06-29 (corpus row + ballot-access.org), while leaving this petition (25-1022) and 25-1019 unacted-on — i.e., held. The SG's consolidated brief recommended granting 25-1017 and denying this petition. This companion-grant/hold pattern, not the provisioned docket alone, drives the prediction (P(grant incl. GVR)=0.20, predicted denial). Not leakage: it is pre-decision public information about a different petition; this case's own disposition does not yet exist."
+    }
+  ]
+}

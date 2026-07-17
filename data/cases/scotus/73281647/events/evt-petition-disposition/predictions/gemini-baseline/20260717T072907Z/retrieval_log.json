@@ -1,0 +1,318 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "7e520f929eb2fe24",
+      "query": "{\"strategic_intent\": \"I am reading the prediction instructions from predict.md and AGENTS.md to understand the prompt contract and outputs required for this cell.\", \"summary\": \"I need to read the instructions for the prediction task and the agents file to determine how to run the prediction and what output files are expected.\", \"title\": \"Read Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:33.060Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:35.062Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:35.063Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b7544fae8d6854d0",
+      "query": "ls -la data/cases/scotus/73281647/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:40.163Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1b9bd4c4881af65a",
+      "query": "ls -laR data/cases/scotus/73281647/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:42.731Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e150cbfec93e4326",
+      "query": "{\"strategic_intent\": \"I am reading the case record and provisioned documents to analyze the legal context for predicting the outcome of the cert petition.\", \"summary\": \"I've found the record files for the prediction task and am proceeding to read the event definition, the context, the snapshot, and the questions presented in the petition to determine whether the court will grant certiorari.\", \"title\": \"Analyze Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:48.965Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "0cf9e518cc50b1ab",
+      "query": "{\"file_path\": \"data/cases/scotus/73281647/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.641Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a4d03487987c5240",
+      "query": "{\"file_path\": \"data/cases/scotus/73281647/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.642Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8922d58daf429413",
+      "query": "{\"file_path\": \"data/cases/scotus/73281647/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.642Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "37609767637b1fe2",
+      "query": "{\"file_path\": \"data/cases/scotus/73281647/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:51.643Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "026ee8244521809b",
+      "query": "{\"file_path\": \"data/cases/scotus/73281647/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:54.713Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e68d06330bdd559e",
+      "query": "{\"strategic_intent\": \"I am checking the corpus priors and base rates to inform the probability estimate for certiorari grant.\", \"summary\": \"I will read the statistical baseline in statpack.md, looking specifically at the modern cert petition disposition rates. Then I will search the corpus for related priors.\", \"title\": \"Check Priors and Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:59.103Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:03.249Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f16a6d4a892872a2",
+      "query": "cat metrics/statpack.md | grep -A 10 \"cert petitions by relist count\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:06.312Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5e005b0d97ff7691",
+      "query": "grep -i -A 10 relist metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:09.396Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "770ec62496370092",
+      "query": "grep -i -A 15 \"salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:12.287Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1ce5d4ca11ce66db",
+      "query": "grep -i \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:14.195Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8a3dd4d0c1bfb136",
+      "query": "grep -i \"Segment\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:16.417Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "76601b97ff1522ac",
+      "query": "grep -E '^## ' metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:18.346Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb8e9f3d41d1f90f",
+      "query": "cat metrics/statpack.md | grep -A 20 \"SCOTUS cert petitions by Term\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:20.442Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "83887cf363c9c858",
+      "query": "jq '.scopes.scotus_modern_cert.tables.term_metrics.rows[0]' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:24.509Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c16b19f70aad1c0",
+      "query": "jq '.scopes.scotus_modern_cert.tables | keys' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:26.965Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a2b72de85f5696b6",
+      "query": "jq 'keys' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:29.489Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aa240388ac3d6c64",
+      "query": "uv run fedcourts query --court scotus --query \"Baker v. City of McKinney Takings Clause law enforcement property destruction\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:34.966Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:39.445Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5ae62ac4d4d4c7a9",
+      "query": "{\"strategic_intent\": \"I am searching CourtListener via MCP to find the prior cases (Baker v. City of McKinney, Lech v. Jackson, Slaybaugh v. Rutherford County) mentioned in the petition to understand the current circuit split and percolation.\", \"summary\": \"I am utilizing the CourtListener MCP server to search for opinions matching the Takings Clause destruction of property cases cited in the petition. This will help assess whether the circuit split is ripe for the Supreme Court to grant certiora",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:45.519Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "aa8aeefe731da6ce",
+      "query": "\"Baker v. City of McKinney\" OR \"Lech v. Jackson\" OR \"Slaybaugh v. Rutherford County\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:48.209Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f303fbd11780102e",
+      "query": "\"Slaybaugh\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:53.876Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:00.543Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bff8e4dc1ae79a5f",
+      "query": "mkdir -p data/cases/scotus/73281647/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:04.064Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d3062d617c69af56",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281647\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:29:07Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281647/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"big_case_score\\\": 0.65,\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:08.581Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b34797cd127c749a",
+      "query": "{\"content\": \"# Reasoning for Certiorari Prediction\\n\\n**Case:** *Carlos Pena v. City of Los Angeles*\\n**Issue:** Whether the government is exempt from liability under the Takings Clause when law enforcement officers intentionally destroy an innocent person\\u2019s property in the course of attempting to apprehend a fugitive, and whether the \\\"public necessity\\\" doctrine acts as an exception.\\n\\n## Analysis of the Record and Prior Precedents\\n\\nThe petition raises a direct question about the Takin",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:16.583Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6a95387f627365e3",
+      "query": "{\"content\": \"# Retrieval Log\\n\\nI consulted the following sources beyond the provisioned inputs:\\n\\n1. **Base Rates (Corpus Tooling):**\\n   - Read `metrics/statpack.md` using `cat` and `grep` to review the base rates for modern discretionary-cert petitions by disposition, by originating circuit, and by relist count.\\n\\n2. **CourtListener MCP Search:**\\n   - Executed `mcp_courtlistener_search` with query: `\\\"Baker v. City of McKinney\\\" OR \\\"Lech v. Jackson\\\" OR \\\"Slaybaugh v. Rutherford County\\\"`",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:21.474Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:27.538Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f824f8c72f9a4467",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281647\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"cat metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"fedcourts query free text search\\\"\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/73281647",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:31.288Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:36.672Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6631677b4e369c20",
+      "query": "gh issue comment 727 -b \"Prediction for \\`scotus/73281647\\` (\\`evt-petition-disposition\\`) completed. Wrote \\`prediction.json\\`, \\`reasoning.md\\`, \\`retrieval.md\\`, and \\`tooling.json\\` for the \\`gemini-baseline\\` predictor.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:40.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "76fc32e54fafb9bf",
+      "query": "{\"strategic_intent\": \"I have successfully written the prediction, reasoning, retrieval, and tooling files for the cert petition disposition event, and validated the schema. I will now wrap up the task.\", \"summary\": \"I wrote the predicted outputs (prediction.json, reasoning.md, retrieval.md, and tooling.json) to the designated output directory for the gemini-baseline predictor. The prediction is a grant with 85% probability due to strong amicus support and a developing circuit split that answers ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:54:43.977Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281647",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281687",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "CourtListener MCP search (opinions)",
+    "direct fetch of supremecourt.gov BIO PDF + local pypdf text extraction"
+  ],
+  "helpful": [
+    "statpack relist/CVSG/circuit cuts gave a usable quantitative anchor",
+    "provisioned petition + QP text meant no fetching for the core documents",
+    "CourtListener opinion search let me verify no Justice has questioned Jones"
+  ],
+  "gaps": [
+    "fedcourts query returned 0 rows for every topic tried (Fourth Amendment / warrant / civil rights, with and without --disposition/--include-open) — either topic matching is too strict or the SCOTUS cert slice lacks topical text; corpus priors were effectively unavailable",
+    "brief-in-opposition.txt was not provisioned although the BIO hit the docket 3 days before provisioning; had to fetch and extract the PDF myself",
+    "statpack.md in this build has no 'Segment base rate by salience band' section though the prompt says to prefer it",
+    "no statpack cut for call-for-response (CFR) petitions — a distinct, common cert signal weaker than CVSG but much stronger than baseline"
+  ],
+  "notes": "Forward cell; ~11 retrieval calls total, well under budget."
+}

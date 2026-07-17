@@ -1,0 +1,182 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "97fc4c366b666b34",
+      "query": "{\"strategic_intent\": \"Understand the prediction task and agent guidelines\", \"summary\": \"I will start by reading the prompt instructions in `.github/prompts/predict.md` and the agent instructions in `AGENTS.md` to understand what files I need to generate, the format required, and any specific steps I must follow for producing a prediction.\", \"title\": \"Reading Prompt and Guidelines\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:06.495Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:08.377Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:08.378Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0d0309859c803e92",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281059\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:14.369Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b12a2ab294767370",
+      "query": "ls -R data/cases/scotus/73281059/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:17.082Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c98dc63059df9d2f",
+      "query": "cat data/cases/scotus/73281059/events/evt-petition-disposition/event.yaml data/cases/scotus/73281059/record/context.json data/cases/scotus/73281059/record/documents/documents.json data/cases/scotus/73281059/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:19.937Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bb58b33b9de1fbe6",
+      "query": "cat data/cases/scotus/73281059/record/snapshots/2026-07-17.json | jq .",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:23.265Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "23682ad129204926",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:27.368Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1d7904215279de18",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"National Voter Registration Act proof of citizenship\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:42.727Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "938a0d76db84eeaa",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:47.472Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b30792257d5c98b1",
+      "query": "mkdir -p data/cases/scotus/73281059/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:52:56.700Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e90e0fecdb89804c",
+      "query": "cat schemas/prediction.schema.json | grep engine -A 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:05.030Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "36d229099ba38ca9",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281059\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T07:29:07Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"confidence\\\": 0.85,\\n  \\\"big_case_score\\\": 0.95,\\n  \\\"big_case_rational",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:14.739Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "eb777e540ab92024",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question and Stakes\\nThis case involves a major dispute over election law, specifically whether the National Voter Registration Act (NVRA) preempts Arizona's state-specific voter registration form requirements, which mandate documentary proof of citizenship and residence to register for federal elections. Additionally, the case questions whether a related state law (H.B. 2243) requiring database checks to verify citizenship status is intentionally discriminat",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:14.742Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "53a1a07b76aad647",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`.\", \"file_path\": \"data/cases/scotus/73281059/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:18.455Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8749cc932d1ced6a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281059\\\",\\n  \\\"run_id\\\": \\\"20260717T072907Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"cat\\\", \\\"jq\\\", \\\"ls\\\"],\\n  \\\"helpful\\\": \\\"The statpack provides extremely helpful baseline rates. The provisioned inputs were very clear.\\\",\\n  \\\"gaps\\\": [\\\"Free-text search for `fedcourts query` would be a great addition.\\\"]\\n}\", \"file_path\": \"data/cases/scot",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:18.458Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "fdad57ec654106db",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:23.146Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "88878010833834a4",
+      "query": "{\"allow_multiple\": false, \"file_path\": \"data/cases/scotus/73281059/events/evt-petition-disposition/predictions/gemini-baseline/20260717T072907Z/tooling.json\", \"instruction\": \"Fix the helpful field to be an array\", \"new_string\": \"  \\\"helpful\\\": [\\\"The statpack provides extremely helpful baseline rates. The provisioned inputs were very clear.\\\"],\", \"old_string\": \"  \\\"helpful\\\": \\\"The statpack provides extremely helpful baseline rates. The provisioned inputs were very clear.\\\",\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:25.890Z",
+      "tool": "replace"
+    },
+    {
+      "params_digest": "7924845e2505cf0f",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:30.347Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0949f87c4d69a8c8",
+      "query": "gh issue comment 727 --body \"Prediction completed for SCOTUS Docket 73281059 (evt-petition-disposition).\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:33.835Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01bde0f6fe75dcf1",
+      "query": "{\"strategic_intent\": \"Finish task\", \"summary\": \"I have successfully analyzed the case `Warren Petersen v. Mi Familia Vota` and generated the required prediction files (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`). The prediction is a grant, given the Supreme Court's prior stay of the district court's injunction, the importance of the election law issue, the presence of 11 dissents in the Ninth Circuit, and the petition's relist status. I've validated all files against t",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T07:53:36.910Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281059",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T072907Z",
+  "schema_version": "1.0"
+}

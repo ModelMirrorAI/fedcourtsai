@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281059",
+  "run_id": "20260717T072907Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "provisioned snapshot + petition/BIO/QP document texts",
+    "web search + web fetch (forward mode)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt (full cert-stage argument without any fetching)",
+    "statpack relist-count cut (the operative anchor for a twice-distributed, carried-over petition)",
+    "Web search for companion-docket status (the single most decisive input this run)"
+  ],
+  "gaps": [
+    "statpack.md lacks the 'Segment base rate by salience band' table the predict prompt tells predictors to anchor on",
+    "fedcourts query returned 0 rows on every attempt (scotus + citation/topic filters); citation matching seems too exact and one query cost 420 ranged GETs / ~110MB for nothing",
+    "No provisioned view of vided/companion dockets (25-1017, 25-1022); supremecourt.gov blocks direct fetches (403), so companion status had to come from third-party press",
+    "A prior-disposition cut for held/vided companion petitions (deny vs GVR after the lead case is decided) would sharpen exactly this cell's call"
+  ],
+  "notes": "The US (OSG) brief in opposition was not among the provisioned documents even though the docket lists it; its split recommendation (support RNC petition, oppose this one) had to be reconstructed from SCOTUSblog. Provisioning the SG's cert-stage brief when one exists would be high value."
+}

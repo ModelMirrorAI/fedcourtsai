@@ -1,0 +1,3 @@
+1. **Corpus context (base rates):** Read `metrics/statpack.md` to review the cert grant base rate for modern discretionary-cert petitions and the circuit distribution.
+2. **CourtListener MCP search:** Searched for `q: "Thryv, Inc." "consequential damages"`, `type: o` to verify the state of the circuit split regarding the NLRB's *Thryv* remedy. The search confirmed a split, surfacing Fifth Circuit cases (e.g., *Thryv*, *Hiran Management*) that vacated the remedy, alongside other circuits upholding it.
+3. **Provisioned Documents:** Evaluated the provisioned case record documents (`petition.txt`, `brief-in-opposition.txt`) to assess the questions presented and identify potential vehicle issues raised by respondents.
