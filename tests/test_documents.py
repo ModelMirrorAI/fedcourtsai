@@ -142,6 +142,35 @@ def test_extract_questions_presented_section() -> None:
     assert section is not None and len(section) <= 4_000
 
 
+def test_extract_questions_presented_skips_table_of_contents_entry() -> None:
+    # A petition whose table of contents lists the QP heading (leader dots to a
+    # page number) before the real QP page. The extractor must skip the TOC
+    # entry and return the prose question, not the dotted TOC lines (issue: the
+    # QP extractor captured a table-of-contents fragment).
+    petition = (
+        "TABLE OF CONTENTS\n"
+        "QUESTIONS PRESENTED ............................................. i\n"
+        "TABLE OF AUTHORITIES .......................................... iii\n"
+        "\n"
+        "QUESTIONS PRESENTED\n"
+        "Whether a reviewing court may affirm on a ground the agency never reached.\n"
+        "PARTIES TO THE PROCEEDING Petitioner is Acme Corp."
+    )
+    assert extract_questions_presented(petition) == (
+        "Whether a reviewing court may affirm on a ground the agency never reached."
+    )
+
+
+def test_extract_questions_presented_none_when_only_a_toc_entry() -> None:
+    # If the only match is the TOC entry (no real QP body extracted), better to
+    # derive nothing than to hand the agent dotted table-of-contents text.
+    toc_only = (
+        "QUESTIONS PRESENTED ............................................. i\n"
+        "TABLE OF AUTHORITIES .......................................... iii"
+    )
+    assert extract_questions_presented(toc_only) is None
+
+
 # --- fetch orchestration ----------------------------------------------------------
 
 
