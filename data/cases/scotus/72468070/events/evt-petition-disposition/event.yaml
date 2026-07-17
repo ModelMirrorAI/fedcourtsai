@@ -1,0 +1,11 @@
+case_id: scotus/72468070
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-11-13'
+resolved: true
+schema_version: '1.0'
+title: Donald J. Trump, President of the United States, et al., Appellants v. Natalia
+  Useche, et al.

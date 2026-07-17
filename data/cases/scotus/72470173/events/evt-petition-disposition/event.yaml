@@ -1,0 +1,12 @@
+case_id: scotus/72470173
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-01-04'
+resolved: true
+schema_version: '1.0'
+title: Michael H. Holland, as Trustee for the United Mine Workers of America Combined
+  Benefit Fund and United Mine Workers of America 1992 Benefit Plan, et al., Petitioners
+  v. Westmoreland Coal Company, et al.
