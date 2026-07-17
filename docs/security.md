@@ -315,6 +315,11 @@ credential or another provider's key, enforced in one tested seam that also
 covers the local cascade — with one residual stated plainly: unlike a live
 cell, the credentialed process here is the agent's own concurrently-running
 parent, so the same-user non-boundary above is more direct in this job.
+(Codex's API-key auth adds one file to that same non-boundary: the pinned CLI
+only accepts a key via `codex login`, so the runner seam logs in to a
+run-scoped temp `CODEX_HOME` whose `auth.json` holds codex's own key for the
+rest of the job — same-user readable, like the parent's environment already
+is.)
 
 **The corpus-split mode constrains the read-only role's policy.**
 **`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `runner`

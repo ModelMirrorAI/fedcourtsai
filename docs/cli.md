@@ -212,4 +212,9 @@ never assembled by the command. For Claude, set either:
   instead of billing per token. This mirrors the `claude_code_oauth_token` fallback
   noted in `run-predict.yml`.
 
-For Codex, set `OPENAI_API_KEY`. For Gemini, set `GEMINI_API_KEY`.
+For Codex, set `OPENAI_API_KEY`. The pinned codex CLI never reads that
+variable itself, so the runner feeds it to `codex login --with-api-key`
+(over stdin) before each cell — into a run-scoped temp `CODEX_HOME`, so your
+`~/.codex` subscription login is never touched; unset the variable to use an
+existing `codex login` instead, and an explicitly exported `CODEX_HOME` wins
+over the run-scoped default. For Gemini, set `GEMINI_API_KEY`.
