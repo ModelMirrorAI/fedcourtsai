@@ -1,0 +1,12 @@
+case_id: scotus/63195851
+decision_target: disposition
+description: The record received from the Court of Appeals of Texas 13th District
+  is electronic and located on the Court of Appeals of Texas web site.  Also one envelope
+  containing the Notice of Appeal, Clerk's Record, and Reporter's Record.
+docket_entry_id: 24
+event_id: evt-appeal-disposition
+kind: appeal
+opened_at: '2022-01-31'
+resolved: true
+schema_version: '1.0'
+title: Le Roy Torres v. Texas Department of Public Safety
