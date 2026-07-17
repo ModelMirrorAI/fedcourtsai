@@ -9,7 +9,8 @@ are not part of the matrix dimension; a predictionless event mints no cells).
 A single trigger can carry **many** cases: the issue body holds either one
 ``{court, docket, events}`` object or a JSON array of them. ``parse_cases``
 normalizes both forms into ``CaseRequest`` entries, and the matrix is the product
-of the registry x every requested case x that case's events. The
+of the registry x every requested case x that case's events (narrowed per case
+by an optional ``predictors`` filter — the engine-backfill path). The
 ``strategy.max-parallel`` cap in the workflow then throttles the whole fan-out,
 and resolved events are still skipped because the caller resolves each case's
 default event list (open events for predict, resolved events for evaluate).
@@ -42,11 +43,19 @@ class CaseRequest:
     ``events`` may be empty, meaning "resolve the case's default events" — open
     events for predict, resolved events for evaluate. The CLI does that
     data-directory lookup; the matrix builders take fully-resolved entries.
+
+    ``predictors`` narrows the predict fan-out to the named registry ids —
+    the backfill path when one engine's cells failed (quota, outage) while the
+    others delivered: re-running the full registry would duplicate the healthy
+    engines' committed predictions, since predict has no already-predicted
+    skip. Empty means every enabled predictor; evaluate ignores it (an
+    evaluator scores every committed prediction for its event).
     """
 
     court: str
     docket: int
     events: tuple[str, ...] = ()
+    predictors: tuple[str, ...] = ()
 
 
 def parse_cases(issue_body: str) -> list[CaseRequest]:
@@ -55,7 +64,9 @@ def parse_cases(issue_body: str) -> list[CaseRequest]:
     Accepts either a single ``{court, docket, events}`` object (single-case,
     back-compat) or a JSON array of such objects (batch). ``events`` is optional
     per entry; an absent or empty list means "resolve this case's default
-    events". Raises ``ValueError`` if no block is present or an entry is missing
+    events". ``predictors`` is optional per entry and narrows the predict
+    fan-out to the named registry ids (see :class:`CaseRequest`). Raises
+    ``ValueError`` if no block is present or an entry is missing
     ``court``/``docket``.
     """
     match = _JSON_BLOCK.search(issue_body)
@@ -72,6 +83,7 @@ def parse_cases(issue_body: str) -> list[CaseRequest]:
                 court=str(entry["court"]),
                 docket=int(entry["docket"]),
                 events=tuple(entry.get("events") or ()),
+                predictors=tuple(str(p) for p in entry.get("predictors") or ()),
             )
         )
     return cases
@@ -82,9 +94,22 @@ def predict_matrix(
     cases: list[CaseRequest],
     run_id: str,
 ) -> dict[str, list[dict[str, Any]]]:
+    predictors = enabled_predictors(predictors_path)
+    enabled_ids = {p.id for p in predictors}
+    for case in cases:
+        # Fail loud: a typo'd or disabled id silently skipping cells would make
+        # a backfill run look complete while delivering nothing for that engine.
+        unknown = [pid for pid in case.predictors if pid not in enabled_ids]
+        if unknown:
+            raise ValueError(
+                f"{case.court}/{case.docket}: predictors {unknown} are not enabled "
+                f"registry ids (enabled: {sorted(enabled_ids)})."
+            )
     include: list[dict[str, Any]] = []
-    for predictor in enabled_predictors(predictors_path):
+    for predictor in predictors:
         for case in cases:
+            if case.predictors and predictor.id not in case.predictors:
+                continue
             for event_id in case.events:
                 include.append(
                     {

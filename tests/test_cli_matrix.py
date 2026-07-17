@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.corpus_ranged import RangedBackendError
+from fedcourtsai.schemas import EventKind
 from tests.conftest import seed_prediction
 
 runner = CliRunner()
@@ -75,6 +76,47 @@ def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None
     # 3 predictors x 2 cases x 1 event
     assert len(cells) == 6
     assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24001), ("scotus", 24002)}
+
+
+def test_predict_matrix_predictors_filter_survives_default_event_resolution(tmp_path: Path) -> None:
+    # The engine-backfill path end-to-end: a body entry naming `predictors` but
+    # no `events` must keep its narrowing through default open-event resolution
+    # (which rebuilds the CaseRequest) — losing it would silently fan out the
+    # full registry and duplicate the healthy engines' committed predictions.
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        """Backfill.
+
+```json
+[{"court": "scotus", "docket": 24001, "predictors": ["codex-baseline"]}]
+```
+"""
+    )
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent.model_validate(
+                    {
+                        "case_id": "scotus/24001",
+                        "event_id": "evt-petition-cert",
+                        "court": "scotus",
+                        "kind": EventKind.petition,
+                        "title": "Doe v. Roe",
+                        "opened_at": date(2026, 6, 1),
+                    }
+                )
+            ],
+        )
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    cells = _cells(result.stdout)
+    assert [(c["predictor_id"], c["event_id"]) for c in cells] == [
+        ("codex-baseline", "evt-petition-cert")
+    ]
 
 
 def test_predict_matrix_legacy_single_case_flags_still_work(tmp_path: Path) -> None:
