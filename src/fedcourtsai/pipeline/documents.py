@@ -68,6 +68,13 @@ _QP_END_RE = re.compile(
 )
 # A QP section beyond this is a parsing miss, not a question (they run a page).
 _QP_MAX_CHARS = 4_000
+# A captured section that is really a table-of-contents entry: a run of leader
+# dots (to a page number). A petition's own TOC lists "QUESTIONS PRESENTED"
+# with a page reference, so matching that entry instead of the real heading
+# pulls in the TOC's dotted lines. pypdf preserves the leader dots, and a
+# genuine QP body — prose — never carries them, so their run is the reliable
+# tell. Tolerates the spaced form (". . . .") some fonts extract to.
+_QP_TOC_RE = re.compile(r"(?:\.\s*){4,}")
 
 
 @dataclass(frozen=True)
@@ -167,19 +174,21 @@ def extract_questions_presented(petition_text: str) -> str | None:
 
     Petitions front the QP page (Rule 14.1(a)), so the section runs from the
     QUESTION(S) PRESENTED heading to the next standard front-matter heading.
+    But a petition's own table of contents lists that heading too, and matching
+    the TOC entry captures the dotted TOC lines instead of the questions — so
+    scan *every* occurrence and return the first whose body reads as prose (no
+    leader-dot run), skipping the TOC entry wherever it falls.
     Length-capped: a runaway match means the end-heading regex missed, and a
     4-page "question" would only bury the signal it exists to surface.
     """
-    start = _QP_START_RE.search(petition_text)
-    if start is None:
-        return None
-    rest = petition_text[start.end() :]
-    end = _QP_END_RE.search(rest)
-    section = rest[: end.start()] if end is not None else rest[:_QP_MAX_CHARS]
-    section = section.strip()
-    if not section:
-        return None
-    return section[:_QP_MAX_CHARS]
+    for start in _QP_START_RE.finditer(petition_text):
+        rest = petition_text[start.end() :]
+        end = _QP_END_RE.search(rest)
+        section = (rest[: end.start()] if end is not None else rest[:_QP_MAX_CHARS]).strip()
+        if not section or _QP_TOC_RE.search(section):
+            continue  # an empty capture or a dotted TOC entry — not the questions body
+        return section[:_QP_MAX_CHARS]
+    return None
 
 
 def fetch_case_documents(
