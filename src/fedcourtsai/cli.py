@@ -3479,6 +3479,7 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "flags": plan.flags_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
+        "dead_actors": list(plan.dead_actors),
     }
 
 

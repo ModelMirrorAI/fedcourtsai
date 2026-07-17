@@ -231,16 +231,42 @@ def test_ready_pr_keeps_issue_open_while_a_draft_remains() -> None:
     assert plan.partial is not None and "Closes #42" not in plan.partial.body
 
 
-def test_skipped_only_cells_do_not_block_issue_close() -> None:
-    # A no-output cell will be retried on the next cycle; it does not keep the
-    # trigger issue open the way a pending draft does.
+def test_fully_absent_engine_blocks_issue_close() -> None:
+    # An engine at 0/N (e.g. quota) leaves no salvage draft, and the live queue
+    # is transition-driven so the gap never re-queues — the ready PR must NOT
+    # close the trigger issue, or a third of the board vanishes silently. The
+    # issue stays open for a backfill, with the missing engine named.
     plan = collect_plan(
         FinalizeRole.predict,
         run_id="R",
-        cells=[_cell("claude-baseline"), _cell("codex-baseline", produced=False)],
+        cells=[
+            _cell("claude-baseline"),
+            _cell("gemini-baseline"),
+            _cell("codex-baseline", produced=False),  # codex 0/1 -> absent
+        ],
         issue=42,
     )
     assert plan.ready is not None
+    assert plan.dead_actors == ("codex-baseline",)
+    assert "Closes #42" not in plan.ready.body
+    assert "codex-baseline" in plan.ready.body and "backfill" in plan.ready.body
+
+
+def test_partial_engine_with_a_single_skip_still_closes() -> None:
+    # An engine that produced some cells is not "absent": a single skipped cell
+    # of a producing engine is a per-cell gap, not a missing engine, so it does
+    # not hold the issue open (kept scoped to the whole-engine case #730 names).
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[
+            _cell("codex-baseline", docket=1),  # codex produced here
+            _cell("codex-baseline", docket=2, produced=False),  # ...skipped here
+        ],
+        issue=42,
+    )
+    assert plan.ready is not None
+    assert plan.dead_actors == ()
     assert "Closes #42" in plan.ready.body
 
 
