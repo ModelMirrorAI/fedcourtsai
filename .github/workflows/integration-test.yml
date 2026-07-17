@@ -88,9 +88,13 @@ on:
 permissions: {}
 
 # A superseded check has no value (every scenario is idempotent and
-# side-effect free), so a newer dispatch cancels an in-flight one.
+# side-effect free), so a newer dispatch cancels an in-flight one. The engine
+# is part of the key so per-engine smokes run side by side (scenario-only
+# grouping made simultaneous claude/gemini smoke dispatches cancel each
+# other); for the other scenarios the engine input is a constant default, so
+# the grouping is unchanged.
 concurrency:
-  group: integration-test-${{ inputs.scenario }}
+  group: integration-test-${{ inputs.scenario }}-${{ inputs.engine }}
   cancel-in-progress: true
 
 jobs:
@@ -232,10 +236,13 @@ jobs:
         env:
           ENGINE: ${{ inputs.engine }}
         # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
-        # scripts disabled, and a secret-free environment are the practical
-        # controls for global CLIs; a lockfile is not expressible for
-        # `npm i -g`. Keep the pins in lockstep with run-predict,
-        # run-evaluate, and run-backtest.
+        # transitive scripts disabled, and a secret-free step environment are
+        # the practical controls for global CLIs; a lockfile is not
+        # expressible for `npm i -g`. The one script run on purpose is the
+        # pinned claude package's own installer, which fetches the native
+        # binary from the vendor's release endpoint — the same vendor trust
+        # executing the agent itself carries. Keep the pins in lockstep with
+        # run-predict, run-evaluate, and run-backtest.
         run: |
           set -euo pipefail
           case "$ENGINE" in
@@ -244,6 +251,14 @@ jobs:
             gemini) package="@google/gemini-cli@0.49.0" binary=gemini ;;
           esac
           npm install --silent --no-audit --ignore-scripts --global "$package"
+          # Claude's native binary is placed by its postinstall, which
+          # --ignore-scripts suppresses; run the pinned package's own
+          # installer explicitly — the one script we already trust enough to
+          # execute as the agent moments later. codex/gemini need no
+          # postinstall.
+          if [ "$ENGINE" = "claude-code" ]; then
+            node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
+          fi
           "$binary" --version
 
       # The codex sandbox (bubblewrap) needs unprivileged user namespaces,
