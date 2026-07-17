@@ -350,6 +350,12 @@ class SalienceConfig(BaseModel):
     per_conference_capacity: int = Field(default=150, ge=0)
     long_conference_capacity: int = Field(default=200, ge=0)
     floor: float = Field(default=0.28, ge=0.0, le=1.0)
+    # Bounds the live cycle's selection sweep (selected petitions with open,
+    # never-predicted events — the rescue/catch-up/retry path). Each swept case
+    # costs one docket fetch plus document provisioning at the polite ~1 req/s,
+    # so the cap keeps the sweep a small tail on the cycle; the backlog drains
+    # across cycles under the sticky latch.
+    sweep_cases_per_cycle: int = Field(default=25, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:

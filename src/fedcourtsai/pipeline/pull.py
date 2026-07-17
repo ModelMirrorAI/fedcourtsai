@@ -190,7 +190,12 @@ def _in_predict_scope(corpus_db_path: Path, case_id: str) -> bool:
 
 
 def _queue_predict(
-    queues: PullQueues, result: PullResult, court: str, docket: int, events: list[str]
+    queues: PullQueues,
+    corpus_db_path: Path,
+    result: PullResult,
+    court: str,
+    docket: int,
+    events: list[str],
 ) -> None:
     """Queue one changed case with open events forward — or divert it.
 
@@ -198,7 +203,9 @@ def _queue_predict(
     carries a termination signal, or resolution left an unrecorded outcome
     (appears decided, not deterministically recordable). Both land on
     ``predict_skipped_decided`` with the reason, so the skip is triageable
-    rather than silent.
+    rather than silent. Either way the case's ``predict_queued_at`` is stamped,
+    so the live channel's selection sweep never re-queues on the same day a
+    pull-side queue entry (or divert) already covered.
     """
     decided_reason = result.termination_signal or (
         "docket appears decided; its outcome could not be recorded deterministically"
@@ -211,6 +218,8 @@ def _queue_predict(
         )
     else:
         queues.predict.append({"court": court, "docket": docket, "events": events})
+    with corpus.connect(corpus_db_path) as conn:
+        corpus.stamp_predict_queued(conn, [result.case_id], date.today())
 
 
 def pull_cases(
@@ -301,7 +310,7 @@ def pull_cases(
         in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
         events = open_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:
-            _queue_predict(queues, result, court, docket, events)
+            _queue_predict(queues, corpus_db_path, result, court, docket, events)
         if in_scope and result.resolved:
             # Only events something actually predicted reach evaluation: an
             # outcome recorded for a never-predicted event has nothing to score,
