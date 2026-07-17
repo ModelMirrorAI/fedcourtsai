@@ -1,12 +1,14 @@
 name: Ranged corpus access
 description: >-
   Assume the read-only AWS role via OIDC and point the corpus read seam at the
-  ranged backend: every later step in the job (including the agent) queries the
-  immutable corpus blob in place on the corpus remote via HTTP range requests —
-  no full-blob pull, per-query egress in KBs. The slim cell-job successor to
-  `corpus-readonly`, which scan-heavy consumers (analytics, the metrics
-  refresh) keep for their full pulls; the agent fan-outs' plan jobs use this
-  ranged path too (their scope gating is point lookups, not a scan). The calling job must grant
+  ranged backend: every later step in the job queries the immutable corpus
+  blob in place on the corpus remote via HTTP range requests — no full-blob
+  pull, per-query egress in KBs. For jobs with no agent step (the agent
+  fan-outs' plan jobs, whose scope gating is point lookups, not a scan):
+  job-wide credentials are fine only where no agent runs — the cell jobs use
+  `corpus-sidecar`, which keeps the credentials step-scoped, and the
+  scan-heavy consumers (analytics, the metrics refresh) keep `corpus-readonly`
+  for their full pulls. The calling job must grant
   `id-token: write` and run in the `runner` environment so the role and remote
   variables are available to pass in.
 

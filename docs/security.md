@@ -168,11 +168,16 @@ search the run's output for it), the AWS role ARNs and region, and the corpus
 remote URL (referenced by role, never committed). Every job that needs any of
 them declares `environment: runner`.
 
-**The Gemini cell env allowlist carries `_cell_env`'s identifiers and nothing
-else.** Gemini's CLI sanitizer strips every env var from the agent's shell in CI
+**The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
+sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
+strips every env var from the agent's shell in CI
 (strict mode is forced by `GITHUB_SHA`), so the cell workflows name the cell
 contract — court/docket/event/actor/run/model ids, plus the back-test's
-`DECIDED_BEFORE` clock — under `security.environmentVariableRedaction.allowed` in
+`DECIDED_BEFORE` clock, plus `FEDCOURTS_CORPUS_BACKEND` and
+`FEDCOURTS_CORPUS_SERVICE_URL` (a backend name and a localhost URL: the corpus
+sidecar contract, and what gives this engine the corpus retrieval the sanitizer
+could never grant via AWS credentials) —
+under `security.environmentVariableRedaction.allowed` in
 the `.gemini/settings.json` they generate. Those are public identifiers the agent
 already holds inline in its own prompt, so the allowlist adds no information; it
 exists so the agent can resolve its own cell's paths the way Claude and Codex do.
@@ -208,11 +213,13 @@ stores — the corpus remote (the index blob under its content-addressed
   manifests never need a delete; this means no run can wipe corpus data.
 - **Read-only role** (`AWS_ROLE_TO_ASSUME_READONLY`, used by every corpus
   *consumer* job — read and list only, so a compromised consumer runner
-  cannot write or poison the corpus). Consumers reach it through two
-  composites: `corpus-ranged` for the predict/evaluate **plan and cell** jobs
-  (role + backend env only; they query the index blob in place — the plan job's
-  scope gating is point lookups over the named cases, and the cell also reads
-  the content store — no pull) and `corpus-readonly` for the scan-heavy
+  cannot write or poison the corpus). Consumers reach it through three
+  composites: `corpus-ranged` for the predict/evaluate **plan** jobs (role +
+  backend env job-wide — fine where no agent runs; scope gating is point
+  lookups over the named cases), `corpus-sidecar` for the predict/evaluate
+  **cell** jobs (credentials stay step-scoped: the background `corpus-serve`
+  process and the deterministic provisioning steps hold them, the agent steps
+  never do — see below), and `corpus-readonly` for the scan-heavy
   full-pull consumers (`run-analytics` / the metrics refresh, and `run-backtest`).
 
 Access mirrors each workflow's role in the pipeline:
@@ -222,7 +229,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-pull` (pull + live jobs), `run-seed` | read-write    | corpus writers (`corpus-push` + content-store mirror) |
 | `run-predict`, `run-evaluate` — plan jobs | read-only | scope gating over the named cases — ranged point lookups, no pull |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
-| `run-predict`, `run-evaluate` — cell jobs | read-only | record provisioning from the content store + ranged index queries (no pull) |
+| `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`) |
 | `integration-corpus`                      | read-only     | ranged read-path preflight (role assumed directly, no pull) |
 | `run-ops`                                 | none          | dashboard reads GitHub state only |
@@ -241,14 +248,33 @@ Both roles' OIDC trust is scoped to this repo's `runner` environment
 (`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-
 environment jobs can assume them.
 
-**Cells hold read-only credentials while processing adversarial docket text.**
-A predict/evaluate cell runs an agent over third-party snapshot text
-with the read-only role's credentials in its environment — prompt injection in
-a docket must be assumed. The blast radius is bounded and acceptable: the role
-can only read public court data back out of the bucket and spend egress; it
-cannot write or delete (append-only remote, explicit deny, versioning on), and
-the cell's GitHub token cannot push code (the collect job owns git with its own
-token). A billing alarm bounds the egress-spend abuse case.
+**Agent shells hold no cloud credential; the residual is a localhost query
+surface.** A predict/evaluate cell runs an agent over third-party snapshot
+text — prompt injection in a docket must be assumed — but the read-only role's
+credentials never enter an agent step's environment: the `corpus-sidecar`
+composite takes them as masked step *outputs* (`output-credentials`, with the
+job-env export disabled) and they appear only pre-agent — in the composite's
+launch step, whose env the background `corpus-serve` process inherits, and in
+the deterministic provisioning steps' step-scoped env. A guard step fails the job if any `AWS_*` credential is
+visible in the job env when the agent steps begin, and this also levels the
+engines: the Gemini sanitizer could never allowlist a credential, so corpus
+retrieval used to be an accident of harness — now every engine queries the
+same credential-free surface. What replaces the old residual: the sidecar is
+an **unauthenticated localhost HTTP surface**, so any process on the runner —
+including the injected agent itself, which is the *intended* client — can
+query the corpus and spend ranged-read egress through it. That is the same
+read surface the cell is handed on purpose (public court data, KB-scale
+lookups, no bucket enumeration or presigned URLs — the wire accepts a
+structured query, not S3 operations), the role still cannot write or delete
+(append-only remote, explicit deny, versioning on), the cell's GitHub token
+cannot push code (the collect job owns git with its own token), and a billing
+alarm bounds the egress-spend abuse case. On-runner step-scoping is a strict
+improvement, not hard isolation: processes of the same runner user are not a
+security boundary against a determined co-resident process; the boundary this
+buys is that no agent's env, config file, or casual file read ever contains a
+credential. One follow-up inherits the old posture: the cert back-test's
+replay cells still take job-wide credentials via `corpus-readonly` (they need
+a full local pull), out of scope here.
 
 **The corpus-split mode constrains the read-only role's policy.**
 **`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `runner`
