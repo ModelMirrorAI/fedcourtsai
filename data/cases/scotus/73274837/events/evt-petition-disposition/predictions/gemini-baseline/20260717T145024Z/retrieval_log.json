@@ -1,0 +1,278 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "2f04ef69fbd84d2b",
+      "query": "{\"strategic_intent\": \"Read instructions to generate the required prediction files\", \"summary\": \"I will begin by reading `.github/prompts/predict.md` and `AGENTS.md` to understand the workflow, format, and instructions for generating the prediction.\", \"title\": \"Reading Prediction Context\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:14.561Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:16.859Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:16.860Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "04ffdb065ca1ebf4",
+      "query": "ls -lR data/cases/scotus/73274837",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:21.028Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d27322fc7cf871e4",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs for the prediction cell\", \"summary\": \"I will read the event definition, cell mode (context.json), and the provisioned case snapshot to understand the case facts and what I need to predict.\", \"title\": \"Analyzing Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:24.123Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d03a6b018373fadd",
+      "query": "{\"file_path\": \"data/cases/scotus/73274837/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:26.688Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "31fd9d332ef4872c",
+      "query": "{\"file_path\": \"data/cases/scotus/73274837/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:26.689Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b3f897083b81c68c",
+      "query": "{\"file_path\": \"data/cases/scotus/73274837/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:26.689Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f7ca992e3ef09310",
+      "query": "ls -l data/cases/scotus/73274837/record/documents/ || echo \"no documents dir\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:33.714Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a6e16709826b888d",
+      "query": "Gator's Custom Guns",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:38.541Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "6abb3a06c7ad55e9",
+      "query": "{\"endpoint_id\": \"opinions\", \"query\": {\"id\": 11039021}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:42.066Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "910b80ea376a3f31",
+      "query": "uv run fedcourts query --event evt-petition-disposition --court scotus --decided-before \"2026-07-17\" \"large capacity magazine ban second amendment Bruen\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:49.159Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:52.338Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:55.802Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a56d80c22e16e0b3",
+      "query": "cat metrics/statpack.md | grep -A 10 \"relist count\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:51:59.662Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "99b6a7f629b2985a",
+      "query": "\"Benson\" Supreme Court \"magazine\" OR \"assault weapon\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:52:20.569Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "e9819f8666c3f067",
+      "query": "\"Benson\" Second Amendment \"Supreme Court\" OR \"certiorari\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:52:35.168Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "4ca23467714ad91d",
+      "query": "uv run fedcourts query --event evt-petition-disposition --court scotus --limit 10 \"magazine ban second amendment\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:52:40.772Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3d44dab51d10ca21",
+      "query": "uv run fedcourts query --court scotus --topic \"Second Amendment\" --decided-before 2026",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:52:44.420Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "73666ecc663a001e",
+      "query": "\"Duncan v. Bonta\" Supreme Court \"certiorari\" 2025 2026",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:53:02.001Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "dcf660522c130113",
+      "query": "{\"strategic_intent\": \"Write the prediction files and reasoning\", \"summary\": \"I have gathered the necessary facts. The case, along with other magazine ban cases like Duncan v. Bonta, has been carried over to the 2026-2027 term. The Court granted cert in two assault weapon cases (Viramontes and Grant). The most likely outcome for Gator's Custom Guns is a hold followed by a Grant, Vacate, and Remand (GVR) once the assault weapon cases are decided. I will now generate the prediction, reasoning, and ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:53:22.785Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "32ed3f665f87903c",
+      "query": "mkdir -p data/cases/scotus/73274837/events/evt-petition-disposition/predictions/gemini-baseline/20260717T145024Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:53:25.984Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4d14604a3f943a09",
+      "query": "cat << 'EOF' > data/cases/scotus/73274837/events/evt-petition-disposition/predictions/gemini-baseline/20260717T145024Z/reasoning.md\n## Analysis\n\n**Legal Question & Governing Standard:**\nThe petition presents the question of whether Washington state's ban on \"large capacity magazines\" (capable of holding more than 10 rounds), enacted in ESSB 5078, violates the Second Amendment. The governing standard is the Supreme Court's historical tradition test articulated in *NYSRPA v. Bruen* and *DC v. Hell",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:53:47.773Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:53:51.588Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2af8918c8db7bcc2",
+      "query": "cat << 'EOF' > data/cases/scotus/73274837/events/evt-petition-disposition/predictions/gemini-baseline/20260717T145024Z/prediction.json\n{\n  \"case_id\": \"scotus/73274837\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"run_id\": \"20260717T145024Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-07-17T14:53:51Z\",\n  \"input_snapshot\": \"2026-07-17.json\",\n  \"granted\": 1,\n  \"probability\": 0.85,\n  \"predicted_disposition\": \"gvr\",\n  \"confid",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:53:55.758Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eaeac1a406e82217",
+      "query": "cat << 'EOF' > data/cases/scotus/73274837/events/evt-petition-disposition/predictions/gemini-baseline/20260717T145024Z/retrieval.md\n- CourtListener MCP Search for `Gator's Custom Guns` in Washington courts to identify the underlying opinion (10572433).\n- CourtListener MCP Opinion retrieval for `11039021` to read the Washington Supreme Court's decision.\n- Looked up base rates in `metrics/statpack.md`, noting the ~3.2% general grant rate and the 21.8% grant rate for 3+ relists.\n- Web search for `\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:53:59.657Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1bc689388344cfbd",
+      "query": "{\"content\": \"- CourtListener MCP Search for `Gator's Custom Guns` in Washington courts to identify the underlying opinion (10572433).\\n- CourtListener MCP Opinion retrieval for `11039021` to read the Washington Supreme Court's decision.\\n- Looked up base rates in `metrics/statpack.md`, noting the ~3.2% general grant rate and the 21.8% grant rate for 3+ relists.\\n- Web search for `\\\"Benson\\\" Second Amendment \\\"Supreme Court\\\" OR \\\"certiorari\\\"` to understand the context of the supplemental briefs",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:54:03.619Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "200fdef395fcc91a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274837\\\",\\n  \\\"run_id\\\": \\\"20260717T145024Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"CourtListener MCP\\\",\\n    \\\"Google Web Search\\\"\\n  ],\\n  \\\"helpful\\\": \\\"The Google Web Search was critical for discovering the July 1, 2026 cert grants in companion cases that explain the massive relist count and point directly to a GVR.\\\",\\n  \\\"gaps\\\": ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:54:07.199Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "351b5b18994b3d22",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274837\\\",\\n  \\\"run_id\\\": \\\"20260717T145024Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"Used web search to find news from July 1, 2026 regarding companion Second Amendment cases (Duncan v. Bonta, Viramontes v. Cook County). This public information predates the snapshot and decisively points to a 'hold for GVR' posture, so I",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:54:10.675Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:54:16.817Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5ceff0ac827789fd",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274837\\\",\\n  \\\"run_id\\\": \\\"20260717T145024Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"CourtListener MCP\\\",\\n    \\\"Google Web Search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The Google Web Search was critical for discovering the July 1, 2026 cert grants in companion cases that explain the massive relist count and point directly to a GVR.\\\"\\n  ],\\n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:54:20.803Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:54:25.962Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "90240e55d301c285",
+      "query": "{\"strategic_intent\": \"Finalize the prediction\", \"summary\": \"I have finished generating the prediction and reasoning for `Gator's Custom Guns, Inc. v. Washington`. The prediction indicates a highly likely Grant, Vacate, and Remand (GVR) given the massive relist pattern and the recent certiorari grants in companion cases that address the same Second Amendment issue under Bruen. The required output files (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`, and `flags.json`) have been",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T14:54:32.339Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73274837",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T145024Z",
+  "schema_version": "1.0"
+}

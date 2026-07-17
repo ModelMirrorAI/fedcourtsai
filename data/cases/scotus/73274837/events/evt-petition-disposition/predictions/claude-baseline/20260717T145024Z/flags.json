@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274837",
+  "run_id": "20260717T145024Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal disclosure: the forecast leans heavily on the cert grants in the companion assault-weapons cases (Viramontes v. Cook County, 25-238, consolidated with Grant v. Higgins), reported the week of this snapshot, plus this petition being held over at the June 30, 2026 clean-up conference rather than denied. These are companion-case developments, not this case's outcome (the petition remains pending), so this is the good-hygiene note the leakage doctrine asks for, not a violation. Also worth knowing for scoring: the likeliest resolution is a GVR after the AWB merits decision, i.e. this event may not resolve until ~June 2027."
+    }
+  ]
+}

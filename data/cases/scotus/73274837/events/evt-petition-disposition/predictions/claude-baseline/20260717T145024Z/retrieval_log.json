@@ -1,0 +1,286 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "af6dc17801a13d29",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e67420954b2b32e6",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274837 -type f | head -50",
+      "result_digest": "bb5761f8c45310f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ec7d7ec5a24a023",
+      "query": "uv run fedcourts paths --court scotus --docket 73274837 --event evt-petition-disposition 2>&1",
+      "result_digest": "4551e0d02d6bdab4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "85612dc45d9dc193",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274837/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2c2632d7dc41160d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274837/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "7f867023e9ad27af",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1d8f95b9de2e7330",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274837/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "a06d4304a58a7286",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8ab040a1134ebbfa",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fa2ae92a6d945d61",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\" 2>&1",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "82a9f46667676211",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nfor s in d['sections']:\n    print(s.get('title') or s.get('key'))\n\" 2>&1",
+      "result_digest": "6ce29af6ca49e54d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "eca8ea29edb759cf",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt = d['terms']\nprint(type(t))\nimport pprint\nif isinstance(t, dict):\n    print(list(t.keys())[:10])\n    first = list(t.values())[0]\n    pprint.pprint(first)\nelif isinstance(t, list):\n    pprint.pprint(t[0])\n\" 2>&1 | head -60",
+      "result_digest": "40c303d0d6385505",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "49a39f33765b045b",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt = d['terms'][0]\nprint(list(t.keys()))\nif 'salience' in json.dumps(d)[:0] or True:\n    s = json.dumps(d)\n    print('salience' in s, 'band' in s)\n\" 2>&1",
+      "result_digest": "76ee0432c1f16ba0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "61de068124c7c2bc",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,80p'",
+      "result_digest": "52c2b0ad2c3395e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "534e0fdd603eb39f",
+      "query": "uv run fedcourts query --court scotus --citation \"New York State Rifle & Pistol Assn., Inc. v. Bruen\" --citation \"District of Columbia v. Heller\" --limit 10 2>corpus_stderr.txt; echo \"---STDERR---\"; cat corpus_stderr.txt",
+      "result_digest": "d1584b10596aeddb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d23eb71dcf53b341",
+      "query": "uv run fedcourts query --court scotus --citation \"597 U.S. 1\" --citation \"554 U.S. 570\" --limit 10 2>corpus_stderr2.txt; echo \"---STDERR---\"; cat corpus_stderr2.txt",
+      "result_digest": "2d6b9b39c9356cc5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7da4d16842a6728e",
+      "query": "select:WebSearch",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "fd7960609fe090ec",
+      "query": "Ninth Circuit Benson magazine ban Second Amendment vacated en banc 2026",
+      "result_digest": "be4a99fd521a937d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "5faf632afce903bc",
+      "query": "Supreme Court relist \"Gator's Custom Guns\" 25-153 magazine ban cert",
+      "result_digest": "f42dae976b90455e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "15676169a87730cc",
+      "query": "Supreme Court grants cert Viramontes v. Cook County assault weapons ban 2026",
+      "result_digest": "997798bad383c20d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "a3dd4130e19d7f5f",
+      "query": "SCOTUSblog relist \"Gator's\" magazine ban Duncan v. Bonta Ocean State Tactical 2026",
+      "result_digest": "46d6f17fda2912df",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "2a91f0022ce0f616",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "88b23299584f843b",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274837/events/evt-petition-disposition/predictions/claude-baseline/20260717T145024Z",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "53b4542d246aeb21",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274837\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T145024Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T14:56:09Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73274837/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.68,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"co",
+      "result_digest": "b2ca8eb8f20908f0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d19b9458b14b8181",
+      "query": "{\"content\": \"# Gator's Custom Guns, Inc. v. Washington (No. 25-153) \\u2014 cert disposition\\n\\n## The question presented\\n\\nPetitioners challenge Washington's ban on the manufacture, import, distribution,\\nand sale of ammunition-feeding devices holding more than ten rounds (a\\nsales-side ban, broader than most states' possession bans). The Washington\\nSupreme Court upheld the law 7-2 (May 8, 2025), reasoning that such magazines\\nare \\\"accessories,\\\" not \\\"Arms,\\\" and therefore outside the Second",
+      "result_digest": "871ba9902efa206b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "62240645ce1f5c49",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73274837 evt-petition-disposition (claude-baseline, 20260717T145024Z)\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"New York State Rifle & Pistol Assn., Inc. v. Bruen\\\" --citation \\\"District of Columbia v. Heller\\\" --limit 10`\\n   - stderr: `ranged corpus reads: 421 GET(s), 110166016 byte(s)`\\n   - Returned no rows (case-name-style citation strings matched nothing).\\n2. `uv run fedcourts query --court scotu",
+      "result_digest": "11efd2d1b98c28b8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0634bf0f0e29b1a4",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274837\\\",\\n  \\\"run_id\\\": \\\"20260717T145024Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"web search (forward mode)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack relist-count bucket table (the single most on-point base-ra",
+      "result_digest": "d2213bac28517563",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "cd94903c327748ef",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274837\\\",\\n  \\\"run_id\\\": \\\"20260717T145024Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Decisive forward signal disclosure: the forecast leans heavily on the cert grants in the companion assault-weapons cases (Viramontes v. Cook County, 25-23",
+      "result_digest": "1cf08afc1167f9b8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "a4ea19ba8a8d2df5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "70facb79717e06ba",
+      "query": "gh issue comment 741 --body \"**claude-baseline** (run \\`20260717T145024Z\\`) \u2014 prediction written for \\`scotus/73274837\\` / \\`evt-petition-disposition\\` (Gator's Custom Guns, Inc. v. Washington, No. 25-153).\n\n**P(grant, GVR included) = 0.68; predicted disposition: \\`gvr\\`; big-case score 0.75.** Forward cell: the petition survived ~20 conference distributions and was held over at the June 30, 2026 clean-up conference rather than denied \u2014 at the same window the Court granted the companion assault-",
+      "result_digest": "5aabadaa29b75f5e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73274837",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T145024Z",
+  "schema_version": "1.0"
+}
