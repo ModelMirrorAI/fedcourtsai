@@ -101,15 +101,6 @@ jobs:
           uv run fedcourts authorize-trigger \
             --sender-type "$SENDER_TYPE" --actor "$ACTOR" --repo "$REPO"
 
-      # The replay provisions redacted snapshots from the corpus, so it must be
-      # on disk; without a pointer there is nothing to back-test.
-      - uses: ./.github/actions/corpus-readonly
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
-          aws-region: ${{ vars.AWS_REGION }}
-          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
-          missing-pointer: warn
-
       # The real-engine replay shells out to the agent CLIs through the tested
       # runner seam — the same binaries the devcontainer ships. Installed only
       # when a real engine will run; the stub backend needs nothing. All three
@@ -119,19 +110,39 @@ jobs:
       # (keep all three in lockstep with integration-test's engine-smoke
       # install) — and the report names what actually ran. A `--skip-engines` opt-out (or a
       # missing binary, dropped loudly at run time) is what leaves an engine out.
+      # This step deliberately runs BEFORE the corpus composite assumes the
+      # read-only role: the one script it executes on purpose must see a
+      # credential-free environment.
       - name: Install the agent CLIs
         if: github.event_name == 'issues' || inputs.engine == 'auto'
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pins, scripts
-        # disabled, and a secret-free environment are the practical controls for
-        # global CLIs; a lockfile is not expressible for `npm i -g`.
+        # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
+        # transitive scripts disabled, and a credential-free step environment
+        # are the practical controls for global CLIs; a lockfile is not
+        # expressible for `npm i -g`. The one script run on purpose is the
+        # pinned claude package's own installer, which fetches the native
+        # binary from the vendor's release endpoint — the same vendor trust
+        # executing the agent itself carries.
         run: |
           set -euo pipefail
           npm install --silent --no-audit --ignore-scripts --global \
             @anthropic-ai/claude-code@2.1.207 @openai/codex@0.144.1 \
             @google/gemini-cli@0.49.0
+          # Claude's native binary is placed by its postinstall, which
+          # --ignore-scripts suppresses; run the pinned package's own
+          # installer explicitly. codex/gemini need no postinstall.
+          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
           claude --version
           codex --version
           gemini --version
+
+      # The replay provisions redacted snapshots from the corpus, so it must be
+      # on disk; without a pointer there is nothing to back-test.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-remote-url: ${{ vars.CORPUS_REMOTE_URL }}
+          missing-pointer: warn
 
       # Gemini's replay cells read the same cell env contract as a live predict
       # cell (COURT_ID/DOCKET_ID/... from `_cell_env`, plus DECIDED_BEFORE, the
