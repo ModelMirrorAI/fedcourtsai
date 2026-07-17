@@ -437,8 +437,11 @@ def _route_result(
             )
         else:
             queues.predict.append({"court": "scotus", "docket": docket_id, "events": events})
-            with corpus.connect(corpus_db_path) as conn:
-                corpus.stamp_predict_queued(conn, [result.case_id], today)
+        # Queue entry and divert both stamp: the sweep's daily debounce must
+        # cover a decided-looking selected case too, or a later window's sweep
+        # re-fetches it and appends a duplicate divert entry the same day.
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.stamp_predict_queued(conn, [result.case_id], today)
     if in_scope and result.resolved:
         # Only events something actually predicted reach evaluation: the live
         # sweeps resolve plenty of never-predicted petitions (frontier catch-up,
@@ -512,6 +515,11 @@ def salience_sweep(  # noqa: PLR0913 - soft-budget deadline + injected clock ove
                 # reasoning still re-runs on the fresh row before queueing).
                 if row.salience_selected and not row.predict_excluded
             ),
+            # Stalest first, so the catch-up backlog drains fairly under the
+            # cap. A same-cycle first-selection was polled today and therefore
+            # sorts last — behind the backlog during a drain — but it is never
+            # dropped (sticky candidate, unstamped), only deferred to a later
+            # cycle while the backlog clears.
             key=lambda row: (row.last_live_polled or date.min, row.case_id),
         )
     fetches = 0
@@ -676,6 +684,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                     *queues.predict,
                     *queues.predict_skipped_decided,
                     *queues.unrecorded,
+                    *queues.failed,
                 )
             }
             salience_sweep(

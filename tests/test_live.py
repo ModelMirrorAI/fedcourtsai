@@ -1255,3 +1255,88 @@ def test_sweep_respects_the_cap_and_the_ungated_scope(tmp_path: Path) -> None:
             today=date(2026, 7, 11),
         )
     assert ungated.predict == []
+
+
+def test_sweep_diverts_a_decided_looking_selected_case_once_per_day(tmp_path: Path) -> None:
+    # A selected petition whose latest order is a terminal form the resolver
+    # misses: the sweep must divert it (never a forward cell) and stamp, so a
+    # later window the same day appends no duplicate divert entry.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    decided_looking = _payload(
+        "25-1",
+        proceedings=[
+            _payload()["ProceedingsandOrder"][0],
+            _DISTRIBUTED_ENTRY,
+            _RULE_398_ENTRY,
+        ],
+    )
+    ingest_live_payload(db, data_root, decided_looking, docket_id, today=date(2026, 7, 9))
+    served = {"25-1": decided_looking}
+    cfg = _sweep_config()
+
+    with _frontier_client(served) as client:
+        queues1, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert queues1.predict == []
+    assert [q["docket"] for q in queues1.predict_skipped_decided] == [docket_id]
+    assert "39.8" in str(queues1.predict_skipped_decided[0]["reason"])
+
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert queues2.predict == [] and queues2.predict_skipped_decided == []
+
+
+def test_selected_case_transition_queues_exactly_once(tmp_path: Path) -> None:
+    # An already-selected petition that relists: the inline transition path
+    # queues it (and stamps), and the same cycle's sweep must not add a second
+    # entry for the same docket.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    distributed = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+    )
+    ingest_live_payload(db, data_root, distributed, docket_id, today=date(2026, 7, 9))
+    with corpus.connect(db) as conn:
+        corpus.latch_salience_selected(conn, ["scotus/9025000001"])
+
+    relisted = _payload(
+        "25-1",
+        proceedings=[
+            _payload()["ProceedingsandOrder"][0],
+            _DISTRIBUTED_ENTRY,
+            {"Date": "Jul 11 2026", "Text": "DISTRIBUTED for Conference of 10/10/2026."},
+        ],
+    )
+    served = {"25-1": relisted}
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
