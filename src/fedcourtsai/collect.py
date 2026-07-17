@@ -213,6 +213,14 @@ class CollectPlan:
     The collect job posts the
     stall comment on the trigger issue only when this is true, so a genuine
     "nothing to do" run stays quiet.
+
+    ``dead_actors`` are the engines that produced 0 of their cells this run — a
+    whole engine absent from the tournament (e.g. quota exhaustion), as opposed
+    to the per-cell ``skipped`` gaps. Because the live queue is
+    transition-driven (it never re-queues a gap), a fully-absent engine would
+    otherwise let the ready PR close the trigger issue with a third of the board
+    silently missing; ``collect_plan`` therefore withholds the close and names
+    the gap, keeping the issue open for a backfill.
     """
 
     ready: PrPlan | None
@@ -221,6 +229,7 @@ class CollectPlan:
     flags_markdown: str = ""
     feedback_comment: str = ""
     stalled: bool = False
+    dead_actors: tuple[str, ...] = ()
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -371,8 +380,9 @@ def collect_plan(
     opens no ready PR; with nothing to salvage, no draft.
 
     ``issue`` is the triggering issue, which the ready PR closes on merge — but
-    only when nothing is left to salvage, so a run with a pending draft keeps its
-    trigger issue open until a maintainer finishes that draft.
+    only when nothing is left to salvage **and no whole engine is absent** (a
+    fully-missing engine at 0/N, see ``dead_actors``), so a run with a pending
+    draft or a missing engine keeps its trigger issue open for the follow-up.
 
     ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags`. Their
     roll-up is appended to whichever PR body opens (the ready PR, else the draft)
@@ -388,16 +398,35 @@ def collect_plan(
     salvage = [c for c in cells if c.produced and not c.ready]
     skipped = tuple(c for c in cells if not c.produced)
 
+    # An actor that produced 0 of its cells is a whole engine missing from the
+    # run — and unlike a partial failure it leaves no salvage draft to hold the
+    # issue open. The live queue is transition-driven, so the gap never
+    # re-queues; without withholding the close here the ready PR (the surviving
+    # engines) would shut the trigger issue with that engine silently absent.
+    # Keys on `produced` (not `agent_ok`): an engine that ran cleanly but
+    # declined every cell is the same missing seat as a quota failure — the
+    # tournament expects every seat to produce, so both keep the issue open.
+    produced_actors = {c.actor for c in cells if c.produced}
+    dead_actors = tuple(sorted({c.actor for c in cells} - produced_actors))
+
     ready_plan: PrPlan | None = None
     if ready:
-        note = (
-            f"\n\n{len(salvage)} cell(s) need review; see the companion draft PR."
-            if salvage
-            else ""
-        )
+        notes = []
+        if salvage:
+            notes.append(f"{len(salvage)} cell(s) need review; see the companion draft PR.")
+        if dead_actors:
+            engines = ", ".join(f"`{a}`" for a in dead_actors)
+            notes.append(
+                f"⚠️ No output at all from {engines} this run — a full engine is "
+                f"missing and the live queue will not re-queue it, so this issue "
+                f"stays open for a backfill (the per-case predictors filter)."
+            )
+        note = ("\n\n" + "\n\n".join(notes)) if notes else ""
         # Close the trigger issue from the ready PR, but not while a draft still
-        # carries unfinished work for the same run.
-        closes = f"\n\nCloses #{issue}" if issue is not None and not salvage else ""
+        # carries unfinished work OR a whole engine is missing for the run.
+        closes = (
+            f"\n\nCloses #{issue}" if issue is not None and not salvage and not dead_actors else ""
+        )
         ready_plan = PrPlan(
             branch=f"{role.value}/run-{run_id}",
             commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s)",
@@ -430,6 +459,7 @@ def collect_plan(
         flags_markdown=flags_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md),
         stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
+        dead_actors=dead_actors,
     )
 
 
