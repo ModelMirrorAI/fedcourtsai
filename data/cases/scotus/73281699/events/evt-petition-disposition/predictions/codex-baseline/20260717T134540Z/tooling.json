@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281699",
+  "run_id": "20260717T134540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "CourtListener MCP opinion search and endpoint lookup",
+    "committed corpus statpack",
+    "fedcourts query (attempted; unavailable)"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition",
+    "CourtListener MCP surfaced the closely related 2026 Ohio decision",
+    "Statpack supplied paid-petition and procedural-signal base rates"
+  ],
+  "gaps": [
+    "The ranged corpus remote was unreachable because DNS resolution failed"
+  ],
+  "notes": "The provisioned briefing was sufficient to finish cleanly. The failed corpus query did not yield priors, so used_corpus_query is false; committed base rates and CourtListener legal context were available."
+}

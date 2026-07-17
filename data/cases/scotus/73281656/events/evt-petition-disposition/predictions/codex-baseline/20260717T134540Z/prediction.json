@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281656",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260717T134540Z",
+  "created_at": "2026-07-17T13:53:17Z",
+  "input_snapshot": "data/cases/scotus/73281656/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.06,
+  "predicted_disposition": "denied",
+  "confidence": 0.85,
+  "big_case_score": 0.78,
+  "big_case_rationale": "A merits ruling could affect capital Strickland review nationwide and the reliability of state post-conviction adjudication.",
+  "reasoning_doc": "reasoning.md"
+}

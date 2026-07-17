@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281673",
+  "run_id": "20260717T134540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed corpus statpack",
+    "fedcourts query (attempted)",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The complete brief in opposition exposed dispositive jurisdictional and vehicle defects.",
+    "The statpack supplied paid-petition, relist, and CVSG calibration anchors.",
+    "CourtListener MCP confirmed the date and existence of the new Fourth Circuit conflict case."
+  ],
+  "gaps": [
+    "The ranged corpus store was unreachable because DNS resolution failed, so no similar resolved priors were returned.",
+    "The provisioned petition text was truncated late in the Wisconsin Supreme Court concurring opinions."
+  ],
+  "notes": "The provisioned merits briefing was sufficient to make the forecast despite the failed corpus-prior lookup; no direct REST fallback was used."
+}
