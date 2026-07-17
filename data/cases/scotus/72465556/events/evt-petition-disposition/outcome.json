@@ -1,0 +1,11 @@
+{
+  "actual_disposition": "gvr",
+  "actual_granted": 1,
+  "case_id": "scotus/72465556",
+  "disposition_basis": "standard",
+  "event_id": "evt-petition-disposition",
+  "resolved_at": "2022-06-30",
+  "schema_version": "1.0",
+  "source": null,
+  "votes": []
+}

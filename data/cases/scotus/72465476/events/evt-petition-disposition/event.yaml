@@ -1,0 +1,11 @@
+case_id: scotus/72465476
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-04-13'
+resolved: true
+schema_version: '1.0'
+title: Leslie Rutledge, Attorney General of Arkansas, et al., Petitioners v. Little
+  Rock Family Planning Services, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/72465166
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-02-22'
+resolved: true
+schema_version: '1.0'
+title: Shelby L. Haynes, et al., Petitioners v. Central States, Southeast and Southwest
+  Areas Health and Welfare Fund, et al.

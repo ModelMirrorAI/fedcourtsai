@@ -1,0 +1,10 @@
+case_id: scotus/72465562
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-04-28'
+resolved: true
+schema_version: '1.0'
+title: Louis Tafuto, Petitioner v. Donald J. Trump for President, Inc., et al.

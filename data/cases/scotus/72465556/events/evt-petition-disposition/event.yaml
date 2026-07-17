@@ -1,0 +1,11 @@
+case_id: scotus/72465556
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-04-28'
+resolved: true
+schema_version: '1.0'
+title: Association of New Jersey Rifle & Pistol Clubs, Inc., et al., Petitioners v.
+  Andrew J. Bruck, Acting Attorney General of New Jersey, et al.

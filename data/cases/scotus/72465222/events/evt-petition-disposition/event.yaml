@@ -1,0 +1,11 @@
+case_id: scotus/72465222
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-03-01'
+resolved: true
+schema_version: '1.0'
+title: Common Ground Healthcare Cooperative, On Behalf of Itself and All Others Similarly
+  Situated, Petitioner v. United States

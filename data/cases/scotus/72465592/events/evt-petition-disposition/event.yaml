@@ -1,0 +1,11 @@
+case_id: scotus/72465592
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-05-05'
+resolved: true
+schema_version: '1.0'
+title: Pivotal Software, Inc., et al., Petitioners v. Superior Court of California,
+  City and County of San Francisco, et al.

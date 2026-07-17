@@ -1,0 +1,12 @@
+case_id: scotus/72465417
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-04-01'
+resolved: true
+schema_version: '1.0'
+title: Security People, Inc., Petitioner v. Drew Hirshfeld, Acting Under Secretary
+  of Commerce for Intellectual Property and Director, United States Patent and Trademark
+  Office, et al.
