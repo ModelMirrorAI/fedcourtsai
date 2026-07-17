@@ -1,0 +1,11 @@
+case_id: scotus/72465807
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-06-15'
+resolved: true
+schema_version: '1.0'
+title: Janet L. Yellen, Secretary of the Treasury, et al., Petitioners v. United States
+  House of Representatives

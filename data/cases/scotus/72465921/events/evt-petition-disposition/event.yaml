@@ -1,0 +1,10 @@
+case_id: scotus/72465921
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-06-30'
+resolved: true
+schema_version: '1.0'
+title: Stephane J. Wantou Siantou, Petitioner v. CVS RX Services, Inc.

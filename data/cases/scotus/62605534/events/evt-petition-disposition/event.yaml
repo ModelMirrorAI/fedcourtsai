@@ -1,0 +1,11 @@
+case_id: scotus/62605534
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2021-06-24'
+resolved: true
+schema_version: '1.0'
+title: Harold Shurtleff, et al., Petitioners v. City of Boston, Massachusetts, et
+  al.
