@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73265705",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus, granted 2020s priors)",
+    "metrics/statpack.md (modern cert base rates, relist/CVSG/circuit cuts)",
+    "CourtListener MCP search (docket index)",
+    "provisioned snapshot + petition/QP/BIO text"
+  ],
+  "helpful": [
+    "Full provisioned petition and BIO text — the grant/deny signals (CFR, SG extension, seven cert-stage amici, vehicle disputes) were all readable without leaving the cell",
+    "statpack relist/CVSG signal cuts as calibration anchors for a high-salience petition",
+    "fedcourts query priors confirming the profile of recently granted petitions"
+  ],
+  "gaps": [
+    "CourtListener docket search has no SCOTUS coverage, so companion-petition checks (e.g. a Cambridge Industries follow-on raising the same QP) came up empty; a supremecourt.gov docket-search ability would fill this",
+    "The committed statpack lacks the salience-band table predict.md points to, and no cut isolates CFR'd (response-requested) petitions — the strongest signal on this docket",
+    "No cut for cert-stage amicus count, which is a strong observable grant signal"
+  ],
+  "notes": "Forward cell, fresh same-day snapshot; retrieval degraded gracefully to provisioned inputs plus corpus priors after the MCP docket searches returned nothing SCOTUS-side."
+}

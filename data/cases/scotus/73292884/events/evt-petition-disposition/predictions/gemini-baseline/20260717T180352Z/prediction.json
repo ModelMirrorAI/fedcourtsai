@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292884",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20260717T180352Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-17T18:03:52Z",
+  "input_snapshot": "2026-07-17.json",
+  "granted": 1,
+  "probability": 0.65,
+  "predicted_disposition": "granted",
+  "big_case_score": 0.85,
+  "big_case_rationale": "High-stakes First Amendment challenge to campaign finance donor disclosure laws that could further narrow Citizens United's disclosure holdings.",
+  "reasoning_doc": "reasoning.md"
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292884",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md + statpack.json (per-Term paid/IFP grant rates)",
+    "courtlistener MCP search (docket + opinion)",
+    "provisioned petition.txt / questions-presented.txt"
+  ],
+  "helpful": [
+    "Provisioned petition text and QP section — enough to assess the vehicle without fetching PDFs",
+    "statpack.json per-fee-class Term rows (paid ~5.4% grant, Term 2025) — the anchor this prediction adjusts from",
+    "Relist/CVSG signal cuts as calibration for how strong docket signals scale the base rate"
+  ],
+  "gaps": [
+    "No call-for-response (CFR) cut in the statpack — the decisive docket signal here; a CFR-conditional grant rate would have anchored the adjustment empirically",
+    "The 'Segment base rate by salience band' table referenced in predict.md is absent from the committed statpack artifact",
+    "CourtListener docket-type search returns nothing for SCOTUS dockets, so prior cert petitions' fates (e.g. Gaspee Project) could not be verified; a cert-outcome lookup for named prior petitions would help",
+    "No cert-stage amicus-count cut in the corpus rows"
+  ],
+  "notes": "Forward cell, well provisioned. Prediction anchored on the paid-class Term rate and adjusted for CFR + 4 amici + two-judge dissent below; the ceiling on that adjustment comes from the Court's uniform post-AFPF denials in this doctrinal line, known from training rather than retrievable in-cell."
+}

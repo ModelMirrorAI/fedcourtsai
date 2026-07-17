@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73299074",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP: search (dockets)",
+    "CourtListener MCP: call_endpoint (docket-entries)"
+  ],
+  "helpful": [
+    "CourtListener docket-entries endpoint — the underlying district-court docket explained the entire mandamus posture (state-court remand adopted 2026-04-09), which the SCOTUS snapshot alone could not",
+    "statpack per-Term and relist tables as a ceiling check, even though this is an extraordinary writ rather than cert"
+  ],
+  "gaps": [
+    "corpus query sidecar at 127.0.0.1:8377 was unreachable (timed out), so no ranked corpus priors were available this run",
+    "no base-rate cut for Rule 20 extraordinary-writ petitions (statpack covers discretionary-cert dockets only); a writ-type field or an extraordinary-writ base-rate row would anchor cells like this one",
+    "no provisioned record/documents/ for this cell (no petition text), so the petition's actual QP/theory had to be inferred from the underlying docket"
+  ],
+  "notes": "Forward-mode mandamus petition. The snapshot identified the filing type; everything decision-relevant beyond that came from the CourtListener MCP lookups of the underlying S.D. Tex. case."
+}

@@ -1,0 +1,334 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "42b917094d77ebc8",
+      "query": "{\"strategic_intent\": \"I will read the necessary files to understand the prediction prompt and agent rules.\", \"summary\": \"I am starting the process of generating a prediction. I'll read `.github/prompts/predict.md` and `AGENTS.md` to understand the format and requirements for the prediction, and then execute the necessary steps to gather the data and generate the prediction files.\", \"title\": \"Reading Prediction Prompts and Rules\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:36.908Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:39.563Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:39.563Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "77fecd9583b5a566",
+      "query": "uv run fedcourts paths --court scotus --docket 73303792 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:44.451Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4b0876e9f4e0d7cc",
+      "query": "ls -la data/cases/scotus/73303792",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:49.286Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7134ab84a43e42e9",
+      "query": "ls -la data/cases/scotus/73303792/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:51.686Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5c42099aba901cdd",
+      "query": "{\"strategic_intent\": \"I will read the provisioned per-case inputs to understand the case and the event to predict.\", \"summary\": \"I have read the prompt and agent rules. Now, I will examine the provisioned inputs for case scotus/73303792, including its snapshot, context, event definition, and related documents. This information will form the basis of the prediction.\", \"title\": \"Reading Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:55.366Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "00a0d3c054d8afea",
+      "query": "cat data/cases/scotus/73303792/events/evt-petition-disposition/event.yaml && echo '---' && cat data/cases/scotus/73303792/record/context.json && echo '---' && ls -la data/cases/scotus/73303792/record/snapshots && ls -la data/cases/scotus/73303792/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:55.388Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c5cf122567bdb081",
+      "query": "cat data/cases/scotus/73303792/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:58.777Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a57c9bbfb23aa55d",
+      "query": "cat data/cases/scotus/73303792/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:58.778Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "21fe5f43e8619ef8",
+      "query": "cat data/cases/scotus/73303792/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:58.778Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9b68aa32e7667b5c",
+      "query": "\"John Paul Gomez\" \"David Ryan\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:06.280Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "b9651ae2c5eeca41",
+      "query": "\"John Paul Gomez\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:06.281Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "095a2f6db59e15f2",
+      "query": "\"24-3840\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:14.216Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "756ce6ca73f3e050",
+      "query": "\"24-3840\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:14.217Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "2f7c1cdfa849a880",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 100, \"query\": {\"docket_id\": 69636140, \"order_by\": \"date_filed desc\"}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:17.780Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "a3445b5c38f044e5",
+      "query": "{\"endpoint_id\": \"docket-entries\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:21.113Z",
+      "tool": "mcp_courtlistener_get_endpoint_schema"
+    },
+    {
+      "params_digest": "4388d19c8474d36f",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 100, \"query\": {\"docket\": 69636140, \"order_by\": \"-date_filed\"}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:23.945Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "5e5b48034f722574",
+      "query": "\"John Gomez\" \"David Ryan\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:29.226Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f2983e7850dc1b46",
+      "query": "{\"endpoint_id\": \"opinions\", \"query\": {\"cluster__docket\": 69636140}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:29.227Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "4a78ae33ccaae8b7",
+      "query": "\"John Paul Gomez\" \"David Ryan\" Sixth Circuit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:47.666Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "0cb4e5feaf0dacb8",
+      "query": "uv run fedcourts query --court scotus --decided-before 2026-07-17",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:54.061Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:54.063Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6ea5713d01ad2ce4",
+      "query": "grep -A 50 \"Modern cert petitions by fee status\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:57.191Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2aa7bd82bbc7d0c5",
+      "query": "grep -E \"^## \" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:59.852Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d9cdfbd88968fdc0",
+      "query": "grep -A 20 \"SCOTUS cert petitions by Term\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:02.830Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "48310632ba8ab08f",
+      "query": "cat metrics/statpack.json | jq '.tables[] | select(.title == \"SCOTUS cert petitions by Term\") | .rows[] | select(.Term == \"2024\")'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:06.151Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "23a5ec59810fdb45",
+      "query": "cat metrics/statpack.json | grep -A 10 '\"Term\": \"2024\"'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:08.969Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3b357ae5169f0bc1",
+      "query": "cat metrics/statpack.json | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:11.725Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:18.281Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:29.027Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "040dae4958c25583",
+      "query": "mkdir -p data/cases/scotus/73303792/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:37.764Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2754f7374e8d61b4",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73303792\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:53:18Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73303792/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.0,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:44.214Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bcd3efcd8a3fbda7",
+      "query": "{\"content\": \"# Reasoning: Gomez v. Ryan (scotus/73303792)\\n\\n**Legal Question & Context**\\nPetitioner John Paul Gomez, a pro se litigant who has been declared a vexatious litigator by both Ohio state courts and federal district courts, seeks review of a Sixth Circuit decision affirming the dismissal of his 42 U.S.C. \\u00a7 1983 claims. Gomez sued a patrolman (David Ryan) and various judicial officials (judges and court clerks) following the 2019 arrest of his minor son, alleging interference wit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:50.841Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3a039e85b8cf7ed1",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- **CourtListener MCP (`search` and `call_endpoint`):**\\n  - Searched the Sixth Circuit and Ohio State court opinions for cases involving \\\"John Paul Gomez\\\" and \\\"David Ryan\\\" to identify the nature of the underlying dispute (`q=\\\"John Paul Gomez\\\" \\\"David Ryan\\\"`). \\n  - Searched by docket number \\\"24-3840\\\" on the Sixth Circuit to retrieve the docket ID (69636140).\\n  - Queried `docket-entries` for the Sixth Circuit docket ID 69636140 to view the activity on th",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:57.123Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b848b4d3b7d16eee",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73303792\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"mcp_courtlistener_call_endpoint\\\",\\n    \\\"mcp_courtlistener_get_endpoint_schema\\\",\\n    \\\"google_web_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search was essential for finding the fa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:01.070Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3c2f976e751e4909",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73303792\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"The provisioned petition document was marked empty_text: true (scanned filing with no text layer). Used web search and dockets to establish facts.\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\"\\n    }\\n  ]\\n}\\n\", \"file_path\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:06.671Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "686984cad3e99659",
+      "query": "{\"strategic_intent\": \"I will validate the output files to ensure they conform to the schema.\", \"summary\": \"I have written the prediction files (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`, and `flags.json`). Now I will validate them using the `fedcourts validate data` command as required.\", \"title\": \"Validating Prediction Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:13.245Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:16.205Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5aac4c532416a723",
+      "query": "{\"strategic_intent\": \"I will finalize the prediction process.\", \"summary\": \"I have successfully generated and validated all required prediction files for case scotus/73303792. The output conforms to the provided schemas and has been written to the correct directory. I will now finish the execution as instructed.\", \"title\": \"Finalizing Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:20.611Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73303792",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

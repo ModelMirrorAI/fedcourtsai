@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292885",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned brief-in-opposition.txt is content-unavailable (documents.json marks it empty_text: true — a 12-page scanned filing with no extractable text layer). Predicted from the petition, snapshot, and base rates without it; for this cell the gap is immaterial (a BIO could only reinforce denial), but an OCR fallback in the document fetcher would close it."
+    }
+  ]
+}

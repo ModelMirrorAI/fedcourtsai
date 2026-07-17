@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73317900",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp call_endpoint",
+    "provisioned snapshot + petition/QP documents"
+  ],
+  "helpful": [
+    "Provisioned petition text made the hold-for-Jules/GVR posture obvious without any PDF fetching.",
+    "CourtListener MCP opinions endpoint delivered the full Jules slip opinion — the single decisive input for this cell.",
+    "fedcourts query --disposition gvr --era 2020s gave a concrete recent-GVR reference class (dates, distribution counts)."
+  ],
+  "gaps": [
+    "The committed statpack has no cut for call-for-response (CFR) petitions; a CFR-conditional grant/GVR base rate would have sharpened this estimate more than the relist/CVSG cuts.",
+    "The statpack.md in the repo lacks the per-Term salience-band section the prompt describes, so the band-anchoring step could not be applied.",
+    "No cheap way to pull only a SCOTUS opinion's syllabus/holding via MCP — the clusters syllabus field was empty and search exposes no snippet, so the full slip opinion had to be fetched."
+  ],
+  "notes": "Forward cell rode an intervening decision (Jules, 2026-05-14) rather than base rates; corpus GVR priors were used to sanity-check the disposition label and timing pattern."
+}

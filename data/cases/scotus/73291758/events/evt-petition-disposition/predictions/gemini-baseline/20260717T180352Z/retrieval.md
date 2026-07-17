@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`. I reviewed the base rates for modern cert petitions, specifically those grouped by relist count and originating court.

@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "ef6359fe3b50b9d8",
+      "query": "{\"strategic_intent\": \"Reading prediction instructions from project files.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:48.308Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:50.577Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:50.578Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "faff7442594db3b6",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73318133\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:56.373Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "54412694b34f37da",
+      "query": "{\"dir_path\": \"data/cases/scotus/73318133/events/evt-petition-disposition/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:58.846Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "e8b5e3955aeb5021",
+      "query": "find data/cases/scotus/73318133",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:01.802Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "656df90b7dbe8237",
+      "query": "{\"strategic_intent\": \"Reading provisioned case record and schemas.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:04.534Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "85e8a4b701b1f836",
+      "query": "{\"file_path\": \"data/cases/scotus/73318133/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:08.337Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:08.337Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "cf635a446f07408d",
+      "query": "{\"file_path\": \"data/cases/scotus/73318133/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:08.338Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5725144ad9e22cef",
+      "query": "{\"file_path\": \"data/cases/scotus/73318133/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:08.338Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2308c6e412b91c41",
+      "query": "{\"file_path\": \"data/cases/scotus/73318133/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:08.339Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ed431ce35772fb15",
+      "query": "{\"file_path\": \"data/cases/scotus/73318133/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:08.339Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:15.736Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "37c8317df7aeec2d",
+      "query": "{\"strategic_intent\": \"Drafting and validating output files.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:26.352Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:29.770Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "16e8eefa152150dc",
+      "query": "mkdir -p data/cases/scotus/73318133/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:33.582Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ef6f3790423c6c25",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73318133\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73318133/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.0,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:38.307Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5450326e17bf75bc",
+      "query": "{\"content\": \"This is a pro se petition by Christopher Veto seeking review of a Ninth Circuit decision affirming summary judgment for Boeing on his employment retaliation claims. The petitioner alleges that he smelled marijuana at work and was subsequently retaliated against for reporting it. He advances sweeping constitutional arguments, contending that state marijuana legalization laws violate the Supremacy and Commerce Clauses, and asks the Court to issue a nationwide injunction against Boeing",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:44.428Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "cee708d29718b8de",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/73318133/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:47.297Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "abfd165ccc15df74",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73318133\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true\\n}\", \"file_path\": \"data/cases/scotus/73318133/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:51.016Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:57.369Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "201e404e4415533c",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73318133\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true\\n}\", \"file_path\": \"data/cases/scotus/73318133/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:01.982Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:07.536Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ba326ee548100b05",
+      "query": "{\"summary\": \"I have finished writing the predictions files for the given SCOTUS case and verified that they match the JSON schema constraints correctly.\", \"title\": \"Finished Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:11.713Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "99511b2a902fdd91",
+      "query": "{\"strategic_intent\": \"Finishing the prediction task.\", \"summary\": \"I have finished writing the predictions files for the given SCOTUS case and verified that they match the JSON schema constraints correctly.\", \"title\": \"Finished Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:14.599Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73318133",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "dbbdcc0a8e585893",
+      "query": "{\"strategic_intent\": \"Read instructions and understand output contract for the prediction task.\", \"title\": \"Prediction Task Setup\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:32.474Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:34.423Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:34.424Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2877ba74623a5d5a",
+      "query": "uv run fedcourts paths --court scotus --docket 73275168 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:40.711Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "84d5caae1c83df16",
+      "query": "ls -la data/cases/scotus/73275168/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:44.145Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "36bf9dbb80a7377d",
+      "query": "{\"file_path\": \"data/cases/scotus/73275168/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:48.378Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d1a315d1b6a418d8",
+      "query": "ls -la data/cases/scotus/73275168/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:50.987Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a4da0d8ce4799d7a",
+      "query": "ls -la data/cases/scotus/73275168/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:53.432Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d25227c2387412b0",
+      "query": "{\"file_path\": \"data/cases/scotus/73275168/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:55.737Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9f2f58a18eca135e",
+      "query": "ls -la data/cases/scotus/73275168/record/snapshots/ && ls -la data/cases/scotus/73275168/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:58.220Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "051334b575da54b9",
+      "query": "{\"file_path\": \"data/cases/scotus/73275168/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:01.516Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3738aa625b1a4f68",
+      "query": "{\"file_path\": \"data/cases/scotus/73275168/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:01.516Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "baff22a7cea61111",
+      "query": "{\"file_path\": \"data/cases/scotus/73275168/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:01.517Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "75714c42c198d7fc",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:09.475Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7618e2927841fef7",
+      "query": "grep -A 20 -i \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:12.200Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5eca8715a23dd980",
+      "query": "ls -la metrics/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:15.272Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:18.963Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "68c1b164ab3a777f",
+      "query": "head -n 50 data/cases/scotus/73275168/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:32.708Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "324cdb83a7067bff",
+      "query": "grep -A 5 -B 5 \"Loper Bright\" data/cases/scotus/73275168/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:36.443Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "466603259b93a5b1",
+      "query": "grep -A 10 -B 2 \"moot\" data/cases/scotus/73275168/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:40.428Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e1f58f7121770dc7",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:53.012Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f511e66b05c1f489",
+      "query": "cat schemas/agent_flags.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:56.531Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8409307aa95f0631",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:59.401Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f48a0ae2d91a3058",
+      "query": "mkdir -p data/cases/scotus/73275168/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:02.807Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6d113f6afa5de719",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73275168\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"probability\\\": 0.15,\\n  \\\"big_case_score\\\": 0.85,\\n  \\\"big_case_rationale\\\": \\\"Raises major questi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:21.472Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "99cfd3177e98b6ec",
+      "query": "{\"content\": \"# Reasoning for Prediction\\n\\n**Case**: Raymond Poore v. United States (No. 25-227)\\n**Issue**: Whether the limits on agency deference announced in *Kisor v. Wilkie* and *Loper Bright Enterprises v. Raimondo* constrain the deference courts may accord the Sentencing Commission's interpretation of its own rules via commentary.\\n**Status**: Pending cert petition with 10 relists (distributions for conference from January to April 2026).\\n\\n## Qualitative Analysis\\n\\n1.  **The Substantiv",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:21.476Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8c82f29eaf9c1af4",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Searched `statpack.md` for base rates on cert petitions, specifically referencing the \\\"Segment base rate by salience band\\\" and \\\"Cert petitions by relist count\\\" tables.\\n- Did not use the `fedcourts query` CLI because the case file was fully provisioned and the base rates were sufficient.\\n- No retrieval beyond the provisioned inputs and the committed `statpack.md`.\\n\", \"file_path\": \"data/cases/scotus/73275168/events/evt-petition-disposition/predictions/gemin",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:21.479Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "847d9e410fe3548f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73275168\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md base rates for relist counts\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": null\\n}\\n\", \"file_path\": \"data/cases/scotus/73275168/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:21.482Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a15a0184f184153e",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:27.366Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7ec25cfc60e2c3e8",
+      "query": "{\"strategic_intent\": \"Done running validation and writing files. Finishing task.\", \"title\": \"Task Completion\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:30.498Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73275168",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

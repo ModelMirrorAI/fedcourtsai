@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275168",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode disclosure: the prediction rests decisively on public companion-case signal predating the snapshot - the 2026-04-20 cert grant in Beaird v. United States (No. 25-5343) on the same Stinson/Kisor question, which makes this petition a likely hold. Legitimate forward signal, not leakage; no query sought this case's own disposition (still pending as of the 2026-07-17 snapshot)."
+    }
+  ]
+}

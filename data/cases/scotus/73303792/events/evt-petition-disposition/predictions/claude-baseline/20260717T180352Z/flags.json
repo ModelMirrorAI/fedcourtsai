@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73303792",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The only provisioned document (petition.txt, 26 pp.) has empty_text: true — the supremecourt.gov filing is a scan with no text layer, so the questions presented were unreadable. Prediction rests on docket metadata (pro se paid petition against state judicial officers, waiver of response, no CFR, distributed for the 2026-09-28 long conference) plus statpack base rates; the structural signals are strong, so this degrades confidence only slightly."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "The corpus query sidecar (127.0.0.1:8377) was unreachable this run — fedcourts query timed out — so no similar-case priors were retrieved. Fell back to the committed statpack per the degrade-gracefully rule; noting it here in case other cells in run 20260717T180352Z hit the same outage."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73322426",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260717T180352Z",
+  "created_at": "2026-07-17T18:22:37Z",
+  "input_snapshot": "data/cases/scotus/73322426/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.18,
+  "predicted_disposition": "denied",
+  "confidence": 0.55,
+  "big_case_score": 0.5,
+  "big_case_rationale": "A grant would force the Court to choose between Craig and Crawford for remote video testimony, a standard governing every criminal courtroom post-Zoom; doctrinally significant but low political salience.",
+  "votes": []
+}

@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "6f0c90f3ed3b9ee9",
+      "query": "{\"strategic_intent\": \"Understanding the prompt contract for prediction tasks\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:33.496Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:35.865Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:35.866Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5bb086d3fdfab961",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73248556\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:40.479Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fc45d3cd26889d5b",
+      "query": "ls -la data/cases/scotus/73248556/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:46.188Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "801ea57148130aea",
+      "query": "ls -la record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:48.871Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b16924c10d1f0853",
+      "query": "find . -name context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:51.415Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "676d75f25dd1a16d",
+      "query": "ls -R data/cases/scotus/73248556/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:54.034Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "65cdccd902c1ba4b",
+      "query": "{\"strategic_intent\": \"Reading provisioned case record inputs (snapshot, documents, context)\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:56.286Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "2a18ab90d08d2581",
+      "query": "{\"file_path\": \"data/cases/scotus/73248556/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:59.100Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a2afc7d4a780c89a",
+      "query": "{\"file_path\": \"data/cases/scotus/73248556/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:59.100Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dad2a4fa5fe80709",
+      "query": "{\"file_path\": \"data/cases/scotus/73248556/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:46:59.101Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d793437d71cc8a0a",
+      "query": "{\"file_path\": \"data/cases/scotus/73248556/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:03.130Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "743cced4e8677d55",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73248556/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:03.131Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "769fd139f6f4c80a",
+      "query": "{\"end_line\": 20, \"file_path\": \"data/cases/scotus/73248556/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:03.131Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "79fcda093284c217",
+      "query": "{\"end_line\": 200, \"file_path\": \"data/cases/scotus/73248556/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:09.723Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "adc69475658adc2a",
+      "query": "uv run fedcourts query --docket \"24-1234\" --court \"scotus\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:21.837Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:24.901Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f6e76c27e530f2b0",
+      "query": "\"United States v. Hemani\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:28.930Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "fa5fd0115d4f4051",
+      "query": "{\"endpoint_id\": \"opinions\", \"fields\": [\"html_with_citations\", \"plain_text\"], \"item_id\": 11344434}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:32.674Z",
+      "tool": "mcp_courtlistener_get_endpoint_item"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:40.312Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "cb1d29e1139c1193",
+      "query": "mkdir -p data/cases/scotus/73248556/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:47:56.167Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bfa526e66a10bc3a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73248556\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.05,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.90,\\n  \\\"big_case_score\\\": 0.85,\\n  \\\"big_case_rationale",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:02.183Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a208fcb5b13bf740",
+      "query": "{\"content\": \"The United States petitioned for certiorari, asking the Court to hold the petition pending the resolution of *United States v. Hemani*, No. 24-1234, and then, if appropriate, grant, vacate, and remand (GVR). *Hemani* presented the question of whether 18 U.S.C. \\u00a7 922(g)(3) (disarming unlawful users of controlled substances) violates the Second Amendment. \\n\\nIn the decision below, the Fifth Circuit held that \\u00a7 922(g)(1) (disarming felons) is unconstitutional as applied to r",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:09.812Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "616963a70796795f",
+      "query": "{\"content\": \"* Read the committed statpack `metrics/statpack.md` for base rates regarding SCOTUS cert petitions.\\n* Used CourtListener MCP tool `search` with query `\\\"United States v. Hemani\\\"`, finding docket `24-1234` and the opinion decided on 2026-06-18.\\n* Used CourtListener MCP tool `get_endpoint_item` to retrieve the `plain_text` opinion for *United States v. Hemani* (item_id `11344434`) to confirm its holding.\", \"file_path\": \"data/cases/scotus/73248556/events/evt-petition-disposition/pre",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:13.563Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "78d854562ab66c9a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73248556\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"mcp_courtlistener_get_endpoint_item\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The CourtListener MCP tools are incredibly helpful for quickly retrieving and reading recently decided opinions that bea",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:17.444Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:23.017Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8b58dc34ec73132",
+      "query": "cat schemas/prediction.schema.json | grep -A 5 -B 5 \"big_case_rationale\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:26.780Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:31.357Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e689c1c664e25ee8",
+      "query": "{\"strategic_intent\": \"Task completed. Prediction artifacts written successfully.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:48:35.221Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73248556",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

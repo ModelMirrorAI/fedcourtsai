@@ -1,0 +1,286 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bb0ff32fe0572143",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884 -type f | head -50",
+      "result_digest": "ab6b4a7b0cae177e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "190090ac7e864ed3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d249e36c60615caa",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "654366f3ffb3de6e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cc3d187ee183a842",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "f44ba50080c8986a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1b65c0dca5d800ff",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884/record/documents/documents.json\"}",
+      "result_digest": "7589d6e87f245b39",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a7138f42e267ad20",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884/record/documents/questions-presented.txt\"}",
+      "result_digest": "28e49ac14322970a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7f40066b78869d53",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884/record/documents/petition.txt\"}",
+      "result_digest": "4c4e6afe8818f505",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "326f3bdcf69c7009",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "6648df6b3bbfcecb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "11e11985d6f2d62e",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nsecs = d['sections']\nprint(type(secs))\nif isinstance(secs, list):\n    for s in secs: print(s.get('title') or s.get('key'))\nelse:\n    print(list(secs.keys()))\n\"",
+      "result_digest": "c1f45ec657220dce",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "199764320aec147b",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt = d['terms']\nprint(type(t))\nimport pprint\nif isinstance(t, list):\n    for row in t:\n        print(json.dumps(row)[:600]); print()\n\"",
+      "result_digest": "3e3b099c780d3f41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "502d10a6c5e1bb0a",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nfor row in d['terms'][:2]:\n    print('Term', row['base_rates']['key'])\n    for c in row['classes']:\n        print(json.dumps({k: c[k] for k in c if k != 'dispositions'}), '->', [(x['disposition'], round(x['share'],4)) for x in c['dispositions']])\n    print()\n\"",
+      "result_digest": "0b263e86780d3994",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "92c11d333b93eea5",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 8 2>querystderr1.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    try: r = json.loads(line)\n    except Exception: print(line[:200]); continue\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:90], '|', r.get('disposition'), '|', r.get('date_resolved') or r.get('resolved_at'))\n\"; echo '--- stderr:'; cat querystderr1.txt | tail -3",
+      "result_digest": "c09955a542b94cc9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "789c35abf97ef3c2",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 8 2>querystderr2.txt | head -1 | python3 -c \"\nimport sys, json\nr = json.loads(sys.stdin.readline())\nprint(json.dumps(r, indent=1)[:1500])\n\"; echo '--- stderr:'; tail -1 querystderr2.txt",
+      "result_digest": "3963b2901f596186",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ab2782bc8cb4adf2",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__call_endpoint",
+      "result_digest": "f4be7b0161ad95d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "8bb2697eea89cd9f",
+      "query": "{\"case_name\": \"Gaspee Project\", \"court\": \"scotus\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"absolute_url\", \"docket_id\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "88613c64add2714d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "d00ddb27611d3696",
+      "query": "{\"case_name\": \"Wyoming Gun Owners\", \"court\": \"scotus\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"absolute_url\", \"docket_id\"], \"num_results\": 5, \"type\": \"d\"}",
+      "result_digest": "9f32ef3460a088d5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "ed1caf7db09f1844",
+      "query": "donor disclosure First Amendment",
+      "result_digest": "5b70aaf5083b12f8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "60b5903cb1169f26",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 5, \"query\": {\"case_name__icontains\": \"Gaspee\", \"court\": \"scotus\"}}",
+      "result_digest": "08a0cfc147a4fa68",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "3f05eaadf83250d9",
+      "query": "\"Gaspee Project\" certiorari denied",
+      "result_digest": "9a3b46c6bacb2518",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "5af3d11a82625e3c",
+      "query": "\"Gaspee Project\"",
+      "result_digest": "f306d3bf5e848097",
+      "retrieved_doc_date": "2021-09-14",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "d62171d9ab2959ae",
+      "query": "uv run fedcourts paths --court scotus --docket 73292884 --event evt-petition-disposition 2>&1 | head -20 && date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "37b73365ce5f14c2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2f1e834b14009f2f",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292884/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3f1d2105b06b83cb",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73292884\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:08:50Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73292884/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "46b73603bf408b0f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "11150e04290cef3a",
+      "query": "{\"content\": \"# Rio Grande Foundation v. Toulouse Oliver, No. 25-1248 \\u2014 cert disposition\\n\\n**Prediction: denied. P(grant, GVR included) = 0.15.**\\n\\n## The case\\n\\nRio Grande Foundation (RGF), a New Mexico 501(c)(3) issue-advocacy nonprofit\\nrepresented by the Liberty Justice Center, challenges the New Mexico Campaign\\nReporting Act's donor-disclosure requirements as applied to \\\"independent\\nexpenditures\\\" defined to include ads that merely *mention* a candidate or\\nballot question within ",
+      "result_digest": "f68bd761bf8723ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "72ffad51e0c509b5",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73292884 / evt-petition-disposition / claude-baseline / 20260717T180352Z\\n\\nForward-mode cell; retrieval unrestricted. Beyond the provisioned inputs\\n(snapshot `2026-07-17.json`, `documents/petition.txt`,\\n`documents/questions-presented.txt`, `record/context.json`, the event\\ndefinition) and the committed `metrics/statpack.md` / `metrics/statpack.json`\\n(read for paid-class and relist/CVSG base rates), I consulted:\\n\\n## Corpus lookups (`fedcourts query",
+      "result_digest": "534064d3bc840953",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3bbfdcea1983705f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73292884\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (service backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json (per-Term paid/IFP grant rates)\\\",\\n    \\\"courtlistener MCP search (docket + opinion)\\\",\\n    \\\"prov",
+      "result_digest": "5e5992060ba746f0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fcc6d8edb9c9b5c4",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/",
+      "result_digest": "600db1203c53daa4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2e2e52df4625de31",
+      "query": "gh issue comment 759 --body \"claude-baseline / claude-fable-5 \u2014 scotus/73292884 (Rio Grande Foundation v. Toulouse Oliver, No. 25-1248) / evt-petition-disposition / run 20260717T180352Z: **denied**, P(grant)=0.15. CFR + four cert-stage amici + Eid/Tymkovich dissent below lift this well above the ~5% paid-class base rate, but no circuit split and the Court's uniform post-AFPF denials in this disclosure line cap it. Outputs written and \\`fedcourts validate data\\` passes; no flags.\" 2>&1",
+      "result_digest": "3c4efebc72d2a894",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73292884",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

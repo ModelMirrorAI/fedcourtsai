@@ -1,0 +1,246 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "93a35352d451e0df",
+      "query": "{\"strategic_intent\": \"I am reading the prediction instructions and agent documentation to understand the prediction task constraints and required outputs.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:11.483Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:14.725Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:14.725Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "69626ace35cd3a59",
+      "query": "ls -la data/cases/scotus/73246321/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:19.256Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "88043ee5995c0247",
+      "query": "ls -la data/cases/scotus/73246321/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:22.177Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ed537b962331b330",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73246321\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:26.251Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "71e139b209906c47",
+      "query": "find data -name \"context.json\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:31.234Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7721cefa031468e2",
+      "query": "ls -la data/cases/scotus/73246321/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:35.441Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "75e03953e01b2dbd",
+      "query": "cat data/cases/scotus/73246321/events/evt-petition-disposition/event.yaml && cat data/cases/scotus/73246321/record/context.json && ls -la data/cases/scotus/73246321/record/snapshots && ls -la data/cases/scotus/73246321/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:38.338Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9b6ebe7259866018",
+      "query": "cat data/cases/scotus/73246321/record/snapshots/2026-07-17.json && cat data/cases/scotus/73246321/record/documents/documents.json && cat data/cases/scotus/73246321/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:41.888Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "851c782ae8a1fb1a",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:46.034Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7f029d75a5aadc9f",
+      "query": "cat metrics/statpack.md | grep -i -A 10 \"fee class\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:48.464Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fd756e18bdc8b043",
+      "query": "cat metrics/statpack.md | grep -i \"fee\" -A 10 -B 2",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:51.132Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f9c34b3b2943f53d",
+      "query": "cat metrics/statpack.md | grep -i \"salience\" -A 10 -B 2",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:53.713Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a8c931009aaf0c9a",
+      "query": "head -n 50 metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:56.356Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ea53d46e6a6b0d19",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:00.111Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "00a43b74054eff3d",
+      "query": "uv run fedcourts query --court \"scotus\" --topic \"Court of Appeals of Georgia\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:28.277Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "697b085f97365ff4",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:32.851Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b941abf5079a73a3",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:41.151Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c5a320c6db11b609",
+      "query": "mkdir -p data/cases/scotus/73246321/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:46.547Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "44309726bcc39303",
+      "query": "cat << 'EOF' > data/cases/scotus/73246321/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/prediction.json\n{\n  \"case_id\": \"scotus/73246321\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"engine\": \"gemini\",\n  \"run_id\": \"20260717T180352Z\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-07-17T18:03:52Z\",\n  \"input_snapshot\": \"data/cases/scotus/73246321/record/snapshots/2026-07-17.json\",\n  \"granted\": 0,\n  \"probability\": 0.001",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:50.951Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d66f679b8ed716d8",
+      "query": "cat << 'EOF' > data/cases/scotus/73246321/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/reasoning.md\n# Prediction for Andron Miguel Francis v. Allstate Insurance Company (25-1218)\n\nThis is a pro se petition for a writ of certiorari seeking review of a decision by the Court of Appeals of Georgia (A25D0341). The respondent, Allstate Insurance Company, filed a waiver of its right to respond on June 22, 2026. The case was distributed for the September 28, 2026 conferen",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:54.983Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6ce36d19a05fc906",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73246321\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73246321/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.0,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:07.880Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7e16d92c50e67191",
+      "query": "{\"content\": \"# Prediction for Andron Miguel Francis v. Allstate Insurance Company (25-1218)\\n\\nThis is a pro se petition for a writ of certiorari seeking review of a decision by the Court of Appeals of Georgia (A25D0341). The respondent, Allstate Insurance Company, filed a waiver of its right to respond on June 22, 2026. The case was distributed for the September 28, 2026 conference without a response being requested.\\n\\nThe petition text is unavailable (the pipeline extraction yielded `empty_te",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:07.885Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "895cbc97d3d27717",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the committed corpus statpack.\\n\", \"file_path\": \"data/cases/scotus/73246321/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:07.888Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "199a0c0614fbb3ec",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73246321\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"cat metrics/statpack.md\\\",\\n    \\\"fedcourts query\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md base rates\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"The statpack base rates for relist count were highly informative. No need to deeply query the corpus due to ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:07.891Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6b09fb784a816cbe",
+      "query": "{\"content\": \"- `uv run fedcourts query --court \\\"scotus\\\" --topic \\\"Court of Appeals of Georgia\\\"`\\n  `ranged corpus reads: 464 GET(s), 121503744 byte(s)`\\n\\nNo further retrieval beyond the provisioned inputs and the committed corpus statpack.\\n\", \"file_path\": \"data/cases/scotus/73246321/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:12.415Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d4f025240cd94a6b",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:18.027Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2f7dd9f711aec2b6",
+      "query": "{\"strategic_intent\": \"I am finishing up as the required output files have been successfully written and validated.\", \"summary\": \"I read the prediction prompt and the case inputs. The case is a pro se petition from a state court where the respondent waived their right to respond, and it has not been relisted. This strongly predicts a denial. I generated the required `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` files and verified them with the validation command.\", \"title\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:21.981Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73246321",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,286 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "10dd9af3cfd9d43a",
+      "query": "{\"strategic_intent\": \"Understand the prediction requirements from predict.md and AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:53.576Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:56.566Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:56.566Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2e6bab51ded954d6",
+      "query": "uv run fedcourts paths --court scotus --docket 73274796 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:03.613Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8fef907043323f96",
+      "query": "find data/cases/scotus/73274796 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:07.183Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f18bc8654ce0e92c",
+      "query": "{\"strategic_intent\": \"Analyze the provided case records and context to formulate a prediction.\", \"summary\": \"I have read the prompts and instructions. Now I am reading the event context, the latest case snapshot, and the document texts (such as the questions presented and petition). This information will form the basis of the prediction.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:10.342Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4a3bdf61471f2718",
+      "query": "cat data/cases/scotus/73274796/events/evt-petition-disposition/event.yaml data/cases/scotus/73274796/record/context.json data/cases/scotus/73274796/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:12.877Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "23bd9e8680b67e86",
+      "query": "cat data/cases/scotus/73274796/record/snapshots/2026-07-17.json | jq '{caseName, docketNumber, court_id, nature_of_suit, dateFiled, dateTerminated, parties: .parties[:5], latest_entries: .docket_entries[-5:]}'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:18.852Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b1c1cc21e3444c53",
+      "query": "cat data/cases/scotus/73274796/record/snapshots/2026-07-17.json | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:21.303Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "643a6336cf5feb9b",
+      "query": "cat data/cases/scotus/73274796/record/snapshots/2026-07-17.json | jq '{CaseNumber, LowerCourt, LowerCourtCaseNumbers, ProceedingsAndOrders: .ProceedingsAndOrders[-15:]}'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:24.155Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "97f8d6dad5711b55",
+      "query": "cat data/cases/scotus/73274796/record/snapshots/2026-07-17.json | jq 'keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:26.672Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2b8da70b1e9b2cbd",
+      "query": "cat data/cases/scotus/73274796/record/snapshots/2026-07-17.json | jq '.ProceedingsandOrder'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:29.426Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c6be91b2fb519f68",
+      "query": "ls -la data/cases/scotus/73274796/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:35.021Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5e69372694847b6c",
+      "query": "cat data/cases/scotus/73274796/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:38.086Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "23b63d98994ecc75",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:51.827Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "89dcedd6fd0ce5e7",
+      "query": "\"Renteria v. New Mexico\" OR \"25-113\" \"Solicitor General\" brief recommendation",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:51.828Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "0dfa965980762401",
+      "query": "Renteria v. New Mexico Office of the Superintendent of Insurance",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:51.828Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:58:59.664Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b791aa3d599424b4",
+      "query": "cat metrics/statpack.md | grep -A 20 -i \"CVSG\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:02.521Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "98a78b7d83461e37",
+      "query": "cat metrics/statpack.md | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:06.845Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7a23cb89a7dea02a",
+      "query": "\"St. Mary Catholic Parish v. Roy\" OR \"25-581\" Supreme Court \"Employment Division v. Smith\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:21.972Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "12c32846e9b25cc7",
+      "query": "cat schemas/prediction.schema.json | jq '.properties.predicted_disposition'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:28.363Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7dbbce5598bab8ce",
+      "query": "cat schemas/prediction.schema.json | jq '.\"$defs\".Disposition'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:31.297Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "802cfa5505158f09",
+      "query": "cat schemas/prediction.schema.json | jq '.properties | keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:37.356Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e3e58622dcddb2f8",
+      "query": "cat schemas/prediction.schema.json | jq '.required'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:40.162Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c3ba1d2468c6d20c",
+      "query": "mkdir -p data/cases/scotus/73274796/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:44.739Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9fada20f019e6a76",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274796\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:03:52Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73274796/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.85,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"big_case_score\\\": 0.4,\\n  \\\"big",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:50.995Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "43ae3888d9410914",
+      "query": "{\"content\": \"# Reasoning for Renteria v. New Mexico Office of the Superintendent of Insurance (No. 25-113)\\n\\n**Background:**\\nPetitioners are members of a Health Care Sharing Ministry (HCSM) who challenged a cease-and-desist order by the New Mexico Office of the Superintendent of Insurance. The Tenth Circuit, applying *Employment Division v. Smith*, denied a preliminary injunction on Free Exercise grounds, finding the state's insurance laws to be \\\"neutral\\\" and \\\"generally applicable,\\\" despit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:59:59.017Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "aa182180e322c7ad",
+      "query": "{\"content\": \"- Read the provisioned inputs from `data/cases/scotus/73274796/record/` including the snapshot, event definition, and documents (`questions-presented.txt`).\\n- `CourtListener MCP` tool: Searched for \\\"Renteria v. New Mexico Office of the Superintendent of Insurance\\\" to find any dockets or recent briefs.\\n- `Google Web Search`: Searched for `\\\"Renteria v. New Mexico\\\" OR \\\"25-113\\\" \\\"Solicitor General\\\" brief recommendation`. Found that the SG recommended a hold pending `St. Mary Ca",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:03.781Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bb5d75e79f06625a",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.required'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:07.357Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1797af1eac31956f",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.properties | keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:10.934Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "12c4220d4b3ba098",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73274796\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"google_web_search\\\"],\\n  \\\"helpful\\\": [\\\"google_web_search was extremely helpful to find the SG's recommendation from the amicus brief, which was not in the provisioned documents.\\\"],\\n  \\\"notes\\\": \\\"The amicus brief from the SG w",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:15.480Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:25.283Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "90f4332b635391b8",
+      "query": "{\"strategic_intent\": \"Finalize task after writing the necessary output files.\", \"summary\": \"I have predicted the outcome for Renteria v. New Mexico Office of the Superintendent of Insurance (No. 25-113). Based on the Solicitor General's recommendation to hold the case pending the outcome of St. Mary Catholic Parish v. Roy, and the high likelihood that the Supreme Court will rule for the religious petitioners in St. Mary, I predicted a GVR disposition (which counts as a grant). I have created pre",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T19:00:30.201Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73274796",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

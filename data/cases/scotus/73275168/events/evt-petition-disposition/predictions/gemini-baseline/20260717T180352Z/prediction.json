@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73275168",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "run_id": "20260717T180352Z",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-17T18:03:52Z",
+  "input_snapshot": "2026-07-17.json",
+  "granted": 0,
+  "predicted_disposition": "denied",
+  "probability": 0.15,
+  "big_case_score": 0.85,
+  "big_case_rationale": "Raises major question on whether Loper Bright applies to Sentencing Commission commentary, amidst 12-circuit split.",
+  "reasoning_doc": "reasoning.md"
+}

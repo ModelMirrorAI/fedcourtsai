@@ -1,0 +1,198 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "78a2bd5b971c1a49",
+      "query": "{\"strategic_intent\": \"Read instructions from .github/prompts/predict.md and AGENTS.md to understand how to produce the required prediction.\", \"summary\": \"Starting a new prediction task for scotus docket 73298285. First, I need to read the instructions from .github/prompts/predict.md and AGENTS.md.\", \"title\": \"Prediction Initialization\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:23.526Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:25.837Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:25.838Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e59cdb0a5735beef",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73298285\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:31.354Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ca243886825a2334",
+      "query": "ls -la data/cases/scotus/73298285/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:34.200Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf21452a513d5271",
+      "query": "ls -laR data/cases/scotus/73298285/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:36.601Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e86dbceab05bfd91",
+      "query": "cat data/cases/scotus/73298285/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.193Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3251316510fe1380",
+      "query": "cat data/cases/scotus/73298285/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.193Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b06c3b3e096f9dd4",
+      "query": "cat data/cases/scotus/73298285/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.193Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dfbdf9ff4715c3e9",
+      "query": "{\"file_path\": \"data/cases/scotus/73298285/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.194Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "47474c44a862d040",
+      "query": "cat data/cases/scotus/73298285/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:41.194Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "715ebf2a8f4fd57f",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:45.597Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a049419441c88786",
+      "query": "uv run fedcourts query --court ca2 --topic \"Bivens\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:57.604Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "498e51aa19e02584",
+      "query": "\"Karina Sigalovskaya\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:02.041Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "9dd993f6db848af5",
+      "query": "{\"endpoint_id\": \"opinions\", \"query\": {\"id\": 11128175}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:08.408Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "b8dbee94aa39c6c0",
+      "query": "{\"strategic_intent\": \"Generate prediction output files based on research.\", \"summary\": \"I have completed researching the SCOTUS docket and the lower court's decision using the CourtListener MCP server. I found that the Second Circuit affirmed the dismissal of the petitioner's Bivens claim, aligning with recent Supreme Court precedent that severely restricts such claims. Therefore, I will predict that the Supreme Court will deny certiorari. I am now proceeding to write the required output files t",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:32.892Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "692eb1a2ac8f40e3",
+      "query": "mkdir -p data/cases/scotus/73298285/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:37.417Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fa6831957cb95bd2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73298285\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:50:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.04,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\"\\n}\", \"file_path\": \"data/cases/scotus/7",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:41.922Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d98f0edc9634a47a",
+      "query": "{\"content\": \"The legal question is whether *Bivens* provides a remedy for a Fourth Amendment claim of false arrest based on fabricated evidence, and whether the availability of an alternative remedy independently forecloses a *Bivens* claim that does not otherwise meaningfully differ from *Bivens* itself.\\n\\nThe governing standard for extending *Bivens* is highly restrictive. In recent years, particularly in *Ziglar v. Abbasi* and *Egbert v. Boule*, the Supreme Court has made it clear that exten",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:48.296Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ee266b57b9790280",
+      "query": "{\"content\": \"CourtListener MCP server searches:\\n- `search` for \\\"Karina Sigalovskaya\\\"\\n- `call_endpoint` for `opinions` with id `11128175` to read the Second Circuit opinion (`Sigalovskaya v. Braden`).\\n\\nCorpus tooling:\\n- `uv run fedcourts query --court ca2 --topic \\\"Bivens\\\"` (stderr: `ranged corpus reads: 74 GET(s), 19398656 byte(s)`)\\n\\nStatpack:\\n- Read base rates from `metrics/statpack.md`\", \"file_path\": \"data/cases/scotus/73298285/events/evt-petition-disposition/predictions/gemini-base",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:52.351Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "cf22418db771ba04",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73298285\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"mcp_courtlistener_call_endpoint\\\",\\n    \\\"fedcourts query\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The mcp_courtlistener_call_endpoint tool was critical for retrieving and reading the fractured lower court opinion, which provide",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:57.802Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4742bebeec8665f3",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:03.144Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ab1abf4f8fa55fe0",
+      "query": "{\"strategic_intent\": \"Conclude the prediction task as the required output files have been successfully validated and written.\", \"summary\": \"The prediction files (prediction.json, reasoning.md, retrieval.md, and tooling.json) have been successfully written and validated with `fedcourts validate data`. The prediction is for a denial of certiorari. I am now concluding the task as instructed without committing or pushing.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:07.189Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73298285",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

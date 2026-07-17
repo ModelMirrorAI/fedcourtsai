@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318133",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "fedcourts paths",
+    "CourtListener MCP get_endpoint_item (dockets)",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned petition.txt — the full QP/statement/remedies text made the non-certworthy profile unambiguous",
+    "statpack relist-count and per-Term cert tables — direct anchor for the relist-0 bucket",
+    "MCP docket lookup — one cheap call confirmed the case is still pending (forward premise holds)"
+  ],
+  "gaps": [
+    "The statpack read here lacks the 'Segment base rate by salience band' table the prompt points to; I fell back to the relist-0 bucket",
+    "A paid-pro-se (counsel-of-record present/absent) cut in the statpack would sharpen the anchor for petitions like this one",
+    "fedcourts query has no fee-class or pro-se filter, so 'similar priors' for a pro se petition surface mostly counseled high-salience cases"
+  ],
+  "notes": "Straightforward cell: forward mode, clear inputs, no blockers. One corpus query plus one MCP docket check was enough; the petition text carried most of the signal."
+}

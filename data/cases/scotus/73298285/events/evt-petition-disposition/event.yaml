@@ -1,0 +1,11 @@
+case_id: scotus/73298285
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-05-05'
+resolved: false
+schema_version: '1.0'
+title: Karina Sigalovskaya v. Abigail Braden, Individually and in Her Official Capacity
+  as a Special Agent for the Department of Homeland Security

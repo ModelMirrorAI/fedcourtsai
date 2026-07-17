@@ -1,0 +1,318 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fc33f8c7c25faa9c",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882 -type f | head -50",
+      "result_digest": "72f4c8c802582fea",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6a011908da347022",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "43ea5d88a8fb2cd8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "6fe814afd6abb7cd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fd064a6e864c3a82",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "e3ba16490aee10b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "015a116fd2ca6ad2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/documents/documents.json\"}",
+      "result_digest": "c7ae1939c8fa9902",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b5814709705df32e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/documents/questions-presented.txt\"}",
+      "result_digest": "232302c286561a07",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b2e48ba0294484b7",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/documents/brief-in-opposition.txt",
+      "result_digest": "98f20fa212663907",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "de27adadce5d7eee",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/documents/petition.txt\", \"limit\": 400, \"offset\": 1}",
+      "result_digest": "7afcc4d7df4af457",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7ffbfad7d8742f11",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/documents/petition.txt\", \"limit\": 330, \"offset\": 400}",
+      "result_digest": "a22e56f1e1121afb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cd61ed50da9a284e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "a5e4abdc0720cb56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f677cee5d630f5f4",
+      "query": "sed -n 1,120p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "e1fa247a7d4bfe14",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2c15f57852830a30",
+      "query": "sed -n 120,260p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "f76962d13512da3c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d7d0a3898bf0d344",
+      "query": "sed -n 260,400p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "36f507766039b58d",
+      "query": "grep -n -i \"salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "014b4fe603f96144",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a13846b766ea8167",
+      "query": "uv run fedcourts paths --court scotus --docket 73274882 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "7e991852ddaa1ceb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b27ab782a16b6511",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "419c1336d750e318",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s --limit 8 2>corpus_q1.err | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:80], '|', r.get('disposition'), '|', r.get('resolved_at') or r.get('decided_at'))\n\"; echo '--- stderr ---'; cat corpus_q1.err",
+      "result_digest": "32c25d202ef5037a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7a263120cbf63d3a",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s --limit 3 2>corpus_q2.err | python3 -c \"\nimport json,sys\nrows=[json.loads(l) for l in sys.stdin]\nprint(sorted(rows[0].keys()))\nfor r in rows:\n    print({k:v for k,v in r.items() if k not in ('opinion_text','docket_entries') and v})\n\" 2>&1 | head -30; echo '--- stderr ---'; cat corpus_q2.err",
+      "result_digest": "e1fa10af9aefbe3c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7259df165a939994",
+      "query": "select:WebSearch,WebFetch",
+      "result_digest": "b39b7e39e3708321",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "365ebbeaa51ceee3",
+      "query": "Duncan v. Bonta supplemental brief \"Benson\" Supreme Court 25-198",
+      "result_digest": "160d8cf526046901",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "a0f052ee17bb71e2",
+      "query": "What does this letter from the California Attorney General say about the Benson decision? Summarize its key points, including any procedural developments in Benson (e.g., rehearing en banc, vacatur) and what it asks the Supreme Court to conclude.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "cb61ea94ffe9c705",
+      "query": "Summarize this article: how many relists does Duncan v. Bonta have, what historical comparisons are made about record relist counts, what explanations are offered (dissent from denial, hold for another case, grant), and what does it say about Benson v. United States and Wolford v. Lopez?",
+      "result_digest": "ff923020ade79142",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "65f1ca02a5751359",
+      "query": "\"Benson v. United States\" magazine ban D.C. Court of Appeals 2026 rehearing en banc",
+      "result_digest": "d8cf4d57b5b41e17",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "928b1ca7be7e0ca9",
+      "query": "Wolford v. Lopez Supreme Court decision June 2026",
+      "result_digest": "ae20533a0b99adea",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "6a611f80cec86baa",
+      "query": "Duncan v. Bonta relist July 2026 cert petition long conference magazine ban",
+      "result_digest": "d480e5ef6cc7de15",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "5dc264f1e2ad5f68",
+      "query": "What does this Relist Watch article say about Duncan v. Bonta \u2014 how many relists, what explanations are considered (hold, dissent from denial, grant), and what other Second Amendment or magazine-ban petitions (e.g., Gator's Custom Guns v. Washington, National Association for Gun Rights v. Lamont) are pending or being relisted alongside it? What does it say about Benson?",
+      "result_digest": "737622e3f4e6c474",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "c2f38707c28d1e10",
+      "query": "Third Circuit en banc decision 2026 New Jersey magazine ban \"Association of New Jersey Rifle\" Platkin assault weapons",
+      "result_digest": "1d20ff5600b2a426",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "19e56f77e16efe82",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73274882/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+      "result_digest": "d18b6cfc942f40cf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "23cdb184a9b4c086",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274882\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:37:31Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73274882/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.62,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  ",
+      "result_digest": "2e4fe0ad6a9c4679",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "d42290d6b606811b",
+      "query": "{\"content\": \"# Duncan v. Bonta, No. 25-198 \\u2014 cert disposition prediction\\n\\n**Prediction: granted, P(any grant incl. GVR) = 0.62.** Forward cell; the\\npetition is genuinely pending as of the 2026-07-17 snapshot.\\n\\n## The legal question\\n\\nPetitioners (Virginia Duncan et al. and the California Rifle & Pistol\\nAssociation, represented by Clement & Murphy) challenge California Penal Code\\n\\u00a7 32310, which bans possession of ammunition-feeding devices holding more than\\nten rounds \\u2014 in",
+      "result_digest": "ce41c98884ec596f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "47aa35670a0b598d",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73274882 evt-petition-disposition (claude-baseline, 20260717T180352Z)\\n\\n## Provisioned inputs (read first)\\n\\n- `record/snapshots/2026-07-17.json` (docket refreshed 7/14/2026)\\n- `record/documents/questions-presented.txt`, `petition.txt` (truncated at 356 pp.), `brief-in-opposition.txt`, `documents.json`\\n- `events/evt-petition-disposition/event.yaml`, `record/context.json` (mode: forward)\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotu",
+      "result_digest": "a89155a0825f44a2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8bfee5ec441b99c4",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73274882\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"web search\\\",\\n    \\\"web fetch\\\",\\n    \\\"provisioned documents (questions-presented, petition, brief-in-opposition)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned QP/pet",
+      "result_digest": "d64e8f424c943790",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "1878d04d1a0358f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f4271605c035a59f",
+      "query": "gh issue comment 759 --body \"claude-baseline / scotus/73274882 / evt-petition-disposition (run 20260717T180352Z): prediction written \u2014 **granted, P=0.62** (confidence 0.5, big_case_score 0.92). Duncan v. Bonta (25-198) has been distributed for ~23 conferences and survived the 6/29 Term-end cleanup without denial; final-judgment vehicle post-Snope, with Benson panel split vacated for en banc and 3d/7th Cir. final-judgment decisions still pending. \\`fedcourts validate data\\` passes. No flags.\" 2>&",
+      "result_digest": "746255226e4a5d5f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73274882",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

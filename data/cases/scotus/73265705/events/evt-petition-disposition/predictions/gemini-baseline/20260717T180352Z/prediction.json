@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73265705",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "run_id": "20260717T180352Z",
+  "created_at": "2026-07-17T18:03:52Z",
+  "input_snapshot": "data/cases/scotus/73265705/record/snapshots/2026-07-17.json",
+  "granted": 1,
+  "probability": 0.85,
+  "predicted_disposition": "granted",
+  "model": "gemini-3.1-pro-preview",
+  "big_case_score": 0.90,
+  "big_case_rationale": "High-stakes administrative and patent law question regarding the PTO's authority to deny IPRs based on 'settled expectations,' backed by seven cert-stage amicus briefs across tech, pharma, and academia.",
+  "reasoning_doc": "reasoning.md",
+  "schema_version": "1.0",
+  "votes": []
+}

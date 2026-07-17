@@ -1,0 +1,238 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "aff757c6ea54a1c0",
+      "query": "{\"strategic_intent\": \"I am going to read the prediction prompt contract and agent definitions to understand the required output files and procedures.\", \"title\": \"Reading Prediction Requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:21.532Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:23.842Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:23.842Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f418e7325c1e00ff",
+      "query": "uv run fedcourts paths --court scotus --docket 73266074 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:28.877Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "69ebd15536c2ea00",
+      "query": "ls -l data/cases/scotus/73266074/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:31.862Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "68566b03f05dd610",
+      "query": "ls -R data/cases/scotus/73266074/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:34.369Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "084c9de0ca5b531c",
+      "query": "{\"strategic_intent\": \"I am going to read the provisioned inputs for this specific case prediction, including the event definition, context, snapshot, and document texts.\", \"title\": \"Reading Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:37.654Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9c58c76375683a4d",
+      "query": "{\"file_path\": \"data/cases/scotus/73266074/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:41.195Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6aa0a66a044694fe",
+      "query": "{\"file_path\": \"data/cases/scotus/73266074/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:41.195Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "16888f175feb7637",
+      "query": "{\"file_path\": \"data/cases/scotus/73266074/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:41.196Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "221f68c775dcd1d1",
+      "query": "{\"file_path\": \"data/cases/scotus/73266074/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:41.196Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:41.197Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5106444b523022c6",
+      "query": "{\"file_path\": \"data/cases/scotus/73266074/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:41.197Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "bb7726677b578007",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:46.501Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:55:49.743Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ebf167e3adc106b8",
+      "query": "uv run fedcourts query --court scotus --topic \"Contract Clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:23.880Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "78f10d8b15a18053",
+      "query": "uv run fedcourts query --court scotus --topic \"Contract Clause\" --corpus-backend ranged",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:27.480Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9823d4811ce1f2fd",
+      "query": "\"Hastings College Conservation Committee\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:30.797Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "1507c2d4b7e8ce10",
+      "query": "uv run fedcourts query --court scotus --topic \"Contract Clause\" --corpus-backend ranged",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:46.917Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0fa13ab6fef6e4df",
+      "query": "\"Hastings College\" \"Contract Clause\" \"California\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:56:46.919Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "61d1fb8fed834848",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:03.142Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c2415977e8de4e3c",
+      "query": "mkdir -p data/cases/scotus/73266074/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:11.319Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ef9c5f60215bd988",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73266074\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:57:03Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.05,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.35,\\n  \\\"big_case_rationale\\\": \\\"High cultural reson",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:23.559Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a3670631a4860e29",
+      "query": "{\"content\": \"## Reasoning\\n\\n**Legal Question & Standards:**\\nThe petition presents two constitutional questions arising from California's Assembly Bill 1936 (2022), which renamed UC Hastings College of the Law (removing the name of its founder, S.C. Hastings) and eliminated the board seat reserved for his heirs, following findings of his involvement in the massacre of Native Americans:\\n1. Whether a state statute establishing a public college's name and board structure in exchange for a donatio",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:23.563Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "355df2c495f4c41f",
+      "query": "{\"content\": \"* Read `metrics/statpack.md` for baseline cert grant rates and signal adjustments (relist/CVSG/response requests).\\n* MCP search `q=\\\"Hastings College Conservation Committee\\\"` `type=\\\"o\\\"` to confirm the lower court opinion and docket number (A170255).\\n* MCP search `q=\\\"Hastings College\\\" \\\"Contract Clause\\\" \\\"California\\\"` `type=\\\"o\\\"` to identify the relevant California Court of Appeal decision.\\n* Attempted to use `fedcourts query --court scotus --topic \\\"Contract Clause\\\" --co",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:23.566Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "90c751a943eff067",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73266074\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"MCP search was helpful for quickly identifying the lower court opinion and docket number (A170255).\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"The ranged backend for fedcourts que",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:23.570Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "10b12d3767448bc1",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:31.611Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "584bbe1a341c0f30",
+      "query": "{\"strategic_intent\": \"I have generated and validated all the required output artifacts for the predictive cell.\", \"title\": \"Finishing Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:57:35.046Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73266074",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

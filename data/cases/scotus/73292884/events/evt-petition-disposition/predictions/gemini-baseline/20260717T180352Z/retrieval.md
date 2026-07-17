@@ -1,0 +1,4 @@
+- `uv run fedcourts query --court scotus --topic "First Amendment" --limit 5`
+  - `ranged corpus reads: 464 GET(s), 121503744 byte(s)`
+- Read `metrics/statpack.md` for historical base rates.
+- Read `metrics/statpack.json` for fee-class specific base rates.

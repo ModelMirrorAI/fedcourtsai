@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebSearch",
+    "WebFetch",
+    "provisioned record/documents (QP, petition, BIO)"
+  ],
+  "helpful": [
+    "CVSG cut in statpack.md (27.1% grant vs 3.0% baseline) — the single most useful committed base rate for this cell",
+    "Provisioned questions-presented.txt and brief-in-opposition.txt — enough to weigh petition vs BIO without fetching PDFs",
+    "fedcourts query granted-2020s priors surfaced Hoffmann v. WBI Energy, a same-conference CVSG grant that made the hold inference concrete",
+    "Forward-mode unrestricted web retrieval — the SG's public hold recommendation was the decisive signal and lived only on the open web"
+  ],
+  "gaps": [
+    "statpack.md in this checkout lacks the 'Segment base rate by salience band' table the prompt tells predictors to anchor on",
+    "No provisioned text of the SG's CVSG amicus brief; it is on the docket (May 26, 2026) and is the most outcome-relevant filed document for a post-CVSG cell — worth adding to record/documents for cases with a cvsg_date",
+    "supremecourt.gov and justice.gov both 403 the engine's WebFetch, so PDF filings and OSG brief pages are unreachable directly; a pipeline-side fetch or MCP passthrough for those hosts would help",
+    "No hold/GVR-aware disposition cut in the statpack (CVSG'd cases that were held for a lead case are folded into denied/granted), which understates P(grant incl. GVR) for hold-pattern cells"
+  ],
+  "notes": "Prediction hinged on a public forward signal (SG hold recommendation for St. Mary Catholic Parish v. Roy, 25-581, granted 4/20/2026) rather than the provisioned inputs alone; the provisioned snapshot's post-6/25-conference silence corroborated it."
+}

@@ -1,0 +1,214 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "830289b5b2ef1d22",
+      "query": "{\"strategic_intent\": \"I will read the prediction prompt and agent documentation to understand how to execute the prediction task.\", \"summary\": \"I am beginning the prediction task as requested. My first step is to review `.github/prompts/predict.md` and `AGENTS.md` to understand the inputs, outputs, and the specific prediction task I need to perform for docket 73309407.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:59.096Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:01.531Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:01.531Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9f0f71a3de9c3990",
+      "query": "ls -la data/cases/scotus/73309407/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:07.548Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "78a3b81477ed11f3",
+      "query": "ls -R data/cases/scotus/73309407/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:10.478Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "393b0d5feb31ddad",
+      "query": "cat data/cases/scotus/73309407/events/evt-petition-disposition/event.yaml && echo \"---\" && cat data/cases/scotus/73309407/record/context.json && echo \"---\" && cat data/cases/scotus/73309407/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:15.305Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be412b15c88bea3d",
+      "query": "cat data/cases/scotus/73309407/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:18.428Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1bfac12e6584737c",
+      "query": "cat data/cases/scotus/73309407/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:18.429Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc2ae527a118cca8",
+      "query": "cat data/cases/scotus/73309407/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:21.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a67a0d587b6fb215",
+      "query": "uv run fedcourts query --court scotus --topic \"THC\" || echo \"failed\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:46.645Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:49.600Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c37a90436e98a047",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 '\"properties\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:56.718Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e56c485b33e2d1a2",
+      "query": "cat schemas/prediction.schema.json | grep -A 80 '\"type\": \"object\"' | tail -n 80",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:58.871Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b9041d01de1d45bb",
+      "query": "cat schemas/prediction.schema.json | grep -A 40 '\"model\": {'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:01.403Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5a191819bc4c5bef",
+      "query": "mkdir -p data/cases/scotus/73309407/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:06.520Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b70a245d0d501e8a",
+      "query": "cat << 'EOF' > data/cases/scotus/73309407/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/prediction.json\n{\n  \"case_id\": \"scotus/73309407\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"gemini-baseline\",\n  \"run_id\": \"20260717T180352Z\",\n  \"engine\": \"gemini\",\n  \"model\": \"gemini-3.1-pro-preview\",\n  \"created_at\": \"2026-07-17T18:03:52Z\",\n  \"input_snapshot\": \"data/cases/scotus/73309407/record/snapshots/2026-07-17.json\",\n  \"granted\": 0,\n  \"probability\": 0.01,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:10.698Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "914aec48fc018c25",
+      "query": "cat << 'EOF' > data/cases/scotus/73309407/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/reasoning.md\n# Prediction: Denied\n\n## The Legal Question\nThe petitioner challenges a state court decision on two grounds:\n1. Whether he had \"actual notice\" of the acceptable level of THC in his bloodstream when operating a motor vehicle on the specific night in question.\n2. Whether the case is \"capable of repetition yet evading judicial review.\"\n\n## Governing Standard\nThe Suprem",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:16.453Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "437999030533e19b",
+      "query": "cat << 'EOF' > data/cases/scotus/73309407/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\n- Consulted `metrics/statpack.md` to establish the baseline grant rate for modern discretionary-cert dockets.\n- Attempted to query the corpus via `fedcourts query` (topic \"THC\") but topics are not available for SCOTUS dockets:\n  `uv run fedcourts query --court scotus --topic \"THC\"`\n  `ranged corpus reads: 464 GET(s), 121503744 byte(s)`\n  `note: topic filter: 0 of 58",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:20.814Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2df8f5eaedf2e6fe",
+      "query": "{\"content\": \"- Consulted metrics/statpack.md to establish the baseline grant rate for modern discretionary-cert dockets.\\n- Attempted to query the corpus via fedcourts query (topic \\\"THC\\\") but topics are not available for SCOTUS dockets:\\n  uv run fedcourts query --court scotus --topic \\\"THC\\\"\\n  ranged corpus reads: 464 GET(s), 121503744 byte(s)\\n  note: topic filter: 0 of 589685 rows in scope (scotus) carry a topic...\\n- Read the provisioned snapshot and document inputs. No additional MCP que",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:26.438Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "69b69b76919439bf",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 40 '\"properties\": {'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:29.737Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7b404a66ee01c838",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 80 '\"role\"'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:32.552Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fec3014698a00fc2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73309407\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided a very clear baseline for cert grants.\\\",\\n    \\\"The lack of a filed response from the state was the strongest indicator of a likely denial.\\\"\\n  ]",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:36.488Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:42.542Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "09c807858cbcbbc7",
+      "query": "ls -l data/cases/scotus/73309407/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:45.581Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "497994c155ebe90e",
+      "query": "{\"strategic_intent\": \"I will conclude the prediction task since all required output files have been generated.\", \"summary\": \"I read the pipeline documentation and the prompt instructions, examined the case snapshot and documents for Ricky Patterson v. Michigan (cert petition 25-1263). The petition challenges state THC driving laws based on a highly fact-bound actual notice claim, and the state did not even file a response. Accordingly, I predicted a denial of certiorari with a 1% probability. I ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:49.713Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73309407",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

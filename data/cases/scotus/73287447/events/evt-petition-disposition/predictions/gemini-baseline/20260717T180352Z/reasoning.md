@@ -1,0 +1,12 @@
+**Prediction: Denied (Probability: 15%)**
+
+*Legal Question:* Whether a plaintiff has antitrust standing to recover purported downstream losses flowing from its decision not to purchase an allegedly price-fixed product.
+
+*Governing Standard:* The Supreme Court assesses whether to grant certiorari based on the presence of a genuine split among the circuit courts of appeal on an important question of federal law, particularly one that recurrs and affects substantial economic interests. 
+
+*Facts and Posture:* The petitioner (Nexstar) appeals from a Second Circuit decision holding that DirecTV has antitrust standing to challenge an alleged horizontal price-fixing conspiracy that resulted in DirecTV refusing to pay inflated retransmission fees and suffering blackouts. Nexstar alleges this decision splits from the Ninth and Tenth Circuits, which have held that non-purchasers whose damages are speculative or indirect lack antitrust standing under *Associated Gen. Contractors* (1983). In the Supreme Court, after DirecTV initially waived its right to respond, the Court affirmatively requested a response from DirecTV.
+
+*Reasoning:* 
+The requested response indicates that at least one Justice found the petition's argument regarding the circuit split credible and worthy of closer examination. Antitrust standing is a gatekeeping issue of significant commercial importance, and the Supreme Court historically takes an active role in policing its boundaries (e.g., *Illinois Brick*, *AGC*). A clear circuit split on whether non-purchasers can establish antitrust injury for lost downstream profits presents a compelling vehicle for review. 
+
+However, despite these strong markers (a documented split and a call for response), the baseline grant rate for paid cert petitions remains extremely low. Furthermore, the case comes to the Court in an interlocutory posture (reversing a motion to dismiss), which sometimes weighs against granting cert until a final judgment. The case has also not yet been relisted or called for the views of the Solicitor General (CVSG), which would further elevate the probability. Consequently, while the probability of a grant is significantly elevated relative to the baseline (~15%), a denial remains the statistically most likely disposition.

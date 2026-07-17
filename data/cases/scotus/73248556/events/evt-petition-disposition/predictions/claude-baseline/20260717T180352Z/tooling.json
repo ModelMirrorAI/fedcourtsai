@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73248556",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "courtlistener-mcp search/call_endpoint/get_endpoint_item",
+    "fedcourts query (service backend)",
+    "metrics/statpack.md",
+    "web fetch (attempted; supremecourt.gov and courtlistener.com pages returned 403/empty)"
+  ],
+  "helpful": [
+    "Provisioned petition text included the full Fifth Circuit opinion in the appendix — no separate retrieval needed for the decision below",
+    "BIO's citations to post-petition developments (Hemani decided, companion denials) were the key leads; MCP + corpus verified them",
+    "Corpus rows carry date_cert_denied/docket_number, which let me confirm companion-case denials that CourtListener's docket-entries endpoint (RECAP-only) cannot show"
+  ],
+  "gaps": [
+    "No direct docket-number lookup in fedcourts query — finding a specific SCOTUS companion case means scanning ranked rows and filtering client-side (Doucet, No. 25-1001, never surfaced in 300 rows)",
+    "SCOTUS docket entries are not reachable via the MCP server (docket-entries is RECAP-only) and supremecourt.gov JSON returns 403 to the web fetcher, so companion-docket order-list actions are hard to verify directly",
+    "Opinion search returned no snippets and cluster syllabus was empty, so confirming a holding required pulling the full 39-page opinion text",
+    "Committed statpack lacks the salience-band section the prompt describes; anchored on the disposition/circuit/relist/CVSG tables instead"
+  ],
+  "notes": "Two of the three companion denials cited in the BIO were independently verified (Mitchell 6/29/2026, Cockerham 6/8/2026); Doucet rests on the BIO's citation alone. Corpus service timed out once at limit=500; limit=300 succeeded."
+}

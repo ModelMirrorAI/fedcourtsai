@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition PDF is a scanned filing with no text layer (documents.json marks it empty_text: true), so the questions presented could not be read. The prediction rests on the docket record, lower-court posture, and base rates; every structural signal points the same way, so the gap is unlikely to matter here. Secondary note: the CourtListener opinion record for the decision under review (opinion id 10729215, Ga. Ct. App. A25D0341) carries mismatched text from an unrelated S.D. W. Va. order, so the lower-court ruling text was unavailable from that source too."
+    }
+  ]
+}

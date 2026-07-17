@@ -1,0 +1,366 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a8f6413a272f67fb",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556 -type f | head -50",
+      "result_digest": "7ff0fa87b27b8636",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f8b10913825eec2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3e11dd9d238fd067",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "b3a108bccd4f6377",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ec6a8f2765e7b977",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "7a5d2cccca97c6ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7e12014648ac2cbd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/record/documents/documents.json\"}",
+      "result_digest": "765e516bc21b2765",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1e446a23894f08fe",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/record/documents/questions-presented.txt\"}",
+      "result_digest": "826b67bb5d2d4874",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "131cb5dc00c75728",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/record/documents/petition.txt\"}",
+      "result_digest": "291645e099ebe9fa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "20895244aab991bb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "b720a5062f0b6c76",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "49954fe4cfe96c7a",
+      "query": "select:mcp__courtlistener__search,mcp__courtlistener__get_endpoint_item,mcp__courtlistener__call_endpoint",
+      "result_digest": "1a102b38025af7d5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "84a68723c68825a9",
+      "query": "uv run fedcourts paths --court scotus --docket 73248556 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "729abfa83a178557",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "adc8ac8bea6e008e",
+      "query": "Hemani",
+      "result_digest": "877a38c8c1d0b399",
+      "retrieved_doc_date": "2026-06-18",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "00d54027ea0852b2",
+      "query": "{\"endpoint_id\": \"clusters\", \"num_results\": 1, \"query\": {\"fields\": [\"id\", \"case_name\", \"date_filed\", \"syllabus\", \"judges\", \"precedential_status\", \"disposition\", \"nature_of_suit\", \"headnotes\", \"summary\"], \"id\": 10876933}}",
+      "result_digest": "fde0bcdda90e5731",
+      "retrieved_doc_date": "2026-06-18",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "b1677bc8af2693b1",
+      "query": "\"Hemani\" AND \"judgment of the Court of Appeals\" AND \"affirmed\"",
+      "result_digest": "acf4d64858eef99b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "e18ee0a16181a104",
+      "query": "Hemani \"court of appeals\"",
+      "result_digest": "5c75f46ee0c8d8bd",
+      "retrieved_doc_date": "2026-06-18",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "18dc11728cb8cf65",
+      "query": "{\"endpoint_id\": \"opinions\", \"num_results\": 10, \"query\": {\"cluster\": 10876933, \"fields\": [\"id\", \"type\", \"author_str\", \"page_count\"]}}",
+      "result_digest": "1d239ead02c6dd05",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "ee5cb4b6b86f36da",
+      "query": "United States v. Mitchell",
+      "result_digest": "ee3d2084eae309e1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "185b5cfe7ce1a411",
+      "query": "{\"endpoint_id\": \"dockets\", \"num_results\": 3, \"query\": {\"court\": \"scotus\", \"docket_number\": \"25-935\", \"fields\": [\"id\", \"case_name\", \"docket_number\", \"date_filed\", \"date_terminated\"]}}",
+      "result_digest": "9296c6542f3a7644",
+      "retrieved_doc_date": "2026-02-06",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "16f1d4c8b1459d27",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 10, \"query\": {\"docket\": 73280976, \"fields\": [\"date_filed\", \"description\"], \"order_by\": \"-date_filed\"}}",
+      "result_digest": "dc0c749ddf940824",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__call_endpoint"
+    },
+    {
+      "params_digest": "c9e5aaf7956f5661",
+      "query": "select:WebFetch",
+      "result_digest": "c4e348966a824a36",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "936f2555705f9068",
+      "query": "This is a Supreme Court docket JSON for United States v. Mitchell, No. 25-935. List every entry in ProceedingsandOrder with its date and text, especially any entry showing the petition being denied, granted, GVR'd (granted, vacated, remanded), or distributed for conference. What was the final disposition and on what date?",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "afe3b0b5fdd2b31c",
+      "query": "This is a Supreme Court docket JSON for United States v. Doucet, No. 25-1001. What was the final disposition of the petition (denied, granted, GVR)? Give the date and exact text of the dispositive entry, and note whether the petition asked to be held for another case.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "713c0ac26605c051",
+      "query": "This is the Supreme Court's June 18, 2026 opinion in United States v. Hemani, No. 24-1234, about 18 U.S.C. 922(g)(3). Who wrote the majority, and what was the disposition \u2014 did the Court affirm or reverse the Fifth Circuit? Did the government win or lose? Quote the final disposition sentence (e.g. \"The judgment of the Court of Appeals is affirmed/reversed\"). Also note anything the Court said about 922(g)(1) or felon-in-possession.",
+      "result_digest": "d1a2cbe3abf285ed",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "3c319484a93ef907",
+      "query": "This is the CourtListener docket page for United States v. Kevin LaMarcus Mitchell, Supreme Court No. 25-935. List the docket entries with dates, especially any showing the petition for certiorari being denied, granted, or GVR'd. What was the final disposition and date?",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "a563567421791336",
+      "query": "{\"endpoint_id\": \"opinions\", \"fields\": [\"plain_text\"], \"item_id\": 11344434}",
+      "result_digest": "9ba05ac1bb716976",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__get_endpoint_item"
+    },
+    {
+      "params_digest": "4c9567c7b41f036e",
+      "query": "f=/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/72644920-468d-488c-844a-e27f01500e2a/tool-results/mcp-courtlistener-get_endpoint_item-1784311684075.txt\npython3 - \"$f\" <<'EOF'\nimport re, sys\nt = open(sys.argv[1]).read()\n# normalize whitespace lightly for matching\nfor pat in [r'.{300}(?:is\\s+affirmed|is\\s+reversed|judgment\\s+of\\s+the\\s+Court\\s+of\\s+Appeals).{300}',\n            r'.{200}(?:So\\s+ordered).{100}']:\n    for m in re.finditer(pat, t, re.I|re.S):\n        print('--",
+      "result_digest": "0742e714ce35d7cf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6803595123e57b42",
+      "query": "f=/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/72644920-468d-488c-844a-e27f01500e2a/tool-results/mcp-courtlistener-get_endpoint_item-1784311684075.txt\npython3 - \"$f\" <<'EOF'\nimport re, sys\nt = open(sys.argv[1]).read()\nfor pat in [r'.{250}do\\s+not\\s+address.{350}', r'.{150}922\\(g\\)\\(1\\).{250}']:\n    for m in re.finditer(pat, t, re.I|re.S):\n        print('---MATCH---')\n        print(re.sub(r'\\s+', ' ', m.group(0))[:700])\nEOF",
+      "result_digest": "ca74e011704c30c0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "502b95722a6e233f",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7f9f28f869040200",
+      "query": "uv run fedcourts query --court scotus --era modern --limit 8 2>query_stderr.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:60], '|', r.get('disposition'), '|', r.get('decided'))\n\"; echo '--- stderr:'; cat query_stderr.txt",
+      "result_digest": "ae71183b78fa3558",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1fbd0b83ae939849",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,80p'; echo ===; uv run fedcourts query --court scotus --limit 3 2>q2.txt | head -c 2000; echo; echo '--- stderr:'; cat q2.txt",
+      "result_digest": "8d648e246c3ab93b",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bf37141809b9951e",
+      "query": "uv run fedcourts query --court scotus --era 2020s --include-open --limit 2000 2>q3.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    dn=r.get('docket_number') or ''\n    if dn in ('25-935','25-1001','25-1029','24-1234','25-1219'):\n        print(json.dumps({k:r.get(k) for k in ('docket_number','case_name','disposition','date_cert_denied','date_cert_granted','date_decided','distribution_count','distributed_for_conference','originating_court','salience_score','sali",
+      "result_digest": "43a8cbb72669478a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f87ef78258148221",
+      "query": "uv run fedcourts query --court scotus --era 2020s --include-open --limit 500 2>q3.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    dn=r.get('docket_number') or ''\n    if dn in ('25-935','25-1001','25-1029','24-1234','25-1219'):\n        print(json.dumps({k:r.get(k) for k in ('docket_number','case_name','disposition','date_cert_denied','date_cert_granted','date_decided','distribution_count','distributed_for_conference','salience_score','salience_selected')}))\n\";",
+      "result_digest": "0e2de27f36565d04",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "11fa65abe83b0d27",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition denied --limit 300 2>q4.txt | python3 -c \"\nimport json,sys\nn=0\nfor line in sys.stdin:\n    r=json.loads(line); n+=1\n    dn=r.get('docket_number') or ''\n    nm=(r.get('case_name') or '')\n    if dn in ('25-935','25-1001','25-1029') or any(s in nm for s in ('Mitchell','Doucet','Cockerham')):\n        print(json.dumps({k:r.get(k) for k in ('docket_number','case_name','disposition','date_cert_denied','distribution_count','distributed_for_c",
+      "result_digest": "a391bd4c5f4b75df",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "294d0d79d9b248a4",
+      "query": "grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "016af7af30fc6eb9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e8f3f1a42d917d79",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 91, \"offset\": 55}",
+      "result_digest": "5e0035810f1c4b7e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d931976b12891b5a",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73248556/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+      "result_digest": "c4dd3d33d991a767",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a5c029aa9f799047",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73248556\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:11:51Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73248556/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.04,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "6d8df4dbcd8c69a1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5c05e160e14abead",
+      "query": "{\"content\": \"# United States v. Hembree, No. 25-1219 \\u2014 petition disposition\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.04.**\\n\\n## The legal question and posture\\n\\nThe Solicitor General petitions from the Fifth Circuit's judgment (165 F.4th\\n909, Jan. 27, 2026) holding 18 U.S.C. \\u00a7 922(g)(1) \\u2014 the felon-in-possession\\nban \\u2014 unconstitutional under the Second Amendment *as applied* to Charles\\nHembree, whose sole predicate felony is a 2018 Mississippi conviction fo",
+      "result_digest": "a9387c8818737d0f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a8295b4609c7c38c",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73248556 / evt-petition-disposition / claude-baseline / 20260717T180352Z\\n\\nForward-mode cell; retrieval unrestricted. Everything below predates or is\\nindependent of this petition's own (nonexistent) disposition. ~18 retrieval\\ncalls total, within the advisory budget.\\n\\n## CourtListener MCP\\n\\n1. `search` (opinions, court=scotus, q=\\\"Hemani\\\", filed_after=2026-01-01) \\u2192\\n   *United States v. Hemani*, No. 24-1234, decided **2026-06-18**\\n   (cluste",
+      "result_digest": "433cb00b3b7fa70e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "458718d99e3053fb",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73248556\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"courtlistener-mcp search/call_endpoint/get_endpoint_item\\\",\\n    \\\"fedcourts query (service backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"web fetch (attempted; supremecourt.gov and courtlistener.com pages returned 403/em",
+      "result_digest": "5bd6be710f5b71d1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "1878d04d1a0358f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "501328bd5909fd6c",
+      "query": "gh issue comment 759 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed 's#.*github.com[:/]##;s#\\.git$##')\" --body \"claude-baseline / 20260717T180352Z \u2014 scotus/73248556 (US v. Hembree, No. 25-1219, evt-petition-disposition): **denied**, P(grant incl. GVR) = 0.04. The SG's petition asks only for a hold pending *Hemani* + GVR, but *Hemani* was decided against the government on 6/18/2026 (Fifth Circuit affirmed; verified from the opinion text), and the Court then",
+      "result_digest": "a5f5589d84e337a1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73248556",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

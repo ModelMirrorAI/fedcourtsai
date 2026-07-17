@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73291758",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Complete petition text and extracted questions presented",
+    "Term and paid-petition base rates",
+    "CourtListener search for pre-disposition legal context"
+  ],
+  "gaps": [
+    "Corpus query filters for originating state court, fee class, and salience band",
+    "A lower-court-opinion lookup keyed directly from the provisioned SCOTUS docket"
+  ],
+  "notes": "The unfiltered 2020s corpus query transferred about 112 MB for five results that were selected by salience rather than factual similarity; narrower structured filters would make this surface substantially more useful."
+}

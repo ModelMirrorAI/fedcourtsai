@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73272491",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided necessary base rates for modern discretionary-cert petitions."
+  ],
+  "notes": "The local corpus service (fedcourts query) was unreachable, so historical retrieval was unavailable. Relied on the statpack and provisioned documents."
+}

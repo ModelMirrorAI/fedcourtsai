@@ -1,0 +1,24 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73274882",
+  "gaps": [
+    "The corpus sidecar was unavailable locally, preventing the use of `fedcourts query`."
+  ],
+  "helpful": [
+    "mcp_courtlistener_search",
+    "google_web_search",
+    "statpack.md"
+  ],
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "google_web_search",
+    "grep",
+    "cat"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false,
+  "notes": "Attempted to use `fedcourts query` but the local sidecar was unreachable. Fell back to Google Web Search and CourtListener to ascertain what pending cases were driving the relists."
+}

@@ -1,0 +1,246 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "fc6a9a64fcfc76fd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b8ffdfe800647931",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074 -type f | head -50",
+      "result_digest": "27d8490a34786259",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9fdfcc805a0d2e02",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b4ac22482db23db8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "c74c98af92bef2f4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2051d47cd1a17b1a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "a2f965493ae717a3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "dd0149a9265349d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074/record/documents/documents.json\"}",
+      "result_digest": "68a248e8480a379c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1bb2fe4578f2c963",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074/record/documents/questions-presented.txt\"}",
+      "result_digest": "fc69cf743b72fb15",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "240d20e2a0ff6cf4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074/record/documents/petition.txt\"}",
+      "result_digest": "362bf5218353cfde",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f08061d928686f34",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73266074/record/documents/petition.txt\", \"offset\": 1163}",
+      "result_digest": "6d79d98842905f06",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3100475e8715684f",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "6648df6b3bbfcecb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bf6a38b880b5fd57",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint([s.get('title') or s.get('key') for s in d['sections']])\nprint(json.dumps(d['terms'], indent=1)[:3000])\n\"",
+      "result_digest": "375e21599bb74cf8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "14c211d2acccaf9d",
+      "query": "uv run fedcourts paths --court scotus --docket 73266074 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "1f7b9ab58338d406",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6c5cb4a7619c95c5",
+      "query": "sed -n 1,120p /home/runner/work/fedcourtsai/fedcourtsai/docs/cli.md",
+      "result_digest": "07d4008dabe961f5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3f26dc83654f0790",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3dba807f14f75c5d",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s --limit 5 2>querystderr1.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r=json.loads(line)\n    print({k:r.get(k) for k in ('case_id','caption','era','disposition','term_year','date_resolved') if k in r} or list(r.keys())[:12])\n\"; echo '--- stderr:'; cat querystderr1.txt",
+      "result_digest": "a07565bd8fb8bdb0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "963278b0663fb16c",
+      "query": "uv run fedcourts query --court scotus --disposition granted --era 2020s --limit 3 2>querystderr2.txt | python3 -c \"\nimport json,sys\nr=json.loads(sys.stdin.readline())\nprint(json.dumps({k:(v[:200] if isinstance(v,str) else v) for k,v in r.items()}, indent=1)[:1500])\n\"; echo '--- stderr:'; cat querystderr2.txt",
+      "result_digest": "3963b2901f596186",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "38c05ed8e2883756",
+      "query": "\"Hastings College Conservation Committee\"",
+      "result_digest": "c70ac04adf4c78d7",
+      "retrieved_doc_date": "2023-06-05",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "7564c959f25592a1",
+      "query": "python3 -c \"\nimport json\ns=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json'))\nprint('required:', s['required']); print('props:', list(s['properties'].keys()))\n\"; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "8e865cc8069411f3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0a9ccd3a14e449a6",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73266074\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:26:14Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73266074/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.07,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "446c8e23698c1fa6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "984bb6544eabe6f1",
+      "query": "{\"content\": \"# Hastings College Conservation Committee v. California, No. 25-1231 \\u2014 cert prediction\\n\\n**Prediction: deny. P(grant, GVR included) = 0.07.**\\n\\n## The legal questions\\n\\nPetitioners \\u2014 an alumni association and descendants of Serranus Clinton Hastings \\u2014\\nchallenge California's AB 1936 (2022), which renamed UC Hastings to \\\"College of the\\nLaw, San Francisco,\\\" stripped the Hastings heirs' statutory board seat, and included\\nlegislative findings that S.C. Hastings \\\"p",
+      "result_digest": "7c8e86fd94e8e6d4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "b64366989c4e1ca2",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73266074 evt-petition-disposition (claude-baseline, 20260717T180352Z)\\n\\nBeyond the provisioned inputs (snapshot 2026-07-17, `record/documents/petition.txt`,\\n`record/documents/questions-presented.txt`, `documents.json`, `record/context.json`)\\nand the committed `metrics/statpack.md` / `metrics/statpack.json`:\\n\\n## Corpus lookups (`fedcourts query`, service-free ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --disposition granted --era 20",
+      "result_digest": "8fdbbd258a455669",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "6563a59e7e645133",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73266074\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (service/ranged corpus backend)\\\",\\n    \\\"fedcourts paths\\\",\\n    \\\"metrics/statpack.md + statpack.json (per-Term fee-class rates)\\\",\\n    \\\"CourtListener MCP search\\\",\\n    \\\"provisioned snapshot + petition",
+      "result_digest": "be19caf6050fa6d3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "34d1ef8e06507d05",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "1878d04d1a0358f6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5b448c21337e75ef",
+      "query": "gh issue comment 759 --body \"**claude-baseline / 20260717T180352Z** \u2014 prediction written for \\`scotus/73266074\\` \\`evt-petition-disposition\\` (No. 25-1231, *Hastings College Conservation Committee v. California*).\n\n**Deny, P(grant) = 0.07.** Paid Term-2025 petition from the California Court of Appeal (no split alleged; Contract Clause/reserved-powers + bill-of-attainder QPs). Main upward signal: the Court called for a response on Jun 22 2026 after both respondents waived; offsetting: splitless e",
+      "result_digest": "71d696b055a9aaec",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8bd013fc452c65a0",
+      "query": "rm -f querystderr1.txt querystderr2.txt && git status --short | head",
+      "result_digest": "43513f0929059cd8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73266074",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

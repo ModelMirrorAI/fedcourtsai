@@ -1,0 +1,5 @@
+- Read the provisioned inputs from `data/cases/scotus/73274796/record/` including the snapshot, event definition, and documents (`questions-presented.txt`).
+- `CourtListener MCP` tool: Searched for "Renteria v. New Mexico Office of the Superintendent of Insurance" to find any dockets or recent briefs.
+- `Google Web Search`: Searched for `"Renteria v. New Mexico" OR "25-113" "Solicitor General" brief recommendation`. Found that the SG recommended a hold pending `St. Mary Catholic Parish v. Roy` (No. 25-581).
+- `Google Web Search`: Searched for `"St. Mary Catholic Parish v. Roy" OR "25-581" Supreme Court "Employment Division v. Smith"` to identify the legal issues in the primary case and the fact that cert was granted on April 20, 2026.
+- Looked at `metrics/statpack.md` for base rates on CVSG outcomes.

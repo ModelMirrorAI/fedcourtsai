@@ -1,0 +1,246 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "48af7be1d10a374c",
+      "query": "{\"strategic_intent\": \"I will read the prediction prompt and the agents documentation to understand the task.\", \"summary\": \"I am going to read .github/prompts/predict.md and AGENTS.md to understand the exact format and contract of the prediction task I need to run for docket 73318742.\", \"title\": \"Read Prompt Contracts\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:52.181Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:54.701Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:52:54.701Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0b941a8ca312e395",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73318742\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:00.424Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7d3a378867cadc90",
+      "query": "ls -la data/cases/scotus/73318742/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:03.551Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0d05becb194c372e",
+      "query": "find data/cases/scotus/73318742",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:05.917Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e9406b66b45bf71b",
+      "query": "{\"strategic_intent\": \"I will gather the provisioned data for the prediction cell and the prediction output schema to begin making my prediction.\", \"summary\": \"I have understood the prediction prompt and the agents documentation. I am now transitioning to gathering the provisioned case data for the scotus/73318742 docket (event definition, context, snapshot, and documents) as well as the prediction schema.\", \"title\": \"Gather Case Information\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:10.556Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d61bcdf0f0bbf7b3",
+      "query": "{\"file_path\": \"data/cases/scotus/73318742/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:10.566Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b635d5f820540238",
+      "query": "{\"file_path\": \"data/cases/scotus/73318742/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:10.567Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d37dbe609d943109",
+      "query": "{\"file_path\": \"data/cases/scotus/73318742/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:10.567Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:10.568Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1887e12d02dff940",
+      "query": "{\"file_path\": \"data/cases/scotus/73318742/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:14.418Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "855dae90272e4016",
+      "query": "{\"strategic_intent\": \"I will read the questions presented and brief in opposition to understand the legal issues and arguments in the petition.\", \"summary\": \"I have gathered the case information, which indicates this is a paid cert petition distributed for the September 28, 2026 conference. I am now transitioning to reading the text of the questions presented and the brief in opposition to analyze the legal issues and likelihood of a grant.\", \"title\": \"Analyze Case Documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:17.442Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "bdcf6ca87b2bef6d",
+      "query": "{\"file_path\": \"data/cases/scotus/73318742/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:17.446Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d3865489c22bbd53",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73318742/record/documents/brief-in-opposition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:20.387Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8c586eed4de1c5e3",
+      "query": "{\"end_line\": 150, \"file_path\": \"metrics/statpack.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:20.387Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e96085e860b3cf14",
+      "query": "{\"strategic_intent\": \"I will read the statement of the case in the Brief in Opposition to gather more facts on the legal question.\", \"summary\": \"I have started reading the Questions Presented and the start of the BIO. The case involves pro se petitioners suing state judges over judicial immunity after the judges ruled against them shortly after being served with a civil rights complaint. I am going to read the Statement of the Case in the BIO to get the respondent's version of the facts.\", \"titl",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:27.559Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "04fd52f66c75697f",
+      "query": "{\"end_line\": 400, \"file_path\": \"data/cases/scotus/73318742/record/documents/brief-in-opposition.txt\", \"start_line\": 101}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:27.562Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:43.723Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "13049d05f15adfbc",
+      "query": "{\"strategic_intent\": \"I will review the tooling schema to ensure I generate the correct output for tooling.json.\", \"summary\": \"I have analyzed the documents and formed a prediction that this petition will be denied. It is a frivolous attempt by pro se litigants to strip judges of immunity by suing them. I am now preparing the output files, starting with verifying the schema for tooling.json.\", \"title\": \"Format Output Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:49.051Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:49.053Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1d3f69f0918dbcb9",
+      "query": "mkdir -p data/cases/scotus/73318742/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:53:53.527Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "64166752d4e2e8a6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73318742\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:53:43Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73318742/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.99,\\n  \\\"big",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:03.935Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6697df13392c9959",
+      "query": "{\"content\": \"The Wains, proceeding pro se but having paid the filing fee, petition for certiorari to review the Sixth Circuit's affirmance of the dismissal of their \\u00a7 1983 lawsuit against two Kentucky state court judges. The Wains sued the judges who ruled against them in a protracted state-court foreclosure action.\\n\\nThe petition attempts to frame a novel constitutional question: whether the Due Process Clause (via *Caperton v. A.T. Massey Coal Co.* and *Williams v. Pennsylvania*) limits ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:03.939Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9d16dd74cb16cbb2",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs. I reviewed the provided `statpack.md` and the provisioned documents (`questions-presented.txt` and `brief-in-opposition.txt`) from the case record.\", \"file_path\": \"data/cases/scotus/73318742/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:03.942Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9948f4571298f072",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73318742\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"Provisioned documents (questions-presented.txt, brief-in-opposition.txt) were sufficient to analyze the legal issues without needing external search.\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Straightforward c",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:03.946Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1e2e2e3029135041",
+      "query": "{\"strategic_intent\": \"I will run the data validation script to verify my predictions are correctly formatted and conform to the expected schema.\", \"summary\": \"I have successfully drafted the 4 required output files (prediction.json, reasoning.md, retrieval.md, and tooling.json) containing my prediction and reasoning. The final step is to validate the data outputs against the project schema before concluding the task.\", \"title\": \"Validate Data Outputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:08.200Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:11.287Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "700acf3ce1a25b33",
+      "query": "{\"strategic_intent\": \"I will confirm the completion of the prediction task.\", \"summary\": \"I have completed the prediction task for docket 73318742. The analysis correctly anticipates a denial of the petition due to the frivolous nature of the claims and settled law on judicial immunity. All output files have been generated, saved, and successfully validated against the data schema.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:54:15.168Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73318742",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

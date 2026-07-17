@@ -1,0 +1,302 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "fc34403b443b5ee5",
+      "query": "{\"strategic_intent\": \"Read the predict.md and AGENTS.md files to understand the prediction prompt contract and agent guidelines.\", \"summary\": \"I am starting by reading the required files, `.github/prompts/predict.md` and `AGENTS.md`, to understand the contract and guidelines for producing the prediction.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:30.870Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:33.230Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:33.230Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "06dfc1372c5ad352",
+      "query": "uv run fedcourts paths --court scotus --docket 73300246 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:38.681Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "74040399d902b975",
+      "query": "ls -la data/cases/scotus/73300246/events/evt-petition-disposition/record",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:42.383Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b8ead57c3b165d69",
+      "query": "ls -la data/cases/scotus/73300246/events/evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:45.000Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c9e683d0fc33da53",
+      "query": "{\"strategic_intent\": \"Read schemas and event definition to prepare for prediction generation.\", \"summary\": \"I am transitioning to reading the schema definitions and the event definition since the provisioned inputs (`record` directory) were not found. This will allow me to generate the required outputs while recording the missing snapshot in the flags as instructed.\", \"title\": \"Investigating Inputs and Schemas\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:49.460Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:51.929Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "de087d7817c844e3",
+      "query": "{\"file_path\": \"data/cases/scotus/73300246/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:51.929Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "70bf188904aaf09b",
+      "query": "find data/cases/scotus/73300246 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:49:57.793Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "79b7e6ca271a2cf5",
+      "query": "{\"strategic_intent\": \"Read the provisioned case record files to analyze the facts of the case.\", \"summary\": \"I found the correct location of the `record` directory under the case ID, not the event ID. I am now reading the context, documents manifest, and the questions presented to gather facts for my prediction.\", \"title\": \"Reading Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:01.702Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "a153e3c7d3de1173",
+      "query": "cat data/cases/scotus/73300246/record/context.json data/cases/scotus/73300246/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:07.586Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "09265bbbf67e2a7a",
+      "query": "{\"file_path\": \"data/cases/scotus/73300246/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:07.587Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "151a475e135d8c31",
+      "query": "jq '{court: .court, docket_number: .docket_number, date_filed: .date_filed, originating_court_information: .originating_court_information, docket_entries: [.docket_entries[] | {date: .date_filed, description: .description}]}' data/cases/scotus/73300246/record/snapshots/2026-07-17.json | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:11.187Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9b5bec7dd58b201d",
+      "query": "wc -c data/cases/scotus/73300246/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:14.306Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "76964005036aa2e3",
+      "query": "{\"file_path\": \"data/cases/scotus/73300246/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:16.614Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "80475eda79bb5838",
+      "query": "head -n 50 data/cases/scotus/73300246/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:21.081Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9dc5b124bb2b15a2",
+      "query": "{\"strategic_intent\": \"Check the statistics and base rates for SCOTUS cert petitions to inform the prediction probability.\", \"summary\": \"Having analyzed the case facts, including the Takings Clause issue and the respondents' BIO highlighting vehicle problems (statute of limitations, state law property interests, factual dispute), I am now reading the statistical base rates for SCOTUS cert petitions to establish a quantitative baseline for the prediction.\", \"title\": \"Retrieving Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:25.584Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "c9bd3255ae9420ad",
+      "query": "grep -A 20 \"Modern discretionary-cert petitions\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:28.026Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "48e22e69be8eead8",
+      "query": "grep -A 10 \"by relist count\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:31.559Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a3ce86c92d7f01a4",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:36.806Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "77d77217037b8406",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:40.140Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "077dbacadbedcda2",
+      "query": "mkdir -p data/cases/scotus/73300246/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:48.649Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "98732cec9f56720d",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:50:54.460Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ba5c02c30d39de93",
+      "query": "{\"strategic_intent\": \"Write the prediction artifacts to the specified output directory.\", \"summary\": \"I have completed the analysis of the case facts and statistical base rates. I am now writing the required artifacts (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`) to the prediction directory as per the contract.\", \"title\": \"Writing Prediction Outputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:02.799Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "381c0b7d18eb15ba",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73300246\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T18:50:54Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.003,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"big_case_rationale\\\": \\\"A ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:11.537Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2223c93751166d45",
+      "query": "{\"content\": \"## Reasoning\\n\\nThis case presents a question under the Fifth Amendment's Takings Clause: whether just compensation is required when a state agency sells the only feasible access to private property, thereby rendering it landlocked and valueless. \\n\\nWhile Takings Clause cases can occasionally garner the Court's interest, several factors strongly indicate a denial of certiorari in this instance:\\n1. **Vehicle Problems/State Law Issues**: The Brief in Opposition (BIO) filed by the re",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:11.541Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "35fa5c2c4d3f7e7c",
+      "query": "{\"content\": \"- Consulted `metrics/statpack.md` for baseline grant rates for modern discretionary cert petitions and relist counts.\\n- No CourtListener MCP server calls or web searches were made, as the provisioned docket and documents (petition question and BIO threshold arguments) provided sufficient signal in conjunction with statistical base rates.\", \"file_path\": \"data/cases/scotus/73300246/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:11.545Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2774f72686c6faae",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73300246\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": \\\"The statpack.md provided excellent base rate context. The provisioned documents, specifically the BIO text, were crucial for identifying fatal vehicle issues.\\\",\\n  \\\"gaps\\\": [],\\n  \\\"notes\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:11.548Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a572740de0c1cb2c",
+      "query": "{\"strategic_intent\": \"Validate the written artifacts using the pipeline's validation tool.\", \"summary\": \"I am running the `fedcourts validate data` command to ensure that the outputs (`prediction.json` and `tooling.json`) conform to the JSON schemas before completing the task.\", \"title\": \"Validating Output\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:16.230Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "1719b9d1f0b58035",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:21.885Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "52a83db3a66bb330",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 15 \"helpful\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:24.730Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1ee0684d49f50041",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73300246\\\",\\n  \\\"run_id\\\": \\\"20260717T180352Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack.md provided excellent base rate context.\\\",\\n    \\\"The provisioned documents, specifically the BIO text, were crucial for identifying fatal vehicle issues.\\\"\\n  ],\\n  \\\"g",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:31.081Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "719f473e6cae653e",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:38.551Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5bb5a897ad3df66d",
+      "query": "gh issue comment 759 -b \"Prediction generated successfully by gemini-baseline.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:43.339Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "061bfbc879233958",
+      "query": "{\"strategic_intent\": \"Complete the prediction task successfully as all artifacts are generated and validated.\", \"summary\": \"I have successfully drafted the prediction artifacts (prediction.json, reasoning.md, retrieval.md, and tooling.json) and validated them using `fedcourts validate data`. The outputs are correctly placed, and the task is complete. No further actions are needed as the workflow handles git commitments.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T18:51:49.419Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73300246",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T180352Z",
+  "schema_version": "1.0"
+}

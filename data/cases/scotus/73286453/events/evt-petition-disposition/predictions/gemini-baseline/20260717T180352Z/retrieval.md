@@ -1,0 +1,2 @@
+- `mcp_courtlistener_search` on `Hughes v. Locure` in CA11 and SCOTUS to find the lower court opinion and dockets.
+- Checked `metrics/statpack.md` using `grep` to fetch `ca11` and salience band base rates.

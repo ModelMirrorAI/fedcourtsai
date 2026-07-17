@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73275187",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "google_web_search"
+  ],
+  "helpful": [
+    "google_web_search (crucial for identifying the intervening merits decision that explains the 6-month hold)",
+    "metrics/statpack.md (helpful for baseline context)"
+  ],
+  "gaps": [],
+  "notes": "The web search was critical here because understanding the reason for the 6-month hold (waiting for Pung v. Isabella County) is the dispositive signal for the prediction. I used google_web_search since it handles natural language queries for recent events better than the corpus CLI filters."
+}

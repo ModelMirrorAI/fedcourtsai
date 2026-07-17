@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275187",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (committed base rates)",
+    "fedcourts paths",
+    "web search (forward mode)",
+    "direct fetch of a supremecourt.gov docket PDF + local pypdf text extraction"
+  ],
+  "helpful": [
+    "Provisioned document texts (QP, petition, BIO) — carried most of the analysis",
+    "Statpack relist/CVSG/per-Term cuts as probability anchors",
+    "Snapshot's docket-entry PDF URLs, which let me fetch the June 2026 supplemental brief that explained the hold"
+  ],
+  "gaps": [
+    "Corpus query sidecar at 127.0.0.1:8377 was unreachable, so `fedcourts query` priors were unavailable this run",
+    "Statpack lacks a CFR (call-for-response) cut — the single strongest docket signal here has no in-repo base rate",
+    "The prompt's 'Segment base rate by salience band' table is absent from the committed statpack",
+    "Provisioned text for supplemental briefs (the pipeline fetched petition/BIO but not the later filing that turned out to be pivotal); WebFetch is 403-blocked on supremecourt.gov, so this needed a manual curl + pypdf"
+  ],
+  "notes": "Forward cell; hold-for-Pung dynamics made docket-timing signals (CFR, hold, surviving the post-Pung cleanup) more informative than corpus priors, so the sidecar outage cost little this run."
+}

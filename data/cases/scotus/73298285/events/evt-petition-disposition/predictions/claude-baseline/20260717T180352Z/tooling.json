@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73298285",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (corpus service backend)",
+    "metrics/statpack.md + statpack.json",
+    "CourtListener MCP search",
+    "web search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt — the whole legal analysis rests on them",
+    "Statpack per-Term fee-class grant rates (paid vs IFP) and relist/CVSG cuts",
+    "Web search: found the intervening Nielsen v. Watanabe cert grant, the single most decision-relevant fact this run"
+  ],
+  "gaps": [
+    "The prompt points to a per-Term 'Segment base rate by salience band' statpack section that is not present in the committed statpack",
+    "No statpack cut for call-for-response (CFR) petitions — the strongest docket signal here has no in-corpus base rate",
+    "fedcourts query has no free-text/topic filter usable on SCOTUS rows, and live-channel granted rows carry empty captions, so topical priors (other Bivens petitions and their fates) had to come from the web instead",
+    "A 'pending related petitions / same-QP holds' lookup (e.g. petitions citing the same circuit split) would have surfaced Nielsen/Mohan without open-web search"
+  ],
+  "notes": "Forward cell; brief-in-opposition not yet filed (SG extension to 2026-08-17), so the BIO side of the cert calculus is unavoidably absent from the provisioned record."
+}

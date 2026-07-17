@@ -1,0 +1,2 @@
+- Consulted `metrics/statpack.md` for baseline grant rates for modern discretionary cert petitions and relist counts.
+- No CourtListener MCP server calls or web searches were made, as the provisioned docket and documents (petition question and BIO threshold arguments) provided sufficient signal in conjunction with statistical base rates.

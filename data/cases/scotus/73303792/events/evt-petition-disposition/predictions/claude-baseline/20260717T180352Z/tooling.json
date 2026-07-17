@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73303792",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP: search (opinions, dockets), call_endpoint (dockets)",
+    "fedcourts query (attempted; corpus sidecar unreachable)"
+  ],
+  "helpful": [
+    "statpack relist-count and per-Term cert tables — the zero-relist bucket rate anchored the estimate",
+    "docket snapshot's ProceedingsandOrder entries (waiver of response, long-conference distribution) carried most of the signal",
+    "CourtListener docket lookup confirmed the CA6 case identity and its lack of a published opinion"
+  ],
+  "gaps": [
+    "corpus query sidecar at 127.0.0.1:8377 was unreachable (timed out), so no similar-case priors were retrievable this run",
+    "the provisioned petition PDF is a scan with no text layer (empty_text) — OCR in the document-provisioning step would have made the questions presented readable",
+    "statpack in this checkout has no salience-band table (the prompt points to one as the preferred anchor)"
+  ],
+  "notes": "Degraded cell but not blocked: prediction rests on the snapshot's docket metadata plus committed statpack base rates. CourtListener had essentially no content for the underlying CA6 case (unpublished order, no RECAP entries)."
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73287447",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md + statpack.json",
+    "CourtListener MCP search",
+    "provisioned snapshot + petition/QP documents"
+  ],
+  "helpful": [
+    "Provisioned full petition text and QP section — the split, vehicle, and posture analysis came almost entirely from these plus the snapshot's docket entries.",
+    "statpack.json per-fee-class Term detail — the paid-petition grant rate is a much better anchor for a Covington-counseled paid petition than the blended per-Term rate.",
+    "Snapshot's ProceedingsandOrder — the waiver → distribution → response-requested sequence is the decisive pre-BIO signal and was fully legible from the provisioned snapshot alone."
+  ],
+  "gaps": [
+    "The prompt directs anchoring on a 'Segment base rate by salience band' statpack table, but this statpack build has no such section; the paid fee-class rate was the fallback anchor.",
+    "No statpack cut for call-for-response (CFR) petitions — the strongest observable signal on this docket has no in-corpus base rate, so its multiplier had to come from general knowledge of the cert literature.",
+    "fedcourts query has no case-id lookup, so retrieving this case's own row (for its salience_score) required a broad 500-row query that missed and cost ~112MB of ranged reads."
+  ],
+  "notes": "Corpus 'granted' priors were useful as pattern checks (distribution_count on granted rows) even without a similarity filter that fits this case; --topic/--citation are circuit-row-only so were not usable here."
+}

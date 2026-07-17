@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73266074",
+  "run_id": "20260717T180352Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service/ranged corpus backend)",
+    "fedcourts paths",
+    "metrics/statpack.md + statpack.json (per-Term fee-class rates)",
+    "CourtListener MCP search",
+    "provisioned snapshot + petition/QP document text"
+  ],
+  "helpful": [
+    "Provisioned petition text and QP excerpt made the merits analysis possible without any document fetching.",
+    "Per-fee-class Term rates in statpack.json (paid ~5.4% for Term 2025) were the single most useful calibration number.",
+    "fedcourts query rows carry distribution_count, which let me compare this docket's conference history against recently granted priors."
+  ],
+  "gaps": [
+    "The prompt references a per-Term 'Segment base rate by salience band' statpack table, but this build of metrics/statpack.md carries no such section, so I anchored on the paid fee-class rate instead.",
+    "No statpack cut for call-for-response (CFR) status; it is the dominant pre-conference grant signal for paid petitions where respondents waived, and a CFR-conditioned base rate would sharpen exactly this kind of cell.",
+    "fedcourts query has no free-text or issue-area filter usable on SCOTUS rows, so pulling 'Contract Clause' or 'bill of attainder' priors from the corpus is not possible; I fell back on general granted-petition docket shapes."
+  ],
+  "notes": "Forward cell; retrieval kept light (2 corpus queries, 1 MCP search) since the snapshot was fetched same-day and no BIO exists yet."
+}
