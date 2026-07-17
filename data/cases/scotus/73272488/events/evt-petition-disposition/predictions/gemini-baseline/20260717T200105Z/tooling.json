@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73272488",
+  "run_id": "20260717T200105Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "mcp_courtlistener_search",
+    "google_web_search"
+  ],
+  "helpful": [
+    "Google web search was vital to quickly understand the depth and state of the circuit split regarding Rule 29 motions.",
+    "The statpack.md file provides essential base-rate grounding."
+  ],
+  "gaps": [
+    "fedcourts query lacks full-text search, making it hard to search for specific legal concepts without knowing the exact precedent citations."
+  ],
+  "notes": "Used Google Search instead of CourtListener text search because it proved more effective at summarizing the nature of the circuit split."
+}

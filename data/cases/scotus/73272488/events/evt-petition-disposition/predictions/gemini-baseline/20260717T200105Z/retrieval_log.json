@@ -1,0 +1,262 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "7d885a0ce6edfd28",
+      "query": "{\"strategic_intent\": \"Reading predict.md and AGENTS.md to understand the prediction prompt contract and agent guidelines.\", \"summary\": \"I am starting the prediction task by reading the `.github/prompts/predict.md` and `AGENTS.md` files to understand the requirements for generating the prediction output files for the specified prediction cell.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:01:49.109Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:01:51.110Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:01:51.111Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c30c02a13e69a6fd",
+      "query": "{\"strategic_intent\": \"Gathering case and event data to form the prediction.\", \"summary\": \"I am now reading the case-specific data including the event definition, snapshot, and document text, as well as the context and schema files to ensure the prediction is correctly structured.\", \"title\": \"Reading Case Facts and Schema\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:01:56.302Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "b826bdb607e0f31e",
+      "query": "{\"pattern\": \"data/cases/scotus/73272488/**/*\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:01:58.420Z",
+      "tool": "glob"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:01.533Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d4fabc36c10853c8",
+      "query": "{\"file_path\": \"data/cases/scotus/73272488/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:01.534Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9cad21ac6ffc623b",
+      "query": "{\"file_path\": \"data/cases/scotus/73272488/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:01.534Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "70aa0eb692c6aef8",
+      "query": "{\"file_path\": \"data/cases/scotus/73272488/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:01.534Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2e20ada966c86b80",
+      "query": "{\"file_path\": \"data/cases/scotus/73272488/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:01.535Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a3a861786f453306",
+      "query": "{\"file_path\": \"data/cases/scotus/73272488/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:01.536Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "68625b8a954147c3",
+      "query": "{\"strategic_intent\": \"Querying the corpus and reviewing base rates to determine the probability of a grant.\", \"summary\": \"I am using the `fedcourts` CLI tool to query the corpus for historical priors on Rule 29 sufficiency preservation. I am also reading the `metrics/statpack.md` to check the base rates for cert petitions, specifically those where a response was requested after an initial waiver.\", \"title\": \"Analyzing Priors and Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:08.652Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "95a282125c2d50a0",
+      "query": "fedcourts query --court scotus --disposition granted \"Rule 29 sufficiency plain error preserve\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:10.795Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:10.795Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b98c7ee535ba5df2",
+      "query": "uv run fedcourts query --court scotus --disposition granted \"Rule 29 sufficiency plain error preserve\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:13.704Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:02:16.501Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "684a9b65d7da9fc6",
+      "query": "\"Rule 29\" AND sufficiency AND \"plain error\" AND preserve",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:03:20.736Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "b0cdd04ef523dd0d",
+      "query": "cat metrics/statpack.md | grep -A 20 \"salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:03:27.674Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cb1067299e7de5af",
+      "query": "grep -A 5 -B 5 \"salience band\" metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:03:29.775Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d11704ebde942f1d",
+      "query": "cat metrics/statpack.json | grep \"salience\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:03:32.068Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "75bc5281d80bc6f4",
+      "query": "grep -i band metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:03:34.398Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f1f56af81794566f",
+      "query": "\"Rule 29\" AND \"plain error\" AND (preserve OR general OR specific) AND (\"sufficiency of the evidence\" OR \"judgment of acquittal\")",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:01.047Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "b832b081f67fab3c",
+      "query": "\"Rule 29\" \"general motion\" preserves sufficiency \"plain error\" circuit split",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:24.205Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "5c6ca335b5fdef77",
+      "query": "{\"strategic_intent\": \"Writing the prediction files and outputs.\", \"summary\": \"Based on the analysis of the circuit split, the presence of amicus briefs, and the Court's request for a response after an initial waiver, I have determined a high probability for a cert grant. I will now create the necessary output files including `prediction.json`, `reasoning.md`, and `tooling.json`.\", \"title\": \"Writing Prediction Outputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:29.671Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "740cefe39c549c83",
+      "query": "mkdir -p data/cases/scotus/73272488/events/evt-petition-disposition/predictions/gemini-baseline/20260717T200105Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:33.648Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dfa7a9973e2028e9",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73272488\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T200105Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T20:01:05Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.75,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"big_case_score\\\": 0.4,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:37.105Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9b5bdd4fd85e0e4c",
+      "query": "{\"content\": \"# Prediction Reasoning\\n\\n**Issue Presented:**\\nThe petition presents a clean question of federal criminal procedure: Whether a defendant's general motion for a judgment of acquittal under Federal Rule of Criminal Procedure 29 preserves de novo appellate review of the sufficiency of the evidence, or whether the defendant must independently articulate each specific deficiency to avoid plain-error review.\\n\\n**Legal and Factual Context:**\\nThis issue implicates a deep, mature, and ack",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:43.676Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "691ebf43d255e546",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Looked up base rates in `metrics/statpack.md`.\\n- Evaluated impact of CFR (Call for Response) after initial waiver of response.\\n- `mcp_courtlistener_search` on `\\\"Rule 29\\\" AND sufficiency AND \\\"plain error\\\" AND preserve` to search for precedents and circuit splits.\\n- `mcp_courtlistener_search` on `\\\"Rule 29\\\" AND \\\"plain error\\\" AND (preserve OR general OR specific) AND (\\\"sufficiency of the evidence\\\" OR \\\"judgment of acquittal\\\")` to find circuit court rul",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:48.329Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bfed24a27b27bfd2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73272488\\\",\\n  \\\"run_id\\\": \\\"20260717T200105Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Google web search was vital to quickly understand the depth and state of the circuit split regarding Rule 29 motions.\\\",\\n    \\\"The statpack.",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:04:54.200Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:05:00.345Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e95ada1d0b4e9721",
+      "query": "{\"strategic_intent\": \"Finalizing the prediction task.\", \"summary\": \"I have successfully generated all required outputs for the prediction cell (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`), verified their structure against the schema using `fedcourts validate`, and left them in the correct `data/cases/.../predictions/` subdirectory. The prediction workflow is now complete.\", \"title\": \"Prediction Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T20:05:02.838Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73272488",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T200105Z",
+  "schema_version": "1.0"
+}
