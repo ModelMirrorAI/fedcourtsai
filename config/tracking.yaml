@@ -165,7 +165,7 @@ evaluate:
 salience:
   # Bootstrapping-sized: the long-conference cap keeps the flagship three-engine
   # OT2026 release inside the ~$10K bootstrapping budget (~$5K inference at the
-  # measured ~$26/fully-tournamented-case, over the ~$5K non-inference floor);
+  # measured ~$25/fully-tournamented-case, over the ~$5K non-inference floor);
   # raised as funding lifts N (see docs/budget.md). The long conference (the
   # Term's opening conference) clears the summer backlog at once, so it carries a
   # larger cap than a regular conference.
