@@ -98,8 +98,11 @@ call), so the gate spends nothing to *decide* what the tournament runs on. Raisi
 
 **Monthly spend by provider.** The per-case cost splits across the three API
 bills (measured predict means per engine; evaluate projected at the same
-per-run means, three judge-runs per provider per case), so at a cadence of `C`
-tournamented cases per month each provider's bill is its per-case line × `C`:
+per-run means — each provider's judge scores all three predictions, so three
+judge-runs per provider per case), so at a cadence of `C` tournamented cases
+per month each provider's bill is its per-case line × `C`. The predict column
+sums to $6.18, slightly under 3 × the $2.12 blended mean, because the blended
+mean weights engines by run count:
 
 | Provider (engine) | Predict $/case | Evaluate $/case (proj.) | $/case | Share | At `C` = 150/mo |
 |-------------------|---------------:|------------------------:|-------:|------:|----------------:|
@@ -111,10 +114,12 @@ tournamented cases per month each provider's bill is its per-case line × `C`:
 Two-thirds of every inference dollar goes to Anthropic — size that provider's
 spend limit accordingly, and expect a limit breach there to cost a third of a
 run's coverage (the other engines are billed independently). The `C` = 150
-column is a reference Term month at the per-conference cap; mid-Term cohorts
-run well under it (median ~11 petitions per conference), while September's
-long-conference month is the peak — clearing the summer backlog at the
-larger cap is ≈200 × $25 ≈ $5K, the bootstrapping envelope. Until evaluate
+column is a reference month of one conference cohort filled to the
+per-conference cap (`C` counts cases per month; a month holds several
+conferences, but mid-Term cohorts run well under the cap — median ~11
+petitions per conference — so 150/month is a generous Term-month reference).
+September's long-conference month is the peak: clearing the summer backlog at
+the larger cap is ≈200 × $25 ≈ $5K, the bootstrapping envelope. Until evaluate
 goes live only the predict column is being spent (≈$6.18/case, ≈$930 at
 `C` = 150).
 
