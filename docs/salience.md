@@ -122,7 +122,8 @@ forward stratum. So below-cap selection **must not** route through
 
 **The mechanism: a separate, sticky latch.** A case-level corpus column
 `salience_selected` (with `salience_score` and `salience_version` alongside),
-written only by a new deterministic pass — `reconcile-salience-selection`,
+written only by the deterministic selection pass — applied inside every live
+cycle, with `reconcile-salience-selection` as its manual entry point,
 structurally analogous to the scope reconcile — carries the decision:
 
 1. **Cohort key = `distributed_for_conference`.** Capacity is a *per-conference*
@@ -154,7 +155,7 @@ read, not a re-derivation that could drift.
 
 **Enforcement wiring** is small but real (it is not free):
 
-- `predict-matrix`'s scope filter gains one skip branch — a hard-in-scope SCOTUS
+- `predict-matrix`'s scope filter carries one skip branch — a hard-in-scope SCOTUS
   docket with `salience_selected == 0` is dropped from the tournament matrix with a
   distinct "not selected this salience round" note (read-time, non-destructive).
 - The pull queue declines to enqueue unselected cases.
@@ -163,6 +164,28 @@ read, not a re-derivation that could drift.
   gets no *new* ones.
 - **Fail-open**: a legacy row with `salience_selected` unset is treated as
   *selected*, so nothing already committed is ever stranded.
+
+**Production wiring — the live cycle.** The write pass runs inside every
+live-channel cycle (`live-poll`), after the polls have ingested the day's
+distribution transitions and before the workflow pushes the corpus, so the
+committed pointer carries the **post-pass** latch state: every sweep pick is
+selected at the pointer the predict matrix gate reads, and a fail-open queue
+entry (a never-scored petition queued at transition time) that the same
+cycle's pass scores-and-defers is dropped by that read-time gate,
+non-destructively. Ordering is the load-bearing detail: the queue-time
+deferral check reads
+the *pre-pass* latch, so transition routing alone would silently drop a petition
+whose first transition and first selection land in the same cycle. The cycle
+therefore ends with a **selection sweep**: every selected petition with open,
+never-predicted events is re-polled, provisioned, and queued — stalest first,
+capped by `salience.sweep_cases_per_cycle` in `config/tracking.yaml`. The same
+sweep is the catch-up for petitions whose transitions all predate the first
+applied pass, and the retry for a selected petition whose queued run committed
+no prediction; the `predict_queued_at` stamp the routing writes with every queue
+entry debounces that retry to daily, so an open-but-unmerged run PR is not
+re-queued every cycle. Document provisioning follows the same gate: a deferred
+petition's transition fetches nothing, and its documents are provisioned by the
+sweep if it is ever latched.
 
 ## Capacity `N` — the funding knob
 

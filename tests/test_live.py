@@ -11,7 +11,7 @@ import pytest
 
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot
-from fedcourtsai.config import LiveConfig, load_live_config
+from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
@@ -1012,3 +1012,246 @@ def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> Non
     assert outcome.actual_disposition == Disposition.gvr
     assert outcome.disposition_basis == "mootness"
     assert outcome.actual_granted == 1  # a GVR is a grant on the binary axis
+
+
+# --- the salience gate wired into the cycle -------------------------------------
+
+_DISTRIBUTED_ENTRY = {"Date": "Jul 10 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+_GATED = PredictScope.scotus_docket
+
+
+def _sweep_config(**kw: Any) -> SalienceConfig:
+    return SalienceConfig.model_validate(kw)
+
+
+def test_gated_cycle_rescues_a_first_transition_the_pass_selects(tmp_path: Path) -> None:
+    """The ordering fix: a petition scored (not selected) by an earlier pass whose
+    first distribution and first selection land in the same cycle is deferred at
+    queue time but queued by the cycle-end sweep — never silently dropped."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {"25-1": _payload("25-1")}
+    cfg = _sweep_config()
+
+    # Cycle 1: onboarded undistributed; the pass stamps its salience version.
+    with _frontier_client(served) as client:
+        queues1, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 9),
+        )
+    assert queues1.predict == []
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and row.salience_version is not None
+    assert not row.salience_selected  # scored, undistributed: not up for selection
+
+    # Cycle 2: the distribution transition arrives. The queue-time latch read
+    # still says "scored, not selected" (deferred), so only the cycle-end pass +
+    # sweep can queue it.
+    served["25-1"]["ProceedingsandOrder"].append(_DISTRIBUTED_ENTRY)
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert [q["docket"] for q in queues2.predict] == [9_025_000_001]
+    with corpus.connect(db) as conn:
+        selected_row = corpus.get_row(conn, "scotus/9025000001")
+    assert selected_row is not None and selected_row.salience_selected
+
+
+def test_gated_cycle_defers_a_below_cap_transition_without_provisioning(tmp_path: Path) -> None:
+    # Zero capacity and an unreachable floor: nothing is ever selected, so a
+    # distribution transition queues nothing and spends no document fetches.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {"25-1": _payload("25-1")}
+    cfg = _sweep_config(per_conference_capacity=0, long_conference_capacity=0, floor=1.0)
+
+    with _frontier_client(served) as client:
+        live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 9),
+        )
+    served["25-1"]["ProceedingsandOrder"].append(_DISTRIBUTED_ENTRY)
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert queues.predict == []
+    with corpus.connect(db) as conn:
+        assert corpus.documents_for_case(conn, "scotus/9025000001") == []
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and not row.salience_selected
+
+
+def test_sweep_queues_the_selected_unpredicted_backlog(tmp_path: Path) -> None:
+    """The catch-up: a distributed petition whose transitions all predate the
+    first applied pass is latched and swept the cycle the gate goes live."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    # Its distribution predates the gate: ingested with the membership already
+    # present, so no post-wiring poll ever sees a transition.
+    ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]),
+        docket_id,
+        today=date(2026, 7, 9),
+    )
+    served = {
+        "25-1": _payload(
+            "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 10),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+
+
+def test_sweep_debounces_a_case_polled_today_and_skips_a_predicted_one(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    distributed = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+    )
+    ingest_live_payload(db, data_root, distributed, docket_id, today=date(2026, 7, 9))
+    served = {"25-1": distributed}
+    cfg = _sweep_config()
+
+    # First window of the day: the rotation re-polls (no transition), the pass
+    # latches, and the sweep queues + stamps the queue date.
+    with _frontier_client(served) as client:
+        queues1, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert [q["docket"] for q in queues1.predict] == [docket_id]
+
+    # A later window the same day: queued today, run PR may still be in flight
+    # — the debounce leaves it alone.
+    with _frontier_client(served) as client:
+        queues2, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 10),
+        )
+    assert queues2.predict == []
+
+    # Next day, still no committed prediction (the run failed): retried.
+    with _frontier_client(served) as client:
+        queues3, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in queues3.predict] == [docket_id]
+
+    # A committed prediction ends the sweep's interest for good.
+    seed_prediction(data_root, "scotus", docket_id, "evt-petition-disposition")
+    with _frontier_client(served) as client:
+        queues4, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=cfg,
+            today=date(2026, 7, 12),
+        )
+    assert queues4.predict == []
+
+
+def test_sweep_respects_the_cap_and_the_ungated_scope(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    distributed = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+    )
+    ingest_live_payload(db, data_root, distributed, docket_id, today=date(2026, 7, 9))
+    served = {"25-1": distributed}
+
+    # A zero sweep cap: the pass still latches, but nothing is swept.
+    with _frontier_client(served) as client:
+        capped, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(sweep_cases_per_cycle=0),
+            today=date(2026, 7, 10),
+        )
+    assert capped.predict == []
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and row.salience_selected
+
+    # Ungated scope: the pass may run, but the sweep never queues.
+    with _frontier_client(served) as client:
+        ungated, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=PredictScope.all,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert ungated.predict == []

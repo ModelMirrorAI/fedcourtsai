@@ -44,7 +44,7 @@ from pathlib import Path
 import httpx
 
 from .. import corpus, ids
-from ..config import LiveConfig, PredictScope
+from ..config import LiveConfig, PredictScope, SalienceConfig
 from ..matrix import event_has_predictions
 from ..store import open_events
 from ..supremecourt import (
@@ -58,6 +58,7 @@ from .events import extract_events
 from .ingest import from_live_record, map_live_docket, upsert_to_corpus
 from .outcome import disposition_basis, resolve_case, termination_signal
 from .pull import PullQueues, _in_predict_scope
+from .salience import apply_salience_selection
 
 # The two per-Term numbering streams discovery probes, each from its base.
 STREAMS: tuple[tuple[str, int], ...] = (("paid", 1), ("ifp", IFP_SERIAL_BASE))
@@ -210,6 +211,7 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     max_new: int,
     frontier_misses: int = 2,
     document_text_cap: int = 150_000,
+    gated: bool = False,
     today: date,
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
@@ -255,9 +257,13 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
             ingested = ingest_live_payload(
                 corpus_db_path, data_root, payload, docket_id, today=today
             )
-            if ingested.distributed is not None:
-                # Frontier catch-up on an already-distributed petition: it will
-                # queue predict this cycle, so provision its documents now.
+            if ingested.distributed is not None and (
+                not gated or _in_predict_scope(corpus_db_path, ingested.case_id)
+            ):
+                # Frontier catch-up on an already-distributed petition that the
+                # gate would queue: provision its documents now. A deferred
+                # petition just enters the watchlist — the selection sweep
+                # provisions it if it is ever latched.
                 provision_documents(
                     client,
                     corpus_db_path,
@@ -354,7 +360,15 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
         transitioned = (
             result.distributed is not None and result.distributed != row.distributed_for_conference
         )
-        if transitioned:
+        # The queue decision is made here so provisioning follows it: a
+        # transition on a petition the salience latch defers spends neither
+        # document fetches nor corpus blob. The latch read is the pre-pass
+        # state — the cycle-end selection sweep rescues a petition whose first
+        # transition and first selection land in the same cycle.
+        queue_predict = transitioned and (
+            not gated or _in_predict_scope(corpus_db_path, result.case_id)
+        )
+        if queue_predict:
             # Predict is about to be queued for this petition — provision its
             # documents (petition / QP / BIO) on the same trigger. Idempotent
             # per (kind, url), so a relist with unchanged filings costs nothing.
@@ -367,9 +381,30 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
                 today=today,
             )
         _route_result(
-            queues, corpus_db_path, data_root, result, gated=gated, queue_predict=transitioned
+            queues,
+            corpus_db_path,
+            data_root,
+            result,
+            gated=gated,
+            queue_predict=queue_predict,
+            today=today,
         )
     return queues
+
+
+def _decided_reason(result: LiveResult) -> str | None:
+    """The forward-queue guard: why a decided-looking docket must not queue predict.
+
+    A terminal order the cert resolver missed, or an outcome that appears
+    decided but was not deterministically recorded, diverts to
+    ``predict_skipped_decided`` so the skip is triageable — not a mislabeled
+    forward cell whose unrestricted retrieval could read the outcome.
+    """
+    return result.termination_signal or (
+        "docket appears decided; its outcome could not be recorded deterministically"
+        if result.unrecorded_events
+        else None
+    )
 
 
 def _route_result(
@@ -380,34 +415,30 @@ def _route_result(
     *,
     gated: bool,
     queue_predict: bool,
+    today: date,
 ) -> None:
     """Sort one poll result into the handoff queues (pull's routing, verbatim).
 
     ``queue_predict`` is the caller's distribution-transition verdict — it
     gates only the predict handoff. The evaluate handoff requires a committed
     prediction (an unscoreable resolution lands on ``evaluate_skipped``);
-    unrecorded outcomes always route.
+    unrecorded outcomes always route. A predict queue entry stamps
+    ``predict_queued_at`` (the selection sweep's daily-retry debounce).
     """
     docket_id = int(result.case_id.rsplit("/", 1)[-1])
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
     events = open_events(corpus_db_path, "scotus", docket_id)
     if queue_predict and in_scope and result.changed and events:
-        # A decided-looking docket never queues forward (pull's rule, verbatim): a
-        # terminal order the cert resolver missed, or an outcome that appears
-        # decided but was not deterministically recorded, diverts to
-        # predict_skipped_decided so the skip is triageable, not a mislabeled
-        # forward cell whose unrestricted retrieval could read the outcome.
-        decided_reason = result.termination_signal or (
-            "docket appears decided; its outcome could not be recorded deterministically"
-            if result.unrecorded_events
-            else None
-        )
+        # A decided-looking docket never queues forward (pull's rule, verbatim).
+        decided_reason = _decided_reason(result)
         if decided_reason:
             queues.predict_skipped_decided.append(
                 {"court": "scotus", "docket": docket_id, "events": events, "reason": decided_reason}
             )
         else:
             queues.predict.append({"court": "scotus", "docket": docket_id, "events": events})
+            with corpus.connect(corpus_db_path) as conn:
+                corpus.stamp_predict_queued(conn, [result.case_id], today)
     if in_scope and result.resolved:
         # Only events something actually predicted reach evaluation: the live
         # sweeps resolve plenty of never-predicted petitions (frontier catch-up,
@@ -436,6 +467,112 @@ def _route_result(
         )
 
 
+def salience_sweep(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    data_root: Path,
+    queues: PullQueues,
+    *,
+    cap: int,
+    already_queued: set[int],
+    document_text_cap: int = 150_000,
+    today: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
+) -> None:
+    """Queue selected petitions the distribution trigger alone would miss.
+
+    The transition trigger only fires when a poll observes a membership change,
+    and the queue-time latch read predates the cycle's selection pass — so three
+    real gaps remain: a petition whose first transition and first selection land
+    in the same cycle (deferred at queue time), a petition latched when its
+    transitions all predate the first applied pass (the catch-up backlog), and a
+    selected petition whose queued run produced no committed prediction (the
+    retry). The sweep closes all three: every latched petition with open,
+    never-predicted events is re-polled, provisioned, and queued, up to ``cap``
+    fetches per cycle, stalest first.
+
+    The ``predict_queued_at`` stamp debounces the retry to daily: a case queued
+    today — by this cycle's routing or an earlier window — waits for tomorrow's
+    sweep, so an open-but-unmerged run PR is not re-queued every cycle while a
+    genuinely failed run still retries the next day. Each sweep re-polls the
+    docket, so the decided-looking guard and outcome recording run against
+    fresh facts, exactly as a rotation poll would.
+    """
+    if cap <= 0:
+        return
+    with corpus.connect(corpus_db_path) as conn:
+        candidates = sorted(
+            (
+                row
+                for row in corpus.iter_rows(conn, court="scotus")
+                # `predict_excluded` is the cheap row-level pre-filter: a selected
+                # petition later latched out of scope must not spend a fetch slot
+                # every cycle only to be rejected post-fetch (the full exclusion
+                # reasoning still re-runs on the fresh row before queueing).
+                if row.salience_selected and not row.predict_excluded
+            ),
+            key=lambda row: (row.last_live_polled or date.min, row.case_id),
+        )
+    fetches = 0
+    for row in candidates:
+        if fetches >= cap or (deadline is not None and time_fn() >= deadline):
+            break
+        docket_id = int(row.case_id.rsplit("/", 1)[-1])
+        if docket_id in already_queued:
+            continue
+        if row.predict_queued_at == today:
+            continue
+        events = open_events(corpus_db_path, "scotus", docket_id)
+        if not events or any(
+            event_has_predictions(data_root, "scotus", docket_id, event_id) for event_id in events
+        ):
+            continue
+        parsed = parse_scotus_docket_number(row.docket_number)
+        if parsed is None:
+            continue
+        term, serial = parsed
+        fetches += 1
+        try:
+            payload = client.get_docket(term, serial)
+        except httpx.HTTPError as exc:
+            queues.failed.append(
+                {"court": "scotus", "docket": docket_id, "reason": f"{type(exc).__name__}: {exc}"}
+            )
+            continue
+        if payload is None:
+            queues.failed.append(
+                {"court": "scotus", "docket": docket_id, "reason": "docket JSON no longer served"}
+            )
+            continue
+        result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
+        # Ground-truth routing first: the re-poll may have caught a resolution,
+        # in which case there is nothing left to predict.
+        _route_result(
+            queues, corpus_db_path, data_root, result, gated=True, queue_predict=False, today=today
+        )
+        open_now = open_events(corpus_db_path, "scotus", docket_id)
+        if not open_now or not _in_predict_scope(corpus_db_path, result.case_id):
+            continue
+        reason = _decided_reason(result)
+        if reason:
+            queues.predict_skipped_decided.append(
+                {"court": "scotus", "docket": docket_id, "events": open_now, "reason": reason}
+            )
+            # Stamp the divert too: a decided-looking docket whose outcome stays
+            # unrecordable keeps open events, and without the stamp it would
+            # re-fetch and re-append every window instead of daily.
+            with corpus.connect(corpus_db_path) as conn:
+                corpus.stamp_predict_queued(conn, [result.case_id], today)
+            continue
+        provision_documents(
+            client, corpus_db_path, result.case_id, payload, char_cap=document_text_cap, today=today
+        )
+        queues.predict.append({"court": "scotus", "docket": docket_id, "events": open_now})
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.stamp_predict_queued(conn, [result.case_id], today)
+
+
 def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
     client: SupremeCourtClient,
     corpus_db_path: Path,
@@ -444,11 +581,12 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     term: int,
     config: LiveConfig,
     scope: PredictScope = PredictScope.all,
+    salience_config: SalienceConfig | None = None,
     today: date,
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> tuple[PullQueues, LiveDiscovery]:
-    """One live cycle: frontier discovery, then the pending-petition refresh.
+    """One live cycle: discovery, the pending refresh, then the salience pass.
 
     ``config`` (the ``live:`` section of ``tracking.yaml``) carries the cycle's
     caps and politeness knobs. Discovery runs first so a petition docketed since
@@ -461,7 +599,18 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     onboarded petition queues predict only if it is already distributed for a
     conference (frontier catch-up); an undistributed one simply enters the
     watchlist, and the refresh queues it when its distribution lands.
+
+    ``salience_config`` wires the salience gate into the cycle: after the polls
+    have ingested the day's transitions, the selection pass scores and latches
+    against the fresh cohorts (:func:`apply_salience_selection` — before the
+    caller's corpus push, so the committed pointer carries the post-pass latch:
+    every sweep pick is selected at the pointer the predict matrix gate reads,
+    and a fail-open queue entry the same pass scores-and-defers is dropped by
+    that read-time gate, non-destructively), and under the gated scope the
+    selection sweep queues what the transition trigger missed. ``None`` skips
+    both, leaving the queue-time deferral check fail-open.
     """
+    gated = scope == PredictScope.scotus_docket
     discovery = discover_live(
         client,
         corpus_db_path,
@@ -470,12 +619,12 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
         max_new=config.max_new_cases_per_run,
         frontier_misses=config.frontier_misses,
         document_text_cap=config.document_text_cap,
+        gated=gated,
         today=today,
         deadline=deadline,
         time_fn=time_fn,
     )
     queues = PullQueues()
-    gated = scope == PredictScope.scotus_docket
     for onboarded in discovery.onboarded:
         # A brand-new row has no prior membership, so "distributed at all" is
         # the transition test for the discovery path.
@@ -486,6 +635,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
             onboarded,
             gated=gated,
             queue_predict=onboarded.distributed is not None,
+            today=today,
         )
 
     fresh = set(discovery.case_ids)
@@ -515,4 +665,29 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     queues.evaluate_skipped.extend(refreshed.evaluate_skipped)
     queues.unrecorded.extend(refreshed.unrecorded)
     queues.failed.extend(refreshed.failed)
+
+    if salience_config is not None:
+        with corpus.connect(corpus_db_path) as conn:
+            apply_salience_selection(conn, salience_config)
+        if gated:
+            already_queued = {
+                int(str(entry["docket"]))
+                for entry in (
+                    *queues.predict,
+                    *queues.predict_skipped_decided,
+                    *queues.unrecorded,
+                )
+            }
+            salience_sweep(
+                client,
+                corpus_db_path,
+                data_root,
+                queues,
+                cap=salience_config.sweep_cases_per_cycle,
+                already_queued=already_queued,
+                document_text_cap=config.document_text_cap,
+                today=today,
+                deadline=deadline,
+                time_fn=time_fn,
+            )
     return queues, discovery

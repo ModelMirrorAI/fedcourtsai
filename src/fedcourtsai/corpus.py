@@ -317,6 +317,14 @@ class CorpusRow(BaseModel):
         "drifts below the capacity line keeps its committed prediction. Meaningful "
         "only when `salience_version` is set; see docs/salience.md.",
     )
+    predict_queued_at: date | None = Field(
+        default=None,
+        description="The last date the live channel put this case on the predict "
+        "queue (transition routing or the selection sweep), or None if never "
+        "queued. Owned by the queue routing, never an ingestion channel; the "
+        "selection sweep's debounce reads it so an already-queued case is retried "
+        "no more than daily while its run PR is in flight or failed.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -440,7 +448,11 @@ CREATE TABLE IF NOT EXISTS cases (
     -- pass, never an ingestion channel; a NULL version marks an unscored row.
     salience_score      REAL,
     salience_version    TEXT,
-    salience_selected   INTEGER NOT NULL DEFAULT 0
+    salience_selected   INTEGER NOT NULL DEFAULT 0,
+    -- The last date the live channel queued predict for this case (routing or
+    -- selection sweep). Owned by the queue routing; the sweep's daily-retry
+    -- debounce reads it.
+    predict_queued_at   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -569,6 +581,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "salience_score": "REAL",
     "salience_version": "TEXT",
     "salience_selected": "INTEGER NOT NULL DEFAULT 0",
+    "predict_queued_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -762,6 +775,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "salience_score": row.salience_score,
         "salience_version": row.salience_version,
         "salience_selected": int(row.salience_selected),
+        "predict_queued_at": row.predict_queued_at.isoformat() if row.predict_queued_at else None,
     }
 
 
@@ -844,6 +858,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         salience_score=_optional_float(record, "salience_score"),
         salience_version=_optional_str(record, "salience_version"),
         salience_selected=bool(_optional_int(record, "salience_selected")),
+        predict_queued_at=_optional_date(record, "predict_queued_at"),
     )
 
 
@@ -901,11 +916,13 @@ def _update_clause(column: str) -> str:
         # The scope reconcile owns this flag (it is not an ingestion fact and is not
         # monotonic), so a re-ingest must never clobber it — keep the stored value.
         return f"{column}=cases.{column}"
-    if column in ("salience_score", "salience_version", "salience_selected"):
-        # The salience selection pass owns these (they are not ingestion facts):
-        # score/version are recomputed by the pass and `salience_selected` is a
-        # one-way latch it maintains, so an upsert must never reset them to the
-        # model default — keep the stored value, exactly like `predict_excluded`.
+    if column in ("salience_score", "salience_version", "salience_selected", "predict_queued_at"):
+        # The salience selection pass owns the salience columns and the queue
+        # routing owns `predict_queued_at` (none are ingestion facts): the pass
+        # recomputes score/version and maintains the one-way `salience_selected`
+        # latch, and clearing the queue stamp on re-ingest would let the sweep's
+        # daily-retry debounce re-queue a case every cycle its rotation poll
+        # touches it — keep the stored values, exactly like `predict_excluded`.
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
@@ -1715,6 +1732,21 @@ def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -
         conn.executemany(
             "UPDATE cases SET salience_selected = 1 WHERE case_id = ?",
             [(case_id,) for case_id in case_ids],
+        )
+
+
+def stamp_predict_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
+    """Record that the live channel queued predict for each case on ``day``.
+
+    The queue routing's sole writer of ``predict_queued_at`` (transition routing
+    and the selection sweep both stamp through here). Overwrites forward — the
+    stamp is "most recent queue date", which the sweep's daily-retry debounce
+    compares against today.
+    """
+    with conn:
+        conn.executemany(
+            "UPDATE cases SET predict_queued_at = ? WHERE case_id = ?",
+            [(day.isoformat(), case_id) for case_id in case_ids],
         )
 
 

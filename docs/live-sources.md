@@ -119,7 +119,10 @@ corpus's `distributed_for_conference` (a relist updates it; non-live writers
 preserve it); the refresh rotation leads with distributed petitions, nearest
 conference first; and **predict fires on the distribution transition** — a
 fresh distribution or a relist's new date — the cert-calendar analogue of
-`pull.predict_on_change_only`. The pending-before-conference set is readable via
+`pull.predict_on_change_only`, for petitions the salience gate admits (a
+deferred petition's transition only keeps it on the watchlist; the cycle-end
+selection sweep queues what a later selection latches — see
+[salience.md](salience.md)). The pending-before-conference set is readable via
 `fedcourts conference-set` (grouped by conference date; the September
 long-conference set is its largest bucket).
 
@@ -156,7 +159,8 @@ actually turns on. Two rules govern their use:
 **Implemented:** the live poller fetches the petition and the brief in
 opposition on the same **distribution transition** that queues prediction (the
 record-complete moment, and near filing time — links are a rolling ~5-Term
-window upstream). Text is extracted with pypdf (born-digital filings under the
+window upstream); a gate-deferred petition's transition fetches nothing, and
+the selection sweep provisions its documents if it is ever latched. Text is extracted with pypdf (born-digital filings under the
 e-filing mandate; a scanned paper filing degrades to empty text), capped at
 `live.document_text_cap` per document, and stored in the access-gated corpus's
 `documents` table — never the git ledger. `provision-snapshot` materializes it

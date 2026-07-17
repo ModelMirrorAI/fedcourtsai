@@ -174,15 +174,14 @@ def _select_cohort(
     return selected
 
 
-def reconcile_salience_selection(
-    conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
-) -> SalienceSelectionResult:
-    """Score the in-scope cert petitions and latch the per-conference selected slice.
+def _selection_plan(
+    conn: sqlite3.Connection, config: SalienceConfig
+) -> tuple[dict[str, float], list[str], int, int]:
+    """Score the in-scope cert petitions and pick each cohort's selected slice.
 
-    Dry run by default (scores and picks are computed but nothing is written);
-    ``apply`` writes the scores/version on every in-scope case and latches
-    ``salience_selected`` on the newly-selected ones. Idempotent under the sticky
-    latch — a second run with no corpus change latches nothing new.
+    The pure planning half of the pass: returns ``(scores, to_select, eligible,
+    conferences)`` where ``to_select`` holds only the **not-yet-latched** picks
+    (the sticky latch is additive; the plan never de-selects).
     """
     scores: dict[str, float] = {}
     cohorts: dict[date, list[corpus.CorpusRow]] = defaultdict(list)
@@ -203,7 +202,35 @@ def reconcile_salience_selection(
         selected = _select_cohort(rows, scores, _capacity(conference, config), config.floor)
         # Sticky + additive: latch only the not-yet-selected; never de-select.
         to_select.extend(case_id for case_id in selected if case_id not in already_selected)
+    return scores, to_select, eligible, len(cohorts)
 
+
+def apply_salience_selection(conn: sqlite3.Connection, config: SalienceConfig) -> list[str]:
+    """The live cycle's write pass: score, latch, and return the newly-latched ids.
+
+    Runs after the cycle's polls so the cohorts reflect the day's ingested
+    transitions, and before the caller's corpus push so the committed pointer
+    always carries the latch state downstream readers see. The returned ids are
+    the cycle's newly-latched picks (the selection sweep queues them via the
+    ``predict_queued_at`` debounce — a never-queued case passes it).
+    """
+    scores, to_select, _, _ = _selection_plan(conn, config)
+    corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
+    corpus.latch_salience_selected(conn, to_select)
+    return to_select
+
+
+def reconcile_salience_selection(
+    conn: sqlite3.Connection, config: SalienceConfig, *, apply: bool
+) -> SalienceSelectionResult:
+    """Score the in-scope cert petitions and latch the per-conference selected slice.
+
+    Dry run by default (scores and picks are computed but nothing is written);
+    ``apply`` writes the scores/version on every in-scope case and latches
+    ``salience_selected`` on the newly-selected ones. Idempotent under the sticky
+    latch — a second run with no corpus change latches nothing new.
+    """
+    scores, to_select, eligible, conferences = _selection_plan(conn, config)
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
@@ -212,7 +239,7 @@ def reconcile_salience_selection(
         version=SALIENCE_VERSION,
         eligible_cases=eligible,
         scored=len(scores),
-        conferences=len(cohorts),
+        conferences=conferences,
         newly_selected=len(to_select),
         sample_selected=sorted(to_select)[:_MAX_SAMPLE],
     )

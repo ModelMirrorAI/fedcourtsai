@@ -89,7 +89,12 @@ live:
   # on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
   # pull.predict_on_change_only. It replaced the interim predict_on_refresh
-  # spend guard; max_cases_per_run above still bounds worst-case daily volume.
+  # spend guard; max_cases_per_run above bounds the transition path's worst-case
+  # daily volume, and the sweep path is separately bounded at
+  # windows x salience.sweep_cases_per_cycle. WHICH transitioned petitions
+  # queue is the salience gate's decision: each cycle ends with the selection
+  # pass and that bounded sweep of selected petitions the transition trigger
+  # missed (see `salience:` below and docs/salience.md).
 
 # historical = the historical Term walker (run-pull's historical job):
 # accumulates resolved outcomes reverse-chronologically by Term — primarily
@@ -174,6 +179,13 @@ salience:
   # Always-include threshold: a petition at/above this score is selected
   # regardless of rank (the relist-2 / CVSG grant-rate band).
   floor: 0.28
+  # Per-cycle cap on the live channel's selection sweep — the path that queues
+  # selected petitions the distribution trigger alone would miss (same-cycle
+  # first selections, the catch-up backlog, daily retries of runs that
+  # committed nothing). Each swept case costs one docket fetch plus document
+  # provisioning at the polite ~1 req/s, so the cap keeps the sweep a small
+  # tail on the cycle; the backlog drains across cycles under the sticky latch.
+  sweep_cases_per_cycle: 25
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener

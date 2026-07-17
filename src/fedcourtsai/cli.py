@@ -2580,6 +2580,7 @@ def live_poll(
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
     scope = load_predict_config(settings.config_root).scope
+    salience_cfg = load_salience_config(settings.config_root)
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
     today = date.today()
@@ -2593,6 +2594,7 @@ def live_poll(
             term=probe_term,
             config=live_cfg.model_copy(update={"max_cases_per_run": cap}),
             scope=scope,
+            salience_config=salience_cfg,
             today=today,
             deadline=deadline,
         )
