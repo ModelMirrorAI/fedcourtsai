@@ -1,4 +1,4 @@
-"""The fixed corpus read set the integration-corpus workflow dispatches.
+"""The fixed corpus read set the integration-test workflow dispatches.
 
 Three reads cover the shapes the pipeline provisions with, each run through the
 corpus read-backend seam (:func:`fedcourtsai.corpus.connect_readonly`) on its
@@ -27,7 +27,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from . import corpus, ids
+from . import corpus, corpus_service, ids
 from .corpus_ranged import RangedConnection
 from .serialize import write_raw_json
 
@@ -151,6 +151,77 @@ def run_integration_check(
     return IntegrationReport(
         case_id=case_id,
         backend=choice,
+        steps=steps,
+        seconds=seconds,
+        budget_seconds=budget_seconds,
+        within_budget=within_budget,
+        ok=within_budget and all(step.ok for step in steps),
+    )
+
+
+def run_service_check(
+    *,
+    service_url: str,
+    court: str,
+    docket: int,
+    limit: int = 5,
+    budget_seconds: float = 300.0,
+) -> IntegrationReport:
+    """The service-backend counterpart of the fixed read set.
+
+    Probes the corpus query sidecar through the same client the CLI's
+    ``service`` backend forwards with — the exact surface a cell retrieves
+    from — so a green run proves the sidecar serves non-empty priors and open
+    events for the known case. Two reads: the service exposes ``query`` and
+    ``open-events`` only (snapshot provisioning is a deterministic workflow
+    step's read, not a cell surface). Per-read transfer counters come from the
+    service's per-request deltas; a transport failure or refusal raises
+    (:class:`~fedcourtsai.corpus_service.CorpusServiceError` — a setup
+    problem, not a read regression), while an empty result reports as a
+    failed step.
+    """
+    case_id = ids.case_id(court, docket)
+    started = time.monotonic()
+
+    t0 = time.monotonic()
+    query = corpus_service.client_query(
+        service_url, corpus.PriorQuery(court=court), limit=limit, full=False
+    )
+    if query.rows:
+        detail = f"{len(query.rows)} prior(s), first {query.rows[0].get('case_id')}"
+    else:
+        detail = f"no resolved priors for court {court}"
+    steps = [
+        IntegrationStep(
+            name=f"service query (court {court}, limit {limit})",
+            ok=bool(query.rows),
+            detail=detail,
+            gets=query.reads.gets if query.reads is not None else None,
+            bytes_fetched=query.reads.bytes if query.reads is not None else None,
+            seconds=time.monotonic() - t0,
+        )
+    ]
+
+    t0 = time.monotonic()
+    events = corpus_service.client_open_events(service_url, court, docket)
+    steps.append(
+        IntegrationStep(
+            name="service open-events",
+            ok=bool(events.event_ids),
+            detail=", ".join(events.event_ids)
+            if events.event_ids
+            else f"{case_id} has no open events; pick another case",
+            gets=events.reads.gets if events.reads is not None else None,
+            bytes_fetched=events.reads.bytes if events.reads is not None else None,
+            seconds=time.monotonic() - t0,
+        )
+    )
+
+    seconds = time.monotonic() - started
+    within_budget = seconds <= budget_seconds
+    return IntegrationReport(
+        case_id=case_id,
+        backend="service",
         steps=steps,
         seconds=seconds,
         budget_seconds=budget_seconds,

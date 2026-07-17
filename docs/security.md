@@ -199,6 +199,18 @@ review.
 Every `runner` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
+**The integration-test workflow selects its environment by input**
+(`deploy-environment`, default `runner`). Today that is fail-closed twice over
+for any branch dispatch: naming `runner` is refused at its deployment-branch
+gate before any step runs, and naming any other environment resolves no role
+variables — and the AWS roles' trust policies additionally pin the OIDC `sub`
+to the `runner` environment, so an auto-created empty environment can assume
+nothing. Standing up a real pre-merge environment (any-branch deployment
+policy) therefore requires two deliberate steps **in this order**: add its
+required-reviewer protection rule first, then widen the read-only role's trust
+policy to that environment's `sub` — the reviewer rule is the gate, and
+widening trust before it exists would make the gate decorative.
+
 ## S3 / the private stores
 
 Two IAM roles, assumed via GitHub OIDC (no static keys), cover both private S3
@@ -232,7 +244,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`) |
-| `integration-corpus`                      | read-only     | ranged read-path preflight (role assumed directly, no pull) |
+| `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `run-ops`                                 | none          | dashboard reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 

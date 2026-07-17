@@ -310,8 +310,8 @@ def test_stub_cascade_reads_via_ranged_backend(
 ) -> None:
     """The local cascade's corpus reads ride the ranged seam — no local blob needed.
 
-    The end-to-end provisioning shape the integration-corpus workflow's optional
-    cascade cell exercises against the real remote: with the backend set to
+    The end-to-end provisioning shape the integration-test workflow's
+    stub-cascade scenario exercises against the real remote: with the backend set to
     ``ranged`` in the environment, ``run_cascade`` provisions the snapshot,
     predicts with the offline stub engine, and validates the ledger without a
     pulled corpus file on disk.

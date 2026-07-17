@@ -2259,7 +2259,7 @@ def corpus_integration_check(
 ) -> None:
     """Run the fixed corpus read set; fail on an empty result or a blown budget.
 
-    The integration-corpus workflow's engine: a point lookup (the case's open
+    The integration-test workflow's ranged-reads scenario: a point lookup (the case's open
     events), a priors retrieval (a narrow indexed filter over the case's
     court), and a snapshot provisioning, each on its own read connection so a
     ranged run reports per-read GET/byte transfer counters (see
@@ -2271,7 +2271,20 @@ def corpus_integration_check(
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
+    if backend == "service":
+        # The sidecar counterpart of the fixed set: two reads through the same
+        # client a cell's `service` backend forwards with (the service exposes
+        # query and open-events; snapshot provisioning is not a cell surface).
+        report = integration_check.run_service_check(
+            service_url=_service_url_or_exit(),
+            court=court,
+            docket=docket,
+            limit=limit,
+            budget_seconds=budget_seconds,
+        )
+        _finish_integration_report(report, summary_out)
+        return
     if backend == "local" and not db_path.exists():
         typer.echo(
             f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.",
@@ -2287,6 +2300,13 @@ def corpus_integration_check(
         backend=backend,
         snapshot_out=snapshot_out,
     )
+    _finish_integration_report(report, summary_out)
+
+
+def _finish_integration_report(
+    report: integration_check.IntegrationReport, summary_out: Path | None
+) -> None:
+    """Emit an integration report's JSON + Markdown and exit non-zero on failure."""
     summary = integration_check.render_markdown(report)
     typer.echo(report.model_dump_json(indent=2))
     typer.echo(summary, err=True)

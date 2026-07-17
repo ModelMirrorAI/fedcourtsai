@@ -13,7 +13,7 @@ stage.
 | `run:backtest`  | `run-backtest`   | issue labeled, manual dispatch (engine/limit params) | Claude Code + Codex (replay) |
 | _(none)_        | `run-ops`        | daily schedule (+ a weekly digest tick), manual | script (no agent)    |
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
-| _(none)_        | `integration-corpus` | manual dispatch                 | script (no agent)    |
+| _(none)_        | `integration-test` | manual dispatch                 | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
@@ -72,11 +72,13 @@ each as its own least-privilege job holding only the credentials its mode needs:
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking.
 
-`integration-corpus` is the read-path preflight, also outside the cascade: a
-manual-dispatch, strictly read-only check of the **ranged corpus backend**
-against the real corpus remote — the tested `fedcourts corpus-integration-check`
-read set plus an optional stub `local-cascade` cell — dispatched around changes
-to corpus access or the corpus-consuming workflows and before releases. See
+`integration-test` is the infrastructure preflight, also outside the cascade:
+a manual-dispatch, strictly read-only scenario runner over the **corpus read
+backends and the corpus sidecar** against the real corpus remote — the tested
+`fedcourts corpus-integration-check` read set, a cell's-eye probe of the
+service sidecar, or a stub `local-cascade` cell — dispatched around changes to
+corpus access or the corpus-consuming workflows and before releases, from main
+or (via an approval-gated deployment environment) from a PR branch. See
 *Infra-bound integration* in [testing.md](testing.md).
 
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
