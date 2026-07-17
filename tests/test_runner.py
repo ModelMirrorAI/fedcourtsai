@@ -384,3 +384,14 @@ def test_agent_env_is_scrubbed_of_cloud_creds_and_foreign_keys(
         assert recorder.env["AWS_REGION"] == "us-east-2"
         # The cell contract still rides on top of the scrubbed base.
         assert recorder.env["COURT_ID"] == COURT
+
+
+def test_codex_runner_grants_subprocess_network(tmp_path: Path) -> None:
+    # The workspace-write sandbox denies network to spawned commands by
+    # default; the runner mirrors the live codex step's grant so replay and
+    # cascade cells can reach the corpus surface like the other engines.
+    recorder = _Recorder()
+    CodexRunner(command_runner=recorder).run(_predict_request(tmp_path / "data"))
+    flag = recorder.argv.index("-c")
+    assert recorder.argv[flag + 1] == "sandbox_workspace_write.network_access=true"
+    assert "workspace-write" in recorder.argv  # the sandbox mode itself stays on

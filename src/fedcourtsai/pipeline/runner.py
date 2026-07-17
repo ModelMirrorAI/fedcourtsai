@@ -559,6 +559,12 @@ class CodexRunner(AgenticRunner):
             self.model,
             "--sandbox",
             "workspace-write",
+            # Grant spawned commands network, as the live codex step does: the
+            # workspace-write sandbox denies it by default, which would leave a
+            # replay/cascade codex cell unable to retrieve where the other
+            # engines can.
+            "-c",
+            "sandbox_workspace_write.network_access=true",
             _claude_instruction(request, self.model),
         ]
         return EngineCommand(argv=argv, env=_cell_env(request, self.model))

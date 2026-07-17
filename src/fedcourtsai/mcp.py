@@ -218,6 +218,11 @@ def codex_mcp_config(
     manifest, and values are JSON-escaped, which is valid TOML for strings.
     A server whose id appears in ``http_urls`` is emitted as a remote
     streamable-HTTP entry (``url`` only — no launch command, no token).
+
+    This document must never set ``shell_environment_policy``: codex's default
+    strips credential-shaped names from the env of every command the agent
+    spawns, and the cell workflows' subprocess-network grant leans on that
+    default — overriding it is a security-review decision, not a config tweak.
     """
     urls = http_urls or {}
     blocks: list[str] = []

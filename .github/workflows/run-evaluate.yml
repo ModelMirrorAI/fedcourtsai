@@ -469,6 +469,11 @@ jobs:
           effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
+          # Subprocess network for spawned commands (the localhost corpus
+          # service) plus a pinned CLI — the same grant and rationale as the
+          # predict cell's codex step.
+          codex-version: "0.144.1"
+          codex-args: '["-c","sandbox_workspace_write.network_access=true"]'
 
       # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
       # version is exactly pinned (transitive dependencies resolve fresh at every
