@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281635",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP call_endpoint (dockets)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt + questions-presented.txt — the split mapping and vehicle posture came straight from them",
+    "Snapshot docket entries — the call-for-response after waiver was the decisive signal",
+    "statpack relist/CVSG buckets as a calibration ladder for the CFR signal"
+  ],
+  "gaps": [
+    "fedcourts query has no free-text/topic search over QP text, so finding priors by legal issue (prejudgment interest) is effectively impossible; citation overlap found nothing",
+    "A statpack cut conditioned on call-for-response (CFR after waiver) would directly calibrate this cell's strongest signal; the relist buckets are only a proxy",
+    "The salience-band table the prompt points to is not present in the committed statpack.md"
+  ],
+  "notes": "Forward cell, clean provisioning. One corpus query cost 419 ranged GETs / ~110 MB to return zero rows; a cheaper miss path would help."
+}

@@ -1,0 +1,262 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6a9a71bb19786c89",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345 -type f | head -50",
+      "result_digest": "55e2048161aa8fba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "60122491b4f6892b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4ed5e87e37eda2ff",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "8a47a739f3c89740",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bbc93d4cec31db58",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "a2c207170aabe1fa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "337b2fd7747d9006",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/record/documents/documents.json\"}",
+      "result_digest": "673e28b91ec602d6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0ad7f6680a4920f0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/record/documents/questions-presented.txt\"}",
+      "result_digest": "8b221f9033dee29a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a3b53bb6c9f20c25",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/record/documents/petition.txt\"}",
+      "result_digest": "3c2022198932c97f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5eca9ed8157c90dc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "e766f96eb0059927",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cec29602d0d054a7",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8a9e6562db051001",
+      "query": "python3 -c \"\nimport json\nwith open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json') as f:\n    d = json.load(f)\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5d0dc4f83ab728b7",
+      "query": "python3 -c \"\nimport json\nwith open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json') as f:\n    d = json.load(f)\nprint([s.get('title') for s in d['sections']])\n\"",
+      "result_digest": "4b16ec35155c7b67",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "367bc23dd7ec6279",
+      "query": "python3 -c \"\nimport json\nwith open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json') as f:\n    d = json.load(f)\nt = d['terms']\nprint(type(t))\nimport pprint\n# print term 2025 entry compactly\nif isinstance(t, list):\n    for row in t:\n        if str(row.get('term')) in ('2024','2025'):\n            pprint.pprint(row)\n\"",
+      "result_digest": "9847a2710e32f456",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "64b1b5ec2189a939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7811a0024364da0d",
+      "query": "uv run fedcourts query --court scotus --citation \"United States v. Lopez\" --citation \"Gonzales v. Raich\" --limit 8 2>querystderr.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    try: r=json.loads(line)\n    except: print(line); continue\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:70], '|', r.get('disposition'), '|', r.get('resolution_date'), '|', r.get('era'))\n\"; echo '--- stderr:'; cat querystderr.txt",
+      "result_digest": "1aaa5361cd54e625",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "678244fd7ad3daaf",
+      "query": "uv run fedcourts query --court scotus --citation \"514 U.S. 549\" --limit 8 2>q2.txt | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    line=line.strip()\n    if not line: continue\n    try: r=json.loads(line)\n    except: print(line[:200]); continue\n    print(r.get('case_id'), '|', (r.get('caption') or '')[:70], '|', r.get('disposition'), '|', r.get('resolution_date'), '|', r.get('era'))\n\"; echo '--- stderr:'; cat q2.txt",
+      "result_digest": "1aaa5361cd54e625",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "e68bb04896a18733",
+      "query": "{\"case_name\": \"Chavarria\", \"court\": \"scotus\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"docket_id\", \"absolute_url\"], \"filed_after\": \"2025-06-01\", \"num_results\": 10, \"type\": \"d\"}",
+      "result_digest": "ae9399111adc64ea",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "ac862dc3683c50fb",
+      "query": "Chavarria",
+      "result_digest": "a9b44745ea8ec400",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "8af8f563d10b0c1b",
+      "query": "Bryan \"United States\" cyberstalking OR kidnapping OR instrumentality",
+      "result_digest": "8db061cbdf6b771c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "fe2978836842c4ce",
+      "query": "python3 -c \"\nimport json\nfor f in ['agent_tooling','agent_flags']:\n    with open(f'/home/runner/work/fedcourtsai/fedcourtsai/schemas/{f}.schema.json') as fh:\n        d=json.load(fh)\n    print(f, '=> required:', d.get('required'), 'props:', list(d.get('properties',{}).keys()))\n\"; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "9108407ad6e201ef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d4b0c132d16339db",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281345/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "dfbaaf5e8e352d3f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281345\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:08:02Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281345/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.07,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "9db61a6d55472b7b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e20d5da00820b37a",
+      "query": "{\"content\": \"# Elkins v. United States, No. 25-1061 \\u2014 cert prediction\\n\\n**Prediction: deny. P(any grant, GVR included) = 0.07.**\\n\\n## The case\\n\\nHolly Ann Elkins was convicted of conspiracy to stalk (18 U.S.C. \\u00a7 371),\\ncyberstalking resulting in death (\\u00a7 2261A(2), \\u00a7 2261(b)), and a \\u00a7 924(c)\\nfirearm count, arising from a stalking campaign against her fianc\\u00e9's\\nex-girlfriend that culminated in the fianc\\u00e9 murdering the victim. The Fifth\\nCircuit (Richman, J.) ",
+      "result_digest": "95b6484a0000aff4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3298abc7eb57d85d",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281345 / evt-petition-disposition / claude-baseline / 20260717T000329Z\\n\\nForward-mode cell; retrieval unrestricted. Beyond the provisioned snapshot and\\ndocuments I consulted:\\n\\n## Committed base rates\\n\\n- `metrics/statpack.md` \\u2014 \\\"Modern discretionary-cert petitions by disposition\\\"\\n  (~3.1% grant), originating-circuit cut (ca5 4.8%), relist and CVSG cuts,\\n  per-Term table.\\n- `metrics/statpack.json` \\u2014 per-fee-class detail: paid grant ",
+      "result_digest": "c55ba0c1afb83710",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "91ccd10077736892",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281345\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"courtlistener MCP search (dockets)\\\",\\n    \\\"provisioned snapshot + petition/BIO/QP document texts\\\"\\n  ],\\n  \\\"helpful\\\": [\\n ",
+      "result_digest": "490676ba18314302",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fcc6d8edb9c9b5c4",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/",
+      "result_digest": "f53fa5fa8b8ab1fa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3a672dee8fa34d3b",
+      "query": "gh issue comment 722 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed -E 's#(git@github.com:|https://github.com/)##; s/\\.git$//')\" --body \"**claude-baseline** cell done: \\`scotus/73281345\\` / \\`evt-petition-disposition\\` / run \\`20260717T000329Z\\`.\n\nElkins v. United States, No. 25-1061 (CA5, cyberstalking Commerce Clause QP): **deny**, P(grant incl. GVR) = **0.07**, confidence 0.7, big_case_score 0.55. CFR + petition-stage amicus push up from the ~6% paid ba",
+      "result_digest": "4842b4ac29517065",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281345",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

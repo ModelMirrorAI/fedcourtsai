@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281629",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (attempted; remote unavailable)",
+    "CourtListener MCP search",
+    "CourtListener MCP opinion endpoint",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned petition, questions presented, brief in opposition, and docket snapshot supplied the full certiorari posture.",
+    "The committed statpack supplied paid-petition, Ninth Circuit, relist, and CVSG calibration anchors.",
+    "CourtListener MCP confirmed the recent published Tenth Circuit authority underlying the claimed conflict."
+  ],
+  "gaps": [
+    "The ranged corpus remote was unreachable because DNS resolution failed, so no comparable corpus priors were returned."
+  ],
+  "notes": "The failed corpus query produced no ranged-read statistics. The provisioned filings plus CourtListener legal research and committed aggregate base rates were sufficient to complete the forward forecast."
+}

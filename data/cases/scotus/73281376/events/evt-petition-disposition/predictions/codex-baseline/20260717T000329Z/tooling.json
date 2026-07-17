@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281376",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned petition and complete brief in opposition",
+    "Fee-class, circuit, relist, and CVSG base rates",
+    "CourtListener search for circuit-level doctrinal context"
+  ],
+  "gaps": [
+    "Remote corpus priors were unavailable because the corpus-store hostname could not be resolved"
+  ],
+  "notes": "The corpus query was attempted but returned no priors, so used_corpus_query is false. The provisioned record and committed statpack were sufficient to complete the forecast."
+}

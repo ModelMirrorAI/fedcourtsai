@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281630",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "cat",
+    "mcp_courtlistener_search",
+    "statpack.md"
+  ],
+  "helpful": [
+    "statpack.md provided a very clear baseline for different circuits and disposition probabilities."
+  ],
+  "gaps": [
+    "I attempted to use `fedcourts query` but misunderstood its arguments initially, and then fell back to the MCP server."
+  ],
+  "notes": "The provisioned snapshot was comprehensive and easily digested. The MCP tool was responsive but returning zero results for a very specific phrase search wasn't too surprising for a recent petition. Overall, the environment is well-suited for these tasks.",
+  "schema_version": "1.0"
+}

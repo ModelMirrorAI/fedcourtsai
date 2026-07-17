@@ -1,0 +1,302 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "90cae195be1013f8",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281401 -type f | head -50",
+      "result_digest": "fc933d4af8580240",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0e94c5efff396413",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281401/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "56a7ccb6c2586d75",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281401/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "ee98bd0eb42c79a5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "48637eafd1a5a7fe",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281401/record/documents/documents.json\"}",
+      "result_digest": "07707fa6fecf4ed6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "03e6fde664c93e16",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281401/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "af4bb6c0b8bd4ac2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0d4b2f527126cc74",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281401/record/documents/questions-presented.txt\"}",
+      "result_digest": "9ecbff849e87b7ef",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b3800d0e9fc5d2d6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281401/record/documents/petition.txt\"}",
+      "result_digest": "71e9fe5f7e369ef3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "41dd68eb974b0cbb",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "51027edc1c5f9adf",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c8822d69e8c7984e",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nprint([s.get('title') for s in d['sections']])\nprint()\nfor t in d['terms']:\n    if str(t.get('term')) in ('2024','2025'):\n        print(json.dumps(t, indent=1)[:1500])\n\"",
+      "result_digest": "9949db041dfe7675",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b650b2ac10a75b75",
+      "query": "sed -n 1,120p docs/cli.md",
+      "result_digest": "aeebf65236817ac1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "da5b4beaba9dbd41",
+      "query": "uv run fedcourts paths --court scotus --docket 73281401 --event evt-petition-disposition 2>&1",
+      "result_digest": "34d49fd85435e31b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "681dfec31373b439",
+      "query": "ls corpus/ 2>/dev/null; uv run fedcourts query --court scotus --topic \"qualified immunity excessive force\" --limit 8 --corpus-backend ranged 2>querystderr.txt | head -40; echo \"--- stderr:\"; cat querystderr.txt",
+      "result_digest": "1d1ec74f5d908dbe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d756baa6c4853675",
+      "query": "echo \"== qualified immunity ==\"; uv run fedcourts query --court scotus --topic \"qualified immunity\" --limit 6 --corpus-backend ranged 2>qs1.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print({k: r.get(k) for k in ('case_id','caption','disposition','era','term_year','resolution_date') if k in r} or list(r.keys()))\n\"; cat qs1.txt",
+      "result_digest": "10c7cb4af5e0f424",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ca364cba8cf7b225",
+      "query": "echo \"== excessive force ==\"; uv run fedcourts query --court scotus --topic \"excessive force\" --limit 6 --corpus-backend ranged 2>qs2.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(json.dumps({k: r.get(k) for k in ('case_id','caption','disposition','era','term_year')}))\n\"; cat qs2.txt; echo \"== section 1983 ==\"; uv run fedcourts query --court scotus --topic \"1983\" --limit 6 --corpus-backend ranged 2>qs3.txt | python3 -c \"\nimport sys, json\nfor line i",
+      "result_digest": "21df67f0942c69a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bb345bffb24d34cd",
+      "query": "uv run fedcourts query --court scotus --limit 5 --corpus-backend ranged 2>qs4.txt | python3 -c \"\nimport sys, json\nn=0\nfor line in sys.stdin:\n    r = json.loads(line); n+=1\n    print(json.dumps({k: r.get(k) for k in ('case_id','caption','disposition','era')}))\nprint('rows:', n)\n\"; cat qs4.txt",
+      "result_digest": "c706434e9d8f79d8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b578e10a0d62f4df",
+      "query": "select:WebFetch,WebSearch",
+      "result_digest": "e0a647fd70eb8461",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "df587c60219fe098",
+      "query": "This is a brief in opposition to a petition for certiorari in Zook v. Fuqua (No. 25-1108), a Section 1983 qualified-immunity excessive-force case from the Tenth Circuit. Summarize: (1) the respondent's main arguments against certiorari (vehicle problems, split denial, fact-bound arguments); (2) how respondent characterizes the alleged circuit split on considering video evidence at the motion-to-dismiss stage; (3) any argument about the interlocutory posture; (4) anything else notable.",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "c4383b5b2e1cefa2",
+      "query": "curl -s -A \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36\" -o /tmp/bio.pdf \"https://www.supremecourt.gov/DocketPDF/25/25-1108/416564/20260715132212406_260709a%20BIO%20for%20efiling.pdf\" && file /tmp/bio.pdf && ls -la /tmp/bio.pdf",
+      "result_digest": "c2a5fd76aa4f2957",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9348a8824cd874d1",
+      "query": "uv run python - <<'EOF'\nimport sys\ntry:\n    from pypdf import PdfReader\nexcept ImportError:\n    try:\n        from PyPDF2 import PdfReader\n    except ImportError:\n        sys.exit(\"no pdf lib\")\nr = PdfReader('/tmp/bio.pdf')\nprint(\"pages:\", len(r.pages))\ntext = \"\\n\".join(p.extract_text() or \"\" for p in r.pages)\nopen('/tmp/bio.txt','w').write(text)\nprint(text[:3000])\nEOF",
+      "result_digest": "a749dfa5927ceacb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8fba7f788f403f49",
+      "query": "sed -n '/INTRODUCTION/,$p' /tmp/bio.txt | head -300",
+      "result_digest": "106fb4bb1436deed",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6341f59291495a6e",
+      "query": "Zook v. Fuqua 25-1108 certiorari Supreme Court video evidence motion to dismiss",
+      "result_digest": "5de7dbea0283a6de",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "f401a846aa6dc726",
+      "query": "python3 -c \"\nimport json\ns = json.load(open('schemas/prediction.schema.json'))\nprint(json.dumps({k: (v.get('type'), v.get('enum'), v.get('description','')[:60]) for k,v in s['properties'].items()}, indent=1))\nprint('required:', s.get('required'))\n\"",
+      "result_digest": "cbdea0b8a466c4a3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2d8b4dc8dfa36356",
+      "query": "python3 -c \"\nimport json\nfor f in ('agent_flags','agent_tooling'):\n    s = json.load(open(f'schemas/{f}.schema.json'))\n    print(f, 'required:', s.get('required'))\n    print(' props:', list(s['properties'].keys()))\n    for d in s.get('\\$defs', {}).values():\n        print('  def:', list(d.get('properties',{}).keys()), 'req:', d.get('required'))\n\"",
+      "result_digest": "1031c8240d2a8885",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1040db1482a54119",
+      "query": "find data/cases -path '*claude-baseline*' -name prediction.json | head -3; echo ---; find data/cases -path '*claude-baseline*' -name prediction.json | head -1 | xargs cat",
+      "result_digest": "0501a11004ac1cb4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "15074063b6b26522",
+      "query": "mkdir -p data/cases/scotus/73281401/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z && date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "e10b06ff9879d549",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bd100fdfd58e2f51",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281401\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:17:59Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281401/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.1,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"",
+      "result_digest": "0f4e27f44ca5fbbd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a87d16adf651d8a8",
+      "query": "{\"content\": \"# Zook v. Fuqua, No. 25-1108 \\u2014 cert petition disposition\\n\\n## The case\\n\\nThree Santa Fe County deputies petition from *Fuqua v. Santa Fe County\\nSheriff's Office*, 157 F.4th 1288 (10th Cir. Nov. 4, 2025) (rehearing en banc\\ndenied Dec. 22, 2025), a divided published panel that affirmed the denial of\\nqualified immunity at the Rule 12(b)(6) stage in a \\u00a7 1983 fatal-shooting suit.\\nThe decedent, Jason Roybal, led officers on a vehicle pursuit, fired what\\nturned out to be a",
+      "result_digest": "f2ea4780ef7bd96e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ebddcd7bd4ac119f",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281401, run 20260717T000329Z (forward mode)\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --topic \\\"qualified immunity excessive force\\\" --limit 8 --corpus-backend ranged`\\n  \\u2192 0 rows. `ranged corpus reads: 3 GET(s), 786432 byte(s)`\\n- `uv run fedcourts query --court scotus --topic \\\"qualified immunity\\\" --limit 6 --corpus-backend ranged`\\n  \\u2192 0 rows. `ranged corpus reads: 3 GET(s), 786432 byte(s)`\\n- `uv run fedcourts que",
+      "result_digest": "c6e7f0a99f8e98ff",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0d05238c994a7872",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281401\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"provisioned snapshot + petition + questions-presented\\\",\\n    \\\"curl + pypdf (BIO fetch from supremecourt.gov docket link)\\\",\\n    \\\"web searc",
+      "result_digest": "030b14fcc8a1c208",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5a445309cc4bf881",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281401\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"The brief in opposition (filed Jul 15 2026, link present in the 2026-07-16 snapshot) was not provisioned under record/documents/ \\u2014 documents.json lists only the petition and questions-presented",
+      "result_digest": "ebc99727c08df063",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "bbdf6c57e3deeb7f",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/cases/scotus/73281401",
+      "result_digest": "b4d3ab7335e81302",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "eb4f697d379a27fa",
+      "query": "gh issue comment 722 --body \"**claude-baseline** \u00b7 scotus/73281401 (Zook v. Fuqua, No. 25-1108) \u00b7 evt-petition-disposition \u00b7 run 20260717T000329Z\n\nPrediction written: **denied**, P(grant incl. GVR) = **0.10**, confidence 0.6, big_case_score 0.4.\n\nForward cell. Upside signals: CFR after the initial 5/21 distribution, divided published Tenth Circuit panel (Tymkovich, J., dissenting), acknowledged 6th/11th-vs-10th split on video evidence at 12(b)(6), officer-side QI posture. Decisive counterweight ",
+      "result_digest": "a11f315f6763a387",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281401",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

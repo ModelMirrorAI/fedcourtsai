@@ -1,0 +1,14 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73281412",
+  "flags": [
+    {
+      "category": "other",
+      "message": "The `fedcourts query` tool with --corpus-backend ranged failed because the corpus remote URL was not present in the environment.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

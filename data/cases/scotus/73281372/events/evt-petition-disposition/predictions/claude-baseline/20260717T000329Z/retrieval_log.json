@@ -1,0 +1,246 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d3dfb1f6be5ad135",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372 -type f | head -50",
+      "result_digest": "002ef01624c514c7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ca6e5d3a40d17f3a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6edfc1d2c8b22bc7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "111d5b14f65abd1b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "957fdee31d0b7c9b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "70c2e557eec34bf0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2ed9e2bc0fd01509",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/documents/documents.json\"}",
+      "result_digest": "ecac0efd89afc321",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0cc14665784e38e3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/documents/questions-presented.txt\"}",
+      "result_digest": "7e62d5fb2b0904fa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "11a3b133c2b2fd12",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "f0cb62ea43fdb932",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e331f837fa41ed98",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/documents/petition.txt /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/documents/brief-in-opposition.txt",
+      "result_digest": "2cab0e8d0943f1a8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "18bddbd6c24a1267",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/documents/petition.txt\", \"limit\": 700, \"offset\": 400}",
+      "result_digest": "77f143070f7bcac4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d403368a50e8a099",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "21d838670011f073",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8ab040a1134ebbfa",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "df7732ea23144c94",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d13e43d9c0d667df",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nprint([s['title'] for s in d['sections']])\nprint(json.dumps(d.get('terms', [])[-4:], indent=1)[:3000])\n\"",
+      "result_digest": "375e21599bb74cf8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f28be1c9f36ca0a7",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c283892aad61b4ae",
+      "query": "uv run fedcourts query --court scotus --citation \"583 U.S. 366\" --citation \"561 U.S. 247\" --citation \"601 F.3d 319\" --limit 8 2>querystderr.txt | head -20; echo \"--- stderr:\"; cat querystderr.txt",
+      "result_digest": "1aaa5361cd54e625",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "288d47d6a5bfca35",
+      "query": "uv run fedcourts query --court scotus --topic bankruptcy --limit 8 2>q2err.txt | python3 -c \"\nimport sys, json\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(r.get('case_id'), '|', r.get('caption','')[:70], '|', r.get('disposition'), '|', r.get('era'), '|', r.get('decided'))\n\"; echo '--- stderr:'; cat q2err.txt",
+      "result_digest": "839a80a882bb2f9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fcba762fcbaeaf69",
+      "query": "uv run fedcourts query --court scotus --citation \"11 U.S.C. 546\" --limit 5 2>q3err.txt | head -5; echo '--- stderr:'; cat q3err.txt",
+      "result_digest": "1aaa5361cd54e625",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "422df81a6871b1f7",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281372/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "57aab386875b20ae",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "95b8768e48b1b90b",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281372\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:06:56Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281372/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "bb66a273b8302621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "e506c463c415b892",
+      "query": "{\"content\": \"# Fairfield Sentry Ltd. v. Citibank NA London (No. 25-1089) \\u2014 cert disposition\\n\\n**Prediction: denied, P(grant incl. GVR) = 0.15.**\\n\\n## The case\\n\\nPetitioners are the BVI liquidators of the Fairfield funds \\u2014 the largest Madoff\\nfeeder funds \\u2014 seeking to claw back roughly $6 billion in redemption payments\\nmade to investors who cashed out before the Ponzi scheme collapsed. Proceeding\\nunder Chapter 15, they asserted BVI statutory and common-law claims in the\\nS.D.N",
+      "result_digest": "0548867fc704e5c4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a4ca90a100351bab",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281372 / evt-petition-disposition / claude-baseline / 20260717T000329Z\\n\\nMode: `forward` (record/context.json). Retrieval beyond the provisioned inputs\\nwas limited to corpus tooling and the committed statpack; no CourtListener MCP\\ncalls and no web searches were made \\u2014 the provisioned petition, brief in\\nopposition, and full docket snapshot were sufficient, and the case's own\\noutcome does not yet exist (conference set for 2026-09-28).\\n\\n## Co",
+      "result_digest": "d8e168126bd1e16a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7abcde5fa9cd7dfb",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281372\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned documents (petition, brief-in-opposition, questions-presented)\\\"\\n  ],\\n  \\\"helpful\\\": [",
+      "result_digest": "887d6a9c14f1fd3a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3b09d0432ff48e7e",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2fb970ae8b95ed69",
+      "query": "gh issue comment 722 --repo \"$(git -C /home/runner/work/fedcourtsai/fedcourtsai remote get-url origin | sed 's#.*github.com[:/]##;s#\\.git$##')\" --body \"**claude-baseline** \u00b7 scotus/73281372 \u00b7 evt-petition-disposition \u00b7 run 20260717T000329Z\n\nPrediction written: **denied**, P(grant incl. GVR) = **0.15** (big_case_score 0.6).\n\nFairfield Sentry v. Citibank NA London (No. 25-1089): Clement-led paid petition from CA2 on \u00a7546(e)/\u00a7561(d) extraterritoriality in Chapter 15 (~\\$6B Madoff clawbacks). Seriou",
+      "result_digest": "78be97669666bee8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281372",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

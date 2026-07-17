@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281632",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["CourtListener MCP search", "CourtListener MCP call_endpoint"],
+  "helpful": ["The CourtListener MCP tools were very helpful in pulling the exact text of the lower court opinion and checking for circuit splits post-CFSA."],
+  "gaps": ["I stumbled on the CLI syntax for `fedcourts query` because it doesn't take raw keyword search text. A more intuitive full-text search directly in the CLI would be useful."],
+  "notes": "Base rates in statpack.md were useful."
+}

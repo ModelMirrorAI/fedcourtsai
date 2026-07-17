@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281372",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "provisioned documents (petition, brief-in-opposition, questions-presented)"
+  ],
+  "helpful": [
+    "Provisioned petition + BIO texts were the decisive inputs; both sides' cert-stage arguments were readable without any network retrieval",
+    "statpack per-Term paid/IFP fee-class grant rates (Term 2025 paid ~5.4%) gave a much better anchor than the whole-docket rate",
+    "Relist and CVSG cuts in the statpack quantified the absent pre-grant signals"
+  ],
+  "gaps": [
+    "fedcourts query returned 0 rows on every filter tried (citation and topic); a SCOTUS cert-petition prior surface (e.g. match on originating circuit + subject + paid class) would be more useful than opinion-citation overlap",
+    "The statpack's salience-band segment table referenced in the prompt is not present in the committed statpack.md, so no band-level anchor was available",
+    "A signal for elite/repeat-player counsel of record (a strong grant covariate) would be a useful structured cut"
+  ],
+  "notes": "Forward cell; conference is 2026-09-28 so no relist/CVSG signal can exist yet at this snapshot. Prediction anchored on the Term-2025 paid-class base rate adjusted qualitatively from the petition/BIO merits."
+}

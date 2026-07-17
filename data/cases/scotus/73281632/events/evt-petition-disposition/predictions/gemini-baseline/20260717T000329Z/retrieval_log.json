@@ -1,0 +1,262 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "691445841dc72657",
+      "query": "{\"strategic_intent\": \"Read prediction instructions and project context.\", \"summary\": \"Starting task to produce a prediction for a SCOTUS docket. First, reading the instructions in .github/prompts/predict.md and AGENTS.md to understand the prompt contract and expected output files.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:50.241Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:50.250Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:50.251Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b06db15b5a176c33",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281632\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:54.782Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "66b67c77ce5130ec",
+      "query": "ls -la data/cases/scotus/73281632/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:57.119Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fac7623f09dd3522",
+      "query": "cat data/cases/scotus/73281632/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:00.069Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0f285708bd0a79f7",
+      "query": "cat data/cases/scotus/73281632/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:00.069Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a53dbf75854d04ea",
+      "query": "ls -la data/cases/scotus/73281632/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:00.070Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eedf0f78e9449b40",
+      "query": "ls -la data/cases/scotus/73281632/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:03.638Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b4a3b0b5dc121026",
+      "query": "ls -la data/cases/scotus/73281632/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:03.638Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7999be05224a974a",
+      "query": "cat data/cases/scotus/73281632/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:07.778Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3ae887e78390364a",
+      "query": "cat data/cases/scotus/73281632/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:07.779Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e1f785275eb6c537",
+      "query": "cat data/cases/scotus/73281632/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:07.779Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5655f5b9a4a80c98",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:12.230Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e74ab2816a23711e",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"Federal Housing Finance Agency funding constitutionality appropriations clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:12.230Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "50d9aeac922df082",
+      "query": "uv run fedcourts query --court scotus \"CFPB v. CFSA Appropriations Clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:15.060Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ac3a21157f20161a",
+      "query": "uv run fedcourts query --court scotus \"Federal Housing Finance Agency funding constitutionality appropriations clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:15.060Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:17.638Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d5b9e89cfaa1e96d",
+      "query": "\"Federal Housing Finance Agency\" AND \"Appropriations Clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:20.575Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "8c4759924238dfec",
+      "query": "\"Federal Housing Finance Agency\" AND \"Appropriations Clause\" AND \"Collins v. Treasury\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:27.521Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "92986aa6cebc59f3",
+      "query": "{\"endpoint_id\": \"opinions\", \"query\": {\"id\": 11234854}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:30.700Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "1d3eb83d644c82f1",
+      "query": "\"Federal Housing Finance Agency\" AND \"Appropriations Clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:37.374Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "d4d1293239610d68",
+      "query": "\"Federal Housing Finance Agency\" AND \"Appropriations Clause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:41.981Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "7f24f14f6dbf5733",
+      "query": "{\"strategic_intent\": \"Write prediction and reasoning files\", \"summary\": \"I have reviewed the case documents and used CourtListener MCP to search for related precedents. I found that the 9th Circuit's decision closely follows the recent SCOTUS decision in CFPB v. CFSA, and there is no circuit split. I will now write the prediction.json, reasoning.md, retrieval.md, and tooling.json files.\", \"title\": \"Writing Prediction Output\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:50.895Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "69ba18fd52dad403",
+      "query": "mkdir -p data/cases/scotus/73281632/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:50.906Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eaef3b55ca3c1940",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281632\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:50:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281632/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.04,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.9,\\n  \\\"big_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:11.632Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6005db4ef889ea50",
+      "query": "{\"content\": \"# Reasoning\\n\\n## The Legal Question\\nThe petition presents three questions asking whether the funding mechanism for the Federal Housing Finance Agency (FHFA), established by 12 U.S.C. \\u00a7 4516, violates the Appropriations Clause or the nondelegation doctrine. The core of the argument is that, unlike the Consumer Financial Protection Bureau (CFPB) whose funding was recently upheld in *CFPB v. CFSA*, 601 U.S. 416 (2024), the FHFA's funding lacks a statutory cap or sum certain limi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:11.637Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e782ef892af9f400",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n**CourtListener MCP Searches:**\\n- `search` for `\\\"Federal Housing Finance Agency\\\" AND \\\"Appropriations Clause\\\"`\\n- `search` for `\\\"Federal Housing Finance Agency\\\" AND \\\"Appropriations Clause\\\" AND \\\"Collins v. Treasury\\\"`\\n- `search` for `\\\"Federal Housing Finance Agency\\\" AND \\\"Appropriations Clause\\\"` with `filed_after=\\\"2024-05-16\\\"`\\n- `call_endpoint` on `opinions` for `id=11234854` to read the lower court's opinion in *Daisey Trust*.\\n\\n**Corpus CLI Queri",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:11.640Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4200562bcbb47f39",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281632\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"CourtListener MCP search\\\", \\\"CourtListener MCP call_endpoint\\\"],\\n  \\\"helpful\\\": [\\\"The CourtListener MCP tools were very helpful in pulling the exact text of the lower court opinion and checking for circuit splits post-CFSA.\\\"],\\n  \\\"gaps\\\": [\\\"I stumbled on",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:11.645Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:16.583Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "604b6cc700789435",
+      "query": "{\"strategic_intent\": \"Finish task and report completion\", \"summary\": \"I have generated the prediction output for the given case. The reasoning reflects that the 9th Circuit's decision faithfully applied the recent Supreme Court CFPB v. CFSA ruling to the FHFA's funding mechanism, and without a circuit split, a denial is highly likely. The outputs are validated and saved in the appropriate directory.\", \"title\": \"Finished Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:19.601Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281632",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

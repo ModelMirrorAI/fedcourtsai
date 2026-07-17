@@ -1,0 +1,206 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "273d3426a615db3f",
+      "query": "{\"strategic_intent\": \"Reading instructions and guidelines for the prediction task.\", \"summary\": \"Starting the task by reading the requested instruction files (.github/prompts/predict.md and AGENTS.md) to understand the requirements for producing the prediction for the given cell.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:51.295Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:53.132Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:53.132Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "81509bd67a7fc601",
+      "query": "ls -la data/cases/scotus/73281619/events/evt-petition-disposition/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:56.931Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b33bfe744d5baa78",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281619\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:00.111Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "70cbe3b6ca496965",
+      "query": "ls -la data/cases/scotus/73281619/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:03.870Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "82a79f47551506fe",
+      "query": "{\"file_path\": \"data/cases/scotus/73281619/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:06.443Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c1eb07f019863727",
+      "query": "{\"strategic_intent\": \"Investigating the case details and gathering priors/base rates to make a prediction despite missing snapshot.\", \"summary\": \"The provisioned snapshot and documents are missing in the data directory. Following the instructions for a forward cell missing a snapshot, I will use the CourtListener MCP server to check the docket status (while being careful not to retrieve its outcome if decided) and `fedcourts` tool to gather base rates and priors. I will then make a conservative ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:11.635Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "b18c33a6a016a1fa",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"id\": 73281619}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:12.242Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "970e701adb345a4f",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:18.222Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cfca8072b962542d",
+      "query": "uv run fedcourts query --court scotus --docket 25-1131",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:18.223Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "181ae8117a2cffec",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:21.003Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "60c4cb939064fd9c",
+      "query": "cat schemas/prediction.schema.json | grep required -A 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:26.072Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "757bbd9600aea6f7",
+      "query": "cat schemas/prediction.schema.json | grep -A 5 '\"model\"'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:29.047Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2c96f6eba8390921",
+      "query": "cat schemas/agent_flags.schema.json | grep required -A 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:31.298Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5f0ab75433644ffd",
+      "query": "cat schemas/agent_tooling.schema.json | grep required -A 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:33.391Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9f6c1dde28b10498",
+      "query": "mkdir -p data/cases/scotus/73281619/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:43.123Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3136d861d54f30f9",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281619\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"none\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.90,\\n  \\\"big_case_score\\\": 0.1,\\n  \\\"big_case_rationale\\\": \\\"Withou",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:51.946Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "81bbf305a9e73ffa",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281619\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"warning\\\",\\n      \\\"message\\\": \\\"The provisioned snapshot and documents are missing in the data directory. Provisioning likely refused this forward cell because the snapshot's latest entry reads terminal (case already decided). Predicting from priors and base ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:51.951Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f0b9a87147ee3300",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281619\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_call_endpoint\\\"],\\n  \\\"helpful\\\": [\\\"Base rates in statpack.md provided a strong anchor for missing snapshot cells.\\\"],\\n  \\\"notes\\\": \\\"Had to use MCP CourtListener basic docket lookup to verify case exists as snapshot was missing.\\\"\\n}\\n\", \"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:51.955Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "efc28a53b9694dee",
+      "query": "{\"content\": \"# Reasoning\\n\\n**Missing Provisioned Inputs:**\\nThe `record/snapshots/latest.json` and any related document texts were missing from the cell provisioning. Per the system instructions for a forward cell, this often occurs when the provisioning layer observes a terminal docket entry and assumes the case is already decided. To avoid leakage, I am instructed to make a conservative call based purely on priors and base rates, without retrieving the current case outcome or its full docket ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:51.959Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e93fb691c1c45717",
+      "query": "{\"content\": \"- `cat metrics/statpack.md | grep -A 20 \\\"Modern discretionary-cert petitions\\\"`: consulted statpack for overall base rates.\\n- `mcp_courtlistener_call_endpoint` (dockets, 73281619): confirmed case basic metadata (25-1131, Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux.).\\n\", \"file_path\": \"data/cases/scotus/73281619/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:51.963Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3cfc29302078e9ec",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:56.531Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "07e6200ab01b2a6f",
+      "query": "{\"strategic_intent\": \"Finalizing the prediction task as the files have been written and validated.\", \"summary\": \"The prediction files (prediction.json, reasoning.md, retrieval.md, flags.json, and tooling.json) have been successfully written to the corresponding output directory. The output has been validated using the `fedcourts validate data` tool. The task is now complete.\", \"title\": \"Finalizing Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:01.102Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281619",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

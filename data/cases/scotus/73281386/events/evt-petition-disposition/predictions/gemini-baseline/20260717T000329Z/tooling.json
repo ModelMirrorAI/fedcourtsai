@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281386",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "cat metrics/statpack.md"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided vital originating circuit base rate.",
+    "CourtListener MCP was helpful for analyzing Cheney application to FOIA."
+  ],
+  "gaps": [
+    "fedcourts query failed because the corpus remote was unavailable."
+  ],
+  "notes": "fedcourts query raised a RangedBackendError when attempting to query without pulling the entire database locally. Proceeded using MCP search instead."
+}

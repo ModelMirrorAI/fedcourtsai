@@ -1,0 +1,3 @@
+- `uv run fedcourts query --help` to check usage.
+- CourtListener MCP `search` for `"Zavislak v. Netflix"` (returned 12 results, none directly revealing the final SCOTUS outcome).
+- Read `metrics/statpack.md` for baseline rates of SCOTUS cert petitions.

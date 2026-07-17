@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73281628",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "run_id": "20260717T000329Z",
+  "created_at": "2026-07-17T00:03:29Z",
+  "input_snapshot": "data/cases/scotus/73281628/record/snapshots/2026-07-16.json",
+  "granted": 1,
+  "probability": 0.85,
+  "predicted_disposition": "gvr",
+  "big_case_score": 0.4,
+  "big_case_rationale": "Munsingwear vacatur avoids the merits of the significant Suspension Clause question raised by Jones v. Hendrix's application to constitutional claims.",
+  "reasoning_doc": "reasoning.md"
+}

@@ -1,0 +1,310 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "2ddb8c249226d04c",
+      "query": "{\"strategic_intent\": \"Read instructions for prediction from .github/prompts/predict.md and AGENTS.md\", \"summary\": \"Starting the prediction task for SCOTUS docket 73281635, event evt-petition-disposition. I will read the provided prompt instructions and agent guidelines to understand the output contract and required format.\", \"title\": \"Prediction Task Setup\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:06.298Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:06.306Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:06.307Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "87cadcd581b44c54",
+      "query": "uv run fedcourts paths --court scotus --docket 73281635 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:11.835Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "38dce95a2cdb59a7",
+      "query": "find . -name \"context.json\" -o -name \"event.yaml\" -o -name \"documents.json\" | grep 73281635",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:14.619Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fcb955c195eecda9",
+      "query": "ls -la ./data/cases/scotus/73281635/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:17.558Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1fe8e0846097db28",
+      "query": "ls -la ./data/cases/scotus/73281635/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:19.519Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e0847018ba17e9cb",
+      "query": "{\"strategic_intent\": \"Read the provisioned input files for the target case, as well as the output schema, to formulate the prediction.\", \"summary\": \"I have located the provisioned inputs for SCOTUS docket 73281635, which are under `data/cases/scotus/73281635/`. I will now read the event definition, context, documents manifest, snapshot, and the required output schema for the prediction.\", \"title\": \"Read Provisioned Case Data and Output Schema\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:23.414Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:23.424Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c4ea980061a1840d",
+      "query": "{\"file_path\": \"data/cases/scotus/73281635/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:23.425Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9753ccd3d9ecc434",
+      "query": "{\"file_path\": \"data/cases/scotus/73281635/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:23.425Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "680516aa109de254",
+      "query": "{\"file_path\": \"data/cases/scotus/73281635/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:23.426Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fcf4de91f9f6f437",
+      "query": "{\"file_path\": \"data/cases/scotus/73281635/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:23.426Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2e90d7b73430110f",
+      "query": "cat ./data/cases/scotus/73281635/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:26.804Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "de195edb74589b6d",
+      "query": "{\"strategic_intent\": \"Analyze base rates and priors for SCOTUS cert petitions with a Response Requested after waiver.\", \"summary\": \"I am reviewing the docket for Pesavento v. Bolden. The respondent originally waived their right to respond, but the Court requested a response. I will now look at the `statpack.md` and use `fedcourts query` to understand the historical grant rates for cases with this specific procedural posture and in this salience band.\", \"title\": \"Examine Base Rates and Priors\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:31.777Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "edf45ba3f4943b74",
+      "query": "uv run fedcourts query --court scotus --era roberts",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:32.375Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:32.375Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:36.856Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:39.863Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9104d14b4db5d3f1",
+      "query": "cat metrics/statpack.md | grep -A 20 \"CVSG status\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:39.864Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6fcb5fc2332072a7",
+      "query": "cat metrics/statpack.md | grep -A 20 \"relist count\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:39.864Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "25fc7470cfe941ef",
+      "query": "cat metrics/statpack.md | grep -i -C 5 response",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:42.854Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8cee5ba434016698",
+      "query": "{\"strategic_intent\": \"Search for circuit split signals or commentary regarding \\\"prejudgment interest on noneconomic damages\\\" to inform the cert probability.\", \"summary\": \"Since the docket shows a Call for Response after a waiver, and an amicus brief was filed, the petition has non-trivial salience. The question presented is about prejudgment interest on noneconomic damages. I will search the web to see if there is a known circuit split on this issue or if it's considered highly significant.\", ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:48.516Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "57b0f0afbaa1677d",
+      "query": "\"prejudgment interest\" \"noneconomic damages\" circuit split OR \"supreme court\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:08.299Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "af4ab4716ab62b62",
+      "query": "ls -la ./data/cases/scotus/73281635/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:16.931Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2da8d06fd61c0d02",
+      "query": "head -n 50 ./data/cases/scotus/73281635/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:19.237Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6c1bd6097042c4fc",
+      "query": "grep -i -B 2 -A 2 \"split\" ./data/cases/scotus/73281635/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:21.788Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0f1a53ae03ebc0e4",
+      "query": "grep -i -C 5 \"REASONS FOR GRANTING THE PETITION\" ./data/cases/scotus/73281635/record/documents/petition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:24.483Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:27.101Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c603d9be0f3443da",
+      "query": "{\"strategic_intent\": \"Write the prediction outputs to the target directory and validate them against the schema.\", \"summary\": \"Having analyzed the case and formulated a prediction, I will now write `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` to the target output directory: `data/cases/scotus/73281635/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/`. After writing, I will run the pipeline's validation command to ensure the schemas are strict",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:42.064Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "88ed041eb7aed191",
+      "query": "mkdir -p data/cases/scotus/73281635/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:42.075Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7c04433201e63d85",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281635\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281635/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.25,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:52.155Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b252ca1bd8fb02ff",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Question Presented\\nThe petition presents a clear question of federal remedies: whether prejudgment interest is available as a matter of law on awards for noneconomic damages (such as pain and suffering or loss of normal life) under 42 U.S.C. \\u00a7 1983. \\n\\n## Procedural Posture and Signals\\nThe case is in a \\\"forward\\\" mode with a live petition for certiorari. The docket shows significant activity indicating Court interest:\\n1. **Waiver and Call for Response:** ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:52.159Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "693c8ca479af4389",
+      "query": "{\"content\": \"No corpus queries were run using `fedcourts query` (an attempt to query local blob failed due to missing local db, and ranged read wasn't used).\\n\\nThe following resources were consulted:\\n- `metrics/statpack.md`: Reviewed base rates for modern discretionary cert petitions and evaluated cuts for CVSG and origin circuits. \\n- `google_web_search`: Conducted a search for `\\\"prejudgment interest\\\" \\\"noneconomic damages\\\" circuit split OR \\\"supreme court\\\"` to verify the nature and depth",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:52.162Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e686b34ba082fee1",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281635\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"google_web_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search for validating the circuit split\\\",\\n    \\\"statpack.md for base rates\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"Direct stats on Call for ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:52.167Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:57.328Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e702f0d94197e03b",
+      "query": "{\"strategic_intent\": \"Complete the headless prediction task as instructed, skipping PR or commits.\", \"summary\": \"The prediction artifacts (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`) for SCOTUS docket 73281635 have been successfully written and validated against the schema. As this is a headless CI run, I am finishing without committing, pushing, or opening a PR, relying on the workflow to handle git operations.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:01.665Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281635",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

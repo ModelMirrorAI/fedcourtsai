@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "7a0ccb091419b375",
+      "query": "{\"strategic_intent\": \"Read the prediction instructions and agent documentation to understand the required output format and process.\", \"summary\": \"I will read `.github/prompts/predict.md` and `AGENTS.md` to learn about the prediction process, the expected output files (the prompt contract), and the behavior of the `gemini-baseline` predictor.\", \"title\": \"Understanding Prediction Requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:24.072Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:26.071Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:26.072Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "31c8baaa113d9be5",
+      "query": "uv run fedcourts paths --court scotus --docket 73281318 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:32.320Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6c4d3c7389d566fe",
+      "query": "ls -la data/cases/scotus/73281318/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:34.539Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f97da89cfcd94f55",
+      "query": "find data/cases/scotus/73281318/ -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:37.553Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f3870ce251d0bd50",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs for the prediction task, including schemas, event definition, context, snapshots, and documents.\", \"summary\": \"I am transitioning to the next phase where I will read all the provisioned inputs required to make the prediction. This includes reading `schemas/prediction.schema.json` to understand the exact output format, checking `event.yaml` for the event definition, and examining `context.json`, snapshots, and provided documents (petition, BIO, qu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:40.910Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "2b505ab365f27bab",
+      "query": "cat schemas/prediction.schema.json data/cases/scotus/73281318/events/evt-petition-disposition/event.yaml data/cases/scotus/73281318/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:43.084Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "289f025ce53e97cc",
+      "query": "cat data/cases/scotus/73281318/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:46.131Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c2d3624989310a0d",
+      "query": "cat data/cases/scotus/73281318/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:49.891Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6751fabe58d9a018",
+      "query": "cat data/cases/scotus/73281318/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:53.026Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "97ca4c3ff87805af",
+      "query": "head -n 50 data/cases/scotus/73281318/record/documents/petition.txt && echo \"---\" && head -n 50 data/cases/scotus/73281318/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:55.620Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3aa19deaaafc3ac2",
+      "query": "head -n 100 data/cases/scotus/73281318/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:39:58.080Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "506e4edf7ea1b0fb",
+      "query": "grep -A 40 \"The Court Lacks Jurisdiction To Review\" data/cases/scotus/73281318/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:01.745Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "740550b494ea3e92",
+      "query": "sed -n '/I\\. The Court Lacks Jurisdiction/,/II\\. The Court Should Deny/p' data/cases/scotus/73281318/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:04.459Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "99e8324fcf2b7cd6",
+      "query": "sed -n '/II\\. The Court Should Deny/,/CONCLUSION/p' data/cases/scotus/73281318/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:12.016Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "64e48788ebc9928b",
+      "query": "grep -A 10 \"Modern discretionary-cert petitions\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:17.837Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d063f0941af29fd6",
+      "query": "{\"strategic_intent\": \"Write the prediction outputs (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`) to the designated path as instructed by the contract.\", \"summary\": \"I have completed the review of the case facts, the legal arguments in the petition and BIO, and the historical base rates. The jurisdictional defect (interlocutory state court appeal) and the fact-bound nature of the claim strongly indicate a denial. I will now create the output directory and write all required ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:28.884Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f5e35310fb84cb25",
+      "query": "mkdir -p data/cases/scotus/73281318/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:31.489Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7ab0276e2121eb6e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281318\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:40:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281318/record/snapshots/2026-07-16.json\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.02,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.1,\\n  \\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:35.447Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "43c3229e79cd8664",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question and Standard\\nThe petitioner challenges the Illinois Appellate Court's application of the \\\"emergency aid\\\" exception to the Fourth Amendment's warrant requirement, citing *Brigham City v. Stuart*, 547 U.S. 398 (2006), and *Case v. Montana*, 607 U.S. 107 (2026). The petitioner argues the police lacked an objectively reasonable basis to enter his home without a warrant because they did not observe a \\\"fracas\\\" or receive specific information that some",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:40.952Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7c49e2e80f32685a",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Looked at the statpack for base rates:\\n  `grep -A 10 \\\"Modern discretionary-cert petitions\\\" metrics/statpack.md`\\n- Read the provisioned context:\\n  - `data/cases/scotus/73281318/record/snapshots/2026-07-16.json`\\n  - `data/cases/scotus/73281318/record/documents/petition.txt`\\n  - `data/cases/scotus/73281318/record/documents/brief-in-opposition.txt`\\n  - `data/cases/scotus/73281318/record/documents/questions-presented.txt`\\n\", \"file_path\": \"data/cases/scotus/7",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.634Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e51553e95289dc7d",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281318\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"grep\\\", \\\"head\\\", \\\"sed\\\"],\\n  \\\"helpful\\\": [\\\"Provisioned documents (BIO especially) clearly indicated the jurisdictional defect.\\\"],\\n  \\\"gaps\\\": []\\n}\\n\", \"file_path\": \"data/cases/scotus/73281318/events/evt-petition-disposition/predictions/gemini-baseline/2",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:48.315Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "53e8c2c0ed15a6ca",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:53.451Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "56f610a2da52832d",
+      "query": "gh issue comment 722 --body \"Prediction complete for scotus/73281318 (evt-petition-disposition). Prediction: denied (probability: 0.02).\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:56.366Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2e7a524b2949479",
+      "query": "{\"strategic_intent\": \"Finalize the task by confirming all output artifacts are generated and successfully validated.\", \"summary\": \"I have successfully written the prediction artifacts (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`) for the case `scotus/73281318` under the `evt-petition-disposition` event. I also verified the outputs against the schema using `uv run fedcourts validate data` which returned no errors. The prediction reflects a high probability of denial (p=0.02)",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:00.735Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281318",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,4 @@
+- Read the provisioned context, snapshot, and document text (petition, brief-in-opposition, and questions-presented).
+- Consulted `metrics/statpack.md` for base rates regarding the Tenth Circuit (5.0% grant base rate) and relist count.
+- Used CourtListener MCP to search for `Barnes v. Felix` to confirm the date and context of the intervening Supreme Court decision:
+  - `mcp_courtlistener_search(q="Barnes v. Felix", type="o")` - confirmed *Barnes v. Felix*, 145 S. Ct. 1353, was decided May 15, 2025.

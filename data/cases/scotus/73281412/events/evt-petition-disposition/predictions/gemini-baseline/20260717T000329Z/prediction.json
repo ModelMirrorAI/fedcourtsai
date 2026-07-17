@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/73281412",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20260717T000329Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-17T00:03:29Z",
+  "input_snapshot": "data/cases/scotus/73281412/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.15,
+  "predicted_disposition": "denied",
+  "big_case_score": 0.65,
+  "big_case_rationale": "High stakes for civil rights litigation: the petition alleges a stark circuit split on the constitutional standard for pretrial detainee conditions of confinement under Bell v. Wolfish."
+}

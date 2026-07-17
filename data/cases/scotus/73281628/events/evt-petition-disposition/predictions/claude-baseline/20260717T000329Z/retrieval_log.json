@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f14011cbbac1bfc5",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628 -type f | head -50",
+      "result_digest": "4c2bef162ffc378a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bb91191ffb08d436",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9ddd2c5081421adb",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "12c74f9283284a5c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c65e72967b9c4043",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628/record/documents/documents.json\"}",
+      "result_digest": "8762ee7749555ea9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "339fac5d81f40943",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "669ca8706cc91fb9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c00f3ac0dacc5894",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628/record/documents/questions-presented.txt\"}",
+      "result_digest": "1c5a20b570d54c8b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "022fd78e6df1dfb3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628/record/documents/petition.txt\"}",
+      "result_digest": "2dc6a10b38f0aa35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "26374e5821148142",
+      "query": "grep -n -A 30 \"Modern discretionary-cert petitions by disposition\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "6cabb2334a3b751d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6052235b23d00d19",
+      "query": "sed -n 85,180p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "e6c94dafa5e95b87",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d9a430b6d31c45c3",
+      "query": "sed -n 180,260p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "96660d765ccfedff",
+      "query": "grep -n \"salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "014b4fe603f96144",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "da1e7a536665de24",
+      "query": "sed -n 1,55p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "7d0ce973db0b103e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0b85c95e5d0be215",
+      "query": "uv run fedcourts paths --court scotus --docket 73281628 --event evt-petition-disposition 2>&1 | head -20",
+      "result_digest": "577642561d1f4d01",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a4a43e9c4bc8f56c",
+      "query": "uv run fedcourts query --court scotus --citation \"340 U.S. 36\" --corpus-backend ranged --limit 8 2>corpus_stderr1.txt; echo \"--- stderr:\"; cat corpus_stderr1.txt",
+      "result_digest": "1aaa5361cd54e625",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "62ad8ab4d867c347",
+      "query": "uv run fedcourts query --court scotus --citation \"599 U.S. 465\" --corpus-backend ranged --limit 8 2>corpus_stderr2.txt; echo \"--- stderr:\"; cat corpus_stderr2.txt; echo \"=== gvr query:\"; uv run fedcourts query --court scotus --disposition gvr --corpus-backend ranged --limit 8 2>corpus_stderr3.txt; echo \"--- stderr:\"; cat corpus_stderr3.txt",
+      "result_digest": "869efa1e875d4a9b",
+      "retrieved_doc_date": "2025-10-20",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "46ed5f88dccb3307",
+      "query": "\"Jones v. Hendrix\" \"saving clause\" constitutional \"Suspension Clause\"",
+      "result_digest": "0ee52b1fcc3efe44",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "be66018a3cb78f23",
+      "query": "\"Jones v. Hendrix\" \"Suspension Clause\" \u00a7 2241",
+      "result_digest": "a93ba49866e65200",
+      "retrieved_doc_date": "2025-08-06",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "ffa6fc02c0d1c97e",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ; mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281628/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z",
+      "result_digest": "75c44b85a04686a5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1cd889a2e38ba2d4",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281628\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:20:39Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281628/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.45,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "e92dac2473318244",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8c2b65127bd70599",
+      "query": "{\"content\": \"# Bell v. Gilley, No. 25-1141 \\u2014 petition disposition\\n\\n**Prediction: P(any grant, GVR included) = 0.45; modal disposition `denied`.**\\nThis is a close call, and the probability reflects that: if granted, the\\ndisposition would be `gvr` (a Munsingwear vacatur), not a plenary grant.\\n\\n## What is actually being asked\\n\\nThis is not an ordinary cert petition. The sole question presented asks the\\nCourt to **vacate the Fourth Circuit's judgment under United States v.\\nMunsingwear,",
+      "result_digest": "381b5ce54d518ad8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "2b00bd006b2d1111",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281628, evt-petition-disposition, claude-baseline, 20260717T000329Z\\n\\nMode: `forward` (pending case; unrestricted retrieval). Nothing about this\\ncase's own disposition was sought or surfaced \\u2014 the petition is undecided\\n(BIO due 2026-07-22).\\n\\n## Corpus lookups (`fedcourts`, ranged backend)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"340 U.S. 36\\\" --corpus-backend ranged --limit 8`\\n   \\u2014 priors citing Munsingwear. **0 rows.*",
+      "result_digest": "74f3d12952c73f44",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0012633f78b6ce0f",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json",
+      "result_digest": "e855a6339d3c1c4c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "12e593dc46a7e0bd",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281628\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP search (opinions)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition.txt full text \\u2",
+      "result_digest": "72cb9d7d87c3c4f0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2dffe5e97b8e0cc5",
+      "query": "gh issue comment 722 --body \"claude-baseline / claude-fable-5 \u2014 scotus/73281628 (Bell v. Gilley, No. 25-1141), evt-petition-disposition, run 20260717T000329Z: **P(grant incl. GVR) = 0.45, modal disposition \\`denied\\`** (confidence 0.5, big_case_score 0.3). Unusual cell: the petition asks only for Munsingwear vacatur (case mooted when Bell completed early-terminated supervised release). Grant-side: CFR after government waiver, routine summary-vacatur practice, government argued mootness below, el",
+      "result_digest": "cd9aa7da1fa1150e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281628",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281630",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP search",
+    "provisioned snapshot and filed-document text"
+  ],
+  "helpful": [
+    "Full petition and BIO text in record/documents/ was the single most valuable input — the CFR-after-waiver, amicus count, and the BIO's no-split argument all came straight from the provisioned record.",
+    "Per-fee-class Term grant rates in statpack.json (paid 5.4% vs IFP 1.1%) gave a much better anchor than the whole-docket rate."
+  ],
+  "gaps": [
+    "No corpus prior matched on citation for student-speech cases; a topic/issue-area facet on `fedcourts query` (e.g. first-amendment/school-speech) would beat citation overlap for SCOTUS cert cells.",
+    "A statpack cut for call-for-response (response-requested-after-waiver) petitions would directly price this cell's strongest signal; the relist and CVSG cuts exist but CFR does not.",
+    "The prompt references a per-Term 'Segment base rate by salience band' statpack table, but the committed statpack.md/json has no such section — either the table or the prompt reference is stale."
+  ],
+  "notes": "Forward cell; SCOTUS e-dockets are not in RECAP so the MCP docket search cannot confirm pendency — the fresh provisioned snapshot covered that instead."
+}

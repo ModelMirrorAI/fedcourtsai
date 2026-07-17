@@ -1,0 +1,31 @@
+# Prediction
+
+I predict a grant-side disposition with probability **0.78**, and I make **grant, vacate, and remand (GVR)** the most likely disposition. The most plausible grant-side route is another summary order vacating the D.C. Circuit's mandamus ruling and requiring a request-by-request application of *Cheney* and the Court's earlier instructions. Plenary review is a meaningful secondary possibility; denial remains possible because the respondent has a substantial argument that the D.C. Circuit complied with the literal focus of the earlier order.
+
+## Question and governing standard
+
+The petition asks whether the D.C. Circuit departed from the Court's earlier remand instructions and the separation-of-powers principles of *Cheney v. United States District Court*, and whether broad discovery may be used to decide the threshold question whether an Executive Office advisory body is an “agency” under FOIA. The certiorari posture is unusual because the judgment under review denies mandamus. The government therefore must show a clear and indisputable entitlement to relief and inadequacy of ordinary remedies, with the Court also considering whether the lower court's treatment conflicts with its own prior mandate.
+
+On the underlying FOIA question, *Kissinger* and D.C. Circuit precedent exclude an Executive Office unit whose sole function is advising and assisting the President, while treating “substantial independent authority” as the key marker of agency status. On discovery, *Cheney* requires deference and restraint where discovery burdens presidential advisers or internal Executive Branch communications, including careful tailoring and consideration of less intrusive avenues.
+
+## Record signals
+
+The 2026-07-16 snapshot shows a paid petition filed by the Solicitor General, a filed brief in opposition and reply, and distribution for the September 28, 2026 conference. The petition and questions-presented text frame the remaining discovery as including internal directives, plans concerning classified-system access, extensive employee information, and testimony from USDS's administrator. They emphasize that the Court already granted certiorari, vacated the original denial of mandamus, directed narrowing, invoked *Cheney*, and stayed discovery through disposition of this follow-on petition.
+
+That prior intervention is the dominant signal. It demonstrates that a majority already regarded the separation-of-powers issue and the tailoring of this discovery as sufficiently serious for extraordinary relief. The petition also has an unusually strong mandate-enforcement theme: after remand, the D.C. Circuit issued a short order that treated withdrawal of requests concerning recommendations as sufficient and otherwise relied on its earlier reasoning. A majority could conclude that the court of appeals did not conduct the broader *Cheney* analysis contemplated by the prior order. The petition's comparison to the Fourth Circuit's protection of high-ranking officials, and its argument that much of the remaining discovery overlaps the relief sought under FOIA, strengthen the prospect of summary correction.
+
+The brief in opposition supplies the principal counterweight. It reads the prior order narrowly: only discovery into recommendations and whether they were followed was identified as improperly tailored, and CREW withdrew all such requests. It also characterizes the surviving interrogatories, admissions, organizational records, final directives, and depositions as targeted evidence of whether USDS exercised independent authority. It stresses the demanding mandamus standard, forfeiture, lack of a circuit conflict, unpublished and fact-bound rulings, and the availability of item-specific privilege objections. That is a credible basis for denial, especially if the Court considers its earlier mandate satisfied rather than defied.
+
+Still, the prior grant-vacate-remand and continuing stay sharply distinguish this petition from an ordinary cert filing. The Court's earlier language extended beyond persuasion to “separation of powers concerns” surrounding internal Executive Branch communications. The lower court's very limited new analysis makes another summary vacatur more likely than either ordinary denial or plenary merits review. The temporary organization's July 2026 expiration does not clearly moot the backward-looking FOIA dispute or the discovery controversy on the materials provided.
+
+## Calibration and disposition
+
+The committed statpack reports a roughly 3% grant rate for modern discretionary-cert petitions overall and an 11.8% grant rate for D.C. Circuit petitions in its denial-reweighted slice. This case warrants a very large upward adjustment because it is a paid Solicitor General petition, arises from a denial of mandamus involving Executive Branch discovery, and returns after the Court itself already granted, vacated, remanded, and stayed the challenged discovery. The case has no relist or CVSG signal in the snapshot, so I do not raise the probability further on those grounds.
+
+I estimate approximately 78% for any grant-side disposition, with a GVR or equivalent summary vacatur/remand the largest component, plenary grant second, and denial the principal alternative. I do not predict individual votes because cert-stage votes are generally not disclosed, but the earlier order's noted disagreement by Justices Sotomayor, Kagan, and Jackson makes a similar ideological division plausible if the Court again acts summarily.
+
+The **0.90 big-case score** reflects the institutional stakes if the Court decides the dispute: the scope of FOIA around a prominent Executive Office body, judicial discovery into presidential-adviser operations, and separation-of-powers limits on compelling internal Executive Branch material. It is independent of the grant probability.
+
+## Retrieval limits
+
+The ranged corpus query for historical priors could not connect to the configured corpus remote, so it returned no cases or transfer-statistics line. I therefore relied on the provisioned snapshot and complete petition/BIO text, the committed statpack base rates, and two pre-decision CourtListener searches for general precedent. I did not search for this case's disposition or subsequent history.

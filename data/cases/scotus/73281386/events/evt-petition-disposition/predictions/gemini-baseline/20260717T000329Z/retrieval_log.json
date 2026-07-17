@@ -1,0 +1,398 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "96d2b8211a90c56f",
+      "query": "{\"strategic_intent\": \"Read prediction prompt and agent definitions.\", \"summary\": \"I am reading the prediction prompt and agent definitions to understand the task.\", \"title\": \"Read Prompt and Agents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:12.756Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:14.647Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:14.647Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c591082e34f7d657",
+      "query": "{\"strategic_intent\": \"Check the paths and input files for the prediction using the CLI.\", \"summary\": \"I am using the `fedcourts paths` command to resolve the exact input file paths for the given cell and will then read them.\", \"title\": \"Locate Input Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:18.680Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "6b738e1646752360",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281386\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:21.373Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c578bb64619a192c",
+      "query": "ls -lR data/cases/scotus/73281386",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:23.628Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a762f446b646a7e",
+      "query": "{\"file_path\": \"data/cases/scotus/73281386/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:28.359Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3849afe8ff4c0b5e",
+      "query": "{\"file_path\": \"data/cases/scotus/73281386/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:28.359Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e302211eb23f5a5b",
+      "query": "{\"file_path\": \"data/cases/scotus/73281386/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:28.360Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "017ea8ec00e12fe8",
+      "query": "{\"file_path\": \"data/cases/scotus/73281386/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:28.361Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dc302b0f053db53f",
+      "query": "{\"file_path\": \"data/cases/scotus/73281386/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:28.362Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d74e52f3169e98b2",
+      "query": "{\"strategic_intent\": \"Consult base rates and historical priors.\", \"summary\": \"I will now consult the `metrics/statpack.md` for base rates on cert petitions and run `fedcourts query` to pull relevant precedents for cases involving FOIA and separation-of-powers discovery disputes.\", \"title\": \"Research Base Rates and Priors\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:33.426Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:35.460Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "22b7b6d14e792b4a",
+      "query": "cat metrics/statpack.md | grep \"cadc\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:37.525Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f76d60557599a123",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by fee status\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:40.703Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c5bc118c523cb24b",
+      "query": "cat metrics/statpack.md | grep -A 10 \"fee class\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:42.425Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c3527dda1588d88",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:44.276Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0441baa875ba4062",
+      "query": "cat metrics/statpack.md | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:47.268Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:49.759Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dc282a624438415e",
+      "query": "cat metrics/statpack.md | grep -A 25 \"Modern cert petitions by originating circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:52.143Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b3633fdc537ee253",
+      "query": "cat metrics/statpack.md | grep -A 10 \"fee class\" || cat metrics/statpack.md | grep -A 15 \"fee status\" || cat metrics/statpack.md | grep -i \"Paid\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:55.045Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fc8bea295ad9c7e6",
+      "query": "grep \"## Cert petitions by\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:56.990Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8f2d4b59c13f174f",
+      "query": "uv run fedcourts query \"FOIA discovery separation of powers\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:01.533Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:04.070Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "657c8b1effc2f94a",
+      "query": "\"Cheney\" AND \"discovery\" AND \"FOIA\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:10.873Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "67ba74e01ca0fd94",
+      "query": "uv run fedcourts query --judge \"D. John Sauer\" || uv run fedcourts query --topic \"FOIA\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:16.857Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bcc2fafc5c25167d",
+      "query": "uv run fedcourts query --corpus-backend ranged --topic \"FOIA\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:20.195Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "09362b7e73055f32",
+      "query": "cat data/cases/scotus/73281386/record/documents/petition.txt | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:29.108Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cb324a3860a228b3",
+      "query": "cat data/cases/scotus/73281386/record/documents/petition.txt | grep -A 10 \"On re-\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:31.449Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f39228fbf5bb862c",
+      "query": "cat data/cases/scotus/73281386/record/documents/petition.txt | grep -A 20 \"STATEMENT\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:35.084Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aa87c0b7a8c3f94f",
+      "query": "grep -A 20 -i \"procedural history\" data/cases/scotus/73281386/record/documents/petition.txt || grep -i \"This Court previously\" data/cases/scotus/73281386/record/documents/petition.txt -A 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:37.659Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1cfba777b55f38fb",
+      "query": "cat data/cases/scotus/73281386/record/documents/brief-in-opposition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:40.852Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5f899d57f2bab000",
+      "query": "grep -A 30 \"SUMMARY OF\" data/cases/scotus/73281386/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:43.086Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "45438ff15691cc04",
+      "query": "grep -A 30 \"SUMMARY\" data/cases/scotus/73281386/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:45.414Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42ac6f3961d079c5",
+      "query": "grep -E \"^[A-Z \\.]+$\" data/cases/scotus/73281386/record/documents/brief-in-opposition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:52.638Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c81980a0a26cf689",
+      "query": "grep -i \"INTRODUCTION\" -A 40 data/cases/scotus/73281386/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:54.771Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3fef5141732e47ab",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281386\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281386/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.95,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"confidence\\\": 0.90,\\n  \\\"bi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:04.475Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b5e376854cd3e55f",
+      "query": "cat schemas/prediction.schema.json | grep -A 50 '\"properties\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:06.783Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ba891b8ee1a61cd1",
+      "query": "cat schemas/prediction.schema.json | grep -A 40 '\"created_at\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:08.777Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "79aef74fe8f00b9d",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 '\"predicted_disposition\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:11.473Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "32e81d133fcabb13",
+      "query": "{\"content\": \"This is a highly salient separation-of-powers dispute involving the newly created \\\"Department of Government Efficiency\\\" (DOGE), officially established as the U.S. DOGE Service (USDS) within the Executive Office of the President. The respondent, Citizens for Responsibility and Ethics in Washington (CREW), sued under FOIA, seeking records from USDS. The district court ordered broad discovery to determine whether USDS exercises \\\"substantial independent authority\\\" making it an \\\"age",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:18.005Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d609e1f1aeef4dff",
+      "query": "{\"content\": \"- Consulted `metrics/statpack.md` for aggregate cert petition base rates, specifically the originating circuit baseline for `cadc` and the overall modern discretionary-cert grant rate.\\n- Attempted to pull historical priors using `fedcourts query` but the remote backend was unavailable.\\n- Queried CourtListener MCP via `mcp_courtlistener_search` for `type=\\\"o\\\"` (opinions) with `q=\\\"Cheney\\\" AND \\\"discovery\\\" AND \\\"FOIA\\\"` to review cases assessing the application of *Cheney v. U.S.",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:22.031Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "75ebabe987204538",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 40 '\"properties\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:24.253Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b1e8907fc07d3402",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 40 '\"role\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:26.256Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a9619bed1385bb81",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 20 '\"used_base_rates\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:28.351Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c9dfa144e76e308a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281386\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"cat metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided vital originating circuit base rate.\\\",\\n    \\\"CourtListener MCP was helpful for analyzing Cheney application to FOIA.\\\"\\n  ],\\n  \\\"g",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:32.118Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:36.752Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "901f1347e5f10fdd",
+      "query": "{\"strategic_intent\": \"Finish the prediction task.\", \"summary\": \"I have successfully researched the case details, written the prediction, reasoning, retrieval log, and tooling feedback, and validated that the artifacts conform to the schema. The task is complete.\", \"title\": \"Complete Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:45:44.107Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281386",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

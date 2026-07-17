@@ -1,0 +1,246 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "a9ce197e52436b13",
+      "query": "{\"strategic_intent\": \"I am going to read the prediction prompt contract and agent guidelines to understand the exact output requirements for this task.\", \"summary\": \"I am starting the prediction task for SCOTUS docket 73281345 (evt-petition-disposition). My first step is to read `.github/prompts/predict.md` and `AGENTS.md` to understand the input and output requirements for the `gemini-baseline` predictor.\", \"title\": \"Understanding Prediction Requirements\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:25.654Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:27.890Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:27.891Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1082b056a5f84f99",
+      "query": "{\"strategic_intent\": \"I need to read the provisioned inputs for this case to form the basis of the prediction.\", \"summary\": \"I have understood the prediction requirements from the documentation. Now I will inspect the provisioned inputs for this specific event (`data/cases/scotus/73281345/events/evt-petition-disposition/record/` and `event.json`) to understand the case context and what exactly I need to predict.\", \"title\": \"Reading Provisioned Case Inputs\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:33.181Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4b1b30a7ea32c0d1",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281345/events/evt-petition-disposition/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:35.162Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "5fad9c9a8746213c",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281345/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:37.558Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "c0a0896def379ee7",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281345/record/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:39.597Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "7122ab5377560f5b",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281345/record/snapshots/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:42.244Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "c9ed9a66a1261d7e",
+      "query": "{\"file_path\": \"data/cases/scotus/73281345/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:42.245Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c30c62789a4d492e",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281345/record/documents/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:42.245Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "1986d0c161f76723",
+      "query": "{\"file_path\": \"data/cases/scotus/73281345/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:42.246Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1d001b6ace46bd03",
+      "query": "{\"strategic_intent\": \"I need to read the specific case snapshot, documents, and baseline statistics to formulate a prediction.\", \"summary\": \"I have located the provisioned inputs. I am now reading the latest snapshot, the questions presented in the petition, and the statistical base rates from the statpack to inform my prediction.\", \"title\": \"Analyzing Case Inputs and Base Rates\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:45.390Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "58f5d13a6f3ba95f",
+      "query": "{\"file_path\": \"data/cases/scotus/73281345/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:48.033Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:48.034Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "052527aaba6d3eb3",
+      "query": "{\"file_path\": \"data/cases/scotus/73281345/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:48.034Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "37e7f3ec3de8b699",
+      "query": "\"United States v. Elkins\" \"instrumentalities of interstate commerce\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:00.443Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "6d86543988487ebb",
+      "query": "\"25-1061\" OR \"Holly Elkins\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:00.444Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "19694b7a8bab2ca4",
+      "query": "{\"strategic_intent\": \"I need to read the prediction schema to ensure my output JSON matches the required structure.\", \"summary\": \"I have formulated a preliminary prediction based on the case facts, the explicit circuit split, and the procedural signal of the Court requesting a response after a waiver. Now, I am reading the prediction schema to ensure my final JSON output is perfectly structured.\", \"title\": \"Structuring the Prediction Output\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:12.371Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:14.679Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:17.199Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4d6ae410db5b1bea",
+      "query": "mkdir -p data/cases/scotus/73281345/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:30.175Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "43dd5a51d18c4c54",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281345\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281345/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.25,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.6,\\n  \\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:40.373Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1d89a521c3d18cae",
+      "query": "{\"content\": \"# Prediction for scotus/73281345: evt-petition-disposition\\n\\n## Legal Question and Context\\nThe petition asks whether the Fifth Circuit's categorical approach to treating cell phones as instrumentalities of interstate commerce under the Commerce Clause (following *Lopez*) is constitutional, contrasting it with the Tenth Circuit's requirement (in *Chavarria*) of a case-by-case showing of an actual effect on interstate commerce. This presents a direct, cleanly framed circuit split on",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:40.377Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1a9ef28076531593",
+      "query": "{\"content\": \"- Read provisioned snapshot `data/cases/scotus/73281345/record/snapshots/2026-07-16.json`\\n- Read provisioned document `data/cases/scotus/73281345/record/documents/questions-presented.txt`\\n- Read provisioned statpack `metrics/statpack.md`\\n- CourtListener MCP lookup for the Fifth Circuit opinion (`United States v. Elkins`) and the docket (`25-1061`) to ensure the case was not already decided (it is currently pending, confirming the forward mode).\\n\", \"file_path\": \"data/cases/scotus",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:40.380Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "fa92f23511a7719a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281345\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md (for base rates)\\\",\\n    \\\"mcp_courtlistener_search (to verify pending status)\\\"\\n  ],\\n  \\\"gaps\\\": []\\n}\", \"file_path\": \"data/cases/scotus/732813",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:40.384Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "474fc430f5637601",
+      "query": "{\"strategic_intent\": \"I will validate my output files using the project's validation tool to ensure they conform to the required schemas.\", \"summary\": \"I have written `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` with my prediction. Now I am running `uv run fedcourts validate data` to ensure that my outputs are well-formed and conform perfectly to the project's schemas before finishing.\", \"title\": \"Validating the Prediction Outputs\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:43.761Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:48.768Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a8f02a3ee7a3dc4f",
+      "query": "gh issue comment 722 -b \"The \\`gemini-baseline\\` predictor has successfully generated the prediction for SCOTUS docket 73281345 (\\`evt-petition-disposition\\`). The outputs have been written to the data directory and passed schema validation.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:52.220Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7636ff66ff471338",
+      "query": "{\"strategic_intent\": \"I am concluding the task as the prediction artifacts have been generated and validated.\", \"summary\": \"The prediction artifacts (prediction.json, reasoning.md, retrieval.md, and tooling.json) for SCOTUS docket 73281345 have been successfully written and validated against the schema. The task is now complete.\", \"title\": \"Prediction Complete\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:55.338Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281345",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

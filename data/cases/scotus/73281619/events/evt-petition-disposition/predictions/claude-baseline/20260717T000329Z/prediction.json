@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281619",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260717T000329Z",
+  "created_at": "2026-07-17T00:18:37Z",
+  "input_snapshot": "data/cases/scotus/73281619/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.38,
+  "predicted_disposition": "denied",
+  "confidence": 0.5,
+  "votes": [],
+  "big_case_score": 0.65,
+  "big_case_rationale": "A grant would produce the Court's first-ever construction of RLUIPA's land-use provisions (substantial burden and equal terms), resetting the rules for church-zoning conflicts nationwide — 17 cert-stage amici including 20 states signal broad institutional stakes despite the small grotto at issue.",
+  "reasoning_doc": "reasoning.md"
+}

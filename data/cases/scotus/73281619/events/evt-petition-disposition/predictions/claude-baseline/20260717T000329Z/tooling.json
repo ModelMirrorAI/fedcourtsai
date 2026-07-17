@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281619",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt (full petition text made the split/vehicle analysis possible without any fetching)",
+    "Snapshot's ProceedingsandOrder entries (the waiver -> CFR -> double BIO extension sequence is the dominant signal in this cell)",
+    "statpack per-Term grant rates as the anchor prior"
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for every RLUIPA-related filter (citation and topic); a QP-text or issue-area similarity search over resolved cert petitions would have been the single most useful prior source",
+    "The statpack's promised 'Segment base rate by salience band' table is absent from this build, and there is no call-for-response (CFR) signal cut, so the largest conditioning signal in this cell had to be quantified from general knowledge",
+    "A statpack cut by cert-stage amicus count would directly price this cell's most unusual feature (17 amici)"
+  ],
+  "notes": "Forward cell; retrieval stayed well under budget (3 corpus queries, 1 MCP search). The provisioned record was complete and current enough that little retrieval was needed."
+}

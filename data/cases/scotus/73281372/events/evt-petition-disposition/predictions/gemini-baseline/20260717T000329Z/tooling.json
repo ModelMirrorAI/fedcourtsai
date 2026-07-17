@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281372",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "fedcourts query", "jq"],
+  "helpful": ["metrics/statpack.md provided excellent base rates", "mcp_courtlistener_search was useful for finding relevant decisions"],
+  "gaps": ["fedcourts query requires different arguments than initially guessed, taking some trial and error"],
+  "notes": "Was able to access the snapshot and identify the amicus filings. Case was distributed for long conference."
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281630",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "committed statpack",
+    "CourtListener MCP search",
+    "fedcourts query (attempted; unavailable)"
+  ],
+  "helpful": [
+    "Complete petition and brief in opposition text",
+    "Docket snapshot showing response request, amici, and conference posture",
+    "Paid-petition and Sixth Circuit base rates",
+    "CourtListener search for the asserted doctrinal conflict"
+  ],
+  "gaps": [
+    "The ranged corpus remote was unreachable, so citation-matched historical priors were unavailable",
+    "The statpack lacks a response-request-conditioned cert grant rate"
+  ],
+  "notes": "Provisioned filings were sufficient for a reasoned forecast. A response-request-conditioned base rate would materially improve calibration for selected petitions."
+}

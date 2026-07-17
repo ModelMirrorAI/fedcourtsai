@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281381",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search"],
+  "helpful": ["The statpack.md provided a clear base rate for the Seventh Circuit.", "The MCP search tool helped confirm the absence of a broad circuit split."],
+  "gaps": ["The `fedcourts query` CLI lacked a free-text search option (`--text`), which made it harder to pull relevant priors based on legal concepts directly from the corpus."],
+  "notes": "The provisioned documents (petition and BIO) were sufficient to identify the vehicle flaws (facial challenge) that make a grant unlikely."
+}

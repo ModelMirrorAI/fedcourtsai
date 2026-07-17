@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281628",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP search (opinions)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt full text — the whole forecast turns on the petition's framing (pure Munsingwear ask), which the snapshot alone would not reveal",
+    "Snapshot ProceedingsandOrder — the waiver → CFR → double BIO extension sequence is the strongest docket signal",
+    "fedcourts query --disposition gvr — confirmed summary GVRs as a routine current-Term channel and surfaced a same-counsel prior",
+    "statpack circuit/relist/CVSG cuts for anchoring the prior"
+  ],
+  "gaps": [
+    "Statpack has no salience-band table despite the prompt pointing to it — anchored on circuit/relist/CVSG cuts instead",
+    "fedcourts query --citation returned 0 rows for both cited authorities (340 U.S. 36, 599 U.S. 465); the citation index seems too sparse for cert-stage dockets to be useful",
+    "No disposition-type cut for Munsingwear/procedural GVR petitions vs plenary asks — the modern-cert base rate is the wrong prior for a vacatur-only petition",
+    "One citation query cost 419 ranged GETs / ~110 MB for an empty result — a cheap existence probe would help budget etiquette"
+  ],
+  "notes": "Forward cell, clean provisioning. The BIO does not exist yet (due 2026-07-22), so the SG's opposition ground is modeled, not observed — a re-run after the BIO lands would be materially better informed."
+}

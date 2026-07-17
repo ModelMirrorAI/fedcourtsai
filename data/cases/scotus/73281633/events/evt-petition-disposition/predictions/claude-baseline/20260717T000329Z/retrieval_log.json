@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d9741bf057bf2c78",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633 -type f | head -50",
+      "result_digest": "dee99ae875b0af9b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "52d9ab26fa1964fd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6ebeaa651c32a4dd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "5d5f833165cba515",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "195b70a3ab72346b",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "88653763690825ec",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9fb1691bde778911",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/documents/documents.json\"}",
+      "result_digest": "fe10ff0906cad6b7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "eeffb56973b0622f",
+      "query": "wc -c /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/documents/*.txt /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md 2>/dev/null",
+      "result_digest": "460073d78ba325c6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5da7fb148586aea8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/documents/questions-presented.txt\"}",
+      "result_digest": "ee421c51d05825fc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cc56ddf28058c7f4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/documents/petition.txt\"}",
+      "result_digest": "d3b9875575236285",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3fcae012fbe00270",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/documents/petition.txt\", \"limit\": 900, \"offset\": 1065}",
+      "result_digest": "0906bcd306533b8b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c4671169968127d5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281633/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "50e3d1457b3d1a99",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3c8ae724e8833f50",
+      "query": "uv run fedcourts paths --court scotus --docket 73281633 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "7991dce4bf9c2036",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "d0abbbdde76bb0b1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "eed291c5965ed674",
+      "query": "uv run fedcourts query --court scotus --citation \"447 U.S. 557\" --era 2020s 2>/dev/null | head -8; echo \"---stderr---\"; uv run fedcourts query --court scotus --citation \"447 U.S. 557\" --era 2020s 2>&1 >/dev/null | tail -3",
+      "result_digest": "381c819a8d11f24a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "601728a16ad62ea8",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f: sp = json.load(f)\nprint(list(sp.keys()))\n\" 2>/dev/null || ls metrics/",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "acb8bfe623caac53",
+      "query": "python3 -c \"\nimport json\nsp = json.load(open('metrics/statpack.json'))\nsecs = sp['sections']\nprint(type(secs), list(secs.keys()) if isinstance(secs, dict) else [s.get('key') or s.get('title') for s in secs])\n\"",
+      "result_digest": "bdbaed6843aec31d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "af870eb51793d368",
+      "query": "python3 -c \"\nimport json\nsp = json.load(open('metrics/statpack.json'))\nterms = sp['terms']\nprint(type(terms))\nt = terms if isinstance(terms, list) else terms.get('rows', terms)\nprint(json.dumps(t, indent=1)[:3000])\n\"",
+      "result_digest": "4401a3d8c0cafa4d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "ba27b09bbafa4502",
+      "query": "\"dietary supplement\" \"weight loss\" minors \"First Amendment\" sale",
+      "result_digest": "4c2b6ad374a36e06",
+      "retrieved_doc_date": "2025-11-13",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "c79b35cf005d7bf7",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": "e855a6339d3c1c4c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "28e1229ebc792851",
+      "query": "mkdir -p data/cases/scotus/73281633/events/evt-petition-disposition/predictions/claude-baseline/20260717T000329Z && date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "951e0d4d3e803188",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ba5b556c8ce4d45f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281633\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:23:36Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281633/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.06,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "f605a45bb029ae27",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5b7405a7e7a64bb0",
+      "query": "{\"content\": \"# Council for Responsible Nutrition v. James, No. 25-1145 \\u2014 cert prediction\\n\\n**Prediction: deny. P(grant, GVR included) \\u2248 0.06.**\\n\\n## The case\\n\\nCRN, the dietary-supplement industry's trade association, challenges N.Y. Gen.\\nBus. Law \\u00a7 391-oo, which bans selling to minors any dietary supplement that is\\n\\\"labeled, marketed, or otherwise represented\\\" for weight loss or muscle\\nbuilding. The district court (S.D.N.Y., Carter, J.) denied a preliminary\\ninjunction; a",
+      "result_digest": "2ef1cc687e761d0c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "18ed20f9e8c3b7de",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281633 / evt-petition-disposition / claude-baseline / 20260717T000329Z\\n\\nMode: `forward` (record/context.json). Retrieval beyond the provisioned inputs:\\n\\n## Corpus tooling\\n\\n- `uv run fedcourts query --court scotus --citation \\\"447 U.S. 557\\\" --era 2020s`\\n  \\u2014 searched for resolved SCOTUS priors citing *Central Hudson*; returned no\\n  rows. Run twice (once to capture stdout, once stderr); each invocation\\n  reported: `ranged corpus reads: 419",
+      "result_digest": "5cb6862eddfacb86",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "3b0052017282c2ae",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281633\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"fedcourts paths\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"metrics/statpack.json\\\",\\n    \\\"courtlistener MCP search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisio",
+      "result_digest": "f306741feb937b01",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a6884c3daaba25de",
+      "query": "gh issue comment 722 --repo \"$GITHUB_REPOSITORY\" --body \"**claude-baseline** \u00b7 scotus/73281633 (CRN v. James, No. 25-1145) \u00b7 evt-petition-disposition \u00b7 run 20260717T000329Z\n\nPrediction: **deny**, P(grant) = 0.06. Paid petition attacking the Second Circuit's Central Hudson third/fourth-prong analysis of NY's supplement age-restriction law. Four cert-stage amici and a live doctrinal itch push up, but the interlocutory PI posture, the independent equitable ground for affirmance below, and a contest",
+      "result_digest": "ac37b572889de06b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281633",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

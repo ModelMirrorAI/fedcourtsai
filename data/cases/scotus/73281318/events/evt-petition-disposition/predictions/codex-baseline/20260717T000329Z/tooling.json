@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281318",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "Complete provisioned petition and brief in opposition",
+    "Term- and fee-class-specific committed base rates",
+    "CourtListener precedent search"
+  ],
+  "gaps": [
+    "Case-level corpus priors were unavailable because the corpus-store host could not be resolved"
+  ],
+  "notes": "The provisioned record was sufficient for the legal and vehicle analysis. The statpack preserved calibration despite the failed ranged corpus lookup."
+}

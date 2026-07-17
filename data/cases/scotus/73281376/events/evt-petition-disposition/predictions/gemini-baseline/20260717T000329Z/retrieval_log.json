@@ -1,0 +1,398 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "d965ec4fb8e783b7",
+      "query": "{\"strategic_intent\": \"Understand the prediction prompt contract and the agent roles to generate the prediction for the specified docket.\", \"title\": \"Reading Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:51.890Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:53.814Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:53.815Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0ef79046aea43c3e",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281376\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:59.424Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6f28f11a1bab275b",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281376\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:01.664Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "d063a412994a0d75",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281376/record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:05.069Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "0bf12750ff99664c",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281376/events/evt-petition-disposition\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:05.070Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "40658a6f81884e97",
+      "query": "{\"strategic_intent\": \"Read provisioned inputs for the case and event to form the context for the prediction.\", \"title\": \"Reading Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:08.685Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "21a7b2ab9d0bfd22",
+      "query": "{\"file_path\": \"data/cases/scotus/73281376/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:08.698Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9a36ca6dec50ee56",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281376/record/documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:08.699Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "1b7b211e3349b5c7",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281376/record/snapshots\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:08.699Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "364947fc3dd06baf",
+      "query": "{\"file_path\": \"data/cases/scotus/73281376/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:08.699Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "15442a7a623bb0ad",
+      "query": "{\"file_path\": \"data/cases/scotus/73281376/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:11.592Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f2f2deb78c5f12b8",
+      "query": "{\"file_path\": \"data/cases/scotus/73281376/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:11.593Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5ab0ba5a3ffbf425",
+      "query": "{\"file_path\": \"data/cases/scotus/73281376/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:11.593Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eacd4af20db80161",
+      "query": "{\"strategic_intent\": \"Retrieve base rates for cert petitions and query the corpus for similar cases to inform the prediction.\", \"title\": \"Retrieving Prior Context and Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:15.450Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:16.278Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3dcd73f6a6cd69d7",
+      "query": "uv run fedcourts query --event evt-petition-disposition \"Given the Supreme Court\u2019s decision in Monell, can a governmental entity be held liable... for the constitutional torts of a healthcare provider\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:16.279Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4151b4fe4bf0d1c3",
+      "query": "uv run fedcourts query \"Monell liability for healthcare provider hired by governmental entity Section 1983\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:19.887Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b2d7e541f24eac18",
+      "query": "{\"strategic_intent\": \"Learn how to properly use the fedcourts CLI tool to query the corpus.\", \"title\": \"Reading CLI Documentation\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:22.791Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "644a4e3e439a3804",
+      "query": "{\"file_path\": \"docs/cli.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:22.794Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:26.206Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cd5a17a4ac5eb4a7",
+      "query": "{\"strategic_intent\": \"Search CourtListener via MCP to find relevant precedent on Monell liability for healthcare providers under Section 1983.\", \"title\": \"Searching CourtListener Precedent\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:29.839Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "45a0c7b917566a9f",
+      "query": "\"Monell\" AND \"healthcare provider\" AND \"Section 1983\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:30.600Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "5c0e0629efb3fe3d",
+      "query": "{\"strategic_intent\": \"Read the petition and brief in opposition (BIO) to understand the facts, legal arguments, and whether there is a circuit split that might warrant a grant of certiorari.\", \"title\": \"Analyzing Petition and BIO\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:34.994Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "5295d942a14813e3",
+      "query": "head -n 100 data/cases/scotus/73281376/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:35.010Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e60878df46174768",
+      "query": "head -n 100 data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:35.010Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42ecf0102933b36d",
+      "query": "grep -A 20 -B 5 \"circuit split\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:41.896Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "22b9cd6c92097814",
+      "query": "grep -A 30 \"There is no circuit split\" data/cases/scotus/73281376/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:41.897Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ca155a3d66b45513",
+      "query": "grep -i -C 3 \"split\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:44.801Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d49e78d496611adc",
+      "query": "grep -i -C 3 \"conflict\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:44.801Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bd4890ce218ddd39",
+      "query": "grep -A 20 -B 2 \"proper standards to use\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:47.888Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b220989e36c48ffc",
+      "query": "grep -A 30 \"TABLE OF CONTENTS\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:51.573Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f9d30d16f9adb889",
+      "query": "grep -A 20 \"II. THE PETITION FOR A WRIT OF\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:54.046Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b6143a56471fd11c",
+      "query": "grep -A 20 \"Other circuits\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:57.476Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc34766688119f40",
+      "query": "grep -A 40 \"B. Other Circuits Apply Supreme Court Precedent\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:57.476Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "49a57ccf42f0235c",
+      "query": "grep -A 20 \"camp\" data/cases/scotus/73281376/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:59.676Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "402bb1b2ee1c640b",
+      "query": "grep -A 30 \"B. \" data/cases/scotus/73281376/record/documents/petition.txt | grep -A 20 \"Circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:02.130Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4e25a78662736e51",
+      "query": "grep -A 30 \"Sixth Circuit\" data/cases/scotus/73281376/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:05.312Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a4731c8a7b71e667",
+      "query": "{\"strategic_intent\": \"Draft the prediction files including prediction.json, reasoning.md, retrieval.md, and tooling.json.\", \"title\": \"Drafting Prediction Outputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:19.004Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "fe53a5e18cfcc539",
+      "query": "mkdir -p data/cases/scotus/73281376/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:33.454Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e8feb0ceb28810a6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281376\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.12,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.7,\\n  \\\"big_case_score\\\": 0.65,\\n  \\\"big_case_rationale\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:37.416Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5038e8a8cfb078a7",
+      "query": "{\"content\": \"# Reasoning: Davie County v. Swink (25-1091)\\n\\n## Legal Question and Governing Standard\\nThe petition presents the question of whether a local governmental entity (here, two North Carolina counties) can be held liable under 42 U.S.C. \\u00a7 1983 for the constitutional torts of a private healthcare provider it hired to provide medical care at its jails. The petitioners argue that holding the counties liable simply for hiring the provider violates the Supreme Court's prohibition on *",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:43.272Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b57ddb9166804ad6",
+      "query": "{\"content\": \"- `uv run fedcourts paths --court \\\"scotus\\\" --docket \\\"73281376\\\" --event \\\"evt-petition-disposition\\\"`\\n- `uv run fedcourts query --event evt-petition-disposition \\\"Given the Supreme Court\\u2019s decision in Monell... \\\"` (Failed: Invalid syntax)\\n- `uv run fedcourts query \\\"Monell liability for healthcare provider hired by governmental entity Section 1983\\\"` (Failed: Invalid syntax)\\n- `uv run fedcourts query --help` (Read the help for query syntax)\\n- `mcp_courtlistener_search` ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:47.261Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "483f8787aef96b84",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281376\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"list_directory\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"mcp_courtlistener_search was helpful to confirm the existence of similar cases in other circuits.\\\",\\n    \\\"grep and head w",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:51.314Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:43:56.179Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2b280081dfd3b318",
+      "query": "gh issue comment 722 -b \"Prediction for cell scotus/73281376 (evt-petition-disposition) completed successfully. P(granted) estimated at 0.12 based on the CFR and Fourth Circuit dissent, but ultimately predicting a denial.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:06.468Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "19104a1bf651134d",
+      "query": "{\"strategic_intent\": \"Review results, finish up the prompt contract, and conclude the turn.\", \"title\": \"Completed Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:44:09.166Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281376",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

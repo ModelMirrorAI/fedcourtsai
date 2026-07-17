@@ -1,0 +1,3 @@
+- Consulted `metrics/statpack.md` for aggregate cert petition base rates, specifically the originating circuit baseline for `cadc` and the overall modern discretionary-cert grant rate.
+- Attempted to pull historical priors using `fedcourts query` but the remote backend was unavailable.
+- Queried CourtListener MCP via `mcp_courtlistener_search` for `type="o"` (opinions) with `q="Cheney" AND "discovery" AND "FOIA"` to review cases assessing the application of *Cheney v. U.S. District Court* (542 U.S. 367) to FOIA discovery disputes regarding Executive Office advisory bodies.

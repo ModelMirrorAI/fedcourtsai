@@ -1,0 +1,254 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "97dce43d4fca6b90",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "a7c3b17f50a77268",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6539149f2df06bbe",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630 -type f | head -50",
+      "result_digest": "2e620c5636cf15ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "50742cf4157ad212",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a102275a0d274533",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "956b45a4cccd8579",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "61f4d287925f6248",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630/record/snapshots/2026-07-16.json\"}",
+      "result_digest": "90fcb890fd000f98",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "40e7d51a551976d6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630/record/documents/documents.json\"}",
+      "result_digest": "3d9079afd6305982",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c58560bad0a7823c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630/record/documents/questions-presented.txt\"}",
+      "result_digest": "7315099b3507f199",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d20c9d678e6c9814",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630/record/documents/petition.txt\"}",
+      "result_digest": "4bc4e19c8341cec9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d452800b8235aaf1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281630/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": "2592f8d53b80db35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "5093644f1852df9f",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|Relist\\|CVSG\\|Response Requested\\|call for response\\|Segment base rate\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "3ec7cf2c8234e3bb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6ba881f723f9c604",
+      "query": "uv run fedcourts paths --court scotus --docket 73281630 --event evt-petition-disposition 2>&1 | head -30",
+      "result_digest": "4460963e09b28177",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f6a23a3460efa008",
+      "query": "uv run fedcourts query --help 2>&1 | head -30",
+      "result_digest": "64b1b5ec2189a939",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c395013cbd84ab94",
+      "query": "uv run fedcourts query --court scotus --citation \"Tinker v. Des Moines\" --citation \"Bethel Sch. Dist. No. 403 v. Fraser\" --citation \"Mahanoy Area Sch. Dist. v. B.L.\" --limit 8 2>quer_err.txt; echo \"--- stderr ---\"; cat quer_err.txt",
+      "result_digest": "2200962583dd5a49",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "813550a62858755c",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 5 2>quer_err2.txt | cut -c1-400; echo \"--- stderr ---\"; cat quer_err2.txt",
+      "result_digest": "e567d6841b4d8dae",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5b315c03885991cd",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\" 2>&1",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "443adc9860eafa0a",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint([s.get('title') for s in d['sections']])\nt25 = [t for t in d['terms'] if t.get('term')==2025][0]\nprint({k: v for k, v in t25.items() if 'fee' in k.lower() or 'paid' in k.lower() or 'ifp' in k.lower() or 'salience' in k.lower() or 'band' in k.lower()})\n\" 2>&1",
+      "result_digest": "17f6ce01acd55e5d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7538f44c4d72f215",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt25 = [t for t in d['terms'] if t.get('term')==2025][0]\nprint(json.dumps(t25, indent=1)[:2000])\n\" 2>&1",
+      "result_digest": "66bd66fefbebd877",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "8b97cca3b05d413b",
+      "query": "\"Tri County Area Schools\"",
+      "result_digest": "f0489043a89b8200",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "55131e9cb42e3bf4",
+      "query": "\"L.M.\" \"Town of Middleborough\" student speech shirt",
+      "result_digest": "bd0d90fcb5cc7c8b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "52f07cf40f76bac6",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json'))\nprint('required:', d['required']); print('props:', list(d['properties'].keys()))\n\"; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "26d1cd652b47cf0d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0286736af65e9470",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281630\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:23:41Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73281630/record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "c160c4314a862a50",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "123dd1c0d28c538f",
+      "query": "{\"content\": \"# D.A. v. Tri County Area Schools, No. 25-1143 \\u2014 cert disposition\\n\\n**Prediction: denied, P(grant) = 0.15.**\\n\\n## The legal question\\n\\nWhether *Bethel School District No. 403 v. Fraser*, 478 U.S. 675 (1986), permits\\npublic schools to censor nondisruptive political speech that is not plainly\\nprofane or lewd. Petitioners \\u2014 two middle-school brothers represented by FIRE \\u2014\\nwere made to remove \\\"Let's Go Brandon\\\" sweatshirts under the district's\\ndress-code profanit",
+      "result_digest": "9e3779768ddef754",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5d571f930918ba9c",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281630, evt-petition-disposition, claude-baseline, 20260717T000329Z\\n\\nMode: `forward` (retrieval unrestricted; nothing outcome-revealing exists yet \\u2014\\nthe petition is pending, distributed for the 2026-09-28 conference).\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --citation \\\"Tinker v. Des Moines\\\" --citation \\\"Bethel Sch. Dist. No. 403 v. Fraser\\\" --citation \\\"Mahanoy Area Sch. Dist. v. B.L.\\\" --limit 8`\\n   ",
+      "result_digest": "aa820a98ba4cfb5f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "47de3c31ccd38752",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281630\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"courtlistener MCP search\\\",\\n    \\\"provisioned snapshot and filed-document text\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Full petition ",
+      "result_digest": "6b46e1e2686a9e35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "9acbb26a4cccb045",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "66d53cd3e82221e5",
+      "query": "gh issue comment 722 --body \"claude-baseline / scotus/73281630 / evt-petition-disposition (run 20260717T000329Z): prediction written \u2014 **denied**, P(grant)=0.15, big_case_score=0.65. Paid CA6 petition (D.A. v. Tri County Area Schools, No. 25-1143, the \\\"Let's Go Brandon\\\" case): CFR after waiver, 4 cert-stage amici, divided published panel with a cert-urging dissent push it well above the ~5% paid-petition anchor, but the contested split, petitioners' meaning concessions, and the QI vehicle argu",
+      "result_digest": "f16deb6b7fde95d5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281630",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

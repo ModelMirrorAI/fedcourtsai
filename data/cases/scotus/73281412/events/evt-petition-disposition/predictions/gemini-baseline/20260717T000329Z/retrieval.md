@@ -1,0 +1,5 @@
+- Read the provisioned snapshot and event files.
+- Read provisioned documents: `questions-presented.txt`, `petition.txt`, `brief-in-opposition.txt`.
+- Consulted `metrics/statpack.md` for base rates on Paid cert petitions, relists, and originating circuits.
+- Attempted `fedcourts query --court scotus --topic "Civil Rights" --limit 5` but it failed due to missing corpus remote URL in the environment.
+- Used CourtListener MCP `search` tool: `mcp_courtlistener_search(q='"Bell v. Wolfish" "suicide prevention"', type='o')` to check for similar case precedent.

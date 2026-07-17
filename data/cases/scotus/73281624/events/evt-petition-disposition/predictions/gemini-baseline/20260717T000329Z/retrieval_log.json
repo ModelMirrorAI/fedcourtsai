@@ -1,0 +1,286 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "573e59707dfd8151",
+      "query": "{\"strategic_intent\": \"Read the prompt contract and agent guidelines to perform the prediction task.\", \"summary\": \"I am reading the prediction instructions and agent guidelines to understand the context and requirements for producing the prediction.\", \"title\": \"Understand Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:18.438Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:20.290Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:22.598Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0216644de45ff579",
+      "query": "uv run fedcourts paths --court scotus --docket 73281624 --event evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:27.399Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4cbd592f53bef281",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281624/events/evt-petition-disposition/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:30.013Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "86264582199fd385",
+      "query": "find . -name \"context.json\" -o -name \"documents.json\" -o -name \"snapshot*.json\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:33.289Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bbebe5606fa8704e",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs for the specific case to prepare for prediction.\", \"summary\": \"I have located the provisioned files for case scotus/73281624. I will now read the event definition, snapshot, context, and documents to gather the case details needed for prediction.\", \"title\": \"Read Provisioned Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:36.289Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "954eb4bfcf62e70a",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281624/record/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:38.903Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "12df002d674b9f9a",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281624/record/snapshots/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:40.951Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "96d18e671166ad4e",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281624/record/documents/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:43.058Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "3cda736548c3d6c8",
+      "query": "{\"file_path\": \"data/cases/scotus/73281624/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:45.591Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ac8f8232957fc1fd",
+      "query": "{\"file_path\": \"data/cases/scotus/73281624/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:47.466Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8f7535761204904b",
+      "query": "{\"file_path\": \"data/cases/scotus/73281624/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:49.853Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "42ce4bc94bbaf3c8",
+      "query": "{\"file_path\": \"data/cases/scotus/73281624/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:51.921Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "758d22ef334be1a2",
+      "query": "{\"file_path\": \"data/cases/scotus/73281624/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:54.034Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:56.840Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "70aaf6a4f3e57fdb",
+      "query": "{\"strategic_intent\": \"Consult the statpack and use the corpus query tool to establish base rates and context for the prediction.\", \"summary\": \"I am retrieving base rates from metrics/statpack.md and using the fedcourts tool to query the corpus for historical priors matching the specific circuit and issue. This context will inform the probability calculation for the certiorari prediction.\", \"title\": \"Retrieve Base Rates and Priors\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:00.906Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:03.192Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7abbcae4fee242df",
+      "query": "uv run fedcourts query --court scotus --query \"market participant exception state action immunity parker\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:06.987Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cf73d479f3608dab",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:09.946Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4dd53b811d5a3004",
+      "query": "\"market participant exception\" AND \"state action immunity\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:15.742Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "77e2635565c9498c",
+      "query": "\"market participant exception\" AND \"Parker immunity\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:19.668Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "410ba0896014dc33",
+      "query": "\"market participant exception\" AND \"state action immunity\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:23.741Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "a05cacebfbb5a792",
+      "query": "{\"end_line\": 200, \"file_path\": \"data/cases/scotus/73281624/record/documents/petition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:26.911Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1a1fb1aa909deb97",
+      "query": "{\"strategic_intent\": \"Draft the prediction outputs including prediction.json, reasoning.md, and tooling.json.\", \"summary\": \"I have analyzed the provisioned case documents and the statpack. The case involves a request to recognize a 'market participant exception' to Parker state-action immunity. A Call for Response was issued, elevating its chances, but it has not been relisted yet. I am now proceeding to draft the final prediction artifacts.\", \"title\": \"Draft Prediction Artifacts\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:36.165Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "677ade6732cbed6b",
+      "query": "mkdir -p data/cases/scotus/73281624/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:50.632Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2bb9d26ef7e30927",
+      "query": "{\"content\": \"# Reasoning\\n\\n**The Legal Question:**\\nThe petition asks the Court to recognize a \\\"market participant exception\\\" to *Parker* state-action antitrust immunity. Specifically, it questions whether a municipality can invoke *Parker* immunity when it acts as the sole commercial participant in a market while simultaneously using its legislative power to exclude rival private competitors. \\n\\n**The Governing Standard:**\\nUnder *Parker v. Brown* and its progeny (e.g., *Town of Hallie*, *C",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:56.937Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2eb1e66bc88f66c4",
+      "query": "{\"content\": \"# Retrieval\\n\\n- `uv run fedcourts query --help`\\n  - Explored corpus query options. (Command failed due to incorrect usage, checked help).\\n- `mcp_courtlistener_search` (Court: scotus, Query: `\\\"market participant exception\\\" AND \\\"state action immunity\\\"`)\\n  - Found 3 priors: *Federal Trade Commission v. Phoebe Putney Health System, Inc.* (568 U.S. 216), *South-Central Timber Development, Inc. v. Wunnicke* (467 U.S. 82), and *City of Columbia v. Omni Outdoor Advertising, Inc.* (4",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:01.048Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e0c5a8409627453e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281624\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"list_directory\\\"\\n  ],\\n  \\\"helpful\\\": \\\"The statpack and MCP search were very helpful in estimating base rates and finding relevant Supreme Court precedents.\\\",\\n  \\\"gaps\\\": \\\"Would be useful to hav",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:04.889Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5f11d0247ffac2ae",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281624\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.12,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.5,\\n  \\\"big_case_rationale\\\": \\\"Rai",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:12.046Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4256c580cf796cc7",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:17.083Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "783b09a486f38fb2",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281624\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"list_directory\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack and MCP search were very helpful in estimating base rates and finding relevant Supreme Court precedents.\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"Wou",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:21.142Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "05be0fc95cf741fb",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:26.259Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "317639918cd87d1a",
+      "query": "{\"strategic_intent\": \"Finalize the prediction task.\", \"summary\": \"All prediction outputs (prediction.json, reasoning.md, retrieval.md, tooling.json) have been generated, saved to the appropriate directory, and successfully validated against the project schemas. I am concluding this workflow task.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:48:29.179Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281624",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

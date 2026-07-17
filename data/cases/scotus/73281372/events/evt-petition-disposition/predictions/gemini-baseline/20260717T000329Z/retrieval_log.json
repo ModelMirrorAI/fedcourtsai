@@ -1,0 +1,294 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "3f9b0931d6a29d76",
+      "query": "{\"strategic_intent\": \"Read the prompts and agent instructions to understand the prediction task.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:42.261Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f208499712808a1a",
+      "query": "{\"end_line\": 500, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.821Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e41d6b10251011a9",
+      "query": "{\"end_line\": 500, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:44.821Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "da0ef6889c0465f2",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281372\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:49.536Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c883f3da4dec81ef",
+      "query": "ls -la data/cases/scotus/73281372/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:53.189Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5d065bd3e2ade42f",
+      "query": "ls -la data/cases/scotus/73281372/record",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:55.522Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "067c0bb2b193cb9a",
+      "query": "ls -la data/cases/scotus/73281372/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:58.436Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01aff6023e9a6c71",
+      "query": "cat data/cases/scotus/73281372/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:58.436Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ed341ce0562c4023",
+      "query": "{\"end_line\": 500, \"file_path\": \"schemas/prediction.schema.json\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:58.437Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8fad5407fd5d6de6",
+      "query": "ls -la data/cases/scotus/73281372/record/snapshots",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:40:58.437Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ffe3b877218f5c6f",
+      "query": "cat data/cases/scotus/73281372/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:01.832Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5d24b93af61359ee",
+      "query": "cat data/cases/scotus/73281372/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:01.832Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b141c11f8939c439",
+      "query": "{\"end_line\": 500, \"file_path\": \"metrics/statpack.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:01.833Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e5aeb43723883505",
+      "query": "cat data/cases/scotus/73281372/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:01.833Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "996aa1d2949fd5f4",
+      "query": "uv run fedcourts query --court scotus --event evt-petition-disposition \"extraterritorial application of 11 U.S.C. \u00a7546(e)\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:10.372Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2ca7a7f659aab646",
+      "query": "\"546(e)\" AND \"extraterritorial\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:10.373Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "3924e6069adc1817",
+      "query": "\"546(e)\" AND \"extraterritorial\" AND \"split\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:15.533Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "e1981f016bdac181",
+      "query": "grep -C 3 \"circuit split\" data/cases/scotus/73281372/record/documents/petition.txt || grep -C 3 \"split\" data/cases/scotus/73281372/record/documents/petition.txt | head -n 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:18.882Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1b99833a013690dd",
+      "query": "grep -C 3 -i \"split\" data/cases/scotus/73281372/record/documents/brief-in-opposition.txt | head -n 40",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:21.303Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f4c650ad83aa6a96",
+      "query": "grep -C 3 -i \"circuit\" data/cases/scotus/73281372/record/documents/brief-in-opposition.txt | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:24.453Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "06ed950397a9a742",
+      "query": "grep -C 2 -i \"distributed\" data/cases/scotus/73281372/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:28.576Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "969fb5a7b59086c4",
+      "query": "grep -i \"amicus\" data/cases/scotus/73281372/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:33.985Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ac5b90883203e7ee",
+      "query": "grep -A 2 -B 2 -i \"amicus\" data/cases/scotus/73281372/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:36.457Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0fcc2cd60ff535d4",
+      "query": "jq -r '.docket_entries[] | \"\\(.Date): \\(.Text)\"' data/cases/scotus/73281372/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:38.863Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0440c85c49cdc6df",
+      "query": "jq 'keys' data/cases/scotus/73281372/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:41.213Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a4baa07d2e0f2bb",
+      "query": "jq -r '.ProceedingsandOrder[] | \"\\(.Date): \\(.Text)\"' data/cases/scotus/73281372/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:43.524Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "173e5fc69ae2fb86",
+      "query": "mkdir -p data/cases/scotus/73281372/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:48.230Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "06d126b7a66e201e",
+      "query": "{\"content\": \"## Legal Question and Posture\\nThe petition asks whether the Bankruptcy Code's safe harbor for securities settlement payments, 11 U.S.C. \\u00a7 546(e), applies extraterritorially to prevent foreign liquidators from pursuing foreign statutory and common-law avoidance claims that would otherwise be cognizable in foreign courts. Petitioners, foreign liquidators for the Fairfield Sentry funds (feeder funds to the Bernard L. Madoff investment scheme), appeal a Second Circuit decision hol",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:41:58.622Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c46d687029d57263",
+      "query": "{\"content\": \"- CourtListener MCP lookup: `search(q='\\\"546(e)\\\" AND \\\"extraterritorial\\\"', type='o')`\\n- CourtListener MCP lookup: `search(q='\\\"546(e)\\\" AND \\\"extraterritorial\\\" AND \\\"split\\\"', type='o')`\\n- Corpus lookup: `uv run fedcourts paths --court \\\"scotus\\\" --docket \\\"73281372\\\" --event \\\"evt-petition-disposition\\\"`\\n- Corpus lookup: `uv run fedcourts query --court scotus --event evt-petition-disposition \\\"extraterritorial application of 11 U.S.C. \\u00a7546(e)\\\"` (Failed due to syntax)\\n-",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:03.028Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c722896fd8a0b4ac",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281372\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"fedcourts query\\\", \\\"jq\\\"],\\n  \\\"helpful\\\": [\\\"metrics/statpack.md provided excellent base rates\\\", \\\"mcp_courtlistener_search was useful for finding relevant decisions\\\"],\\n  \\\"gaps\\\": [\\\"fedcourts query requires different argume",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:06.659Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8409307aa95f0631",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:08.796Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5341ffc4fff3ee93",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:12.859Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb6f5a9b031c77a0",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281372\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:42:12Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.65,\\n  \\\"big_case_rationale\\\": \\\"Hi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:17.061Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5aed065968dd873f",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:21.800Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c7334bcc36ba8bc3",
+      "query": "{\"strategic_intent\": \"Finalizing the prediction files and concluding the task.\", \"title\": \"Finalizing Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:42:24.852Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281372",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281633",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition/BIO/QP text — the petition appendix even included the full Second Circuit opinion, so no document retrieval was needed",
+    "Per-fee-class grant rates in statpack.json (paid vs IFP) — a much better anchor than the blended rate",
+    "Snapshot's ProceedingsandOrder list — extensions, amici, distribution date all legible"
+  ],
+  "gaps": [
+    "fedcourts query by --citation returned nothing for a heavily-cited SCOTUS precedent (447 U.S. 557); a topic/issue-area filter or full-text QP search over resolved cert petitions would retrieve genuinely similar priors",
+    "The prompt's 'Segment base rate by salience band' table is not present in the committed statpack, so the described salience-band anchor was unavailable",
+    "No cut in the statpack for cert-stage amicus count or interlocutory posture — the two strongest case-specific signals here had to be weighed without corpus numbers"
+  ],
+  "notes": "Corpus query cost ~110MB of ranged reads for zero rows; base rates came entirely from the committed statpack."
+}

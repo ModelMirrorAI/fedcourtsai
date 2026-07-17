@@ -1,0 +1,310 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "271736841029ad8d",
+      "query": "{\"strategic_intent\": \"Read the prompt instructions and agent configurations to understand the prediction task.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:20.431Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:22.516Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:22.516Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:26.009Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3cf8ded1d3754e78",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73281642\" --event \"evt-petition-disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:29.269Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "684aaee674a983ea",
+      "query": "ls -la data/cases/scotus/73281642/ && ls -la data/cases/scotus/73281642/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:33.244Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ab282cc790012acf",
+      "query": "cat data/cases/scotus/73281642/record/context.json && cat data/cases/scotus/73281642/events/evt-petition-disposition/event.yaml && ls -la data/cases/scotus/73281642/record/documents/ && ls -la data/cases/scotus/73281642/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:35.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "964775f4ca73f6cd",
+      "query": "{\"strategic_intent\": \"Read the snapshot and documents for this case (scotus/73281642) to formulate a prediction.\", \"title\": \"Analyze the case file\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:38.414Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "2244d1da291dea97",
+      "query": "cat data/cases/scotus/73281642/record/documents/documents.json && jq -r '.entries[] | \"\\(.date_filed): \\(.description)\"' data/cases/scotus/73281642/record/snapshots/2026-07-16.json | tail -n 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:40.951Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c88c48160361b23e",
+      "query": "head -n 20 data/cases/scotus/73281642/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:43.598Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fc184e24ea2cf02b",
+      "query": "jq 'keys' data/cases/scotus/73281642/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:45.924Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c14274962fcaef4a",
+      "query": "jq -r '.ProceedingsandOrder[] | \"\\(.Date): \\(.Text)\"' data/cases/scotus/73281642/record/snapshots/2026-07-16.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:48.035Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dfbac9f2107bc218",
+      "query": "cat data/cases/scotus/73281642/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:51.161Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "25030b3f0d94bc67",
+      "query": "uv run fedcourts query \"Takings Clause police power exception damage to innocent property law enforcement raid\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:49:55.813Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:00.048Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0683ab3db532fd4d",
+      "query": "\"Amy Hadley v. City of South Bend\" certiorari Takings Clause",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:17.575Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "3a2a92e45c9060a6",
+      "query": "\"police power\" AND \"Takings Clause\" AND (\"Lech\" OR \"Baker\" OR \"Hadley\" OR \"innocent\")",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:21.787Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "fc2e496a26b25dda",
+      "query": "\"Lech v. Jackson\" cert denied Supreme Court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:32.979Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "966cb19325e91758",
+      "query": "\"Baker v. City of McKinney\" cert denied Supreme Court",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:50.484Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:56.900Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "096661320fc58aaa",
+      "query": "cat metrics/statpack.md | grep -A 10 \"salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:50:59.676Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "74743d97b68ce208",
+      "query": "grep -i \"salience\" metrics/statpack.md -A 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:02.224Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ccfade420e6d0a0d",
+      "query": "head -n 50 metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:04.132Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a98b7f8ed6648d40",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:06.775Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2044bd98d6860344",
+      "query": "head -n 50 data/cases/scotus/73281642/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:13.515Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "14ba9991bc3ad049",
+      "query": "grep -i \"vehicle\" data/cases/scotus/73281642/record/documents/brief-in-opposition.txt -B 2 -A 2 | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:15.806Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "85f0b84badfb1dba",
+      "query": "grep -i \"The Circumstances of this Case Present a Poor Vehicle for Review\" data/cases/scotus/73281642/record/documents/brief-in-opposition.txt -A 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:18.520Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5432e001a0de1a23",
+      "query": "grep \"Vehicle for Review\" data/cases/scotus/73281642/record/documents/brief-in-opposition.txt -A 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:20.473Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "585f00ed0ad7dff1",
+      "query": "mkdir -p data/cases/scotus/73281642/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:27.227Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c388284f6c629909",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281642\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-16.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.70,\\n  \\\"predicted_disposition\\\": \\\"granted\\\",\\n  \\\"big_case_score\\\": 0.8,\\n  \\\"big_case_rationale\\\": \\\"High-profile Taking",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:30.675Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "57b6f5f2d16efa49",
+      "query": "{\"content\": \"# Reasoning for Petition Disposition in scotus/73281642 (Hadley v. City of South Bend)\\n\\n**Legal Question & Context:**\\nThe petition presents a deeply entrenched circuit split over the interpretation of the Fifth Amendment's Takings Clause: specifically, whether there is a categorical \\\"police-power exception\\\" that exempts the government from paying just compensation when law enforcement officers intentionally destroy an innocent person's property while trying to apprehend a fugit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:40.963Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3d34fd2575dd7664",
+      "query": "{\"content\": \"- Reviewed the provisioned documents (`context.json`, `event.yaml`, `snapshots/2026-07-16.json`, `brief-in-opposition.txt`, `petition.txt`, `questions-presented.txt`).\\n- `fedcourts paths --court \\\"scotus\\\" --docket \\\"73281642\\\" --event \\\"evt-petition-disposition\\\"`\\n- `google_web_search` for `\\\"Amy Hadley v. City of South Bend\\\" certiorari Takings Clause` to confirm the case status, facts, and the circuit split.\\n- `google_web_search` for `\\\"Lech v. Jackson\\\" cert denied Supreme Co",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:45.206Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6579ed1b5faa057a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281642\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"google_web_search\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"helpful\\\": \\\"Google Web Search was extremely helpful in quickly identifying the circuit split context and previous Supreme Court actions (cert denied in Lech an",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:48.667Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:53.145Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "774d1b11b8a52cdc",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281642\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"google_web_search\\\",\\n    \\\"mcp_courtlistener_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Google Web Search was extremely helpful in quickly identifying the circuit split context and previous Supreme Court actions (cert denied in ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:51:56.562Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:52:00.941Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fa9a5a6169407383",
+      "query": "{\"strategic_intent\": \"Finish the prediction task and exit.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:52:03.721Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281642",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

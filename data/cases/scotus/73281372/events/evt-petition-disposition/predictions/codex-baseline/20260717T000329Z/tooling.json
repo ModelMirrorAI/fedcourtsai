@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281372",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed corpus statpack",
+    "fedcourts query (attempted)",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition",
+    "Paid-petition and originating-circuit base rates",
+    "CourtListener MCP search"
+  ],
+  "gaps": [
+    "The remote ranged corpus backend was unreachable because its hostname did not resolve"
+  ],
+  "notes": "The statpack provided adequate aggregate calibration despite the failed case-level corpus query. Targeted MCP searches worked and were kept independent of this petition's disposition."
+}

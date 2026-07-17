@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281381",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP (search, call_endpoint: dockets, docket-entries)"
+  ],
+  "helpful": [
+    "Provisioned petition/BIO/QP text — the BIO's vehicle arguments and companion-case citations (Hadley 25-1158, Pena 25-1163) drove most of the analysis",
+    "statpack.json per-Term paid-vs-IFP grant rates (the .md tables blend fee classes)",
+    "CourtListener dockets endpoint for companion-petition pending status"
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for citation (Tyler 598 U.S. 631, Bennis 516 U.S. 442) and topic (takings) filters — a topic/citation index over the modern cert slice would make priors retrieval actually usable",
+    "No call-for-response (CFR) cut in the statpack; CFR after waiver is the strongest docket signal on paid petitions and has no committed base rate",
+    "The statpack lacks the salience-band table the prompt describes, so there was no band-level anchor for a CFR'd paid petition",
+    "CourtListener docket-entries endpoint returns nothing for scraped SCOTUS dockets, so companion dockets' distribution/relist history was unavailable"
+  ],
+  "notes": "RECAP search does not index SCOTUS dockets; the dockets REST endpoint with court=scotus + docket_number works. Corpus ranged reads were expensive (~110 MB per citation query) for zero rows."
+}

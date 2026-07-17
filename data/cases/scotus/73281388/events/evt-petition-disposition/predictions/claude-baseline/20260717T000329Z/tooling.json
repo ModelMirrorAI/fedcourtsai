@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281388",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus reads)",
+    "metrics/statpack.md + statpack.json",
+    "provisioned snapshot and filed-document text"
+  ],
+  "helpful": [
+    "Full petition and brief-in-opposition text were decisive — the BIO's preservation argument materially moved the estimate and is invisible from the snapshot alone.",
+    "Per-Term paid-vs-IFP grant rates in statpack.json gave the right fee-class anchor.",
+    "The snapshot's proceedings list cleanly surfaced the call-for-response after a waiver, the strongest docket signal."
+  ],
+  "gaps": [
+    "This statpack build has no 'Segment base rate by salience band' table (the prompt points to it) and no call-for-response cut; CFR is the dominant live signal on paid petitions and I had to calibrate its effect from general knowledge rather than corpus data.",
+    "fedcourts query returned zero rows for citation-based (Jones, Burger) and topic-based (Fourth Amendment) filters on scotus/2020s, so corpus priors contributed nothing; either the topic vocabulary or the citation index does not cover cert-stage petitions well."
+  ],
+  "notes": "Forward-mode cell with rich provisioned documents; no MCP or web retrieval needed."
+}

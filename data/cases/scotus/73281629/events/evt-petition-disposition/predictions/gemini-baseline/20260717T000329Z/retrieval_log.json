@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "ea17883bb3cfee5c",
+      "query": "{\"strategic_intent\": \"Reading prediction prompt and agent instructions.\", \"title\": \"Setup and Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:31.819Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:33.782Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:33.782Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5aad13740b42c035",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281629/events/evt-petition-disposition\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:38.324Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "586604e3932001d5",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281629\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:40.717Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b8e5fe6f2daaae88",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281629/record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:43.210Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "d9401adb01c8e4ce",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281629/record/documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:46.821Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "32603b6564e0ca0e",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281629/record/snapshots\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:46.821Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "4578218a0a51d83a",
+      "query": "{\"file_path\": \"data/cases/scotus/73281629/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:46.822Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f69ea838cb6277d8",
+      "query": "{\"file_path\": \"data/cases/scotus/73281629/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:46.823Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:46.824Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b444458127b66b31",
+      "query": "{\"file_path\": \"data/cases/scotus/73281629/record/snapshots/2026-07-16.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:49.952Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "aeea07c0a63894c6",
+      "query": "{\"end_line\": 200, \"file_path\": \"data/cases/scotus/73281629/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:49.953Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "51366432a6724c17",
+      "query": "{\"file_path\": \"data/cases/scotus/73281629/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:49.953Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8035a53ea950f477",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73281629/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:53.039Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "cb41937e130bb731",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73281629/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:53.039Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2e0dfaea189d752e",
+      "query": "uv run fedcourts query --event evt-petition-disposition \"ERISA Section 104(b)(4) circuit split disclosure of plan documents\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:46:58.351Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a927768280947fc7",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:01.579Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a11656d2ac0cf03a",
+      "query": "\"Zavislak v. Netflix\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:06.291Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:10.127Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:21.660Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "75f6f3ff1faf054b",
+      "query": "mkdir -p data/cases/scotus/73281629/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:30.757Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "14a15ad543d32f2e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281629\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-17T00:03:29Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.05,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"big_",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:39.733Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e91322ffefeb8a58",
+      "query": "{\"content\": \"# Reasoning: Mark Zavislak v. Netflix, Inc. (25-1142)\\n\\n## The Legal Question\\nThe petitioner asks whether a contract governing the administration of benefit claims is a \\\"contract ... under which the plan is established or operated\\\" within the meaning of ERISA \\u00a7 1024(b)(4), requiring its disclosure upon written request.\\n\\n## The Record\\nThe petition alleges a 9-1 circuit split, asserting the Ninth Circuit stands alone in applying an \\\"atextual information test\\\" that allows",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:39.737Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f2091ebf6d2c36f4",
+      "query": "{\"content\": \"- `uv run fedcourts query --help` to check usage.\\n- CourtListener MCP `search` for `\\\"Zavislak v. Netflix\\\"` (returned 12 results, none directly revealing the final SCOTUS outcome).\\n- Read `metrics/statpack.md` for baseline rates of SCOTUS cert petitions.\\n\", \"file_path\": \"data/cases/scotus/73281629/events/evt-petition-disposition/predictions/gemini-baseline/20260717T000329Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:39.740Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "00a8e37edc2363ef",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73281629\\\",\\n  \\\"run_id\\\": \\\"20260717T000329Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"CourtListener MCP search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"CourtListener MCP was helpful for checking related dockets and the split context.\\\",\\n    \\\"Statpack is highly useful for grounding the baseline rates.\\\"\\n  ],\\n  \\\"s",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:39.744Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d187e6963d7fdf00",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:45.010Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f1392a9ecd87059c",
+      "query": "gh --version",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:47.683Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5d878293c7b26e09",
+      "query": "gh auth status",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:50.027Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e15aa78926c054ba",
+      "query": "{\"strategic_intent\": \"Finishing the prediction task for the SCOTUS cell.\", \"summary\": \"I have read the context documents, including the petition, BIO, and statpack for baseline probabilities. Using this information, I generated the prediction, reasoning, retrieval log, and tooling log. The prediction output has been validated successfully against the schema, and I am finalizing the task.\", \"title\": \"Prediction Written and Validated\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-17T00:47:55.867Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281629",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260717T000329Z",
+  "schema_version": "1.0"
+}

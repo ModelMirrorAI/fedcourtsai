@@ -1,0 +1,6 @@
+- Reviewed the provisioned documents (`context.json`, `event.yaml`, `snapshots/2026-07-16.json`, `brief-in-opposition.txt`, `petition.txt`, `questions-presented.txt`).
+- `fedcourts paths --court "scotus" --docket "73281642" --event "evt-petition-disposition"`
+- `google_web_search` for `"Amy Hadley v. City of South Bend" certiorari Takings Clause` to confirm the case status, facts, and the circuit split.
+- `google_web_search` for `"Lech v. Jackson" cert denied Supreme Court` and `"Baker v. City of McKinney" cert denied Supreme Court` to gather precedent on the Supreme Court's prior handling of the same "police-power exception" issue, surfacing the 2024 Sotomayor/Gorsuch statement respecting the denial in *Baker*.
+- `mcp_courtlistener_search` searching for `"police power" AND "Takings Clause" AND ("Lech" OR "Baker" OR "Hadley" OR "innocent")` in `scotus` cases.
+- Consulted `metrics/statpack.md` locally via `cat` and `grep` for base rates on modern discretionary-cert petitions and originating circuit.

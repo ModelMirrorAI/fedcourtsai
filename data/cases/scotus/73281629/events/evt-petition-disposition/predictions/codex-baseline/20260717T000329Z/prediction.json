@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281629",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260717T000329Z",
+  "created_at": "2026-07-17T00:38:10Z",
+  "input_snapshot": "data/cases/scotus/73281629/record/snapshots/2026-07-16.json",
+  "granted": 0,
+  "probability": 0.14,
+  "predicted_disposition": "denied",
+  "confidence": 0.78,
+  "big_case_score": 0.49,
+  "big_case_rationale": "The dispute could affect nationwide access to health-plan administration contracts, but it presents a narrow ERISA disclosure issue with limited practical effect outside document requests.",
+  "votes": [],
+  "reasoning_doc": "reasoning.md"
+}

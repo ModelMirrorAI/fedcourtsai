@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281394",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "provisioned snapshot + filed-document texts"
+  ],
+  "helpful": [
+    "Provisioned questions-presented.txt, petition.txt, and brief-in-opposition.txt were decisive — the BIO's finality and alternative-holding arguments drove the probability more than any base rate.",
+    "statpack relist-count and CVSG cuts gave usable quantitative anchors."
+  ],
+  "gaps": [
+    "fedcourts query returned zero rows for citation filters on the Miller/Montgomery/Jones line (both calls); citation-linked retrieval seems not to cover modern cert petitions, so no comparable resolved priors could be pulled.",
+    "The committed statpack.md lacks the per-Term salience-band table the prompt says to anchor on; fee-class (paid vs IFP) grant rates are also only in statpack.json, not the committed markdown.",
+    "A signal cut for petitioner identity (state/US/private, SG-represented) would sharpen exactly the adjustment this case turns on."
+  ],
+  "notes": "Forward cell; snapshot one day old and CourtListener had no record of the docket, so provisioned inputs were effectively the retrieval ceiling in practice."
+}

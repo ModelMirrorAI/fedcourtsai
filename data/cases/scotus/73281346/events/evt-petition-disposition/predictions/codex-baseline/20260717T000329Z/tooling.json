@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281346",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (attempted; remote unavailable)",
+    "CourtListener MCP search and endpoint retrieval",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The complete BIO directly tested whether the petition's questions were actually implicated.",
+    "The committed statpack supplied paid-petition, Tenth Circuit, relist, and CVSG calibration anchors.",
+    "CourtListener MCP exposed narrow post-Barnes circuit context without querying the petition's disposition."
+  ],
+  "gaps": [
+    "The corpus-prior remote was unreachable because DNS resolution failed.",
+    "The provisioned petition extraction was truncated within the district-court appendix, although the merits petition and appellate opinion were available."
+  ],
+  "notes": "The corpus query failed before any ranged-read statistics or prior rows were produced. The forecast therefore relied on the provisioned record, committed aggregate base rates, and CourtListener doctrine research."
+}

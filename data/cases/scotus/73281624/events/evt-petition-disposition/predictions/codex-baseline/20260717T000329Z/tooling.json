@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281624",
+  "run_id": "20260717T000329Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition",
+    "Term- and fee-class-specific cert base rates",
+    "CourtListener search for potentially conflicting appellate authority"
+  ],
+  "gaps": [
+    "The ranged corpus store was unreachable, so the query CLI returned no historical priors"
+  ],
+  "notes": "The complete provisioned filings and committed statpack were sufficient to finish cleanly. Corpus queries were attempted but failed before any rows or ranged-read statistics were returned."
+}
