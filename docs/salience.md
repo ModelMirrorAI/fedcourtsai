@@ -172,7 +172,7 @@ both hang on. It is a **per-conference** config value, and raising it **deepens 
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine long-conference
 release fits the ~$10K envelope (~$5K inference at the measured
-~$26/fully-tournamented-case): **~150 per regular conference and ~200 for the long
+~$25/fully-tournamented-case): **~150 per regular conference and ~200 for the long
 conference** (which clears the summer backlog of 1,000+ petitions at once). A
 per-conference cap
 matches the Court's cadence and scopes replay to one conference's candidate pool;
