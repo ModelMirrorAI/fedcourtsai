@@ -514,6 +514,23 @@ jobs:
           effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
+          # The workspace-write sandbox denies network to SPAWNED commands by
+          # default (the CLI's own MCP/model traffic is unsandboxed), which
+          # silently cut codex off from the localhost corpus service every
+          # other engine reaches. Subprocess network is the accepted
+          # cross-engine posture — claude and gemini run unsandboxed, the
+          # agent env is guard-asserted credential-free, and retrieval is
+          # logged — so grant it here rather than leave codex the accidental
+          # odd one out. The grant also makes the action's unauthenticated
+          # localhost model proxy reachable by spawned commands — a
+          # quota-spend surface, not a key exposure, and the same class the
+          # agent already controls through its own turn loop. The CLI version
+          # is pinned (the action installs whatever npm serves otherwise) so
+          # sandbox semantics change only on an explicit maintainer bump —
+          # keep it in lockstep with the evaluate step and run-backtest's npm
+          # pin of the same CLI.
+          codex-version: "0.144.1"
+          codex-args: '["-c","sandbox_workspace_write.network_access=true"]'
 
       # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
       # version is exactly pinned (transitive dependencies resolve fresh at every
