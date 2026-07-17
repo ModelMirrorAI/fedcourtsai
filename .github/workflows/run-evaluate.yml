@@ -377,9 +377,7 @@ jobs:
             Do not commit, push, or open a PR — the workflow handles git. You run
             headless with no interactive input; if you are blocked, record it in
             flags.json and explain it in evaluation.md, then finish — do not wait
-            for a reply. (A brief `gh issue comment` on the triggering issue
-            (#${{ github.event.issue.number }}) is a welcome extra where your
-            engine has GitHub access.)
+            for a reply.
           # The model comes from the plan job's matrix (registry override or the
           # engine's predict/evaluate default in fedcourtsai.pricing) — repo
           # config, not user input.
@@ -435,9 +433,7 @@ jobs:
             Do not commit, push, or open a PR — the workflow handles git. You run
             headless with no interactive input; if you are blocked, record it in
             flags.json and explain it in evaluation.md, then finish — do not wait
-            for a reply. (A brief `gh issue comment` on the triggering issue
-            (#${{ github.event.issue.number }}) is a welcome extra where your
-            engine has GitHub access.)
+            for a reply.
           model: ${{ matrix.model }}
           effort: high
           sandbox: workspace-write
@@ -529,9 +525,7 @@ jobs:
             Do not commit, push, or open a PR — the workflow handles git. You run
             headless with no interactive input; if you are blocked, record it in
             flags.json and explain it in evaluation.md, then finish — do not wait
-            for a reply. (A brief `gh issue comment` on the triggering issue
-            (#${{ github.event.issue.number }}) is a welcome extra where your
-            engine has GitHub access.)
+            for a reply.
         run: |
           set -euo pipefail
           gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json
