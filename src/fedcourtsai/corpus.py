@@ -382,7 +382,11 @@ class CaseDocument(BaseModel):
 
     case_id: str
     kind: str = Field(description="petition | brief-in-opposition | questions-presented | …")
-    url: str = Field(description="The supremecourt.gov DocumentUrl fetched (or the source doc's)")
+    url: str = Field(
+        description="The supremecourt.gov DocumentUrl fetched; for a combined "
+        "brief-in-opposition (multiple respondents) the '|'-joined set of fetched "
+        "URLs, an idempotency key rather than a single fetchable link"
+    )
     entry_date: str | None = Field(
         default=None, description="The proceedings entry date the link rode on, verbatim"
     )

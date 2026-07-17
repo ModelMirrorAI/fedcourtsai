@@ -142,23 +142,153 @@ def test_select_documents_excludes_non_opposition_briefs(entry_text: str) -> Non
     assert _bio_url(entry_text) is None
 
 
-def test_select_documents_latest_bio_supersedes() -> None:
+def test_select_documents_returns_every_distinct_bio() -> None:
+    # A multi-respondent petition draws a BIO from each respondent; all distinct
+    # ones are returned (deduped by URL), in docket order — taking only the last
+    # silently dropped the lead respondent's brief (issue #732, scotus/73281002).
     payload = {
         "ProceedingsandOrder": [
-            _PAYLOAD["ProceedingsandOrder"][1],
             {
-                "Date": "Jul 05 2026",
-                "Text": "Brief of respondents in opposition filed. (Corrected)",
+                "Date": "May 29 2026",
+                "Text": "Brief of respondent Luzerne County in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/bio2.pdf"}
+                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                ],
+            },
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Brief of respondent Northampton County in opposition filed. VIDED.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                ],
+            },
+            {  # a duplicate link (same URL) is not double-counted
+                "Date": "Jun 01 2026",
+                "Text": "Brief of respondent Northampton County in opposition filed. VIDED.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
                 ],
             },
         ]
     }
     refs = select_documents(payload)
     assert [(r.kind, r.url) for r in refs] == [
-        (KIND_BRIEF_IN_OPPOSITION, "https://example/bio2.pdf")
+        (KIND_BRIEF_IN_OPPOSITION, "https://example/lead.pdf"),
+        (KIND_BRIEF_IN_OPPOSITION, "https://example/second.pdf"),
     ]
+
+
+def test_fetch_case_documents_combines_multiple_bios() -> None:
+    # Two respondents' opposition briefs combine into the one brief-in-opposition
+    # document, each under its own header, so the cell reads all the opposition.
+    payload = {
+        "ProceedingsandOrder": [
+            _PAYLOAD["ProceedingsandOrder"][0],  # petition
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                ],
+            },
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Brief of respondent Northampton County in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                ],
+            },
+        ]
+    }
+    served = {
+        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
+        "https://example/lead.pdf": _pdf("Lead respondents say deny."),
+        "https://example/second.pdf": _pdf("Northampton also says deny."),
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    bios = [d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION]
+    assert len(bios) == 1  # combined into one document
+    assert "Lead respondents say deny." in bios[0].text
+    assert "Northampton also says deny." in bios[0].text
+    # Each block is headed by its docket entry text, so the respondents are named.
+    assert "Bette Eakin" in bios[0].text and "Northampton County" in bios[0].text
+    # Idempotency key is the canonical URL set, so an unchanged set is skipped.
+    assert bios[0].url == "https://example/lead.pdf|https://example/second.pdf"
+    stored = {KIND_BRIEF_IN_OPPOSITION: bios[0].url, KIND_PETITION: "https://example/petition.pdf"}
+    with _doc_client(served) as client:
+        again = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls=stored,
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert [d.kind for d in again] == []  # nothing changed → nothing re-fetched
+
+
+def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:
+    # A brief that 404s this poll (the rolling-window "missing document is
+    # expected" case) must not be lost forever: the stored key records only the
+    # briefs actually fetched, so the next poll re-fetches and self-heals.
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jun 01 2026",
+                "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                ],
+            },
+            {
+                "Date": "Jun 02 2026",
+                "Text": "Brief of respondent Northampton County in opposition filed.",
+                "Links": [
+                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                ],
+            },
+        ]
+    }
+    # First poll: only the lead brief is fetchable.
+    with _doc_client({"https://example/lead.pdf": _pdf("Lead says deny.")}) as client:
+        first = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    bio1 = next(d for d in first if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio1.url == "https://example/lead.pdf"  # keyed on what was fetched
+    assert "Northampton" not in bio1.text
+
+    # Next poll: the second brief is now available. The partial stored key !=
+    # the selected set, so the BIO re-fetches and picks up the missing brief.
+    served = {
+        "https://example/lead.pdf": _pdf("Lead says deny."),
+        "https://example/second.pdf": _pdf("Northampton says deny too."),
+    }
+    with _doc_client(served) as client:
+        second = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={KIND_BRIEF_IN_OPPOSITION: bio1.url},
+            char_cap=10_000,
+            today=date(2026, 7, 11),
+        )
+    bio2 = next(d for d in second if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio2.url == "https://example/lead.pdf|https://example/second.pdf"
+    assert "Northampton says deny too." in bio2.text
 
 
 # --- extraction -------------------------------------------------------------------
