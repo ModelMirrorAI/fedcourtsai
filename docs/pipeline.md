@@ -262,6 +262,23 @@ multiplied by the registry and its events to produce one matrix cell per
 predictor/evaluator × case × event — which `run:predict` and `run:evaluate`
 collect into one PR for the run.
 
+`predictors` is also optional per case and narrows the `run:predict` fan-out to
+the named registry ids:
+
+    ```json
+    {"court": "scotus", "docket": 24001, "predictors": ["codex-baseline"]}
+    ```
+
+This is the **engine backfill** path: when one engine's cells failed (a quota
+or provider outage) while the others delivered, re-firing the full registry
+would re-run — and duplicate the committed predictions of — the healthy
+engines: only resolved events are excluded (via default open-event
+resolution), so an open event re-mints cells for every enabled predictor
+regardless of which engines already committed a prediction. Naming an id that is
+not an enabled predictor fails the plan job rather than silently skipping the
+engine. `run:evaluate` ignores the field: an evaluator always scores every
+committed prediction for its event.
+
 ## Unrecorded outcomes: what pull's outcome detection leaves behind
 
 `run-pull` records `outcome.json` itself only when a decided docket is

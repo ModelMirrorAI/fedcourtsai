@@ -104,6 +104,44 @@ def test_parse_cases_accepts_list_of_objects() -> None:
     ]
 
 
+def test_parse_cases_reads_optional_predictors() -> None:
+    body = """Backfill the failed engine.
+
+```json
+[
+  {"court": "scotus", "docket": 1, "events": ["evt-a"], "predictors": ["codex-baseline"]},
+  {"court": "scotus", "docket": 2, "events": ["evt-a"]}
+]
+```
+"""
+    assert parse_cases(body) == [
+        CaseRequest("scotus", 1, ("evt-a",), ("codex-baseline",)),
+        CaseRequest("scotus", 2, ("evt-a",)),
+    ]
+
+
+def test_predict_matrix_narrows_to_requested_predictors() -> None:
+    cases = [
+        CaseRequest("scotus", 1, ("evt-a",), predictors=("codex-baseline",)),
+        CaseRequest("scotus", 2, ("evt-a",)),
+    ]
+    m = predict_matrix(PREDICTORS, cases, "RID")
+    cells = {(row["docket"], row["predictor_id"]) for row in m["include"]}
+    # Docket 1 mints only the requested engine's cell; docket 2 fans out fully.
+    assert cells == {
+        (1, "codex-baseline"),
+        (2, "claude-baseline"),
+        (2, "codex-baseline"),
+        (2, "gemini-baseline"),
+    }
+
+
+def test_predict_matrix_rejects_unknown_predictor_ids() -> None:
+    cases = [CaseRequest("scotus", 1, ("evt-a",), predictors=("codex-basline",))]
+    with pytest.raises(ValueError, match="codex-basline"):
+        predict_matrix(PREDICTORS, cases, "RID")
+
+
 def test_parse_cases_requires_a_json_block() -> None:
     with pytest.raises(ValueError, match="No ```json"):
         parse_cases("No code block here.")

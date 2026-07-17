@@ -12,6 +12,7 @@ import os
 import tempfile
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
@@ -2785,7 +2786,7 @@ def _resolve_cases(
 ) -> list[CaseRequest]:
     """Fill in each case's default events when the request listed none."""
     return [
-        c if c.events else CaseRequest(c.court, c.docket, tuple(default_events(c.court, c.docket)))
+        c if c.events else replace(c, events=tuple(default_events(c.court, c.docket)))
         for c in cases
     ]
 
