@@ -1,0 +1,11 @@
+{
+  "actual_disposition": "granted",
+  "actual_granted": 1,
+  "case_id": "scotus/18703714",
+  "disposition_basis": "standard",
+  "event_id": "evt-petition-disposition",
+  "resolved_at": "2020-07-02",
+  "schema_version": "1.0",
+  "source": null,
+  "votes": []
+}

@@ -1,0 +1,12 @@
+case_id: scotus/66727853
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-12-04'
+resolved: true
+schema_version: '1.0'
+title: Connecticut Fine Wine and Spirits, LLC, dba Total Wine & More, Petitioner v.
+  Michelle H. Seagull, Commissioner, Connecticut Department of Consumer Protection,
+  et al.

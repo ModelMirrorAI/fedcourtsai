@@ -1,0 +1,11 @@
+case_id: scotus/17134483
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-11-15'
+resolved: true
+schema_version: '1.0'
+title: William P. Barr, Attorney General, et al., Petitioners v. American Association
+  of Political Consultants, Inc., et al.

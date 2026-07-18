@@ -1,0 +1,11 @@
+case_id: scotus/17151336
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-11-18'
+resolved: true
+schema_version: '1.0'
+title: Donald J. Trump, Petitioner v. Cyrus R. Vance, Jr., in His Official Capacity
+  as District Attorney of the County of New York, et al.

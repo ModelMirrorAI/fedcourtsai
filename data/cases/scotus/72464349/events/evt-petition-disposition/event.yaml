@@ -1,0 +1,10 @@
+case_id: scotus/72464349
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-12-31'
+resolved: true
+schema_version: '1.0'
+title: Federal Trade Commission, Petitioner v. Credit Bureau Center, LLC, et al.

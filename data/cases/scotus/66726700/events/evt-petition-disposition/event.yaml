@@ -1,0 +1,11 @@
+case_id: scotus/66726700
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-12-11'
+resolved: true
+schema_version: '1.0'
+title: Kayla Butts, Individually and on Behalf of Her Daughter, A. F., a Minor, Petitioner
+  v. United States

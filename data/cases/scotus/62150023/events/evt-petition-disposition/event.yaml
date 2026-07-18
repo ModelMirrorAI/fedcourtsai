@@ -1,0 +1,11 @@
+case_id: scotus/62150023
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-01-21'
+resolved: true
+schema_version: '1.0'
+title: Tae D. Johnson, Acting Director of U.S. Immigration and Customs Enforcement,
+  et al., Petitioners v. Antonio Arteaga-Martinez

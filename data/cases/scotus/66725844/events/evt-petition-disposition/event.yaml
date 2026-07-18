@@ -1,0 +1,11 @@
+case_id: scotus/66725844
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-09-17'
+resolved: true
+schema_version: '1.0'
+title: St. James School, Petitioner v. Darryl Biel, as Personal Representative of
+  the Estate of Kristen Biel
