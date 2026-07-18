@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500233",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot + petition text"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt made the vehicle analysis possible without any fetching",
+    "Statpack relist-count and CVSG cuts gave a direct anchor for a zero-relist petition",
+    "The snapshot's ProceedingsandOrder entries (waiver of response, conference distribution) carried the strongest deny signals"
+  ],
+  "gaps": [
+    "The statpack referenced in the prompt as carrying a 'Segment base rate by salience band' table does not include that section in the committed version, so the salience-band anchor could not be used",
+    "A per-state-court cut with more Wisconsin rows would help; the originating-court table covers few state courts",
+    "A statpack cut keyed on 'response waived, no CFR' status would capture what is arguably the single strongest pre-conference deny signal"
+  ],
+  "notes": "Forward cell with a same-day snapshot; no MCP retrieval was needed. One corpus query sufficed to profile recent grants."
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500242",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint access"
+  ],
+  "helpful": [
+    "The provisioned petition included both lower-court opinions.",
+    "The statpack supplied fee-class, circuit, CVSG, and relist calibration.",
+    "CourtListener MCP made it possible to compare the asserted circuit authorities without searching this case's disposition."
+  ],
+  "gaps": [
+    "The current statpack lacked the salience-band table referenced by the predictor prompt.",
+    "Passage-level opinion retrieval would avoid oversized full-opinion payloads."
+  ],
+  "notes": "Corpus queries were useful mainly for procedural comparators because the available structured filters do not support subject-matter similarity for SCOTUS rows."
+}

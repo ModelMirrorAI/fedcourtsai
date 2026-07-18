@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500232",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md (committed base rates)",
+    "provisioned snapshot + petition/QP document text"
+  ],
+  "helpful": [
+    "statpack relist/CVSG/circuit cuts — the 0-relist bucket rate anchored the forecast",
+    "provisioned petition.txt — full text let me check the split claim and the Rule 58 argument directly"
+  ],
+  "gaps": [
+    "fedcourts query --era modern returned zero rows on the scotus slice while unfiltered query returned rows; unclear which era labels the slice actually carries — an `--era` value listing (or a note: line like the sparse filters print) would save a wasted call",
+    "no topical/issue similarity surface for SCOTUS priors (--topic is circuit-only), so 'similar petitions' retrieval degenerates to recency; an issue-keyword filter would make query useful for cert cells",
+    "statpack.md carried no 'Segment base rate by salience band' table this run despite the prompt pointing to it as the primary anchor for selected petitions"
+  ],
+  "notes": "Provisioned inputs were fully sufficient for this cell: a pro se, fact-bound Rule 4(a)(5) petition with no BIO and a first distribution needed no live retrieval. The two corpus queries together transferred ~226MB of ranged reads for little signal — fine for one cell, but a cheaper priors path for SCOTUS would help."
+}

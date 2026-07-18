@@ -1,0 +1,246 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "params_digest": "e02fc7fa758a9488",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,260p' AGENTS.md && sed -n '1,320p' .github/prompts/predict.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "e4db3ed1a152dfa3",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:13.669Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "507912980fa3d32d",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,320p' schemas/prediction.schema.json && sed -n '1,280p' schemas/agent_tooling.schema.json && sed -n '1,260p' schemas/agent_flags.schema.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "9d291929017b8898",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:16.759Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "96306b52c466add1",
+      "query": "const r = await tools.exec_command({\"cmd\":\"uv run fedcourts paths --court scotus --docket 73500217 --event evt-petition-disposition --role predictor && rg --files data/cases/scotus/73500217/events/evt-petition-disposition | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "a82a62aa5c2e9366",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:20.966Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "4ce34fea4a64f098",
+      "query": "const results = await Promise.all([\n  tools.exec_command({\"cmd\":\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts paths --court scotus --docket 73500217 --event evt-petition-disposition --role predictor\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":10000}),\n  tools.exec_command({\"cmd\":\"rg --files data/cases/scotus/73500217/events/evt-petition-disposition | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_t",
+      "result_digest": "95994b76e2316e1a",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:26.389Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "72a7111cbca03dbf",
+      "query": "const r = await tools.exec_command({\"cmd\":\"find data/cases/scotus/73500217 -maxdepth 6 -type f -print | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "3da0ef33e445555f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:29.599Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "338eb5b2ab6224e5",
+      "query": "const r = await tools.exec_command({\"cmd\":\"wc -l -c data/cases/scotus/73500217/events/evt-petition-disposition/event.yaml data/cases/scotus/73500217/record/snapshots/2026-07-18.json data/cases/scotus/73500217/record/documents/documents.json data/cases/scotus/73500217/record/documents/questions-presented.txt data/cases/scotus/73500217/record/documents/petition.txt data/cases/scotus/73500217/record/context.json && sed -n '1,240p' data/cases/scotus/73500217/events/evt-petition-disposition/event.yam",
+      "result_digest": "7cdd8832723c83e7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:35.388Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "040003764b9960f3",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '1,460p' data/cases/scotus/73500217/record/documents/petition.txt\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "676faf3a83d80c2f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:37.790Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "94b54e1eb725f6d5",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '461,920p' data/cases/scotus/73500217/record/documents/petition.txt\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "4cd8c20660397312",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:41.363Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "5a5377efdadce433",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '921,1360p' data/cases/scotus/73500217/record/documents/petition.txt && sed -n '1,80p' data/cases/scotus/73500217/record/context.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":30000});\ntext(r.output);",
+      "result_digest": "6503d41bb50eb025",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:43.956Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "3f1447f9431f5573",
+      "query": "const r = await tools.exec_command({\"cmd\":\"rg -n \\\"Modern discretionary-cert|Segment base rate|relist|CVSG|Ninth|2024|2023|2025|paid|Paid\\\" metrics/statpack.md | head -n 160\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "166ba0664466c925",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:52.522Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "1508c8050b699759",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '45,165p' metrics/statpack.md\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "3a965d6d15d54df4",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:55.769Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "5005aa1913dc1c35",
+      "query": "const r = await tools.exec_command({\"cmd\":\"sed -n '165,280p' metrics/statpack.md && rg -n 'salience|band|fee' metrics/statpack.md metrics/statpack.json | head -n 100\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "bd013555a8a25ad7",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:11:58.681Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "6e0588ecf9f7122e",
+      "query": "const r = await tools.exec_command({\"cmd\":\"jq '.scotus_cert_by_term // .cert_by_term // keys' metrics/statpack.json | head -n 120\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":12000});\ntext(r.output);",
+      "result_digest": "a4836edb0e31fe48",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:01.659Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "acaa85001e19db66",
+      "query": "const r = await tools.exec_command({\"cmd\":\"jq '.sections | keys' metrics/statpack.json && jq '.terms | keys' metrics/statpack.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":12000});\ntext(r.output);",
+      "result_digest": "71f787147f5c9029",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:03.882Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "146ef18e00b918a4",
+      "query": "const r = await tools.exec_command({\"cmd\":\"jq '.terms[] | select(.term == \\\"2025\\\")' metrics/statpack.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "272405f7ce09c6ad",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:06.138Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "67a2a2abc8cf79e9",
+      "query": "const r = await tools.exec_command({\"cmd\":\"jq '.terms[0]' metrics/statpack.json\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "417c28f82232824f",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:09.323Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "8983fb73703d379e",
+      "query": "const r = await tools.exec_command({\"cmd\":\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts query --help\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":20000});\ntext(r.output);",
+      "result_digest": "7674c18f7a40c819",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:13.532Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "b4a4177c6be0b201",
+      "query": "const matches = ALL_TOOLS.filter(x => /courtlistener|citation|search/i.test(x.name+\" \"+x.description));\ntext(matches);",
+      "result_digest": "aacd8bb325fb0ed5",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:17.878Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "daeb7341ab35c7b9",
+      "query": "const result = await tools.mcp__courtlistener__search({\n  type: \"o\",\n  q: \"\\\"21 U.S.C. \u00a7 360bbb-3\\\" \\\"private right of action\\\"\",\n  filed_before: \"2026-07-18\",\n  order_by: \"score desc\",\n  num_results: 10,\n  fields: [\"caseName\",\"court_citation_string\",\"dateFiled\",\"citation\",\"absolute_url\",\"snippet\"]\n});\nfor (const c of (result.content ?? [])) {\n  if (c.type === \"image\") image(c);\n  else if (c.type === \"text\") text(c.text);\n}",
+      "result_digest": "9a33761461f5db83",
+      "retrieved_doc_date": "2025-10-06",
+      "timestamp": "2026-07-18T07:12:23.304Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "3ff3e8c2c2fd4bf3",
+      "query": "const result = await tools.mcp__courtlistener__get_endpoint_item({\n  endpoint_id: \"clusters\",\n  item_id: 10371624,\n  fields: [\"id\",\"case_name\",\"date_filed\",\"citation_count\",\"precedential_status\",\"opinions\",\"absolute_url\"]\n});\nfor (const c of (result.content ?? [])) {\n  if (c.type === \"image\") image(c);\n  else if (c.type === \"text\") text(c.text);\n}",
+      "result_digest": "d9578b19705690ce",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:29.139Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "ccdd5d5af2bab515",
+      "query": "const result = await tools.mcp__courtlistener__get_endpoint_item({\n  endpoint_id: \"clusters\",\n  item_id: 10371624,\n  fields: [\"id\",\"case_name\",\"date_filed\",\"citation_count\",\"precedential_status\",\"sub_opinions\",\"absolute_url\",\"summary\"]\n});\nfor (const c of (result.content ?? [])) {\n  if (c.type === \"image\") image(c);\n  else if (c.type === \"text\") text(c.text);\n}",
+      "result_digest": "3e41595fc458e604",
+      "retrieved_doc_date": "2025-04-02",
+      "timestamp": "2026-07-18T07:12:33.090Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "6b24bf4c2ad872df",
+      "query": "const result = await tools.mcp__courtlistener__get_endpoint_item({\n  endpoint_id: \"opinions\",\n  item_id: 10838212,\n  fields: [\"id\",\"type\",\"html_with_citations\"]\n});\nfor (const c of (result.content ?? [])) {\n  if (c.type === \"image\") image(c);\n  else if (c.type === \"text\") text(c.text);\n}",
+      "result_digest": "c48121cc86afcf40",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:36.108Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "75ffe8c249504fe4",
+      "query": "const result = await tools.mcp__courtlistener__search({\n  type: \"o\",\n  q: \"\\\"option to accept or refuse\\\" \\\"private right of action\\\" vaccine\",\n  filed_before: \"2026-07-18\",\n  order_by: \"score desc\",\n  num_results: 20,\n  fields: [\"caseName\",\"court_citation_string\",\"dateFiled\",\"citation\",\"absolute_url\"]\n});\nfor (const c of (result.content ?? [])) {\n  if (c.type === \"image\") image(c);\n  else if (c.type === \"text\") text(c.text);\n}",
+      "result_digest": "ed43b7aff46567a2",
+      "retrieved_doc_date": "2025-04-02",
+      "timestamp": "2026-07-18T07:12:40.280Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "fa869626bc8e7b32",
+      "query": "const result = await tools.mcp__courtlistener__get_endpoint_item({\n  endpoint_id: \"clusters\",\n  item_id: 10691522,\n  fields: [\"id\",\"case_name\",\"date_filed\",\"citation_count\",\"precedential_status\",\"sub_opinions\",\"absolute_url\",\"summary\"]\n});\nfor (const c of (result.content ?? [])) {\n  if (c.type === \"image\") image(c);\n  else if (c.type === \"text\") text(c.text);\n}",
+      "result_digest": "d7893da4ca6027fc",
+      "retrieved_doc_date": "2025-10-06",
+      "timestamp": "2026-07-18T07:12:44.483Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "dcf3bcb67937cdc0",
+      "query": "const result = await tools.mcp__courtlistener__get_endpoint_item({\n  endpoint_id: \"opinions\",\n  item_id: 11158110,\n  fields: [\"id\",\"type\",\"html_with_citations\"]\n});\nfor (const c of (result.content ?? [])) {\n  if (c.type === \"image\") image(c);\n  else if (c.type === \"text\") text(c.text);\n}",
+      "result_digest": "a244e81c381ada86",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:12:49.774Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "3761a8e19f23a253",
+      "query": "const r = await tools.exec_command({\"cmd\":\"date -u +%Y-%m-%dT%H:%M:%SZ\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":1000});\ntext(r.output);",
+      "result_digest": "74239d499a39f486",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:13:19.524Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "f4cea3139894d124",
+      "query": "const r = await tools.exec_command({\"cmd\":\"mkdir -p data/cases/scotus/73500217/events/evt-petition-disposition/predictions/codex-baseline/20260718T064904Z\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":10000,\"max_output_tokens\":1000});\ntext(r.output);",
+      "result_digest": "272405f7ce09c6ad",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:13:25.923Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "94b1950f319c0533",
+      "query": "const patch = \"*** Begin Patch\\n*** Add File: /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/events/evt-petition-disposition/predictions/codex-baseline/20260718T064904Z/prediction.json\\n+{\\n+  \\\"schema_version\\\": \\\"1.0\\\",\\n+  \\\"case_id\\\": \\\"scotus/73500217\\\",\\n+  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n+  \\\"predictor_id\\\": \\\"codex-baseline\\\",\\n+  \\\"engine\\\": \\\"codex\\\",\\n+  \\\"model\\\": \\\"gpt-5.6-sol\\\",\\n+  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n+  \\\"created_at\\\": \\\"2026-07-1",
+      "result_digest": "5e018b5943ed7d22",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:14:13.633Z",
+      "tool": "exec"
+    },
+    {
+      "params_digest": "16f6ec20f8652a24",
+      "query": "const results = await Promise.all([\n  tools.exec_command({\"cmd\":\"UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts validate data\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms\":30000,\"max_output_tokens\":20000}),\n  tools.exec_command({\"cmd\":\"git status --short && find data/cases/scotus/73500217/events/evt-petition-disposition/predictions/codex-baseline/20260718T064904Z -maxdepth 1 -type f -printf '%f\\\\n' | sort\",\"workdir\":\"/home/runner/work/fedcourtsai/fedcourtsai\",\"yield_time_ms",
+      "result_digest": "89891a35021cf2b0",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:14:21.407Z",
+      "tool": "exec"
+    }
+  ],
+  "case_id": "scotus/73500217",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500245",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "provisioned petition text",
+    "provisioned questions-presented text"
+  ],
+  "helpful": [
+    "Full petition text under record/documents/ made the merits and preservation-problem assessment possible without any live retrieval",
+    "Per-fee-class grant rates in statpack.json (paid vs IFP) gave a much better anchor than the whole-docket rate",
+    "Relist-count and CVSG cuts in statpack.md mapped directly onto this case's signals"
+  ],
+  "gaps": [
+    "The 'Segment base rate by salience band' table referenced in the prompt is not present in the committed statpack.md, so I could not anchor on the salience-gate slice the evaluator scores against",
+    "fedcourts query has no topic/subject filter usable on SCOTUS rows, so similar-petition retrieval (e.g. attorney-discipline cases) falls back to generic era ranking; a QP-text or issue-area similarity filter would help",
+    "A signal for 'respondent waived response / CFR issued' as a statpack cut would quantify what is now a qualitative adjustment"
+  ],
+  "notes": "Straightforward cell: forward mode, complete provisioning, clear-deny profile; one corpus query sufficed."
+}

@@ -1,0 +1,11 @@
+case_id: scotus/73500222
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-05-28'
+resolved: false
+schema_version: '1.0'
+title: Kevin Scott Karsjens, Individually and on Behalf of All Others Similarly Situated,
+  et al. v. Shireen Gandhi, et al.

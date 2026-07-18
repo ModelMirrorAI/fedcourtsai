@@ -1,0 +1,4 @@
+- Read provisioned documents: `questions-presented.txt`, `petition.txt`, `event.yaml`, `context.json`, `documents.json`, and snapshot.
+- Read corpus base-rates via the `metrics/statpack.md` file.
+- Attempted to query MCP CourtListener tool `search` for cases involving "Rule 54(d)" and "chilling effect", but encountered a rate limit (HTTP 429). Relied on the statpack and the provisioned petition's representation of the circuit split.
+- Issued `uv run fedcourts query --court scotus --topic "Fed. R. Civ. P. 54(d)"`. Result: `ranged corpus reads: 467 GET(s), 122421248 byte(s)`.

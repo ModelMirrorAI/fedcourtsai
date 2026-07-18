@@ -1,0 +1,3 @@
+- `uv run fedcourts query --court ca5 --topic "Civil Rights" --limit 1` -> `ranged corpus reads: 108 GET(s), 28311552 byte(s)`
+- MCP CourtListener `search` tool (failed due to rate limit HTTP 429)
+- Web search for `"Blessing Nwosu" "1600 West Loop South" "Fifth Circuit"` to find information about the lower court decision and background.

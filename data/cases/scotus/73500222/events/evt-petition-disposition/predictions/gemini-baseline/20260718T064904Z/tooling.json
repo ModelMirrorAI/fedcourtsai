@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/73500222",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "mcp_courtlistener_search",
+    "fedcourts query CLI",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "metrics/statpack.md",
+    "provisioned text files"
+  ],
+  "gaps": [
+    "MCP CourtListener rate limits blocked access during this run"
+  ],
+  "notes": "The statpack was highly useful for base rates. The MCP CourtListener tool was rate-limited.",
+  "schema_version": "1.0"
+}

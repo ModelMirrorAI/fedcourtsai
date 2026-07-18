@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500232",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP citation analysis",
+    "CourtListener MCP opinion endpoint"
+  ],
+  "helpful": [
+    "Provisioned full petition and extracted questions presented",
+    "Fee-class, relist, CVSG, and originating-circuit base rates",
+    "Full text of the precedential Ragguette opinion",
+    "Full text confirming the Rule 58(a)(5) exception"
+  ],
+  "gaps": [
+    "The corpus query transferred over 113 MB for ten broad SCOTUS priors and had no subject-matter similarity filter for SCOTUS",
+    "CourtListener searches did not locate the unpublished Third Circuit opinion by caption or docket number",
+    "The prompt describes a salience-band table that is not present in the committed statpack artifacts"
+  ],
+  "notes": "The provisioned record and targeted MCP opinion retrieval were materially more useful than the broad corpus-prior query for this narrow procedural petition."
+}

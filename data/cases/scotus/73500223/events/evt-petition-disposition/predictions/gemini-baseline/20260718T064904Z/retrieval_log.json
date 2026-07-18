@@ -1,0 +1,342 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "de4d49ccc483a436",
+      "query": "{\"strategic_intent\": \"Read the predict.md and AGENTS.md files to understand the prediction prompt contract and agent guidelines.\", \"summary\": \"I will begin by reading the `.github/prompts/predict.md` and `AGENTS.md` files to understand what is required for producing a prediction, including the expected output formats, directories, and guidelines.\", \"title\": \"Understand Prediction Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:40.572Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:40.580Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:40.581Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ce371d40b7dcc6bb",
+      "query": "{\"strategic_intent\": \"Locate and read the provisioned per-case inputs for the specified case and event.\", \"summary\": \"Now that I understand the prediction contract and guidelines, my next step is to locate and read the provisioned input files for the specific case (`scotus/73500223`) and event (`evt-petition-disposition`). These include the event definition, snapshot, context, and any document text.\", \"title\": \"Read Provisioned Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:45.027Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "094807578620b0a8",
+      "query": "{\"dir_path\": \"data/cases/scotus/73500223\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:45.031Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b9d00fa2f2b72f3e",
+      "query": "{\"dir_path\": \"data/cases/scotus/73500223/events/evt-petition-disposition\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:45.032Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b18bfd166cbda4eb",
+      "query": "{\"dir_path\": \"data/cases/scotus/73500223/record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:47.504Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "2c3f7242dfa5bd68",
+      "query": "{\"file_path\": \"data/cases/scotus/73500223/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:47.505Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3816d8af0a2d290e",
+      "query": "{\"dir_path\": \"data/cases/scotus/73500223/record/documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:50.312Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "9e245d971f9bccd8",
+      "query": "{\"dir_path\": \"data/cases/scotus/73500223/record/snapshots\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:50.312Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b5e5fbc62d23daad",
+      "query": "{\"file_path\": \"data/cases/scotus/73500223/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:50.313Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "cb23932a0cffc1fe",
+      "query": "{\"file_path\": \"data/cases/scotus/73500223/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:53.435Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9899a772ee73d0da",
+      "query": "{\"file_path\": \"data/cases/scotus/73500223/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:53.436Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4014e9a04b681644",
+      "query": "{\"file_path\": \"data/cases/scotus/73500223/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:53.436Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3cbdc63f3b4c8f1f",
+      "query": "{\"strategic_intent\": \"Analyze the content of the provisioned documents to understand the arguments for and against certiorari.\", \"summary\": \"I am now reading the contents of the petition and brief in opposition. I will extract the key arguments for why certiorari should be granted or denied, which is essential for making a grounded prediction.\", \"title\": \"Analyze Petition and BIO\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:57.898Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "989b6b5377f7e8ce",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73500223/record/documents/brief-in-opposition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:57.904Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "660bdfab2fd215fa",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73500223/record/documents/petition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:57.904Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1e2d155d9905a4ec",
+      "query": "{\"strategic_intent\": \"Read the introductions and arguments of the Petition and BIO to understand the core issues and vehicle problems.\", \"summary\": \"I am reading the core arguments in the Petition and the Brief in Opposition. The Petition asks to overturn PruneYard v. Robins (1980). I will look at the BIO's \\\"Reasons for Denying\\\" section to see if there are vehicle problems, such as a lack of a final judgment or state-law issues, that might make the Supreme Court less likely to grant certiorari",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:02.845Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "62e8aeb9a4db96a3",
+      "query": "{\"end_line\": 250, \"file_path\": \"data/cases/scotus/73500223/record/documents/petition.txt\", \"start_line\": 101}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:02.851Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ecc743e3b2b555da",
+      "query": "{\"end_line\": 250, \"file_path\": \"data/cases/scotus/73500223/record/documents/brief-in-opposition.txt\", \"start_line\": 101}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:02.851Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f2c5c21b9b9febe9",
+      "query": "uv run fedcourts query --court scotus --decided-before \"2026-07-18\" --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:10.760Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2888ba50127dfc09",
+      "query": "uv run fedcourts query --court scotus --disposition granted --decided-before \"2026-07-18\" --limit 10",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:10.760Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b58b31cbaaeeca1a",
+      "query": "{\"strategic_intent\": \"Review the statpack to understand the general base rates for certiorari petitions, specifically for paid petitions in recent terms.\", \"summary\": \"I am reading the `metrics/statpack.md` file to find the base grant rate for paid cert petitions. This will help ground the probability estimate by starting with the overall historical likelihood of the Supreme Court granting review.\", \"title\": \"Check Statpack for Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:14.547Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:14.549Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "26626f962b455251",
+      "query": "{\"strategic_intent\": \"Read the Reply Brief to see how the Petitioners address the vehicle issues (specifically the interlocutory posture) raised in the BIO.\", \"summary\": \"The BIO argues that the case is a poor vehicle for Supreme Court review because it involves an interlocutory appeal of a preliminary injunction without a full factual record. I am now going to read the Petitioners' Reply Brief to understand their counterarguments to these vehicle concerns.\", \"title\": \"Analyze Reply Brief for Ve",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:21.351Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "6e6395a162f11077",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73500223/record/documents/documents.json\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:21.354Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "adcfbcbeb5b3e897",
+      "query": "{\"strategic_intent\": \"Read the specific section of the BIO detailing the vehicle flaws, specifically the lack of a factual record and interlocutory posture, to assess the likelihood of a denial based on vehicle problems.\", \"summary\": \"Since the Reply Brief was not provisioned, I will read the Brief in Opposition's argument on why the interlocutory posture and lack of a factual record make this case a poor vehicle for Supreme Court review. This will help weigh the salience of the legal question a",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:32.523Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "013ca667c66c3c7c",
+      "query": "{\"end_line\": 400, \"file_path\": \"data/cases/scotus/73500223/record/documents/brief-in-opposition.txt\", \"start_line\": 251}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:32.527Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "15f63f76f8c6cb2a",
+      "query": "{\"strategic_intent\": \"Read the Jurisdiction section of the Petition to see how Petitioners justify Supreme Court jurisdiction despite the interlocutory posture.\", \"summary\": \"I am checking the Jurisdiction section of the Petition. This will tell me which `Cox Broadcasting` exception the Petitioners are invoking to argue that the state court's preliminary injunction ruling is \\\"final\\\" for the purposes of 28 U.S.C. \\u00a7 1257. This is a critical factor in determining if the vehicle issues will p",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:45.503Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d517d49ce46dff48",
+      "query": "{\"end_line\": 450, \"file_path\": \"data/cases/scotus/73500223/record/documents/petition.txt\", \"start_line\": 251}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:45.506Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c874fa3726289c31",
+      "query": "{\"strategic_intent\": \"Read the Jurisdiction section (page 6 of the Petition) to confirm if and how Petitioners satisfy 28 U.S.C. \\u00a7 1257 despite the preliminary injunction posture.\", \"summary\": \"I am jumping to the specific Jurisdiction section of the Petition to see the exact argument for why the interlocutory state court decision is sufficiently \\\"final\\\" to warrant Supreme Court review. This will confirm my assessment of the vehicle issue.\", \"title\": \"Check Jurisdiction Section of Petitio",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:50.170Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7f4b148b5bf89ef8",
+      "query": "{\"end_line\": 600, \"file_path\": \"data/cases/scotus/73500223/record/documents/petition.txt\", \"start_line\": 451}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:50.174Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "db8311079a631c7d",
+      "query": "{\"strategic_intent\": \"Draft the reasoning.md file to explain the analysis and predicted outcome based on the petition, BIO, statpack base rates, and vehicle issues.\", \"summary\": \"I will now draft the `reasoning.md` file. The analysis will highlight the strong substantive interest in overturning PruneYard, the presence of multiple amici, and the counterbalancing vehicle flaws (interlocutory posture, undeveloped factual record). The predicted disposition will be 'denied' with a low probability of ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:05.865Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d14543f934d7bb2d",
+      "query": "{\"content\": \"This case presents a direct challenge to the Court's 1980 decision in *PruneYard Shopping Center v. Robins*, which upheld a California constitutional right of access to private shopping centers for expressive activity against First and Fifth Amendment challenges. Petitioners argue that *PruneYard* is irreconcilable with the Court's recent physical takings jurisprudence (particularly *Cedar Point Nursery v. Hassid*) and its compelled-speech jurisprudence (such as *Moody v. NetChoice*",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:05.872Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6f453ef0601e241b",
+      "query": "{\"strategic_intent\": \"Generate the remaining output files required by the prediction contract: prediction.json, retrieval.md, and tooling.json.\", \"summary\": \"I will now create the `prediction.json`, `retrieval.md`, and `tooling.json` files as specified by the `.github/prompts/predict.md` contract. These files capture the structured prediction outcome, the retrieval log, and feedback on the tooling used during this prediction task.\", \"title\": \"Generate Final Output Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:20.155Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "6ec0183ea335f014",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500223\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:55:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.85,\\n  \\\"big_case_rationale\\\": \\\"Overruling PruneYar",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:20.159Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d5de39f3de95a81d",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`. I attempted to run `fedcourts query` but the command syntax I used was slightly incorrect (passing a full date instead of a year for `--decided-before`, though as a forward case it wasn't strictly necessary), so I relied entirely on the provisioned inputs and the statpack.\", \"file_path\": \"data/cases/scotus/73500223/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/retrieval",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:20.164Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9ab7cc7238e47e4f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500223\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"list_directory\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"The committed statpack.md was very helpful for base rates.\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Attempted to use `fedcourts query` but the command failed due to an invalid integer for ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:20.167Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "30d82bdee7ac88ed",
+      "query": "{\"strategic_intent\": \"Validate the generated prediction files against their respective schemas.\", \"summary\": \"I am running the `fedcourts validate data` command to ensure that the files I generated (`prediction.json`, `tooling.json`, etc.) conform to the project's pydantic schemas. This is a required step before finishing the task.\", \"title\": \"Validate Output Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:23.447Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "a059639877c0931e",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:26.936Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "480ffcab4f356383",
+      "query": "{\"strategic_intent\": \"Conclude the prediction task.\", \"summary\": \"I have successfully analyzed the case facts, read the provisioned inputs, assessed the base rates and vehicle issues, drafted the reasoning, and generated the necessary JSON and Markdown files. I have also validated the output data against the project schemas. The task is now complete.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:30.606Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500223",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500236",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "MCP CourtListener search",
+    "cat metrics/statpack.md"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided a strong anchor for 0-relist petitions.",
+    "MCP search quickly surfaced the underlying state court litigation context."
+  ]
+}

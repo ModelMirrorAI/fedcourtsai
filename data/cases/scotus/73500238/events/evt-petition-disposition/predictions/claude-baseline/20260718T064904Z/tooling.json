@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500238",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search (dockets)"
+  ],
+  "helpful": [
+    "statpack relist/CVSG/circuit cuts — fast anchoring for a pre-conference petition",
+    "provisioned petition.txt full text — the QP and vehicle analysis came straight from it",
+    "fedcourts query distribution_count on granted priors — useful proxy for the relist signal"
+  ],
+  "gaps": [
+    "statpack has no salience-band table in the committed version, though the prompt describes one",
+    "no paid-vs-IFP grant-rate split surfaced in statpack.md (prompt says it rides in statpack.json)",
+    "a per-conference cut (long-conference vs in-Term) would sharpen pre-conference petitions like this one"
+  ],
+  "notes": "SG response waiver plus first distribution to the long conference did most of the work; a signal cut for 'response waived, no CFR yet' would be a valuable statpack addition."
+}

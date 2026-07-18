@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500239",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener-mcp search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt were the decisive inputs — full QP and Reasons-for-Granting text made the vehicle analysis possible without any fetching.",
+    "Per-Term fee-class detail in statpack.json (paid vs IFP grant rates) was the single most useful quantitative anchor for a paid petition."
+  ],
+  "gaps": [
+    "No topic/subject filter on SCOTUS corpus rows, so `fedcourts query` cannot surface issue-similar cert priors (e.g., other First Amendment employee-speech petitions); a QP-text similarity search would help.",
+    "The statpack's salience-band table described in the predict prompt is not present in the committed statpack.md/json for this run.",
+    "A pre-conference signal cut conditioned on 'respondent waived + no CFR yet' would be a sharper anchor than the realized relist-count table, which is unknowable pre-conference."
+  ],
+  "notes": "Unpublished Sixth Circuit opinions are absent from CourtListener's opinion index; the petition's own account of the decision below was the only source for the lower-court holding."
+}

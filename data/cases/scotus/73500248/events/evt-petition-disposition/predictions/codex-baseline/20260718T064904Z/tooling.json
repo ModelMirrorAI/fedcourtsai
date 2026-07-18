@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500248",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "fedcourts query",
+    "committed corpus statpack",
+    "CourtListener MCP (attempted)"
+  ],
+  "helpful": [
+    "The complete petition and appendix exposed both the textual argument and the absence of a direct circuit split.",
+    "Fee-class, originating-circuit, relist, and CVSG base rates supported calibrated certiorari odds."
+  ],
+  "gaps": [
+    "CourtListener MCP was temporarily unavailable because its daily rate limit was exhausted.",
+    "The corpus query surface cannot search SCOTUS priors by legal issue, so its returned grant-side priors were only general context."
+  ],
+  "notes": "The provisioned record was sufficient for a prediction despite the live-research degradation. A provisioned response brief would have improved adversarial assessment, but the docket reflects that respondents waived response."
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73500248",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "run_id": "20260718T064904Z",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-18T08:05:00Z",
+  "input_snapshot": "data/cases/scotus/73500248/record/snapshots/2026-07-18.json",
+  "granted": 0,
+  "probability": 0.015,
+  "predicted_disposition": "denied",
+  "big_case_score": 0.1,
+  "big_case_rationale": "Involves interpretation of PLRA attorney fee caps, important for civil rights practitioners but low salience to the general public.",
+  "reasoning_doc": "reasoning.md",
+  "schema_version": "1.0"
+}

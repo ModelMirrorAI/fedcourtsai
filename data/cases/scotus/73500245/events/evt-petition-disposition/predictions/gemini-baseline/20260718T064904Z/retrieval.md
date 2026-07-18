@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. Base rates consulted from the committed `metrics/statpack.md`.

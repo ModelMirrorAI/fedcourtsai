@@ -1,0 +1,2 @@
+- Read `metrics/statpack.md` for base rates on cert petitions, specifically noting the 0.8% grant rate for petitions with 0 relists.
+- CourtListener MCP lookup: Searched for opinions matching "Colorado Bondshares" and "Marin Metropolitan District" (`type: "o"`) to understand the protracted state court litigation history in the Colorado Court of Appeals and Supreme Court.

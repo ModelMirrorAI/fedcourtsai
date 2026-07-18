@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500233",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260718T064904Z",
+  "created_at": "2026-07-18T07:21:10Z",
+  "input_snapshot": "data/cases/scotus/73500233/record/snapshots/2026-07-18.json",
+  "granted": 0,
+  "probability": 0.002,
+  "predicted_disposition": "denied",
+  "confidence": 0.98,
+  "big_case_score": 0.42,
+  "big_case_rationale": "A constitutional rule governing the use of pending-charge evidence could affect criminal trials broadly, but this petition presents the issue through a narrow, fact-bound, procedurally weak record.",
+  "reasoning_doc": "reasoning.md"
+}

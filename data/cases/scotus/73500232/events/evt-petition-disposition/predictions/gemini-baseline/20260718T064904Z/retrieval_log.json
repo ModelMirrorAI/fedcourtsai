@@ -1,0 +1,350 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "21c903870593e577",
+      "query": "{\"strategic_intent\": \"Read predict.md and AGENTS.md to understand the prediction task and the required output files.\", \"summary\": \"I am reading the project instructions (`.github/prompts/predict.md` and `AGENTS.md`) to understand the requirements for generating a prediction. I will extract the guidelines for the expected inputs, file locations, output formats, and procedures for recording reasoning and prediction JSONs.\", \"title\": \"Analyze Prediction Task Requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:22.833Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:25.861Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:25.861Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8f5c1a58d6cf6a97",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73500232\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:30.737Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ce20cfb5a227d43a",
+      "query": "{\"strategic_intent\": \"Read the required schemas and the provisioned case data to prepare for the prediction.\", \"summary\": \"I have identified the prediction task parameters and verified the file paths. Next, I will read the `prediction.schema.json` to ensure my output matches the exact schema. I will also read the per-case provisioned data (event definition, snapshot, and context) located in the runner's workspace.\", \"title\": \"Gather Provisioned Case Data and Schemas\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:37.342Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:37.344Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ec1226a5f63eb2e4",
+      "query": "find data/cases/scotus/73500232 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:41.242Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "109b7ff74a61c897",
+      "query": "{\"file_path\": \"data/cases/scotus/73500232/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:45.662Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5af2c297539e4cd8",
+      "query": "cat data/cases/scotus/73500232/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:45.662Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0f33712d072bf90d",
+      "query": "{\"file_path\": \"data/cases/scotus/73500232/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:45.663Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c335f8b33d4bdec3",
+      "query": "{\"file_path\": \"data/cases/scotus/73500232/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:45.663Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5069f512613a5b9b",
+      "query": "cat data/cases/scotus/73500232/record/snapshots/2026-07-18.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:49.958Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:17.088Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "854f6bb3c8521ea4",
+      "query": "uv run fedcourts query --court scotus --topic \"FRAP 4(a)(5)\" || echo \"No topic filter for scotus\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:17.088Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dbfb5ad7f707ad17",
+      "query": "cat metrics/statpack.md | grep -A 10 \"By fee class\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:20.759Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:20.759Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ff0e525e296db284",
+      "query": "cat metrics/statpack.md | grep -i \"salience\" -B 2 -A 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:25.189Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "055aee3aa17ecdb1",
+      "query": "cat metrics/statpack.md | grep -i \"fee\" -B 2 -A 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:25.190Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6c593a62ed094a2f",
+      "query": "cat metrics/statpack.json | grep -A 20 '\"term\": \"2024\"'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:30.568Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b0bd39683e0a95ae",
+      "query": "jq -c '.scotus.terms[] | select(.term == 2024)' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:36.437Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "22f8a9ab0aca6a85",
+      "query": "head -n 30 metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:38.530Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f0776fb5ab8e9f47",
+      "query": "{\"strategic_intent\": \"Query CourtListener via MCP to research circuit splits regarding FRAP 4(a)(5) excusable neglect standards and any recent SCOTUS cert grants on this topic.\", \"summary\": \"I am transitioning from reading the local inputs to active retrieval. I will use the CourtListener MCP `search` tool to look for recent opinions and petitions discussing FRAP 4(a)(5), \\\"excusable neglect\\\", and \\\"good cause\\\" to evaluate the petitioner's claim of a circuit split. This will help inform the pr",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:45.209Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9943e2a280f970a0",
+      "query": "\"Rule 4(a)(5)\" AND \"excusable neglect\" AND \"good cause\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:53.988Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "89a7fa4b390facf1",
+      "query": "\"Rule 4(a)(5)\" AND \"excusable neglect\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:13.176Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "6545d2d4d48399fe",
+      "query": "{\"court\": [\"ca3\"], \"docket_number\": \"24-2794\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:18.236Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "bb401b0791c5df4a",
+      "query": "\"Mazza\" AND \"Bank of New York Mellon\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:20.864Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "5763bf24c41c1ee6",
+      "query": "cat data/cases/scotus/73500232/record/documents/petition.txt | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:24.544Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7b6259bb4d5dab11",
+      "query": "cat data/cases/scotus/73500232/record/documents/petition.txt | grep -i \"circuit split\" -A 15 -B 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:24.545Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2da835656b75c8df",
+      "query": "uv run fedcourts query --court scotus --disposition denied --topic \"FRAP 4(a)(5)\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:53.612Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ed0a9f45bc8e580e",
+      "query": "{\"strategic_intent\": \"Double-check CourtListener and the web for any prior related litigation or broader significance of the Mazza case.\", \"summary\": \"I will now perform a targeted CourtListener search in the Third Circuit (CA3) for the underlying case, `Bank of N.Y. Mellon v. Mazza`. I will also perform a Google web search for this case to ensure I haven't missed any significant context that might elevate its salience, though it currently appears to be a routine, fact-bound procedural dispute.\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:04.347Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "954b499d4c9beda6",
+      "query": "\"Mark Mazza\" \"Bank of New York Mellon\" \"Third Circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:12.896Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "a731c5e15e78f8ed",
+      "query": "\"Mazza\" AND \"Mellon\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:12.896Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "7a645b72be83db6e",
+      "query": "{\"strategic_intent\": \"Write the final output files for the prediction task, including the `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`.\", \"summary\": \"I have gathered all the necessary facts and context. The case is a routine pro se petition arising from a foreclosure dispute, seeking review of a procedural time-extension denial. The probability of a grant is extremely low. I am now writing the required artifacts to the output directory to complete the task.\", \"title\": \"G",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:20.791Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "dba2e3a4b9abf0f6",
+      "query": "mkdir -p data/cases/scotus/73500232/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:20.799Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a3ec0cb82fd08d62",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500232\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:49:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.005,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.05,\\n  \\\"big_case_rationale\\\": \\\"R",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:24.876Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "7e299db11bec03c3",
+      "query": "{\"content\": \"# Reasoning: Mazza v. Bank of New York Mellon (25-1331)\\n\\n**Background and Legal Question**\\nThis is a pro se petition for a writ of certiorari (though filed on the paid docket) seeking review of an unpublished Third Circuit decision. The petitioners, Mark and Lisa Mazza, are involved in a decade-long foreclosure and ejectment dispute with the Bank of New York Mellon. In the underlying decision (No. 24-2794), the Third Circuit affirmed the District Court's denial of their Federal R",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:32.800Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5d64c529d25bba06",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Examined the local `statpack.md` and `statpack.json` for base rates on Paid cert petitions and historical grant rates for the 2024 and 2025 Terms.\\n- Used `fedcourts query` to search for similar cases involving FRAP 4(a)(5):\\n  - `uv run fedcourts query --court scotus --topic \\\"FRAP 4(a)(5)\\\"`\\n    - `ranged corpus reads: 467 GET(s), 122421248 byte(s)`\\n  - `uv run fedcourts query --court scotus --disposition denied --topic \\\"FRAP 4(a)(5)\\\"`\\n    - `ranged corpu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:38.762Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:40.870Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e3f70b2fc04c8259",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500232\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search provided crucial context on the uningested Third Circuit unpublished opinion and the background of the long-running pro se fo",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:44.739Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:53.278Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1defa141e731e502",
+      "query": "ls -l data/cases/scotus/73500232/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:59.576Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e1b7543a1c3caa8b",
+      "query": "{\"strategic_intent\": \"Finish the task as all prediction outputs have been generated and validated.\", \"summary\": \"I have successfully completed the task. The required artifacts (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`) were generated under the correct output directory path (`data/cases/scotus/73500232/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/`) and successfully passed the `uv run fedcourts validate data` schema validation. I will n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:02.677Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500232",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

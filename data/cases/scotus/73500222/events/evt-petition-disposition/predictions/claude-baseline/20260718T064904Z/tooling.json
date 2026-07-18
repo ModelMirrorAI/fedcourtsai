@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500222",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md + metrics/statpack.json (committed base rates)",
+    "courtlistener MCP search (2 calls, 0 results)",
+    "provisioned snapshot + petition text + questions-presented extract"
+  ],
+  "helpful": [
+    "statpack per-Term paid/IFP grant-rate split",
+    "statpack relist-count cut (zero-relist bucket)",
+    "provisioned petition text with the full 8th Cir. opinion in its appendix"
+  ],
+  "gaps": [
+    "corpus query sidecar at 127.0.0.1:8377 was unreachable (timed out) for every fedcourts query/open-events call, so no corpus priors were available",
+    "the committed statpack has no 'Segment base rate by salience band' table (the predict prompt references one); anchored on the fee-class and relist cuts instead",
+    "CourtListener docket search does not index SCOTUS dockets, so the MCP server could not confirm the docket state; a supremecourt.gov docket lookup tool would help forward cells",
+    "a signal cut for 'respondent waived / call-for-response status' would sharpen pre-conference petitions like this one"
+  ],
+  "notes": "Forward cell. Degraded gracefully per the prompt: with the corpus service down, the prediction rests on the provisioned inputs plus the committed statpack. The petition's own appendix documents the litigation's three prior cert denials, which substituted for the corpus prior lookups I attempted."
+}

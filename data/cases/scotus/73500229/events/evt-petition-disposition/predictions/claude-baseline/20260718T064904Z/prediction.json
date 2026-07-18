@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500229",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260718T064904Z",
+  "created_at": "2026-07-18T06:59:14Z",
+  "input_snapshot": "data/cases/scotus/73500229/record/snapshots/2026-07-18.json",
+  "granted": 0,
+  "probability": 0.05,
+  "predicted_disposition": "denied",
+  "confidence": 0.6,
+  "votes": [],
+  "big_case_score": 0.45,
+  "big_case_rationale": "A merits ruling on whether states may mandate EUA covered countermeasures, and on the PREP Act's court-access consequences, would be nationally significant public-health law; but the posture is retrospective damages over one state's rescinded COVID-19 mandate."
+}

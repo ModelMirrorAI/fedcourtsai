@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500243",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP: search, get_endpoint_item (clusters, opinions)",
+    "provisioned snapshot + petition.txt + questions-presented.txt"
+  ],
+  "helpful": [
+    "Per-fee-class grant rates in statpack.json (paid vs IFP) — the single most useful anchor for a paid petition",
+    "distribution_count on corpus query rows made the relist signal easy to check against recent grants",
+    "Provisioned petition text (QPs + reasons for granting) meant no fetching of the petition PDF was needed",
+    "MCP opinion fetch of an intervening SCOTUS QI decision (Zorn) took two calls and materially shaped the adjustment"
+  ],
+  "gaps": [
+    "The statpack.md in this checkout has no 'Segment base rate by salience band' table although the prompt describes one; anchored on the paid-class per-Term rate instead",
+    "No cheap way to ask 'how often does the Court grant/summarily reverse petitions where the respondent waived and no CFR issued' — a waiver/CFR cut in the statpack would sharpen petitions like this one",
+    "A topic/issue-area filter on SCOTUS corpus rows (e.g. qualified immunity) would let priors be matched by subject rather than only court/era/disposition"
+  ],
+  "notes": "Corpus query over the service backend reported a 40 MB ranged read for one 8-row query; fine within budget but worth knowing when planning multiple queries."
+}

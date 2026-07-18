@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/73500243",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Encountered a CourtListener rate limit (HTTP 429) when attempting to fetch the lower court opinion text using get_endpoint_item. Degraded gracefully to use provisioned inputs and base rates, per instructions.",
+      "event_id": "evt-petition-disposition"
+    }
+  ],
+  "schema_version": "1.0"
+}

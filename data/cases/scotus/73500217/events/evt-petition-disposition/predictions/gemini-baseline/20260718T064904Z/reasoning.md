@@ -1,0 +1,12 @@
+The petition asks whether a civilian has a private right of action to enforce a right to informed consent for an emergency use authorized drug under the NDAA for FY 2004, as amended by the Project BioShield Act of 2004. The petitioner, Melanie Crites-Bachert, is suing Providence Health & Services - Oregon, suggesting this arises from an employment or healthcare mandate related to a drug or vaccine.
+
+Several factors strongly point toward a denial of certiorari:
+
+1. **Waiver of Response**: The respondent, Providence Health & Services, filed a waiver of its right to respond on June 12, 2026. A waiver is a strong signal that the respondent views the petition as presenting no cert-worthy issues (such as a circuit split or an important, unsettled question of federal law) and not worth the cost of opposition. The Supreme Court almost never grants a petition without first calling for a response; while a "call for response" (CFR) happens in a fraction of waived cases, a grant straight from a waiver is practically unheard of.
+2. **Implied Private Right of Action**: The legal theory hinges on finding an implied private right of action in a federal statute that does not expressly provide one to civilians. Under the Court's modern jurisprudence (e.g., *Alexander v. Sandoval*), the Court is highly reluctant to imply private rights of action. Lower courts have consistently rejected attempts to find private rights of action under related federal emergency health and EUA statutes (like the PREP Act or FDCA) in the context of pandemic-era mandates. It is highly unlikely there is a circuit split on this issue.
+3. **Long Conference**: The petition was distributed for the September 28, 2026 "long conference," where the vast majority of summer petitions are denied en masse.
+4. **Base Rates**: The baseline grant rate for paid modern discretionary-cert petitions is around 3%. Without a circuit split, a response, or an issue of national importance on which the lower courts are divided, this petition falls well below the baseline.
+
+Given these factors, the petition is exceedingly likely to be denied.
+
+*Note on Retrieval*: CourtListener MCP tool calls were throttled (rate limited). The `fedcourts query` corpus service was unreachable. This prediction relies purely on the provisioned case snapshot, the documents (petition and questions presented), and general principles of Supreme Court practice.

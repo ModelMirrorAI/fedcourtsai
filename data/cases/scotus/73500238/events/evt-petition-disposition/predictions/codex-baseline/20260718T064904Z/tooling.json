@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500238",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The provisioned petition and questions presented supplied the strongest case-specific evidence.",
+    "The statpack's fee-class, circuit, CVSG, and relist cuts calibrated the low certiorari base rate.",
+    "CourtListener MCP confirmed the timing and citation of Glossip."
+  ],
+  "gaps": [
+    "The statpack described in the prompt did not contain the referenced salience-band table.",
+    "The broad eight-row corpus query required 432 ranged reads and about 113 MB while yielding only weakly comparable priors.",
+    "A structured corpus filter for cert-stage issue area or respondent-response status would improve similarity retrieval."
+  ],
+  "notes": "The provisioned docket and petition were sufficient. External retrieval was useful mainly for calibration and citation confirmation, not for changing the case-specific assessment."
+}

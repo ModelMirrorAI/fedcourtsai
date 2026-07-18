@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500223",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["read_file", "list_directory", "run_shell_command"],
+  "helpful": ["The committed statpack.md was very helpful for base rates."],
+  "gaps": [],
+  "notes": "Attempted to use `fedcourts query` but the command failed due to an invalid integer for `--decided-before`. I used the statpack instead."
+}

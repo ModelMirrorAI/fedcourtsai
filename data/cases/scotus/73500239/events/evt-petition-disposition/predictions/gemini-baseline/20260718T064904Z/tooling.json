@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73500239",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["google_web_search", "mcp_courtlistener_search", "fedcourts (failed)"],
+  "helpful": ["google_web_search for facts missing from immediate snapshot", "metrics/statpack.md for base rates"],
+  "notes": "CourtListener MCP failed with a 429 Rate Limit error. Google web search provided the necessary context regarding the lower court's reasoning and the underlying controversy."
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500219",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener MCP search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned questions presented and petition supplied the issue, claimed split, and vehicle details.",
+    "The statpack supplied paid-petition, Sixth Circuit, relist, and CVSG calibration anchors.",
+    "CourtListener opinion search corroborated authorities on both sides of the asserted split."
+  ],
+  "gaps": [
+    "No brief in opposition was available because the United States waived a response.",
+    "The petition extraction was truncated during the district-court appendix."
+  ],
+  "notes": "The corpus service worked but the broad grant-prior query required substantial ranged transfer and was not subject-matter matched. The provisioned record and base-rate tables were more decision-useful."
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500250",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP search",
+    "provisioned snapshot and petition text"
+  ],
+  "helpful": [
+    "Full petition text plus extracted questions-presented made the merits/vehicle assessment possible without any document fetching",
+    "statpack.json per-fee-class grant rates (paid vs IFP) were the single most useful quantitative cut for a paid petition",
+    "Granted-prior rows from fedcourts query exposed the multiple-distribution/relist pattern that contextualizes this case's single long-conference distribution"
+  ],
+  "gaps": [
+    "The statpack lacks the salience-band section the predict prompt tells predictors to anchor on — either ship the section or drop the instruction",
+    "No statpack cut for response-waived vs response-filed petitions (or CFR incidence), which is the strongest docket-posture signal at this stage",
+    "One unfiltered fedcourts query timed out against the corpus sidecar (http://127.0.0.1:8377); narrower filtered queries succeeded"
+  ],
+  "notes": "Forward cell with a fresh (same-day) snapshot; no BIO exists because the government waived response, so the petition-vs-BIO weighing the prompt describes was not applicable."
+}
