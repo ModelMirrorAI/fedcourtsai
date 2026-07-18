@@ -1,0 +1,10 @@
+case_id: scotus/16938427
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-05-15'
+resolved: true
+schema_version: '1.0'
+title: Nidal Khalid Nasrallah, Petitioner v. William P. Barr, Attorney General

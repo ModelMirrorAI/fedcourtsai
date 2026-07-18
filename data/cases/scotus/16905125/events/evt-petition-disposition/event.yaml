@@ -1,0 +1,11 @@
+case_id: scotus/16905125
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-06-26'
+resolved: true
+schema_version: '1.0'
+title: United States Forest Service, et al., Petitioners v. Cowpasture River Preservation
+  Association, et al.

@@ -1,0 +1,11 @@
+case_id: scotus/16351625
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-04-24'
+resolved: true
+schema_version: '1.0'
+title: Financial Oversight and Management Board for Puerto Rico, Petitioner v. Aurelius
+  Investment, LLC, et al.

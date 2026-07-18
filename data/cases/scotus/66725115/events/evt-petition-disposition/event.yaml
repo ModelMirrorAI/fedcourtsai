@@ -1,0 +1,11 @@
+case_id: scotus/66725115
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-05-06'
+resolved: true
+schema_version: '1.0'
+title: E. V., Petitioner v. Eugene H. Robinson, Jr., Lieutenant Colonel, U.S. Marine
+  Corps, in His Capacity as Military Judge
