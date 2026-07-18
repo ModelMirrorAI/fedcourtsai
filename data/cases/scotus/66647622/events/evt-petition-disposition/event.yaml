@@ -1,0 +1,11 @@
+case_id: scotus/66647622
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-08-13'
+resolved: true
+schema_version: '1.0'
+title: Queen's University at Kingston, Petitioner v. Samsung Electronics Co., Ltd.,
+  et al.

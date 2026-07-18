@@ -1,0 +1,11 @@
+case_id: scotus/66650112
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-10-18'
+resolved: true
+schema_version: '1.0'
+title: The First Presbyterian Church U. S. A. of Tulsa, Oklahoma, et al., Petitioners
+  v. John Doe

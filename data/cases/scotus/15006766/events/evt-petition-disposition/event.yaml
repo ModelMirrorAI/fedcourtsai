@@ -1,0 +1,11 @@
+case_id: scotus/15006766
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-10-16'
+resolved: true
+schema_version: '1.0'
+title: Bradley Weston Taggart, Petitioner v. Shelley A. Lorenzen, Executor of the
+  Estate of Stuart Brown, et al.

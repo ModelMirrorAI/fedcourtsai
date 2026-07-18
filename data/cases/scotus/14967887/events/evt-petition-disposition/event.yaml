@@ -1,0 +1,11 @@
+case_id: scotus/14967887
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-10-16'
+resolved: true
+schema_version: '1.0'
+title: Edward G. McDonough, Petitioner v. Youel Smith, Individually and as Special
+  District Attorney for the County of Rensselaer, New York, aka Trey Smith
