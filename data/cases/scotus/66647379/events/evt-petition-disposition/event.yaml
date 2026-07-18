@@ -1,0 +1,10 @@
+case_id: scotus/66647379
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-07-12'
+resolved: true
+schema_version: '1.0'
+title: William H. Cosby, Jr., Petitioner v. Janice Dickinson

@@ -1,0 +1,11 @@
+case_id: scotus/8513621
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-07-20'
+resolved: true
+schema_version: '1.0'
+title: Tennessee Wine and Spirits Retailers Association, Petitioner v. Russell F.
+  Thomas, Executive Director of the Tennessee Alcoholic Beverage Commission, et al.
