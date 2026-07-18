@@ -1,0 +1,11 @@
+case_id: scotus/72463878
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-05-21'
+resolved: true
+schema_version: '1.0'
+title: Craig R. Jalbert, in His Capacity as Trustee of the F2 Liquidating Trust, Petitioner
+  v. Securities and Exchange Commission

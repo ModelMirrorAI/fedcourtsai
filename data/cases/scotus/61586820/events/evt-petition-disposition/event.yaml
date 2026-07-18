@@ -1,0 +1,11 @@
+case_id: scotus/61586820
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-06-18'
+resolved: true
+schema_version: '1.0'
+title: Thomas E. Dobbs, State Health Officer of the Mississippi Department of Health,
+  et al., Petitioners v. Jackson Women's Health Organization, et al.

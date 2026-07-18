@@ -1,0 +1,11 @@
+case_id: scotus/72463715
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-02-19'
+resolved: true
+schema_version: '1.0'
+title: Department of Health and Human Services, et al., Petitioners v. California,
+  et al.

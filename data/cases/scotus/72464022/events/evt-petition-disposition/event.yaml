@@ -1,0 +1,11 @@
+case_id: scotus/72464022
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2020-07-06'
+resolved: true
+schema_version: '1.0'
+title: Polaris Innovations Limited, Petitioner v. Kingston Technology Company, Inc.,
+  et al.
