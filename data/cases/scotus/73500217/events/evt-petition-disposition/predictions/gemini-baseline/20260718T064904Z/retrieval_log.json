@@ -1,0 +1,182 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "575b312ca7fe042e",
+      "query": "{\"strategic_intent\": \"Read prediction prompt and agent documentation to understand the contract for generating a prediction.\", \"title\": \"Understand Prediction Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:27:50.184Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:27:52.544Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:27:52.545Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6d6f27f51bd3d5e2",
+      "query": "ls -la data/cases/scotus/73500217/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:27:56.812Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8ad0c60f0bde2382",
+      "query": "ls -la data/cases/scotus/73500217/record/ data/cases/scotus/73500217/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:27:59.396Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6e4326415df2b04c",
+      "query": "cat data/cases/scotus/73500217/record/context.json data/cases/scotus/73500217/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:01.967Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f6fdbd5c7d1884ff",
+      "query": "ls -la data/cases/scotus/73500217/record/snapshots/ data/cases/scotus/73500217/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:04.897Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "47ab32e544a6a9c8",
+      "query": "cat data/cases/scotus/73500217/record/documents/documents.json data/cases/scotus/73500217/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:07.750Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8292c30c923c2a99",
+      "query": "cat data/cases/scotus/73500217/record/snapshots/2026-07-18.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:10.588Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "599b1ed2be201394",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:14.456Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d62f033c175fe929",
+      "query": "uv run fedcourts query --court scotus --topic \"private right of action\" 2>&1",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:49.450Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0f36a8b1bb362ece",
+      "query": "\"Providence Health & Services\" AND \"Crites-Bachert\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:53.060Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "2b59f8b5eca71463",
+      "query": "mkdir -p data/cases/scotus/73500217/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:03.501Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f97e283d8929e8e6",
+      "query": "{\"content\": \"The petition asks whether a civilian has a private right of action to enforce a right to informed consent for an emergency use authorized drug under the NDAA for FY 2004, as amended by the Project BioShield Act of 2004. The petitioner, Melanie Crites-Bachert, is suing Providence Health & Services - Oregon, suggesting this arises from an employment or healthcare mandate related to a drug or vaccine.\\n\\nSeveral factors strongly point toward a denial of certiorari:\\n\\n1. **Waiver of Re",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:10.484Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "06197b5f5130ba11",
+      "query": "{\"content\": \"- `cat metrics/statpack.md | grep -A 20 \\\"Modern discretionary-cert petitions\\\"`: consulted general baseline grant rates.\\n- `uv run fedcourts query --court scotus --topic \\\"private right of action\\\"`: attempted, but the local corpus sidecar service was unreachable.\\n- `mcp_courtlistener_search(q=\\\"Providence Health & Services\\\" AND \\\"Crites-Bachert\\\", type=\\\"d\\\")`: attempted, but the CourtListener MCP tool reported an HTTP 429 rate limit error.\\n\\nProceeded with prediction based on",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:13.705Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "87ac66aab6607f9c",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500217\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"cat metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack is useful for quickly confirming the baseline grant rate.\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"The local corpus service (fedcourts query) was unreachable in",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:17.769Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1ee9fa0fcb20a90a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500217\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"message\\\": \\\"CourtListener MCP search was rate-limited (HTTP 429) and the local corpus service (fedcourts query) was unreachable. Proceeded with prediction using provisioned documents.\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\"\\n    }\\n  ]\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:21.491Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0211537d56a2d311",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:24.935Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aa31070794f8d7d6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500217\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:35:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500217/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.1,\\n  \\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:30.089Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "81a11c59c9bcfdde",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:35.582Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3c59538604512024",
+      "query": "{\"strategic_intent\": \"Finish the task after generating and validating the prediction artifacts.\", \"title\": \"Complete Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:38.445Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500217",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

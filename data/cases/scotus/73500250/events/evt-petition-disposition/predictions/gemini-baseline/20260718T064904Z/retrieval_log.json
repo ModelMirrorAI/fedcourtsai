@@ -1,0 +1,238 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "290b29afe09d06f5",
+      "query": "{\"strategic_intent\": \"Understanding the prediction prompt and agent requirements.\", \"title\": \"Read Prompt and Agents Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:15.285Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:17.210Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:17.211Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dcea34335e25f84",
+      "query": "uv run fedcourts paths --court scotus --docket 73500250 --event evt-petition-disposition --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:22.789Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10c7862d9806a1b0",
+      "query": "ls -la data/cases/scotus/73500250/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:26.537Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "98d084daa6823d54",
+      "query": "ls -laR data/cases/scotus/73500250/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:31.759Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a9a5b5c82629ae9a",
+      "query": "{\"strategic_intent\": \"Read case facts to predict the event\", \"title\": \"Read Case Facts\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:35.507Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:35.518Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d0a0da338df56d40",
+      "query": "{\"file_path\": \"data/cases/scotus/73500250/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:35.519Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0cd94557a5fc49d0",
+      "query": "{\"file_path\": \"data/cases/scotus/73500250/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:35.519Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "577286dc85573120",
+      "query": "{\"file_path\": \"data/cases/scotus/73500250/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:35.520Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e66b81d3b9272b01",
+      "query": "{\"file_path\": \"data/cases/scotus/73500250/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:35.520Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2a773095f722b73c",
+      "query": "{\"file_path\": \"data/cases/scotus/73500250/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:35.521Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e608a8b8d328ae17",
+      "query": "{\"strategic_intent\": \"Query corpus and check base rates to form prediction.\", \"title\": \"Corpus Queries and Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:42.626Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:03.191Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "21b13165ea95b7c4",
+      "query": "uv run fedcourts query --court scotus --topic \"disposition\" --era \"modern\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:03.191Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8883bf9ba6e70d7c",
+      "query": "Delgado",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:14.432Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "07184028bc29b08c",
+      "query": "uv run fedcourts query --court scotus --topic \"3440 Other Civil Rights\" --era \"2020s\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:52.413Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b7f6a8509f2e79a6",
+      "query": "{\"strategic_intent\": \"Write output files and validate them.\", \"title\": \"Writing Output Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:07.944Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:07.954Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e1d542110b6f2add",
+      "query": "mkdir -p data/cases/scotus/73500250/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:07.955Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "07d36d8ebc873cd7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500250\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:49:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500250/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.008,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:25.116Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1a883bf3805fca97",
+      "query": "{\"content\": \"# Reasoning\\n\\n## The Legal Question\\nThe petitioner, Miguel Angel Delgado, Jr., challenges his conviction under 18 U.S.C. \\u00a7 242 (deprivation of rights under color of law) and 18 U.S.C. \\u00a7 1519 (falsification of records). The petition raises questions regarding the Fourth Amendment totality-of-the-circumstances framework (whether analysis can be temporally confined to the moment of force), the mens rea \\\"willfulness\\\" standard under \\u00a7 242 (whether objective unreasonabl",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:25.119Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0a60ca58145d4a5b",
+      "query": "{\"content\": \"- `uv run fedcourts query --court scotus --topic \\\"disposition\\\" --era \\\"modern\\\"` (failed with corpus sidecar timeout)\\n- CourtListener MCP search for CA5 opinions in early March 2026 (failed with rate limit HTTP 429)\\n- Consulted `metrics/statpack.md` for base rates.\\n- No further retrieval beyond the provisioned inputs due to tooling unavailability.\", \"file_path\": \"data/cases/scotus/73500250/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/retrieval.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:25.122Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "623d52103ebada7a",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500250\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"fedcourts query\\\",\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"Corpus sidecar was unreachable\\\",\\n    \\\"MCP rate limit was exhausted quick",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:25.125Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:32.084Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "10c7862d9806a1b0",
+      "query": "ls -la data/cases/scotus/73500250/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:41.189Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ebb09f2adc39cd07",
+      "query": "{\"strategic_intent\": \"Finished task\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:43.118Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500250",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

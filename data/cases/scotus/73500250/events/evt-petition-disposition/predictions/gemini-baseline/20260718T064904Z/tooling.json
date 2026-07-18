@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500250",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query",
+    "statpack.md"
+  ],
+  "helpful": [
+    "statpack.md"
+  ],
+  "gaps": [
+    "Corpus sidecar was unreachable",
+    "MCP rate limit was exhausted quickly"
+  ],
+  "notes": "Had to degrade gracefully to base rates."
+}

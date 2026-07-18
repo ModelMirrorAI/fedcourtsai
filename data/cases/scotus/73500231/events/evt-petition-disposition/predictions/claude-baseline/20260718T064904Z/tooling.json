@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500231",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "provisioned snapshot + petition/questions-presented text"
+  ],
+  "helpful": [
+    "statpack relist/fee-class/Term cuts gave a clean base-rate anchor",
+    "provisioned questions-presented.txt made the fact-bound framing obvious without fetching PDFs",
+    "MCP opinion search surfaced the petitioner's prior SCOTUS filing history in one call"
+  ],
+  "gaps": [
+    "corpus query sidecar at 127.0.0.1:8377 was unreachable (timed out), so no fedcourts query priors this run",
+    "statpack lacks the 'Segment base rate by salience band' table the prompt points to",
+    "a pro-se / counseled fee-class split on the cert base rates would sharpen low-end petitions like this one"
+  ],
+  "notes": "fedcourts query was attempted once and failed on the unreachable corpus service; prediction rests on the provisioned inputs, the committed statpack, and two CourtListener MCP searches."
+}

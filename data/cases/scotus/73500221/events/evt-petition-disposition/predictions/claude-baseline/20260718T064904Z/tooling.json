@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500221",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md + statpack.json (committed base rates)",
+    "courtlistener MCP search (opinion + docket)",
+    "fedcourts query (attempted; corpus service unreachable)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt (full QP + reasons-for-granting text made the no-split, fact-bound read possible)",
+    "Per-Term fee-class grant rates in statpack.json (paid vs IFP)",
+    "Relist-count and CVSG cuts in statpack.md"
+  ],
+  "gaps": [
+    "Corpus query sidecar at 127.0.0.1:8377 timed out on both attempts, so no similar-prior retrieval was possible",
+    "The 'Segment base rate by salience band' table the predict prompt points to is absent from the committed statpack build",
+    "A statpack cut for response-waived / no-CFR petitions would sharpen the denial floor for cells like this one"
+  ],
+  "notes": "Degraded gracefully per the contract: base rates from the committed statpack, light forward-mode CourtListener MCP use to confirm the lower-court dockets. The provisioned inputs alone were nearly sufficient for this cell."
+}

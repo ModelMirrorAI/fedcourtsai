@@ -1,0 +1,238 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "38e0663ee9cb545a",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242 -type f | head -50",
+      "result_digest": "94994287dd08a4e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f8cd9512cb6b3b95",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "091f2f66ab9b97b8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "da62c07ddb50ba24",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "af5bd03ff7249b8a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242/record/snapshots/2026-07-18.json\"}",
+      "result_digest": "239000048d55e69c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c702b86128893c13",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242/record/documents/documents.json\"}",
+      "result_digest": "15b16d10a1b1e457",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "367adcdb4e46e77f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242/record/documents/questions-presented.txt\"}",
+      "result_digest": "dab4b87da4883654",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e6ad0eedfa25959d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242/record/documents/petition.txt\"}",
+      "result_digest": "08a81a46a0803e83",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "86d94697f2392cd5",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && echo \"DECIDED_BEFORE=${DECIDED_BEFORE:-unset}\"",
+      "result_digest": "a9668dfbb8881d25",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a8b81e0af11288ca",
+      "query": "grep -n -A 40 \"Modern discretionary-cert petitions by disposition\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -80",
+      "result_digest": "3455d7b690c8d786",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3684e6a126b83e9e",
+      "query": "grep -n -B2 -A 25 \"salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -70; grep -n -A 15 \"fee-class\\|Paid\\|IFP\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "a25a1284166a51dc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c4c054a0780434b8",
+      "query": "grep -n -B3 -A 30 \"Segment base rate by salience band\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d3b801d4d983c5c2",
+      "query": "grep -n \"^#\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "4343cf7205eb5967",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6146e8fa03a52259",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\", \"limit\": 12, \"offset\": 95}",
+      "result_digest": "79fd9592a4ac8f4b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ecd0a16778e1b62b",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d824740469ede9d3",
+      "query": "python3 -c \"\nimport json\nd=json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nterms=d['terms']\nimport sys\nt25=[t for t in terms if str(t.get('term'))=='2025']\nprint(json.dumps(t25, indent=1)[:2500])\n\"",
+      "result_digest": "bddf356a341a25a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a8d064f6fb134aef",
+      "query": "uv run fedcourts query --court scotus --era modern --limit 8 --query \"section 1981 race discrimination restaurant public accommodation contract\" 2>query_err1.txt; echo \"--- stderr:\"; cat query_err1.txt",
+      "result_digest": "165b5a2c7a639852",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ee68ea7d76ec899",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,80p'",
+      "result_digest": "931b848a3c18fc41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3cd005754187b833",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>q1.err | head -8; echo \"--- stderr:\"; grep -i \"ranged\\|note\" q1.err",
+      "result_digest": "c3d01baab6e12f19",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "30df987fd7eea7eb",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500242/events/evt-petition-disposition/predictions/claude-baseline/20260718T064904Z",
+      "result_digest": "9cf81f615efacefe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "17971af64b1efd8d",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500242\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:08:51Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500242/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.015,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "453892628122e381",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "844eefdf99cb7dd1",
+      "query": "{\"content\": \"# Nwosu v. 1600 West Loop South, L.L.C. (No. 25-1340) \\u2014 cert disposition\\n\\n**Prediction: denied. P(any grant, GVR included) \\u2248 0.015.**\\n\\n## The case\\n\\nBlessing Nwosu, an African American woman, sued the owner of the Bloom & Bee\\nrestaurant (Post Oak Hotel, Houston) under 42 U.S.C. \\u00a7 1981 after a hostess\\nplaced a wool shawl on her shoulders \\u2014 she says forcibly and without warning \\u2014\\nfor a claimed dress-code violation, while (she alleges) comparably dresse",
+      "result_digest": "1bce19465f0d7416",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "538a7fdcb206e506",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73500242, evt-petition-disposition, claude-baseline, 20260718T064904Z\\n\\nBeyond the provisioned inputs (snapshot, `questions-presented.txt`,\\n`petition.txt`, `documents.json`, `record/context.json`):\\n\\n## Committed base rates\\n\\n- `metrics/statpack.md` \\u2014 \\\"Modern discretionary-cert petitions by disposition\\\",\\n  \\\"Modern cert petitions by originating circuit\\\" (ca5: granted 4.8%),\\n  \\\"Cert petitions by relist count\\\" (0 relists: granted 0.8%),\\n ",
+      "result_digest": "8534d697f1d22875",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c5711f3aaa052cee",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500242\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"metrics/statpack.json (per-fee-class Term detail)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition.txt included the full appendix (Fifth C",
+      "result_digest": "a4b353b8100e8144",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "979a08830a10c072",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "27196f5de6b4ad20",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73500242",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73500217",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "CourtListener MCP search was rate-limited (HTTP 429) and the local corpus service (fedcourts query) was unreachable. Proceeded with prediction using provisioned documents.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

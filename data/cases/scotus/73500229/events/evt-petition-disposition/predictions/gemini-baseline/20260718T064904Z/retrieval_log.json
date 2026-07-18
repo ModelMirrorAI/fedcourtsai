@@ -1,0 +1,246 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "17db36960d585ce0",
+      "query": "{\"strategic_intent\": \"Read project instructions and guidelines to understand the prediction task constraints.\", \"summary\": \"Starting the task by reading `.github/prompts/predict.md` and `AGENTS.md` to understand the inputs, outputs, and requirements for the prediction task.\", \"title\": \"Understanding Prediction Requirements\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:09.688Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:11.771Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:11.771Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "752268211f38da5e",
+      "query": "find data/cases/scotus/73500229 -type f | sort",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:16.613Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "711e7ceea6f872c7",
+      "query": "{\"strategic_intent\": \"Read the provisioned input files for the specific case to gather facts and context.\", \"summary\": \"Having understood the requirements, I am now reading the case-specific files (event definition, snapshot, context, and documents) provisioned for SCOTUS docket 73500229 to gather the facts needed to make a prediction.\", \"title\": \"Gathering Case Facts and Context\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:20.779Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ca5c4b8db574e4d8",
+      "query": "{\"file_path\": \"data/cases/scotus/73500229/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:23.605Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e6c06b00b66501f4",
+      "query": "{\"file_path\": \"data/cases/scotus/73500229/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:23.606Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1b14147ef502021f",
+      "query": "{\"file_path\": \"data/cases/scotus/73500229/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:23.606Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "159e133048d93330",
+      "query": "{\"file_path\": \"data/cases/scotus/73500229/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:23.607Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1bdf4f5b2fb72cb1",
+      "query": "{\"strategic_intent\": \"Read the questions presented and the petition to understand the legal issue and stakes of the case.\", \"summary\": \"I've reviewed the docket, which shows a significant signal: the Court requested a response after the respondents initially waived. I am now reading the Questions Presented and the petition text to understand what the case is about.\", \"title\": \"Analyzing the Legal Issue and Merits\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:27.247Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "c56beaa6502b151c",
+      "query": "{\"file_path\": \"data/cases/scotus/73500229/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:30.478Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1d9221b4c36f8544",
+      "query": "{\"file_path\": \"data/cases/scotus/73500229/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:30.479Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:38.385Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "607c4716e107aefb",
+      "query": "uv run fedcourts query --court scotus --decided-before \"2026-07-18\" | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:38.386Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "793069d487afc8ec",
+      "query": "cat docs/cli.md | grep -A 10 \"fedcourts query\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:41.476Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:44.182Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "784bba1971ed512a",
+      "query": "cat metrics/statpack.md | grep -i \"response\" -B 2 -A 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:48.430Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5c361607c6d51d09",
+      "query": "grep -A 10 \"Health Freedom Defense Fund\" data/cases/scotus/73500229/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:56.084Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5ec1ad93d22c2030",
+      "query": "grep -n -A 20 \"The Curtis  panel relied exclusively on Jacobson\" data/cases/scotus/73500229/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:58.699Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bc84b79142efe85e",
+      "query": "\"Curtis v. Inslee\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:06.596Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "d0a8b1cadcf8f8c0",
+      "query": "{\"strategic_intent\": \"Draft the prediction reasoning based on the case facts and legal context.\", \"summary\": \"After analyzing the case facts and noting the CourtListener MCP rate limit, I am drafting the reasoning. I predict a denial of certiorari. Although a response was requested (indicating some Justice interest), the petition relies on an FDCA/EUA preemption argument against COVID-19 vaccine mandates that has been uniformly rejected by other circuits (e.g., the 7th Circuit). Without a circui",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:23.231Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:35.893Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e9f23ec369acf14",
+      "query": "mkdir -p data/cases/scotus/73500229/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:38.982Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8302fc3ffbc9c9f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500229\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:49:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.10,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.8,\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"big_case_rationale\\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:50.519Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "54c0b4e74cb2d6c2",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question\\nWhether the Fourteenth Amendment or the Supremacy Clause (via the FDCA's Emergency Use Authorization provisions and the PREP Act) preempts a State and its actors from mandating the administration of an investigational drug (specifically, the COVID-19 vaccine) as a condition of continued employment for healthcare professionals.\\n\\n## Governing Standard & Facts\\nThe petitioners are former employees of Shriners Hospitals in Washington State who were te",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:50.523Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "793f45a305697a16",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- Consulted the provisioned inputs: `event.yaml`, `context.json`, `documents.json`, `2026-07-18.json` (snapshot), `petition.txt`, and `questions-presented.txt`.\\n- Attempted to use the CourtListener MCP `search` tool for priors on \\\"Curtis v. Inslee\\\", but the MCP server reported a rate limit error (`HTTP 429: Request was throttled. Rate limit exceeded: 1200/day. Expected available in 75 seconds.`).\\n- Degraded gracefully: Relied on the provisioned documents, the ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:50.527Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3699b12ae1225f6e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500229\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned documents (petition text and questions presented) were essential.\\\",\\n    \\\"The statpack was helpful for anchoring base rates.\\\"\\n  ],\\n  \\\"notes\\\": \\\"The C",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:50.530Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:56.420Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "21d66b24a6eee602",
+      "query": "{\"strategic_intent\": \"Conclude the task as all required outputs have been generated and validated.\", \"summary\": \"I have drafted all the required output files (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`), and verified them by running the `fedcourts validate data` check which passed successfully. The prediction task for this cell is now complete.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:02.215Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500229",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

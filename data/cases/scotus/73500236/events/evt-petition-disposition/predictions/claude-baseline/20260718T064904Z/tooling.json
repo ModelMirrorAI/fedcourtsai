@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500236",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query (attempted; corpus service unreachable)",
+    "metrics/statpack.md + statpack.json",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt carried every grant-relevant signal (no split alleged, error-correction framing, unpublished decision below).",
+    "Statpack per-fee-class and relist/CVSG cuts gave a clean paid-petition anchor.",
+    "CourtListener MCP opinion search surfaced the prior Landmark Towers cert denial in one call."
+  ],
+  "gaps": [
+    "The corpus query sidecar at 127.0.0.1:8377 was down for this cell, so no similar-prior retrieval was possible.",
+    "The committed statpack.md lacks the 'Segment base rate by salience band' table the predict prompt describes, so the salience-band anchor could not be used.",
+    "A pre-computed per-case signal summary (CFR issued? amicus count? relist count) alongside the snapshot would save re-deriving these from the docket JSON."
+  ],
+  "notes": "Forward cell; prediction rests on the provisioned snapshot/petition, committed base rates, and one MCP lookup for related-litigation history."
+}

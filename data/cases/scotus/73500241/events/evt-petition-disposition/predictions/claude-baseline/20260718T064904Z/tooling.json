@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500241",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md + statpack.json",
+    "CourtListener MCP search (dockets)"
+  ],
+  "helpful": [
+    "statpack.json per-Term fee-class detail (paid vs IFP grant rates) — the single best anchor for this cell",
+    "provisioned petition.txt and questions-presented.txt — petition quality/vehicle assessment drove the downward adjustment",
+    "fedcourts query granted-priors as a profile contrast (relists, counsel, origin)"
+  ],
+  "gaps": [
+    "The prompt's 'Segment base rate by salience band' table is absent from the committed statpack (md and json) — could not anchor on the salience-gate slice it describes",
+    "No conditional base rate for 'respondent waived response, no CFR' — a strong deny signal I had to weight by judgment",
+    "CourtListener SCOTUS docket search returned nothing for companion-petition checks; a corpus case-name/issue search would help find hold/GVR companions"
+  ],
+  "notes": "Forward cell, clean inputs. One fedcourts query cost ~40MB of ranged reads for 5 rows; fine for one call, but a tighter default projection would make multi-query budgets cheaper."
+}

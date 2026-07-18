@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500218",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "read_file"
+  ],
+  "notes": "MCP CourtListener search failed due to rate limiting (HTTP 429). Used statpack.md and provisioned snapshot.",
+  "gaps": [
+    "Graceful retry or fallback mechanism for CourtListener MCP."
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500230",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "metrics statpack",
+    "fedcourts query",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP opinion endpoint"
+  ],
+  "helpful": [
+    "The full petition exposed the split, posture, and vehicle arguments.",
+    "Fee-class and docket-signal base rates materially calibrated the forecast.",
+    "CourtListener confirmed Berk and the Ninth Circuit's Gopher Media opinions."
+  ],
+  "gaps": [
+    "CourtListener did not return an indexed result for the related Supreme Court petition docket 25-1067.",
+    "No brief in opposition was provisioned, so the petition's vehicle claims could not be tested against respondents' account."
+  ],
+  "notes": "The provisioned record plus the statpack was sufficient for a prediction. Live legal research helped verify the recent doctrinal context without querying this case's outcome."
+}

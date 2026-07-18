@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73500241",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20260718T064904Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-18T06:50:00Z",
+  "input_snapshot": "2026-07-18.json",
+  "granted": 0,
+  "probability": 0.015,
+  "predicted_disposition": "denied",
+  "confidence": 0.95,
+  "big_case_score": 0.1,
+  "big_case_rationale": "A routine civil rights/takings dispute over delayed return of seized property, lacking broad national significance.",
+  "reasoning_doc": "reasoning.md"
+}

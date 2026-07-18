@@ -1,0 +1,12 @@
+## Legal Question and Posture
+The petition presents a question regarding the standard for determining prejudice when a jury is exposed to extraneous, extra-record information (a *Remmer* error). The petitioner asks whether a defendant must show that the information influenced deliberations to his detriment, or whether the more stringent "but-for" standard (outcome would have been different) applies. The Sixth Circuit applied the latter, more stringent standard, finding that the overwhelming evidence against the defendant meant the outcome would not have been different.
+
+## Base Rates and Docket Signal
+This is a paid discretionary cert petition from the Sixth Circuit. The baseline grant rate for modern paid cert petitions from the Sixth Circuit is approximately 3.5%. The docket record shows that the Solicitor General waived the right to respond on June 8, 2026, and the petition was subsequently distributed for the long conference (September 28, 2026). 
+
+A waiver of response by the government strongly signals that the respondent considers the petition unworthy of review, perhaps because the asserted circuit split is shallow, the decision below was clearly correct, or the case is a poor vehicle due to the overwhelming evidence of guilt cited by the lower court. The Court almost never grants a petition without first calling for a response (CFR). While a justice could request a response before the conference or the petition could be relisted, the current absence of any affirmative signal from the Court or the government points heavily toward denial.
+
+## Prediction and Big Case Score
+Given the lack of a response and the baseline rarity of cert grants, the most likely outcome is `denied`. I assign a probability of 0.015 to a grant, accounting for the small chance the Court calls for a response later and subsequently grants the petition. 
+
+For the `big_case_score`, I assign a 0.3. While the standard for evaluating jury exposure to extra-record information is an important constitutional and procedural question that implicates the Sixth Amendment right to a fair trial, it is a relatively niche issue of criminal procedure that does not typically garner widespread public attention or significant non-legal salience.

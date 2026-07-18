@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500218",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search (dockets)"
+  ],
+  "helpful": [
+    "statpack relist-count and per-Term cert tables gave a concrete anchor to adjust from",
+    "CourtListener docket search by party_name identified the underlying district-court case and the petitioner's pro se filing history in two calls"
+  ],
+  "gaps": [
+    "fedcourts query has no signal for petition type (extraordinary writ vs cert) — free-text relevance returned recent salient cert cases instead of mandamus-alike priors",
+    "statpack carries no extraordinary-writ/Rule 20 stratum, so the effectively-zero mandamus grant rate had to come from domain knowledge rather than corpus evidence",
+    "no filed-document text was provisioned (petition is a scanned PDF), so the questions presented were unreadable; harmless here but would matter on a closer case",
+    "statpack.md in this build lacks the 'Segment base rate by salience band' section the predict prompt points to"
+  ],
+  "notes": "Clear-cut cell: pro se Rule 20 mandamus petition, all respondents waived response, long-conference distribution, zero relists."
+}

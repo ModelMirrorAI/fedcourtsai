@@ -1,0 +1,3 @@
+- Read `metrics/statpack.md` to confirm base rates for Supreme Court dispositions.
+- Attempted to query CourtListener MCP server `search` with `"q": "Joan Farr", "type": "d"`, but received a 429 Too Many Requests error (`Rate limit exceeded: 1200/day`).
+- Proceeded to predict based entirely on the provisioned inputs, priors, and general base rates as instructed when upstream is unavailable.

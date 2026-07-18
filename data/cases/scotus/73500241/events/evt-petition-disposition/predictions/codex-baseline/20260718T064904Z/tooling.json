@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500241",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Paid-petition and relist base rates supported calibration.",
+    "CourtListener opinion search confirmed the recent circuit-split authorities.",
+    "Corpus comparators exposed institutional signals such as distribution count and counsel."
+  ],
+  "gaps": [
+    "Provisioned lower-court opinion or appendix text would materially improve preservation and vehicle analysis.",
+    "SCOTUS corpus rows lack topical summaries, making structured comparator retrieval coarse."
+  ],
+  "notes": "The CourtListener MCP worked. Exact case-name and reporter-citation searches missed Honda Lease Trust, but a broader text query found it."
+}

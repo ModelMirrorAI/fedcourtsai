@@ -1,0 +1,286 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e1bd8630877e855c",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221 -type f | head -50",
+      "result_digest": "74e046e7a6acdd41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2221bc1f52b405b8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "f795ddf4c3176b67",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "51d5c062b189d6f0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8ec2689449fd9b4a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221/record/snapshots/2026-07-18.json\"}",
+      "result_digest": "a04c9089128ab7ee",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "db7094406fbd8d1d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221/record/documents/documents.json\"}",
+      "result_digest": "77aa9ea0a7a20678",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "869721f1550637f2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221/record/documents/questions-presented.txt\"}",
+      "result_digest": "2021cf45b64675df",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e56301c2e6148068",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221/record/documents/petition.txt\"}",
+      "result_digest": "dc3133652231cfa5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c812376460d31e4d",
+      "query": "uv run fedcourts paths --court scotus --docket 73500221 --event evt-petition-disposition --role predictor 2>&1 | head -30",
+      "result_digest": "021c3ad6cc523271",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c83b92107a2ee160",
+      "query": "grep -n \"Modern discretionary-cert\\|salience band\\|Segment base rate\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -20",
+      "result_digest": "8d4c8316645c793a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "326f3bdcf69c7009",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "6648df6b3bbfcecb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "dd6614276412de4a",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nsecs = d['sections']\nprint(type(secs), list(secs.keys()) if isinstance(secs, dict) else [s.get('title') for s in secs])\n\"",
+      "result_digest": "bdbaed6843aec31d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "62eb0757cd9f4e9a",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nt = d['terms']\nprint(json.dumps(t if isinstance(t, dict) else t[:6], indent=1)[:3000])\n\"",
+      "result_digest": "d4d308841df48e25",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d63ffd0e635442a1",
+      "query": "uv run fedcourts query --court scotus --era 2020s --limit 8 --query \"takings clause just compensation inverse condemnation cert petition\" 2>corpus_stderr1.txt; echo \"--- stderr:\"; cat corpus_stderr1.txt",
+      "result_digest": "165b5a2c7a639852",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ee68ea7d76ec899",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,80p'",
+      "result_digest": "931b848a3c18fc41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "57d0d69ad2f0ffee",
+      "query": "uv run fedcourts query --court scotus --era 2020s --citation \"588 U.S. 180\" --limit 5 2>q1.err; echo \"--- stderr:\"; cat q1.err",
+      "result_digest": "0e2de27f36565d04",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "66bc8c7ff7c02416",
+      "query": "uv run fedcourts query --court scotus --era 2020s --citation \"588 U.S. 180\" --limit 5 2>q2.err; echo \"--- stderr:\"; cat q2.err",
+      "result_digest": "0e2de27f36565d04",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "eb27afc243928183",
+      "query": "Rogne v. City of Catoosa",
+      "result_digest": "f59f45f5b32bbb06",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "f00ae233984630e6",
+      "query": "Rogne Catoosa",
+      "result_digest": "26781f9c81cc4b18",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "d3f34b3af0714fb6",
+      "query": "Rogne Catoosa",
+      "result_digest": "8e30d0034b543fae",
+      "retrieved_doc_date": "2024-06-28",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "35882f3c4cdea8f0",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500221/events/evt-petition-disposition/predictions/claude-baseline/20260718T064904Z",
+      "result_digest": "015431cfdc0038d4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4ce900cd20293261",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500221\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:54:09Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500221/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.012,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "aeaa2a30b9ba9d61",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7fb0700068aa6403",
+      "query": "{\"content\": \"# Rogne v. City of Catoosa, Oklahoma \\u2014 No. 25-1320 (petition disposition)\\n\\n**Prediction: denied. P(any grant, GVR included) \\u2248 0.012.**\\n\\n## The case\\n\\nJohn Rogne, a Catoosa, Oklahoma landowner, was served with cease-and-desist\\norders (2009 and 2011) barring him from stockpiling dirt on his vacant lots;\\nthe City also fenced the property for roughly six years. He sued in Oklahoma\\nstate court for inverse condemnation and lost \\u2014 the state courts held he\\nfailed to ",
+      "result_digest": "0a14851ad53d77e3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "f0abfe1c03b57f16",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73500221 \\u00b7 evt-petition-disposition \\u00b7 claude-baseline \\u00b7 20260718T064904Z\\n\\n## Corpus lookups (fedcourts CLI)\\n\\n1. `uv run fedcourts query --court scotus --era 2020s --citation \\\"588 U.S. 180\\\" --limit 5`\\n   \\u2014 stderr: `corpus service at http://127.0.0.1:8377 is unreachable \\u2014 is the sidecar running? (fedcourts corpus-serve): timed out`\\n   (no `ranged corpus reads:` line; no rows returned)\\n2. Same command retried once \\u2014 s",
+      "result_digest": "7671e4ff45ad0a74",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5906a705a65a1fe7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500221\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md + statpack.json (committed base rates)\\\",\\n    \\\"courtlistener MCP search (opinion + docket)\\\",\\n    \\\"fedcourts query (attempted; corpus service unreachable)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisione",
+      "result_digest": "f3e6b8c2a1d36872",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "320027a42695ff09",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500221\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Corpus query sidecar (127.0.0.1:8377) was unreachable (timed out on two attempts), so no similar-prior retrieval via fedcourts query informed this cell; t",
+      "result_digest": "6cb73fef93ccd305",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0cdfaecbca35d213",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "d44ad8fbb75eb862",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73500221",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

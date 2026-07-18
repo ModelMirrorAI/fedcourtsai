@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73500237",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md + metrics/statpack.json (per-fee-class detail)",
+    "provisioned snapshot and filed-document text"
+  ],
+  "helpful": [
+    "Full petition text with the appended Fourth Circuit opinion and district-court order made the vehicle analysis (independent alternative holding) possible without any live retrieval.",
+    "statpack.json per-fee-class per-Term grant rates gave a much better anchor (paid ~5.4%) than the whole-docket ~3% rate.",
+    "The relist-count cut plus sampled granted priors' distribution_count field gave a concrete zero-relist down-weight."
+  ],
+  "gaps": [
+    "The prompt references a 'Segment base rate by salience band' statpack section, but the committed statpack.md/statpack.json carries no such table; I anchored on the paid fee-class rate instead.",
+    "No free-text or subject-matter filter on `fedcourts query` for SCOTUS rows (--topic is circuit-only), so I could not pull priors for similar Rehabilitation Act / interactive-process petitions.",
+    "A response-waiver / call-for-response signal cut in the statpack would be valuable: SG waiver with no CFR is one of the strongest deny signals on a live docket and currently has no quantified base rate."
+  ],
+  "notes": "Forward-mode paid petition distributed to the long conference on a waived response; prediction rests mainly on provisioned inputs plus committed base rates."
+}

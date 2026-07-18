@@ -1,0 +1,262 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a3e3ada48e3f22f9",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248 -type f | head -50",
+      "result_digest": "a0cf85ca8b6a1b52",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e90174d6508bb94c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "68e7bd43e8ed57bd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "2459d816e2224161",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "36dbb0921800c1ab",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248/record/snapshots/2026-07-18.json\"}",
+      "result_digest": "94c785ba7289d53c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "47ec2eab71f3b880",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248/record/documents/documents.json\"}",
+      "result_digest": "c07771d9fb05cdf4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "89b495c9358c7e34",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248/record/documents/questions-presented.txt\"}",
+      "result_digest": "33056b89515a824d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d18fffa84b1ef3c4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248/record/documents/petition.txt\"}",
+      "result_digest": "5b690d57b837da0f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "366a3c0fbde86d2e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500248/record/documents/petition.txt\", \"offset\": 1104}",
+      "result_digest": "1407333b43fe2240",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "09623a7663ef28f0",
+      "query": "uv run fedcourts paths --court scotus --docket 73500248 --event evt-petition-disposition --role predictor 2>&1 | head -30",
+      "result_digest": "ebdf76e1f8c98208",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e5b575536e0e3146",
+      "query": "grep -n \"^#\\|^##\\|^###\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -40",
+      "result_digest": "4343cf7205eb5967",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "51b8c2531ce09313",
+      "query": "sed -n 55-102p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "f8f91e8fd03a4abc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "39e77261c2dd241d",
+      "query": "sed -n '55,102p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "57f6c14275cf8c2b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "92bf5ac5acad1010",
+      "query": "sed -n '135,220p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "864558b3afa21d84",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "901d196d391be920",
+      "query": "grep -n -i \"salience\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md; sed -n '103,134p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "4d21fb2c10089d66",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "f6965632855aa117",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fd189145b9f5468b",
+      "query": "uv run fedcourts query --court scotus --era modern --limit 8 --corpus-backend service 2>&1 | tail -12",
+      "result_digest": "30eea369977ced5a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "93de52520d712920",
+      "query": "uv run fedcourts query --court scotus --era modern --limit 8 --corpus-backend service 2>/dev/null | head -20; echo \"exit=$?\"",
+      "result_digest": "8e628158b020ca6b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ea71ad01c1df084c",
+      "query": "sed -n '33,54p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "6b6656bb9ae1954f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "af8419ff4edb6742",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 --corpus-backend service 2>&1 | head -10",
+      "result_digest": "899d0bdaa563e34d",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "03f03b8caddf8b45",
+      "query": "\"1997e(d)(2)\" \"fee cap\" certiorari denied",
+      "result_digest": "3e755b20c14877ff",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "b4a9d4dca834f53c",
+      "query": "\"1997e(d)(2)\" attorney's fees",
+      "result_digest": "c91d1c05408a4fd0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "61d1fb8fed834848",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": "1050d41129cd33cd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "2923252cbc348207",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500248\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:11:44Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500248/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.02,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "bfc2def8a1c16edf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "beaefd3fd0476d72",
+      "query": "{\"content\": \"# Webb v. Trombley, No. 25-1346 \\u2014 cert petition disposition\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.02.**\\n\\n## The legal question\\n\\nWhether the second sentence of 42 U.S.C. \\u00a7 1997e(d)(2) (PLRA) \\u2014 \\\"If the award\\nof attorney's fees is not greater than 150 percent of the judgment, the excess\\nshall be paid by the defendant\\\" \\u2014 prohibits fee awards greater than 150% of\\nthe monetary judgment. Every court of appeals to reach the question (the\\nSecon",
+      "result_digest": "98c516bdef23e6e4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "673feaae11ff4a91",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73500248 / evt-petition-disposition / claude-baseline / 20260718T064904Z\\n\\nMode: `forward` (record/context.json). Provisioned inputs read: the\\n2026-07-18 snapshot, `documents/questions-presented.txt`, and\\n`documents/petition.txt` (53 pp., full text including the Second Circuit\\nsummary order, the N.D.N.Y. fee order, and the rehearing denial as\\nappendices). Base rates from the committed `metrics/statpack.md`.\\n\\n## Corpus lookups (`fedcourts query`, ",
+      "result_digest": "f49a2ab5a6327f18",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "f799f31dd57168ef",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500248\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (service backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP search\\\",\\n    \\\"provisioned snapshot + petition text\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Full petition text with the lower-court orde",
+      "result_digest": "e17ebdeedb3700a0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "27196f5de6b4ad20",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73500248",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500243",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (attempted)",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned questions presented and petition text",
+    "Fee-class and procedural-signal cert base rates",
+    "CourtListener searches for qualified-immunity and fabrication doctrine"
+  ],
+  "gaps": [
+    "The local corpus query sidecar timed out, so case-level priors were unavailable",
+    "No brief in opposition was available because respondent waived a response"
+  ],
+  "notes": "The statpack and MCP searches were sufficient to complete the forecast despite the unavailable corpus sidecar."
+}

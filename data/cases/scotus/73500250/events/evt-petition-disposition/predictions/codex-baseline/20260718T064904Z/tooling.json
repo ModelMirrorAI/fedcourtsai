@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500250",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search (throttled)",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The statpack's Term, paid-petition, originating-circuit, relist, and CVSG cuts materially calibrated the forecast.",
+    "The provisioned petition included the full lower-court opinion, allowing vehicle-quality assessment without live retrieval."
+  ],
+  "gaps": [
+    "CourtListener MCP search quota was unavailable for all attempted legal-context searches."
+  ],
+  "notes": "The complete provisioned filing and committed base rates supported a clean degraded-mode prediction despite the MCP throttle."
+}

@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "17ce3dc4a8475322",
+      "query": "{\"strategic_intent\": \"Read prediction prompt instructions and agent guidelines to understand the prediction task.\", \"summary\": \"I will read the `.github/prompts/predict.md` and `AGENTS.md` files to understand the requirements for generating a prediction for the specified task. This will allow me to execute the prediction using the court, docket, and event IDs provided.\", \"title\": \"Reading Prediction Prompt and Guidelines\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:41.223Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:43.490Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:43.491Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4dcdaeec11d92b68",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73500219\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:49.379Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a4f903b66d0912db",
+      "query": "ls -la data/cases/scotus/73500219/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:53.958Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e27cc127d38b308",
+      "query": "ls -la data/cases/scotus/73500219/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:56.024Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0a2522bded44692e",
+      "query": "cat data/cases/scotus/73500219/events/evt-petition-disposition/event.yaml && cat data/cases/scotus/73500219/record/context.json && ls -la data/cases/scotus/73500219/record/snapshots && ls -la data/cases/scotus/73500219/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:58.971Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "11f6e7db448105c6",
+      "query": "{\"strategic_intent\": \"Read the specific case record to form a baseline understanding.\", \"summary\": \"I am now reviewing the provisioned record for the case (SCOTUS Docket 73500219). This includes the event definition, context (mode: forward), the latest snapshot (`2026-07-18.json`), and the provisioned documents (such as `questions-presented.txt` and `petition.txt`). This context is necessary to understand the case details and formulate a valid prediction.\", \"title\": \"Reading Case Record and Inpu",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:02.905Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "c7b6e24fb2d71cfe",
+      "query": "cat data/cases/scotus/73500219/record/snapshots/2026-07-18.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:05.366Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1524922fb14f8058",
+      "query": "cat data/cases/scotus/73500219/record/documents/documents.json && cat data/cases/scotus/73500219/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:08.604Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e286e33cd4b89f4f",
+      "query": "head -n 100 data/cases/scotus/73500219/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:14.942Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eadb1c327664218f",
+      "query": "grep -A 20 -B 5 \"circuit\" data/cases/scotus/73500219/record/documents/petition.txt | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:17.486Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2e180761f7ad9c5e",
+      "query": "grep -A 20 -B 5 \"split\" data/cases/scotus/73500219/record/documents/petition.txt | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:22.181Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e4ee66efdba5f486",
+      "query": "uv run fedcourts query scotus --event evt-petition-disposition --era 2020 --decided-before 2026-07-18 | head -n 50",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:26.588Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "121f3525dc687194",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:29.581Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4a986959fcc3c0c7",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:33.853Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8fa1d2e638bb7b82",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Cert petitions by relist count\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:38.015Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be3889da0e3d0b02",
+      "query": "grep -A 20 \"Segment base rate by salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:42.360Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4b74561792a4af4e",
+      "query": "grep -i \"salience\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:44.311Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d43a444a6fb2684e",
+      "query": "grep -i \"band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:46.782Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e86a61aed4b1217e",
+      "query": "cat metrics/statpack.md | grep \"## \"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:48.952Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3ae0b065edb8a946",
+      "query": "cat metrics/statpack.md | grep -A 30 \"SCOTUS cert petitions by Term\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:51.202Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "069885db7b3c7238",
+      "query": "cat schemas/prediction.schema.json | jq .",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:00.749Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f63630650d2f3b31",
+      "query": "mkdir -p data/cases/scotus/73500219/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:03.397Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cab86935bfb56b2f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500219\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:35:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500219/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.015,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.3,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:07.701Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a24c033ab3bc4a67",
+      "query": "{\"content\": \"## Legal Question and Posture\\nThe petition presents a question regarding the standard for determining prejudice when a jury is exposed to extraneous, extra-record information (a *Remmer* error). The petitioner asks whether a defendant must show that the information influenced deliberations to his detriment, or whether the more stringent \\\"but-for\\\" standard (outcome would have been different) applies. The Sixth Circuit applied the latter, more stringent standard, finding that the o",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:12.593Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "657057c2fcb1b014",
+      "query": "{\"content\": \"Consulted the provisioned inputs and `metrics/statpack.md` (for modern paid discretionary-cert petition base rates, relist counts, and CVSG status).\\n\\nNo retrieval beyond the provisioned inputs and committed stats.\", \"file_path\": \"data/cases/scotus/73500219/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:15.546Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "99abeeb9b9728951",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500219\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"grep_search\\\", \\\"run_shell_command\\\", \\\"read_file\\\"],\\n  \\\"helpful\\\": [\\\"statpack.md\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Base rates from statpack.md and docket posture (waiver of right to respond) were sufficient for confident prediction without need for deep",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:19.118Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9f1ae29ead9af016",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:23.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d06a396ec8218381",
+      "query": "{\"strategic_intent\": \"Conclude the prediction task after successfully writing and validating output files.\", \"summary\": \"I have successfully formulated a prediction based on the case record, baseline statistics, and the government's waiver of response. I created the required prediction files (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`) in the designated output directory and verified them using `uv run fedcourts validate data`. The pipeline will now handle further commit an",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:27.447Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500219",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

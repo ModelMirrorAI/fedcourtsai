@@ -1,0 +1,238 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "52a0d2d14f9d3e81",
+      "query": "{\"strategic_intent\": \"Understand the predict contract and agent expectations.\", \"title\": \"Read predict.md and AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:17.645Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:20.232Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:20.232Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a6ee364a1f5a3861",
+      "query": "uv run fedcourts paths --court scotus --docket 73500242 --event evt-petition-disposition --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:28.443Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "62ecc23fe13cd2ba",
+      "query": "ls -la data/cases/scotus/73500242/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:34.976Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dd8ea4b774d83958",
+      "query": "ls -laR data/cases/scotus/73500242/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:38.354Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e873ac0f0447dfad",
+      "query": "cat data/cases/scotus/73500242/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:41.705Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "392a5be36aceefa5",
+      "query": "cat data/cases/scotus/73500242/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:41.706Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2ae70906e9e91d6e",
+      "query": "cat data/cases/scotus/73500242/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:44.376Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ea116ce1fa657b9e",
+      "query": "cat data/cases/scotus/73500242/record/snapshots/2026-07-18.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:44.377Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8532dc47e8aecb8a",
+      "query": "cat data/cases/scotus/73500242/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:47.103Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:52.197Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "77a0b483e38569e0",
+      "query": "fedcourts query --court ca5 --docket 25-20079",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:56.768Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b5e0177a8018a44c",
+      "query": "\"Blessing Nwosu\" \"1600 West Loop South\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:59.357Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "c0ed08e0e475fbac",
+      "query": "uv run fedcourts query --court ca5 --docket 25-20079",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:02.823Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:08.233Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8cb7e6d696538231",
+      "query": "\"Blessing Nwosu\" \"1600 West Loop South\" \"Fifth Circuit\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:51:38.334Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "989016ec7ecb10d6",
+      "query": "uv run fedcourts query --court ca5 --topic \"Civil Rights\" --limit 1",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:51:38.334Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dc6ed5a3ddadfb35",
+      "query": "mkdir -p data/cases/scotus/73500242/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:51:43.704Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ab212f5bc5b3d5bc",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:51:47.655Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:51:55.529Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "323f3ab208fdb569",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500242\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:51:47Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500242/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.008,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.1,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:52:01.113Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:52:04.641Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "28c430105668f113",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73500242\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts_query\\\",\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided base rates\\\",\\n    \\\"google_web_search provided lower court context\\\"\\n  ],\\n  \\\"schema_version\\\": \\\"1.0\\\"\\n}\", \"f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:52:08.630Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f21bf549b2751c01",
+      "query": "{\"content\": \"- `uv run fedcourts query --court ca5 --topic \\\"Civil Rights\\\" --limit 1` -> `ranged corpus reads: 108 GET(s), 28311552 byte(s)`\\n- MCP CourtListener `search` tool (failed due to rate limit HTTP 429)\\n- Web search for `\\\"Blessing Nwosu\\\" \\\"1600 West Loop South\\\" \\\"Fifth Circuit\\\"` to find information about the lower court decision and background.\", \"file_path\": \"data/cases/scotus/73500242/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:52:11.687Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "02277ea83567fb1d",
+      "query": "{\"content\": \"# Prediction: Denied\\n\\n## Legal Question and Posture\\nThe petition presents a question under 42 U.S.C. \\u00a7 1981 regarding whether an African American restaurant patron can recover for racial discrimination when she was singled out and subjected to disparate treatment (forcibly having a shawl placed on her to cover her clothing) but ultimately stayed in the restaurant to accompany her friend and was not entirely denied service. The Fifth Circuit affirmed the District Court's summ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:52:16.697Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:52:23.021Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "acb080ae908e7159",
+      "query": "{\"strategic_intent\": \"Finished the prediction cell for the given inputs.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:52:30.074Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500242",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

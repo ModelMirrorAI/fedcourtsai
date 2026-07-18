@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500229",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition text and questions-presented extract — enough to classify the legal theory and vehicle without any fetching",
+    "Per-Term paid/IFP fee-class grant rates in statpack.json — the right anchor for a paid petition",
+    "Snapshot's ProceedingsandOrder — the waiver/distribution/response-requested sequence is the single most informative signal on this docket"
+  ],
+  "gaps": [
+    "The predict prompt describes a 'Segment base rate by salience band' table in the statpack, but the committed statpack.md/statpack.json carry no such section — anchored on the paid fee-class rate instead",
+    "No statpack cut for call-for-response (CFR) petitions; a 'response requested after waiver' bucket would directly price this docket's key signal",
+    "No free-text or issue-similarity corpus search: fedcourts query cannot find 'other EUA/PREP Act mandate petitions and their dispositions', which was the decisive prior here (supplied from model knowledge instead)",
+    "SCOTUS dockets are absent from the CourtListener RECAP search index, so a companion petition (Curtis v. Inslee) could not be looked up by name"
+  ],
+  "notes": "First fedcourts query cost 153 ranged GETs (~40 MB) for 5 rows; fine within budget but worth knowing when planning multiple queries."
+}

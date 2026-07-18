@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500223",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP search (dockets, opinions)",
+    "provisioned documents (questions-presented, petition, brief-in-opposition)"
+  ],
+  "helpful": [
+    "Full petition and BIO text made the vehicle/posture arguments assessable directly",
+    "Relist-count and per-fee-class statpack cuts gave usable anchors for a pre-first-conference paid petition",
+    "fedcourts query on granted 2020s priors confirmed the multi-distribution pattern preceding grants"
+  ],
+  "gaps": [
+    "The prompt references a per-Term 'Segment base rate by salience band' statpack section, but this statpack revision does not carry it, so the salience-band anchor could not be used",
+    "This case's own salience score/band is not exposed in the provisioned cell, only on corpus prior rows",
+    "A cases-citing-authority search (petitions raising a given precedent) would help gauge how often an overrule campaign like this one has been denied before"
+  ],
+  "notes": "Petition text search on SCOTUS dockets via MCP returns nothing (petition bodies are not indexed), so amicus/QP signals had to come from the provisioned documents; that provisioning worked well here."
+}

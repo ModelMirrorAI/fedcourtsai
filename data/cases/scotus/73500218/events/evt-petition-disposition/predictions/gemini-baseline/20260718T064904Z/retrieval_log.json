@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "b9cab0c6512a9edd",
+      "query": "{\"strategic_intent\": \"Understand the prediction task requirements by reading predict.md and AGENTS.md\", \"title\": \"Initial Setup and Context Gathering\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:34.201Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:36.091Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:36.092Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b84b9662b7676fa4",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73500218\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:42.679Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "90384d14c6d7a097",
+      "query": "ls -R data/cases/scotus/73500218/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:45.573Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9934d27055600535",
+      "query": "find . -name \"context.json\" -o -name \"documents.json\" -o -name \"*.snapshot.json\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:49.394Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f11847fcbdf76192",
+      "query": "ls -la data/cases/scotus/73500218/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:51.439Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "31e09ff5d757cd52",
+      "query": "ls -R data/cases/scotus/73500218/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:53.383Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:58.706Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "fb32f33b118f0327",
+      "query": "{\"file_path\": \"data/cases/scotus/73500218/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:58.707Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c1b7047910d8b611",
+      "query": "{\"file_path\": \"data/cases/scotus/73500218/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:58.707Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "10a2577f64babd8a",
+      "query": "{\"file_path\": \"data/cases/scotus/73500218/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:28:58.707Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f11847fcbdf76192",
+      "query": "ls -la data/cases/scotus/73500218/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:01.842Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e57d1456cba3a08f",
+      "query": "Joan Farr",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:08.234Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:11.754Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:13.791Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "71fbe3a9d31ea78a",
+      "query": "mkdir -p data/cases/scotus/73500218/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:21.541Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:25.269Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4e891bd748653d28",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500218\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:29:25Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.0,\\n  \\\"big_case_rationale\\\": \\\"Pr",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:29.018Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5693a42b18bc8f46",
+      "query": "{\"content\": \"## Legal Question and Standard\\nThe petitioner, Joan Farr, has filed a petition for a writ of mandamus. Under Supreme Court Rule 20, the issuance of an extraordinary writ like mandamus is \\\"not a matter of right, but of discretion sparingly exercised.\\\" The petitioner must demonstrate that the writ will be in aid of the Court's appellate jurisdiction, that exceptional circumstances warrant the exercise of the Court's discretionary powers, and that adequate relief cannot be obtained ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:37.387Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3d5630999fbaa7c4",
+      "query": "{\"content\": \"- Read `metrics/statpack.md` to confirm base rates for Supreme Court dispositions.\\n- Attempted to query CourtListener MCP server `search` with `\\\"q\\\": \\\"Joan Farr\\\", \\\"type\\\": \\\"d\\\"`, but received a 429 Too Many Requests error (`Rate limit exceeded: 1200/day`).\\n- Proceeded to predict based entirely on the provisioned inputs, priors, and general base rates as instructed when upstream is unavailable.\\n\", \"file_path\": \"data/cases/scotus/73500218/events/evt-petition-disposition/predic",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:41.031Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6747ad1030796a86",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500218\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"read_file\\\"\\n  ],\\n  \\\"notes\\\": \\\"MCP CourtListener search ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:48.344Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:54.950Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b97fa24e8ca9bb7b",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500218\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"read_file\\\"\\n  ],\\n  \\\"notes\\\": \\\"MCP CourtListener search failed due to rate limiting (HTTP 429). Used statpack.md and provisioned snapshot.\\\",\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:29:59.610Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:04.856Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "057e92fd67d413cc",
+      "query": "{\"strategic_intent\": \"Wrap up and finish the prediction task.\", \"summary\": \"Successfully completed the prediction for the given cert petition. I read the baseline snapshot, determined the petition is an unmeritorious pro se mandamus petition, drafted the necessary prediction, reasoning, retrieval, and tooling outputs in the correct directory, and verified them with the validation tool. No git operations were performed as per instructions.\", \"title\": \"Completion and Validation\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:07.434Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500218",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

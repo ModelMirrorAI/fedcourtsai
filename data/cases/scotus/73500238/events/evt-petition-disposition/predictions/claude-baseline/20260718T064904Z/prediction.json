@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500238",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260718T064904Z",
+  "created_at": "2026-07-18T07:04:52Z",
+  "input_snapshot": "data/cases/scotus/73500238/record/snapshots/2026-07-18.json",
+  "granted": 0,
+  "probability": 0.04,
+  "predicted_disposition": "denied",
+  "confidence": 0.6,
+  "votes": [],
+  "big_case_score": 0.6,
+  "big_case_rationale": "Cert petition of Theranos COO Sunny Balwani — the second figure in one of the most publicized corporate-fraud sagas of the decade; a grant on the Napue or Rule 702 questions would reshape prosecutorial and gatekeeping duties in federal criminal trials nationwide."
+}

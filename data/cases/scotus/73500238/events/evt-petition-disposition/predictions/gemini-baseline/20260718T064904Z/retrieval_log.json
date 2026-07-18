@@ -1,0 +1,214 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "962362bce7751008",
+      "query": "{\"strategic_intent\": \"Starting the prediction task by reading the agent instructions and the prompt contract.\", \"summary\": \"I am reading `.github/prompts/predict.md` and `AGENTS.md` to understand the rules and expected output formats for the prediction task on docket 73500238.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:42.573Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:42.581Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:42.582Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e4a773888fce03bf",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73500238\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:56.597Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "362775070734ad51",
+      "query": "find data/cases/scotus/73500238 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:04.095Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0b47436ca0def909",
+      "query": "{\"strategic_intent\": \"Reading the provisioned case inputs to understand the case and the event to predict.\", \"summary\": \"I am reading the event definition, context configuration, and document list for docket 73500238. This will tell me what I am predicting and what documents are available in the record.\", \"title\": \"Reading Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:09.261Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "1c42308a30983c02",
+      "query": "{\"file_path\": \"data/cases/scotus/73500238/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:09.268Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "90d58aebfe13a978",
+      "query": "{\"file_path\": \"data/cases/scotus/73500238/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:09.268Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "065af67e7841eb5b",
+      "query": "{\"file_path\": \"data/cases/scotus/73500238/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:09.269Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "22d3e74cb6b472e1",
+      "query": "{\"strategic_intent\": \"Reading the petition documents and snapshot to understand the questions presented and the case posture.\", \"summary\": \"I am reading the questions presented, the case snapshot, and the beginning of the petition for Ramesh Sunny Balwani v. United States. This will give me the legal questions and the factual background to inform my prediction.\", \"title\": \"Reading Petition and Snapshot\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:13.920Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4589f60a50f382ff",
+      "query": "{\"end_line\": 100, \"file_path\": \"data/cases/scotus/73500238/record/documents/petition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:13.925Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c389a394fc257987",
+      "query": "{\"file_path\": \"data/cases/scotus/73500238/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:13.926Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1bf732d103571d95",
+      "query": "{\"file_path\": \"data/cases/scotus/73500238/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:13.926Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b4beb49e870628f6",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:18.459Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7bbd6576f76b5356",
+      "query": "uv run fedcourts query --court scotus --topic \"petition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:46.737Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ecd873b3313e2300",
+      "query": "\"Ramesh Sunny Balwani\" \"United States\" Supreme Court cert petition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:11.901Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "f4e0f6db63309764",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:15.547Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bd64fd8358e4d1bb",
+      "query": "mkdir -p data/cases/scotus/73500238/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:22.333Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4db8c7fbe8e0d1e6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500238\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:49:04Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500238/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.005,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.8,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:28.844Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b6a5d52df1a21e57",
+      "query": "{\"content\": \"# Prediction Reasoning: Ramesh \\\"Sunny\\\" Balwani v. United States (25-1330)\\n\\n## The Legal Questions\\nThe petition asks the Court to consider two issues arising from the petitioner's criminal conviction:\\n1. Whether plain-error review applies to a *Napue* violation (presentation of false testimony) where the prosecution not only failed to correct the testimony but affirmatively exploited it in closing argument.\\n2. Whether an appellate court can excuse a district court's failure to",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:36.723Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f0bea735d19ab5a4",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- **Corpus Retrieval:**\\n  ```\\n  uv run fedcourts query --court scotus --topic \\\"petition\\\"\\n  ```\\n  Output: `ranged corpus reads: 467 GET(s), 122421248 byte(s)`\\n\\n- **Base Rates:**\\n  Read `metrics/statpack.md` to establish the baseline grant rate for modern paid discretionary-cert petitions (Term 2025: ~2.5%).\\n\\n- **Web Search:**\\n  Ran a Google Search for `\\\"Ramesh Sunny Balwani\\\" \\\"United States\\\" Supreme Court cert petition` to confirm the case context an",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:40.362Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "40ee6c5fe318ef45",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:42.637Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "543ed9e43e26071c",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500238\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"google_web_search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md provided vital base rates.\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"schema_version\\\": \\\"1.0\\\"\\n}\\n\", \"file_path\": \"data/cases/scotus/735002",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:48.203Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "13947a010b2db367",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:57.566Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bd2af890b3d5e728",
+      "query": "{\"strategic_intent\": \"Concluding the prediction task.\", \"summary\": \"I have completed the prediction task for Ramesh Sunny Balwani v. United States (25-1330). I reviewed the petition, snapshot, and base rates from the statpack. I successfully generated and validated `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` in the specified directory. No further actions or commits are required per the pipeline instructions.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:37:01.099Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500238",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

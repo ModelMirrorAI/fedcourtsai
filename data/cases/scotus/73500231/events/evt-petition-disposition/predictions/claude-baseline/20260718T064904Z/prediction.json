@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500231",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "run_id": "20260718T064904Z",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "created_at": "2026-07-18T06:59:19Z",
+  "input_snapshot": "data/cases/scotus/73500231/record/snapshots/2026-07-18.json",
+  "granted": 0,
+  "probability": 0.003,
+  "predicted_disposition": "denied",
+  "confidence": 0.97,
+  "votes": [],
+  "big_case_score": 0.02,
+  "big_case_rationale": "Pro se, fact-bound res judicata dispute over one individual's VA employment termination; no circuit split, no institutional stakes, respondent waived response."
+}

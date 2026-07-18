@@ -1,0 +1,294 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "3a5028e400ffba2b",
+      "query": "{\"strategic_intent\": \"Read predict.md and AGENTS.md to understand the prediction prompt contract and agent guidelines.\", \"summary\": \"I will begin by reading `.github/prompts/predict.md` and `AGENTS.md` to learn how to produce a prediction, the required output files, and any specific instructions.\", \"title\": \"Read Instructions\", \"wait_for_previous\": false}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:00.747Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:00.754Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:00.755Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "53a78db416eeacb2",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73500233\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:06.766Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c0fd5d608202faa",
+      "query": "ls -la data/cases/scotus/73500233/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:12.341Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b46126bc6cf9b708",
+      "query": "find data/cases/scotus/73500233/ -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:16.136Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d39333965d50b2a5",
+      "query": "{\"strategic_intent\": \"Read the per-case provisioned inputs for the prediction.\", \"summary\": \"I found the provisioned inputs under `data/cases/scotus/73500233/`. I will read the event definition, context (mode), the latest snapshot, and the available provisioned documents to understand the case and what to predict.\", \"title\": \"Read Case Inputs\", \"wait_for_previous\": false}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:22.761Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4d22db0cba96abe6",
+      "query": "{\"file_path\": \"data/cases/scotus/73500233/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:22.772Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "aab430853adc65bf",
+      "query": "{\"file_path\": \"data/cases/scotus/73500233/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:22.772Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "98fbf4edbb084f29",
+      "query": "{\"file_path\": \"data/cases/scotus/73500233/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:22.773Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "af3bd5d718ff4fe2",
+      "query": "{\"file_path\": \"data/cases/scotus/73500233/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:22.773Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "45fd9ebebb8f80c5",
+      "query": "{\"strategic_intent\": \"Read the provisioned document text for the petition and questions presented to understand the legal issues.\", \"summary\": \"I will read the text of the provisioned documents, specifically `questions-presented.txt` and `petition.txt`, to analyze the legal arguments and identify the issues raised in this certiorari petition. This case is a paid petition, *Pitzka v. Wisconsin*, where the state has waived its right to respond.\", \"title\": \"Read Petition Documents\", \"wait_for_previ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:30.979Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "fa2261e4113255f4",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73500233/record/documents/petition.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:30.984Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8d79afccc8d5c38c",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/73500233/record/documents/questions-presented.txt\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:30.984Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2e2f8106c8e45e07",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:38.313Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "51f29b519ab54dfd",
+      "query": "cat metrics/statpack.md | grep -A 40 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:42.163Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1718fda1cf89ff9d",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:50.952Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "950e40b6e9f9ee3d",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Cert\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:34:56.543Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2ac0835011cae70",
+      "query": "uv run fedcourts query --court scotus --disposition granted \"other acts pending criminal prosecution\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:06.001Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "22006583b97c134c",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:08.899Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6a6a229f9441df92",
+      "query": "cat data/cases/scotus/73500233/record/documents/petition.txt | grep -i \"reasons for granting the writ\" -A 100",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:16.346Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4e9bd4e14af3b812",
+      "query": "cat data/cases/scotus/73500233/record/documents/petition.txt | grep -i -C 3 \"split \"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:21.555Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "de50ae4508851774",
+      "query": "cat data/cases/scotus/73500233/record/documents/petition.txt | grep -i -E \"conflict|divided|diverge\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:23.910Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "02c726c91ff50a82",
+      "query": "mkdir -p data/cases/scotus/73500233/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:31.586Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bd2cf109ebafcb02",
+      "query": "cat schemas/prediction.schema.json | grep -A 30 \"properties\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:36.520Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "da2bcb98027dce81",
+      "query": "cat schemas/prediction.schema.json | jq '.properties | keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:38.643Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "65b59f54b74f17d9",
+      "query": "cat schemas/prediction.schema.json | jq '.required'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:41.262Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e8b9019328161e5",
+      "query": "cat schemas/agent_tooling.schema.json | jq '.properties | keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:35:52.755Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5db23cda95dfd277",
+      "query": "{\"strategic_intent\": \"Write the outputs and finalize the prediction.\", \"summary\": \"I will write the required output files (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`) to the designated output directory. I will ensure the JSON files validate against their respective schemas, as required by the pipeline.\", \"title\": \"Finalize Output\", \"wait_for_previous\": false}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:08.654Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "115fe2839d274791",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500233\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:45:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500233/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.99,\\n  \\\"bi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:08.661Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "cb5cf85cca787724",
+      "query": "{\"content\": \"# Prediction Reasoning: Pitzka v. Wisconsin (25-1333)\\n\\n**Predicted Disposition:** Denied\\n**Probability of Grant:** 0.1%\\n\\n## Legal Analysis and Facts\\nThe petitioner, Mark A. Pitzka, seeks review of a Wisconsin Supreme Court judgment regarding the admissibility of \\\"other acts\\\" evidence under state evidentiary rules and the 5th, 6th, and 14th Amendments. Specifically, the petition asks whether admitting evidence of other acts that are the subject of a pending, unresolved crimin",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:08.665Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "12a1f2f0465bd560",
+      "query": "{\"content\": \"- `cat metrics/statpack.md | grep -A 40 \\\"Modern discretionary-cert petitions by disposition\\\"`\\n- `cat metrics/statpack.md | grep -A 20 \\\"Cert\\\"`\\n- `cat data/cases/scotus/73500233/record/documents/petition.txt | grep -i \\\"reasons for granting the writ\\\" -A 100`\\n- `cat data/cases/scotus/73500233/record/documents/petition.txt | grep -i -C 3 \\\"split \\\"` (no results)\\n- `cat data/cases/scotus/73500233/record/documents/petition.txt | grep -i -E \\\"conflict|divided|diverge\\\"` (no result",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:08.668Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "6c53f511586a83c9",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500233\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"The statpack.md file provides excellent context for base rates.\\\", \\\"The provisioned text of the petition allows for quick checking of circuit splits.\\\"],\\n  \\\"gaps\\\": [\\\"None needed for this straightforw",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:08.672Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "53daf055cd045219",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:13.846Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fac87065072f8a70",
+      "query": "{\"strategic_intent\": \"Conclude the prediction task.\", \"summary\": \"The prediction task is complete. I have successfully written `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` for the cert petition disposition of *Pitzka v. Wisconsin*. The artifacts have passed `fedcourts validate data`. I will not commit or push the changes as instructed.\", \"title\": \"Task Complete\", \"wait_for_previous\": false}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:36:16.660Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500233",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

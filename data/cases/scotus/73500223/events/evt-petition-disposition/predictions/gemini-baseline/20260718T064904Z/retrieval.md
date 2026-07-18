@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`. I attempted to run `fedcourts query` but the command syntax I used was slightly incorrect (passing a full date instead of a year for `--decided-before`, though as a forward case it wasn't strictly necessary), so I relied entirely on the provisioned inputs and the statpack.

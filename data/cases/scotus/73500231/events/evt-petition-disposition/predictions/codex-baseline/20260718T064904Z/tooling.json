@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500231",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "corpus statpack",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP opinion endpoint"
+  ],
+  "helpful": [
+    "Provisioned petition and extracted questions presented",
+    "Fee-class and procedural-signal base rates",
+    "CourtListener opinion text for checking the petition's central authorities"
+  ],
+  "gaps": [
+    "The separate lower-court appendix and opinions were not provisioned as searchable text",
+    "Corpus query lacked filters for pro se status, response waiver, unpublished posture, and legal issue"
+  ],
+  "notes": "The corpus query transferred a large amount of data but returned generic recent SCOTUS dispositions, so the statpack and targeted MCP opinion retrieval were more useful."
+}

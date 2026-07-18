@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500216",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (call_endpoint dockets)"
+  ],
+  "helpful": [
+    "Provisioned full petition text — the QP, split presentation, and AEDPA posture were all readable without any fetching.",
+    "Statpack relist/CVSG/originating-circuit cuts gave a clean anchor for a zero-relist, no-CVSG paid CA5 petition.",
+    "fedcourts query --disposition granted made the granted-pool contrast (elite counsel, amici, relists) easy to see."
+  ],
+  "gaps": [
+    "The committed statpack.md has no 'Segment base rate by salience band' table (the prompt names it as the preferred anchor for a selected petition) — I had to approximate the selected-slice yardstick from the era table.",
+    "Snapshot shows no waiver-of-response entry even though the response due date passed and the case was distributed; a waiver/CFR status field would sharpen the near-term signal.",
+    "Per-fee-class (paid vs IFP) grant rates are said to ride in statpack.json but are not surfaced in statpack.md."
+  ],
+  "notes": "Forward cell; one corpus query and one MCP docket-status check were sufficient on top of the provisioned inputs."
+}

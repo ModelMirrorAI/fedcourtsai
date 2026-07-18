@@ -1,0 +1,11 @@
+- `uv run fedcourts query --court scotus --topic "attorneys fees" --era "Roberts"`
+  - `ranged corpus reads: 467 GET(s), 122421248 byte(s)`
+- `uv run fedcourts open-events --court scotus --docket 73500248`
+- Read `metrics/statpack.md` for base rates on relists, CVSG status, and paid vs. IFP fee classes.
+- CourtListener MCP tool calls:
+  - `search(q="\"150 percent of the judgment\" \"1997e(d)(2)\"", type="o")`
+    - Retrieved circuit court opinions including *Shepherd v. Goord*, *Wilkins v. Gaddy*, *Woods v. Cervantes*, etc.
+  - `search(q="\"150 percent of the judgment\" \"circuit split\"", type="o")`
+    - Retrieved context on the extent of splits surrounding PLRA fee caps.
+  - `search(q="\"1997e(d)(2)\" \"150 percent\"", type="o")`
+    - Retrieved further context confirming uniform circuit interpretation on the primary question.

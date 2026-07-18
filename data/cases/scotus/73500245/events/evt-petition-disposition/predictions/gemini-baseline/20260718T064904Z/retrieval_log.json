@@ -1,0 +1,190 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "3b6d1f5d7adbf1ea",
+      "query": "{\"strategic_intent\": \"Understanding the prediction requirements and prompt contract.\", \"title\": \"Reading instructions and prompts\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:03.232Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:09.191Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:09.191Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "894dfbcdb494ca04",
+      "query": "ls -la data/cases/scotus/73500245/record",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:15.932Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf2060bd29342aa2",
+      "query": "ls -la data/cases/scotus/73500245/events/evt-petition-disposition",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:15.932Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2989245f3b20885d",
+      "query": "cat data/cases/scotus/73500245/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:19.499Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e25c88a4c4af4950",
+      "query": "cat data/cases/scotus/73500245/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:19.499Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dd82ded52db0a832",
+      "query": "ls -la data/cases/scotus/73500245/record/documents",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:19.500Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b1024aa1e2d3a6a4",
+      "query": "ls -la data/cases/scotus/73500245/record/snapshots",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:19.500Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5fe477a60a06e740",
+      "query": "cat data/cases/scotus/73500245/record/snapshots/2026-07-18.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:22.756Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6629b97362dc3c28",
+      "query": "cat data/cases/scotus/73500245/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:22.757Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6074d985fc66c750",
+      "query": "cat data/cases/scotus/73500245/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:22.757Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:27.741Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3ab5c115457b85e9",
+      "query": "mkdir -p data/cases/scotus/73500245/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:42.133Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7d2236cee9725a7d",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500245\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T07:40:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"probability\\\": 0.005,\\n  \\\"big_case_score\\\": 0.0,\\n  \\\"big_case_rationale\\\": \\\"A highly specific, ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:51.095Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "df6c0f2fb13cfc2f",
+      "query": "{\"content\": \"## Legal Context and Posture\\nThis is a petition for a writ of certiorari filed by Jerry M. Blevins, a pro se attorney challenging a disciplinary action by the Alabama State Bar. The lower court decision comes from the Supreme Court of Alabama.\\n\\nThe Question Presented focuses on whether the Alabama Supreme Court's interpretation and application of \\u00a7 34-3-62 of the Alabama Code violated Blevins's procedural due process rights under the Fourteenth Amendment.\\n\\n## Case Specific",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:51.098Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2d11660c78ca4ed3",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs. Base rates consulted from the committed `metrics/statpack.md`.\", \"file_path\": \"data/cases/scotus/73500245/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:51.101Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "74bc91373f1806a0",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500245\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read metrics/statpack.md\\\"],\\n  \\\"helpful\\\": \\\"The committed statpack was sufficient to establish the extremely low base rate for this type of petition.\\\",\\n  \\\"notes\\\": \\\"No live corpus queries or CourtListener MCP calls were necessary for this straightforwar",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:51.105Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:57.898Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4f6e7da673ee869b",
+      "query": "{\"allow_multiple\": false, \"file_path\": \"data/cases/scotus/73500245/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/tooling.json\", \"instruction\": \"Fix helpful type\", \"new_string\": \"\\\"helpful\\\": [\\\"The committed statpack was sufficient to establish the extremely low base rate for this type of petition.\\\"],\", \"old_string\": \"\\\"helpful\\\": \\\"The committed statpack was sufficient to establish the extremely low base rate for this type of petition.\\\",\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:03.745Z",
+      "tool": "replace"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:09.896Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6dd6728898f431a8",
+      "query": "{\"strategic_intent\": \"Completing the prediction task.\", \"summary\": \"I have analyzed the provided context for the Jerry M. Blevins v. Alabama State Bar cert petition. Due to the fact-bound nature of the state bar disciplinary case, the waiver by the respondent, and the lack of any broader national significance, I predicted a denial with a very low probability of a grant. The output files prediction.json, reasoning.md, retrieval.md, and tooling.json were created in the designated directory and suc",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:13.315Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500245",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500243",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260718T064904Z",
+  "created_at": "2026-07-18T07:26:43Z",
+  "input_snapshot": "data/cases/scotus/73500243/record/snapshots/2026-07-18.json",
+  "granted": 0,
+  "probability": 0.075,
+  "predicted_disposition": "denied",
+  "confidence": 0.76,
+  "big_case_score": 0.55,
+  "big_case_rationale": "A decision could materially shape due-process liability for forensic evidence and qualified immunity, though the dispute is procedurally and factually narrow.",
+  "reasoning_doc": "reasoning.md"
+}

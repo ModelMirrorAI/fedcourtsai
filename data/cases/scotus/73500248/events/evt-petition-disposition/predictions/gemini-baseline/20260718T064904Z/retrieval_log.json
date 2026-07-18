@@ -1,0 +1,342 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "8d1c398c2c00bf67",
+      "query": "{\"strategic_intent\": \"Read instructions in predict.md and AGENTS.md to understand the prediction task.\", \"title\": \"Reading prediction instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:00.171Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:02.402Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:02.403Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3bb967e1de1c3584",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73500248\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:08.020Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "30c6355a2972b0c7",
+      "query": "ls -la data/cases/scotus/73500248/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:10.950Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7047dd7da33a0702",
+      "query": "ls -la data/cases/scotus/73500248/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:14.521Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0ef736a3ed812de4",
+      "query": "ls -la data/cases/scotus/73500248/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:16.511Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c0002f38b76ddb82",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs for the prediction task.\", \"title\": \"Reading provisioned inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:19.263Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "12a4861bed765530",
+      "query": "{\"file_path\": \"data/cases/scotus/73500248/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:21.636Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e0a0c315bcb22f21",
+      "query": "{\"file_path\": \"data/cases/scotus/73500248/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:21.636Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a722bf3c74ba0821",
+      "query": "ls -la data/cases/scotus/73500248/record/snapshots/ && ls -la data/cases/scotus/73500248/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:24.575Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "30cb768545a5f0ba",
+      "query": "{\"file_path\": \"data/cases/scotus/73500248/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:28.032Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9a6e362d93af7d4a",
+      "query": "{\"file_path\": \"data/cases/scotus/73500248/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:28.032Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "39e3d53eb9141f25",
+      "query": "{\"file_path\": \"data/cases/scotus/73500248/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:28.032Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "31322bc289dad4a9",
+      "query": "uv run fedcourts query --court scotus --topic \"attorneys fees\" --era \"Roberts\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:38:59.356Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0bb5f1a32aec98c1",
+      "query": "\"150 percent of the judgment\" \"1997e\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:03.880Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "47dc7b8e026d7d69",
+      "query": "sleep 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:27.657Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42fd2d2183e27a75",
+      "query": "\"150 percent of the judgment\" \"1997e(d)(2)\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:31.212Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "acb3da6b522fff1a",
+      "query": "\"150 percent of the judgment\" \"circuit split\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:37.368Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "36e358340b3041eb",
+      "query": "cat metrics/statpack.md | grep -A 20 \"discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:43.833Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "53264b4a8a9a5e18",
+      "query": "uv run fedcourts stats 2>/dev/null || echo \"stats not available\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:48.049Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0244cae12add1bb8",
+      "query": "uv run fedcourts open-events --court scotus --docket 73500248",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:39:55.638Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "47dc7b8e026d7d69",
+      "query": "sleep 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:24.308Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3b482c4d03b00699",
+      "query": "\"1997e(d)(2)\" \"150 percent\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:29.131Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "99c0ce4986d45441",
+      "query": "cat metrics/statpack.md | grep -A 30 \"fee class\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:37.095Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a3ab1b08e8658d5a",
+      "query": "cat metrics/statpack.md | grep -A 20 -i \"paid\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:40.662Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddfe514291404314",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:42.892Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "159fd2b1f435e777",
+      "query": "grep -i \"salience\" metrics/statpack.md -A 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:45.022Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5cec60ef4fe06874",
+      "query": "grep -i \"band\" metrics/statpack.md -A 20",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:47.223Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:40:49.470Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "655280febf7ab8af",
+      "query": "cat /home/runner/.gemini/tmp/fedcourtsai/tool-outputs/session-36e0dc60-c0bb-4dd1-b551-942109e022bf/mcp_courtlistener_search__y0zec8ag.txt | grep -i \"split\" -A 10 -B 10 || echo \"no split mentioned in search output\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:05.321Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d76a04a43a2e415b",
+      "query": "grep -i -C 3 \"split\" data/cases/scotus/73500248/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:07.670Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:14.597Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:31.495Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "12886db027a298cd",
+      "query": "mkdir -p data/cases/scotus/73500248/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:35.543Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d891e629b0703180",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500248\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T08:05:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500248/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.015,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.1,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:47.981Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3e100e6b23d2433d",
+      "query": "{\"content\": \"## Qualitative Analysis\\n\\n### Legal Question and Governing Standard\\nThe legal question presented is whether the second sentence of the Prison Litigation Reform Act's (PLRA) attorney\\u2019s fees provision, 42 U.S.C. \\u00a7 1997e(d)(2), prohibits awards of attorney\\u2019s fees that are greater than 150% of the judgment. The provision states: \\\"If the award of attorney\\u2019s fees is not greater than 150 percent of the judgment, the excess shall be paid by the defendant.\\\" The petiti",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:47.985Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b7c70f983a2fd779",
+      "query": "{\"content\": \"- `uv run fedcourts query --court scotus --topic \\\"attorneys fees\\\" --era \\\"Roberts\\\"`\\n  - `ranged corpus reads: 467 GET(s), 122421248 byte(s)`\\n- `uv run fedcourts open-events --court scotus --docket 73500248`\\n- Read `metrics/statpack.md` for base rates on relists, CVSG status, and paid vs. IFP fee classes.\\n- CourtListener MCP tool calls:\\n  - `search(q=\\\"\\\\\\\"150 percent of the judgment\\\\\\\" \\\\\\\"1997e(d)(2)\\\\\\\"\\\", type=\\\"o\\\")`\\n    - Retrieved circuit court opinions including *Sh",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:55.480Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "2f1062e44a19534c",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73500248\\\",\\n  \\\"gaps\\\": [\\n    \\\"The statpack.md file did not contain the 'Segment base rate by salience band' table mentioned in the instructions, requiring fallback to individual cuts like relist count and fee class.\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The corpus stats on fee class (paid vs IFP) and relists were very helpful for anchoring the base rate.\\\",\\n    \\\"CourtListener MCP search revealed the circuit split cont",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:41:55.483Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:42:03.541Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c18af57d44e74950",
+      "query": "{\"strategic_intent\": \"I have completed the prediction task and validated the files.\", \"title\": \"Finishing Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:42:06.046Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500248",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

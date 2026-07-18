@@ -1,0 +1,10 @@
+case_id: scotus/73500237
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-06-01'
+resolved: false
+schema_version: '1.0'
+title: Stephanie M. Redding v. Markwayne Mullin, Secretary of Homeland Security

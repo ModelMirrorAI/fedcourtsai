@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73500217",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP search (opinions)",
+    "provisioned snapshot + petition/QP document text"
+  ],
+  "helpful": [
+    "Provisioned petition.txt with the full QP and reasons-for-granting section made the no-split assessment possible without any PDF fetching.",
+    "Statpack relist-count and CVSG cuts gave a concrete sub-1% anchor for a zero-relist petition.",
+    "fedcourts query on recent grants gave a useful contrast profile (distribution_count, salience) for what granted petitions look like."
+  ],
+  "gaps": [
+    "The statpack salience-band table referenced by the predict prompt is absent from the committed statpack.md, so the band-level yardstick could not be used.",
+    "No statpack cut for response-waived / no-CFR petitions, which is one of the strongest denial signals; had to apply it judgmentally.",
+    "CourtListener opinion search does not index unpublished CA9 memoranda, so the decision below could only be read via the petition's account."
+  ],
+  "notes": "Forward-mode cell; retrieval stayed well under budget (1 corpus query, 3 MCP searches)."
+}

@@ -1,0 +1,2 @@
+* Read `metrics/statpack.md` to analyze base rates for modern discretionary-cert petitions by disposition and originating circuit for Term 2025.
+* Attempted CourtListener MCP server call (`call_endpoint` on `dockets`) but it resulted in a rate-limit error (`HTTP 429: Request was throttled. Rate limit exceeded: 1200/day`). Degraded gracefully per agent instructions and relied on provisioned inputs and the statpack.

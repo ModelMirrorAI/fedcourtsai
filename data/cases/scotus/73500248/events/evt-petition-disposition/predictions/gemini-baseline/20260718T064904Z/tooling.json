@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73500248",
+  "gaps": [
+    "The statpack.md file did not contain the 'Segment base rate by salience band' table mentioned in the instructions, requiring fallback to individual cuts like relist count and fee class."
+  ],
+  "helpful": [
+    "The corpus stats on fee class (paid vs IFP) and relists were very helpful for anchoring the base rate.",
+    "CourtListener MCP search revealed the circuit split context quickly."
+  ],
+  "notes": "Good tooling overall. The rate limiting on the MCP server required a short sleep before retrying.",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query",
+    "fedcourts open-events",
+    "statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,4 @@
+- `uv run fedcourts query --court scotus --topic "disposition" --era "modern"` (failed with corpus sidecar timeout)
+- CourtListener MCP search for CA5 opinions in early March 2026 (failed with rate limit HTTP 429)
+- Consulted `metrics/statpack.md` for base rates.
+- No further retrieval beyond the provisioned inputs due to tooling unavailability.

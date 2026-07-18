@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500236",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The cell's corpus query sidecar (127.0.0.1:8377) was unreachable — two `fedcourts query` attempts timed out — so no similar-prior retrieval ran. Degraded, not blocked: the prediction rests on the provisioned snapshot/petition, the committed statpack base rates, and one CourtListener MCP lookup (which surfaced the prior round's cert denial, UMB Bank v. Landmark Towers, No. 19-241). If other cells in this run show the same timeout, the sidecar likely never started."
+    }
+  ]
+}

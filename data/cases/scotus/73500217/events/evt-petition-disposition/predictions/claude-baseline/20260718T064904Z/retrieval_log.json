@@ -1,0 +1,222 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "49adf051c0a8e00b",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217 -type f | head -50",
+      "result_digest": "4e5b37077dbeac9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "b7566c6111cdddd0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "038dca859bd01310",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "824843733e812468",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4390ced5852e8b5d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/record/snapshots/2026-07-18.json\"}",
+      "result_digest": "4c0d0354b3f5eafd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2564f207ad89037a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/record/documents/documents.json\"}",
+      "result_digest": "10870fc2c7c8c182",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2dedba54e723a132",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/record/documents/questions-presented.txt\"}",
+      "result_digest": "ace341846aa6fd1c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "9449daa1d4e2e7dd",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/record/documents/petition.txt\"}",
+      "result_digest": "d10ac45dc9349ffe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ee0671c45112e8e3",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5af37244d820b4ac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a6c0c3431c8d2f00",
+      "query": "uv run fedcourts paths --court scotus --docket 73500217 --event evt-petition-disposition --role predictor 2>&1",
+      "result_digest": "74756f59f51271f9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ee68ea7d76ec899",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,80p'",
+      "result_digest": "931b848a3c18fc41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "91f9449d58c269e1",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>corpus_stderr.txt; echo \"---STDERR---\"; cat corpus_stderr.txt",
+      "result_digest": "82972450da6bd191",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8311427006242b5d",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "80a597c2d4b4d7b7",
+      "query": "Crites-Bachert Providence",
+      "result_digest": "67a2239a5fb01f79",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "40d793beb4c45585",
+      "query": "\"360bbb-3\" \"informed consent\" vaccine mandate private right of action",
+      "result_digest": "fc3d6f5143212b42",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "28f2e38ce1b8b63e",
+      "query": "emergency use authorization informed consent vaccine mandate",
+      "result_digest": "38a247753ca139a2",
+      "retrieved_doc_date": "2021-07-06",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "bbc4a91cbcbea7bf",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73500217/events/evt-petition-disposition/predictions/claude-baseline/20260718T064904Z",
+      "result_digest": "419f84118970692c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5ba7f5d4c56fc899",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73500217\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:52:22Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500217/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.004,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "0565b3675ff6d290",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8d925cca0a9ff150",
+      "query": "{\"content\": \"# Crites-Bachert v. Providence Health & Services \\u2013 Oregon (No. 25-1317)\\n\\n**Prediction: denied. P(grant, GVR included) = 0.004.**\\n\\n## The legal question\\n\\nThe petition asks whether a civilian has an implied private right of action to\\nenforce the \\\"option to accept or refuse\\\" condition of the emergency-use-\\nauthorization statute, 21 U.S.C. \\u00a7 360bbb-3(e)(1)(A)(ii)(III) \\u2014 i.e., whether a\\nhospital that suspended a non-employee surgeon's privileges for refusing an\\",
+      "result_digest": "346ead8349d01e4e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "34c5e1b95b3c0477",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73500217 / evt-petition-disposition / claude-baseline / 20260718T064904Z\\n\\n## Corpus lookups (`fedcourts`)\\n\\n1. `uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5`\\n   - stderr: `ranged corpus reads: 153 GET(s), 40108032 byte(s)`\\n   - Purpose: profile recent grants for contrast. The five returned grants\\n     (June 30, 2026 conference: Monsanto \\u00d72, Petersen, Davis, Viramontes) all\\n     carry 3+ conference distrib",
+      "result_digest": "a97cfb5f7fc5ae5c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "524a3aa69d852256",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500217\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (ranged corpus backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP search (opinions)\\\",\\n    \\\"provisioned snapshot + petition/QP document text\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition.txt with the full QP and r",
+      "result_digest": "564dd0a7fff1ab48",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "7a92b1c6ef2b5527",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && rm -f corpus_stderr.txt && git status --short data/cases/scotus/73500217/",
+      "result_digest": "6b6c2a79b3b00c7e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73500217",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

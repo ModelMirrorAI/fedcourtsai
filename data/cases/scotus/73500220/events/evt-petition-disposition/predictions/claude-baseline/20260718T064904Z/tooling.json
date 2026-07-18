@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500220",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "metrics/statpack.md (committed base rates)",
+    "CourtListener MCP search (2 docket searches)",
+    "provisioned snapshot + petition/QP documents"
+  ],
+  "helpful": [
+    "statpack relist/CVSG/circuit cuts gave a concrete anchor",
+    "provisioned petition text included the appended CA3 opinion, which exposed the alternative retroactivity holding (the decisive vehicle fact)",
+    "questions-presented.txt as a fast orientation before the full petition"
+  ],
+  "gaps": [
+    "corpus query sidecar was unreachable (fedcourts query timed out against http://127.0.0.1:8377), so no ranked similar-prior retrieval was possible this run",
+    "this statpack version carries no 'Segment base rate by salience band' table, though the prompt directs anchoring on it",
+    "a per-fee-class (paid vs IFP) grant-rate row in statpack.md itself would avoid guessing the paid-petition uplift"
+  ],
+  "notes": "Degraded-corpus run: attempted one fedcourts query (timed out at the sidecar, no ranged-reads line), fell back to the committed statpack plus the provisioned inputs. CourtListener MCP worked; two docket searches used of the ~25-call budget."
+}

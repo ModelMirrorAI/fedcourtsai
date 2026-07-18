@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "05b0da3dc35e377d",
+      "query": "{\"strategic_intent\": \"Reading predict.md and AGENTS.md to understand the prediction prompt contract and required output files.\", \"title\": \"Understanding Prediction Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:36.928Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:38.763Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:38.764Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4d875f12b88a535d",
+      "query": "find data/cases/scotus/73500222 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:43.899Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "025d42af3876d75f",
+      "query": "{\"strategic_intent\": \"Reading the provisioned inputs for the case to prepare for making a prediction.\", \"title\": \"Reading Provisioned Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:46.951Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "6c7016ba46a16dea",
+      "query": "{\"file_path\": \"data/cases/scotus/73500222/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:46.959Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "3406578f39c0a655",
+      "query": "{\"file_path\": \"data/cases/scotus/73500222/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:46.960Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2d63c207b466ff99",
+      "query": "{\"file_path\": \"data/cases/scotus/73500222/record/snapshots/2026-07-18.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:46.961Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a200f42663f7f1ee",
+      "query": "{\"file_path\": \"data/cases/scotus/73500222/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:50.343Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "09d8aa3cf04e8e2d",
+      "query": "{\"file_path\": \"data/cases/scotus/73500222/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:50.344Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a8c97b7a4c73a98e",
+      "query": "{\"file_path\": \"data/cases/scotus/73500222/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:50.345Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:30:55.432Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4088396dbffc973c",
+      "query": "uv run fedcourts query --court scotus --topic \"Fed. R. Civ. P. 54(d)\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:20.407Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ebf3c4a6c0419787",
+      "query": "\"Rule 54(d)\" AND (\"civil rights\" OR \"chilling effect\")",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:31:23.634Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "bb8cbbd6234bab95",
+      "query": "sleep 35",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:01.070Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ec16fba250658ea2",
+      "query": "\"chilling effect\" AND costs AND \"Rule 54(d)\" AND indigent",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:03.366Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:16.448Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:19.425Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8614b30f5d061fff",
+      "query": "mkdir -p data/cases/scotus/73500222/events/evt-petition-disposition/predictions/gemini-baseline/20260718T064904Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:24.427Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7f33085e1a506217",
+      "query": "{\"strategic_intent\": \"Writing the final output files for the prediction as required by the contract.\", \"title\": \"Writing Output Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:49.644Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "049d3f3287ba82de",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500222\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T06:50:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73500222/record/snapshots/2026-07-18.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.02,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.2,\\n  \\\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:49.650Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "51cfbf093d724302",
+      "query": "{\"content\": \"# Reasoning\\n\\n## The Legal Question\\nThe petition asks the Court to resolve whether a district court awarding costs to a prevailing party under Fed. R. Civ. P. 54(d)(1) may consider the potential \\\"chilling effect\\\" on future civil rights litigants, and whether the Eighth Circuit improperly engaged in fact-finding by relying on a decade-old settlement offer to conclude plaintiffs had the present ability to pay costs.\\n\\n## The Governing Standard and Base Rates\\nCertiorari is discre",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:49.654Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "67dfdfde56a1911c",
+      "query": "{\"content\": \"- Read provisioned documents: `questions-presented.txt`, `petition.txt`, `event.yaml`, `context.json`, `documents.json`, and snapshot.\\n- Read corpus base-rates via the `metrics/statpack.md` file.\\n- Attempted to query MCP CourtListener tool `search` for cases involving \\\"Rule 54(d)\\\" and \\\"chilling effect\\\", but encountered a rate limit (HTTP 429). Relied on the statpack and the provisioned petition's representation of the circuit split.\\n- Issued `uv run fedcourts query --court sc",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:49.657Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "630256607c3a8c1f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500222\\\",\\n  \\\"run_id\\\": \\\"20260718T064904Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"fedcourts query CLI\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md\\\",\\n    \\\"provisioned text files\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"MCP CourtListener rate lim",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:53.479Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:32:59.377Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7bb3f6d9c0268165",
+      "query": "{\"strategic_intent\": \"Finishing the prediction task.\", \"title\": \"Prediction Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T07:33:02.624Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500222",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T064904Z",
+  "schema_version": "1.0"
+}

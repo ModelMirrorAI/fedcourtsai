@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500217",
+  "run_id": "20260718T064904Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search",
+    "CourtListener MCP endpoint retrieval",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The provisioned full petition exposed the claimed split and vehicle posture.",
+    "The statpack supplied paid-petition, circuit, CVSG, and relist calibration.",
+    "CourtListener MCP surfaced published circuit decisions addressing the same statutory theory."
+  ],
+  "gaps": [
+    "A server-side passage or keyword-within-opinion endpoint would avoid oversized, truncated full-opinion responses."
+  ],
+  "notes": "The provisioned record was sufficient. No corpus query was used because its structured SCOTUS filters could not identify legally similar petitions; the committed base rates and targeted MCP research were more probative."
+}
