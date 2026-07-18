@@ -1,0 +1,366 @@
+{
+  "actor_id": "claude-judge",
+  "calls": [
+    {
+      "params_digest": "a9a96d6010cda98d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/evaluate.md\"}",
+      "result_digest": "4f23a7145f37fbec",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8c6bd13f42e222cf",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004 -type f | sort",
+      "result_digest": "aa11c76d28e600d7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3dd0fae1a9b7ada5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/evaluation.schema.json\"}",
+      "result_digest": "e4371fff6dfe5a98",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1df43d0bd34d6409",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/outcome.json\"}",
+      "result_digest": "baaf427225fe2288",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "23a7a8a116375977",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "7193612c8b1fb38b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "1509b5ece9cdd94c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e2aced29d6ea98d8",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/prediction.json\"}",
+      "result_digest": "76d8a7473f2e268b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "072d5de87f4e204a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z/prediction.json\"}",
+      "result_digest": "2e89bbe02ba17fe7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d8633de015b366dc",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/prediction.json\"}",
+      "result_digest": "9d3df0808770b29f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c3b1e57d4e23334c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/reasoning.md\"}",
+      "result_digest": "0d076d38e556a07f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6a50d6a2524213c3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z/reasoning.md\"}",
+      "result_digest": "23f92a33c97968e4",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "386ce4feae96ba90",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/reasoning.md\"}",
+      "result_digest": "755fbb21f54c5bdd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fe66eece0d4e6e89",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/retrieval_log.json\"}",
+      "result_digest": "bcbb3f9307a034a1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "8eba244a3c15bbf9",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z/retrieval_log.json\"}",
+      "result_digest": "881ba0fb73481ddd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ae6fc03b564330b5",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/retrieval_log.json\"}",
+      "result_digest": "4b548e034b4cee40",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6304f86528682432",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/ && grep -n \"def segment_base_rate\\|def brier_skill\\|def vote_accuracy\\|def is_correct\\|def brier_score\\|sal-v1\\|salience\" /home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/evaluate.py | head -30",
+      "result_digest": "e07df9f93e77ec22",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e4452b0eb2904da4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/evaluate.py\"}",
+      "result_digest": "9f734608e37e46d1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "90e99692d85576b2",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/src/fedcourtsai/pipeline/salience.py\"}",
+      "result_digest": "c5bea67518d805c1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "634d6606b0ca0b65",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "49f31a5a4a6e34a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "fe178677b2de8ab9",
+      "query": "grep -n -i \"salience band\\|Segment base rate\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head; wc -l /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "014b4fe603f96144",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a78c67bda68ff9f7",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/; grep -rn \"segments\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/*.json 2>/dev/null | head -3",
+      "result_digest": "c6aaadd5dd236c54",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "19c28968f59a5510",
+      "query": "python3 -c \"\nimport json\nsp = json.load(open('metrics/statpack.json'))\nprint(type(sp), list(sp.keys())[:20] if isinstance(sp, dict) else len(sp))\n\"",
+      "result_digest": "beaa9ca2f2b4f1ff",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6c6481f733b90d56",
+      "query": "python3 -c \"\nimport json\nsp = json.load(open('metrics/statpack.json'))\nfor t in sp['terms']:\n    print(t['term'], 'segments:', [(s.get('band'), s.get('est_grant_rate'), s.get('weighted_resolved')) for s in t.get('segments', [])])\n\"",
+      "result_digest": "fa427b1e91940668",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8d4250eaf38afb46",
+      "query": "ls -t data/cases/scotus/*/events/*/evaluations/claude-judge/*/ -d 2>/dev/null | head -5",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "22388fc80bf4f2b0",
+      "query": "find data/cases -path \"*evaluations*\" -name \"evaluation.json\" | head -8; echo ---; find data/cases -path \"*evaluations*\" -type d -name \"claude-judge\" | head",
+      "result_digest": "c518fb659fd0dbac",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "74a55d60f83befa7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/retrieval.md\"}",
+      "result_digest": "3d45ec9dff62a8eb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "aec527473b9e4ef6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z/retrieval.md\"}",
+      "result_digest": "f94641615151934f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "3972a1141787e691",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/retrieval.md\"}",
+      "result_digest": "69a6144dfd55defc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b38de8ddcd3fc20c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p data/cases/scotus/73281004/events/evt-petition-disposition/evaluations/claude-judge/{claude-baseline,codex-baseline,gemini-baseline,}/20260718T000134Z && uv run python -c \"\nfrom fedcourtsai.corpus import scotus_term_year\nprint(scotus_term_year('25-960'))\"",
+      "result_digest": "0418002475164c3a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "6a48d5249c42ad23",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"claude-judge\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:04:50Z\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.0001,\\n  \\\"vote_accuracy\\\": null,\\n  \\\"segment_base_rate\\\": null,\\n  \\\"brier_skill_score\\\": null,\\n",
+      "result_digest": "35ede91ec1ae2b1f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9a7c35e12d5aa5cf",
+      "query": "{\"content\": \"# Evaluation \\u2014 claude-baseline / scotus/73281004 / evt-petition-disposition\\n\\n**Outcome:** `dismissed` (Petition Dismissed \\u2014 Rule 46, entered 2026-07-17).\\n**Prediction:** `dismissed`, P(granted) = 0.01 \\u2192 correct = 1, Brier = 0.0001.\\n\\n## What the prediction got right\\n\\n- **The dispositive signal, correctly weighted.** The reasoning centers the\\n  June 30, 2026 joint motion to dismiss and names the controlling mechanism \\u2014\\n  Supreme Court Rule 46.1, under whic",
+      "result_digest": "351c74fab0a6192b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "90dc34704ec3129b",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"codex-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"claude-judge\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:04:50Z\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.000004,\\n  \\\"vote_accuracy\\\": null,\\n  \\\"segment_base_rate\\\": null,\\n  \\\"brier_skill_score\\\": null,\\",
+      "result_digest": "aa31a060904d342b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "f4e5b4d13c07b773",
+      "query": "{\"content\": \"# Evaluation \\u2014 codex-baseline / scotus/73281004 / evt-petition-disposition\\n\\n**Outcome:** `dismissed` (Petition Dismissed \\u2014 Rule 46, entered 2026-07-17).\\n**Prediction:** `dismissed`, P(granted) = 0.002 \\u2192 correct = 1, Brier = 0.000004.\\n\\n## What the prediction got right\\n\\n- **The dispositive signal.** It correctly read the June 30 dismissal motion\\n  as controlling, noted the linked filing's filename identifies it as joint,\\n  and reasoned that a consensual request",
+      "result_digest": "861c9f2fd4b6519a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "64c5fe67d11b80da",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"claude-judge\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:04:50Z\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.0,\\n  \\\"vote_accuracy\\\": null,\\n  \\\"segment_base_rate\\\": null,\\n  \\\"brier_skill_score\\\": null,\\n  \\",
+      "result_digest": "6b90f0702db15f35",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "9bf2d4c03d820756",
+      "query": "{\"content\": \"# Evaluation \\u2014 gemini-baseline / scotus/73281004 / evt-petition-disposition\\n\\n**Outcome:** `dismissed` (Petition Dismissed \\u2014 Rule 46, entered 2026-07-17).\\n**Prediction:** `dismissed`, P(granted) = 0.0 \\u2192 correct = 1, Brier = 0.0.\\n\\n## What the prediction got right\\n\\n- **The controlling mechanism.** It identified the petitioner's own June 30\\n  motion to dismiss as dispositive and correctly predicted a Rule 46\\n  clerk-entered dismissal \\u2014 which is what the dock",
+      "result_digest": "89418e90d0515b92",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "1240eee113070a3d",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73281004 / evt-petition-disposition / claude-judge / 20260718T000134Z\\n\\n- Committed `metrics/statpack.md` and `metrics/statpack.json`: read the per-Term\\n  cert table and checked the per-Term salience segments for the segment base\\n  rate. Every Term's `segments` list is empty, so no prior-Term band rate exists\\n  and `segment_base_rate` / `brier_skill_score` are omitted on all three\\n  evaluations (matching `fedcourtsai.pipeline.evaluate.segment_base_",
+      "result_digest": "94d6a2e7ffe6a835",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "062e2c1e8233acfb",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"role\\\": \\\"evaluator\\\",\\n  \\\"actor_id\\\": \\\"claude-judge\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md + metrics/statpack.json (segment base-rate lookup)\\\",\\n    \\\"src/fedcourtsai/pipeline/evaluate.py + salience.py (metric definitions)\\\",\\n    \\\"harness retrieval_log.json per predictor (leakage grading)\\\"\\n",
+      "result_digest": "cf8ae023e091c38a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "cf4c00913ff2b69c",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"role\\\": \\\"evaluator\\\",\\n  \\\"actor_id\\\": \\\"claude-judge\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"data-quality\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"segment_base_rate and brier_skill_score are omitted on all three evaluations this cell: the committed statpack's per-Term salience segments are empty ",
+      "result_digest": "bafe3144cb8dd4bf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "43a6773b5dc39124",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "3186b508d4fe6285",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "99d270a3fe3e8e40",
+      "query": "git status --short --untracked-files=all",
+      "result_digest": "645d4a536bc09a7d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73281004",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": null,
+  "role": "evaluator",
+  "run_id": "20260718T000134Z",
+  "schema_version": "1.0"
+}

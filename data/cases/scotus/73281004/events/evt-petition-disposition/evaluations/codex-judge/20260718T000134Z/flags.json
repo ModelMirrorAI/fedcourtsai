@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281004",
+  "run_id": "20260718T000134Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The committed statpack has no salience-band-by-Term table or JSON segment data, so segment_base_rate and brier_skill_score were omitted for all three predictions.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

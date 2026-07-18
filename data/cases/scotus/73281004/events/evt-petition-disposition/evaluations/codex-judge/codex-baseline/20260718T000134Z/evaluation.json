@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281004",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "evaluator_id": "codex-judge",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260718T000134Z",
+  "created_at": "2026-07-18T00:03:55Z",
+  "correct": 1,
+  "brier_score": 0.000004,
+  "reasoning_quality": 0.97,
+  "notes_doc": "evaluation.md",
+  "leakage": {
+    "mode": "forward",
+    "retrieved_outcome_material": false,
+    "influenced_prediction": "not_applicable",
+    "notes": "The July 16 prediction preceded the July 17 dismissal and used the June 30 joint dismissal request in the provisioned snapshot. External searches concerned the 2025 lower-court decision and returned no result about this petition's disposition."
+  },
+  "leakage_suspected": false,
+  "big_case": {
+    "evaluator_score": 0.34,
+    "notes": "The petition raised consequential statewide prison-emergency and qualified-immunity questions, but its fact-intensive, interlocutory posture and consensual dismissal sharply limited lasting significance."
+  }
+}
