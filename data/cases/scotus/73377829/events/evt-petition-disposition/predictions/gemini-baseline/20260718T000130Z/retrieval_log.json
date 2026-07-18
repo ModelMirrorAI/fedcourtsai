@@ -1,0 +1,246 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "dc779411ac98a515",
+      "query": "{\"strategic_intent\": \"Read configuration files to understand the prediction prompt contract and agent guidelines.\", \"summary\": \"Starting by reading `.github/prompts/predict.md` and `AGENTS.md` to understand the workflow and the required output files for the prediction task.\", \"title\": \"Reading Project Guidelines\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:30.478Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:32.324Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:32.325Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f018a1ac0189b9ac",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73377829\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:37.102Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9fc6d539fd320d6d",
+      "query": "ls -la data/cases/scotus/73377829/ || echo \"no case dir\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:40.242Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9e5289f58e25fe1d",
+      "query": "ls -la data/cases/scotus/73377829/events/evt-petition-disposition/ || echo \"no event dir\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:40.242Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "24ac19c5bdc93cd2",
+      "query": "ls -la data/cases/scotus/73377829/record/ && cat data/cases/scotus/73377829/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:42.720Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5284143d4c5739ed",
+      "query": "cat data/cases/scotus/73377829/record/context.json && ls -la data/cases/scotus/73377829/record/snapshots/ && ls -la data/cases/scotus/73377829/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:44.945Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "177a6244c935a6ac",
+      "query": "{\"strategic_intent\": \"Read the provided snapshot and documents to analyze the case for the prediction task.\", \"summary\": \"I am transitioning to the case analysis phase. I will read the provided case snapshot, documents (questions presented, petition), and metadata to gather the necessary context for predicting the petition disposition in `scotus/73377829`.\", \"title\": \"Analyzing Case Facts and Documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:47.655Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "a952b7999ed9a4f2",
+      "query": "{\"file_path\": \"data/cases/scotus/73377829/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:50.103Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d51c4893cb43d03c",
+      "query": "{\"file_path\": \"data/cases/scotus/73377829/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:50.104Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "698cc6aab4423ccf",
+      "query": "{\"file_path\": \"data/cases/scotus/73377829/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:50.104Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "52ccb60e89e7da2f",
+      "query": "{\"strategic_intent\": \"Query the statpack for base rates on cert petitions where a response is requested.\", \"summary\": \"The snapshot reveals that the Court actively requested a response from the Solicitor General after a waiver was filed. I will consult the `statpack.md` to determine the statistical baseline for cert grants in paid cases that reach this specific procedural posture.\", \"title\": \"Checking Base Rates for Cert Petitions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:54.657Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "de078424dae160de",
+      "query": "grep -A 50 \"Modern discretionary-cert petitions by disposition\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:56.833Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dd75a3585c59f696",
+      "query": "grep -A 30 \"Segment base rate by salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:59.421Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "160607ae2ac72b19",
+      "query": "head -n 100 metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:01.527Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "af89d46a5bb49c9d",
+      "query": "uv run fedcourts query --court scotus --topic \"Employment Dispute Resolution Plan\" || echo \"no match\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:28.427Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9e1acd21bf6c0d85",
+      "query": "\"Employment Dispute Resolution Plan\" OR \"Congressional Accountability Act\" judiciary",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:33.324Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "57c2031b49a18c5f",
+      "query": "\"Caryn Devins Strickland\" \"Supreme Court\" certiorari EDR Title VII",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:56.823Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "e3c1b603663e6aff",
+      "query": "mkdir -p data/cases/scotus/73377829/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:06.741Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c59f5af443a9a9ce",
+      "query": "{\"strategic_intent\": \"Validate output schemas and write the final prediction files.\", \"summary\": \"I have concluded the analysis. The petition has a heightened chance of being granted due to the Court requesting a response, but it still falls below the 50% threshold. I am now validating the JSON schemas for the required output files (`prediction.json` and `tooling.json`) before writing the final predictions and reasoning documents to disk.\", \"title\": \"Drafting and Validating Predictions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:10.029Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "ebf8e285dfc62619",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:12.375Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1fd3d91b9e697be7",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:16.304Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e1781863a8bc4ee3",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73377829\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73377829/record/snapshots/2026-07-17.json\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.18,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.85,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:20.410Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d0ee062d52854134",
+      "query": "{\"content\": \"# Reasoning: SCOTUS 73377829 (Strickland v. Moritz)\\n\\n## Legal Question and Standard\\nThe petitioner challenges the constitutionality of the federal judiciary's internal Employment Dispute Resolution (EDR) Plan. The core question is whether the Fifth Amendment\\u2019s Due Process and Equal Protection clauses, or the Congressional Accountability Act of 1995, require the judiciary to afford its employees the same substantive and procedural protections available under Title VII of the ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:27.482Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "78c339d81f632613",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- `uv run fedcourts query --court scotus --topic \\\"Employment Dispute Resolution Plan\\\"` -> `ranged corpus reads: 466 GET(s), 122028032 byte(s)`\\n- Read committed statpack base-rates (`metrics/statpack.md`) to establish baseline grant rate for Fourth Circuit and identify relevant signals like amicus briefs and Call for Response (CFR).\\n- CourtListener MCP Server `search` query: `\\\"Employment Dispute Resolution Plan\\\" OR \\\"Congressional Accountability Act\\\" judicia",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:30.928Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "873e8a042219ae78",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73377829\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"google_web_search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"google_web_search\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"gaps\\\": [\\n    \\\"statpack.md lacked explicit segment",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:34.738Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3c3375d0422609ca",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:40.148Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "335db1453d99f6d1",
+      "query": "{\"strategic_intent\": \"Conclude the task.\", \"summary\": \"The prediction outputs (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`) have been successfully written to the specified cell path and validated against the schema. The task is now complete.\", \"title\": \"Prediction Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:43.190Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73377829",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

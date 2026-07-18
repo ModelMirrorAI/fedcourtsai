@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/73357827",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "statpack base rates (relist count)"
+  ],
+  "gaps": []
+}

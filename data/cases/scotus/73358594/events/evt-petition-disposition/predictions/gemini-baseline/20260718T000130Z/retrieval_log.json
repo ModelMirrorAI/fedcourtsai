@@ -1,0 +1,214 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "3eb873c0b132b5ce",
+      "query": "{\"strategic_intent\": \"Read prediction prompts and agent guidelines to understand the prediction task and output format.\", \"title\": \"Understanding the Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:53.571Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:57.053Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:57.053Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "29909414386e53c6",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73358594\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:01.057Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "72e9dc23e3d756fa",
+      "query": "ls -la data/cases/scotus/73358594/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:04.179Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ea9c4240829a98aa",
+      "query": "find data/cases/scotus/73358594 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:07.865Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "77c1595bc9033e5d",
+      "query": "{\"strategic_intent\": \"Read provisioned inputs for the prediction task including context, snapshot, and document text.\", \"title\": \"Reading Provisioned Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:12.824Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9e39ddebabd2afbf",
+      "query": "{\"file_path\": \"data/cases/scotus/73358594/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:12.834Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f42addeed860716f",
+      "query": "{\"file_path\": \"data/cases/scotus/73358594/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:12.835Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1672646354fe5782",
+      "query": "{\"file_path\": \"data/cases/scotus/73358594/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:12.835Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a28faa66c470b11e",
+      "query": "{\"file_path\": \"data/cases/scotus/73358594/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:12.836Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "78db7b9203b3eb05",
+      "query": "cat data/cases/scotus/73358594/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:15.808Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "56f7add5ff9a5d93",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:18.982Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f6536a3c713286f0",
+      "query": "uv run fedcourts query --court scotus --topic \"Whistleblower Protection Act\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:54.252Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3760b88d3c1dcc32",
+      "query": "\"Whistleblower Protection Act\" \"2302(b)(8)\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:59.026Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "c9722998bbfc2092",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:06.742Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9112c770d7cbf84b",
+      "query": "python -c \"import datetime; print(datetime.datetime.now(datetime.timezone.utc).isoformat())\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:11.398Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7891f791ab007e12",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:19.616Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "19482f5629c384f1",
+      "query": "mkdir -p data/cases/scotus/73358594/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:22.725Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "11cc131a76d6280e",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73358594\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:44:11Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73358594/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.005,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.1,\\n  \\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:32.999Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "674a5730f272b841",
+      "query": "{\"content\": \"# Reasoning\\n\\n## The Legal Question\\nThe petitioner asks whether a federal civilian employee who makes a disclosure premised on both categories enumerated in 5 U.S.C. \\u00a7 2302(b)(8) is entitled to a Merit Systems Protection Board (MSPB) decision on both categories. Specifically, the petitioner alleges the MSPB and the Federal Circuit only addressed her claim under \\u00a7 2302(b)(8)(i) (violation of law/rule/regulation) and ignored her claim under \\u00a7 2302(b)(8)(ii) (gross mis",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:33.003Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "07a7221a2f706b46",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n- **Corpus Context:** Consulted `metrics/statpack.md` to establish base rates for the Federal Circuit and for 0-relist petitions.\\n- **Corpus Queries:** Attempted to use `uv run fedcourts query --court scotus --topic \\\"Whistleblower Protection Act\\\"`, but the corpus service was unreachable (`timed out`).\\n- **CourtListener MCP:** Searched CourtListener for `\\\"Whistleblower Protection Act\\\" \\\"2302(b)(8)\\\"` (type `o`) to gauge the landscape of the issue. Results con",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:33.006Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9cbb86a1243c429a",
+      "query": "{\"content\": \"{\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"case_id\\\": \\\"scotus/73358594\\\",\\n  \\\"gaps\\\": [\\n    \\\"Corpus service was unreachable (timed out).\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md\\\",\\n    \\\"CourtListener MCP search\\\"\\n  ],\\n  \\\"notes\\\": \\\"Corpus query timed out, but MCP was available and provided good context.\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:33.010Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "67297b663dda6ea3",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:37.888Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "608ba855cee36845",
+      "query": "{\"strategic_intent\": \"Completing the task, as all necessary prediction artifacts have been generated and validated.\", \"title\": \"Task Completion\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:47.255Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73358594",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358594",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service backend)",
+    "metrics/statpack.md + statpack.json base rates",
+    "CourtListener MCP search (opinions)"
+  ],
+  "helpful": [
+    "statpack per-fee-class grant rates (paid vs IFP) — the single most useful cut for a paid petition",
+    "provisioned petition.txt full text — enabled reading the Reasons for Granting and vehicle framing directly",
+    "originating-circuit and CVSG/relist cuts in statpack.md"
+  ],
+  "gaps": [
+    "fedcourts query has no free-text/topic search for SCOTUS rows, so 'similar QP' priors (e.g. other MSPB/WPA cert petitions) are not retrievable; a subject filter on SCOTUS rows would help",
+    "a statpack cut by lower-court disposition type (published opinion vs unexplained summary affirmance) would sharpen exactly the signal that drove this cell",
+    "no brief-in-opposition here by design (respondent waived); a docket-level flag for waiver/CFR status as a structured snapshot field would save parsing ProceedingsandOrder text"
+  ],
+  "notes": "Forward cell; retrieval stayed well under budget (2 corpus reads incl. one flag-error retry, 1 MCP search). Statpack alone carried most of the quantitative weight."
+}

@@ -1,0 +1,390 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ea2d9e485d5e89cc",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270 -type f | head -50",
+      "result_digest": "4241eb223abeb3fc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7cb30dd1ff0080d0",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bc6b06113e5a62fa",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "d3c8b40027bdd6da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c973acf0e26bfac3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "fc181409bb5ce278",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4125d6327cf311d6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/documents/documents.json\"}",
+      "result_digest": "1982a34e60726c5d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "7a35c91539ff85f1",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/documents/questions-presented.txt\"}",
+      "result_digest": "17b009ca82c379da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c256cbd9c2e5c469",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/documents/petition.txt\", \"limit\": 300}",
+      "result_digest": "d88ba261cf124214",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "6e9fabe069e6a7a7",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/documents/petition.txt",
+      "result_digest": "1f4eb43684987790",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9a3c89de7bb3d084",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/documents/petition.txt\", \"limit\": 420, \"offset\": 380}",
+      "result_digest": "b95259ec90c9a1b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "efb347405c07202a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/record/documents/petition.txt\", \"limit\": 256, \"offset\": 1380}",
+      "result_digest": "f8abf5bc85a03c51",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bc6d01b64a882d53",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && grep -n \"Modern discretionary-cert\" -A 40 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -80",
+      "result_digest": "4f42730e264f100f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d8de5bf1680d1773",
+      "query": "grep -n \"salience band\" -A 40 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -70; echo ---; grep -n \"CVSG\" -A 12 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -30",
+      "result_digest": "505ea7f09cfb1e9d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0c7a619d758d3d12",
+      "query": "grep -n \"^#\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "4343cf7205eb5967",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "24b2919b190d002d",
+      "query": "sed -n 135,200p /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "864558b3afa21d84",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e7aa243c2314c348",
+      "query": "uv run fedcourts paths --court scotus --docket 73338270 --event evt-petition-disposition --role predictor 2>&1 | head -30",
+      "result_digest": "8d265f5ece15ca25",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "bcc3f62aa867c302",
+      "query": "grep -n \"query\" /home/runner/work/fedcourtsai/fedcourtsai/docs/cli.md | head -20",
+      "result_digest": "768572f084712bbc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "18a57803ccc13481",
+      "query": "uv run fedcourts query --court scotus --limit 8 \"COVID-19 vaccine mandate healthcare workers certiorari due process Jacobson\" 2>corpus_stderr.txt | head -20; echo \"--- stderr:\"; cat corpus_stderr.txt",
+      "result_digest": "607328016085a1db",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "26c58b4519703e36",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n 1,40p",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7f5fed322bc9cd36",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>corpus_stderr.txt | python3 -c \"import sys,json; [print(json.loads(l).get('case_name') or json.loads(l).get('caption'), '|', json.loads(l).get('disposition'), '|', json.loads(l).get('era')) for l in sys.stdin]\"; echo \"--- stderr:\"; cat corpus_stderr.txt",
+      "result_digest": "2770724059697f71",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "1844510872c73d98",
+      "query": "select:mcp__courtlistener__search,WebSearch",
+      "result_digest": "3fd55b31051aebc6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "e2882b28284e5221",
+      "query": "Curtis v. Inslee Supreme Court 25-1119 certiorari petition status",
+      "result_digest": "2fed646803f7ad36",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "b26a99746feb4a7e",
+      "query": "Health Freedom Defense Fund v. Carvalho Supreme Court 25-765 cert petition",
+      "result_digest": "7a20df4e10975112",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "c9e5aaf7956f5661",
+      "query": "select:WebFetch",
+      "result_digest": "c4e348966a824a36",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "952fecefc6ac14fd",
+      "query": "This is the Supreme Court docket for No. 25-1119, Curtis v. Inslee. List all docket entries with dates, especially any conference distributions, response requests, relists, grant/denial of certiorari, or pending status. What is the current status of the petition?",
+      "result_digest": "d9d08a438ef67621",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebFetch"
+    },
+    {
+      "params_digest": "b872e918f6fd062d",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1119\", \"fields\": [\"caseName\", \"docketNumber\", \"docket_id\", \"dateFiled\", \"absolute_url\"], \"type\": \"d\"}",
+      "result_digest": "f503a02f9582f0ee",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "58b0d87230f80091",
+      "query": "\"25-1119\" Curtis Inslee \"response\" requested OR distributed conference 2026",
+      "result_digest": "4e99d6d753fbd9fa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "4597ddc2af13c494",
+      "query": "cd /tmp && curl -sL -A \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36\" -o orderlist.pdf \"https://www.supremecourt.gov/orders/courtorders/060126zor_k53l.pdf\" && ls -la orderlist.pdf && (pdftotext orderlist.pdf orderlist.txt 2>/dev/null || python3 -c \"\nimport zlib,re\ndata=open('orderlist.pdf','rb').read()\nprint('PDF size', len(data))\n\") && grep -n -i -B2 -A4 \"25-1119\" orderlist.txt | head -40",
+      "result_digest": "def99d4c911f0376",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d70ee3e942a2ed9e",
+      "query": "cd /tmp && python3 - <<'EOF'\ntry:\n    from pypdf import PdfReader\nexcept ImportError:\n    import subprocess, sys\n    subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"-q\", \"pypdf\"], check=True)\n    from pypdf import PdfReader\nr = PdfReader(\"orderlist.pdf\")\ntext = \"\\n\".join(p.extract_text() for p in r.pages)\nopen(\"orderlist.txt\",\"w\").write(text)\nimport re\nidx = text.find(\"25-1119\")\nprint(\"found at\", idx)\nprint(text[max(0,idx-600):idx+400])\nEOF",
+      "result_digest": "cb2c42a4355065e6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5cd18db4ee4503f2",
+      "query": "cd /tmp && (uv tool run --from pypdf python -c \"x\" 2>/dev/null; uvx --from pypdf python - <<'EOF'\nfrom pypdf import PdfReader\nr = PdfReader(\"orderlist.pdf\")\ntext = \"\\n\".join(p.extract_text() for p in r.pages)\nopen(\"orderlist.txt\",\"w\").write(text)\nidx = text.find(\"25-1119\")\nprint(\"found at\", idx)\nprint(text[max(0,idx-700):idx+400])\nEOF\n)",
+      "result_digest": "536a250aae13149e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "010b09b96399caba",
+      "query": "cd /tmp && grep -n \"25-765\\|25-5982\\|CARVALHO\\|HEALTH FREEDOM\" orderlist.txt; echo ---; grep -n -i \"dissent\\|statement of\\|would grant\" orderlist.txt | head",
+      "result_digest": "f5d4574293bcd781",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9c9cf92787b7120b",
+      "query": "cd /tmp && sed -n 470,545p orderlist.txt",
+      "result_digest": "bd632be302b6b9e8",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "58a6e0b36b4271aa",
+      "query": "\"25-765\" Health Freedom Defense Fund Carvalho certiorari denied OR granted OR distributed 2026",
+      "result_digest": "d011204ca4f0225b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "WebSearch"
+    },
+    {
+      "params_digest": "c3d3b9814ba3a9d8",
+      "query": "cd /tmp && curl -sL -A \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36\" -o orderlist_0518.pdf \"https://www.supremecourt.gov/orders/courtorders/051826zor_h315.pdf\" && uvx --from pypdf python - <<'EOF'\nfrom pypdf import PdfReader\nr = PdfReader(\"orderlist_0518.pdf\")\ntext = \"\\n\".join(p.extract_text() for p in r.pages)\nopen(\"orderlist_0518.txt\",\"w\").write(text)\nidx = text.find(\"25-765\")\nwhile idx != -1:\n    print(\"=== found at\", idx)\n    print(text[max(0,idx-500):idx+300])\n    idx = text.find(\"25",
+      "result_digest": "5b2ac40ee956bbaa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "647ce34a76824428",
+      "query": "cd /tmp && uvx --from pypdf python - <<'EOF'\ntext = open(\"orderlist_0518.txt\").read()\nidx = text.find(\"25-765\")\nseg = text[:idx]\nimport re\nheaders = [(m.start(), m.group()) for m in re.finditer(r\"CERTIORARI GRANTED|CERTIORARI DENIED|CERTIORARI -- SUMMARY DISPOSITION[S]?|ORDERS IN PENDING CASES|HABEAS CORPUS DENIED|MANDAMUS DENIED|REHEARINGS? DENIED\", seg)]\nprint(\"headers before 25-765:\", headers[-3:])\nnxt = [(m.start(), m.group()) for m in re.finditer(r\"CERTIORARI GRANTED|CERTIORARI DENIED\", tex",
+      "result_digest": "0f6fab40c6a0963a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0fb754723fdc42bd",
+      "query": "cd /tmp && uvx --from pypdf python - <<'EOF'\ntext = open(\"orderlist_0518.txt\").read()\nimport re\nfor m in re.finditer(r\"(?i)dissent|would grant|statement of\", text):\n    print(m.start(), text[max(0,m.start()-200):m.start()+200].replace(\"\\n\",\" \")[:380])\n    print(\"---\")\nEOF",
+      "result_digest": "e1ccb5beaaef508f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4856c400e3e8ee89",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73338270/events/evt-petition-disposition/predictions/claude-baseline/20260718T000130Z",
+      "result_digest": "1587ede23d5dd7e5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "86e1b8f64317962f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73338270\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:07:14Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73338270/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.04,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "65405bf2fcc055c7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a3118f4fb42af385",
+      "query": "{\"content\": \"# Boysen v. PeaceHealth, No. 25-1280 \\u2014 cert petition disposition\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.04.**\\n\\n## The case\\n\\nTwelve former PeaceHealth healthcare workers were terminated in 2021 after\\nrefusing COVID-19 vaccination under Oregon's healthcare-worker mandate (Gov.\\nBrown / Oregon Health Authority). The district court (D. Or.) dismissed all\\nclaims under Rule 12(b)(6); the Ninth Circuit affirmed in an **unpublished\\nmemorandum** on December 3, 20",
+      "result_digest": "d5366395d17cd8cd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5a1b0e4677c92d0e",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73338270 / evt-petition-disposition / claude-baseline / 20260718T000130Z\\n\\nProvisioned inputs read: `record/snapshots/2026-07-17.json`,\\n`record/documents/questions-presented.txt`, `record/documents/petition.txt`,\\n`record/documents/documents.json`, `record/context.json` (mode: `forward`),\\nthe event definition, and the committed `metrics/statpack.md` (modern-cert\\ndisposition, originating-circuit, relist, CVSG, and per-Term tables).\\n\\n## Corpus looku",
+      "result_digest": "1621a9e853bb2ab1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "ed34ac0e737d5b66",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73338270\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Forward-signal disclosure (decisive): the four companion petitions this petition asks to have consolidated \\u2014 Health Freedom Defense Fund v. Carvalho ",
+      "result_digest": "653c2dda5a62c059",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "f96f685359e5e8d4",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73338270\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query (service backend)\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"courtlistener MCP search (failed: 429 quota)\\\",\\n    \\\"web search\\\",\\n    \\\"direct fetch of supremecourt.gov order-list PDFs\\\"\\n  ],\\n  \\\"helpful\\\": ",
+      "result_digest": "e10cd7355de59c17",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "326bd8c998a4eebd",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --porcelain data/cases/scotus/73338270/",
+      "result_digest": "37a0f0529528e173",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73338270",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

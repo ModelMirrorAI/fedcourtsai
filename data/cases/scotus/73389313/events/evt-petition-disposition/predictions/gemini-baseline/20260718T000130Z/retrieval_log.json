@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "39131d89f929bd27",
+      "query": "{\"strategic_intent\": \"Read instructions and guidelines for generating a prediction.\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:46.848Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "f208499712808a1a",
+      "query": "{\"end_line\": 500, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:48.955Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e41d6b10251011a9",
+      "query": "{\"end_line\": 500, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:48.955Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "98feddfa5628908d",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73389313\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:54.222Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f04e601be16e801e",
+      "query": "ls -la data/cases/scotus/73389313/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:56.471Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e17c71c3569ff85d",
+      "query": "ls -la data/cases/scotus/73389313/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:58.683Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cedc95c325f1828c",
+      "query": "cat data/cases/scotus/73389313/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:01.910Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "87b8c2b243687fa3",
+      "query": "cat data/cases/scotus/73389313/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:01.910Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "791ab2629c54cab9",
+      "query": "ls -la data/cases/scotus/73389313/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:01.911Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8f30fe0f3e59c69c",
+      "query": "ls -la data/cases/scotus/73389313/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:01.911Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "abe44ef1225e7c31",
+      "query": "{\"strategic_intent\": \"Analyze case snapshot and documents for prediction\", \"title\": \"Analyze Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:14.998Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "0ed9c4a97bb2a955",
+      "query": "cat data/cases/scotus/73389313/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:18.098Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a8eaa70dee043bd2",
+      "query": "cat data/cases/scotus/73389313/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:18.099Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a478545cb533df8f",
+      "query": "cat data/cases/scotus/73389313/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:18.099Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3cfbb910713cee71",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:23.041Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ba07a20cf95009c8",
+      "query": "\"Joan E. Farr\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:27.746Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "a18cd936c0e5235d",
+      "query": "\"Joan E. Farr\" AND \"Alexandra Grant\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:32.249Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "5c88b2262fecd2df",
+      "query": "mkdir -p data/cases/scotus/73389313/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:36.293Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c5421112f9b7a2a5",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:40.025Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bdbfb18c4c18902c",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:47.927Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a1a0c2fa6eaa58f7",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73389313\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:48:40Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.99,\\n  \\\"big_case_score\\\": 0.0,\\n  \\\"big_case_rationale",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:57.891Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "afdac87f190761ca",
+      "query": "{\"content\": \"## Prediction\\n**Denied** (Probability: 0.1%)\\n\\n## Reasoning\\n\\nThis is a petition for a writ of certiorari filed by Joan E. Farr, a *pro se* litigant. The respondents include Alexandra Grant (an artist), GrantLOVE LLC, Scott Sims, Ziffren Brittenham LLP, WME IMG, LLC, and various \\\"Federal Parties\\\" (which, based on district court records, include the Department of Defense, Department of Justice, CIA, and FBI). \\n\\nAll respondents waived their right to respond. A waiver of respons",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:57.894Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "502293d4c9c55cf9",
+      "query": "{\"content\": \"- Read provisioned inputs: `context.json`, `2026-07-17.json` snapshot, and `documents.json` (petition text was empty).\\n- `metrics/statpack.md` (no transfer): Consulted for base rates of modern discretionary-cert petitions.\\n- CourtListener MCP lookup (search `type=\\\"o\\\"`, `q=\\\"Joan E. Farr\\\"`): Found multiple previous SCOTUS cert denials for the same *pro se* petitioner (e.g., *Farr v. Davis*, *Farr v. Comm'r of Internal Revenue*).\\n- CourtListener MCP lookup (search `type=\\\"d\\\"`, ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:57.897Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4a5873f7c6d132ad",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73389313\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"run_shell_command\\\"],\\n  \\\"helpful\\\": [\\\"CourtListener MCP search allowed identifying the district court posture and parties for the empty-text petition.\\\"],\\n  \\\"gaps\\\": []\\n}\\n\", \"file_path\": \"data/cases/scotus/73389313/events/e",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:57.900Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1b841bf35deb3e39",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:03.664Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fd2518c7dffe2680",
+      "query": "{\"strategic_intent\": \"Finish the prediction and mark as complete.\", \"summary\": \"I read the instructions for the predictor task, retrieved the case data for SCOTUS docket 73389313 (Joan E. Farr), and wrote the necessary files `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`. The case is a pro se filing against multiple celebrities and government agencies and is highly likely to be denied cert. I then validated the output using `uv run fedcourts validate data`, which succeeded",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:10.412Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73389313",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

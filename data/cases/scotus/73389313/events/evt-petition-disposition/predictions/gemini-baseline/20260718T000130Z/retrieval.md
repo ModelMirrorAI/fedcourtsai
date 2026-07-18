@@ -1,0 +1,4 @@
+- Read provisioned inputs: `context.json`, `2026-07-17.json` snapshot, and `documents.json` (petition text was empty).
+- `metrics/statpack.md` (no transfer): Consulted for base rates of modern discretionary-cert petitions.
+- CourtListener MCP lookup (search `type="o"`, `q="Joan E. Farr"`): Found multiple previous SCOTUS cert denials for the same *pro se* petitioner (e.g., *Farr v. Davis*, *Farr v. Comm'r of Internal Revenue*).
+- CourtListener MCP lookup (search `type="d"`, `q="Joan E. Farr" AND "Alexandra Grant"`): Identified the underlying W.D. Mo. District Court case (4:24-cv-00439), which confirmed the respondents included the CIA, FBI, DOD, DOJ, and celebrity management, reinforcing the frivolous nature of the suit.

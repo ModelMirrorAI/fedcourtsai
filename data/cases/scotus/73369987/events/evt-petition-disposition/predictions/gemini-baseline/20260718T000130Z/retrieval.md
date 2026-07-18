@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (Consulted only the committed `metrics/statpack.md` base rates since the case snapshot was missing.)

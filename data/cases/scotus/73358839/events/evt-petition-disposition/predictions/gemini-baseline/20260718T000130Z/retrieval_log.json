@@ -1,0 +1,270 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "7026e0852a03050f",
+      "query": "{\"strategic_intent\": \"Read instructions and setup prediction.\", \"summary\": \"Reading the required instructions from `.github/prompts/predict.md` and `AGENTS.md` to understand the prediction task and expected outputs.\", \"title\": \"Setup Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:24.865Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:24.873Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:24.873Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f3e3ad4d04942a49",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73358839\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:29.959Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "49109d1aced39001",
+      "query": "ls -la data/cases/scotus/73358839/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:32.632Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "58916aeecb546e6f",
+      "query": "ls -la data/cases/scotus/73358839/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:35.380Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3413763674b3b56a",
+      "query": "ls -la data/cases/scotus/73358839/record/ && cat data/cases/scotus/73358839/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:38.091Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "69cf020264f0a873",
+      "query": "ls -la data/cases/scotus/73358839/record/snapshots/ && cat data/cases/scotus/73358839/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:40.206Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a48a0ecad23f24e2",
+      "query": "cat data/cases/scotus/73358839/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:42.578Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e1489e2d00375e1",
+      "query": "ls -la data/cases/scotus/73358839/events/evt-petition-disposition/record/documents/ || echo \"no docs\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:46.047Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7cfc724c1e77869d",
+      "query": "ls -la data/cases/scotus/73358839/record/documents/ || echo \"no docs\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:48.717Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0567986d5e6b1bc3",
+      "query": "{\"endpoint_id\": \"dockets\", \"query\": {\"id\": 73358839}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:52.135Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "ff63267f26c50dfb",
+      "query": "\"Texas Top Cop Shop\" v. Garland OR Blanche",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:05.696Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "cd2c59b7b847bdfa",
+      "query": "\"National Small Business United v. Bessent\" OR \"NSBU v. Yellen\" Supreme Court certiorari",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:17.792Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "2a1b631f739524b5",
+      "query": "cat metrics/statpack.md | grep -A 20 \"cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:24.393Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0b4803b194457731",
+      "query": "{\"endpoint_id\": \"recap-documents\", \"query\": {\"docket_id\": 73358839}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:28.362Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "b46689fe5754ecdd",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1290\", \"type\": \"rd\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:30.934Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "00fce3da29e37858",
+      "query": "Extract the \"Questions Presented\" section and the \"Reasons for Granting the Petition\" summary from this PDF: https://www.supremecourt.gov/DocketPDF/25/25-1290/409119/20260518124603851_TTCS%20et%20al%20v%20Blanche%20et%20al%20cert%20petition%20CORRECTED.pdf",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:49.353Z",
+      "tool": "web_fetch"
+    },
+    {
+      "params_digest": "82c79613508e251a",
+      "query": "\"National Small Business United v. Bessent\" Fourth Amendment OR 4th Amendment",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:02.972Z",
+      "tool": "google_web_search"
+    },
+    {
+      "params_digest": "ac26de44481ae2e2",
+      "query": "uv run fedcourts query --court scotus --role predictor --decided-before \"2026-07-18\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:15.973Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "982f09e42924e94f",
+      "query": "uv run fedcourts query --court scotus --decided-before \"2026-07-18\" --limit 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:19.255Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d3520b25a225c2a3",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:22.882Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "027d48509fbfa9ec",
+      "query": "uv run fedcourts query --court scotus --disposition granted --decided-before 2026 --limit 1",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:42.053Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "9e4855ffbd52f517",
+      "query": "mkdir -p data/cases/scotus/73358839/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:45.540Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "06a515202b3cbec4",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73358839\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.05,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.9,\\n  \\\"big_case_rationale\\\": \\\"Constitutional chall",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:50.971Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "0e4bab7edd0dfb47",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question and Stakes\\nThis case presents a major constitutional challenge to the Corporate Transparency Act (CTA), a federal law requiring millions of small businesses to disclose beneficial ownership information to FinCEN. The petitioners, *Texas Top Cop Shop*, challenge the CTA on two primary grounds: (1) that it exceeds Congress's authority under the Commerce Clause, and (2) that it violates the Fourth Amendment by mandating suspicionless searches of sensit",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:02.517Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "19b2f43c6190a983",
+      "query": "{\"content\": \"- Searched CourtListener MCP server for `dockets` with `docket_id: 73358839` to confirm current docket details.\\n- Searched Google Web for `\\\"Texas Top Cop Shop\\\" v. Garland OR Blanche` to understand the background of the case (challenge to the Corporate Transparency Act, preliminary injunction stayed by the Supreme Court).\\n- Searched Google Web for `\\\"National Small Business United v. Bessent\\\" OR \\\"NSBU v. Yellen\\\" Supreme Court certiorari` and `\\\"National Small Business United v",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:09.024Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9cd479617b8c7df6",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73358839\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_call_endpoint\\\",\\n    \\\"google_web_search\\\",\\n    \\\"web_fetch\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": \\\"Web Fetch tool was very helpful to extract the exact arguments from the Supreme Court PDF provided in the snapshot links,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:13.677Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ccbc71cffde17ec0",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:19.453Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "391e8a9eb24cb1cb",
+      "query": "{\"allow_multiple\": false, \"file_path\": \"data/cases/scotus/73358839/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/tooling.json\", \"instruction\": \"Change 'helpful' to be a list of strings.\", \"new_string\": \"  \\\"helpful\\\": [\\n    \\\"Web Fetch tool was very helpful to extract the exact arguments from the Supreme Court PDF provided in the snapshot links, since no provisioned documents were in record/documents/.\\\"\\n  ],\", \"old_string\": \"  \\\"helpful\\\": \\\"Web Fetch tool was v",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:22.774Z",
+      "tool": "replace"
+    },
+    {
+      "params_digest": "fd71697299690a2c",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:28.524Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2630c9d782fc3e30",
+      "query": "{\"strategic_intent\": \"Finish the prediction task.\", \"summary\": \"I have completed the legal research on the Corporate Transparency Act challenge and the associated competing vehicle (NSBU v. Bessent). The prediction (`prediction.json`), reasoning (`reasoning.md`), retrieval log (`retrieval.md`), and tooling feedback (`tooling.json`) have been written to the appropriate cell directory and successfully validated. The task is complete.\", \"title\": \"Complete Prediction Task\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:34.504Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73358839",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

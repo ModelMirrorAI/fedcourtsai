@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73344703",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "cat (statpack.md)",
+    "fedcourts query"
+  ],
+  "helpful": [
+    "metrics/statpack.md was very useful for establishing the background rate",
+    "the provisioned snapshot and event details were clear"
+  ],
+  "gaps": [
+    "the fedcourts query sidecar was down/unreachable, causing a fallback"
+  ],
+  "schema_version": "1.0"
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73391039",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search and endpoints",
+    "committed metrics statpack",
+    "visual rendering of the provisioned petition URL"
+  ],
+  "helpful": [
+    "The snapshot supplied precise docket posture and timing.",
+    "The statpack supplied calibrated cert base rates.",
+    "Visual PDF rendering recovered the question presented and argument from the scanned petition."
+  ],
+  "gaps": [
+    "The provisioned petition had no OCR text, requiring full-page visual review.",
+    "CourtListener lacked text for the current Eleventh Circuit opinion."
+  ],
+  "notes": "The official retrieval path was sufficient to identify the lower docket and older related opinion; direct visual review of the exact petition URL was decisive because the provisioned text extraction was empty."
+}

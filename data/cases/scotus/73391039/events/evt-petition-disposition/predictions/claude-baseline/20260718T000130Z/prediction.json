@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73391039",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260718T000130Z",
+  "created_at": "2026-07-18T00:20:46Z",
+  "input_snapshot": "data/cases/scotus/73391039/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.004,
+  "predicted_disposition": "denied",
+  "confidence": 0.9,
+  "big_case_score": 0.03,
+  "big_case_rationale": "Fact-bound pro se §1983 dispute between one plaintiff and a single Florida county; no circuit split, no institutional stakes, no amici — negligible significance even if decided.",
+  "votes": [],
+  "reasoning_doc": "reasoning.md"
+}

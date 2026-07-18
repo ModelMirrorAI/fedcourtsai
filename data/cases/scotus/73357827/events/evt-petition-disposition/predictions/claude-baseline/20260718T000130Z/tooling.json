@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73357827",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener-mcp search"
+  ],
+  "helpful": [
+    "Provisioned full petition text plus extracted questions-presented made the vehicle analysis possible without any fetching",
+    "statpack.json per-fee-class grant rates (paid vs IFP) gave a much better anchor than the whole-docket rate",
+    "fedcourts query on recent granted petitions surfaced the distribution-count signal that granted cases carry multiple relists"
+  ],
+  "gaps": [
+    "The prompt's 'Segment base rate by salience band' table is not present in the committed statpack version, so no band-level anchor was available",
+    "CourtListener RECAP search has near-zero SCOTUS docket coverage, so a petitioner's prior cert history cannot be looked up; a corpus query filter on party/attorney name would fill that",
+    "A statpack cut for 'response waived / no CFR at distribution' would quantify the strongest single denial signal in cases like this"
+  ],
+  "notes": "Forward-mode cell; petition pending, distributed for the 2026-09-28 long conference. No leakage encountered."
+}

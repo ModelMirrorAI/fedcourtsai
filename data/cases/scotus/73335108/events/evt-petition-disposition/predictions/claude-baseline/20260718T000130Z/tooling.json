@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73335108",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "Provisioned full petition text (petition.txt) — the QP and reasons-for-granting sections drove the qualitative call",
+    "statpack relist/CVSG/fee-class cuts — let me condition the base rate on this cell's exact signal profile",
+    "statpack.json per-fee-class grant rates — needed to correct for this being a paid but pro se petition"
+  ],
+  "gaps": [
+    "fedcourts query rows returned null captions, so priors could not be qualitatively compared to this case; captions (or a one-line issue summary) on query rows would make the corpus priors usable",
+    "no --fee-class or pro-se filter on fedcourts query; the pro se paid petition subpopulation is exactly what this cell needed a base rate for",
+    "the statpack has no salience-band table (the prompt describes one); the per-Term fee-class detail partially substitutes"
+  ],
+  "notes": "Forward cell with a fresh (previous-day) snapshot and fully provisioned petition text; no live CourtListener retrieval was needed. Two corpus query calls cost ~430 ranged GETs (~113 MB) each while contributing nothing usable — the transfer-to-signal ratio there is poor."
+}

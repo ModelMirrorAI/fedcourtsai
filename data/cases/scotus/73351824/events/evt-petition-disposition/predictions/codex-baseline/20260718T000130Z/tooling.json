@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73351824",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned docket snapshot and filed-document text",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP (attempted)"
+  ],
+  "helpful": [
+    "The snapshot exposed the response request and amicus filings.",
+    "The statpack supplied paid-petition and relist calibration.",
+    "The petition extraction included the lower-court opinion needed to assess vehicle defects."
+  ],
+  "gaps": [
+    "CourtListener MCP was throttled and returned no research results.",
+    "The corpus query lacked topical similarity filters for SCOTUS petitions.",
+    "No brief in opposition was yet available because the response deadline remained pending."
+  ],
+  "notes": "The provisioned record was sufficient for a forecast despite the MCP throttle. The broad corpus lookup was expensive and only weakly relevant; structured cert-stage signals such as response-request status would be more useful."
+}

@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/73377829",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "google_web_search"
+  ],
+  "helpful": [
+    "google_web_search",
+    "metrics/statpack.md"
+  ],
+  "gaps": [
+    "statpack.md lacked explicit segment base rates for 'Call for Response' (CFR) requiring fallback to web search."
+  ],
+  "schema_version": "1.0"
+}

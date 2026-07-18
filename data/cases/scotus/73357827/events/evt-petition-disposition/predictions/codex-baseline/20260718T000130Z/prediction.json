@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73357827",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260718T000130Z",
+  "created_at": "2026-07-18T00:27:50Z",
+  "input_snapshot": "data/cases/scotus/73357827/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.012,
+  "predicted_disposition": "denied",
+  "confidence": 0.9,
+  "big_case_score": 0.55,
+  "big_case_rationale": "A merits ruling could shape nationwide private enforcement of federal election-administration requirements, though the case's standing posture and agency-specific facts narrow its reach.",
+  "reasoning_doc": "reasoning.md"
+}

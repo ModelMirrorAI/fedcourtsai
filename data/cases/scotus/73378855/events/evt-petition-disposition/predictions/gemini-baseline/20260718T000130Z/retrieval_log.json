@@ -1,0 +1,182 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "385096792ca826ba",
+      "query": "{\"strategic_intent\": \"I will read the necessary documentation files to understand the prediction prompt contract and the agent guidelines.\", \"summary\": \"I am starting by reading the prediction prompt instructions in .github/prompts/predict.md and the agent guidelines in AGENTS.md. Following this, I will fetch the necessary docket information from CourtListener to complete the prediction task for docket 73378855.\", \"title\": \"Reading Instructions and Processing Prediction Request\", \"wait_for_previ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:41.987Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:41.996Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:41.996Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2c6183ead44604e8",
+      "query": "{\"strategic_intent\": \"I will now retrieve the provisioned inputs and relevant schemas required to formulate the prediction.\", \"summary\": \"Having read the instructions, my next step is to locate and read the case-specific inputs for docket 73378855, including the event definition, snapshot, and document text. I will also read the schema files for the expected outputs to ensure my prediction conforms to the required formats.\", \"title\": \"Retrieving Case Context and Schemas\", \"wait_for_previous\": fa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:49.957Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:49.973Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "11e7aeea7d9d2d62",
+      "query": "{\"pattern\": \"data/cases/scotus/73378855/**/*\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:49.973Z",
+      "tool": "glob"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:49.974Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f96688d1e4635fc6",
+      "query": "{\"file_path\": \"data/cases/scotus/73378855/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:56.090Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "737976daec4d3a75",
+      "query": "{\"file_path\": \"data/cases/scotus/73378855/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:56.091Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "61d10c28d016a119",
+      "query": "{\"file_path\": \"data/cases/scotus/73378855/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:56.092Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2f2f010a11f16137",
+      "query": "{\"file_path\": \"data/cases/scotus/73378855/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:56.092Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6afd45cd1da06760",
+      "query": "{\"strategic_intent\": \"I will now review the statpack for empirical base rates and read the respondent's Brief in Opposition (BIO) to evaluate the strength of the petitioner's claims.\", \"summary\": \"I have read the Questions Presented, which indicate the petitioner is challenging a punitive damages award affirmed without opinion by the Alabama Supreme Court, citing Due Process violations. I will now examine the brief in opposition to understand the counterarguments. I am also opening the statpack ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:03.761Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:03.769Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "738b05ab7d91f18a",
+      "query": "{\"file_path\": \"data/cases/scotus/73378855/record/documents/brief-in-opposition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:03.770Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "b9e40fa1ee3e5431",
+      "query": "{\"strategic_intent\": \"I will now write the prediction outputs and run the validation command to complete my task.\", \"summary\": \"After evaluating the merits of the case and the base rates from the statpack, I concluded that this cert petition has an exceedingly low chance of being granted. It lacks a circuit split, the punitive damages ratio is low, and the petitioner's constitutional claim about written opinions is unsupported. I am now writing the required output files (prediction.json, reasoni",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:34.863Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "3517c889792a6735",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73378855\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.05,",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:34.871Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "a1e7086e4ff1aad8",
+      "query": "{\"content\": \"### Legal Question and Governing Standard\\nThe petitioner asks whether the Due Process Clause of the Fourteenth Amendment requires a state appellate court to issue a written opinion explaining its *de novo* review of a punitive damages award. The governing standards are *BMW of North America, Inc. v. Gore*, 517 U.S. 559 (1996), which establishes the guideposts for unconstitutionally excessive punitive damages, and *Cooper Industries, Inc. v. Leatherman Tool Group, Inc.*, 532 U.S. 42",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:34.874Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "260c79700e7ab379",
+      "query": "{\"content\": \"- Read `metrics/statpack.md` to retrieve the SCOTUS base rates for discretionary-cert petitions and the 2025 Term.\\n- Read provisioned inputs: `record/context.json`, `event.yaml`, `record/snapshots/2026-07-17.json`, `record/documents/questions-presented.txt`, and `record/documents/brief-in-opposition.txt`.\\n- No retrieval beyond the provisioned inputs and the local statpack.\", \"file_path\": \"data/cases/scotus/73378855/events/evt-petition-disposition/predictions/gemini-baseline/202607",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:34.878Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "cb23c4c9e26710ca",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73378855\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md\\\",\\n    \\\"record/documents/brief-in-opposition.txt\\\"\\n  ],\\n  \\\"notes\\\": \\\"The provisioned snapshot and BIO were sufficient to evaluate this case. The statpack",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:34.882Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f534f12323cc146e",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:41.466Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb8c7b54f75bb68b",
+      "query": "{\"strategic_intent\": \"I have completed the prediction task, successfully validated the outputs, and am concluding the run.\", \"summary\": \"The prediction files (prediction.json, reasoning.md, retrieval.md, and tooling.json) have been written to the correct directory and validated successfully against the project schema using `uv run fedcourts validate data`. The case has a 1% predicted probability of a cert grant due to the lack of a split, the non-excessive punitive damages ratio, and a weak cons",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:46.315Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73378855",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,390 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "31c1a33d37e850c1",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824 -type f | head -50",
+      "result_digest": "c2d616dd618063f3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "53ddbd1629f39ade",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0dd4862194cc728d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "b058a8f249baae51",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "708abc928c1f5612",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "ff90b3a559974390",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "df7c423dbed92a96",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/documents/documents.json\"}",
+      "result_digest": "708ecff3e8835706",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "cfcfe3f498048da3",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/documents/questions-presented.txt\"}",
+      "result_digest": "167546f3818138bb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "131cf3771e236dd5",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/documents/petition.txt",
+      "result_digest": "8ddd0dcd28600ca1",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "77f6be7e111c5b1a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/documents/petition.txt\", \"limit\": 400}",
+      "result_digest": "0013ba58862de069",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d15c27b59717d63c",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/documents/petition.txt\", \"limit\": 600, \"offset\": 400}",
+      "result_digest": "98303ff69ee71f3f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "060e9bb21ea886e4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/record/documents/petition.txt\", \"limit\": 500, \"offset\": 1000}",
+      "result_digest": "95176a9e1e319950",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bcc4acdd72443882",
+      "query": "uv run fedcourts paths --court scotus --docket 73351824 --event evt-petition-disposition --role predictor 2>&1 | head -30",
+      "result_digest": "cf11fe8b7ad3021a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "865013b3ba745ed6",
+      "query": "uv run fedcourts query --court scotus --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "77b741564577b084",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 8 2> /tmp/q1.err | head -20; echo \"--- stderr:\"; cat /tmp/q1.err",
+      "result_digest": "4d1fd570657a1d05",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "90b2b2117e69a77f",
+      "query": "\"Indian Child Welfare Act\" certiorari",
+      "result_digest": "ad0ffc5eef572639",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "974dd21c6339dd1d",
+      "query": "\"Indian Child Welfare Act\"",
+      "result_digest": "41283c3dd36b24bc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "107969382ba5e60b",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nprint(list(d.keys()))\n\" 2>&1 | head -5",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0a71ce06b0a3542f",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nfor t in d['terms']:\n    if str(t.get('term')) in ('2024','2025'):\n        print(json.dumps(t, indent=1)[:1500])\n\"",
+      "result_digest": "7ecdb25d6ed89d80",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "fb18847f9156eec9",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('metrics/statpack.json'))\nfor s in d['sections']:\n    print(s.get('key') or s.get('title'))\n\"",
+      "result_digest": "6ce29af6ca49e54d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c321f0a3e873a8e7",
+      "query": "\"ICWA\" OR \"Indian Child Welfare\"",
+      "result_digest": "35049bea05c1aa66",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "f358d267b51753ac",
+      "query": "sleep 100",
+      "result_digest": "5057b3a37ae9631d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a20aa7c90448a6b4",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73351824/events/evt-petition-disposition/predictions/claude-baseline/20260718T000130Z && date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "0c90ed7842823f03",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a9b46b45d07768c1",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition denied --limit 5 2> /tmp/q2.err | python3 -c \"\nimport json,sys\nfor line in sys.stdin:\n    r = json.loads(line)\n    print(r['case_id'], '|', r['case_name'][:70], '|', r.get('originating_court_name'), '| dist:', r.get('distribution_count'))\n\"; echo '--- stderr:'; cat /tmp/q2.err",
+      "result_digest": "26be062e55bf8db3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "059ae0b58b08dbf6",
+      "query": "sleep 1 && echo done",
+      "result_digest": "58bf5b5478e5d1fb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d5859ea1a516faaa",
+      "query": "\"Indian Child Welfare\"",
+      "result_digest": "1fee3512eedaf4bb",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "36e67e01b09ee51a",
+      "query": "sleep 55",
+      "result_digest": "d0e6d89421f86a1e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "c897628a69a73171",
+      "query": "sleep 5 && echo ok",
+      "result_digest": "c48b5b1a9776c846",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d5859ea1a516faaa",
+      "query": "\"Indian Child Welfare\"",
+      "result_digest": "05d782746aa9c871",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "7fe61c1967266039",
+      "query": "sleep 35",
+      "result_digest": "7518bfbab06c2edf",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "33411d9f43f6bc5e",
+      "query": "sleep 40 2>/dev/null || true; echo ready",
+      "result_digest": "c2bf1e798f6535c2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "5c457e650898b837",
+      "query": "ls /tmp/claude-1001/-home-runner-work-fedcourtsai-fedcourtsai/6498508b-37a1-400d-971f-07829d39fd91/tasks/ && cat /tmp/claude-1001/-home-runner-work-fedcourtsai-fedcourtsai/6498508b-37a1-400d-971f-07829d39fd91/tasks/bkrvsxrs0.output 2>/dev/null; echo \"---\"",
+      "result_digest": "7a9e1c34417881d3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "d5859ea1a516faaa",
+      "query": "\"Indian Child Welfare\"",
+      "result_digest": "6cc9d356016d2726",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "485f4ed7aeb34df9",
+      "query": "\"Indian Child Welfare Act\"",
+      "result_digest": "037ee90cd3811226",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "b296c1b66263d902",
+      "query": "sleep 30",
+      "result_digest": "60e6ad46315507b7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "aa662a3823d84fd9",
+      "query": "git -C /home/runner/work/fedcourtsai/fedcourtsai log --oneline -3 -- data/cases/scotus/73351824 2>/dev/null; echo done-waiting",
+      "result_digest": "e34a45e6d9f3c8ff",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "485f4ed7aeb34df9",
+      "query": "\"Indian Child Welfare Act\"",
+      "result_digest": "5f44de3197f79d5b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "19a398d5cc4d29a6",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "5c5553d4bb88d1ad",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "546d74c1f231a64b",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73351824\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:07:46Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73351824/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.13,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "f71205c3c67c67bc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "221ebfbd529dde8f",
+      "query": "{\"content\": \"# Prediction: N. R., et al. v. Ellison, No. 25-1287 (cert petition disposition)\\n\\n**Call: deny is still the modal outcome, but this is a genuinely elevated petition \\u2014 P(any grant, GVR included) \\u2248 0.13.**\\n\\n## The case\\n\\nNathan and Kellie Reyelts, non-Indian former foster parents of twin Red Lake\\nNation-eligible toddlers with severe medical needs, petition from the\\nMinnesota Supreme Court's April 9, 2026 judgment (32 N.W.3d 163) affirming the\\ndenial of their motion to",
+      "result_digest": "44a133d4ee4803f7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "fefbc65a07d6123a",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73351824 / evt-petition-disposition / claude-baseline / 20260718T000130Z\\n\\nMode: `forward` (`record/context.json`).\\n\\n## Corpus lookups (`fedcourts` CLI)\\n\\n1. `uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 8`\\n   - stderr: `ranged corpus reads: 149 GET(s), 39059456 byte(s)`\\n   - Used for: profile of recently granted petitions (distribution counts,\\n     originating courts, counsel).\\n2. `uv run fedcourts query --cou",
+      "result_digest": "b6f47343ee867080",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "5c35a217c9d152b2",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73351824\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tool_manifest\\\": [\\\"courtlistener\\\"],\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md + statpack.json\\\",\\n    \\\"courtlistener MCP search (mostly throttled)\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned petition.txt and qu",
+      "result_digest": "8e4eb82164c481d7",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "334ce4ebcb4ac9f8",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5 && git status --short data/cases/scotus/73351824",
+      "result_digest": "1869cf906933d7a6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73351824",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

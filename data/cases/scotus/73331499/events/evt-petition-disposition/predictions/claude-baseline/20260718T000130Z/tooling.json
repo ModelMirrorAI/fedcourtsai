@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73331499",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (attempted, throttled)"
+  ],
+  "helpful": [
+    "statpack per-Term and relist/CVSG cut tables — the main quantitative anchor",
+    "provisioned petition.txt and questions-presented.txt — full merits context without any fetching",
+    "snapshot's ProceedingsandOrder — distribution date and missing-BIO signal"
+  ],
+  "gaps": [
+    "CourtListener MCP arrived rate-exhausted (HTTP 429, 1200/day shared quota) — a per-cell quota reservation or a docket-delta feed vs. the snapshot would make the live check reliable",
+    "fedcourts query has no issue/topic facet on SCOTUS rows, so it cannot surface doctrinally similar cert priors (e.g. Fourth Amendment petitions); a QP-text similarity search over resolved petitions would be the single most useful addition",
+    "statpack.md no longer carries the per-salience-band table the prompt references; the per-fee-class (paid vs IFP) grant rates also only ride in statpack.json, which is not committed alongside"
+  ],
+  "notes": "The broad-filter corpus query cost 431 ranged GETs / ~113 MB for 8 rows; without a topic facet on SCOTUS rows its marginal value per byte is low for cert cells."
+}

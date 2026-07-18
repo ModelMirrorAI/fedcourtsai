@@ -1,0 +1,4 @@
+- `cat metrics/statpack.md | grep -A 20 "Modern discretionary-cert petitions by disposition"`
+- `cat metrics/statpack.md | grep -A 20 "Modern paid discretionary-cert petitions by disposition"` (Not found; used standard paid/circuit rates)
+- `uv run fedcourts query --court scotus --disposition denied` (corpus service read: `ranged corpus reads: 182 GET(s), 47579136 byte(s)`)
+- MCP CourtListener `search`: q=`"genetic genealogy" AND "Fourth Amendment" AND DNA` (Returned 9 results, illustrating the lower-court landscape on the issue)

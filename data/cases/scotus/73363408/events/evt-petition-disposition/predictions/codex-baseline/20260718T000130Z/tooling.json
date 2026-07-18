@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363408",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP opinion search and opinion retrieval",
+    "committed corpus statpack"
+  ],
+  "helpful": [
+    "The provisioned full petition exposed the vehicle and split problems.",
+    "The statpack supplied term, fee-class, relist, and CVSG calibration.",
+    "CourtListener MCP supplied controlling appellate-access context and the pre-snapshot Hunter decision."
+  ],
+  "gaps": [
+    "The prompt references a salience-band table, but the current committed statpack does not include one."
+  ],
+  "notes": "The provisioned inputs and MCP legal research were sufficient; no corpus query was needed because its structured SCOTUS filters could not target this legal issue."
+}

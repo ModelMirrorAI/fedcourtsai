@@ -1,0 +1,2 @@
+- Consulted `metrics/statpack.md` for base rates (modern discretionary-cert petitions, circuit rates, and relist counts).
+- No further corpus or MCP retrieval was conducted beyond the provisioned inputs.

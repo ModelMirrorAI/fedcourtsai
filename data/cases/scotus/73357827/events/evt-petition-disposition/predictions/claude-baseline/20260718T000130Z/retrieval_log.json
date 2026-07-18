@@ -1,0 +1,230 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "bbc9990103425ddb",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827 -type f | head -50",
+      "result_digest": "5379ed4159aaee8b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "7f01337e49f492c7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b30d5c832f9f3fa6",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "1d022c060129a0f5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "315e4e8e200cbc3f",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "4f8c0237ad39c7f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2066c98ea6f0a1d4",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/record/documents/documents.json\"}",
+      "result_digest": "dda7302ea3b15b81",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0b85563020dec594",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/record/documents/questions-presented.txt\"}",
+      "result_digest": "e1867a5487206438",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "67e40c2344857835",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/record/documents/petition.txt\"}",
+      "result_digest": "4e765d47905bb003",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "517a9ae0fad41b6a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/record/documents/petition.txt\", \"offset\": 51}",
+      "result_digest": "49f1b8ee79d216ec",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "4d33626d035f3323",
+      "query": "ls /home/runner/work/fedcourtsai/fedcourtsai/metrics/ && grep -n \"Modern discretionary-cert\\|salience band\\|relist\\|CVSG\" /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -30",
+      "result_digest": "aaca773defc06699",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "34e316db8f4e6283",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md\"}",
+      "result_digest": "f7f52ddf40d02d56",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "502b95722a6e233f",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "61c9a24871b29a6a",
+      "query": "uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5 2>query_err1.txt | head -20; echo \"--- stderr:\"; cat query_err1.txt",
+      "result_digest": "eba9992632a3f2df",
+      "retrieved_doc_date": "2025-04-22",
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "0a37e1f7b7086cea",
+      "query": "{\"court\": \"scotus\", \"fields\": [\"caseName\", \"docketNumber\", \"dateFiled\", \"court_id\", \"absolute_url\"], \"num_results\": 10, \"party_name\": \"Wisconsin Voter Alliance\", \"type\": \"d\"}",
+      "result_digest": "f885c98e5e479bbe",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "986add31b865094a",
+      "query": "\"Wisconsin Voter Alliance\" OR \"Wisconsin Voters Alliance\"",
+      "result_digest": "c5f18962e86671c9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "97edd1006246dae2",
+      "query": "\"Help America Vote Act\" cert petition 21112",
+      "result_digest": "78e2850ae3c1037e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "f0c23c1c996f81c8",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint(list(d.keys()))\n\"",
+      "result_digest": "b9b80f42cd5c7834",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "070bf4d20b0b1e09",
+      "query": "python3 -c \"\nimport json\nd = json.load(open('/home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.json'))\nprint([s.get('key') or s.get('title') for s in d['sections']])\nt = d['terms']\nprint(type(t))\nimport itertools\nif isinstance(t, list):\n    for row in t:\n        print({k: row[k] for k in list(row)[:14]})\n\"",
+      "result_digest": "0a18ae85b7407701",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3cb9a2ae7eddad99",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\" && mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73357827/events/evt-petition-disposition/predictions/claude-baseline/20260718T000130Z",
+      "result_digest": "3b301ff4b388dee6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "94e03228bc00a1c6",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73357827\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:04:34Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73357827/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.03,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\",
+      "result_digest": "6452139b183c7edd",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "4d3ce5752022f245",
+      "query": "{\"content\": \"# Wisconsin Voter Alliance, et al. v. Don M. Millis, et al. \\u2014 No. 25-1288\\n\\n**Event:** cert petition disposition (forward mode). **Prediction: denied, P(grant) = 0.03.**\\n\\n## The case\\n\\nPetitioners (Wisconsin Voter Alliance, its president Ron Heuer, and member\\nKenneth Brown) filed HAVA administrative complaints with the Wisconsin\\nElections Commission alleging that WEC itself was violating HAVA; WEC returned\\nthe complaints without adjudication, reasoning it could not decid",
+      "result_digest": "4535b69dba2ce722",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "8d82ce59c99079df",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73357827, run 20260718T000130Z\\n\\n## Corpus lookups\\n\\n1. `uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5`\\n   \\u2014 stderr: `ranged corpus reads: 149 GET(s), 39059456 byte(s)`.\\n   Used to observe the docket-signal profile of recently granted petitions\\n   (all carried multiple conference distributions, unlike this case's single\\n   future long-conference distribution).\\n\\n## Committed base-rate artifacts\\n\\n- `metri",
+      "result_digest": "0bd2ec8bad98db38",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "beddc4504a51bb3d",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73357827\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\",\\n    \\\"metrics/statpack.json\\\",\\n    \\\"courtlistener-mcp search\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Provisioned full petition text plus extracted questions-presented made the ve",
+      "result_digest": "36c7a0afd66c91d9",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "0cca409f764a0ccc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73357827",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

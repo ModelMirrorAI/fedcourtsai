@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73452191",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "metrics/statpack.md"],
+  "helpful": ["metrics/statpack.md provided excellent base rate context for recent Terms."],
+  "gaps": [],
+  "notes": "The provisioned snapshot and petition text were sufficient to identify the vehicle issues in this case."
+}

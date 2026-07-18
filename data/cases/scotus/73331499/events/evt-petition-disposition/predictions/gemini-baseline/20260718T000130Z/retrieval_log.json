@@ -1,0 +1,278 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "87b8804404aa9947",
+      "query": "{\"strategic_intent\": \"Produce the prediction for the given cell based on prompt instructions.\", \"summary\": \"I am starting the process to produce a prediction. First, I will read the required prompt and agent instruction files to understand the prediction contract and workflow.\", \"title\": \"Understanding Prediction Prompt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:26.002Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:26.008Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:26.008Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0c08dc3258404806",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73331499\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:32.588Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bf0897a9d0f18b98",
+      "query": "{\"dir_path\": \"data/cases/scotus/73331499/events/evt-petition-disposition/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:35.079Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "5c501b1d543adfff",
+      "query": "{\"dir_path\": \"data/cases/scotus/73331499/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:37.134Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "f1cdb7e621f9cf64",
+      "query": "{\"dir_path\": \"data/cases/scotus/73331499/record/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:39.300Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "bd35ace9113c24d2",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs for the prediction cell.\", \"summary\": \"I have identified the location of the provisioned inputs for the SCOTUS docket 73331499. Now I am going to read the event definition, context configuration, the latest case snapshot, and any provided document text.\", \"title\": \"Reading Provisioned Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:43.109Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "26bdb944973a6e0e",
+      "query": "{\"file_path\": \"data/cases/scotus/73331499/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:43.116Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2f2fc25e7bf65308",
+      "query": "{\"file_path\": \"data/cases/scotus/73331499/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:43.116Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "038b6217f7303ee5",
+      "query": "{\"dir_path\": \"data/cases/scotus/73331499/record/documents/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:43.117Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "22c29237d4ffd48a",
+      "query": "{\"dir_path\": \"data/cases/scotus/73331499/record/snapshots/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:43.117Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "f2c60aef17da365f",
+      "query": "{\"strategic_intent\": \"Read the latest case snapshot and the questions presented to understand the legal context.\", \"summary\": \"I am now reading the case snapshot and the text of the questions presented from the provisioned documents. This will give me the foundational facts of the case and the specific legal questions being asked of the court.\", \"title\": \"Analyzing Case Facts and Legal Questions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:47.703Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "5bb60e5f6e87b676",
+      "query": "{\"file_path\": \"data/cases/scotus/73331499/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:47.706Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7bfed37dc6bd91d5",
+      "query": "{\"file_path\": \"data/cases/scotus/73331499/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:47.707Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1f5fcaef6297ccfc",
+      "query": "{\"file_path\": \"data/cases/scotus/73331499/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:47.707Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "abadbe13c74587c3",
+      "query": "{\"strategic_intent\": \"Review base rates and retrieve case priors from the corpus to inform the prediction.\", \"summary\": \"I will read the statpack to understand the general base rates for SCOTUS paid petitions. Then, I will query the corpus for prior cases involving DNA profiling and the Fourth Amendment to gauge the salience and historical treatment of this issue.\", \"title\": \"Retrieving Context and Base Rates\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:38:54.388Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "4fc6ae1b3cd60fdc",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:24.959Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eedba7b15d02960e",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern paid discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:24.960Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "172d1488aadc43ba",
+      "query": "uv run fedcourts query --court scotus --disposition denied --topic \"Fourth Amendment\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:24.961Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d6c2f6394540f5aa",
+      "query": "ls -l corpus/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:27.882Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6b94abe9aceed871",
+      "query": "uv run fedcourts query --court scotus --disposition denied",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:00.538Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "757554ccc0999783",
+      "query": "uv run fedcourts query --court scotus --topic \"Fourth Amendment\" | head -n 3",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:41.388Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3657b0eff6931e87",
+      "query": "\"genetic genealogy\" AND \"Fourth Amendment\" AND DNA",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:41.390Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "e21db55c0fdf293d",
+      "query": "cat schemas/prediction.schema.json | jq '.properties | keys'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:49.418Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a824d8adbe2bce78",
+      "query": "{\"strategic_intent\": \"Write the prediction, reasoning, and tooling outputs to the correct directory based on the collected context.\", \"summary\": \"Having read the case facts, the statpack base rates, and queried the corpus and CourtListener, I am now writing the required output files (`prediction.json`, `reasoning.md`, `retrieval.md`, `tooling.json`). The prediction will be a denial, as this is a state intermediate court case distributed without a Brief in Opposition.\", \"title\": \"Writing Output F",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:54.723Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "00f4c0d144d80e8b",
+      "query": "mkdir -p data/cases/scotus/73331499/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:54.733Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "08ecde14a7cab957",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73331499\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.02,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.6,\\n  \\\"big_case_rat",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:58.806Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "fa0834bf561e81ba",
+      "query": "{\"content\": \"# Reasoning for Petition Disposition Prediction\\n\\n## Case Facts and Posture\\nThis is a paid petition for certiorari arising from a criminal conviction in Pennsylvania state court. The petitioner seeks review of a July 24, 2025 decision of the Superior Court of Pennsylvania (an intermediate appellate court). The Pennsylvania Supreme Court denied discretionary review on February 4, 2026. \\n\\nThe petition raises two questions under the Fourth Amendment:\\n1. Whether a John Doe DNA Comp",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:06.775Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "65bd44cbb9856b70",
+      "query": "{\"content\": \"- `cat metrics/statpack.md | grep -A 20 \\\"Modern discretionary-cert petitions by disposition\\\"`\\n- `cat metrics/statpack.md | grep -A 20 \\\"Modern paid discretionary-cert petitions by disposition\\\"` (Not found; used standard paid/circuit rates)\\n- `uv run fedcourts query --court scotus --disposition denied` (corpus service read: `ranged corpus reads: 182 GET(s), 47579136 byte(s)`)\\n- MCP CourtListener `search`: q=`\\\"genetic genealogy\\\" AND \\\"Fourth Amendment\\\" AND DNA` (Returned 9 re",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:10.444Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "d2efb7aa544d92e8",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73331499\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The MCP CourtListener search was very helpful to quickly gauge lower-court litigation frequency on the specific Fourt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:14.669Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e0262f32a8b9c8d8",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:20.128Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f18650f502765d6b",
+      "query": "{\"strategic_intent\": \"Finalize the prediction task.\", \"summary\": \"I have successfully written the required `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` files for the specified prediction cell. I also successfully validated the data using the `fedcourts validate data` command. The prediction is now complete.\", \"title\": \"Prediction Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:23.453Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73331499",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

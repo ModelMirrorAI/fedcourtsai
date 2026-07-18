@@ -1,0 +1,294 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "572cc83872a60804",
+      "query": "{\"strategic_intent\": \"Read predict.md and AGENTS.md to understand the prediction prompt contract.\", \"summary\": \"I am reading the prediction instructions from `.github/prompts/predict.md` and `AGENTS.md` to understand how to generate a prediction for the specified court, docket, and event IDs.\", \"title\": \"Read Prediction Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:51.702Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:51.708Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:51.708Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9e0b2005f9387854",
+      "query": "ls -la data/cases/scotus/73391039/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:55.298Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b813f63a20345380",
+      "query": "cat data/cases/scotus/73391039/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:57.275Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "14ab6ac9ba24d39a",
+      "query": "ls -la data/cases/scotus/73391039/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:01.792Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b174e4b9830659a2",
+      "query": "cat data/cases/scotus/73391039/record/context.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:03.812Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a47597ead232e062",
+      "query": "ls -la data/cases/scotus/73391039/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:05.749Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f86edd0b7dcd4f15",
+      "query": "ls -la data/cases/scotus/73391039/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:07.915Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4152ca2ca17103eb",
+      "query": "{\"strategic_intent\": \"Read the provisioned inputs to prepare for the prediction.\", \"summary\": \"I have identified the provisioned inputs for the case and will now read the snapshot and documents to understand the context of the petition.\", \"title\": \"Read Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:10.712Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7db7f8871e38f130",
+      "query": "{\"file_path\": \"data/cases/scotus/73391039/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:10.721Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "695b97aea91597e6",
+      "query": "{\"file_path\": \"data/cases/scotus/73391039/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:10.721Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8456a9ac88ff3c6e",
+      "query": "{\"file_path\": \"data/cases/scotus/73391039/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:10.721Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "052f8ad5145f9e71",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions by disposition\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:14.577Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ec8cdb13bbb075ca",
+      "query": "cat metrics/statpack.md | grep -i fee | head -n 30",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:16.551Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddb3ed40a99dc79b",
+      "query": "cat metrics/statpack.json | grep -A 30 '\"segment\": \"fee_class\"'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:18.739Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4d1a0c313b4ed8cb",
+      "query": "head -n 50 metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:20.536Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1754240709f460e5",
+      "query": "jq '.segments.by_term[0]' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:22.459Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6b56e7a92e08bb88",
+      "query": "jq '.segments | keys' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:24.409Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a2b72de85f5696b6",
+      "query": "jq 'keys' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:26.277Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1570f2dfd5cd2a37",
+      "query": "jq '.sections | map(.key)' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:28.187Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a4f588b43c21ab5f",
+      "query": "jq '.sections[].title' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:30.013Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e825e437a8b07a19",
+      "query": "jq '.terms | keys' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:33.180Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d13c157ff5b7a23f",
+      "query": "jq '.terms[0]' metrics/statpack.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:35.214Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:40.183Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:42.396Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3d903d4403a42204",
+      "query": "mkdir -p data/cases/scotus/73391039/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:45.267Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:51.432Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "29b6c71ef3575e05",
+      "query": "{\"strategic_intent\": \"Write the prediction output files for the case.\", \"summary\": \"I have evaluated the case record and base rates. I will now write the required output files (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`) to the prediction directory.\", \"title\": \"Write Output Files\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:55.540Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "dcf12058c3f19171",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73391039\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:49:51Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73391039/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:55.558Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4506227a1ce532f1",
+      "query": "{\"content\": \"# Reasoning for Petition Disposition: scotus/73391039 (David W. Foley, Jr., et ux. v. Orange County, Florida, et al.)\\n\\n## Case Overview\\nThis is a paid petition for certiorari originating from the United States Court of Appeals for the Eleventh Circuit. The petitioners appear to be pro se, given that the attorney listed is the petitioner himself (David W. Foley Jr.) with a residential address and no firm listed. The respondents are Orange County, Florida, and several individuals.\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:01.005Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c0dcedb64cfbafe5",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs and base rates (metrics/statpack.md and metrics/statpack.json).\", \"file_path\": \"data/cases/scotus/73391039/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:03.292Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1fa8afa8fc8443a7",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73391039\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"cat\\\",\\n    \\\"grep\\\",\\n    \\\"jq\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md\\\",\\n    \\\"statpack.json\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Used jq and grep to explore the statpack files directly.\\\"\\n}\", \"file_path\": \"da",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:06.350Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:10.539Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2122979bbe7dd0d3",
+      "query": "{\"strategic_intent\": \"Finalize the prediction task.\", \"summary\": \"The prediction output files (`prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json`) have been successfully written and validated. The task is complete.\", \"title\": \"Task Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:13.072Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73391039",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

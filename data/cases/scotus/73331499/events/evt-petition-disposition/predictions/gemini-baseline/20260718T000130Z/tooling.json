@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73331499",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "mcp_courtlistener_search",
+    "read_file"
+  ],
+  "helpful": [
+    "The MCP CourtListener search was very helpful to quickly gauge lower-court litigation frequency on the specific Fourth Amendment issue."
+  ],
+  "gaps": [
+    "A direct tool to check docket entries or search SCOTUS dockets for CFR (Call for Response) rates on unresponded paid petitions."
+  ],
+  "notes": "Corpus service initially timed out but worked on a retry."
+}

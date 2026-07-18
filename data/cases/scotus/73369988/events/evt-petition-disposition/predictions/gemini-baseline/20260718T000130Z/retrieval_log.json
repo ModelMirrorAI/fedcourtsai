@@ -1,0 +1,174 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "c3d6c30c1147e1c1",
+      "query": "{\"strategic_intent\": \"I am reading the prediction guidelines and agent documentation to understand the contract for generating predictions for this docket.\", \"title\": \"Reading Prediction Prompts and Guidelines\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:03.616Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:05.671Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:05.671Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7df1d8402a3f4d58",
+      "query": "ls -la data/cases/scotus/73369988/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:09.631Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "93a0a80118eae302",
+      "query": "ls -la data/cases/scotus/73369988/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:12.093Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "42666c60c4d0c35e",
+      "query": "ls -la data/cases/scotus/73369988/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:14.260Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cc90f2ae63ba2cbe",
+      "query": "cat data/cases/scotus/73369988/record/context.json && ls -la data/cases/scotus/73369988/record/documents/ && ls -la data/cases/scotus/73369988/record/snapshots/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:16.723Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b57d0f5df1e1cc21",
+      "query": "cat data/cases/scotus/73369988/events/evt-petition-disposition/event.yaml",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:20.182Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "669dcabed4254a63",
+      "query": "cat data/cases/scotus/73369988/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:20.183Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "69f80cf8f78e6c7d",
+      "query": "cat data/cases/scotus/73369988/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:20.184Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2c146da20e6f913",
+      "query": "cat data/cases/scotus/73369988/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:20.184Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b07f57b8ad416175",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:23.964Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "17674e73dc7ff715",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:30.500Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f3e30252e6670845",
+      "query": "mkdir -p data/cases/scotus/73369988/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:40.192Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e37755bef9fe9c30",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73369988\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73369988/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"reasoning_doc\\\": \\\"reasoning",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:48.516Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "82463030d98075f1",
+      "query": "{\"content\": \"# Reasoning\\n\\n**The Legal Question:**\\nThe petition presents three questions: (1) whether a court may affirm an arbitration award when it is unclear whether federal or state law governs the standard of review; (2) whether a court may reject claims of arbitrator partiality without applying the objective appearance-of-bias standard from *Commonwealth Coatings*; and (3) whether due process permits affirmance when information bearing on adjudicative neutrality appears on the record but",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:48.520Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1c99d942c387862d",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs. I consulted the provided `metrics/statpack.md` for base rates, noting the low base rate for cert grants and specifically from the California Court of Appeal.\", \"file_path\": \"data/cases/scotus/73369988/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:48.523Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "3064bc658b795bfc",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73369988\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md provided excellent base rate context.\\\"\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/73369988/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:48.527Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4742bebeec8665f3",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:54.292Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c72a7561a4ebc0a7",
+      "query": "{\"strategic_intent\": \"I have generated and validated the prediction files for the event.\", \"title\": \"Prediction Generated\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:57.076Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73369988",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

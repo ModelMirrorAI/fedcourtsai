@@ -1,0 +1,294 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "1f167642ae4b3cf0",
+      "query": "{\"strategic_intent\": \"Reading prediction instructions and agent configuration.\", \"title\": \"Reading Context\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:08.558Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:10.691Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:10.692Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5d87db91c87b0d2b",
+      "query": "{\"dir_path\": \".\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:15.191Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b0e7bd5dd3e80595",
+      "query": "{\"dir_path\": \"data/cases/scotus/73338270\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:17.954Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "ff418c41e680bc1c",
+      "query": "{\"dir_path\": \"data/cases/scotus/73338270/record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:19.966Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "113d8180a47c5844",
+      "query": "{\"dir_path\": \"data/cases/scotus/73338270/events/evt-petition-disposition\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:22.625Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b1d10215915a1b94",
+      "query": "{\"dir_path\": \"data/cases/scotus/73338270/record/documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:22.626Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "b4d8080d472b37a0",
+      "query": "{\"dir_path\": \"data/cases/scotus/73338270/record/snapshots\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:22.626Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "005233a707b51a60",
+      "query": "{\"file_path\": \"data/cases/scotus/73338270/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:22.627Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "32f2639996a6e999",
+      "query": "{\"strategic_intent\": \"Reading the case record (snapshot, event, documents) and output schemas.\", \"title\": \"Reading Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:25.543Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "9b303462c0cda075",
+      "query": "{\"file_path\": \"data/cases/scotus/73338270/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:28.409Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8eebb7f998a03911",
+      "query": "{\"file_path\": \"data/cases/scotus/73338270/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:28.410Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1a228adba796ca7b",
+      "query": "{\"file_path\": \"data/cases/scotus/73338270/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:28.410Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "9acef9f1a44c0b37",
+      "query": "{\"file_path\": \"data/cases/scotus/73338270/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:28.410Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "12553c4a7f982545",
+      "query": "{\"strategic_intent\": \"Reading statpack.md and searching the MCP server for the 9th Circuit opinion to analyze the lower court ruling.\", \"title\": \"Researching Legal Context\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:35.571Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:35.853Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f513ef3ec00aaf56",
+      "query": "\"Boysen\" \"PeaceHealth\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:40:35.854Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "d964a08179bc84f2",
+      "query": "uv run fedcourts query --court scotus --topic \"Due Process\" --era 2020s",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:00.833Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5d2adb356bc564b6",
+      "query": "\"Boysen\" AND \"PeaceHealth\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:04.457Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "cc60c03445fe90fa",
+      "query": "\"Boysen\" \"PeaceHealth\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:07.155Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "4311c99ba7a7974d",
+      "query": "uv run fedcourts query --court scotus --era 2020s | grep \"vaccine\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:36.330Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0cd8a4ae43a38eaa",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:39.627Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "34a71aee5e9ba7b9",
+      "query": "\"Boysen\" \"PeaceHealth\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:42.868Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "1864353973f395ed",
+      "query": "{\"endpoint_id\": \"docket-entries\", \"num_results\": 5, \"query\": {\"docket\": 69773998, \"entry_date_filed_after\": \"2025-12-01\", \"entry_date_filed_before\": \"2025-12-05\"}}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:45.711Z",
+      "tool": "mcp_courtlistener_call_endpoint"
+    },
+    {
+      "params_digest": "6605528c69f8b1bd",
+      "query": "\"Boysen\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:49.366Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "0467163364709516",
+      "query": "\"Boysen\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:41:53.465Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "27b51ae3a924a657",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:02.517Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a6ba28eb769b01f6",
+      "query": "mkdir -p data/cases/scotus/73338270/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:05.363Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8cd0af6ec0137993",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73338270\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:42:02Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73338270/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.02,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.95,\\n  \\\"big",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:09.476Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "dba552c6d3ecfa92",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question and Governing Standard\\nThe petition presents a Fourteenth Amendment Due Process challenge to a state vaccine mandate for healthcare workers, specifically arguing that conditioning employment on the administration of an \\\"investigational drug\\\" (an EUA COVID-19 vaccine) and waiving judicial remedies for resulting injuries is unconstitutional. The governing standard heavily favors the state under *Jacobson v. Massachusetts*, 197 U.S. 11 (1905), which ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:15.533Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "18318c56ff0f55cb",
+      "query": "{\"content\": \"# Retrieval Log\\n\\n**Corpus Lookups:**\\n- `uv run fedcourts query --court scotus --topic \\\"Due Process\\\" --era 2020s`\\n  - `ranged corpus reads: 466 GET(s), 122028032 byte(s)`\\n- `uv run fedcourts query --court scotus --era 2020s | grep \\\"vaccine\\\"`\\n  - `ranged corpus reads: 430 GET(s), 112590848 byte(s)`\\n\\n**CourtListener MCP Lookups:**\\n- `mcp_courtlistener_search(court=[\\\"ca9\\\"], q=\\\"\\\\\\\"Boysen\\\\\\\" \\\\\\\"PeaceHealth\\\\\\\"\\\", type=\\\"o\\\")` (Throttled/Error initially)\\n- `mcp_courtlis",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:20.588Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "c9b59846c2d652f1",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73338270\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"fedcourts query\\\",\\n    \\\"mcp_courtlistener_call_endpoint\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"mcp_courtlistener_search (very helpful for pulling the lower court docket entries)\\\",\\n    \\\"statpack.md (very helpful for establ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:24.512Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "14dbc4b5c92fd33d",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:31.116Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e965e7f49c5fa0e8",
+      "query": "{\"strategic_intent\": \"Writing the final output files and validating them, concluding the prediction task.\", \"title\": \"Finalizing Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:33.483Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73338270",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

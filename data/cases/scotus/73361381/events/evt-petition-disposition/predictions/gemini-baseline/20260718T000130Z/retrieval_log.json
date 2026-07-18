@@ -1,0 +1,246 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "21719cf3fc8849c4",
+      "query": "{\"strategic_intent\": \"Read prompt contract and agent guidelines to understand the prediction task.\", \"summary\": \"I am starting by reading `.github/prompts/predict.md` and `AGENTS.md` to understand the contract for the prediction task and the expectations for the agent.\", \"title\": \"Understand Prediction Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:24.601Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:26.556Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:26.557Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6d2c027eeefb32b2",
+      "query": "ls -la data/cases/scotus/73361381/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:30.966Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "de8e2006ea55d617",
+      "query": "ls -la data/cases/scotus/73361381/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:33.094Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3d84510dda8b13a5",
+      "query": "cat data/cases/scotus/73361381/events/evt-petition-disposition/event.yaml && echo \"---\" && cat data/cases/scotus/73361381/record/context.json && echo \"---\" && ls -la data/cases/scotus/73361381/record/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:36.043Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f8b68cce9fd2da3",
+      "query": "ls -la data/cases/scotus/73361381/record/snapshots/ && ls -la data/cases/scotus/73361381/record/documents/ && cat data/cases/scotus/73361381/record/documents/documents.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:38.358Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "334a1cbc80241fb0",
+      "query": "cat data/cases/scotus/73361381/record/documents/questions-presented.txt && echo \"---\" && cat data/cases/scotus/73361381/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:41.169Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "be290c335c4d186c",
+      "query": "head -n 20 data/cases/scotus/73361381/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:45.001Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7242a45c90287523",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:48.458Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7a6665c4311a602f",
+      "query": "cat metrics/statpack.json | grep -A 10 \"Paid\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:51.724Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "572621314e5b0abe",
+      "query": "cat metrics/statpack.json | grep -i paid",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:53.744Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "aaaaa9bc3f8cd1ec",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    data = json.load(f)\nfor table in data['tables']:\n    if 'fee_class' in str(table):\n        for row in table['rows']:\n            if row.get('fee_class') == 'paid':\n                print(row)\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:56.485Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6095938f0b67ae20",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    data = json.load(f)\nprint(data.keys())\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:58.634Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ba328b52f798f255",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    data = json.load(f)\nfor term in list(data['terms'].values())[:1]:\n    if 'cert_petitions_by_fee_class' in term:\n        print(term['cert_petitions_by_fee_class'])\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:01.151Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c9b3b5673f252038",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    data = json.load(f)\nfor term in data['terms'][-2:]:\n    print(term['term'])\n    if 'cert_petitions_by_fee_class' in term:\n        print(term['cert_petitions_by_fee_class'])\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:03.518Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "451842e284e0f9f2",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    data = json.load(f)\nprint(data['terms'][-1].keys())\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:05.717Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "405ca2eff4f2490c",
+      "query": "python3 -c \"\nimport json\nwith open('metrics/statpack.json') as f:\n    data = json.load(f)\nimport pprint\npprint.pprint(data['terms'][-1]['classes'])\n\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:07.954Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0ded774ec4469f08",
+      "query": "uv run fedcourts query scotus --disposition denied --limit 2",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:13.388Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cd6e0c51ac21a7d8",
+      "query": "uv run fedcourts query --court scotus --disposition denied --limit 2",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:26.001Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6a91c92571c8639a",
+      "query": "mkdir -p data/cases/scotus/73361381/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:28.492Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e2079189830a88a4",
+      "query": "python3 -c \"import datetime; print(datetime.datetime.now(datetime.timezone.utc).isoformat())\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:36.122Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1bdd31b5a8115030",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 '\"required\"'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:38.599Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "34df40ce16ad23ac",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73361381\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:44:36Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.005,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.95,\\n  \\\"big_case_score\\\": 0.01,\\n  \\\"big_case_rational",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:42.256Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "15ade0fd4a032aae",
+      "query": "{\"content\": \"# Reasoning\\n\\n**Legal Question and Governing Standard**\\nThe central legal question presented by the petition is whether a state (Ohio) violates the Due Process Clause's notice requirement by relying on an uncodified provision in a Senate Bill to apply a statute of limitations retroactively. The governing standard for a grant of certiorari by the Supreme Court (Rule 10) emphasizes compelling reasons, such as a split among United States courts of appeals or state supreme courts on a",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:48.033Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "5ecd02935dddcfff",
+      "query": "{\"content\": \"# Retrieval Log\\n\\nI consulted the provided files (`questions-presented.txt`, `petition.txt`, and the snapshot). In addition, the following external retrievals were made to establish context and verify the system behavior:\\n\\n- Looked up base rates from `metrics/statpack.md` and `metrics/statpack.json`.\\n- Tested retrieval for recent denied SCOTUS cases to verify base rates and similar postures:\\n  - Command: `uv run fedcourts query --court scotus --disposition denied --limit 2`\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:51.277Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1f163ec7d5605124",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73361381\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.json\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.json for establishing base rates for paid versus IFP petitions.\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"The statpack was useful to establish the grant rate ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:44:54.570Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "351ed91989cd28f6",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:00.724Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f2a3b76bc7f42f35",
+      "query": "{\"strategic_intent\": \"Complete the prediction process and exit.\", \"summary\": \"The prediction for the cert petition disposition in Naren Chaganti v. Cincinnati Insurance Company has been successfully produced and validated. The prediction, along with the required `reasoning.md`, `retrieval.md`, and `tooling.json` files, was placed in the designated `predictions` folder. No further actions or git operations are necessary as per the workflow design.\", \"title\": \"Prediction Complete\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:45:07.230Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73361381",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

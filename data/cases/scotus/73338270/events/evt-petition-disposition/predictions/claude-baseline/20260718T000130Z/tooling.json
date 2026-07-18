@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73338270",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP search (failed: 429 quota)",
+    "web search",
+    "direct fetch of supremecourt.gov order-list PDFs"
+  ],
+  "helpful": [
+    "statpack modern-cert, relist, and per-Term tables as calibration anchors",
+    "provisioned petition.txt and questions-presented.txt (no fetching needed)",
+    "supremecourt.gov order-list PDFs for verifying companion-petition dispositions"
+  ],
+  "gaps": [
+    "CourtListener MCP daily quota (1200/day) was already exhausted at first call — per-cell or per-run quota partitioning would help",
+    "fedcourts query has no free-text/subject search on SCOTUS rows, so issue-similar priors (vaccine-mandate cert denials) cannot be retrieved from the corpus",
+    "statpack carries no CFR (call-for-response) cut, which was the pivotal docket signal here; a cfr bucket beside relist/CVSG would anchor cases like this",
+    "no salience-band table in the current statpack despite the prompt describing one"
+  ],
+  "notes": "Web search result summaries misreported 25-765 as granted; verifying against the order-list PDF was essential. Companion-docket status lookups were the decisive retrieval this run."
+}

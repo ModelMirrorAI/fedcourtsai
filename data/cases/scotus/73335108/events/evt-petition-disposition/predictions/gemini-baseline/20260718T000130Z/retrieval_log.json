@@ -1,0 +1,174 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "03192aad1de526c3",
+      "query": "{\"strategic_intent\": \"Read prompt instructions and agent guidelines to understand how to produce the prediction.\", \"summary\": \"I am starting the process of generating a prediction based on the user's instructions. I will begin by reading the guidelines in `.github/prompts/predict.md` and `AGENTS.md` to understand the workflow and constraints.\", \"title\": \"Reading Instructions\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:03.965Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:05.874Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:05.874Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "a91d08d20f6d4ae5",
+      "query": "ls -la data/cases/scotus/73335108/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:09.372Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8cda183a54ee7145",
+      "query": "uv run fedcourts paths --court scotus --docket 73335108 --event evt-petition-disposition --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:12.175Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "00a59fa7de59522b",
+      "query": "ls -R data/cases/scotus/73335108/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:14.457Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b499b961823b4628",
+      "query": "{\"file_path\": \"data/cases/scotus/73335108/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:18.399Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4629a9e637492d69",
+      "query": "{\"file_path\": \"data/cases/scotus/73335108/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:18.400Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "91372a2930e36486",
+      "query": "{\"file_path\": \"data/cases/scotus/73335108/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:18.400Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0be43d37b39c914a",
+      "query": "{\"file_path\": \"data/cases/scotus/73335108/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:18.401Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "54c6cf2910488045",
+      "query": "{\"file_path\": \"data/cases/scotus/73335108/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:18.401Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:24.781Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1bf1afc1b139ba2b",
+      "query": "uv run fedcourts query --court ca7 --topic \"habeas\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:34.965Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "ddf242af01fb4aeb",
+      "query": "mkdir -p data/cases/scotus/73335108/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:43.295Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "5e8aaab4550a8c03",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73335108\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:40:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.01,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"confidence\\\": 0.99,\\n  \\\"big_case_score\\\": 0.1,\\n  \\\"big_case_rationale\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:50.773Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ec3744f3e12a98ec",
+      "query": "{\"content\": \"# Reasoning\\n\\nThis is a pro se petition for a writ of certiorari arising from a federal habeas corpus proceeding in the Seventh Circuit. The petitioner claims constitutional violations regarding state jury instructions on self-defense and ineffective assistance of counsel.\\n\\n- **Absence of a Response:** The respondent filed a waiver of the right to respond. The Supreme Court virtually never grants certiorari without first considering a response. While the Court might issue a Call ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:50.776Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "66075ca0d10f93a3",
+      "query": "{\"content\": \"* `cat metrics/statpack.md` - consulted overall and circuit base rates.\\n* `uv run fedcourts query --court ca7 --topic \\\"habeas\\\"`\\n  `ranged corpus reads: 65 GET(s), 17039360 byte(s)`\\n\", \"file_path\": \"data/cases/scotus/73335108/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:50.780Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "211c0345730e7de5",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73335108\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"read_file\\\",\\n    \\\"run_shell_command\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"metrics/statpack.md\\\"\\n  ]\\n}\\n\", \"file_path\": \"data/cases/scotus/73335108/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:50.783Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:56.127Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cb4bb0f331f3e375",
+      "query": "{\"strategic_intent\": \"Finalize the prediction task by writing out the required files and validating them.\", \"summary\": \"I have successfully generated a prediction for the assigned cell based on the case facts and statistical base rates. The prediction sets the probability of a grant at 1%, resulting in a \\\"denied\\\" predicted disposition due to the case's pro se nature, fact-bound issues, and waiver of response. All necessary output files (`prediction.json`, `reasoning.md`, `retrieval.md`, and `t",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:39:59.411Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73335108",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

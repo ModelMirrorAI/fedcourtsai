@@ -1,0 +1,3 @@
+- `fedcourts query` / `statpack.md`: Consulted `metrics/statpack.md` to identify the base grant rate for paid cert petitions in the 2025 Term (approx. 5.3% for paid cases generally, though near zero for cases without a response).
+- CourtListener MCP: Searched for the underlying district and appellate court docket (`"Walter A. Bernard" Ignelzi`) to confirm the procedural history and the unpublished nature of the Third Circuit decision.
+- Web/Corpus: Reviewed the provisioned `petition.txt` to understand the petitioner's circuit-split argument and the specific factual allegations (that the judge "directed" the arrest from the bench rather than participating in the field).

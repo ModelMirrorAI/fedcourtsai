@@ -1,0 +1,12 @@
+# Reasoning
+
+## Legal Question and Governing Standard
+The petition presents a Fourteenth Amendment Due Process challenge to a state vaccine mandate for healthcare workers, specifically arguing that conditioning employment on the administration of an "investigational drug" (an EUA COVID-19 vaccine) and waiving judicial remedies for resulting injuries is unconstitutional. The governing standard heavily favors the state under *Jacobson v. Massachusetts*, 197 U.S. 11 (1905), which established broad state police power to enforce public health measures, typically subject only to rational basis review. 
+
+## Facts Driving the Outcome
+1. **Unanimous Circuit Consensus:** The Ninth Circuit affirmed the dismissal of this challenge (in No. 24-5204). The lower courts have almost universally upheld COVID-19 vaccine mandates for healthcare workers under rational basis review, consistent with *Jacobson*. The Supreme Court has repeatedly denied cert or emergency relief in similar challenges to state-level mandates (e.g., *Does 1-3 v. Mills*, *Dr. A. v. Hochul*), reserving intervention largely for federal administrative mandates that exceed statutory authority (e.g., OSHA in *NFIB v. OSHA*) rather than state police power mandates.
+2. **Waiver of Response:** The respondents initially waived their right to respond to the petition, which is typically a signal that they view the petition as frivolous or very unlikely to be granted.
+3. **Response Requested:** The Court subsequently requested a response. While this indicates that at least one Justice (perhaps one of the consistent dissenters in earlier COVID-19 emergency docket cases like Justices Thomas, Alito, or Gorsuch) found the petition sufficiently interesting to warrant a closer look, the vast majority of petitions where a response is requested are still denied. It does not overcome the lack of a circuit split or the established consensus.
+
+## Probability and Conclusion
+The base rate for a paid discretionary-cert petition is very low (~2.5-3%). While the request for a response elevates the probability of a grant slightly compared to a purely waived case, the absence of a circuit split on the core constitutional issue and the Court's historical reluctance to grant plenary review to state vaccine mandates under the Fourteenth Amendment strongly point to a denial. I estimate the probability of a grant at 2%. The predicted disposition is `denied`.

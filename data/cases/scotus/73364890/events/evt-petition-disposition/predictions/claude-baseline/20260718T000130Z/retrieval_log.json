@@ -1,0 +1,262 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_digest": "aead019d4e5d3f88",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "2af2943bbbd3ca0e",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/AGENTS.md\"}",
+      "result_digest": "4461180e96e8330b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "86ad9f820552bbbb",
+      "query": "find /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890 -type f | head -50",
+      "result_digest": "2c00031fa1a0928c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "4398720ede2705d7",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/prediction.schema.json\"}",
+      "result_digest": "6dab63bcd90b45ba",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "e51da3c0a9688309",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/record/context.json\"}",
+      "result_digest": "daa9ca7ef8f42f4f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "0f40d7285db6f564",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": "443c96b27916eefa",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "d3719d8a3623713a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/record/snapshots/2026-07-17.json\"}",
+      "result_digest": "6def6ef28a93d7bc",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "43edcad405b94a51",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/record/documents/documents.json\"}",
+      "result_digest": "1adf6efb98898d43",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "422b5d4434b4b236",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/record/documents/questions-presented.txt\"}",
+      "result_digest": "ecf3c1dd7c87e49c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "accefc8a8912be5c",
+      "query": "wc -l /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/record/documents/petition.txt; wc -c /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/record/documents/petition.txt",
+      "result_digest": "6628fa10e15d856b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "c5d41944d0c34045",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/record/documents/petition.txt\", \"limit\": 600}",
+      "result_digest": "d5ccb63a3a6707f3",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "a735f23253968aff",
+      "query": "grep -n \"Modern discretionary-cert petitions by disposition\" -A 30 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -60",
+      "result_digest": "6cabb2334a3b751d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "0b22deb487435886",
+      "query": "grep -n \"Segment base rate by salience band\" -B2 -A 40 /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head -80",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "06cf6fbbd6daeea9",
+      "query": "grep -n \"salience\" -i /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md | head; echo ---; sed -n '85,160p' /home/runner/work/fedcourtsai/fedcourtsai/metrics/statpack.md",
+      "result_digest": "5061425dfb316115",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "8b030c6ef3b86db4",
+      "query": "uv run fedcourts query --help 2>&1 | head -40",
+      "result_digest": "7d32f1bf703b999a",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "3d9655b3f8ff1ff5",
+      "query": "uv run fedcourts query --court scotus --era modern --limit 8 --query \"Rule 52(a) clearly erroneous standard of review historical documents Submerged Lands Act quiet title\" 2>query_stderr1.txt | head -20; echo \"== STDERR ==\"; cat query_stderr1.txt",
+      "result_digest": "d1ba7a74141beea6",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "9ee68ea7d76ec899",
+      "query": "uv run fedcourts query --help 2>&1 | sed -n '40,80p'",
+      "result_digest": "931b848a3c18fc41",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "e9d193aebeda0e00",
+      "query": "uv run fedcourts query --court scotus --citation \"470 U.S. 564\" --limit 3 2>q1.err | head -5; echo \"== STDERR ==\"; grep -a \"ranged corpus reads\\|note:\" q1.err",
+      "result_digest": "22d5763b4e99979b",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "53afb962e0b5d71d",
+      "query": "cat q1.err | head; echo ===; uv run fedcourts corpus-status 2>&1 | head -10",
+      "result_digest": "2da9d3fdedff49f5",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "90be644b291ace52",
+      "query": "select:mcp__courtlistener__search",
+      "result_digest": "0032415fbb336547",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "ToolSearch"
+    },
+    {
+      "params_digest": "c2440f65c138a399",
+      "query": "\"F.E.B. Corp\" Wisteria Island",
+      "result_digest": "b592b30d06f690c1",
+      "retrieved_doc_date": "2022-11-01",
+      "timestamp": null,
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "params_digest": "453e5deba5c82d2a",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_flags.schema.json\"}",
+      "result_digest": "c7361c6863ee0f2f",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "ac02f3650fab6b60",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/schemas/agent_tooling.schema.json\"}",
+      "result_digest": "ae8706a8e5b3e3da",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Read"
+    },
+    {
+      "params_digest": "b00f6f543aec703c",
+      "query": "date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_digest": "e55f76fdd826b75c",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "66389dd77ffefdd8",
+      "query": "mkdir -p /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73364890/events/evt-petition-disposition/predictions/claude-baseline/20260718T000130Z",
+      "result_digest": "9cef1004a72776b0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    },
+    {
+      "params_digest": "a03a5fadc90260c3",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73364890\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"engine\\\": \\\"claude-code\\\",\\n  \\\"model\\\": \\\"claude-fable-5\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:13:11Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73364890/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.008,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  ",
+      "result_digest": "cf3c46d7ef181b6d",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "a2ae5bbab1f47a25",
+      "query": "{\"content\": \"# F.E.B. Corp. v. United States, No. 25-1294 \\u2014 cert petition disposition\\n\\n**Prediction: denied. P(any grant, GVR included) = 0.008.**\\n\\n## The case\\n\\nF.E.B. Corp. petitions from the Eleventh Circuit's third decision (unreported,\\nNov. 5, 2025; rehearing denied Jan. 30, 2026) in the long-running quiet-title\\nfight over Wisteria Island, a dredge-spoil island off Key West. After a bench\\ntrial on remand from *FEB II*, 52 F.4th 916 (11th Cir. 2022), the district\\ncourt found th",
+      "result_digest": "5cdb4a88327aa1f2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "019611258ed6d61f",
+      "query": "{\"content\": \"# Retrieval log \\u2014 scotus/73364890 / evt-petition-disposition / claude-baseline / 20260718T000130Z\\n\\n## Corpus lookups (`fedcourts`)\\n\\n- `uv run fedcourts query --court scotus --citation \\\"470 U.S. 564\\\" --limit 3` \\u2014\\n  **failed**: `corpus service at http://127.0.0.1:8377 is unreachable \\u2014 is the\\n  sidecar running? (fedcourts corpus-serve): timed out`. No\\n  `ranged corpus reads:` line was printed (the service never answered). No\\n  further `fedcourts query` calls at",
+      "result_digest": "3d900252f6c0049e",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "53e3a094765db575",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73364890\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md (committed base rates)\\\",\\n    \\\"CourtListener MCP search (opinions)\\\",\\n    \\\"provisioned snapshot + petition/QP documents\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"relist-count base-rate cut in the statpack (0",
+      "result_digest": "b6238d27d1460ae0",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "c5c749de77896369",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73364890\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"claude-baseline\\\",\\n  \\\"flags\\\": [\\n    {\\n      \\\"category\\\": \\\"other\\\",\\n      \\\"severity\\\": \\\"info\\\",\\n      \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n      \\\"message\\\": \\\"Corpus query sidecar (127.0.0.1:8377) was unreachable in this cell \\u2014 fedcourts query timed out, so no corpus priors were retrieved. Fell back to the ",
+      "result_digest": "14bd0e55db8cbb12",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Write"
+    },
+    {
+      "params_digest": "0bdd52334dfc4541",
+      "query": "uv run fedcourts validate data 2>&1 | tail -5",
+      "result_digest": "aa1b395a0fcca7c2",
+      "retrieved_doc_date": null,
+      "timestamp": null,
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73364890",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

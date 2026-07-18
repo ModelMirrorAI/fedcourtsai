@@ -1,0 +1,238 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "b960fcf0be6b87b8",
+      "query": "{\"strategic_intent\": \"I am reading the prompt and agent configuration files to understand the requirements for generating the prediction.\", \"summary\": \"The user wants me to generate a prediction for a specific case event based on the provided IDs. First, I will read the `AGENTS.md` and `.github/prompts/predict.md` files to understand the expected output files, format, and the required task workflow.\", \"title\": \"Understanding Prediction Requirements\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:21.542Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:23.335Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:23.336Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6f49c61b599bcd87",
+      "query": "{\"dir_path\": \"data/cases/scotus/73372500/events/evt-petition-disposition/\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:27.225Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "9cadbff1cea1fba9",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73372500\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:30.431Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "799d61550141de9c",
+      "query": "{\"dir_path\": \"data/cases/scotus/73372500/events/evt-petition-disposition\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:33.321Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "ac255eac05fe21f0",
+      "query": "{\"file_path\": \"data/cases/scotus/73372500/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:36.068Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "206d10e60fe6cf10",
+      "query": "{\"dir_path\": \"data/cases/scotus/73372500\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:38.088Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "377267082e1b7b2f",
+      "query": "{\"dir_path\": \"data/cases/scotus/73372500/record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:40.086Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "dbe9b17faf452c6b",
+      "query": "{\"strategic_intent\": \"I will read the provisioned per-case inputs, including the mode context, case snapshots, and filed documents to analyze the factual background and procedural posture.\", \"summary\": \"I have confirmed the required inputs and outputs for my task as a predictor. I located the case-specific record files (snapshots, documents, and context). Next, I will read these files to establish the baseline facts, understand if the case is in forward or replay mode, and prepare to make a pred",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:43.274Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "aac11ece8018799e",
+      "query": "{\"file_path\": \"data/cases/scotus/73372500/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:45.579Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "97e4b4fff54f53d1",
+      "query": "{\"dir_path\": \"data/cases/scotus/73372500/record/documents\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:45.579Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "cf7f9b326d701351",
+      "query": "{\"dir_path\": \"data/cases/scotus/73372500/record/snapshots\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:45.579Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "d7f94459c10af442",
+      "query": "{\"file_path\": \"data/cases/scotus/73372500/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:48.506Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "345f93c2c3409c9f",
+      "query": "{\"file_path\": \"data/cases/scotus/73372500/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:48.506Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4b713d2185047eb6",
+      "query": "{\"file_path\": \"data/cases/scotus/73372500/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:48.507Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "6ff3c4f48d689de1",
+      "query": "{\"strategic_intent\": \"I will analyze the statistical base rates from the committed statpack and query historical priors from the corpus to inform the probability of the predicted outcome.\", \"summary\": \"I have reviewed the case baseline, including the substantive due process question presented and the procedural posture showing the respondent waived their right to respond. Now, I will read the `metrics/statpack.md` to establish the historical base rates for paid petitions and check for similar pa",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:53.952Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:55.775Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "aaaea4ef8d55cfa8",
+      "query": "uv run fedcourts query --court scotus --era 2020s",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:20.901Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8293ae0f0fad72a2",
+      "query": "mkdir -p data/cases/scotus/73372500/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:29.368Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:35.881Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f62666c44154ed46",
+      "query": "{\"strategic_intent\": \"I am writing the final prediction files (prediction.json, reasoning.md, retrieval.md, and tooling.json) to the designated output directory.\", \"summary\": \"Based on the base rates showing an overwhelming likelihood of denial for paid cert petitions without relists or a response, I have determined this petition will likely be denied. I am now formulating my reasoning and writing the required output artifacts, making sure they comply with the JSON schemas and directory structur",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:41.512Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "aa4de1a2af47b208",
+      "query": "{\"content\": \"# Reasoning: Citizens Alliance for Government Integrity v. York County\\n\\n## The Legal Question\\nThe petitioner challenges the standard for bringing a substantive due process claim under the Fourteenth Amendment in land-use disputes, specifically when local executive officials issue permits contrary to zoning board rulings. The petition alleges a circuit split between the Second Circuit (\\\"fundamental procedural irregularity\\\"), the Third Circuit (\\\"shocks the conscience\\\"), and the",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:55.104Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bd60b713ef569beb",
+      "query": "{\"content\": \"- `uv run fedcourts query --court scotus --era 2020s` (ranged corpus reads: 431 GET(s), 112852992 byte(s))\\n- Read `metrics/statpack.md` to analyze aggregate baseline rates for Term 2025 discretionary cert petitions, specifically checking base rates for cases with 0 relists, and CVSG/waiver characteristics.\\n\", \"file_path\": \"data/cases/scotus/73372500/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:55.109Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "99df51e41ee53156",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73372500\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": true,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"fedcourts query\\\",\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack.md file provides extremely helpful and clear anchoring data, making it easy to determine the appropriate base rate for 0-relist cases.\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:55.112Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "e28af670efe13070",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73372500\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73372500/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.008,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.15,\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:55.129Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:00.796Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bfd6d53a727e3a3e",
+      "query": "{\"strategic_intent\": \"I have successfully generated and validated the prediction artifacts. The task is complete.\", \"summary\": \"I successfully created `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` in the specified directory. I ran `uv run fedcourts validate data`, which passed with no errors, confirming the artifacts conform to the required schemas. The task is now complete.\", \"title\": \"Task Complete\", \"wait_for_previous\": true}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:03.740Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73372500",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

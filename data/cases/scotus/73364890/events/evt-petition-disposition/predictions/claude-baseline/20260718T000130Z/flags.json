@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73364890",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Corpus query sidecar (127.0.0.1:8377) was unreachable in this cell — fedcourts query timed out, so no corpus priors were retrieved. Fell back to the committed statpack and provisioned inputs per the degraded-upstream rule; the prediction was not materially affected, but if the outage spans the fan-out, other cells in run 20260718T000130Z were likewise degraded."
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372297",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition text and questions presented",
+    "Committed relist, fee-class, and originating-circuit base rates",
+    "Provisioned docket snapshot"
+  ],
+  "gaps": [
+    "The specific lower-court disposition was not returned by CourtListener search"
+  ],
+  "notes": "The corpus queries supplied broad procedural priors but no subject-matter similarity filter for SCOTUS rows. CourtListener search was useful for checking availability, though one query was briefly throttled."
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73369987",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260718T000130Z",
+  "created_at": "2026-07-18T00:13:38Z",
+  "input_snapshot": "data/cases/scotus/73369987/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.002,
+  "predicted_disposition": "denied",
+  "confidence": 0.97,
+  "votes": [],
+  "big_case_score": 0.05,
+  "big_case_rationale": "Pro se parenting-time dispute from an unpublished state intermediate-appellate opinion; a denial is invisible, and the vagueness theory has no realistic path to a merits ruling.",
+  "reasoning_doc": "reasoning.md"
+}

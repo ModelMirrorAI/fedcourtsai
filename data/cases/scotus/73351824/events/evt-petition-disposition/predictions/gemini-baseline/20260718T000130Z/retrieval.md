@@ -1,0 +1,3 @@
+- Looked up the live/historical slice base rates in `metrics/statpack.md`.
+- Ran `google_web_search` for `"N.R. v. Ellison" "Supreme Court" certiorari` to find news context on the case. It confirmed the petitioners are the Reyelts and they are challenging ICWA on Equal Protection grounds, acting as the sequel to *Haaland v. Brackeen*. The case is pending.
+- Ran `google_web_search` for `"Reyelts v. Ellison" Supreme Court` to get more context about the parties and amicus support. The case is pending and widely viewed as the vehicle to resolve the unanswered Equal Protection question from *Brackeen*.

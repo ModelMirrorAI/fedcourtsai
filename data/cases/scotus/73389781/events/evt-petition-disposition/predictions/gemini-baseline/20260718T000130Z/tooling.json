@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389781",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "grep_search",
+    "read_file"
+  ],
+  "helpful": [
+    "statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Searched CourtListener MCP for the case but it was not found. Base rate statistics provided strong guidance."
+}

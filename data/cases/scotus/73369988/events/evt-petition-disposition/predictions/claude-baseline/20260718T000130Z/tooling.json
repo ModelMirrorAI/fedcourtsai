@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73369988",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "Full provisioned petition text (29 pp., untruncated) — carried the whole qualitative analysis",
+    "statpack per-fee-class detail (paid ~5.4% vs IFP ~1.1% Term 2025) — the right anchor for a paid petition",
+    "statpack relist-count cut (0-relist 0.8%) as the reference class for a first-distribution petition"
+  ],
+  "gaps": [
+    "fedcourts query has no free-text/subject filter, so arbitration/evident-partiality priors could not be targeted (SCOTUS rows carry no --topic); a subject or QP-keyword filter would make corpus priors useful for cert cells",
+    "statpack.md in this build has no 'Segment base rate by salience band' table although the prompt points to it",
+    "a docket-level signal for 'respondent waived response / CFR issued' in the statpack cuts would quantify the strongest deny signal in this case"
+  ],
+  "notes": "Statpack alone was sufficient for calibration; the one corpus query returned only generic recent priors and did not move the estimate."
+}
