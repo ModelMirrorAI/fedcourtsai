@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281004",
+  "run_id": "20260718T000134Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md + metrics/statpack.json (segment base-rate lookup)",
+    "src/fedcourtsai/pipeline/evaluate.py + salience.py (metric definitions)",
+    "harness retrieval_log.json per predictor (leakage grading)"
+  ],
+  "helpful": [
+    "Per-predictor retrieval_log.json with mode and retrieved_doc_date made forward-cell leakage checks fast and evidence-based",
+    "statpack.json exposing the terms[].segments structure directly settled the segment_base_rate question without a corpus round-trip"
+  ],
+  "gaps": [
+    "The statpack carries no populated per-Term salience-band segments, so segment_base_rate/brier_skill_score cannot be computed for any predictor this run"
+  ],
+  "notes": "All three predictions were straightforward to score: forward mode, same dispositive docket entry, same correct disposition. The only judgment calls were reasoning-quality spreads and the omitted segment metrics."
+}

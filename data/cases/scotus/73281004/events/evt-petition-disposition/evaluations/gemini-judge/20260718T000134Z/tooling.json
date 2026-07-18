@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281004",
+  "run_id": "20260718T000134Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "grep_search",
+    "run_shell_command",
+    "read_file"
+  ],
+  "helpful": [
+    "Direct file access to all prediction outputs and logs."
+  ],
+  "gaps": [],
+  "notes": "Evaluation was straightforward since all predictors correctly identified the dispositive joint motion to dismiss and there was no complex leakage to investigate."
+}

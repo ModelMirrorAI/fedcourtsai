@@ -1,0 +1,17 @@
+{
+  "actor_id": "gemini-judge",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 807967,
+  "case_id": "scotus/73281004",
+  "created_at": "2026-07-18T00:01:34Z",
+  "engine": "gemini",
+  "estimated_cost_usd": 0.5177994,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 118859,
+  "model": "gemini-3.1-pro-preview",
+  "output_tokens": 9874,
+  "pipeline_sha": "ac0b244386ac604a135bcc484f60ca5ea7afd5cb",
+  "role": "evaluator",
+  "run_id": "20260718T000134Z",
+  "schema_version": "1.0"
+}

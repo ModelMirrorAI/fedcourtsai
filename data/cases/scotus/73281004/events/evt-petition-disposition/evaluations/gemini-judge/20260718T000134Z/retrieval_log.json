@@ -1,0 +1,334 @@
+{
+  "actor_id": "gemini-judge",
+  "calls": [
+    {
+      "params_digest": "4692c05b69e9c0c9",
+      "query": "{\"strategic_intent\": \"Read evaluation instructions and agent documentation to prepare for scoring predictions against outcomes.\", \"summary\": \"I will begin by reading the instructions in `.github/prompts/evaluate.md` and `AGENTS.md`. This will give me the guidelines and contract for evaluating predictions for the specified case and event.\", \"title\": \"Read Instructions and Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:18.530Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:18.538Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4f333312b1459284",
+      "query": "{\"file_path\": \".github/prompts/evaluate.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:18.538Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "1597bccad573e191",
+      "query": "{\"strategic_intent\": \"Discover the outcome and predictors for the specified event to evaluate.\", \"summary\": \"I have read the evaluation instructions. Now I need to check the outcome and list the predictors that have generated predictions for this event. I'll read `outcome.json` and explore the `predictions` directory.\", \"title\": \"Discover Outcome and Predictors\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:24.796Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "a7e653f02e60b855",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/outcome.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:24.804Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5952994e25cf4136",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:24.804Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "84332d5a3d2253e0",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:28.402Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "10dfc9d1390ddb69",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:28.403Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "30ca2ef27ba9b3c5",
+      "query": "{\"dir_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:28.403Z",
+      "tool": "list_directory"
+    },
+    {
+      "params_digest": "6ee96858ce2edfb4",
+      "query": "{\"strategic_intent\": \"Read the predictions, reasonings, and retrieval logs for all predictors.\", \"summary\": \"I'm going to read the prediction data (`prediction.json`, `reasoning.md`, `retrieval_log.json`) for the predictors `claude-baseline`, `codex-baseline`, and `gemini-baseline` to prepare for scoring them against the actual outcome of 'dismissed'.\", \"title\": \"Read Prediction Data\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.446Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "1bcd63b82b01accc",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/reasoning.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.462Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "5cb4e485fcaf9821",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/prediction.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.462Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "89a9df153e98af32",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/prediction.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ff84620398c79e49",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z/retrieval_log.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "2948c19fcc815a33",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z/reasoning.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "e33897696e28dbf7",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z/prediction.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0f1c96bd5cf5de7d",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z/retrieval_log.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.463Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7e85c7f90f45d802",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/retrieval_log.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.464Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "049c7e45e2855e37",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z/reasoning.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:35.464Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ef67b97ebcdc76ef",
+      "query": "{\"strategic_intent\": \"Determine the case's salience band and prior-Term segment base rate.\", \"summary\": \"I need to read `context.json`, `event.yaml`, and `metrics/statpack.md` to find the salience band for this case and calculate the `segment_base_rate` from prior terms as required by the evaluation instructions.\", \"title\": \"Calculate Segment Base Rate\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:40.281Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "73b0c0391734673e",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:40.282Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:40.287Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ae4fce9c96c4e6bd",
+      "query": "{\"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:40.287Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4050e39d1183abd3",
+      "query": "grep -A 20 -i \"segment base rate\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:43.686Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "117cf146fd0fe101",
+      "query": "grep -A 20 -i \"salience band\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:46.410Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "df65c0d009f7803a",
+      "query": "cat metrics/statpack.md | grep -i \"salience\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:49.057Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "57f14d2aad0e4be3",
+      "query": "cat metrics/statpack.json | grep -i \"salience\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:02:53.527Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "359e043213dd2d1d",
+      "query": "cat schemas/evaluation.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:11.722Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "af9c218676895787",
+      "query": "mkdir -p data/cases/scotus/73281004/events/evt-petition-disposition/evaluations/gemini-judge/claude-baseline/20260718T000134Z\nmkdir -p data/cases/scotus/73281004/events/evt-petition-disposition/evaluations/gemini-judge/codex-baseline/20260718T000134Z\nmkdir -p data/cases/scotus/73281004/events/evt-petition-disposition/evaluations/gemini-judge/gemini-baseline/20260718T000134Z\nmkdir -p data/cases/scotus/73281004/events/evt-petition-disposition/evaluations/gemini-judge/20260718T000134Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:18.004Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "6688d68754fa3b5f",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"claude-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"gemini-judge\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:34Z\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.0001,\\n  \\\"reasoning_quality\\\": 1.0,\\n  \\\"big_case\\\": {\\n    \\\"evaluator_score\\\": 0.4,\\n    \\\"no",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:29.072Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "eb893353158443e9",
+      "query": "{\"content\": \"# Evaluation\\n\\nThe predictor correctly forecasted `dismissed` with a grant probability of 0.01.\\n\\n**What the prediction got right:**\\nThe predictor identified the June 30, 2026, joint motion to dismiss the petition in the docket snapshot. It correctly applied Supreme Court Rule 46.1, recognizing that such consensual motions to dismiss almost inevitably lead to the Clerk entering an order of dismissal, short-circuiting the ordinary certiorari process.\\n\\n**Reasoning quality:**\\nThe",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:29.075Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "8b4fa67d142cd9d2",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"codex-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"gemini-judge\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:34Z\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.000004,\\n  \\\"reasoning_quality\\\": 1.0,\\n  \\\"big_case\\\": {\\n    \\\"evaluator_score\\\": 0.4,\\n    \\\"n",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:36.269Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "48f6e3e8cf39933b",
+      "query": "{\"content\": \"# Evaluation\\n\\nThe predictor correctly forecasted `dismissed` with a grant probability of 0.002.\\n\\n**What the prediction got right:**\\nThe predictor identified the joint motion to dismiss submitted on June 30 in the July 16 snapshot. It correctly noted that a consensual request to terminate the petition makes a merits grant extraordinarily unlikely.\\n\\n**Reasoning quality:**\\nThe reasoning is excellent (scored 1.0). The predictor concisely summarized the legal merits, including th",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:36.272Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "4f663b3ca3156117",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"evaluator_id\\\": \\\"gemini-judge\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:34Z\\\",\\n  \\\"correct\\\": 1,\\n  \\\"brier_score\\\": 0.0,\\n  \\\"reasoning_quality\\\": 1.0,\\n  \\\"big_case\\\": {\\n    \\\"evaluator_score\\\": 0.4,\\n    \\\"notes",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:42.681Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "39800f1f605c501a",
+      "query": "{\"content\": \"# Evaluation\\n\\nThe predictor correctly forecasted `dismissed` with a grant probability of 0.0.\\n\\n**What the prediction got right:**\\nThe predictor correctly identified the motion to dismiss filed on June 30, 2026, by the petitioner. It specifically cited Supreme Court Rule 46.2, noting that when a petitioner moves to dismiss its own proceeding, the adverse party can typically only object as to costs, leading the Clerk to enter a dismissal order.\\n\\n**Reasoning quality:**\\nThe reas",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:42.684Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:48.076Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8882f7954c5bc36e",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/73281004/events/evt-petition-disposition/evaluations/gemini-judge/20260718T000134Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:52.283Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "de40a33caff12671",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73281004\\\",\\n  \\\"run_id\\\": \\\"20260718T000134Z\\\",\\n  \\\"role\\\": \\\"evaluator\\\",\\n  \\\"actor_id\\\": \\\"gemini-judge\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": false,\\n  \\\"tools_used\\\": [\\n    \\\"grep_search\\\",\\n    \\\"run_shell_command\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"Direct file access to all prediction outputs and logs.\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Evaluation was straightforward sinc",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:52.294Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:03:57.477Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e03adb48a836a8f1",
+      "query": "{\"strategic_intent\": \"Conclude the evaluation task as all required files have been written and validated.\", \"summary\": \"I have evaluated all three predictors (`claude-baseline`, `codex-baseline`, `gemini-baseline`) against the outcome. I wrote `evaluation.json` and `evaluation.md` for each, as well as `retrieval.md` and `tooling.json` for my cell. All outputs successfully passed schema validation (`uv run fedcourts validate data`). The evaluation task is now fully complete.\", \"title\": \"Evaluatio",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:04:00.372Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73281004",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": null,
+  "role": "evaluator",
+  "run_id": "20260718T000134Z",
+  "schema_version": "1.0"
+}

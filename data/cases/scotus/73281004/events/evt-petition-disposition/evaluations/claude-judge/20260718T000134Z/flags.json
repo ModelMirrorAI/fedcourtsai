@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281004",
+  "run_id": "20260718T000134Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "segment_base_rate and brier_skill_score are omitted on all three evaluations this cell: the committed statpack's per-Term salience segments are empty for every Term (metrics/statpack.json terms[].segments == []), and statpack.md carries no 'Segment base rate by salience band' table, so no prior-Term band rate exists to pool for this Term-2025 case. Not a predictor fault; the skill metric will stay null until the statpack emits populated segments."
+    }
+  ]
+}
