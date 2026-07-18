@@ -1,0 +1,12 @@
+case_id: scotus/66721222
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-02-13'
+resolved: true
+schema_version: '1.0'
+title: Michael A. Weiss, Individually and as Executor of the Estate of Jane L. Marsh,
+  Deceased, Petitioner v. Stephen D. Marsh, as Executor of the Estate of Monroe F.
+  Marsh, Deceased, et al.

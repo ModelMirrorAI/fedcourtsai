@@ -1,0 +1,11 @@
+case_id: scotus/66721035
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-02-21'
+resolved: true
+schema_version: '1.0'
+title: Anderson Living Trust, fka The James H. Anderson Living Trust, et al., Petitioners
+  v. WPX Energy Production, LLC, fka WPX Energy San Juan, LLC, et al.

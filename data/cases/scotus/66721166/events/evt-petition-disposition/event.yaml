@@ -1,0 +1,10 @@
+case_id: scotus/66721166
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-02-06'
+resolved: true
+schema_version: '1.0'
+title: Veeramuthu P. Gounder, Petitioner v. Communicar, Inc., et al.

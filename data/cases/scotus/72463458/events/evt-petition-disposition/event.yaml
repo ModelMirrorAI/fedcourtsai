@@ -1,0 +1,11 @@
+case_id: scotus/72463458
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-03-06'
+resolved: true
+schema_version: '1.0'
+title: St. Augustine School, et al., Petitioners v. Carolyn Stanford Taylor, in Her
+  Official Capacity as Superintendent of Public Instruction, et al.

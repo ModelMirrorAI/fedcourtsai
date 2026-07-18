@@ -1,0 +1,11 @@
+case_id: scotus/66722959
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-03-04'
+resolved: true
+schema_version: '1.0'
+title: Avco Corporation, Petitioner v. Jill Sikkelee, Individually and as Personal
+  Representative of the Estate of David Sikkelee, Deceased, et al.

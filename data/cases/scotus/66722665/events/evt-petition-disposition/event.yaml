@@ -1,0 +1,11 @@
+case_id: scotus/66722665
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-01-18'
+resolved: true
+schema_version: '1.0'
+title: Jamal Martinez Hancock, Petitioner v. Lorie Davis, Director, Texas Department
+  of Criminal Justice, Correctional Institutions Division

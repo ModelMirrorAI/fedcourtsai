@@ -1,0 +1,11 @@
+case_id: scotus/16446939
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-01-08'
+resolved: true
+schema_version: '1.0'
+title: Frederick L. Allen, et al., Petitioners v. Roy A. Cooper, III, Governor of
+  North Carolina, et al.

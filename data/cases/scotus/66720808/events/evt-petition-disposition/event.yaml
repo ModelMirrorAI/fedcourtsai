@@ -1,0 +1,10 @@
+case_id: scotus/66720808
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2019-01-30'
+resolved: true
+schema_version: '1.0'
+title: R. S. Raghavendra, Petitioner v. Jane E. Booth, et al.
