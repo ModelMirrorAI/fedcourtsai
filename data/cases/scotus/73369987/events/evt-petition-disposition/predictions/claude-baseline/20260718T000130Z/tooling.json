@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73369987",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md",
+    "metrics/statpack.json (per-Term fee-class detail)",
+    "provisioned snapshot + petition.txt"
+  ],
+  "helpful": [
+    "Full provisioned petition text made the QP, posture, and vehicle problems (waiver, partial mootness, prior denials) directly readable without any live retrieval.",
+    "Statpack relist-count and per-fee-class cuts gave a usable anchor (zero-relist ~0.8% grant; paid ~5-7%) for a cell with no salience-band table."
+  ],
+  "gaps": [
+    "The prompt points to a 'Segment base rate by salience band' statpack section that is absent from the committed statpack.md, so the promised band anchor was unavailable.",
+    "`fedcourts query --era modern` silently returns zero rows because corpus era labels are decade strings (e.g. '2020s'); the CLI accepting an unmatched era value with no note invites a wasted call.",
+    "No corpus facet for pro se status or family-law subject matter on SCOTUS rows, so the closest-prior query cannot get near this cell's true reference class."
+  ],
+  "notes": "Clear-cut cell: every case-specific signal points the same way, so retrieval was kept minimal (2 distinct corpus queries, no MCP calls)."
+}

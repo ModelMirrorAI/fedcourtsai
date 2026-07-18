@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73357827",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "run_id": "20260718T000130Z",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-18T00:01:30Z",
+  "input_snapshot": "data/cases/scotus/73357827/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.008,
+  "predicted_disposition": "denied",
+  "big_case_score": 0.40,
+  "big_case_rationale": "Involves election administration and private enforcement of the Help America Vote Act, presenting a recognized circuit split.",
+  "reasoning_doc": "reasoning.md"
+}

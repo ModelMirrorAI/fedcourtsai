@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/73500215",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener-mcp search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt included the full Ninth Circuit memorandum decision in the appendix — no external fetch needed for the decision under review.",
+    "Per-Term paid-vs-IFP grant rates in statpack.json gave the right base-rate anchor for a paid petition.",
+    "CourtListener MCP confirmed the petition's key intervening authority (Zorn v. Linton, per curiam, 2026-03-23) in two calls."
+  ],
+  "gaps": [
+    "The prompt's 'Segment base rate by salience band' statpack section does not exist in the committed metrics/statpack.md or statpack.json, so no band anchor was available; adjusted from the call-for-response signal manually.",
+    "fedcourts query has no free-text or subject filter usable on SCOTUS rows (--topic is circuit-only), so pulling comparable qualified-immunity cert priors from the corpus was not possible.",
+    "No statpack cut for call-for-response (CFR) status — empirically one of the strongest pre-conference grant signals; a CFR bucket alongside the relist/CVSG cuts would directly serve petitions like this one.",
+    "CourtListener MCP rate limit (1200/day, shared) returned 429s on 2 of 5 calls; short waits resolved them but a backoff hint in the error would help."
+  ],
+  "notes": "Forward cell; ~1 corpus query + 4 MCP calls, well under the 25-call budget."
+}

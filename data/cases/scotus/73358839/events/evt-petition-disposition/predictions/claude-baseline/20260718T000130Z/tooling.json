@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358839",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend)",
+    "metrics/statpack.md",
+    "CourtListener MCP search (docket lookups)",
+    "web search"
+  ],
+  "helpful": [
+    "statpack relist/CVSG/circuit cut tables gave a concrete anchor and adjustment ladder",
+    "CourtListener MCP confirmed the CA5 appeal (24-40792) is still pending, validating the cert-before-judgment posture",
+    "web search identified the companion petition 25-1201 (NSBU v. Bessent) and the Eleventh Circuit's merits ruling, which the snapshot alone could not reveal"
+  ],
+  "gaps": [
+    "statpack.md lacked the 'Segment base rate by salience band' table the prompt says to prefer for selected cert petitions",
+    "no provisioned filed-document text (questions-presented/petition) under record/documents/ for this cell; the QP had to be inferred from secondary sources",
+    "SCOTUS dockets are not in RECAP, so the CourtListener MCP cannot resolve a companion SCOTUS docket number; a supremecourt.gov docket fetcher would close that gap"
+  ],
+  "notes": "Snapshot was fresh (2026-07-17) and the ProceedingsandOrder entries (waiver, distribution, reschedule) carried most of the predictive signal."
+}

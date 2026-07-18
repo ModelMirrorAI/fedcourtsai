@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363408",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service backend)",
+    "metrics/statpack.md",
+    "provisioned snapshot + petition/questions-presented text"
+  ],
+  "helpful": [
+    "statpack relist-count and CVSG cuts made the zero-relist, no-response-requested prior easy to quantify",
+    "full petition text made the no-split / adequate-state-ground defects verifiable rather than inferred"
+  ],
+  "gaps": [
+    "`fedcourts query --era modern` silently returns zero rows; era values are decade labels (e.g. 2020s) — an unknown-era warning (like the sparse-filter note lines) would save a wasted call",
+    "no salience-band table in the committed statpack.md despite the prompt pointing to it as the preferred anchor for selected petitions"
+  ],
+  "notes": "Straightforward cell: pro se state-court civil petition, respondents waived, single long-conference distribution. Provisioned inputs plus base rates were sufficient; no MCP retrieval needed."
+}

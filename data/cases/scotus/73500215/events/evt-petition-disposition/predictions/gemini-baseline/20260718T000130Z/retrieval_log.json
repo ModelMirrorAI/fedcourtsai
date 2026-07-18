@@ -1,0 +1,190 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "0380af5dec3dccf0",
+      "query": "{\"strategic_intent\": \"Reading instructions for the prediction task and the agent workflow expectations.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:08.037Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:09.997Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:09.998Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7984d61d1573b3e9",
+      "query": "{\"strategic_intent\": \"Reading the provisioned case inputs and event definitions to base my prediction on.\", \"summary\": \"I have read the prompt contracts in `predict.md` and `AGENTS.md`. I am now gathering the provisioned case inputs located in `data/cases/scotus/73500215/events/evt-petition-disposition/` to begin forming the prediction.\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:14.122Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "a2bc125c6bfbaabe",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73500215\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:18.813Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f1efb04355dd880d",
+      "query": "ls -la data/cases/scotus/73500215/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:21.041Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8df52849f3d17374",
+      "query": "ls -laR data/cases/scotus/73500215/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:23.032Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1fd423d93ec5fda7",
+      "query": "cat data/cases/scotus/73500215/events/evt-petition-disposition/event.yaml data/cases/scotus/73500215/record/context.json data/cases/scotus/73500215/record/documents/documents.json data/cases/scotus/73500215/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:26.837Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b5ade72e1d8af802",
+      "query": "cat data/cases/scotus/73500215/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:29.668Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "82ed3f80dda7f07b",
+      "query": "uv run fedcourts open-events --court scotus --disposition granted",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:34.523Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:34.524Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:38.613Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:43.408Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d828bb47f3ecddc5",
+      "query": "mkdir -p data/cases/scotus/73500215/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:53.139Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3f1f0022f8d52578",
+      "query": "date -u +\"%Y-%m-%dT%H:%M:%SZ\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:00.919Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "01ba073fb170582d",
+      "query": "cat schemas/agent_tooling.schema.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:05.042Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "bae1e1328007af03",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500215\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:51:00Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 1,\\n  \\\"probability\\\": 0.65,\\n  \\\"predicted_disposition\\\": \\\"gvr\\\",\\n  \\\"big_case_score\\\": 0.3,\\n  \\\"big_case_rationale\\\": \\\"Routin",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:13.469Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "789082c24ebc3279",
+      "query": "{\"content\": \"# Reasoning: Gomez v. Saccoccio (No. 25-1314)\\n\\n## The Legal Question\\nThe petition asks whether a court can find a Fourth Amendment constitutional right \\\"clearly established\\\" for qualified immunity purposes by combining general principles from two factually dissimilar cases (*Nelson* and *Deorle*).\\n\\n## The Record and Governing Standard\\nThe plaintiff was struck by a less-lethal foam projectile during a curfew. The officer asserted qualified immunity. The Ninth Circuit reversed",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:13.472Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "bdbb412c6358741f",
+      "query": "{\"content\": \"# Retrieval Log\\n\\nNo retrieval beyond the provisioned inputs and the statpack (`metrics/statpack.md`). The statpack was consulted for base rates on Ninth Circuit cert petitions and overall modern discretionary-cert dockets.\\n\", \"file_path\": \"data/cases/scotus/73500215/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:17.217Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "b741917c40cfe98d",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73500215\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"run_shell_command\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"The statpack base rates provide excellent context.\\\"\\n  ]\\n}\", \"file_path\": \"data/cases/scotus/73500215/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/to",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:17.220Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:22.988Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "27df1bff17d143a9",
+      "query": "{\"strategic_intent\": \"Task completed. Prediction artifacts have been successfully written and validated.\", \"summary\": \"I have successfully read the prompt contract from `predict.md` and `AGENTS.md`, parsed the provisioned case inputs for `scotus/73500215` event `evt-petition-disposition`, evaluated the relevant base rates from the statpack, and authored the required prediction artifacts (prediction.json, reasoning.md, retrieval.md, and tooling.json) to the designated output directory. I also ran",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:27.774Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73500215",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

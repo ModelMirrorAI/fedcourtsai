@@ -1,0 +1,254 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "ab9ba25b587275ed",
+      "query": "{\"strategic_intent\": \"Read the necessary prompt and agent definitions to understand the required outputs and constraints for the prediction cell.\", \"summary\": \"I am starting the prediction task by reading the `.github/prompts/predict.md` and `AGENTS.md` files as requested. This will help me understand the contract for the prediction task, the necessary output files, and any specific constraints.\", \"title\": \"Understand Prediction Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:53.323Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:55.272Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:55.273Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "69c729d536c5b053",
+      "query": "ls -la data/cases/scotus/73389781",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:47:59.647Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "7e4a3ef5aabcde58",
+      "query": "ls -la data/cases/scotus/73389781/record/ data/cases/scotus/73389781/events/ data/cases/scotus/73389781/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:02.047Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f447a0b24b3f34b0",
+      "query": "cat data/cases/scotus/73389781/record/context.json && echo \"---\" && cat data/cases/scotus/73389781/events/evt-petition-disposition/event.yaml && echo \"---\" && ls -la data/cases/scotus/73389781/record/snapshots/ data/cases/scotus/73389781/record/documents/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:04.644Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "14598af06349d5ba",
+      "query": "cat data/cases/scotus/73389781/record/documents/documents.json && echo \"---\" && cat data/cases/scotus/73389781/record/snapshots/2026-07-17.json",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:07.329Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fe3df6305ab2f025",
+      "query": "cat data/cases/scotus/73389781/record/documents/questions-presented.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:09.879Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f5833ed4f6170ed1",
+      "query": "cat metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:12.881Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "312cd7a01fd7ad6c",
+      "query": "\"Christy Ann Martin v. John Fredrick Martin\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:16.420Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "4744775bdebfabd4",
+      "query": "{\"court\": \"scotus\", \"docket_number\": \"25-1307\", \"type\": \"d\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:19.759Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "f126c6e77900b3ef",
+      "query": "Martin",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:23.818Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "c5ceafec21d280ac",
+      "query": "grep -i \"circuit split\" data/cases/scotus/73389781/record/documents/petition.txt | head -n 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:29.474Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2bc333074615dcc2",
+      "query": "grep -i \"split\" data/cases/scotus/73389781/record/documents/petition.txt | head -n 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:31.527Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fab113a91d884f8c",
+      "query": "grep -i -E \"divided|conflict|deeply\" data/cases/scotus/73389781/record/documents/petition.txt | head -n 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:33.722Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "19a36d2ea5e69c8a",
+      "query": "grep -C 3 -i \"trenched conflict among state and federal courts over\" data/cases/scotus/73389781/record/documents/petition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:35.984Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "79acc5343b68f747",
+      "query": "grep -i \"conflict\" data/cases/scotus/73389781/record/documents/brief-in-opposition.txt | head -n 5",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:38.284Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "49fff7a97e97d610",
+      "query": "grep -C 3 -i \"The petition does not identify any conflict among\" data/cases/scotus/73389781/record/documents/brief-in-opposition.txt",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:40.570Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:44.003Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2b770212f951c08",
+      "query": "cat schemas/prediction.schema.json | grep -A 100 '\"properties\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:50.425Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "df2ba4e3d2aeb25a",
+      "query": "cat schemas/prediction.schema.json | grep -A 20 '\"reasoning_doc\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:52.443Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c17e651f4fd7e523",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 50 '\"properties\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:55.663Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "dadb8be53242a092",
+      "query": "cat schemas/agent_tooling.schema.json | grep -A 20 '\"tools_used\":'",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:48:57.748Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "a1c5fc5593caef5b",
+      "query": "mkdir -p data/cases/scotus/73389781/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:00.484Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "fcfcd653ba13f9ec",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73389781\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73389781/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.015,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:05.811Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ba11e8ae5f02c0c5",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Legal Question\\nWhether the Fourteenth Amendment's Due Process and Equal Protection Clauses, as interpreted in *Bearden v. Georgia* and *Turner v. Rogers*, prohibit incarcerating an indigent judgment debtor for nonpayment of a private civil money judgment (labeled as \\\"civil contempt\\\") without an express judicial finding of the debtor's present ability to pay.\\n\\n## Governing Standard\\nTo grant certiorari, the Supreme Court typically looks for a clear conflict amo",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:13.955Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "de22d61e71c5203f",
+      "query": "{\"content\": \"I used the CourtListener MCP server to check if the case was already decided.\\nNo results were found for `Christy Ann Martin v. John Fredrick Martin` or docket `25-1307` in the SCOTUS dockets index.\\n\\nI also read the provisioned inputs and the committed `metrics/statpack.md` to establish the base rate for paid cert petitions with 0 relists, which is roughly 0.8%.\", \"file_path\": \"data/cases/scotus/73389781/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:17.352Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "234628fa91e2e851",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73389781\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"mcp_courtlistener_search\\\",\\n    \\\"grep_search\\\",\\n    \\\"read_file\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Searched CourtListener MCP for the case but it was not found. Base ra",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:22.557Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:28.111Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "0c2ee200d2a651d3",
+      "query": "{\"strategic_intent\": \"Finish the task as all prediction outputs have been written and validated successfully.\", \"summary\": \"I have analyzed the provided inputs for the SCOTUS case 73389781 (Martin v. Martin), including the questions presented and the brief in opposition. Finding no circuit split and a very low base rate for paid cert petitions without relists (0.8%), I predicted a denial. I have generated `prediction.json`, `reasoning.md`, `retrieval.md`, and `tooling.json` in the specified dire",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:31.969Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73389781",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

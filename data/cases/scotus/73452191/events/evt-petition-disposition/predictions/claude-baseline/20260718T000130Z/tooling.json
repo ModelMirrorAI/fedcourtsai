@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73452191",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search (dockets)"
+  ],
+  "helpful": [
+    "Full provisioned petition text — the forfeiture/vehicle posture that drives this call is only visible there, not in the snapshot",
+    "Statpack per-Term and per-circuit cert grant rates as the anchor",
+    "fedcourts query on recent grants to profile the relist/distribution path a grant travels"
+  ],
+  "gaps": [
+    "CourtListener MCP hit a shared HTTP 429 daily rate limit on the second search of the run, cutting off a companion-case (Gibson/Rockett cert history) check",
+    "A statpack cut by decision-below precedential status (published vs. non-precedential) would sharpen exactly this kind of cell",
+    "SCOTUS dockets for companion split cases were not indexed in CourtListener docket search (0 results for a known 4th Cir. companion), so forward-signal lookups of related cert petitions came up empty"
+  ],
+  "notes": "Forward-mode cell; retrieval stayed well under budget (1 corpus query, 2 MCP calls, one of which was throttled). The provisioned questions-presented.txt and petition.txt carried most of the predictive signal."
+}

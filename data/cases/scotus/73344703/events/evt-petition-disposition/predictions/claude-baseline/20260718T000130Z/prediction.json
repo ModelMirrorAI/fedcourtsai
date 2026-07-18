@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73344703",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260718T000130Z",
+  "created_at": "2026-07-18T00:05:03Z",
+  "input_snapshot": "data/cases/scotus/73344703/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.005,
+  "predicted_disposition": "denied",
+  "confidence": 0.85,
+  "votes": [],
+  "big_case_score": 0.05,
+  "big_case_rationale": "Private veterinary-malpractice/IIED tort dispute from an unpublished state intermediate opinion; the anti-SLAPP/cease-and-desist framing has niche interest but no national stakes.",
+  "reasoning_doc": "reasoning.md"
+}

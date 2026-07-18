@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372500",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "Provisioned petition and questions-presented text",
+    "Fee-class, CVSG, and relist base rates",
+    "CourtListener verification of the principal circuit authorities"
+  ],
+  "gaps": [
+    "The broad corpus query does not rank cert priors by legal issue or procedural posture"
+  ],
+  "notes": "The provisioned docket and petition were sufficient for the main forecast. CourtListener briefly throttled one search but succeeded on retry."
+}

@@ -1,0 +1,2 @@
+- `uv run fedcourts query --court scotus --era 2020s` (ranged corpus reads: 431 GET(s), 112852992 byte(s))
+- Read `metrics/statpack.md` to analyze aggregate baseline rates for Term 2025 discretionary cert petitions, specifically checking base rates for cases with 0 relists, and CVSG/waiver characteristics.

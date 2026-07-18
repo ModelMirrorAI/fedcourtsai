@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73452191",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "codex-baseline",
+  "engine": "codex",
+  "model": "gpt-5.6-sol",
+  "run_id": "20260718T000130Z",
+  "created_at": "2026-07-18T00:38:55Z",
+  "input_snapshot": "data/cases/scotus/73452191/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.022,
+  "predicted_disposition": "denied",
+  "confidence": 0.88,
+  "big_case_score": 0.52,
+  "big_case_rationale": "A decision could clarify the boundary between judicial immunity and law-enforcement conduct, but the dispute is fact-bound and arises from a nonprecedential ruling.",
+  "reasoning_doc": "reasoning.md"
+}

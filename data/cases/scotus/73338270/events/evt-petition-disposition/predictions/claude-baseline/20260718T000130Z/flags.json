@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73338270",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-signal disclosure (decisive): the four companion petitions this petition asks to have consolidated — Health Freedom Defense Fund v. Carvalho (25-765, denied 2026-05-18), Curtis v. Inslee (25-1119), Sweeney v. Univ. of CO Hosp. Auth. (25-1055), and Horsley v. Kaiser Found. (25-1203, all denied 2026-06-01) — were all denied cert without recorded dissent, verified against the supremecourt.gov order-list PDFs. These public, pre-snapshot rulings materially drove the low grant probability. This case's own petition remains pending (response due 2026-08-31); no outcome leakage."
+    },
+    {
+      "category": "other",
+      "severity": "warning",
+      "message": "CourtListener MCP sidecar returned HTTP 429 (Rate limit exceeded: 1200/day) on this cell's first tool call, so the shared daily quota was already exhausted when the cell ran; other cells in this fan-out likely hit the same wall. Degraded gracefully to corpus CLI + statpack + public supremecourt.gov order lists per the contract."
+    }
+  ]
+}

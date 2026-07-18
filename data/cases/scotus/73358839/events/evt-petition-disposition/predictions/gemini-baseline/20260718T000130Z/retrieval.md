@@ -1,0 +1,7 @@
+- Searched CourtListener MCP server for `dockets` with `docket_id: 73358839` to confirm current docket details.
+- Searched Google Web for `"Texas Top Cop Shop" v. Garland OR Blanche` to understand the background of the case (challenge to the Corporate Transparency Act, preliminary injunction stayed by the Supreme Court).
+- Searched Google Web for `"National Small Business United v. Bessent" OR "NSBU v. Yellen" Supreme Court certiorari` and `"National Small Business United v. Bessent" Fourth Amendment OR 4th Amendment` to compare the competing vehicle in the 11th Circuit and confirm the overlapping legal questions.
+- Extracted the "Questions Presented" and "Reasons for Granting" from the provisioned petition PDF link (`https://www.supremecourt.gov/DocketPDF/25/25-1290/409119/20260518124603851_TTCS%20et%20al%20v%20Blanche%20et%20al%20cert%20petition%20CORRECTED.pdf`) via Web Fetch tool.
+- Read base rates from `metrics/statpack.md`.
+- `uv run fedcourts query --court scotus --disposition granted --decided-before 2026 --limit 1`
+  - `ranged corpus reads: 149 GET(s), 39059456 byte(s)`

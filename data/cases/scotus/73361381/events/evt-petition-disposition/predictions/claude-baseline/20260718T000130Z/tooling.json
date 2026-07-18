@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73361381",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt (full 16-page text made the merits assessment direct)",
+    "statpack relist/CVSG/fee-class cuts",
+    "statpack originating-court table incl. state courts"
+  ],
+  "gaps": [
+    "fedcourts query has no originating-court or fee-class filter, so a targeted 'pro se state-court paid petition' comparable set is not retrievable; a generic --era query pulled 113 MB for mostly high-salience priors",
+    "The 'Segment base rate by salience band' table the prompt points to is absent from the committed statpack",
+    "No provisioned brief-in-opposition/waiver entry; a docket line confirming waiver of response would firm up the no-response signal"
+  ],
+  "notes": "Forward cell; provisioned inputs plus statpack were nearly sufficient on their own for a clear-denial petition like this."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389313",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned 32-page petition has empty_text=true because the scan has no extractable text; no questions-presented or brief-in-opposition text is available, so the forecast cannot assess the asserted legal question, claimed split, or vehicle arguments."
+    }
+  ]
+}

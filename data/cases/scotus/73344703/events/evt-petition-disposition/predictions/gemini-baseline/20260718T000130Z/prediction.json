@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73344703",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20260718T000130Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-18T00:01:30Z",
+  "input_snapshot": "data/cases/scotus/73344703/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.01,
+  "predicted_disposition": "denied",
+  "confidence": 0.95,
+  "big_case_score": 0.1,
+  "big_case_rationale": "Involves routine application of summary judgment and anti-SLAPP laws without apparent broad national implications or circuit split.",
+  "reasoning_doc": "reasoning.md",
+  "schema_version": "1.0"
+}

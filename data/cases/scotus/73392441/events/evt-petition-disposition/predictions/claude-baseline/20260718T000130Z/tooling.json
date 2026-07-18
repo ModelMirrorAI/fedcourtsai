@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73392441",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned snapshot",
+    "provisioned petition text"
+  ],
+  "helpful": [
+    "Provisioned petition.txt with the full QP and argument text made the merits assessment possible without any fetching",
+    "statpack relist-count and per-Term cert tables gave a clean anchor for a zero-relist paid petition"
+  ],
+  "gaps": [
+    "The statpack lacks the 'Segment base rate by salience band' table the prompt describes, so no band-level anchor was available",
+    "A statpack cut for state-court vs federal-court originating forums on the modern cert slice would sharpen priors for petitions like this one"
+  ],
+  "notes": "fedcourts query has no free-text/topic filter usable for SCOTUS rows, so finding doctrinally similar priors (e.g. other summary-judgment constitutionality petitions) is not possible through the corpus surface; base rates carried the weight instead."
+}

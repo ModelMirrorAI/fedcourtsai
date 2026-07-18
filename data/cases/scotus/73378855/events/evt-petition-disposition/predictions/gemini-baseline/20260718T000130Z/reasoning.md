@@ -1,0 +1,14 @@
+### Legal Question and Governing Standard
+The petitioner asks whether the Due Process Clause of the Fourteenth Amendment requires a state appellate court to issue a written opinion explaining its *de novo* review of a punitive damages award. The governing standards are *BMW of North America, Inc. v. Gore*, 517 U.S. 559 (1996), which establishes the guideposts for unconstitutionally excessive punitive damages, and *Cooper Industries, Inc. v. Leatherman Tool Group, Inc.*, 532 U.S. 424 (2001), which requires appellate courts to conduct *de novo* review of a trial court's application of those guideposts.
+
+### Facts and Analysis
+The petitioner, a disbarred attorney acting *pro se*, converted approximately $160,000 from a trust. A jury awarded the victim the converted funds, an additional $200,000 in compensatory damages for mental anguish, and $800,000 in punitive damages. The punitive-to-compensatory ratio is roughly 2.2:1, well within the single-digit ratios explicitly blessed by this Court in *State Farm Mut. Auto. Ins. Co. v. Campbell*. 
+
+The trial court held a remittitur hearing where it applied the *BMW* guideposts on the record, noting the reprehensibility of stealing a client's inheritance. The Alabama Supreme Court summarily affirmed the judgment without an opinion (a common practice under Alabama Rule of Appellate Procedure 53).
+
+The petitioner essentially seeks a novel constitutional rule that *Cooper Industries* mandates written appellate opinions. This Court has never held that the Constitution requires appellate courts to explain their reasoning in writing. Indeed, *TXO Production Corp. v. Alliance Resources Corp.*, 509 U.S. 443 (1993), held that a trial court need not articulate its reasons for upholding a punitive damages award, provided an adequate hearing was held. Applying that logic, the Alabama Supreme Court's summary affirmance does not inherently violate due process.
+
+This petition lacks a circuit split, features an unsympathetic *pro se* petitioner (a disbarred lawyer who stole from his client), and involves a low single-digit punitive damages ratio that does not offend substantive due process. It is a highly fact-bound petition seeking error correction.
+
+### Probability and Predicted Disposition
+The baseline grant rate for paid SCOTUS petitions in the modern era (e.g., 2024-2025 Terms) is approximately 2.5% to 3.0%. Given the absence of a split, the unremarkable punitive damages ratio, and the lack of any precedent requiring written appellate opinions, this petition has virtually zero chance of being granted. I assign a 1% probability of a grant, predicting a denial.

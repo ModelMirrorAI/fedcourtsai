@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md` file. I reviewed the aggregate base rates for modern discretionary-cert petitions and originating circuit statistics, but I did not execute any `fedcourts query` lookups or CourtListener MCP queries because the outcome was overwhelmingly indicated by the provisioned record.

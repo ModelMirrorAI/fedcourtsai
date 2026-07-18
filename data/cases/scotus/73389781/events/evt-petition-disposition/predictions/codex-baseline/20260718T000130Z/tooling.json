@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389781",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The complete petition and brief in opposition made the vehicle defects assessable.",
+    "The statpack supplied fee-class, relist, CVSG, and Term-specific calibration.",
+    "CourtListener search tested whether the asserted conflict was readily visible in pre-disposition case law."
+  ],
+  "gaps": [
+    "The corpus query interface has no general keyword or semantic filter for retrieving issue-similar priors.",
+    "One CourtListener opinion result resolved to mismatched document text, and a follow-up lookup was throttled."
+  ],
+  "notes": "Provisioned materials and base rates were sufficient. The unusable and throttled CourtListener lookups were excluded from the substantive forecast."
+}

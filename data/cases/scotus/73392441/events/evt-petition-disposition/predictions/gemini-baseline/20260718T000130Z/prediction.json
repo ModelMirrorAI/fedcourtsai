@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73392441",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20260718T000130Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-07-18T00:01:30Z",
+  "input_snapshot": "data/cases/scotus/73392441/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.001,
+  "predicted_disposition": "denied",
+  "confidence": 0.95,
+  "big_case_score": 0.01,
+  "big_case_rationale": "Routine challenge to state court summary judgment in a foreclosure action.",
+  "reasoning_doc": "reasoning.md"
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73377829",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "fedcourts query",
+    "committed corpus statpack",
+    "CourtListener MCP opinion search"
+  ],
+  "helpful": [
+    "The snapshot exposed the requested-response signal and current briefing posture.",
+    "The petition text included the questions, grant arguments, and appended lower-court opinions.",
+    "The statpack supplied paid-petition, Fourth Circuit, relist, and CVSG calibration cuts.",
+    "CourtListener search identified the small set of relevant EDR authorities."
+  ],
+  "gaps": [
+    "A response-request base-rate cut would materially improve calibration for this petition stage.",
+    "CourtListener full-opinion retrieval was throttled after searches succeeded.",
+    "The corpus query filters could not retrieve close subject-matter analogues."
+  ],
+  "notes": "The two corpus queries required 351 ranged GETs and about 91 MB for broad priors. The forthcoming brief in opposition was not yet due and therefore was not a provisioned input."
+}

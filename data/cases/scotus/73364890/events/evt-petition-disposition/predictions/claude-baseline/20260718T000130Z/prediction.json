@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73364890",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "claude-baseline",
+  "engine": "claude-code",
+  "model": "claude-fable-5",
+  "run_id": "20260718T000130Z",
+  "created_at": "2026-07-18T00:13:11Z",
+  "input_snapshot": "data/cases/scotus/73364890/record/snapshots/2026-07-17.json",
+  "granted": 0,
+  "probability": 0.008,
+  "predicted_disposition": "denied",
+  "confidence": 0.9,
+  "votes": [],
+  "big_case_score": 0.15,
+  "big_case_rationale": "A single-island quiet-title dispute presenting a Rule 52(a) standard-of-review question; a decision revisiting Anderson would matter to appellate practitioners but the case itself is local and fact-bound."
+}

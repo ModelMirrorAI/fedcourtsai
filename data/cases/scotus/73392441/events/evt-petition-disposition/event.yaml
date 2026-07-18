@@ -1,0 +1,12 @@
+case_id: scotus/73392441
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2026-05-26'
+resolved: false
+schema_version: '1.0'
+title: "Alvin B. White, Individually and as Trustee for the White Revocable Living\
+  \ \r\nTrust dated January 6, 2010 v. U.S. Bank National Association, as Legal Title\
+  \ Trustee for Truman 2016 SC6 Title Trust"

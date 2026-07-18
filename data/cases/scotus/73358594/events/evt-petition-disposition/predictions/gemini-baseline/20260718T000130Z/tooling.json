@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73358594",
+  "gaps": [
+    "Corpus service was unreachable (timed out)."
+  ],
+  "helpful": [
+    "metrics/statpack.md",
+    "CourtListener MCP search"
+  ],
+  "notes": "Corpus query timed out, but MCP was available and provided good context.",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

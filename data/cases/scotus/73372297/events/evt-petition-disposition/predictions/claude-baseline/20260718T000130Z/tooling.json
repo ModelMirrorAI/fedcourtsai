@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372297",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener-mcp search"
+  ],
+  "helpful": [
+    "Provisioned petition full text and questions-presented extract — the QPs alone were nearly dispositive for this cell",
+    "Statpack originating-circuit, relist, and per-Term fee-class cuts gave a clean anchor-and-adjust path"
+  ],
+  "gaps": [
+    "fedcourts query has no originating-court or fee-class filter, so CAFC-specific priors could not be pulled directly; --era modern silently returned zero rows (era labels are decade-style like '2020s')",
+    "A statpack cut for pro se vs counseled petitions would sharpen exactly this kind of cell — the paid-class rate overstates pro se paid filings",
+    "The statpack lacks the 'Segment base rate by salience band' table the prompt points to; per-band rates were not available for anchoring"
+  ],
+  "notes": "Docket signals (SG waiver with no call for response, long-conference distribution, zero relists) plus non-certworthy QPs made this a far-left-tail cell; retrieval stayed well under budget."
+}

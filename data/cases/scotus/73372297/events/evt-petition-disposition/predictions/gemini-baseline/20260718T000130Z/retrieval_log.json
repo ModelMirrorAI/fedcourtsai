@@ -1,0 +1,198 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "1c33561e2c8d669a",
+      "query": "{\"strategic_intent\": \"Reading prediction instructions from AGENTS.md and predict.md\", \"title\": \"Reading Instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:05.720Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:07.936Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:07.936Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "0fddca3a19f90235",
+      "query": "ls -la data/cases/scotus/73372297/events/evt-petition-disposition/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:12.811Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "3d7a7a212ed1e6c1",
+      "query": "tree data/cases/scotus/73372297/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:14.909Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "57fc597138e71642",
+      "query": "{\"strategic_intent\": \"Reading provisioned case facts and record.\", \"title\": \"Reading Case Record\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:18.953Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "34b1060d4d4b517e",
+      "query": "{\"file_path\": \"data/cases/scotus/73372297/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:18.962Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d675d524f175c1ec",
+      "query": "{\"file_path\": \"data/cases/scotus/73372297/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:18.962Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "ebeae06d51969e39",
+      "query": "{\"file_path\": \"data/cases/scotus/73372297/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:18.963Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dbb9d6d251f74f4e",
+      "query": "{\"file_path\": \"data/cases/scotus/73372297/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:18.963Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "cce054969d749b65",
+      "query": "{\"file_path\": \"data/cases/scotus/73372297/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:18.964Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "dc832e3468345d83",
+      "query": "{\"strategic_intent\": \"Reviewing statpack for base rates.\", \"title\": \"Reading Statpack\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:23.475Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:23.477Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "55cc60c09ee6a54c",
+      "query": "{\"strategic_intent\": \"Checking schemas to prepare output files.\", \"title\": \"Writing Outputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:30.170Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:30.174Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:30.174Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "38021dbde3b5c2c2",
+      "query": "mkdir -p data/cases/scotus/73372297/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:38.410Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "4086a7c54c75df73",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73372297\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"big_case_score\\\": 0.0,\\n  \\\"big_case_ra",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:45.838Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "f3a8b88f9f93b053",
+      "query": "{\"content\": \"{\\n  \\\"schema_version\\\": \\\"1.0\\\",\\n  \\\"case_id\\\": \\\"scotus/73372297\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"statpack\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack.md\\\"\\n  ],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Used statpack for overall base rates. The petition is clearly frivolous so no further lookup was needed.\\\"\\n}\", \"file_path\": \"d",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:45.841Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "fa674b6410ac0971",
+      "query": "{\"content\": \"# Reasoning\\n\\n## Analysis of the Case\\nThis is a paid petition for certiorari from a pro se petitioner against the Secretary of Health and Human Services, originating from the Federal Circuit. Such cases generally involve Vaccine Act claims or other HHS administrative appeals. \\n\\nThe questions presented are drafted in a highly unprofessional, pro se manner, alleging that the case was \\\"illegally hijacked,\\\" citing \\\"genetics/health fraud,\\\" \\\"attorney/judge collusion,\\\" and \\\"targ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:45.843Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "ed555cc5300e1da2",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\\n\", \"file_path\": \"data/cases/scotus/73372297/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:45.845Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:50.609Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "02e2d3821a307db6",
+      "query": "{\"strategic_intent\": \"Wrapping up the execution after successfully creating and validating prediction outputs.\", \"summary\": \"I read the instructions in AGENTS.md and predict.md and inspected the provisioned context for scotus/73372297 (event: evt-petition-disposition). Then I read the case snapshot, the questions-presented document, and the statpack. Since this is a frivolous pro-se petition with a respondent waiver, I constructed the required output files predicting a denial. I successfully wro",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:46:53.807Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73372297",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

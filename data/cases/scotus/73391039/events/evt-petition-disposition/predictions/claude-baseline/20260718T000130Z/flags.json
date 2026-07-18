@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73391039",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition.txt is empty (documents.json marks it empty_text: true — a 37-page scanned filing with no text layer), so the questions presented could not be read. The prediction rests on the docket snapshot, CourtListener metadata for the lower-court record, and statpack base rates; given the overwhelmingly negative structural signals (pro se, all responses waived, no CFR, long-conference distribution) the missing text is unlikely to change the call."
+    }
+  ]
+}

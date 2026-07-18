@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500215",
+  "run_id": "20260718T000130Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP opinion search and endpoint lookup"
+  ],
+  "helpful": [
+    "The provisioned petition included the full lower-court memorandum and current docket signals.",
+    "CourtListener MCP made the March 2026 Zorn opinion available as close legal context.",
+    "The statpack supplied paid-petition, circuit, relist, and CVSG calibration cuts."
+  ],
+  "gaps": [
+    "The local corpus query service became unreachable after one successful lookup.",
+    "A historical base-rate cut for requested responses would materially improve calibration.",
+    "The prompt references salience-band tables that were not present in the committed statpack."
+  ],
+  "notes": "MCP legal research remained available when later corpus-prior lookups timed out. No brief in opposition was provisioned because the requested response was not yet due."
+}

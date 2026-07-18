@@ -1,0 +1,2 @@
+- Read `metrics/statpack.md` for baseline grant rates (modern discretionary-cert petitions section).
+- No other retrieval beyond the provisioned inputs.

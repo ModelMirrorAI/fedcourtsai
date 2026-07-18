@@ -1,0 +1,3 @@
+- Read `metrics/statpack.md` to retrieve the SCOTUS base rates for discretionary-cert petitions and the 2025 Term.
+- Read provisioned inputs: `record/context.json`, `event.yaml`, `record/snapshots/2026-07-17.json`, `record/documents/questions-presented.txt`, and `record/documents/brief-in-opposition.txt`.
+- No retrieval beyond the provisioned inputs and the local statpack.

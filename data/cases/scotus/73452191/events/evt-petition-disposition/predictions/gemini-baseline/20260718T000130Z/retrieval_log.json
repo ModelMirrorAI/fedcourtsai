@@ -1,0 +1,230 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "2b27637d04df5582",
+      "query": "{\"strategic_intent\": \"Reading predict.md and AGENTS.md to understand the prediction prompt contract and required output formats.\", \"title\": \"Understanding Prediction Contract\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:47.806Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:49.747Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:49.748Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "f39c0d7cb5fa525e",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73452191\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:53.797Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "56f294ce099d474b",
+      "query": "ls -R data/cases/scotus/73452191",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:56.118Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f52d4f514223e594",
+      "query": "{\"strategic_intent\": \"Reading prediction schemas and case-specific provisioned inputs to gather context for the prediction.\", \"title\": \"Reading Case Inputs\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:49:59.067Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "1dcf8be483ae2bb8",
+      "query": "{\"file_path\": \"data/cases/scotus/73452191/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:01.137Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:01.137Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "141551aba64750d8",
+      "query": "{\"file_path\": \"data/cases/scotus/73452191/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:04.195Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "7e9ebf1dd7be1d33",
+      "query": "{\"file_path\": \"data/cases/scotus/73452191/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:04.196Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "320fb3760e9c7852",
+      "query": "{\"file_path\": \"data/cases/scotus/73452191/record/documents/petition.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:07.007Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "447fa987ec4120be",
+      "query": "{\"file_path\": \"data/cases/scotus/73452191/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:07.007Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4a45e12a67fd94ab",
+      "query": "cat metrics/statpack.md | grep -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:11.601Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8c3527dda1588d88",
+      "query": "cat metrics/statpack.md | grep -A 30 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:15.655Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "24e6c93cf22c5988",
+      "query": "grep \"^##\" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:17.921Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "e62fe01166848a59",
+      "query": "cat metrics/statpack.md | grep -A 30 \"## SCOTUS cert petitions by Term\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:20.083Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b51e87dca4992e92",
+      "query": "cat metrics/statpack.json | grep -A 20 \"2025\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:26.065Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "f2609dc8925d6cd3",
+      "query": "\"Walter A. Bernard\" Ignelzi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:34.031Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "483e523c19a53a64",
+      "query": "\"Walter A. Bernard\" Ignelzi",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:42.061Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:54.322Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "22797877e8be184b",
+      "query": "mkdir -p data/cases/scotus/73452191/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:50:57.571Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "549233886239d60d",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73452191\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:45Z\\\",\\n  \\\"input_snapshot\\\": \\\"record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.005,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.1,\\n  \\\"big_case_rationale\\\": \\\"A ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:01.439Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "fb88e77297ac2c5b",
+      "query": "{\"content\": \"# Prediction: Denied\\n\\n## Legal Question and Governing Standard\\nThe legal question is whether absolute judicial immunity protects a state trial judge from a 42 U.S.C. \\u00a7 1983 suit when the judge allegedly \\\"directs\\\" and \\\"supervises\\\" police officers in conducting a warrantless home arrest of a litigant to enforce a contempt order. Absolute judicial immunity protects judges for actions taken in their judicial capacity, provided they do not act in the \\\"clear absence of all ju",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:07.913Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "1317dadd4326b2e3",
+      "query": "{\"content\": \"- `fedcourts query` / `statpack.md`: Consulted `metrics/statpack.md` to identify the base grant rate for paid cert petitions in the 2025 Term (approx. 5.3% for paid cases generally, though near zero for cases without a response).\\n- CourtListener MCP: Searched for the underlying district and appellate court docket (`\\\"Walter A. Bernard\\\" Ignelzi`) to confirm the procedural history and the unpublished nature of the Third Circuit decision.\\n- Web/Corpus: Reviewed the provisioned `peti",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:11.095Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "587cd62d233aae1a",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73452191\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"mcp_courtlistener_search\\\", \\\"metrics/statpack.md\\\"],\\n  \\\"helpful\\\": [\\\"metrics/statpack.md provided excellent base rate context for recent Terms.\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"The provisioned snapshot and petition text were sufficient to identify the ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:15.238Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:20.839Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "721783653e2f554b",
+      "query": "{\"strategic_intent\": \"Finishing prediction process after writing the four required output files and successfully validating the data against the schemas.\", \"summary\": \"I have completed reading the case inputs and schemas, produced the quantitative prediction and qualitative reasoning, compiled the retrieval and tooling records, and verified that the output files validate cleanly against the system schemas.\", \"title\": \"Finished Prediction\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:51:26.518Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73452191",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I consulted the provided `metrics/statpack.md` for base rates, noting the low base rate for cert grants and specifically from the California Court of Appeal.

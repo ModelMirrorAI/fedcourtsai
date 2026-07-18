@@ -1,0 +1,230 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "params_digest": "a7c271e933e07e98",
+      "query": "{\"strategic_intent\": \"Understand the prediction task and agent instructions.\", \"title\": \"Reading prediction prompt and agent instructions\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:17.484Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:19.521Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:19.522Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "823582992b07aced",
+      "query": "uv run fedcourts paths --court \"scotus\" --docket \"73357827\" --event \"evt-petition-disposition\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:25.385Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d56c5427487c380f",
+      "query": "find data/cases/scotus/73357827 -type f",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:27.590Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "c78e5fbb354ce505",
+      "query": "{\"file_path\": \"data/cases/scotus/73357827/record/context.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:32.419Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "54115295cc5ef55b",
+      "query": "{\"file_path\": \"data/cases/scotus/73357827/events/evt-petition-disposition/event.yaml\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:32.419Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "c21e322194af6795",
+      "query": "{\"file_path\": \"data/cases/scotus/73357827/record/documents/documents.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:32.420Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "39619478eb671674",
+      "query": "{\"file_path\": \"data/cases/scotus/73357827/record/documents/questions-presented.txt\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:32.420Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "4bdafa632a5932ac",
+      "query": "{\"file_path\": \"data/cases/scotus/73357827/record/snapshots/2026-07-17.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:32.420Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "8ba1021a1a036928",
+      "query": "{\"file_path\": \"schemas/agent_tooling.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:32.421Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "eb9c0bfcaa3f13bf",
+      "query": "{\"file_path\": \"schemas/prediction.schema.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:32.421Z",
+      "tool": "read_file"
+    },
+    {
+      "params_digest": "852bd66cd341d7db",
+      "query": "{\"strategic_intent\": \"Analyze case data and gather context for prediction.\", \"title\": \"Analyzing Case Data and Gathering Context\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:35.254Z",
+      "tool": "update_topic"
+    },
+    {
+      "params_digest": "96b77644691fa88b",
+      "query": "cat metrics/statpack.md | grep -i -A 20 \"Modern discretionary-cert petitions\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:38.160Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "66ac3fa1ba9ddde1",
+      "query": "cat metrics/statpack.md | grep -i -A 10 \"ca7\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:40.443Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "1e938667c861122e",
+      "query": "cat metrics/statpack.md | grep -i -A 20 \"Segment base rate by salience band\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:46.416Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "2aa7bd82bbc7d0c5",
+      "query": "grep -E \"^## \" metrics/statpack.md",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:48.795Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "cb1d2936ba9edd1d",
+      "query": "cat metrics/statpack.md | grep -i -A 10 \"## Cert petitions by relist count\"",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:50.991Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "8003923294065bb2",
+      "query": "uv run fedcourts query --court scotus --topic \"Help America Vote Act\" --role predictor",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:54.774Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "b421a184363d720e",
+      "query": "uv run fedcourts query --help",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:42:57.610Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d2508a9063f57c72",
+      "query": "mkdir -p data/cases/scotus/73357827/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:01.975Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "d9963599acc37274",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73357827\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-07-18T00:01:30Z\\\",\\n  \\\"input_snapshot\\\": \\\"data/cases/scotus/73357827/record/snapshots/2026-07-17.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.008,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.40,\\n  ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:19.516Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "80cbd3602f018bda",
+      "query": "{\"content\": \"## Legal Question and Context\\nThis case presents a cert petition regarding whether the Help America Vote Act (HAVA) creates federal rights enforceable by private litigants through 42 U.S.C. \\u00a7 1983, and whether the total deprivation of HAVA-mandated administrative procedures constitutes a concrete Article III injury-in-fact. The petition alleges a deep circuit split on this issue.\\n\\n## Posture and Predictors\\nThe petition was filed on May 11, 2026. On June 11, the respondents ",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:19.519Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "237a6c530f3dda97",
+      "query": "{\"content\": \"- Consulted `metrics/statpack.md` for base rates (modern discretionary-cert petitions, circuit rates, and relist counts).\\n- No further corpus or MCP retrieval was conducted beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/73357827/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/retrieval.md\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:19.522Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "22f50ef142aba5d7",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73357827\\\",\\n  \\\"run_id\\\": \\\"20260718T000130Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\n    \\\"metrics/statpack.md\\\"\\n  ],\\n  \\\"helpful\\\": [\\n    \\\"statpack base rates (relist count)\\\"\\n  ],\\n  \\\"gaps\\\": []\\n}\", \"file_path\": \"data/cases/scotus/73357827/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z/tooling.json\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:19.524Z",
+      "tool": "write_file"
+    },
+    {
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:24.364Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "params_digest": "18d390d5576a6c65",
+      "query": "{\"strategic_intent\": \"Finish the task since prediction is complete and files are validated.\", \"title\": \"Task Completed\"}",
+      "result_digest": null,
+      "retrieved_doc_date": null,
+      "timestamp": "2026-07-18T00:43:26.781Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73357827",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.0.0"
+  ],
+  "mode": "forward",
+  "role": "predictor",
+  "run_id": "20260718T000130Z",
+  "schema_version": "1.0"
+}
