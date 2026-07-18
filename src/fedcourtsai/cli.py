@@ -91,7 +91,7 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
-from .pipeline.outcome import entry_descriptions, termination_signal
+from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
 from .pipeline.pull import pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.salience import reconcile_salience_selection
@@ -2206,12 +2206,15 @@ def provision_snapshot(
     # materialized — it would hand the predictor the answer. Two checks, both
     # over either payload shape (REST ``docket_entries`` or the raw live
     # ``ProceedingsandOrder`` the live channel stores verbatim):
-    #   - the routing instrument (``termination_signal``, latest entry only);
-    #   - the resolver (``match_disposition_signal``) over *every* entry —
-    #     provisioning's semantic is "outcome visible anywhere in the
-    #     snapshot", not docket pendency, and a SCOTUS disposition is often
-    #     followed by administrative notations ("Application ... denied as
-    #     moot") that hide it from the latest-entry rule.
+    #   - the high-recall terminal scan (``snapshot_shows_disposition``,
+    #     ``_TERMINAL_ENTRY_RE`` over *every* entry) — provisioning's semantic
+    #     is "outcome visible anywhere in the snapshot", not docket pendency, so
+    #     a disposition followed by administrative notations ("Application ...
+    #     denied as moot") that hide it from the latest-entry rule, and the
+    #     cert-before-judgment grant / merits judgment the resolver omits, are
+    #     still caught;
+    #   - the resolver (``match_disposition_signal``) over *every* entry, which
+    #     adds the plain cert grant/denial orders that are not terminal-shaped.
     # The pull-side routing skip and the resolver latch are the primary
     # protections; this refusal is defense-in-depth for cells fanned out
     # before the docket latched. Refuses before writing anything (no snapshot,
@@ -2222,7 +2225,7 @@ def provision_snapshot(
     # already-resolved event, and the replay provisioner truncates
     # point-in-time itself.
     if refuse_terminal and mode == "forward":
-        terminal = termination_signal(payload)
+        terminal = snapshot_shows_disposition(payload)
         if terminal is None:
             for text in entry_descriptions(payload):
                 matched = match_disposition_signal(text)

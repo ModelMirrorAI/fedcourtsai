@@ -90,6 +90,35 @@ def test_provision_snapshot_refuses_a_forward_cell_on_a_terminal_snapshot(
     assert not paths.cell_context.exists()
 
 
+def test_provision_snapshot_refuses_a_disposition_masked_by_trailing_cleanup(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The leak shape (scotus/25-243): the cert-before-judgment GRANT is not the
+    # last entry — post-disposition cleanup ("Judgment Issued", a stay
+    # application denied as moot) trails it — so the latest-entry rule misses it.
+    # The whole-snapshot disposition scan must still refuse the forward cell.
+    masked = {
+        "id": 305,
+        "docket_number": "25-243",
+        "docket_entries": [
+            {"id": 1, "description": "Petition for writ of certiorari before judgment GRANTED."},
+            {"id": 2, "description": "Judgment Issued."},
+            {"id": 3, "description": "Application (25A1229) denied as moot by Justice Thomas."},
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 17), masked)
+
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "scotus", "--docket", "305", "--refuse-terminal"],
+    )
+
+    assert result.exit_code == 3
+    assert "refusing to provision forward cell" in result.output
+    assert not CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-17").exists()
+
+
 def test_provision_snapshot_default_still_provisions_a_terminal_snapshot(
     fixture_corpus: FixtureCorpus,
 ) -> None:
