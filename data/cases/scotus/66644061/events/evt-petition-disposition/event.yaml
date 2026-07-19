@@ -1,0 +1,10 @@
+case_id: scotus/66644061
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-07-27'
+resolved: true
+schema_version: '1.0'
+title: Dennis Balk v. New York Institute of Technology

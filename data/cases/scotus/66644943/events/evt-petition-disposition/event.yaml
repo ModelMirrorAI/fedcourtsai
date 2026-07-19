@@ -1,0 +1,10 @@
+case_id: scotus/66644943
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-07-11'
+resolved: true
+schema_version: '1.0'
+title: Pacific Gas and Electric Company, et al., Petitioners v. United States

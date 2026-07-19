@@ -1,0 +1,12 @@
+case_id: scotus/72460215
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-06-28'
+resolved: true
+schema_version: '1.0'
+title: Credit Suisse First Boston Mortgage Securities Corp., et al., Petitioners v.
+  Federal Deposit Insurance Corporation, as Receiver for Citizens National Bank and
+  Receiver for Strategic Capital Bank

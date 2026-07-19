@@ -1,0 +1,11 @@
+case_id: scotus/72460690
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-09-01'
+resolved: true
+schema_version: '1.0'
+title: Integrated Claims Systems, LLC, Petitioner v. Travelers Lloyds of Texas Insurance
+  Company, et al.

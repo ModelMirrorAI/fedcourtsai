@@ -1,0 +1,10 @@
+case_id: scotus/7990068
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-09-06'
+resolved: true
+schema_version: '1.0'
+title: New Prime Inc., Petitioner v. Dominic Oliveira
