@@ -1,0 +1,12 @@
+case_id: scotus/72460453
+decision_target: disposition
+description: Motion to construe the application for a stay as a jurisdictional statement
+  and for expedited briefing and oral argument schedule filed by appellees Common
+  Cause, et al. and League of Women Voters of North Carolina, et al.
+docket_entry_id: 11
+event_id: evt-motion-construe-the-application-for-a-stay
+kind: motion
+opened_at: '2018-01-23'
+resolved: true
+schema_version: '1.0'
+title: Robert A. Rucho, et al. v. Common Cause, et al.
