@@ -1,0 +1,10 @@
+case_id: scotus/66648131
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-05-30'
+resolved: true
+schema_version: '1.0'
+title: Clifford W. Jones, Sr., Petitioner v. Department of Health and Human Services

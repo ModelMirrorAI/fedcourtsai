@@ -1,0 +1,11 @@
+case_id: scotus/14778055
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-05-29'
+resolved: true
+schema_version: '1.0'
+title: Ricky Lee Smith, Petitioner v. Nancy A. Berryhill, Acting Commissioner of Social
+  Security

@@ -1,0 +1,11 @@
+case_id: scotus/66648506
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-06-25'
+resolved: true
+schema_version: '1.0'
+title: Michael C. Turzai, Speaker of the Pennsylvania House of Representatives, et
+  al., Petitioners v. Gretchen Brandt, et al.

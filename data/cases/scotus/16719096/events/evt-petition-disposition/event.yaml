@@ -1,0 +1,10 @@
+case_id: scotus/16719096
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-06-27'
+resolved: true
+schema_version: '1.0'
+title: James J. Thole, et al., Petitioners v. U.S. Bank N.A., et al.
