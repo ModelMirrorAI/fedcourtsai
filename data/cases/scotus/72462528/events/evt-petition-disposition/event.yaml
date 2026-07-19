@@ -1,0 +1,10 @@
+case_id: scotus/72462528
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-29'
+resolved: true
+schema_version: '1.0'
+title: Michael Vechery, Petitioner v. Florence Cottet-Moine

@@ -1,0 +1,11 @@
+case_id: scotus/72462261
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-24'
+resolved: true
+schema_version: '1.0'
+title: D. L., By and Through His Next Friends, J. L. and A. L., Petitioner v. Clear
+  Creek Independent School District

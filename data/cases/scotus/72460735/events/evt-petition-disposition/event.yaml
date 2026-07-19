@@ -1,0 +1,11 @@
+case_id: scotus/72460735
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-09-25'
+resolved: true
+schema_version: '1.0'
+title: R.J. Reynolds Tobacco Company, Petitioner v. Sharon Block, as Personal Representative
+  of the Estate of Lillian Kaplan, Deceased

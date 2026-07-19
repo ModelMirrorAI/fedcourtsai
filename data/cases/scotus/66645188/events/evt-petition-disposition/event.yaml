@@ -1,0 +1,10 @@
+case_id: scotus/66645188
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-09-27'
+resolved: true
+schema_version: '1.0'
+title: Michael M. Sato, Petitioner v. Orange County Department of Education

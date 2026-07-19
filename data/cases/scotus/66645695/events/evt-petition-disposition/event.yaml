@@ -1,0 +1,11 @@
+case_id: scotus/66645695
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-13'
+resolved: true
+schema_version: '1.0'
+title: National Organization of Veterans' Advocates, Inc., Petitioner v. David J.
+  Shulkin, Secretary of Veterans Affairs

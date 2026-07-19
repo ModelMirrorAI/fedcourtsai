@@ -1,0 +1,11 @@
+case_id: scotus/72462355
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-11-27'
+resolved: true
+schema_version: '1.0'
+title: ICTSI Oregon, Inc., Petitioner v. International Longshore and Warehouse Union,
+  et al.

@@ -1,0 +1,10 @@
+case_id: scotus/6350893
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2017-09-22'
+resolved: true
+schema_version: '1.0'
+title: China Agritech, Inc., Petitioner v. Michael H. Resh, et al.
