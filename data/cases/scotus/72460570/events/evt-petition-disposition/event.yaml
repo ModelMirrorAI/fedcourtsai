@@ -1,0 +1,11 @@
+case_id: scotus/72460570
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-04-19'
+resolved: true
+schema_version: '1.0'
+title: John G. Bergdoll, Petitioner v. Robert Torres, Acting Pennsylvania Secretary
+  of State, et al.

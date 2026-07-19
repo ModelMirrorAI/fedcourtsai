@@ -1,0 +1,10 @@
+case_id: scotus/72460279
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-01-31'
+resolved: true
+schema_version: '1.0'
+title: United Source One, Inc., Petitioner v. Department of Agriculture, et al.

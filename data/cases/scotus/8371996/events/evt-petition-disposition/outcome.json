@@ -1,0 +1,11 @@
+{
+  "actual_disposition": "granted",
+  "actual_granted": 1,
+  "case_id": "scotus/8371996",
+  "disposition_basis": "standard",
+  "event_id": "evt-petition-disposition",
+  "resolved_at": "2018-06-18",
+  "schema_version": "1.0",
+  "source": null,
+  "votes": []
+}

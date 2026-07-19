@@ -1,0 +1,11 @@
+case_id: scotus/66646165
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+opened_at: '2018-01-26'
+resolved: true
+schema_version: '1.0'
+title: Noel Arcenio Saldana Castillo, Petitioner v. Jefferson B. Sessions, III, Attorney
+  General
