@@ -16,7 +16,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import typer
 from pydantic import BaseModel
@@ -139,6 +139,7 @@ from .schemas import (
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .store import (
     cases_due_for_pull,
+    iter_evaluations,
     iter_flags,
     iter_stratified_evaluations,
     iter_tooling,
@@ -598,6 +599,14 @@ def leaderboard(
         Path | None,
         typer.Option(help="Output path (default: <metrics_root>/leaderboard.json)."),
     ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Include every process version, not only the frozen headline "
+            "(the shakedown pooled view).",
+        ),
+    ] = False,
 ) -> None:
     """Rank predictors from the evaluations ledger into ``metrics/leaderboard.json``.
 
@@ -609,20 +618,32 @@ def leaderboard(
     strata ranked; see the ``Leaderboard`` schema) — and
     writes it through the shared serializer for minimal diffs. Reruns over an
     unchanged ledger reproduce the file byte for byte.
+
+    Defaults to the **frozen** headline: only cells whose predictor ran the
+    blessed frozen process. During the shakedown (no digest blessed yet) that is
+    legitimately empty. ``--all-versions`` pools every process version.
     """
     settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    frozen_only = not all_versions
     board = build_leaderboard(
-        iter_stratified_evaluations(settings.data_root),
-        big_case=big_case_agreement(settings.data_root),
+        iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only),
+        big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
+        process_scope=scope,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
+    empty_note = (
+        "  (frozen headline empty — no frozen-process evaluations yet)"
+        if scope == "frozen" and board.predictors_ranked == 0
+        else ""
+    )
     typer.echo(
-        f"leaderboard: {board.predictors_ranked} predictor(s) from "
+        f"leaderboard [{scope}]: {board.predictors_ranked} predictor(s) from "
         f"{board.evaluations_total} evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "
-        f"{board.procedural_evaluations} procedural) -> {destination}"
+        f"{board.procedural_evaluations} procedural) -> {destination}{empty_note}"
     )
 
 
@@ -1292,6 +1313,14 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
             "for the open-trigger-issues section; omit to skip it."
         ),
     ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Score every process version, not only the frozen headline — "
+            "matches the leaderboard's flag so the two surfaces agree.",
+        ),
+    ] = False,
 ) -> None:
     """Roll pipeline health, substance, spend, and data health into an ops snapshot.
 
@@ -1341,13 +1370,18 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         except (ValueError, TypeError):
             open_triggers = None
     when = generated_at or datetime.now(UTC).isoformat()
-    stratified = iter_stratified_evaluations(settings.data_root)
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    # Same shared producer + default as the leaderboard, so the two surfaces
+    # always agree on the frozen headline. The census (ledger_cell_counts) stays
+    # version-blind — it counts committed predictions, not scored cells.
+    stratified = iter_stratified_evaluations(settings.data_root, frozen_only=not all_versions)
     substance = summarize_substance(
         cell_counts=ledger_cell_counts(settings.data_root),
         stratified_evaluations=stratified,
         statpack=statpack,
         live_frontier=frontier,
         previous=prior,
+        process_scope=scope,
     )
     report = build_ops_report(
         generated_at=when,
@@ -1355,7 +1389,11 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         usage=iter_usage(settings.data_root),
         flags=iter_flags(settings.data_root),
         tooling=iter_tooling(settings.data_root),
-        evaluations=[e for e, _ in stratified],
+        # Leakage grading is an all-versions diagnostic, like flags/tooling above
+        # (which read the ledger directly): shakedown contamination is exactly
+        # what it must surface, so it must NOT ride the frozen `stratified` stream
+        # — that would blank the leakage digest during the shakedown window.
+        evaluations=iter_evaluations(settings.data_root),
         substance=substance,
         data_health=data_health,
         open_triggers=open_triggers,

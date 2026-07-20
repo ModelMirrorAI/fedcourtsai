@@ -103,8 +103,8 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert pr.commit_message == pr.title
     # Headlines come from the regenerated artifacts themselves.
     assert (
-        "2 predictor(s) ranked from 12 evaluation(s) (4 forward / 8 retrospective / 0 procedural)"
-        in pr.body
+        "[frozen] 2 predictor(s) ranked from 12 evaluation(s) "
+        "(4 forward / 8 retrospective / 0 procedural)" in pr.body
     )
     assert "2 predictor(s) over 1500 resolved event(s) (retrospective by construction)" in pr.body
     assert "80998 corpus case(s): 60000 resolved / 20998 open" in pr.body

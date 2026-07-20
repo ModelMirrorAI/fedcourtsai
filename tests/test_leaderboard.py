@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import process_version as pv
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import (
     FORWARD,
@@ -27,6 +28,7 @@ from fedcourtsai.schemas import (
     Leaderboard,
     Outcome,
     Prediction,
+    ProcessVersion,
 )
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations
@@ -77,8 +79,13 @@ def _write_cell(
     predicted_at: datetime = datetime(2026, 6, 20, tzinfo=UTC),
     resolved_at: date = date(2026, 6, 23),
     disposition_basis: str = "standard",
+    process_version: ProcessVersion | None = None,
 ) -> None:
-    """A full scored cell: evaluation plus the prediction and outcome it targets."""
+    """A full scored cell: evaluation plus the prediction and outcome it targets.
+
+    ``process_version`` stamps the prediction, which is what the frozen filter
+    partitions on; ``None`` leaves it a shakedown cell.
+    """
     _write(data_root, ev)
     court, _, docket = ev.case_id.partition("/")
     event = CasePaths(data_root, court, int(docket)).event(ev.event_id)
@@ -95,6 +102,7 @@ def _write_cell(
             granted=1,
             probability=0.7,
             predicted_disposition=Disposition.granted,
+            process_version=process_version,
         ),
     )
     write_json(
@@ -247,7 +255,10 @@ def test_iter_stratified_evaluations_joins_prediction_and_outcome(tmp_path: Path
         predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
         resolved_at=date(1950, 12, 11),
     )
-    strata = {ev.event_id: stratum for ev, stratum in iter_stratified_evaluations(tmp_path)}
+    strata = {
+        ev.event_id: stratum
+        for ev, stratum in iter_stratified_evaluations(tmp_path, frozen_only=False)
+    }
     assert strata == {"evt-a": FORWARD, "evt-b": RETROSPECTIVE}
 
 
@@ -258,18 +269,19 @@ def test_cli_writes_valid_sorted_leaderboard(tmp_path: Path) -> None:
     out = tmp_path / "leaderboard.json"
     result = runner.invoke(
         app,
-        ["leaderboard", "--out", str(out)],
+        ["leaderboard", "--out", str(out), "--all-versions"],
         env={"FEDCOURTS_DATA_ROOT": str(data_root)},
     )
     assert result.exit_code == 0, result.output
     assert "2 forward / 0 retrospective" in result.output
     board = read_model(out, Leaderboard)
+    assert board.process_scope == "all"
     assert [e.predictor_id for e in board.entries] == ["beta", "alpha"]
     # Deterministic: a second run reproduces the file byte for byte.
     first = out.read_text()
     runner.invoke(
         app,
-        ["leaderboard", "--out", str(out)],
+        ["leaderboard", "--out", str(out), "--all-versions"],
         env={"FEDCOURTS_DATA_ROOT": str(data_root)},
     )
     assert out.read_text() == first
@@ -288,7 +300,7 @@ def test_mootness_outcome_routes_to_the_procedural_stratum(tmp_path: Path) -> No
         resolved_at=date(2026, 6, 23),  # timing alone would read forward
         disposition_basis="mootness",
     )
-    ((_, stratum),) = iter_stratified_evaluations(tmp_path)
+    ((_, stratum),) = iter_stratified_evaluations(tmp_path, frozen_only=False)
     assert stratum == PROCEDURAL
 
 
@@ -389,7 +401,7 @@ def test_big_case_agreement_correlates_predictor_and_panel_orderings(tmp_path: P
     _write_big_case_cell(data_root, "invert", "scotus/5", pred_score=0.5, eval_scores=[0.5])
     _write_big_case_cell(data_root, "invert", "scotus/6", pred_score=0.1, eval_scores=[0.9])
 
-    result = big_case_agreement(data_root)
+    result = big_case_agreement(data_root, frozen_only=False)
 
     assert result["agree"].rank_agreement == 1.0
     assert result["agree"].cases == 3
@@ -402,7 +414,7 @@ def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[0.2, 1.0])
     _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.1, 0.1])
-    result = big_case_agreement(data_root)
+    result = big_case_agreement(data_root, frozen_only=False)
     # case1 panel mean = 0.6 > case2's 0.1, and pred 0.9 > 0.1 → concordant → +1.
     assert result["p"].rank_agreement == 1.0
     assert result["p"].cases == 2
@@ -433,7 +445,7 @@ def test_big_case_agreement_uses_the_latest_prediction_score(tmp_path: Path) -> 
             big_case_score=0.9,
         ),
     )
-    result = big_case_agreement(data_root)
+    result = big_case_agreement(data_root, frozen_only=False)
     assert result["p"].rank_agreement == 1.0
     assert result["p"].cases == 2
 
@@ -443,7 +455,7 @@ def test_big_case_agreement_single_case_reports_null_agreement(tmp_path: Path) -
     # is undefined with a single point — distinct from the absent-from-map case.
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.5, eval_scores=[0.5])
-    entry = big_case_agreement(data_root)["p"]
+    entry = big_case_agreement(data_root, frozen_only=False)["p"]
     assert entry.cases == 1
     assert entry.rank_agreement is None
 
@@ -453,7 +465,7 @@ def test_big_case_agreement_skips_a_predictor_without_a_score(tmp_path: Path) ->
     # case is not comparable, so the predictor is absent from the map.
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=None, eval_scores=[0.5])
-    assert big_case_agreement(data_root) == {}
+    assert big_case_agreement(data_root, frozen_only=False) == {}
 
 
 def test_big_case_agreement_empty_when_no_ledger(tmp_path: Path) -> None:
@@ -469,3 +481,66 @@ def test_build_leaderboard_attaches_big_case_when_supplied() -> None:
     assert board.entries[0].big_case.rank_agreement == 0.5
     # Without the map the dimension is simply null (backward-compatible).
     assert build_leaderboard([_forward(ev)]).entries[0].big_case is None
+
+
+def _frozen_stamp(digest: str = "sha256:blessed") -> ProcessVersion:
+    return ProcessVersion(
+        label="proc-v1", digest=digest, stamped_at=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+
+
+def test_frozen_leaderboard_excludes_unstamped_shakedown_cells(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The headline: a shakedown cell (no stamp) is out of the frozen board, a
+    blessed-process cell is in. Same ledger, two scopes."""
+    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("shakedown", event_id="evt-a"), process_version=None)
+    _write_cell(data_root, _evaluation("frozen", event_id="evt-b"), process_version=_frozen_stamp())
+
+    frozen = build_leaderboard(iter_stratified_evaluations(data_root))
+    assert [e.predictor_id for e in frozen.entries] == ["frozen"]
+
+    all_versions = build_leaderboard(
+        iter_stratified_evaluations(data_root, frozen_only=False), process_scope="all"
+    )
+    assert {e.predictor_id for e in all_versions.entries} == {"shakedown", "frozen"}
+
+
+def test_a_cell_stamped_with_an_unblessed_digest_is_not_frozen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stamped is not enough — the digest must be blessed. A process that drifted
+    under the same label carries a different digest and stays out of the headline."""
+    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("drifted", event_id="evt-a"),
+        process_version=_frozen_stamp("sha256:drifted"),
+    )
+    assert iter_stratified_evaluations(data_root) == []
+
+
+def test_the_default_frozen_board_is_empty_during_shakedown(tmp_path: Path) -> None:
+    """With no digest blessed (the shipped state), the frozen headline is empty
+    even over a full stamped-nowhere ledger — the honest 'nothing frozen yet'."""
+    data_root = tmp_path / "data"
+    _write_cell(data_root, _evaluation("alpha", event_id="evt-a"))
+    board = build_leaderboard(iter_stratified_evaluations(data_root))
+    assert board.predictors_ranked == 0
+    assert board.process_scope == "frozen"
+
+
+def test_big_case_agreement_defaults_to_frozen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The big-case section must not show a shakedown read beside a frozen board."""
+    monkeypatch.setattr(pv, "FROZEN_PROCESS_DIGESTS", frozenset({"sha256:blessed"}))
+    data_root = tmp_path / "data"
+    _write_big_case_cell(data_root, "shakedown", "scotus/1", pred_score=0.5, eval_scores=[0.6, 0.4])
+    # Frozen default: the unstamped shakedown read is excluded.
+    assert big_case_agreement(data_root) == {}
+    # All-versions still sees it.
+    assert "shakedown" in big_case_agreement(data_root, frozen_only=False)

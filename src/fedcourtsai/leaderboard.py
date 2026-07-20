@@ -29,6 +29,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
+from .process_version import is_frozen
 from .schemas import (
     BigCaseLeaderboard,
     Evaluation,
@@ -154,7 +155,9 @@ def _kendall_tau_b(points: Sequence[tuple[float, float]]) -> float | None:
     return (concordant - discordant) / denominator
 
 
-def big_case_agreement(data_root: Path) -> dict[str, BigCaseLeaderboard]:
+def big_case_agreement(
+    data_root: Path, *, frozen_only: bool = True
+) -> dict[str, BigCaseLeaderboard]:
     """Each predictor's big-case rank-agreement with the evaluator panel.
 
     Deterministic and offline over the committed ledger. For every
@@ -165,6 +168,11 @@ def big_case_agreement(data_root: Path) -> dict[str, BigCaseLeaderboard]:
     scored events (one per case in the current single-event model). Predictors
     with no comparable event are absent from the map (their ``big_case`` stays
     null).
+
+    ``frozen_only`` (the default) keeps only events whose latest prediction was
+    produced by a frozen process, so this section defaults to the frozen headline
+    exactly like the score aggregates — a shakedown big-case read never rides
+    alongside a frozen-only board.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -187,6 +195,8 @@ def big_case_agreement(data_root: Path) -> dict[str, BigCaseLeaderboard]:
         if not predictions:
             continue
         latest = max(predictions, key=lambda pr: pr.created_at)
+        if frozen_only and not is_frozen(latest.process_version):
+            continue
         if latest.big_case_score is None:
             continue
         panel_mean = sum(evaluator_scores) / len(evaluator_scores)
@@ -201,6 +211,8 @@ def big_case_agreement(data_root: Path) -> dict[str, BigCaseLeaderboard]:
 def build_leaderboard(
     cells: Iterable[tuple[Evaluation, Stratum]],
     big_case: Mapping[str, BigCaseLeaderboard] | None = None,
+    *,
+    process_scope: Literal["frozen", "all"] = "frozen",
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -212,6 +224,11 @@ def build_leaderboard(
     (from :func:`big_case_agreement`) attaches each predictor's big-case
     rank-agreement as a second, orthogonal dimension that never affects the rank;
     absent from the map (or unsupplied) leaves the entry's ``big_case`` null.
+
+    ``process_scope`` only labels the board — the caller has already filtered
+    ``cells`` and ``big_case`` to that scope (both via the shared ``frozen_only``
+    seam). Recording it makes the empty frozen headline self-explaining rather
+    than reading as a regression.
     """
     by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
         lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
@@ -242,6 +259,7 @@ def build_leaderboard(
         return sum(len(strata[stratum]) for strata in by_predictor.values())
 
     return Leaderboard(
+        process_scope=process_scope,
         predictors_ranked=len(entries),
         evaluations_total=(
             _stratum_total(FORWARD) + _stratum_total(RETROSPECTIVE) + _stratum_total(PROCEDURAL)

@@ -713,6 +713,14 @@ class Leaderboard(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
+    process_scope: Literal["frozen", "all"] = Field(
+        default="frozen",
+        description="Which process versions this board covers: `frozen` (the "
+        "default headline — only cells whose predictor ran the blessed frozen "
+        "process) or `all` (every version, including the shakedown). A `frozen` "
+        "board with zero predictors is the honest 'no frozen-process evaluations "
+        "yet' state, not a regression.",
+    )
     predictors_ranked: int = Field(
         ge=0,
         description="Number of predictors on the board (a procedural-only "
@@ -1931,6 +1939,14 @@ class SubstanceDigest(_Strict):
     predictor_scores: list[PredictorScoreRow] = Field(default_factory=list)
     live_frontier: LiveFrontier | None = Field(
         default=None, description="Published watchlist readiness, when available"
+    )
+    process_scope: Literal["frozen", "all"] = Field(
+        default="frozen",
+        description="Which process versions the scored-cell figures (evaluations, "
+        "calibration, per-predictor scores) cover — `frozen` headline by default. "
+        "The prediction *census* (`cells.predictions` / `events_predicted`) is "
+        "always version-blind, so a frozen scope with many predictions but zero "
+        "frozen evaluations is the honest shakedown state, not a mismatch.",
     )
 
 

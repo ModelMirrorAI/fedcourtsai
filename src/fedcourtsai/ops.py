@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
@@ -221,6 +222,7 @@ def summarize_substance(
     statpack: StatPack | None = None,
     live_frontier: LiveFrontier | None = None,
     previous: OpsReport | None = None,
+    process_scope: Literal["frozen", "all"] = "frozen",
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
 
@@ -301,6 +303,7 @@ def summarize_substance(
         calibration=calibration,
         predictor_scores=scores,
         live_frontier=live_frontier,
+        process_scope=process_scope,
     )
 
 
@@ -318,16 +321,32 @@ def render_substance(digest: SubstanceDigest) -> str:
     rather than a stack of "not producing yet" placeholders.
     """
     c = digest.cells
+    # The scored figures below cover `process_scope`; the prediction census does
+    # not (it counts every committed prediction). Name the scope so a frozen
+    # headline with predictions but zero frozen evaluations reads as the honest
+    # shakedown state rather than a broken funnel.
+    scored_scope = "" if digest.process_scope == "all" else " _(frozen process only)_"
+    frozen_empty = (
+        digest.process_scope == "frozen"
+        and c.evaluations_forward == 0
+        and c.evaluations_retrospective == 0
+    )
     lines = [
         "## Substance (is it producing?)",
         "",
         f"Prediction cells committed: **{c.predictions}**{_fmt_delta(c.predictions_delta)} "
         f"over **{c.events_predicted}** event(s); predicted events resolved: "
-        f"**{c.predicted_resolved}**{_fmt_delta(c.predicted_resolved_delta)}; scored cells: "
+        f"**{c.predicted_resolved}**{_fmt_delta(c.predicted_resolved_delta)}; scored cells"
+        f"{scored_scope}: "
         f"**{c.evaluations_forward}** forward{_fmt_delta(c.evaluations_forward_delta)} · "
         f"**{c.evaluations_retrospective}** replay"
         f"{_fmt_delta(c.evaluations_retrospective_delta)}.",
     ]
+    if frozen_empty:
+        lines.append(
+            "_No frozen-process evaluations yet — the headline is scoped to the "
+            "frozen process; run with the all-versions view for the shakedown pool._"
+        )
 
     cal = digest.calibration
     cal_lines: list[str] = []
@@ -396,6 +415,16 @@ def render_weekly_digest(report: OpsReport) -> str:
     substance = report.substance
     lines = ["### Weekly digest", ""]
 
+    # A frozen scope with no scored cells is the shakedown state (nothing blessed
+    # yet), not a stalled machine — so the "what is blocking?" framing below would
+    # misread. Detect it once and reframe those questions honestly.
+    frozen_shakedown = (
+        substance is not None
+        and substance.process_scope == "frozen"
+        and substance.cells.evaluations_forward == 0
+        and substance.cells.evaluations_retrospective == 0
+    )
+
     if substance is not None and substance.calibration.sample:
         cal = substance.calibration
         lift = (
@@ -412,6 +441,11 @@ def render_weekly_digest(report: OpsReport) -> str:
             f"- **Replay calibration on {cal.sample} scored cell(s): {lift}{skill} — "
             "do you believe it?**"
         )
+    elif frozen_shakedown:
+        lines.append(
+            "- **No frozen-process cells yet — the headline is scoped to the frozen "
+            "process; run `--all-versions` for the shakedown pool.**"
+        )
     else:
         lines.append("- **No scored replay cells yet — what is blocking the first batch?**")
 
@@ -422,7 +456,14 @@ def render_weekly_digest(report: OpsReport) -> str:
             if c.evaluations_forward_delta is not None
             else f"{c.evaluations_forward} total, no prior snapshot to diff"
         )
-        lines.append(f"- **Forward cells scored: {weekly} — is the live frontier producing?**")
+        question = (
+            "still shakedown, none frozen yet"
+            if frozen_shakedown
+            else "is the live frontier producing?"
+        )
+        lines.append(
+            f"- **Forward cells scored ({substance.process_scope}): {weekly} — {question}**"
+        )
         frontier = substance.live_frontier
         if frontier is not None and not frontier.skipped:
             upcoming = (
