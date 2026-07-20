@@ -738,6 +738,16 @@ jobs:
           done
 
   collect:
+    # Defence in depth only. Both attempts of a re-run share `run_id`, so this
+    # groups them — but GitHub refuses to re-run a run that is still in
+    # progress, and the workflow-level per-issue group already serializes runs.
+    # Note the run PR's branch is keyed on the *plan-time* run id from the
+    # cells' status.json, not `github.run_id`, so this group does not itself
+    # guard the branch; it is cheap insurance behind those two, not the thing
+    # that prevents a force-push clobber.
+    concurrency:
+      group: collect-${{ github.workflow }}-${{ github.run_id }}
+      cancel-in-progress: false
     needs: [plan, predict]
     # Run after the whole fan-out even if some cells failed, as long as the plan
     # queued jobs. This is the only writer: it unions the cells' artifacts into one
@@ -805,7 +815,12 @@ jobs:
         run: |
           set -euo pipefail
           [ -s stall-comment.md ] || exit 0
-          gh issue comment "$ISSUE" --repo "$REPO" --body-file stall-comment.md
+          # Marker-deduped: this step reruns whenever collect does, and rerunning
+          # collect is the documented recovery for a transfer failure, so a plain
+          # comment would stack a copy per attempt and bury the warning.
+          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
+            --marker "<!-- collect-stall: ${GITHUB_RUN_ID} -->" \
+            --body-file stall-comment.md
 
       - name: Flag a secret-scan hit on the trigger issue
         # A withheld branch opens no PR, so without this the scan hit would be
@@ -821,7 +836,19 @@ jobs:
         run: |
           set -euo pipefail
           [ -s secret-scan-issue.md ] || exit 0
-          gh issue comment "$ISSUE" --repo "$REPO" --body-file secret-scan-issue.md
+          # Marker-deduped: this step reruns whenever collect does, and rerunning
+          # collect is the documented recovery for a transfer failure, so a plain
+          # comment would stack a copy per attempt and bury the warning.
+          #
+          # Keyed on the report's *content*, not just the run, unlike the stall
+          # comment above. A later attempt can collect a different artifact set
+          # and so hit a different file; a run-only key would suppress that
+          # second, distinct redacted report and the trigger issue would never
+          # learn about it. A security report must never be deduped into silence.
+          digest=$(sha256sum secret-scan-issue.md | cut -c1-16)
+          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
+            --marker "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" \
+            --body-file secret-scan-issue.md
 
       - name: Latch run flags onto the agent-feedback issue
         # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev

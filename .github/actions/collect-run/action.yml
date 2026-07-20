@@ -222,6 +222,23 @@ runs:
           pr=$(jq -c ".${kind}" <<<"$plan")
           [ "$pr" = "null" ] && continue
           branch=$(jq -r '.branch' <<<"$pr")
+          # Rerunning collect is the documented recovery for a transfer failure,
+          # so this loop must be safe to repeat. A kind whose PR is already
+          # settled — merged, or closed as a deliberate reject of bad agent
+          # output — must not be redone: re-pushing would put merged content
+          # back on a branch, or resurrect rejected work under auto-merge.
+          #
+          # Assigned, not tested inline: a command substitution inside `[ ... ]`
+          # discards its exit status, so a 5xx or a token blip would read as "no
+          # settled PR" and fall through to the force-push below. This is the
+          # only check standing between --force and settled work, and it is a
+          # network call, so it must fail closed.
+          settled=$(gh pr list --repo "$REPO" --head "$branch" --state all \
+            --json state --jq '[.[] | select(.state != "OPEN")] | length')
+          if [ "$settled" -gt 0 ]; then
+            echo "${branch} already settled (merged or closed); nothing to redo"
+            continue
+          fi
           # Branch from the CURRENT remote main tip, re-fetched each pass,
           # not the job's local main. The matrix runs long, and the
           # deterministic writers (live/seed/pull) commit to main directly and
@@ -278,16 +295,53 @@ runs:
             git reset -q --hard && git clean -qfd data/
             continue
           fi
+          # A PR that merged between the settled check and here leaves the union
+          # a no-op against the re-fetched main. Committing an empty index exits
+          # non-zero and would kill the step before the *other* kind is handled,
+          # stranding a draft. Nothing to push is a clean skip, not a failure.
+          if git diff --cached --quiet; then
+            echo "${branch}: content already on main; nothing to push"
+            continue
+          fi
           git commit -q -m "$(jq -r '.commit_message' <<<"$pr")"
           # Push with the app (write) token explicitly; blank any ambient
           # extraheader at command scope so the write token authenticates.
+          # --force because the branch is run-scoped (`<role>/run-<run_id>`) and
+          # bot-owned, so nothing else writes it: on a rerun the previous
+          # attempt's branch is this run's own leftover, and a plain push would
+          # non-fast-forward reject and abort under `set -e`. The merged check
+          # above is what keeps force from touching settled work. Trade-off:
+          # a rerun discards hand-edits to an unmerged draft branch.
           git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
-            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
             "HEAD:refs/heads/${branch}"
-          flags=()
-          [ "$draft" = "true" ] && flags+=(--draft)
-          url=$(gh pr create --base main --head "$branch" "${flags[@]}" \
-            --title "$(jq -r '.title' <<<"$pr")" --body-file pr-body.md)
+          title=$(jq -r '.title' <<<"$pr")
+          # Find-or-update: `gh pr create` errors on an existing open PR for the
+          # same head, which would abort the rerun under `set -e`.
+          url=$(gh pr list --repo "$REPO" --head "$branch" --state open \
+            --json url --jq '.[0].url // empty')
+          if [ -z "$url" ]; then
+            flags=()
+            [ "$draft" = "true" ] && flags+=(--draft)
+            url=$(gh pr create --base main --head "$branch" "${flags[@]}" \
+              --title "$title" --body-file pr-body.md)
+          else
+            gh pr edit "$url" --title "$title" --body-file pr-body.md
+            # Reconcile draft state. The two directions are NOT symmetric.
+            # Promoting is benign if it fails: the PR stays a draft, nothing
+            # auto-merges, and the state is visible. Demoting is not — an
+            # earlier clean attempt may have armed auto-merge, and the block
+            # below only declines to *enable* it, never disables it. So a
+            # swallowed demotion would let gate-tripped content merge the
+            # moment checks go green. Disarm first, then fail loudly.
+            if [ "$draft" = "true" ]; then
+              gh pr merge --disable-auto "$url" || true
+              gh pr ready --undo "$url" \
+                || { echo "::error::could not return ${url} to draft after a gate tripped"; exit 1; }
+            else
+              gh pr ready "$url" || true
+            fi
+          fi
           # Enable auto-merge only for a ready (non-draft, jail-clean) PR. A miss
           # (e.g. the repo's "Allow auto-merge" is off) leaves the PR open for a
           # manual merge rather than failing the run.

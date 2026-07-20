@@ -198,7 +198,7 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
         reporting = [
             s
             for s in steps
-            if "gh issue comment" in s.get("run", "") or "post-agent-feedback" in s.get("run", "")
+            if "post-issue-comment" in s.get("run", "") or "post-agent-feedback" in s.get("run", "")
         ]
         assert len(reporting) == 3, f"{workflow}: expected stall, secret-scan, and feedback steps"
         for step in reporting:
@@ -208,9 +208,10 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
             assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
 
     action_body = COLLECT_ACTION.read_text()
-    assert "gh issue comment" not in action_body, (
-        "a reporting step moved into the composite; it would stop firing on cancellation"
-    )
+    for poster in ("post-issue-comment", "post-agent-feedback"):
+        assert poster not in action_body, (
+            "a reporting step moved into the composite; it would stop firing on cancellation"
+        )
 
 
 def test_the_artifact_name_derivation_matches_what_the_cells_upload() -> None:
@@ -263,3 +264,95 @@ def test_the_plan_matrix_is_threaded_into_collect() -> None:
     assert aggregate["env"]["PLAN_MATRIX"] == "${{ inputs.matrix }}"
     assert "${{ inputs.matrix }}" not in aggregate["run"]
     assert "--matrix-file" in aggregate["run"]
+
+
+def test_the_run_pr_loop_is_safe_to_repeat() -> None:
+    """`gh run rerun --failed` is the documented recovery for a transfer failure
+    — A3's own PR notes tell operators to use it — so the loop that pushes and
+    opens the run PR has to be repeatable. Each of these aborts the step under
+    `set -euo pipefail` on a second attempt if dropped."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    body = aggregate["run"]
+
+    # A plain push non-fast-forward rejects against the prior attempt's branch.
+    assert "push --force" in body
+    # But force must never touch settled work, so a settled PR short-circuits.
+    assert "--state all" in body
+    # `gh pr create` errors on an existing open PR for the same head.
+    assert "--state open" in body and "gh pr edit" in body
+    # A rerun that clears an earlier gate must promote the draft, or the run's
+    # output stays a draft forever and never merges.
+    assert "gh pr ready" in body
+
+
+def test_the_trigger_issue_reports_are_marker_deduped() -> None:
+    """Both reports are posted by steps that rerun with the job, so a plain
+    comment would stack one copy per recovery attempt."""
+    for workflow in FAN_OUTS:
+        body = (WORKFLOWS / workflow).read_text()
+        assert body.count("post-issue-comment") == 2, f"{workflow}: stall and secret-scan"
+        assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
+        assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" in body
+        # The old unconditional form must not come back.
+        assert "gh issue comment" not in body
+
+
+def test_a_rerun_cannot_race_the_first_attempt_on_the_same_branch() -> None:
+    """Force-push turns a concurrent second attempt from a reject into a silent
+    clobber, so the two are serialized. Keyed on the run, so it never blocks a
+    different run's collect."""
+    for workflow in FAN_OUTS:
+        concurrency = _collect_job(workflow)["concurrency"]
+        assert "github.run_id" in concurrency["group"]
+        assert concurrency["cancel-in-progress"] is False
+
+
+def test_the_settled_pr_guard_fails_closed() -> None:
+    """The one check standing between `--force` and settled work is a network
+    call. A command substitution inside `[ ... ]` discards its exit status, so
+    testing it inline would let a 5xx read as 'nothing settled' and force-push
+    over a merged or rejected PR."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    body = aggregate["run"]
+    assert "settled=$(gh pr list" in body, "assign it, so `set -e` sees a gh failure"
+    assert '[ -n "$(gh pr list' not in body, "an inline substitution swallows the exit status"
+    # Closing a run PR is how a maintainer rejects bad agent output; a rerun
+    # must not resurrect it, so the query cannot be merged-only.
+    assert "--state all" in body
+
+
+def test_a_demoted_draft_disarms_auto_merge_and_does_not_fail_open() -> None:
+    """Asymmetric on purpose: a failed *promotion* leaves a harmless draft, but a
+    failed *demotion* leaves gate-tripped content ready with auto-merge possibly
+    armed from an earlier clean attempt — and the block below only declines to
+    enable auto-merge, it never disables it."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    body = aggregate["run"]
+    assert "gh pr merge --disable-auto" in body
+    assert "gh pr ready --undo" in body
+    assert 'gh pr ready --undo "$url" || true' not in body, "demotion must not fail open"
+
+
+def test_an_empty_index_is_skipped_rather_than_aborting_the_loop() -> None:
+    """If a PR merges between the settled check and the push, the union is a
+    no-op and `git commit` exits non-zero — which would kill the step before the
+    other kind is handled, stranding a draft."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    assert "git diff --cached --quiet" in aggregate["run"]
+
+
+def test_the_secret_scan_report_is_deduped_by_content_not_only_by_run() -> None:
+    """A later attempt can collect a different artifact set and hit a different
+    file. A run-only key would suppress that second, distinct redacted report."""
+    for workflow in FAN_OUTS:
+        body = (WORKFLOWS / workflow).read_text()
+        assert "collect-secret-scan: ${GITHUB_RUN_ID}-${digest}" in body
+        assert "sha256sum secret-scan-issue.md" in body

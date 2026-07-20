@@ -141,3 +141,35 @@ def post_agent_feedback(comment: str, repo: str, *, runner: GhRunner = _gh) -> s
         return f"agent feedback already on #{number}"
     runner(["gh", "issue", "comment", str(number), "--repo", repo, "--body", comment])
     return f"posted agent feedback to #{number}"
+
+
+def post_once(
+    *,
+    repo: str,
+    issue: int,
+    marker: str,
+    body: str,
+    runner: GhRunner = _gh,
+) -> str:
+    """Comment on ``issue`` unless ``marker`` already appears on it.
+
+    The general form of the agent-feedback latch, for the collect job's stall and
+    secret-scan reports. Those are posted by a step that reruns whenever the
+    collect job does — and rerunning collect is the documented recovery for a
+    transfer failure, so without this every recovery attempt would add another
+    copy of the same warning to the trigger issue, burying the signal it exists
+    to raise.
+
+    The marker is prepended rather than embedded by the renderers: the
+    secret-scan body is *appended to* once per branch, so a marker inside the
+    rendered content would repeat. Keeping it here also keeps both reports'
+    idempotency in one tested place instead of two.
+    """
+    view = json.loads(
+        runner(["gh", "issue", "view", str(issue), "--repo", repo, "--json", "comments"]) or "{}"
+    )
+    bodies = [str(c.get("body", "")) for c in view.get("comments", [])]
+    if already_posted(bodies, marker):
+        return f"already posted on #{issue}"
+    runner(["gh", "issue", "comment", str(issue), "--repo", repo, "--body", f"{marker}\n{body}"])
+    return f"posted to #{issue}"
