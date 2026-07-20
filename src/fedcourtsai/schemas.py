@@ -172,6 +172,39 @@ class JudgeVote(_Strict):
     vote: Disposition
 
 
+class ProcessVersion(_Strict):
+    """Harness-written stamp of the process that produced a prediction/evaluation.
+
+    Hybrid identity. ``digest`` is a content hash of the *actual* process inputs
+    — the prompt-template bytes plus the resolved registry config for this actor
+    (engine, resolved model, pinned MCP manifest) — so a silent prompt or config
+    change is automatically a distinct version. ``label`` is human-readable sugar
+    for a digest. The frozen/shakedown partition keys on ``digest``, never the
+    label, so two different processes cannot hide behind one label.
+
+    ``pipeline_sha`` is provenance only and is deliberately **not** folded into
+    ``digest``: the checkout commit changes on every unrelated pipeline edit, and
+    folding it in would break the frozen set every time predict/evaluate resume at
+    a newer HEAD. The digest captures what defines the process; the sha records
+    which commit ran it.
+
+    Optional on the ledger models (defaults to absent), so shakedown cells written
+    before the stamp existed still validate. The agent never writes this — a
+    post-agent harness step (``fedcourts stamp-cell``) does, so a cell's version
+    is the harness's word, not the agent's, exactly like ``usage.json``.
+    """
+
+    label: str = Field(description="Human process label, e.g. 'proc-v1'")
+    digest: str = Field(description="Content digest of the process inputs, 'sha256:<hex>'")
+    algo: Literal["sha256"] = "sha256"
+    pipeline_sha: str | None = Field(
+        default=None,
+        description="Git commit of the pipeline checkout that stamped this cell; "
+        "provenance only, NOT part of `digest`.",
+    )
+    stamped_at: datetime = Field(description="When the harness stamped the cell (UTC)")
+
+
 class Prediction(_Strict):
     """``prediction.json`` — one predictor's quantitative output for an event."""
 
@@ -210,6 +243,11 @@ class Prediction(_Strict):
         description="Optional one-line rationale for `big_case_score`; null if none",
     )
     reasoning_doc: str = "reasoning.md"
+    process_version: ProcessVersion | None = Field(
+        default=None,
+        description="Harness-stamped process version (absent on shakedown cells "
+        "written before the stamp existed); the frozen-headline partition key.",
+    )
 
 
 class Outcome(_Strict):
@@ -357,6 +395,12 @@ class Evaluation(_Strict):
         "existed.",
     )
     notes_doc: str = "evaluation.md"
+    process_version: ProcessVersion | None = Field(
+        default=None,
+        description="Harness-stamped process version of the *evaluator* (absent on "
+        "shakedown cells). Provenance for the judge process; the leaderboard's "
+        "frozen partition keys on the *prediction's* stamp, not this one.",
+    )
 
 
 class ModelUsage(_Strict):
