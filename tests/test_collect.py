@@ -11,9 +11,11 @@ import pytest
 
 from fedcourtsai.collect import (
     CellStatus,
+    ExpectedCell,
     PathJailError,
     assert_cleanup_within_jail,
     assert_within_jail,
+    cell_artifact_name,
     collect_plan,
     feedback_marker,
     parse_name_status,
@@ -487,3 +489,66 @@ def test_a_fully_collected_run_still_closes_its_issue() -> None:
     )
     assert plan.ready is not None
     assert "Closes #42" in plan.ready.body
+
+
+def _expected(actor: str, event_id: str = "evt-petition-disposition") -> ExpectedCell:
+    """Mirrors `_cell`'s identity so an expected cell can match an observed one."""
+    return ExpectedCell(actor=actor, court="scotus", docket=1, event_id=event_id)
+
+
+def test_a_queued_cell_that_uploaded_nothing_is_named_and_holds_the_issue() -> None:
+    """The last invisible gap: a cell that dies before its upload leaves no
+    status.json AND no artifact, so neither the census nor the transfer-loss
+    list can see it. Only the plan's matrix knows it was ever queued."""
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        issue=42,
+        expected=[_expected("claude-baseline"), _expected("gemini-baseline")],
+    )
+    assert plan.ready is not None
+    assert plan.uncovered_cells == (_expected("gemini-baseline"),)
+    assert "Closes #42" not in plan.ready.body
+    assert "gemini-baseline" in plan.ready.body
+    assert "need a re-queue" in plan.ready.body, (
+        "name the remedy, which differs from a lost artifact"
+    )
+
+
+def test_a_transfer_lost_cell_is_not_also_counted_as_never_uploaded() -> None:
+    """Both gaps are 'absent from the census', but the remedies differ — re-run
+    collect vs re-queue. Reporting one cell as both would misdirect the fix."""
+    lost = _expected("gemini-baseline")
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        issue=42,
+        expected=[_expected("claude-baseline"), lost],
+        missing_artifacts=[cell_artifact_name(FinalizeRole.predict, lost)],
+    )
+    assert plan.uncovered_cells == (), "a transfer-lost cell is already accounted for"
+    assert plan.missing_artifacts == ("predict-gemini-baseline-scotus-1-evt-petition-disposition",)
+    assert plan.ready is not None
+    assert "re-run the `collect` job" in plan.ready.body
+    assert "need a re-queue" not in plan.ready.body
+
+
+def test_without_a_matrix_the_plan_behaves_exactly_as_before() -> None:
+    """`expected=()` must be a no-op, so the census is landable independently of
+    the workflow change that supplies it."""
+    plan = collect_plan(
+        FinalizeRole.predict, run_id="R", cells=[_cell("claude-baseline")], issue=42
+    )
+    assert plan.uncovered_cells == ()
+    assert plan.ready is not None
+    assert "Closes #42" in plan.ready.body
+
+
+def test_expected_cell_parses_both_predictor_and_evaluator_matrices() -> None:
+    base = {"court": "scotus", "docket": 1, "event_id": "evt-x"}
+    assert ExpectedCell.from_matrix_entry({**base, "predictor_id": "p"}).actor == "p"
+    assert ExpectedCell.from_matrix_entry({**base, "evaluator_id": "e"}).actor == "e"
+    with pytest.raises(ValueError, match="neither predictor_id nor evaluator_id"):
+        ExpectedCell.from_matrix_entry(base)

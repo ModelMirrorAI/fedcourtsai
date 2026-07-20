@@ -53,6 +53,7 @@ from .cert_backtest import (
 from .collect import (
     CellStatus,
     CollectPlan,
+    ExpectedCell,
     PathJailError,
     PrPlan,
     assert_cleanup_within_jail,
@@ -3500,6 +3501,10 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "dead_actors": list(plan.dead_actors),
         "noun": plan.noun,
         "missing_artifacts": list(plan.missing_artifacts),
+        "uncovered_cells": [
+            {"actor": c.actor, "court": c.court, "docket": c.docket, "event_id": c.event_id}
+            for c in plan.uncovered_cells
+        ],
     }
 
 
@@ -3558,6 +3563,13 @@ def collect_plan_cmd(
             "They are named in the PR body and withhold the issue close."
         ),
     ] = None,
+    matrix_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The plan job's matrix JSON. Cells it queued that uploaded nothing "
+            "at all are named in the PR body and withhold the issue close."
+        ),
+    ] = None,
 ) -> None:
     """Emit the per-run aggregate PR decision as compact JSON.
 
@@ -3589,6 +3601,17 @@ def collect_plan_cmd(
         missing_artifacts=(
             [n for n in missing_file.read_text().split() if n]
             if missing_file is not None and missing_file.exists()
+            else []
+        ),
+        # What the run was *supposed* to produce. A cell that never uploaded
+        # leaves no status.json, so without this it is indistinguishable from a
+        # cell that was never queued.
+        expected=(
+            [
+                ExpectedCell.from_matrix_entry(entry)
+                for entry in json.loads(matrix_file.read_text()).get("include", [])
+            ]
+            if matrix_file is not None and matrix_file.exists()
             else []
         ),
     )

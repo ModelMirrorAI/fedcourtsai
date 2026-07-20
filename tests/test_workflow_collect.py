@@ -14,6 +14,9 @@ from typing import Any
 
 import yaml
 
+from fedcourtsai.collect import ExpectedCell, cell_artifact_name
+from fedcourtsai.finalize import FinalizeRole
+
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 COLLECT_ACTION = ROOT / ".github" / "actions" / "collect-run" / "action.yml"
@@ -195,3 +198,55 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
     assert "gh issue comment" not in action_body, (
         "a reporting step moved into the composite; it would stop firing on cancellation"
     )
+
+
+def test_the_artifact_name_derivation_matches_what_the_cells_upload() -> None:
+    """`cell_artifact_name` rebuilds a cell's artifact name to tell a
+    transfer-lost cell from one that never uploaded. The upload name is a
+    workflow expression and cannot call the helper, so the coupling is real and
+    checked here rather than left to drift into a silent misclassification."""
+    for workflow, role in FAN_OUTS.items():
+        body = (WORKFLOWS / workflow).read_text()
+        actor_key = "predictor_id" if role == "predict" else "evaluator_id"
+        expected = (
+            f"name: {role}-${{{{ matrix.{actor_key} }}}}-${{{{ matrix.court }}}}"
+            f"-${{{{ matrix.docket }}}}-${{{{ matrix.event_id }}}}"
+        )
+        assert expected in body, (
+            f"{workflow}'s upload name no longer matches cell_artifact_name's "
+            "reconstruction; a lost cell would be misreported as never-uploaded"
+        )
+
+    # And the helper agrees with that template for both roles.
+    assert (
+        cell_artifact_name(
+            FinalizeRole.predict,
+            ExpectedCell(actor="p", court="scotus", docket=7, event_id="evt-x"),
+        )
+        == "predict-p-scotus-7-evt-x"
+    )
+    assert (
+        cell_artifact_name(
+            FinalizeRole.evaluate, ExpectedCell(actor="e", court="ca9", docket=3, event_id="evt-y")
+        )
+        == "evaluate-e-ca9-3-evt-y"
+    )
+
+
+def test_the_plan_matrix_is_threaded_into_collect() -> None:
+    """Without it, a queued cell that uploaded nothing is indistinguishable from
+    one that was never queued."""
+    for workflow in FAN_OUTS:
+        call = next(
+            s for s in _steps(_collect_job(workflow)) if s.get("uses", "").endswith("collect-run")
+        )
+        assert call["with"]["matrix"] == "${{ needs.plan.outputs.matrix }}"
+
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    # Via env, never interpolated into the shell body: the matrix carries ids
+    # parsed from the trigger issue.
+    assert aggregate["env"]["PLAN_MATRIX"] == "${{ inputs.matrix }}"
+    assert "${{ inputs.matrix }}" not in aggregate["run"]
+    assert "--matrix-file" in aggregate["run"]

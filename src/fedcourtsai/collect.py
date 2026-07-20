@@ -181,6 +181,48 @@ class CellStatus:
 
 
 @dataclass(frozen=True)
+class ExpectedCell:
+    """One cell the plan queued — the identity a ``status.json`` must match.
+
+    Read from the plan job's matrix, which is the only record of what a run was
+    *supposed* to produce. The cell census cannot supply it: a cell that never
+    uploaded leaves no ``status.json``, so without the matrix it is
+    indistinguishable from a cell that was never queued.
+    """
+
+    actor: str
+    court: str
+    docket: int
+    event_id: str
+
+    @classmethod
+    def from_matrix_entry(cls, entry: dict[str, object]) -> ExpectedCell:
+        """Parse one ``include[]`` entry from ``predict-matrix`` / ``evaluate-matrix``."""
+        actor = entry.get("predictor_id") or entry.get("evaluator_id")
+        if actor is None:
+            raise ValueError("matrix entry has neither predictor_id nor evaluator_id")
+        return cls(
+            actor=str(actor),
+            court=str(entry["court"]),
+            docket=int(str(entry["docket"])),
+            event_id=str(entry["event_id"]),
+        )
+
+
+def cell_artifact_name(role: FinalizeRole, cell: ExpectedCell) -> str:
+    """The artifact name a cell uploads, rebuilt from its identity.
+
+    Mirrors the ``name:`` expression on the cell workflows' upload step. That
+    coupling is unavoidable — the upload name is a workflow expression and cannot
+    call this — so it is asserted by a workflow test rather than left to drift.
+    Used to tell a cell whose artifact *failed to transfer* (recoverable: re-run
+    collect) from one that *never uploaded at all* (the cell died; needs a
+    re-queue), since both are absent from the census.
+    """
+    return f"{role.value}-{cell.actor}-{cell.court}-{cell.docket}-{cell.event_id}"
+
+
+@dataclass(frozen=True)
 class PrPlan:
     """One PR the collect job should open: ready or partial."""
 
@@ -237,6 +279,7 @@ class CollectPlan:
     dead_actors: tuple[str, ...] = ()
     noun: str = ""
     missing_artifacts: tuple[str, ...] = ()
+    uncovered_cells: tuple[ExpectedCell, ...] = ()
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -376,6 +419,7 @@ def collect_plan(
     issue: int | None = None,
     flags: Sequence[AgentFlags] = (),
     missing_artifacts: Sequence[str] = (),
+    expected: Sequence[ExpectedCell] = (),
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -413,6 +457,23 @@ def collect_plan(
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
     noun = _JUDGMENT_NOUN[role]
     lost = tuple(sorted(missing_artifacts))
+    # A queued cell that is in neither the census nor the transfer-loss list
+    # never uploaded at all — its job died before (or during) the upload. That
+    # is a different remedy from a lost artifact: re-running collect cannot
+    # recover it, only a re-queue can, so the two are counted separately.
+    observed = {(c.actor, c.court, c.docket, c.event_id) for c in cells}
+    lost_names = set(lost)
+    uncovered = tuple(
+        sorted(
+            (
+                cell
+                for cell in expected
+                if (cell.actor, cell.court, cell.docket, cell.event_id) not in observed
+                and cell_artifact_name(role, cell) not in lost_names
+            ),
+            key=lambda c: (c.actor, c.court, c.docket, c.event_id),
+        )
+    )
     ready = [c for c in cells if c.ready]
     salvage = [c for c in cells if c.produced and not c.ready]
     skipped = tuple(c for c in cells if not c.produced)
@@ -440,6 +501,16 @@ def collect_plan(
                 f"missing and the live queue will not re-queue it, so this issue "
                 f"stays open for a backfill (the per-case predictors filter)."
             )
+        if uncovered:
+            rows = "\n".join(
+                f"- `{c.actor}` on `{c.court}/{c.docket}` `{c.event_id}`" for c in uncovered
+            )
+            notes.append(
+                f"⚠️ {len(uncovered)} queued cell(s) uploaded nothing at all — no "
+                f"artifact and no status, so the cell died before it could report. "
+                f"Re-running `collect` will not recover these; they need a re-queue. "
+                f"This issue stays open.\n{rows}"
+            )
         if lost:
             names = "\n".join(f"- `{n}`" for n in lost)
             notes.append(
@@ -454,7 +525,7 @@ def collect_plan(
         # was lost in transfer — each is a gap the run does not actually cover.
         closes = (
             f"\n\nCloses #{issue}"
-            if issue is not None and not salvage and not dead_actors and not lost
+            if issue is not None and not salvage and not dead_actors and not lost and not uncovered
             else ""
         )
         ready_plan = PrPlan(
@@ -492,6 +563,7 @@ def collect_plan(
         dead_actors=dead_actors,
         noun=noun,
         missing_artifacts=lost,
+        uncovered_cells=uncovered,
     )
 
 

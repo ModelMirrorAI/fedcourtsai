@@ -729,6 +729,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           repo: ${{ github.repository }}
           issue: ${{ github.event.issue.number }}
+          matrix: ${{ needs.plan.outputs.matrix }}
           github-token: ${{ github.token }}
           courtlistener-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
 
