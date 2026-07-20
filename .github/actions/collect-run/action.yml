@@ -1,0 +1,272 @@
+name: Collect a matrix run into one PR
+description: >
+  Download every cell artifact for a `run:predict` / `run:evaluate` fan-out, union
+  the ready cells into one auto-merging PR and any salvageable partial output into
+  one draft PR, and surface the run's stalls, secret-scan hits, and agent flags.
+
+  The single writer for a run's agent output. Shared verbatim by run-predict and
+  run-evaluate, which differ only in the artifact prefix and the judgment noun —
+  both derived from `role` — so a change to the collect contract lands once.
+
+  The caller keeps the job header (`needs`, `if`, `runs-on`, `timeout-minutes`,
+  `environment`, `permissions`) and the setup steps (token mint, checkout, python
+  env, git identity): that is the security posture, and it stays reviewable next
+  to the trigger rather than hidden behind a `uses:`.
+
+inputs:
+  role:
+    description: '`predict` or `evaluate` — selects the artifact prefix, the `--role` flag, and the noun.'
+    required: true
+  token:
+    description: >
+      The dev App installation token (contents + pull-requests write). Used for
+      the branch push and the run PR. Deliberately *not* used for the issue
+      comments below — see `github-token`.
+    required: true
+  repo:
+    description: The `owner/name` this run belongs to.
+    required: true
+  issue:
+    description: Trigger issue number; empty when the run was not issue-triggered.
+    required: false
+    default: ''
+  github-token:
+    description: >
+      The ambient `GITHUB_TOKEN`, used only for the issue comments. Commenting
+      triggers no workflow, so issue-write stays off the contents-write App token.
+    required: true
+  courtlistener-token:
+    description: >
+      Scan input only, for the secret scan's literal-containment detector — the
+      one credential reachable from an agent cell, searched for in the run's added
+      files before anything is pushed.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Download cell artifacts
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        path: cell-artifacts
+        pattern: ${{ inputs.role }}-*
+
+    - name: Aggregate the run into one PR
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repo }}
+        ISSUE: ${{ inputs.issue }}
+        ROLE: ${{ inputs.role }}
+        # For the secret scan's literal-containment detector only: the one
+        # credential reachable from an agent cell, searched for in the run's
+        # added files before anything is pushed. This step parses agent
+        # bytes with jq/git/tested Python but never executes them.
+        COURTLISTENER_API_TOKEN: ${{ inputs.courtlistener-token }}
+      run: |
+        set -euo pipefail
+        gh auth setup-git
+        # The judgment noun for operator-facing warnings, derived from the role so
+        # the two workflows share one body.
+        case "$ROLE" in
+          predict) noun=prediction ;;
+          evaluate) noun=evaluation ;;
+          *) echo "::error::unknown role ${ROLE}"; exit 1 ;;
+        esac
+        # Every cell was cancelled before it could upload — nothing to collect.
+        run_url="https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"
+        if [ ! -d cell-artifacts ] || [ -z "$(ls -A cell-artifacts)" ]; then
+          # Wholesale failure: no cell delivered anything. Render the tested
+          # stall comment for the trigger issue so the run's silence is loud
+          # there; the next step posts it with the ambient token.
+          echo "::warning::no cell artifacts to collect"
+          uv run fedcourts stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
+          exit 0
+        fi
+        # All cells share the plan's run id; read it off any status file. Search
+        # recursively, matching collect-plan: the download nests each cell in its
+        # own directory only when several artifacts match, while a single-cell
+        # run extracts flat into cell-artifacts/ itself.
+        run_id=$(find cell-artifacts -name status.json -exec jq -r '.run_id' {} + | head -n1)
+        # The ready/draft partition, branch names, and PR prose are computed by the
+        # tested `collect-plan`; this step only runs git and gh. The ready PR
+        # closes the triggering issue on merge (unless a draft still has work).
+        plan=$(uv run fedcourts collect-plan --role "$ROLE" --run-id "$run_id" \
+          --status-dir cell-artifacts --issue "$ISSUE")
+        # Never silently drop a cell: warn for each that produced no output.
+        jq -r --arg noun "$noun" \
+          '.skipped[] | "::warning::no \($noun) for \(.actor) on \(.court)/\(.docket) \(.event_id)"' \
+          <<<"$plan"
+        if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
+          # Artifacts arrived but no cell produced output and no agent finished
+          # cleanly (the tested `stalled` signal) — same stall, same comment.
+          uv run fedcourts stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
+        fi
+        for kind in ready partial; do
+          pr=$(jq -c ".${kind}" <<<"$plan")
+          [ "$pr" = "null" ] && continue
+          branch=$(jq -r '.branch' <<<"$pr")
+          # Branch from the CURRENT remote main tip, re-fetched each pass,
+          # not the job's local main. The matrix runs long, and the
+          # deterministic writers (live/seed/pull) commit to main directly and
+          # can rewrite its recent history; a branch built on the now-orphaned
+          # local checkout would carry those orphaned commits — including any
+          # recently merged `.github/workflows/*` change — into the push pack.
+          # The app token is deliberately without `workflows` permission, so
+          # GitHub then rejects the whole push. Basing the branch on a freshly
+          # fetched origin/main guarantees the pack is only this run's data/
+          # commit; a force-push landing after the fetch degrades to an
+          # ordinary non-fast-forward reject, loud and retriable, never a
+          # permission failure that strands a run's output.
+          git fetch --no-tags -q origin main
+          git checkout -q -B "$branch" origin/main
+          # Union each member cell's data/ subtree onto the clean main checkout.
+          # Cells write disjoint paths, so the union is conflict-free.
+          while IFS= read -r dir; do
+            cp -a "cell-artifacts/${dir}/data/." data/
+          done < <(jq -r '.artifact_dirs[]' <<<"$pr")
+          git add data/
+          draft=$(jq -r '.draft' <<<"$pr")
+          auto=true
+          # Enforce the append-only data/ jail and a final schema check here,
+          # producer-side. Either failing downgrades the PR to a draft for review
+          # instead of auto-merging something unexpected (CI re-checks the jail).
+          git diff --cached --name-status > changes.txt
+          if ! uv run fedcourts assert-paths --name-status-file changes.txt; then
+            draft=true; auto=false; echo "::warning::path jail tripped; opening ${branch} as a draft"
+          fi
+          if ! uv run fedcourts validate data; then
+            draft=true; auto=false; echo "::warning::validation failed; opening ${branch} as a draft"
+          fi
+          # Third gate: schema checks read shape, not content, so a secret
+          # copied into a free-text artifact would otherwise auto-merge to
+          # the public repo. Unlike the two gates above, a draft is not
+          # enough — the push itself would publish the secret — so a hit
+          # (or a misconfigured scan) withholds the branch entirely. The
+          # PR body is rendered first and scanned too: it carries the run's
+          # flag roll-up, which is agent free text. The tested, redacted
+          # report (file/rule/line, never the matched text) rides to the
+          # trigger issue via the next steps, and the flagged files stay
+          # reviewable in the run's cell artifacts.
+          jq -r '.body' <<<"$pr" > pr-body.md
+          if ! uv run fedcourts scan-diff-for-secrets --name-status-file changes.txt \
+              --known-secret-env COURTLISTENER_API_TOKEN \
+              --extra-file pr-body.md \
+              --issue-comment-file secret-scan-issue.md \
+              --run-url "$run_url"; then
+            echo "::warning::secret scan did not pass; withholding ${branch}"
+            # Hard-reset so a modified tracked file from the withheld union
+            # cannot ride into the next iteration's branch; then drop the
+            # untracked additions. The helper files this step writes are
+            # untracked outside data/, so they survive.
+            git reset -q --hard && git clean -qfd data/
+            continue
+          fi
+          git commit -q -m "$(jq -r '.commit_message' <<<"$pr")"
+          # Push with the app (write) token explicitly; blank any ambient
+          # extraheader at command scope so the write token authenticates.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${branch}"
+          flags=()
+          [ "$draft" = "true" ] && flags+=(--draft)
+          url=$(gh pr create --base main --head "$branch" "${flags[@]}" \
+            --title "$(jq -r '.title' <<<"$pr")" --body-file pr-body.md)
+          # Enable auto-merge only for a ready (non-draft, jail-clean) PR. A miss
+          # (e.g. the repo's "Allow auto-merge" is off) leaves the PR open for a
+          # manual merge rather than failing the run.
+          if [ "$draft" != "true" ] && [ "$auto" = "true" ]; then
+            gh pr merge --auto --squash "$url" \
+              || echo "::warning::could not enable auto-merge on ${url}"
+          fi
+        done
+        # Publish the run's flag roll-up only when no branch tripped the
+        # secret scan and the roll-up text itself scans clean: flags are
+        # agent free text, and with no PR to carry them they would
+        # otherwise publish unscanned via the summary and the feedback
+        # latch.
+        flags_md=$(jq -r '.flags' <<<"$plan")
+        if [ -s secret-scan-issue.md ]; then
+          flags_md=""
+        elif [ -n "$flags_md" ] && [ "$flags_md" != "null" ]; then
+          printf '%s\n' "$flags_md" > run-flags.md
+          if ! uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
+              --known-secret-env COURTLISTENER_API_TOKEN \
+              --extra-file run-flags.md \
+              --issue-comment-file secret-scan-issue.md \
+              --run-url "$run_url"; then
+            echo "::warning::secret scan hit in the flag roll-up; suppressing it"
+            flags_md=""
+          fi
+        fi
+        if [ -n "$flags_md" ] && [ "$flags_md" != "null" ]; then
+          # Surface this run's agent flags in the Actions summary so they are
+          # seen even when no PR opens (e.g. every cell was blocked). They also
+          # ride in the ready/draft PR body, and each produced cell's flags.json
+          # is committed.
+          printf '%s\n' "$flags_md" >> "$GITHUB_STEP_SUMMARY"
+          # Roll this run's agent flags to a file for the next step to latch onto
+          # the long-lived agent-feedback issue. That step posts with the ambient
+          # GITHUB_TOKEN rather than this job's contents-write App token (least
+          # privilege — see the step's comment). `feedback_comment` (rendered by
+          # collect-plan) carries this same roll-up.
+          feedback=$(jq -r '.feedback_comment' <<<"$plan")
+          if [ -n "$feedback" ] && [ "$feedback" != "null" ]; then
+            printf '%s\n' "$feedback" > feedback-comment.md
+          fi
+        fi
+
+    - name: Flag a stalled run on the trigger issue
+      # A run that produced no output opens no PR, so nothing would close — or
+      # even mention — the trigger issue; it would sit silently orphaned open.
+      # Post the tested stall comment (rendered by the aggregate step) with the
+      # ambient GITHUB_TOKEN: commenting triggers nothing, so the contents-write
+      # App token stays out of it. Runs even if the aggregate step failed; the
+      # file is absent whenever the run produced output.
+      if: ${{ always() && inputs.issue }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+        ISSUE: ${{ inputs.issue }}
+      run: |
+        set -euo pipefail
+        [ -s stall-comment.md ] || exit 0
+        gh issue comment "$ISSUE" --repo "$REPO" --body-file stall-comment.md
+
+    - name: Flag a secret-scan hit on the trigger issue
+      # A withheld branch opens no PR, so without this the scan hit would be
+      # visible only in the Actions log. Same ambient-token posture as the
+      # stall step above; the file is absent whenever the scan came back
+      # clean.
+      if: ${{ always() && inputs.issue }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+        ISSUE: ${{ inputs.issue }}
+      run: |
+        set -euo pipefail
+        [ -s secret-scan-issue.md ] || exit 0
+        gh issue comment "$ISSUE" --repo "$REPO" --body-file secret-scan-issue.md
+
+    - name: Latch run flags onto the agent-feedback issue
+      # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev
+      # App token: latching needs no cross-workflow trigger (`agent-feedback` is a
+      # non-triggering label), so issue-write stays off this job's contents-write
+      # token. The find-or-create and once-only idempotency are the tested
+      # `post-agent-feedback` command (agent_feedback.py); this only invokes it.
+      # The file is empty/absent when the run raised no flags — and also when
+      # the aggregate step aborted mid-loop or the run's secret scan did not
+      # pass, since the roll-up is written (scanned) at that step's end: the
+      # latch is best-effort, deliberately fail-closed on agent free text.
+      if: ${{ always() }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+      run: |
+        set -euo pipefail
+        [ -s feedback-comment.md ] || exit 0
+        uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md
