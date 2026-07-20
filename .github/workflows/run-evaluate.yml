@@ -111,7 +111,7 @@ jobs:
           set -euo pipefail
           # One atomic call: close with the explanatory comment (no commented-but-open state).
           gh issue close "$ISSUE" --repo "$REPO" --comment \
-            "No evaluations in scope this run — every queued case was dropped by the scope gate (out of scope, or nothing scorable). Closing; nothing to evaluate."
+            "No evaluations in scope this run — every queued case was dropped by the scope gate (out of scope, nothing scorable, or already evaluated). Closing; nothing to evaluate."
 
   evaluate:
     needs: plan

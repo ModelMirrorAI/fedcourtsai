@@ -5,10 +5,13 @@ import pytest
 from fedcourtsai.matrix import (
     CaseRequest,
     evaluate_matrix,
+    event_has_evaluations,
     parse_cases,
     predict_matrix,
 )
-from tests.conftest import seed_prediction
+from fedcourtsai.paths import CasePaths
+from fedcourtsai.registry import enabled_evaluators
+from tests.conftest import seed_evaluation, seed_prediction
 
 PREDICTORS = Path("config/predictors.yaml")
 EVALUATORS = Path("config/evaluators.yaml")
@@ -168,3 +171,59 @@ def test_evaluate_matrix_drops_predictionless_events(tmp_path: Path) -> None:
     # Without a ledger, the gate is off and both fan out (offline callers).
     ungated = evaluate_matrix(EVALUATORS, cases, "RID")
     assert {(c["docket"]) for c in ungated["include"]} == {1, 2}
+
+
+def test_event_has_evaluations_ignores_the_shallow_per_run_siblings(tmp_path: Path) -> None:
+    """An evaluate cell's usage/flags/tooling live one level *above* the
+    per-predictor evaluation directories. A glob that matched them would report
+    every cell as already-graded and silently mint nothing, ever."""
+    data_root = tmp_path / "data"
+    event = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition")
+    sibling = event.evaluation_usage("claude-judge", "20260101T000000Z")
+    sibling.parent.mkdir(parents=True)
+    sibling.write_text("{}")
+
+    assert not event_has_evaluations(data_root, "scotus", 1, "evt-petition-disposition")
+    seed_evaluation(data_root, "scotus", 1, "evt-petition-disposition")
+    assert event_has_evaluations(data_root, "scotus", 1, "evt-petition-disposition")
+
+
+def test_event_has_evaluations_can_ask_about_one_judge(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    seed_evaluation(data_root, "scotus", 1, "evt-x", evaluator_id="claude-judge")
+    assert event_has_evaluations(data_root, "scotus", 1, "evt-x", evaluator_id="claude-judge")
+    assert not event_has_evaluations(data_root, "scotus", 1, "evt-x", evaluator_id="codex-judge")
+    # No evaluator named: any grading at all counts.
+    assert event_has_evaluations(data_root, "scotus", 1, "evt-x")
+
+
+def test_evaluate_matrix_mints_only_the_judges_that_have_not_graded(tmp_path: Path) -> None:
+    """Cell granularity: a run where one judge landed and two did not should
+    re-mint two cells, not three. This is what makes a re-queue safe."""
+    data_root = tmp_path / "data"
+    seed_prediction(data_root, "scotus", 1, "evt-petition-disposition")
+    seed_evaluation(data_root, "scotus", 1, "evt-petition-disposition", evaluator_id="claude-judge")
+    cases = [CaseRequest(court="scotus", docket=1, events=("evt-petition-disposition",))]
+
+    gated = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root)
+    minted = {c["evaluator_id"] for c in gated["include"]}
+    ungraded = {e.id for e in enabled_evaluators(EVALUATORS)} - {"claude-judge"}
+    assert minted == ungraded, "exactly the judges that have not graded, and no others"
+
+
+def test_a_fully_graded_event_mints_nothing_so_a_requeue_is_a_no_op(tmp_path: Path) -> None:
+    """Without this, re-queueing double-counts: the leaderboard reads every
+    committed evaluation.json into a per-(predictor, case, event) list with no
+    run dedup, so a second grading silently reweights the standings."""
+    data_root = tmp_path / "data"
+    evaluators = enabled_evaluators(EVALUATORS)
+    seed_prediction(data_root, "scotus", 1, "evt-x")
+    for evaluator in evaluators:
+        seed_evaluation(data_root, "scotus", 1, "evt-x", evaluator_id=evaluator.id)
+    cases = [CaseRequest(court="scotus", docket=1, events=("evt-x",))]
+
+    assert evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root)["include"] == []
+    # --force is the deliberate re-grade path, so a rubric change never requires
+    # deleting committed artifacts to get a cell minted.
+    forced = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root, skip_evaluated=False)
+    assert len(forced["include"]) == len(evaluators)
