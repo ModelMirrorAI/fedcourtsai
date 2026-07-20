@@ -97,7 +97,65 @@ def test_the_caller_keeps_the_security_posture_visible() -> None:
             "contents": "write",
             "pull-requests": "write",
             "issues": "write",
+            # Read-only, and only to list/fetch this run's own cell artifacts.
+            "actions": "read",
         }
+
+
+def _download_step() -> dict[str, Any]:
+    action = _load(COLLECT_ACTION)
+    return next(s for s in action["runs"]["steps"] if s["name"] == "Download cell artifacts")
+
+
+def test_artifacts_are_fetched_one_at_a_time_not_as_one_fail_fast_unit() -> None:
+    """The 2026-07-18 regression: `actions/download-artifact` fetches every
+    artifact as a single unit, so one transient failure after its five internal
+    retries discarded a whole run's 46 successful cells."""
+    step = _download_step()
+    assert "uses" not in step, (
+        "collect is back on a bulk download action; one bad artifact would again "
+        "cost the entire run's output"
+    )
+    body = step["run"]
+    assert "gh run download" in body and "--name" in body, "fetch per artifact, by name"
+    # merge-multiple would collapse every cell's data/ into one tree, destroying
+    # the per-cell attribution the ready/salvage split and path jail depend on.
+    assert "merge-multiple" not in body
+
+
+def test_a_lost_artifact_warns_and_keeps_going_but_a_total_loss_fails_loudly() -> None:
+    """Partial collection must commit what arrived; a total transfer failure must
+    NOT fall through to the stall path, which tells a maintainer to re-run the
+    whole matrix and would burn a full run of agent spend on a transfer bug."""
+    body = _download_step()["run"]
+    assert "::warning::artifact" in body, "a lost artifact must be named, not silent"
+    assert "::error::" in body and "exit 1" in body, "a total transfer failure must fail the step"
+    # The distinguishing guard: artifacts exist but none of them landed.
+    assert '"$expected" -gt 0' in body and '"$collected" -eq 0' in body
+
+
+def test_lost_artifacts_are_reported_downstream_not_just_logged() -> None:
+    """A lost artifact leaves no status.json, so `collect-plan`'s cell census
+    cannot see it. If the downloader's list is not threaded in, a partial
+    transfer failure auto-merges a PR that presents itself as the whole run —
+    turning a loud total loss into a quiet partial one."""
+    body = _download_step()["run"]
+    assert "missing-artifacts.txt" in body, "the downloader must record what it lost"
+
+    action = _load(COLLECT_ACTION)
+    aggregate = next(s for s in action["runs"]["steps"] if s["name"].startswith("Aggregate"))
+    assert "--missing-file missing-artifacts.txt" in aggregate["run"], (
+        "collect-plan must be told what failed to transfer, or the loss is invisible"
+    )
+
+
+def test_a_truncated_download_is_cleared_before_retry() -> None:
+    """A half-written data/ subtree would otherwise be unioned into the PR as if
+    it were a complete cell."""
+    body = _download_step()["run"]
+    assert body.count('rm -rf "cell-artifacts/${name}"') >= 2, (
+        "clear the partial extraction both before a retry and after giving up"
+    )
 
 
 def test_the_composite_derives_every_role_dependent_string() -> None:

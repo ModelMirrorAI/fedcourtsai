@@ -148,7 +148,13 @@ same way. The capability is therefore on the lower-trust, non-bypass token, scop
 to issue comments/creation only; and the agent never touches it (the per-cell agent
 token stays comment-only and writes `flags.json` locally — the trusted `collect`
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
-worst a misbehaving `collect` run can do with it is post an issue comment.
+worst a misbehaving `collect` run can do with it is post an issue comment or read
+the repository's own Actions artifacts — that job also holds `actions: read`, so
+it can fetch its run's cell artifacts one at a time instead of as a single
+fail-fast batch (a transient failure of which once discarded a whole run's
+output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
+is acceptable here because `collect` runs no agent code and nothing
+agent-controlled steers which API it calls.
 
 The predict/evaluate `plan` job carries the same **ambient `GITHUB_TOKEN`
 `issues: write`** for the same reason: when the scope gate empties the matrix it

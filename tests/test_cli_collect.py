@@ -200,6 +200,7 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         # Present even on an empty run: the collect action reads the warning
         # noun off the plan rather than re-deriving the role's vocabulary.
         "noun": "prediction",
+        "missing_artifacts": [],
     }
 
 
