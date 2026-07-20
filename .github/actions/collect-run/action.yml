@@ -223,12 +223,20 @@ runs:
           [ "$pr" = "null" ] && continue
           branch=$(jq -r '.branch' <<<"$pr")
           # Rerunning collect is the documented recovery for a transfer failure,
-          # so this loop must be safe to repeat. If this kind's PR already
-          # merged, its work is done: re-pushing would resurrect a branch whose
-          # content is on main and reopen a settled PR.
-          if [ -n "$(gh pr list --repo "$REPO" --head "$branch" --state merged \
-               --json url --jq '.[0].url // empty')" ]; then
-            echo "${branch} already merged; nothing to redo"
+          # so this loop must be safe to repeat. A kind whose PR is already
+          # settled — merged, or closed as a deliberate reject of bad agent
+          # output — must not be redone: re-pushing would put merged content
+          # back on a branch, or resurrect rejected work under auto-merge.
+          #
+          # Assigned, not tested inline: a command substitution inside `[ ... ]`
+          # discards its exit status, so a 5xx or a token blip would read as "no
+          # settled PR" and fall through to the force-push below. This is the
+          # only check standing between --force and settled work, and it is a
+          # network call, so it must fail closed.
+          settled=$(gh pr list --repo "$REPO" --head "$branch" --state all \
+            --json state --jq '[.[] | select(.state != "OPEN")] | length')
+          if [ "$settled" -gt 0 ]; then
+            echo "${branch} already settled (merged or closed); nothing to redo"
             continue
           fi
           # Branch from the CURRENT remote main tip, re-fetched each pass,
@@ -287,6 +295,14 @@ runs:
             git reset -q --hard && git clean -qfd data/
             continue
           fi
+          # A PR that merged between the settled check and here leaves the union
+          # a no-op against the re-fetched main. Committing an empty index exits
+          # non-zero and would kill the step before the *other* kind is handled,
+          # stranding a draft. Nothing to push is a clean skip, not a failure.
+          if git diff --cached --quiet; then
+            echo "${branch}: content already on main; nothing to push"
+            continue
+          fi
           git commit -q -m "$(jq -r '.commit_message' <<<"$pr")"
           # Push with the app (write) token explicitly; blank any ambient
           # extraheader at command scope so the write token authenticates.
@@ -311,10 +327,17 @@ runs:
               --title "$title" --body-file pr-body.md)
           else
             gh pr edit "$url" --title "$title" --body-file pr-body.md
-            # Reconcile draft state, or a rerun that clears an earlier gate
-            # leaves the PR a draft forever and its output never merges.
+            # Reconcile draft state. The two directions are NOT symmetric.
+            # Promoting is benign if it fails: the PR stays a draft, nothing
+            # auto-merges, and the state is visible. Demoting is not — an
+            # earlier clean attempt may have armed auto-merge, and the block
+            # below only declines to *enable* it, never disables it. So a
+            # swallowed demotion would let gate-tripped content merge the
+            # moment checks go green. Disarm first, then fail loudly.
             if [ "$draft" = "true" ]; then
-              gh pr ready --undo "$url" || true
+              gh pr merge --disable-auto "$url" || true
+              gh pr ready --undo "$url" \
+                || { echo "::error::could not return ${url} to draft after a gate tripped"; exit 1; }
             else
               gh pr ready "$url" || true
             fi
