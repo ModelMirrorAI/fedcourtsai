@@ -28,6 +28,7 @@ the engine default), and the pinned MCP tool manifest. The harness stamps each
   and folding it in would break the frozen set every time predict/evaluate resume
   at a newer HEAD. The digest captures what *defines* the process; the sha records
   which commit *ran* it.
+- **`stamped_at`** — when the harness stamped the cell (UTC), also provenance only.
 
 The digest excludes documentation that does not change behaviour — the actor's
 `description` and the MCP manifest `description` are comments, not process inputs,
