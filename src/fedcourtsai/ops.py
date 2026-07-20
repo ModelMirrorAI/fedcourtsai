@@ -415,6 +415,16 @@ def render_weekly_digest(report: OpsReport) -> str:
     substance = report.substance
     lines = ["### Weekly digest", ""]
 
+    # A frozen scope with no scored cells is the shakedown state (nothing blessed
+    # yet), not a stalled machine — so the "what is blocking?" framing below would
+    # misread. Detect it once and reframe those questions honestly.
+    frozen_shakedown = (
+        substance is not None
+        and substance.process_scope == "frozen"
+        and substance.cells.evaluations_forward == 0
+        and substance.cells.evaluations_retrospective == 0
+    )
+
     if substance is not None and substance.calibration.sample:
         cal = substance.calibration
         lift = (
@@ -431,6 +441,11 @@ def render_weekly_digest(report: OpsReport) -> str:
             f"- **Replay calibration on {cal.sample} scored cell(s): {lift}{skill} — "
             "do you believe it?**"
         )
+    elif frozen_shakedown:
+        lines.append(
+            "- **No frozen-process cells yet — the headline is scoped to the frozen "
+            "process; run `--all-versions` for the shakedown pool.**"
+        )
     else:
         lines.append("- **No scored replay cells yet — what is blocking the first batch?**")
 
@@ -441,7 +456,14 @@ def render_weekly_digest(report: OpsReport) -> str:
             if c.evaluations_forward_delta is not None
             else f"{c.evaluations_forward} total, no prior snapshot to diff"
         )
-        lines.append(f"- **Forward cells scored: {weekly} — is the live frontier producing?**")
+        question = (
+            "still shakedown, none frozen yet"
+            if frozen_shakedown
+            else "is the live frontier producing?"
+        )
+        lines.append(
+            f"- **Forward cells scored ({substance.process_scope}): {weekly} — {question}**"
+        )
         frontier = substance.live_frontier
         if frontier is not None and not frontier.skipped:
             upcoming = (

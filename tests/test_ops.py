@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, ops
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import Stratum
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -17,6 +18,7 @@ from fedcourtsai.schemas import (
     CorpusCheck,
     CorpusValidation,
     DataHealth,
+    Disposition,
     DispositionShare,
     Engine,
     Evaluation,
@@ -28,10 +30,13 @@ from fedcourtsai.schemas import (
     LiveFrontier,
     ModelUsage,
     OpsReport,
+    Outcome,
+    Prediction,
     StatPack,
     StatPackSection,
     UsageRole,
 )
+from fedcourtsai.serialize import write_json
 
 
 def _run(
@@ -1249,7 +1254,7 @@ def test_render_weekly_digest_asks_the_fixed_questions() -> None:
     md = ops.render_weekly_digest(report)
     assert "### Weekly digest" in md
     assert "Replay calibration on 1 scored cell(s)" in md and "do you believe it?" in md
-    assert "Forward cells scored: 1 total, no prior snapshot to diff" in md
+    assert "Forward cells scored (frozen): 1 total, no prior snapshot to diff" in md
     assert "35 petition(s) distributed for **2026-09-29**" in md and "28/40" in md
     assert "Oldest stalled trigger: `run:evaluate` (2d old)" in md
     assert "Spend vs budget: $1.50" in md
@@ -1278,6 +1283,26 @@ def test_render_weekly_digest_all_absent_still_asks() -> None:
     assert "No scored replay cells yet" in md
     assert "Stalled triggers: none" in md
     assert "within plan?" in md
+
+
+def test_weekly_digest_reframes_the_shakedown_state_honestly() -> None:
+    """The frozen-empty shakedown must not read as a stalled machine: the digest's
+    'what is blocking?' / 'is the frontier producing?' questions would mislead when
+    the answer is just 'nothing frozen yet'."""
+    report = ops.build_ops_report(
+        generated_at="2026-07-11T00:00:00+00:00",
+        runs=[],
+        usage=[],
+        # Predictions committed (version-blind census), zero frozen evaluations.
+        substance=ops.summarize_substance(
+            cell_counts=(410, 137, 5), stratified_evaluations=[], process_scope="frozen"
+        ),
+    )
+    md = ops.render_weekly_digest(report)
+    assert "No frozen-process cells yet" in md
+    assert "what is blocking the first batch" not in md
+    assert "still shakedown, none frozen yet" in md
+    assert "is the live frontier producing?" not in md
 
 
 # --- lenient prior snapshots ------------------------------------------------------
@@ -1502,3 +1527,70 @@ def test_substance_all_versions_scope_has_no_frozen_note() -> None:
     md = ops.render_substance(digest)
     assert "frozen process only" not in md
     assert "No frozen-process evaluations yet" not in md
+
+
+def test_leakage_digest_stays_all_versions_while_substance_is_frozen(tmp_path: Path) -> None:
+    """Leakage is a diagnostic — shakedown contamination is exactly what it must
+    surface — so it must not ride the frozen stream. A shakedown (unstamped) cell
+    with a likely-leakage block still counts in the leakage digest even though the
+    frozen substance headline is empty."""
+    data_root = tmp_path / "data"
+    ev = _evaluation("claude-baseline", correct=1)
+    ev = ev.model_copy(
+        update={
+            "case_id": "scotus/1",
+            "event_id": "evt-x",
+            "leakage": LeakageAssessment(
+                mode="forward",
+                retrieved_outcome_material=True,
+                influenced_prediction="likely",
+                notes="read the disposition",
+            ),
+        }
+    )
+    event = CasePaths(data_root, "scotus", 1).event("evt-x")
+    write_json(event.evaluation(ev.evaluator_id, ev.predictor_id, ev.run_id), ev)
+    write_json(
+        event.prediction("claude-baseline", "p1"),
+        Prediction(
+            case_id="scotus/1",
+            event_id="evt-x",
+            predictor_id="claude-baseline",
+            engine=Engine.claude_code,
+            run_id="p1",
+            created_at=datetime(2026, 6, 20, tzinfo=UTC),
+            input_snapshot="corpus",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.granted,
+            process_version=None,  # shakedown: unstamped
+        ),
+    )
+    write_json(
+        event.outcome,
+        Outcome.model_validate(
+            dict(
+                case_id="scotus/1",
+                event_id="evt-x",
+                resolved_at=date(2026, 6, 23),
+                actual_disposition=Disposition.granted,
+                actual_granted=1,
+                disposition_basis="standard",
+            )
+        ),
+    )
+
+    json_out = tmp_path / "ops.json"
+    result = runner.invoke(
+        app,
+        ["ops-report", "--json", str(json_out), "--generated-at", "2026-06-24T00:00:00+00:00"],
+        env=_ops_env(tmp_path),
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(json_out.read_text())
+    # Frozen substance is empty (the cell is unstamped)...
+    assert report["substance"]["process_scope"] == "frozen"
+    assert report["substance"]["cells"]["evaluations_forward"] == 0
+    # ...but the leakage diagnostic still sees the shakedown contamination.
+    assert report["leakage"]["assessed"] >= 1
+    assert report["leakage"]["likely"] >= 1

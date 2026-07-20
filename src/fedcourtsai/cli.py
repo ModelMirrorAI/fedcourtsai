@@ -139,6 +139,7 @@ from .schemas import (
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .store import (
     cases_due_for_pull,
+    iter_evaluations,
     iter_flags,
     iter_stratified_evaluations,
     iter_tooling,
@@ -1388,7 +1389,11 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         usage=iter_usage(settings.data_root),
         flags=iter_flags(settings.data_root),
         tooling=iter_tooling(settings.data_root),
-        evaluations=[e for e, _ in stratified],
+        # Leakage grading is an all-versions diagnostic, like flags/tooling above
+        # (which read the ledger directly): shakedown contamination is exactly
+        # what it must surface, so it must NOT ride the frozen `stratified` stream
+        # — that would blank the leakage digest during the shakedown window.
+        evaluations=iter_evaluations(settings.data_root),
         substance=substance,
         data_health=data_health,
         open_triggers=open_triggers,

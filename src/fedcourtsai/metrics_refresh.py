@@ -50,8 +50,10 @@ def _headline(metrics_root: Path, filename: str) -> str:
     """One human line summarizing a refreshed artifact, read from the artifact itself."""
     if filename == "leaderboard.json":
         board = read_model(metrics_root / filename, Leaderboard)
+        # Name the scope, so a refresh PR that drops the board to 0 during the
+        # shakedown reads as the frozen headline, not a regression.
         return (
-            f"{board.predictors_ranked} predictor(s) ranked from "
+            f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked from "
             f"{board.evaluations_total} evaluation(s) "
             f"({board.forward_evaluations} forward / "
             f"{board.retrospective_evaluations} retrospective / "
