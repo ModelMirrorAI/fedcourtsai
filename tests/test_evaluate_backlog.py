@@ -8,7 +8,7 @@ them from committed ledger state (resolved event + prediction + no evaluation).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from fedcourtsai import corpus
@@ -217,3 +217,24 @@ def test_cap_zero_is_a_no_op(tmp_path: Path) -> None:
     _resolved_event(db, "scotus", 1)
     seed_prediction(data, "scotus", 1, "evt-petition-disposition")
     assert _derive(tmp_path, cap=0).evaluate == []
+
+
+def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) -> None:
+    """The deadlock question: with more owed cases than the cap, and the daily
+    debounce holding today's queued cases, does the backlog still drain? It does,
+    because a case queued today is stamped today and sorts last tomorrow, so the
+    cap advances through the whole set stalest-first — nothing is starved."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    for docket in range(1, 6):  # 5 owed cases
+        _resolved_event(db, "scotus", docket)
+        seed_prediction(data, "scotus", docket, event)
+
+    drained: set[int] = set()
+    day = date(2026, 7, 20)
+    for _ in range(3):  # ceil(5 / cap=2) = 3 cycles
+        queues = _derive(tmp_path, cap=2, today=day)
+        drained |= {int(e["docket"]) for e in queues.evaluate}
+        day += timedelta(days=1)
+    assert drained == {1, 2, 3, 4, 5}, "every owed case is reached within ceil(n/cap) cycles"
