@@ -930,16 +930,33 @@ class SpendSummary(_Strict):
     total_tokens: int = Field(ge=0, description="All token classes summed across runs")
     estimated_cost_usd: float = Field(ge=0.0, description="Sum of per-run estimated cost")
     mean_cost_usd_per_run: float = Field(ge=0.0, description="estimated_cost_usd / runs")
+    window_days: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Unrounded span of the ledger's own created_at stamps, which "
+        "turns the cumulative spend into a rate; None when fewer than two records "
+        "or all records share one instant (no span to divide by). Carried at full "
+        "precision because it is a divisor — rounding happens at the render sites, "
+        "so display precision never moves the reported rate",
+    )
 
 
 class CostEstimate(_Strict):
     """A rough monthly cost run-rate, derived without billing-API access.
 
     GitHub Actions cost is estimated from observed run durations x the per-minute
-    rate; model cost is the cumulative recorded usage ledger; fixed monthly captures
-    the infra not metered per run (CourtListener membership, S3). All figures are
-    estimates against the rates in ``docs/budget.md`` — check the provider billing
-    dashboards for ground truth.
+    rate; model cost is the recorded usage ledger, both cumulatively and projected
+    to 30 days from the ledger's own span; fixed monthly captures the infra not
+    metered per run (CourtListener membership, S3). All figures are estimates
+    against the rates in ``docs/budget.md`` — check the provider billing dashboards
+    for ground truth.
+
+    The model projection averages the ledger's full span, first record to last.
+    A trailing idle tail (a paused tournament, an exhausted cap) falls outside
+    the span and does not deflate it, but an interior gap or a low-volume early
+    era falls inside it and does — so the figure trends toward a lifetime average
+    as history accumulates. It answers "what has this cost per day while
+    running", not "what will this month's invoice be".
     """
 
     window_days: float | None = Field(
@@ -953,9 +970,19 @@ class CostEstimate(_Strict):
         default=None, ge=0.0, description="Actions cost projected to 30 days from the window"
     )
     model_cost_usd: float = Field(ge=0.0, description="Cumulative recorded model spend")
+    model_monthly_usd: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Model spend projected to 30 days from the usage ledger's span; "
+        "None when the ledger has no span to rate against",
+    )
     fixed_monthly_usd: float = Field(ge=0.0, description="Configured fixed monthly infra cost")
     estimated_monthly_usd: float | None = Field(
-        default=None, ge=0.0, description="actions_monthly + fixed_monthly, when derivable"
+        default=None,
+        ge=0.0,
+        description="actions_monthly + model_monthly + fixed_monthly. None when a "
+        "known-nonzero component cannot be rated — a partial total that silently "
+        "omits the dominant cost is worse than no total",
     )
 
 
