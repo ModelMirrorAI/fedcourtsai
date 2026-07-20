@@ -44,6 +44,14 @@ inputs:
       The ambient `GITHUB_TOKEN`, used only for the issue comments. Commenting
       triggers no workflow, so issue-write stays off the contents-write App token.
     required: true
+  matrix:
+    description: >
+      The plan job's matrix JSON (`needs.plan.outputs.matrix`) — the only record
+      of what this run was supposed to produce. A queued cell that uploads
+      nothing at all leaves no `status.json`, so without this it is
+      indistinguishable from a cell that was never queued.
+    required: false
+    default: ''
   courtlistener-token:
     description: >
       Scan input only, for the secret scan's literal-containment detector — the
@@ -147,6 +155,9 @@ runs:
         REPO: ${{ inputs.repo }}
         ISSUE: ${{ inputs.issue }}
         ROLE: ${{ inputs.role }}
+        # Via env, never interpolated into the shell body: the matrix carries
+        # court/docket/event ids parsed from the trigger issue.
+        PLAN_MATRIX: ${{ inputs.matrix }}
         # For the secret scan's literal-containment detector only: the one
         # credential reachable from an agent cell, searched for in the run's
         # added files before anything is pushed. This step parses agent
@@ -174,6 +185,15 @@ runs:
         # The ready/draft partition, branch names, and PR prose are computed by the
         # tested `collect-plan`; this step only runs git and gh. The ready PR
         # closes the triggering issue on merge (unless a draft still has work).
+        # The two gap sources the cell census cannot see, each with its own
+        # remedy: `--missing-file` is a cell whose artifact failed to transfer
+        # (re-run collect), `--matrix-file` catches a queued cell that uploaded
+        # nothing at all (the cell died; needs a re-queue).
+        matrix_args=()
+        if [ -n "${PLAN_MATRIX:-}" ]; then
+          printf '%s' "$PLAN_MATRIX" > plan-matrix.json
+          matrix_args=(--matrix-file plan-matrix.json)
+        fi
         # `--missing-file` carries the cells whose artifacts failed to transfer.
         # They leave no status.json, so they are invisible to the cell census —
         # without this the run would auto-merge a PR presenting itself as
@@ -181,7 +201,7 @@ runs:
         # close, exactly as a fully-absent engine already does.
         plan=$(uv run fedcourts collect-plan --role "$ROLE" --run-id "$run_id" \
           --status-dir cell-artifacts --issue "$ISSUE" \
-          --missing-file missing-artifacts.txt)
+          --missing-file missing-artifacts.txt "${matrix_args[@]}")
         # Never silently drop a cell: warn for each that produced no output. The
         # judgment noun rides on the plan (`_JUDGMENT_NOUN`, the same mapping that
         # names the PR title and commit message) rather than being re-derived
