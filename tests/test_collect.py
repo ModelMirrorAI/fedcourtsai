@@ -452,3 +452,38 @@ def test_the_plan_carries_the_judgment_noun_for_each_role() -> None:
         # Same source as the human-facing PR text, so the two cannot disagree.
         assert plan.ready is not None
         assert noun in plan.ready.title
+
+
+def test_a_transfer_lost_artifact_withholds_the_issue_close() -> None:
+    """The sharpest edge of per-artifact download: a lost artifact leaves no
+    status.json, so it is invisible to the cell census. Without naming it, a
+    partial transfer failure would auto-merge a PR presenting itself as the whole
+    run while quietly omitting cells — a loud total loss turned into a quiet
+    partial one."""
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline"), _cell("codex-baseline")],
+        issue=42,
+        missing_artifacts=["predict-gemini-baseline-scotus-1-evt-x"],
+    )
+    assert plan.ready is not None
+    # Every collected cell was ready, so nothing else would have held the issue.
+    assert plan.partial is None and not plan.dead_actors
+    assert "Closes #42" not in plan.ready.body, "a lost cell must keep the issue open"
+    assert "predict-gemini-baseline-scotus-1-evt-x" in plan.ready.body, "name the lost cell"
+    assert "re-run the `collect` job" in plan.ready.body, "point at the recovery path"
+    assert plan.missing_artifacts == ("predict-gemini-baseline-scotus-1-evt-x",)
+
+
+def test_a_fully_collected_run_still_closes_its_issue() -> None:
+    """The counterpart: the new gate must not make every run hold its issue."""
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        issue=42,
+        missing_artifacts=[],
+    )
+    assert plan.ready is not None
+    assert "Closes #42" in plan.ready.body

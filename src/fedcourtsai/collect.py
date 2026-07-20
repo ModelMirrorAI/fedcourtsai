@@ -236,6 +236,7 @@ class CollectPlan:
     stalled: bool = False
     dead_actors: tuple[str, ...] = ()
     noun: str = ""
+    missing_artifacts: tuple[str, ...] = ()
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -374,6 +375,7 @@ def collect_plan(
     cells: Sequence[CellStatus],
     issue: int | None = None,
     flags: Sequence[AgentFlags] = (),
+    missing_artifacts: Sequence[str] = (),
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -386,9 +388,19 @@ def collect_plan(
     opens no ready PR; with nothing to salvage, no draft.
 
     ``issue`` is the triggering issue, which the ready PR closes on merge — but
-    only when nothing is left to salvage **and no whole engine is absent** (a
-    fully-missing engine at 0/N, see ``dead_actors``), so a run with a pending
-    draft or a missing engine keeps its trigger issue open for the follow-up.
+    only when nothing is left to salvage, **no whole engine is absent** (a
+    fully-missing engine at 0/N, see ``dead_actors``), and **no cell's artifact
+    was lost in transfer** (``missing_artifacts``), so a run with a pending
+    draft or any uncovered gap keeps its trigger issue open for the follow-up.
+
+    ``missing_artifacts`` names the cells whose artifacts the collect job could
+    not download. They are invisible to the cell census — a lost artifact leaves
+    no ``status.json``, so it appears in neither ``skipped`` nor ``dead_actors``
+    unless it happens to take out an engine entirely. Without naming them here,
+    a partial transfer failure would auto-merge a PR presenting itself as the
+    whole run while quietly omitting cells, with the only trace a log line that
+    expires. They are recoverable (re-run the collect job while the artifacts
+    live), which is why this withholds the close rather than failing the run.
 
     ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags`. Their
     roll-up is appended to whichever PR body opens (the ready PR, else the draft)
@@ -400,6 +412,7 @@ def collect_plan(
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
     noun = _JUDGMENT_NOUN[role]
+    lost = tuple(sorted(missing_artifacts))
     ready = [c for c in cells if c.ready]
     salvage = [c for c in cells if c.produced and not c.ready]
     skipped = tuple(c for c in cells if not c.produced)
@@ -427,11 +440,22 @@ def collect_plan(
                 f"missing and the live queue will not re-queue it, so this issue "
                 f"stays open for a backfill (the per-case predictors filter)."
             )
+        if lost:
+            names = "\n".join(f"- `{n}`" for n in lost)
+            notes.append(
+                f"⚠️ {len(lost)} cell artifact(s) did not transfer, so their output "
+                f"is **not** in this PR even though the cells may have succeeded. "
+                f"This issue stays open; re-run the `collect` job to recover them "
+                f"(cell artifacts are retained 7 days).\n{names}"
+            )
         note = ("\n\n" + "\n\n".join(notes)) if notes else ""
         # Close the trigger issue from the ready PR, but not while a draft still
-        # carries unfinished work OR a whole engine is missing for the run.
+        # carries unfinished work, a whole engine is missing, or a cell's output
+        # was lost in transfer — each is a gap the run does not actually cover.
         closes = (
-            f"\n\nCloses #{issue}" if issue is not None and not salvage and not dead_actors else ""
+            f"\n\nCloses #{issue}"
+            if issue is not None and not salvage and not dead_actors and not lost
+            else ""
         )
         ready_plan = PrPlan(
             branch=f"{role.value}/run-{run_id}",
@@ -467,6 +491,7 @@ def collect_plan(
         stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
         dead_actors=dead_actors,
         noun=noun,
+        missing_artifacts=lost,
     )
 
 

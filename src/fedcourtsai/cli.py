@@ -3499,6 +3499,7 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
         "noun": plan.noun,
+        "missing_artifacts": list(plan.missing_artifacts),
     }
 
 
@@ -3550,6 +3551,13 @@ def collect_plan_cmd(
         int,
         typer.Option(help="Triggering issue number; the ready PR closes it on merge (0 = none)."),
     ] = 0,
+    missing_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="File of artifact names (one per line) that failed to download. "
+            "They are named in the PR body and withhold the issue close."
+        ),
+    ] = None,
 ) -> None:
     """Emit the per-run aggregate PR decision as compact JSON.
 
@@ -3576,6 +3584,13 @@ def collect_plan_cmd(
         cells=cells,
         issue=issue or None,
         flags=_load_flag_sets(status_dir, run_id),
+        # A lost artifact leaves no status.json, so it is invisible to the cell
+        # census above; the collect job's downloader is the only thing that knows.
+        missing_artifacts=(
+            [n for n in missing_file.read_text().split() if n]
+            if missing_file is not None and missing_file.exists()
+            else []
+        ),
     )
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 

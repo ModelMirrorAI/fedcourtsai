@@ -78,8 +78,23 @@ runs:
         # This run's own cell artifacts. Listing is per-run, which is what makes
         # `gh run rerun --failed` a recovery path: a rerun of just this job
         # re-lists the original attempt's artifacts and re-fetches them.
-        gh api --paginate "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
-          --jq '.artifacts[] | select(.expired == false) | .name' > all-artifacts.txt
+        # Retried like the downloads below: this is the one call whose failure
+        # would fail the whole step, in a step whose purpose is tolerating
+        # transient failure.
+        listed=false
+        for attempt in 1 2 3; do
+          if gh api --paginate "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+               --jq '.artifacts[] | select(.expired == false) | .name' \
+               > all-artifacts.txt < /dev/null; then
+            listed=true
+            break
+          fi
+          [ "$attempt" -lt 3 ] && sleep $((attempt * 5))
+        done
+        if [ "$listed" != true ]; then
+          echo "::error::could not list this run's artifacts after 3 attempts"
+          exit 1
+        fi
         grep -E "^${ROLE}-" all-artifacts.txt | sort -u > artifact-names.txt || true
         expected=$(wc -l < artifact-names.txt)
         echo "found ${expected} ${ROLE} artifact(s) on this run"
@@ -159,8 +174,14 @@ runs:
         # The ready/draft partition, branch names, and PR prose are computed by the
         # tested `collect-plan`; this step only runs git and gh. The ready PR
         # closes the triggering issue on merge (unless a draft still has work).
+        # `--missing-file` carries the cells whose artifacts failed to transfer.
+        # They leave no status.json, so they are invisible to the cell census —
+        # without this the run would auto-merge a PR presenting itself as
+        # complete while quietly omitting them. Naming them withholds the issue
+        # close, exactly as a fully-absent engine already does.
         plan=$(uv run fedcourts collect-plan --role "$ROLE" --run-id "$run_id" \
-          --status-dir cell-artifacts --issue "$ISSUE")
+          --status-dir cell-artifacts --issue "$ISSUE" \
+          --missing-file missing-artifacts.txt)
         # Never silently drop a cell: warn for each that produced no output. The
         # judgment noun rides on the plan (`_JUDGMENT_NOUN`, the same mapping that
         # names the PR title and commit message) rather than being re-derived
