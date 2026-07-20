@@ -155,7 +155,9 @@ def test_leaderboard_rolls_up_recorded_evaluations(
         engine="replay",
         run_id=ids.run_id(),
     )
-    board = build_leaderboard(iter_stratified_evaluations(fixture_corpus.data_root))
+    board = build_leaderboard(
+        iter_stratified_evaluations(fixture_corpus.data_root, frozen_only=False)
+    )
     assert board.predictors_ranked >= 1
     for entry in board.entries:
         # Whichever stratum the fixture's dates land the cell in, the metrics

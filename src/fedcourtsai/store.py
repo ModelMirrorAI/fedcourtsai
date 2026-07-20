@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from . import corpus, ids
 from .leaderboard import PROCEDURAL, Stratum, classify_stratum
+from .process_version import is_frozen
 from .schemas import AgentFlags, AgentToolingFeedback, Evaluation, ModelUsage, Outcome, Prediction
 from .serialize import read_model
 
@@ -148,7 +149,9 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
     return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
 
 
-def iter_stratified_evaluations(data_root: Path) -> list[tuple[Evaluation, Stratum]]:
+def iter_stratified_evaluations(
+    data_root: Path, *, frozen_only: bool = True
+) -> list[tuple[Evaluation, Stratum]]:
     """Every evaluation joined to its pre-registration stratum, in stable path order.
 
     For each ``evaluation.json``, reads the scored predictor's prediction(s) for
@@ -163,6 +166,15 @@ def iter_stratified_evaluations(data_root: Path) -> list[tuple[Evaluation, Strat
     evaluation can only exist for a resolved event with a real prediction (the
     referential checks enforce both), so a missing sibling artifact raises
     rather than guessing a stratum.
+
+    ``frozen_only`` (the default) keeps only cells whose latest prediction was
+    produced by a **frozen** process (:func:`process_version.is_frozen`), so every
+    surface built on this stream — the leaderboard and the ops dashboard both — is
+    the frozen headline by construction and the two cannot disagree. It filters on
+    the *prediction's* stamp, not the evaluation's: the competitor being ranked is
+    the predictor. An unstamped shakedown prediction is never frozen, so the
+    shakedown ledger drops out for free. ``frozen_only=False`` is the all-versions
+    view, which reproduces every scored cell regardless of process.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -175,7 +187,10 @@ def iter_stratified_evaluations(data_root: Path) -> list[tuple[Evaluation, Strat
         prediction_files = sorted(
             event_dir.glob(f"predictions/{evaluation.predictor_id}/*/prediction.json")
         )
-        latest_created_at = max(read_model(p, Prediction).created_at for p in prediction_files)
+        predictions = [read_model(p, Prediction) for p in prediction_files]
+        latest = max(predictions, key=lambda p: p.created_at)
+        if frozen_only and not is_frozen(latest.process_version):
+            continue
         outcome = read_model(event_dir / "outcome.json", Outcome)
         # A mootness-basis outcome routes to the procedural stratum regardless
         # of timing: the label tracks vacatur practice, not cert-worthiness,
@@ -183,7 +198,7 @@ def iter_stratified_evaluations(data_root: Path) -> list[tuple[Evaluation, Strat
         stratum: Stratum = (
             PROCEDURAL
             if outcome.disposition_basis == "mootness"
-            else classify_stratum(latest_created_at, outcome.resolved_at)
+            else classify_stratum(latest.created_at, outcome.resolved_at)
         )
         cells.append((evaluation, stratum))
     return cells

@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
@@ -221,6 +222,7 @@ def summarize_substance(
     statpack: StatPack | None = None,
     live_frontier: LiveFrontier | None = None,
     previous: OpsReport | None = None,
+    process_scope: Literal["frozen", "all"] = "frozen",
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
 
@@ -301,6 +303,7 @@ def summarize_substance(
         calibration=calibration,
         predictor_scores=scores,
         live_frontier=live_frontier,
+        process_scope=process_scope,
     )
 
 
@@ -318,16 +321,32 @@ def render_substance(digest: SubstanceDigest) -> str:
     rather than a stack of "not producing yet" placeholders.
     """
     c = digest.cells
+    # The scored figures below cover `process_scope`; the prediction census does
+    # not (it counts every committed prediction). Name the scope so a frozen
+    # headline with predictions but zero frozen evaluations reads as the honest
+    # shakedown state rather than a broken funnel.
+    scored_scope = "" if digest.process_scope == "all" else " _(frozen process only)_"
+    frozen_empty = (
+        digest.process_scope == "frozen"
+        and c.evaluations_forward == 0
+        and c.evaluations_retrospective == 0
+    )
     lines = [
         "## Substance (is it producing?)",
         "",
         f"Prediction cells committed: **{c.predictions}**{_fmt_delta(c.predictions_delta)} "
         f"over **{c.events_predicted}** event(s); predicted events resolved: "
-        f"**{c.predicted_resolved}**{_fmt_delta(c.predicted_resolved_delta)}; scored cells: "
+        f"**{c.predicted_resolved}**{_fmt_delta(c.predicted_resolved_delta)}; scored cells"
+        f"{scored_scope}: "
         f"**{c.evaluations_forward}** forward{_fmt_delta(c.evaluations_forward_delta)} · "
         f"**{c.evaluations_retrospective}** replay"
         f"{_fmt_delta(c.evaluations_retrospective_delta)}.",
     ]
+    if frozen_empty:
+        lines.append(
+            "_No frozen-process evaluations yet — the headline is scoped to the "
+            "frozen process; run with the all-versions view for the shakedown pool._"
+        )
 
     cal = digest.calibration
     cal_lines: list[str] = []

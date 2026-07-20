@@ -1472,3 +1472,33 @@ def test_summarize_substance_excludes_procedural_cells_from_both_strata() -> Non
         statpack=None,
     )
     assert (digest.cells.evaluations_forward, digest.cells.evaluations_retrospective) == (1, 0)
+
+
+def test_substance_labels_the_frozen_scope_and_the_honest_empty_state() -> None:
+    """The frozen headline shows the prediction census (version-blind) with zero
+    scored cells and says why — not a broken funnel, the shakedown state."""
+    digest = ops.summarize_substance(
+        cell_counts=(410, 137, 5),  # many predictions committed...
+        stratified_evaluations=[],  # ...but none from a frozen process yet
+        process_scope="frozen",
+    )
+    assert digest.process_scope == "frozen"
+    md = ops.render_substance(digest)
+    # The census still shows the predictions (never version-filtered).
+    assert "**410**" in md and "**137**" in md
+    # And the scored line names the scope + the honest empty note.
+    assert "frozen process only" in md
+    assert "No frozen-process evaluations yet" in md
+
+
+def test_substance_all_versions_scope_has_no_frozen_note() -> None:
+    digest = ops.summarize_substance(
+        cell_counts=(410, 137, 5),
+        stratified_evaluations=[
+            (_evaluation("claude-baseline", correct=1, quality=0.9), "retrospective")
+        ],
+        process_scope="all",
+    )
+    md = ops.render_substance(digest)
+    assert "frozen process only" not in md
+    assert "No frozen-process evaluations yet" not in md

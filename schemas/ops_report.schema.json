@@ -1131,6 +1131,16 @@
           },
           "title": "Predictor Scores",
           "type": "array"
+        },
+        "process_scope": {
+          "default": "frozen",
+          "description": "Which process versions the scored-cell figures (evaluations, calibration, per-predictor scores) cover \u2014 `frozen` headline by default. The prediction *census* (`cells.predictions` / `events_predicted`) is always version-blind, so a frozen scope with many predictions but zero frozen evaluations is the honest shakedown state, not a mismatch.",
+          "enum": [
+            "frozen",
+            "all"
+          ],
+          "title": "Process Scope",
+          "type": "string"
         }
       },
       "required": [

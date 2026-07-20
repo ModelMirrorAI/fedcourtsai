@@ -235,6 +235,16 @@
       "title": "Procedural Evaluations",
       "type": "integer"
     },
+    "process_scope": {
+      "default": "frozen",
+      "description": "Which process versions this board covers: `frozen` (the default headline \u2014 only cells whose predictor ran the blessed frozen process) or `all` (every version, including the shakedown). A `frozen` board with zero predictors is the honest 'no frozen-process evaluations yet' state, not a regression.",
+      "enum": [
+        "frozen",
+        "all"
+      ],
+      "title": "Process Scope",
+      "type": "string"
+    },
     "retrospective_evaluations": {
       "default": 0,
       "description": "Evaluations of retrospective (leakage-suspect) cells",
