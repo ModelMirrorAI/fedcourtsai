@@ -302,6 +302,40 @@ pull-log / live-log issue comment ("court/docket — reason"), with the count on
 the Actions step summary, for maintainer triage — recording nothing beats a
 guess.
 
+## Recovering a run whose `collect` failed
+
+`collect` is the single writer for a run's agent output, so its failure used to
+discard the whole run — on 2026-07-18 one transient artifact-download failure
+threw away 46 successful cells. It now degrades per artifact, and what it could
+not collect is named rather than silently dropped. Two gaps, two remedies:
+
+| the PR body / run log says | what happened | fix |
+|---|---|---|
+| *artifact did not transfer* | the cell likely succeeded; its output still exists | **re-run the `collect` job** |
+| *no cell output at all* | the cell died before it could report | **re-queue** — no rerun helps |
+
+Either gap keeps the trigger issue open, so a run never auto-merges presenting
+itself as complete while omitting cells.
+
+**Re-running collect is safe and repeatable.** `gh run rerun --failed`
+re-executes only the failed job; the artifact listing is per-run, so it re-lists
+and re-fetches the original attempt's uploads. The loop force-pushes its
+run-scoped branch, finds-or-updates the PR (reconciling draft state), and
+marker-dedupes the trigger-issue reports, so nothing stacks or aborts on a
+second pass. A kind whose PR already merged is skipped.
+
+Two caveats:
+
+- **Cell artifacts are retained 7 days.** After that a transfer-lost cell is
+  gone and only a re-queue recovers it.
+- **`--failed` also re-runs failed *cells*,** and `upload-artifact` rejects a
+  duplicate artifact name within a run, so those re-run cells fail at upload.
+  `--failed` is the recovery for a *collect-only* failure; when cells failed
+  too, re-apply the `run:*` label instead.
+
+A rerun discards hand-edits to an unmerged draft branch — it is rebuilt from the
+artifacts. Finish a draft by merging it, not by editing and then re-running.
+
 ## Graceful degradation on limits
 
 Agent steps (predict, evaluate) are bounded by a step-level

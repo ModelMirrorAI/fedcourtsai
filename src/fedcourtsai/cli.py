@@ -39,7 +39,7 @@ from . import (
     scope_manifest,
     secretscan,
 )
-from .agent_feedback import post_agent_feedback
+from .agent_feedback import post_agent_feedback, post_once
 from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
@@ -3655,6 +3655,34 @@ def stall_comment_cmd(
     carries retry instructions.
     """
     typer.echo(render_stall_comment(role, run_url))
+
+
+@app.command("post-issue-comment")
+def post_issue_comment_cmd(
+    issue: Annotated[int, typer.Option(help="Issue number to comment on.")],
+    repo: Annotated[str, typer.Option(help="owner/name of the repository.")],
+    marker: Annotated[
+        str,
+        typer.Option(
+            help="Hidden key identifying this report; a comment already carrying it "
+            "is not posted again."
+        ),
+    ],
+    body_file: Annotated[Path, typer.Option(help="The rendered comment body.")],
+) -> None:
+    """Post a comment on an issue exactly once, keyed by ``--marker``.
+
+    For the collect job's stall and secret-scan reports. Their step reruns
+    whenever the collect job does — and rerunning collect is the documented
+    recovery for a transfer failure — so without the marker every recovery
+    attempt would stack another copy of the same warning on the trigger issue,
+    burying the signal it exists to raise. An empty/absent body posts nothing.
+    """
+    body = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
+    if not body.strip():
+        typer.echo("nothing to post")
+        return
+    typer.echo(post_once(repo=repo, issue=issue, marker=marker, body=body))
 
 
 @app.command("post-agent-feedback")

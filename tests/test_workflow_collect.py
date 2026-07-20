@@ -198,7 +198,7 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
         reporting = [
             s
             for s in steps
-            if "gh issue comment" in s.get("run", "") or "post-agent-feedback" in s.get("run", "")
+            if "post-issue-comment" in s.get("run", "") or "post-agent-feedback" in s.get("run", "")
         ]
         assert len(reporting) == 3, f"{workflow}: expected stall, secret-scan, and feedback steps"
         for step in reporting:
@@ -208,9 +208,10 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
             assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
 
     action_body = COLLECT_ACTION.read_text()
-    assert "gh issue comment" not in action_body, (
-        "a reporting step moved into the composite; it would stop firing on cancellation"
-    )
+    for poster in ("post-issue-comment", "post-agent-feedback"):
+        assert poster not in action_body, (
+            "a reporting step moved into the composite; it would stop firing on cancellation"
+        )
 
 
 def test_the_artifact_name_derivation_matches_what_the_cells_upload() -> None:
@@ -263,3 +264,46 @@ def test_the_plan_matrix_is_threaded_into_collect() -> None:
     assert aggregate["env"]["PLAN_MATRIX"] == "${{ inputs.matrix }}"
     assert "${{ inputs.matrix }}" not in aggregate["run"]
     assert "--matrix-file" in aggregate["run"]
+
+
+def test_the_run_pr_loop_is_safe_to_repeat() -> None:
+    """`gh run rerun --failed` is the documented recovery for a transfer failure
+    — A3's own PR notes tell operators to use it — so the loop that pushes and
+    opens the run PR has to be repeatable. Each of these aborts the step under
+    `set -euo pipefail` on a second attempt if dropped."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    body = aggregate["run"]
+
+    # A plain push non-fast-forward rejects against the prior attempt's branch.
+    assert "push --force" in body
+    # But force must never touch settled work, so a merged PR short-circuits.
+    assert "--state merged" in body
+    # `gh pr create` errors on an existing open PR for the same head.
+    assert "--state open" in body and "gh pr edit" in body
+    # A rerun that clears an earlier gate must promote the draft, or the run's
+    # output stays a draft forever and never merges.
+    assert "gh pr ready" in body
+
+
+def test_the_trigger_issue_reports_are_marker_deduped() -> None:
+    """Both reports are posted by steps that rerun with the job, so a plain
+    comment would stack one copy per recovery attempt."""
+    for workflow in FAN_OUTS:
+        body = (WORKFLOWS / workflow).read_text()
+        assert body.count("post-issue-comment") == 2, f"{workflow}: stall and secret-scan"
+        assert "<!-- collect-stall: ${GITHUB_RUN_ID} -->" in body
+        assert "<!-- collect-secret-scan: ${GITHUB_RUN_ID} -->" in body
+        # The old unconditional form must not come back.
+        assert "gh issue comment" not in body
+
+
+def test_a_rerun_cannot_race_the_first_attempt_on_the_same_branch() -> None:
+    """Force-push turns a concurrent second attempt from a reject into a silent
+    clobber, so the two are serialized. Keyed on the run, so it never blocks a
+    different run's collect."""
+    for workflow in FAN_OUTS:
+        concurrency = _collect_job(workflow)["concurrency"]
+        assert "github.run_id" in concurrency["group"]
+        assert concurrency["cancel-in-progress"] is False

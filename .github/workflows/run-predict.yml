@@ -738,6 +738,12 @@ jobs:
           done
 
   collect:
+    # A rerun launched while the first attempt is still running would race the
+    # same run-scoped branch, which force-push turns from a reject into a
+    # silent clobber. Keyed on the run, so it never blocks a *different* run.
+    concurrency:
+      group: collect-${{ github.workflow }}-${{ github.run_id }}
+      cancel-in-progress: false
     needs: [plan, predict]
     # Run after the whole fan-out even if some cells failed, as long as the plan
     # queued jobs. This is the only writer: it unions the cells' artifacts into one
@@ -805,7 +811,12 @@ jobs:
         run: |
           set -euo pipefail
           [ -s stall-comment.md ] || exit 0
-          gh issue comment "$ISSUE" --repo "$REPO" --body-file stall-comment.md
+          # Marker-deduped: this step reruns whenever collect does, and rerunning
+          # collect is the documented recovery for a transfer failure, so a plain
+          # comment would stack a copy per attempt and bury the warning.
+          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
+            --marker "<!-- collect-stall: ${GITHUB_RUN_ID} -->" \
+            --body-file stall-comment.md
 
       - name: Flag a secret-scan hit on the trigger issue
         # A withheld branch opens no PR, so without this the scan hit would be
@@ -821,7 +832,12 @@ jobs:
         run: |
           set -euo pipefail
           [ -s secret-scan-issue.md ] || exit 0
-          gh issue comment "$ISSUE" --repo "$REPO" --body-file secret-scan-issue.md
+          # Marker-deduped: this step reruns whenever collect does, and rerunning
+          # collect is the documented recovery for a transfer failure, so a plain
+          # comment would stack a copy per attempt and bury the warning.
+          uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
+            --marker "<!-- collect-secret-scan: ${GITHUB_RUN_ID} -->" \
+            --body-file secret-scan-issue.md
 
       - name: Latch run flags onto the agent-feedback issue
         # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev

@@ -10,6 +10,7 @@ from fedcourtsai.agent_feedback import (
     already_posted,
     choose_feedback_issue,
     post_agent_feedback,
+    post_once,
 )
 
 MARKER = "<!-- agent-feedback-run: predict/R -->"
@@ -91,3 +92,48 @@ def test_post_creates_issue_when_none_open() -> None:
     # The comment lands on the freshly created issue number parsed from the URL.
     comment_call = next(c for c in gh.calls if tuple(c[1:3]) == ("issue", "comment"))
     assert "123" in comment_call
+
+
+# --- post_once: the collect job's stall / secret-scan reports ----------------
+
+_STALL_MARKER = "<!-- collect-stall: 12345 -->"
+
+
+def test_post_once_comments_when_the_marker_is_absent() -> None:
+    gh = FakeGh(issues=[], comments=["an unrelated comment"])
+    result = post_once(repo="o/r", issue=7, marker=_STALL_MARKER, body="the run stalled", runner=gh)
+    assert result == "posted to #7"
+    (comment,) = [c for c in gh.calls if tuple(c[1:3]) == ("issue", "comment")]
+    # The marker leads the body, so the next attempt can find it.
+    assert comment[-1].startswith(_STALL_MARKER)
+    assert "the run stalled" in comment[-1]
+
+
+def test_post_once_is_silent_when_the_marker_is_already_there() -> None:
+    """Rerunning collect is the documented recovery for a transfer failure, so
+    without this every recovery attempt stacks another copy of the same warning
+    on the trigger issue and buries the signal it exists to raise."""
+    gh = FakeGh(issues=[], comments=[f"{_STALL_MARKER}\nthe run stalled"])
+    assert post_once(repo="o/r", issue=7, marker=_STALL_MARKER, body="x", runner=gh) == (
+        "already posted on #7"
+    )
+    assert not gh.commented()
+
+
+def test_post_once_keys_on_the_run_so_a_different_run_still_reports() -> None:
+    """Dedup must not silence a genuinely new stall on the same issue."""
+    gh = FakeGh(issues=[], comments=["<!-- collect-stall: 99999 -->\nan earlier run"])
+    assert post_once(repo="o/r", issue=7, marker=_STALL_MARKER, body="x", runner=gh).startswith(
+        "posted"
+    )
+    assert gh.commented()
+
+
+def test_post_once_distinguishes_the_two_report_kinds() -> None:
+    """A stall already reported must not suppress that run's secret-scan hit."""
+    gh = FakeGh(issues=[], comments=[f"{_STALL_MARKER}\nstalled"])
+    scan_marker = "<!-- collect-secret-scan: 12345 -->"
+    assert post_once(repo="o/r", issue=7, marker=scan_marker, body="hit", runner=gh).startswith(
+        "posted"
+    )
+    assert gh.commented()

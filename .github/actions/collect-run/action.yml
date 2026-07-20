@@ -222,6 +222,15 @@ runs:
           pr=$(jq -c ".${kind}" <<<"$plan")
           [ "$pr" = "null" ] && continue
           branch=$(jq -r '.branch' <<<"$pr")
+          # Rerunning collect is the documented recovery for a transfer failure,
+          # so this loop must be safe to repeat. If this kind's PR already
+          # merged, its work is done: re-pushing would resurrect a branch whose
+          # content is on main and reopen a settled PR.
+          if [ -n "$(gh pr list --repo "$REPO" --head "$branch" --state merged \
+               --json url --jq '.[0].url // empty')" ]; then
+            echo "${branch} already merged; nothing to redo"
+            continue
+          fi
           # Branch from the CURRENT remote main tip, re-fetched each pass,
           # not the job's local main. The matrix runs long, and the
           # deterministic writers (live/seed/pull) commit to main directly and
@@ -281,13 +290,35 @@ runs:
           git commit -q -m "$(jq -r '.commit_message' <<<"$pr")"
           # Push with the app (write) token explicitly; blank any ambient
           # extraheader at command scope so the write token authenticates.
+          # --force because the branch is run-scoped (`<role>/run-<run_id>`) and
+          # bot-owned, so nothing else writes it: on a rerun the previous
+          # attempt's branch is this run's own leftover, and a plain push would
+          # non-fast-forward reject and abort under `set -e`. The merged check
+          # above is what keeps force from touching settled work. Trade-off:
+          # a rerun discards hand-edits to an unmerged draft branch.
           git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
-            push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
             "HEAD:refs/heads/${branch}"
-          flags=()
-          [ "$draft" = "true" ] && flags+=(--draft)
-          url=$(gh pr create --base main --head "$branch" "${flags[@]}" \
-            --title "$(jq -r '.title' <<<"$pr")" --body-file pr-body.md)
+          title=$(jq -r '.title' <<<"$pr")
+          # Find-or-update: `gh pr create` errors on an existing open PR for the
+          # same head, which would abort the rerun under `set -e`.
+          url=$(gh pr list --repo "$REPO" --head "$branch" --state open \
+            --json url --jq '.[0].url // empty')
+          if [ -z "$url" ]; then
+            flags=()
+            [ "$draft" = "true" ] && flags+=(--draft)
+            url=$(gh pr create --base main --head "$branch" "${flags[@]}" \
+              --title "$title" --body-file pr-body.md)
+          else
+            gh pr edit "$url" --title "$title" --body-file pr-body.md
+            # Reconcile draft state, or a rerun that clears an earlier gate
+            # leaves the PR a draft forever and its output never merges.
+            if [ "$draft" = "true" ]; then
+              gh pr ready --undo "$url" || true
+            else
+              gh pr ready "$url" || true
+            fi
+          fi
           # Enable auto-merge only for a ready (non-draft, jail-clean) PR. A miss
           # (e.g. the repo's "Allow auto-merge" is off) leaves the PR open for a
           # manual merge rather than failing the run.
