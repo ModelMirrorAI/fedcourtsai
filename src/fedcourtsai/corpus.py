@@ -326,6 +326,17 @@ class CorpusRow(BaseModel):
         "debounce reads it so an already-routed case is retried no more than "
         "daily while its run PR is in flight or failed.",
     )
+    evaluate_queued_at: date | None = Field(
+        default=None,
+        description="The last date the evaluate backlog deriver routed this case "
+        "at the evaluate seam; None if never. The evaluate twin of "
+        "`predict_queued_at`, and owned the same way — the queue routing, never "
+        "an ingestion channel. Debounces the backlog re-derivation to daily. It "
+        "carries only scheduling; the queue itself is re-derivable from the git "
+        "ledger (resolved event + committed prediction + no evaluation), so "
+        "losing this stamp costs at most a duplicate trigger issue, never a "
+        "grading.",
+    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -457,7 +468,10 @@ CREATE TABLE IF NOT EXISTS cases (
     -- The last date the live channel queued predict for this case (routing or
     -- selection sweep). Owned by the queue routing; the sweep's daily-retry
     -- debounce reads it.
-    predict_queued_at   TEXT
+    predict_queued_at   TEXT,
+    -- The last date the evaluate backlog deriver queued evaluate. Owned the same
+    -- way; the deriver's daily-retry debounce reads it.
+    evaluate_queued_at  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -589,6 +603,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "salience_version": "TEXT",
     "salience_selected": "INTEGER NOT NULL DEFAULT 0",
     "predict_queued_at": "TEXT",
+    "evaluate_queued_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -783,6 +798,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "salience_version": row.salience_version,
         "salience_selected": int(row.salience_selected),
         "predict_queued_at": row.predict_queued_at.isoformat() if row.predict_queued_at else None,
+        "evaluate_queued_at": (
+            row.evaluate_queued_at.isoformat() if row.evaluate_queued_at else None
+        ),
     }
 
 
@@ -866,6 +884,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         salience_version=_optional_str(record, "salience_version"),
         salience_selected=bool(_optional_int(record, "salience_selected")),
         predict_queued_at=_optional_date(record, "predict_queued_at"),
+        evaluate_queued_at=_optional_date(record, "evaluate_queued_at"),
     )
 
 
@@ -923,7 +942,13 @@ def _update_clause(column: str) -> str:
         # The scope reconcile owns this flag (it is not an ingestion fact and is not
         # monotonic), so a re-ingest must never clobber it — keep the stored value.
         return f"{column}=cases.{column}"
-    if column in ("salience_score", "salience_version", "salience_selected", "predict_queued_at"):
+    if column in (
+        "salience_score",
+        "salience_version",
+        "salience_selected",
+        "predict_queued_at",
+        "evaluate_queued_at",
+    ):
         # The salience selection pass owns the salience columns and the queue
         # routing owns `predict_queued_at` (none are ingestion facts): the pass
         # recomputes score/version and maintains the one-way `salience_selected`
@@ -1745,6 +1770,21 @@ def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -
         )
 
 
+def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
+    """Record that the backlog deriver routed each case at the evaluate seam on ``day``.
+
+    The evaluate twin of :func:`stamp_predict_queued` and its sole writer analogue.
+    Overwrites forward — "most recent evaluate-routing date", which the deriver's
+    daily-retry debounce compares against today so a case queued today is not
+    re-queued until tomorrow.
+    """
+    with conn:
+        conn.executemany(
+            "UPDATE cases SET evaluate_queued_at = ? WHERE case_id = ?",
+            [(day.isoformat(), case_id) for case_id in case_ids],
+        )
+
+
 def stamp_predict_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that a channel routed each case at the predict seam on ``day``.
 
@@ -2216,6 +2256,27 @@ def iter_open_events(conn: ReadConnection, *, court: str | None = None) -> Itera
     that must scan every still-open event rather than one case's.
     """
     clauses = ["resolved = 0"]
+    params: list[object] = []
+    if court is not None:
+        clauses.append("court = ?")
+        params.append(court)
+    where = " AND ".join(clauses)
+    cur = conn.execute(f"SELECT * FROM events WHERE {where} ORDER BY case_id, event_id", params)
+    for record in cur:
+        yield _event_from_record(record)
+
+
+def iter_resolved_events(
+    conn: ReadConnection, *, court: str | None = None
+) -> Iterator[CorpusEvent]:
+    """Yield resolved (``resolved = 1``) events in ``(case_id, event_id)`` order.
+
+    The mirror of :func:`iter_open_events` and the read side of the evaluate
+    backlog: an event with a recorded outcome is a candidate to grade. Optionally
+    filtered to one ``court``. The corpus-wide complement of
+    :func:`store.resolved_events` (which answers one case).
+    """
+    clauses = ["resolved = 1"]
     params: list[object] = []
     if court is not None:
         clauses.append("court = ?")

@@ -160,8 +160,14 @@ predict:
   skip_resolved: true
 
 evaluate:
-  # Only evaluate events that have a realized outcome.json.
-  require_outcome: true
+  # Per-cycle cap on the evaluate backlog deriver — the path that re-derives owed
+  # gradings from committed ledger state (resolved event + prediction + no
+  # evaluation), so a failed or paused run:evaluate self-heals instead of losing
+  # those gradings. Unlike the selection sweep this costs no network (git ledger +
+  # corpus only), so the cap bounds model spend and PR volume, not request rate:
+  # each queued case fans out one cell per not-yet-graded evaluator. The backlog
+  # drains across cycles, stalest first, under a daily evaluate_queued_at debounce.
+  backlog_cases_per_cycle: 25
 
 # salience = the salience gate (see docs/salience.md): ranks in-scope cert
 # petitions by a deterministic score and spends the tournament on the top slice
