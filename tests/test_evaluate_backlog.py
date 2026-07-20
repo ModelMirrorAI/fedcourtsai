@@ -231,10 +231,10 @@ def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) 
         _resolved_event(db, "scotus", docket)
         seed_prediction(data, "scotus", docket, event)
 
-    drained: set[int] = set()
+    drained: set[object] = set()
     day = date(2026, 7, 20)
     for _ in range(3):  # ceil(5 / cap=2) = 3 cycles
         queues = _derive(tmp_path, cap=2, today=day)
-        drained |= {int(e["docket"]) for e in queues.evaluate}
+        drained |= {e["docket"] for e in queues.evaluate}
         day += timedelta(days=1)
     assert drained == {1, 2, 3, 4, 5}, "every owed case is reached within ceil(n/cap) cycles"

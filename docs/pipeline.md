@@ -417,16 +417,16 @@ deliberate similarity:
 
 Re-queueing is safe because the `evaluate-matrix` plan gate drops a cell whose
 judge has already graded the event (per evaluator), so a re-derivation mints only
-the *missing* judges and cannot double-count. One accepted limitation rides on
-that gate's grain — see #804 — a prediction backfilled *after* a judge graded the
-event is not re-scored; the coverage gap is findable by a ledger scan, which is
-the safer failure than a silent miscount.
+the *missing* judges and cannot double-count. The gate works at (evaluator,
+event) grain, which carries one accepted limitation: a prediction committed
+*after* a judge graded the event is not re-scored. That coverage gap is findable
+by a ledger scan (a resolved event whose prediction has no matching evaluation),
+which is the safer failure than the silent miscount a re-grade would cause.
 
-This is what makes an `EVALUATE_HANDOFF_ENABLED` pause switch safe to add, should
-the evaluate fan-out ever need holding the way predict does: a held evaluate
-window would now re-derive on resume rather than be lost. It is not wired yet —
-the deriver landed first so its behaviour could be observed in a real cycle
-before a pause switch rides on it.
+An `EVALUATE_HANDOFF_ENABLED` pause switch is therefore safe to add — a held
+evaluate window re-derives on resume rather than being lost — but is
+intentionally not wired, so the deriver's behaviour can be observed in production
+before a pause switch depends on it.
 
 ### Disabling the workflow is not the same as holding the handoff
 

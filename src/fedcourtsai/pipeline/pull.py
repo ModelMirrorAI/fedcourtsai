@@ -143,14 +143,12 @@ class PullQueues:
     # or retires it.
     predict_skipped_decided: list[dict[str, object]] = field(default_factory=list)
     evaluate: list[dict[str, object]] = field(default_factory=list)
-    # Resolved events dropped from the evaluate queue because the ledger holds
-    # no prediction to score. Surfaced (never silently discarded): resolution
-    # latches closed, so this poll's edge-triggered queue is once-only. What was
-    # once an unrecoverable drop — a prediction landing *after* the outcome, an
-    # in-flight predict run racing a fast resolution — is now re-derived by
-    # `evaluate_backlog` on a later cycle: the ledger scan (outcome + prediction
-    # present, evaluation absent) that this comment used to name as the manual
-    # recovery is exactly what the deriver runs.
+    # Resolved events dropped from *this poll's* evaluate queue because the ledger
+    # holds no prediction to score. Surfaced (never silently discarded), but not
+    # lost either: a prediction that lands after the outcome (an in-flight predict
+    # run racing a fast resolution) is picked up by `evaluate_backlog`, which
+    # scans the same outcome-present / prediction-present / evaluation-absent
+    # condition on a later cycle and re-queues it.
     evaluate_skipped: list[dict[str, object]] = field(default_factory=list)
     # Of the `evaluate` entries above, how many the backlog deriver contributed
     # (as opposed to this poll's fresh resolutions). Count, not a parallel list,
@@ -267,7 +265,11 @@ def evaluate_backlog(
     workflow consumes one queue) and counts the additions in
     ``evaluate_from_backlog``. ``already_queued`` is the case ids this cycle's
     poll seams already queued, so the deriver does not double-queue a case the
-    fresh-resolution path just covered.
+    fresh-resolution path just covered — case-granular, so a case queued this
+    cycle for one event defers its *other* owed events to the next cycle. That
+    is fine: they are debounced anyway, and re-derived stalest-first later. For
+    SCOTUS, where ``evt-petition-disposition`` is typically the sole event, the
+    case rarely has other owed events at all.
     """
     if cap <= 0:
         return
