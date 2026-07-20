@@ -5,6 +5,6 @@ docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
 opened_at: '2025-09-03'
-resolved: false
+resolved: true
 schema_version: '1.0'
 title: Kenneth J. Jouppi v. Alaska
