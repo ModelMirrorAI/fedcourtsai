@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2151836,
-      "detail": "2151836 rows vs baseline 2151827",
+      "checked": 2151846,
+      "detail": "2151846 rows vs baseline 2151836",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4306792,
+      "checked": 4306812,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -33,7 +33,7 @@
       "problems": []
     },
     {
-      "checked": 2151836,
+      "checked": 2151846,
       "detail": "0 future-dated, 21 decided-before-filed vs accepted baseline 50 (as of 2026-07-20); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 21,
       "name": "case_dates_ordered",
@@ -62,7 +62,7 @@
       ]
     },
     {
-      "checked": 4303687,
+      "checked": 4303707,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -70,7 +70,7 @@
       "problems": []
     },
     {
-      "checked": 4306792,
+      "checked": 4306812,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,8 +94,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2151851,
-  "corpus_rows": 2151836,
+  "corpus_events": 2151861,
+  "corpus_rows": 2151846,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
