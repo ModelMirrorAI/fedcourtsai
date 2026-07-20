@@ -212,6 +212,15 @@ cell's tooling, scanned by `run-ops` into a tooling digest; advisory, never
 gating. `retrieval_log.json` is the harness-captured tool-call transcript the
 evaluators' leakage grading reads.
 
+The judgment file itself (`prediction.json` / `evaluation.json`) also carries one
+harness-written field, `process_version` — the stamp of the process that produced
+the cell (prompt template + resolved registry config, hashed to a content
+`digest`). Like `usage.json`, it is the harness's word, not the agent's: a
+post-agent `stamp-cell` step injects it from the registry in force at run time.
+Headline metrics partition on this digest so the July/August shakedown is
+excluded from the frozen board without deleting it. See
+[process-version.md](process-version.md).
+
 **Repo-level roll-ups** sit outside the per-case tree, each a deterministic,
 offline function of the corpus regenerated and committed for review: the
 `metrics/` artifacts (leaderboard, backtest, statpack) and

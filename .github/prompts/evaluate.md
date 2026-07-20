@@ -80,6 +80,8 @@ For each predictor you score, write to
   - `reasoning_quality` — your 0–1 qualitative judgment of the predicted reasoning
     (soundness of the legal analysis given the outcome, not just whether it was
     right). `notes_doc` = `evaluation.md`.
+  - Do **not** write `process_version` — the harness stamps it after you run, from
+    the registry in force at run time. Anything you put there is overwritten.
   - `leakage` — the structured assessment from the leakage grading below
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff

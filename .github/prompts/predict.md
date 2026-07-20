@@ -188,6 +188,8 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     `big_case_rationale`. It is judged later by an independent evaluator's
     agreement with its own read, never against a ground truth.
   - `reasoning_doc` — `reasoning.md` (the default).
+  - Do **not** write `process_version` — the harness stamps it after you run, from
+    the registry in force at run time. Anything you put there is overwritten.
 - **`reasoning.md`** — your qualitative analysis: the legal question, the governing
   standard, the facts from the snapshot that drive the outcome, and the reasoning
   behind your probability and any predicted votes.

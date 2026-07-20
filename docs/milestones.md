@@ -61,6 +61,21 @@ The machinery for the first release is running:
   evaluations accumulate from here, so the published record is consistent with
   the current design end to end.
 
+### The process-version freeze (cutover marker)
+
+The July/August predictions are the **shakedown** — real forward calls under a
+process still being corrected. Every cell is stamped with its process version
+(see [process-version.md](process-version.md)), and the headline metrics default
+to the frozen process, so the shakedown is excluded without being deleted.
+
+The **freeze** is the cutover: a one-line commit that blesses the current
+process digest(s) into `FROZEN_PROCESS_DIGESTS`, run when the process is settled
+and the first long-conference predictions are about to land. **Record the freeze
+commit here when it happens** — it is the marker that separates the shakedown
+from the frozen forward record.
+
+- Freeze commit: _not yet frozen — the shakedown is ongoing._
+
 ## The near-term target: the OT2026 long-conference cert release
 
 The first public release aims at the **September 2026 long conference**. Before
