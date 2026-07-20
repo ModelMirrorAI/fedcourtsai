@@ -152,6 +152,19 @@ def test_lost_artifacts_are_reported_downstream_not_just_logged() -> None:
     )
 
 
+def test_uncovered_cells_are_warned_in_step_not_only_in_the_pr_body() -> None:
+    """The PR body is rendered under the ready PR. On a run where most cells died
+    — exactly what the census exists for — there may be no ready PR at all, so a
+    body-only disclosure would drop the named cells entirely."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    assert ".uncovered_cells[]" in aggregate["run"], (
+        "warn per uncovered cell in-step, or a no-ready-PR run reports none of them"
+    )
+    assert "needs a re-queue" in aggregate["run"], "name the remedy, which a rerun cannot supply"
+
+
 def test_a_truncated_download_is_cleared_before_retry() -> None:
     """A half-written data/ subtree would otherwise be unioned into the PR as if
     it were a complete cell."""

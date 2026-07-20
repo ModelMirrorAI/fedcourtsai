@@ -3508,6 +3508,36 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
     }
 
 
+def _expected_cells(matrix_file: Path | None) -> list[ExpectedCell]:
+    """Parse the plan job's matrix into the cells a run was supposed to produce.
+
+    Degrades to an empty census on *any* malformed input, mirroring
+    :func:`_load_flag_sets`. This is deliberately the most forgiving parse in the
+    collect path: the census is **advisory** — it names gaps and withholds the
+    issue close — while the aggregation it rides alongside carries the run's only
+    copy of its agent output. A matrix that fails to parse (a truncated job
+    output on a wide fan-out, a shape change) must never abort `collect-plan` and
+    take the run's cells with it, which is the loss the per-artifact download was
+    written to prevent. Worse, it would be deterministic: a rerun re-reads the
+    same matrix and fails identically, stranding the run until a human steps in.
+
+    Losing the census costs a warning and an issue that closes when it should
+    have stayed open; losing the aggregation costs the run.
+    """
+    if matrix_file is None or not matrix_file.exists():
+        return []
+    try:
+        entries = json.loads(matrix_file.read_text())["include"]
+        return [ExpectedCell.from_matrix_entry(entry) for entry in entries]
+    except (OSError, ValueError, TypeError, LookupError, AttributeError) as exc:
+        typer.echo(
+            f"::warning::could not read the plan matrix ({exc}); "
+            "skipping the queued-cell census for this run",
+            err=True,
+        )
+        return []
+
+
 def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     """Parse this run's per-cell ``flags.json`` under ``status_dir`` into models.
 
@@ -3606,14 +3636,7 @@ def collect_plan_cmd(
         # What the run was *supposed* to produce. A cell that never uploaded
         # leaves no status.json, so without this it is indistinguishable from a
         # cell that was never queued.
-        expected=(
-            [
-                ExpectedCell.from_matrix_entry(entry)
-                for entry in json.loads(matrix_file.read_text()).get("include", [])
-            ]
-            if matrix_file is not None and matrix_file.exists()
-            else []
-        ),
+        expected=_expected_cells(matrix_file),
     )
     typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
 
