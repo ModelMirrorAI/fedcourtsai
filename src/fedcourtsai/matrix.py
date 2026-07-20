@@ -2,9 +2,11 @@
 
 ``run-predict`` runs every enabled predictor against every open event; this is
 the cartesian product the matrix needs. ``run-evaluate`` runs every enabled
-evaluator against every resolved event **that holds a committed prediction**
-(each evaluator scores all predictors for that event internally, so predictors
-are not part of the matrix dimension; a predictionless event mints no cells).
+evaluator against every resolved event **that holds a committed prediction and
+that the evaluator has not already graded** (each evaluator scores all predictors
+for that event internally, so predictors are not part of the matrix dimension; a
+predictionless event mints no cells, and neither does an already-graded one —
+that second gate is what keeps a re-queue from double-counting).
 
 A single trigger can carry **many** cases: the issue body holds either one
 ``{court, docket, events}`` object or a JSON array of them. ``parse_cases``
@@ -163,6 +165,21 @@ def event_has_evaluations(
     depth-anchored by that filename, so it cannot match the per-run siblings one
     level shallower (``evaluations/<evaluator>/<run>/usage.json`` and friends) —
     the same shape :func:`fedcourtsai.finalize.agent_produced_output` relies on.
+
+    **Accepted limitation: this asks "has this judge graded this event", not
+    "has it graded every prediction for this event".** The ledger is keyed by
+    (evaluator, predictor, event) but a cell is only (evaluator, event) — the
+    prompt has it score *every* predictor in one pass, with no partial mode. So
+    a prediction that lands *after* a judge graded the event (the engine-backfill
+    path in :class:`CaseRequest`) is never scored by that judge.
+
+    Gating per predictor instead would be worse, not better: re-minting the cell
+    to pick up the late prediction re-grades the ones already scored, and the
+    leaderboard has no run dedup, so that double-counts. Between a visible
+    coverage gap (a prediction with no evaluation, findable by a ledger scan) and
+    a silent miscount (standings reweighted with no trace), the gap is the safer
+    failure. The real fix is dedup at the leaderboard, which would make
+    re-grading safe and let this gate move to the per-predictor grain.
     """
     root = CasePaths(data_root, court, docket).event(event_id).base / "evaluations"
     return any(root.glob(f"{evaluator_id or '*'}/*/*/evaluation.json"))
@@ -185,12 +202,17 @@ def evaluate_matrix(
       score (:func:`event_has_predictions`).
     * **already evaluated** — a judge that has already graded this event is not
       re-minted (:func:`event_has_evaluations`, per evaluator). This is what
-      makes the fan-out idempotent: a re-queued event, a duplicate trigger
-      issue, or a manual single-issue recovery mints only the *missing* judges.
+      makes a *sequential* re-queue idempotent: a later run, or a manual
+      single-issue recovery, mints only the missing judges. It is a plan-time
+      read of the checked-out ledger, not a lock — two runs planned before
+      either's PR merges both see an ungraded event and both mint, and
+      ``gh run rerun --failed`` reuses the cached matrix without re-planning at
+      all, so neither is protected by this.
       Without it a re-queue would double-count, because the leaderboard reads
       every committed ``evaluation.json`` into a per-(predictor, case, event)
       list with no run dedup — a second grading of the same cell silently
-      reweights the standings.
+      reweights the standings. See :func:`event_has_evaluations` for the grain
+      this gate works at, and the coverage gap that follows from it.
 
     ``data_root=None`` skips both (callers that assemble their own ledger).
     ``skip_evaluated=False`` keeps the second gate off for a deliberate

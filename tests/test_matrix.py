@@ -10,6 +10,7 @@ from fedcourtsai.matrix import (
     predict_matrix,
 )
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.registry import enabled_evaluators
 from tests.conftest import seed_evaluation, seed_prediction
 
 PREDICTORS = Path("config/predictors.yaml")
@@ -206,8 +207,8 @@ def test_evaluate_matrix_mints_only_the_judges_that_have_not_graded(tmp_path: Pa
 
     gated = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root)
     minted = {c["evaluator_id"] for c in gated["include"]}
-    assert "claude-judge" not in minted, "an already-graded judge must not be re-minted"
-    assert minted, "the judges that have not graded still fan out"
+    ungraded = {e.id for e in enabled_evaluators(EVALUATORS)} - {"claude-judge"}
+    assert minted == ungraded, "exactly the judges that have not graded, and no others"
 
 
 def test_a_fully_graded_event_mints_nothing_so_a_requeue_is_a_no_op(tmp_path: Path) -> None:
@@ -215,13 +216,14 @@ def test_a_fully_graded_event_mints_nothing_so_a_requeue_is_a_no_op(tmp_path: Pa
     committed evaluation.json into a per-(predictor, case, event) list with no
     run dedup, so a second grading silently reweights the standings."""
     data_root = tmp_path / "data"
+    evaluators = enabled_evaluators(EVALUATORS)
     seed_prediction(data_root, "scotus", 1, "evt-x")
-    for evaluator in ("claude-judge", "codex-judge", "gemini-judge"):
-        seed_evaluation(data_root, "scotus", 1, "evt-x", evaluator_id=evaluator)
+    for evaluator in evaluators:
+        seed_evaluation(data_root, "scotus", 1, "evt-x", evaluator_id=evaluator.id)
     cases = [CaseRequest(court="scotus", docket=1, events=("evt-x",))]
 
     assert evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root)["include"] == []
     # --force is the deliberate re-grade path, so a rubric change never requires
     # deleting committed artifacts to get a cell minted.
     forced = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root, skip_evaluated=False)
-    assert len(forced["include"]) == 3
+    assert len(forced["include"]) == len(evaluators)

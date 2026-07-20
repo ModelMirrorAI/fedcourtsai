@@ -9,7 +9,7 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.schemas import EventKind
-from tests.conftest import seed_prediction
+from tests.conftest import seed_evaluation, seed_prediction
 
 runner = CliRunner()
 
@@ -436,3 +436,69 @@ def test_evaluate_matrix_reports_the_drop_count(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert len(_cells(result.stdout)) == 3
     assert "dropped 3 predictionless cell(s)" in result.output
+
+
+def test_evaluate_matrix_reports_already_evaluated_separately(tmp_path: Path) -> None:
+    """The two gates mean different things — one is a cost gate (nothing to
+    score), the other an idempotency gate (already scored). Collapsed into one
+    number, a fully-graded re-queue would read as a run with no predictions."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    seed_evaluation(tmp_path / "data", "scotus", 24001, "evt-petition-cert")
+
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert "dropped 1 already-evaluated cell(s)" in result.output
+    assert "predictionless" not in result.output
+    # Only that one judge's cell is withheld; the rest of the fan-out is intact.
+    minted = {(c["docket"], c["evaluator_id"]) for c in _cells(result.stdout)}
+    assert (24001, "claude-judge") not in minted
+    assert (24002, "claude-judge") in minted
+
+
+def test_evaluate_matrix_force_restores_the_already_evaluated_cells(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    seed_evaluation(tmp_path / "data", "scotus", 24001, "evt-petition-cert")
+
+    result = runner.invoke(
+        app,
+        ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body), "--force"],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert "already-evaluated" not in result.output
+    assert (24001, "claude-judge") in {
+        (c["docket"], c["evaluator_id"]) for c in _cells(result.stdout)
+    }
+
+
+def test_an_event_that_is_both_gaps_is_counted_once_as_predictionless(tmp_path: Path) -> None:
+    """The overlap case. Counting it under both gates would double-report, and
+    deriving one count by subtracting the other would print a negative."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    # 24002 has an evaluation but no prediction: nothing to score AND graded.
+    seed_evaluation(tmp_path / "data", "scotus", 24002, "evt-petition-cert")
+    shutil.rmtree(
+        tmp_path
+        / "data"
+        / "cases"
+        / "scotus"
+        / "24002"
+        / "events"
+        / "evt-petition-cert"
+        / "predictions"
+    )
+
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert "dropped 3 predictionless cell(s)" in result.output
+    assert "already-evaluated" not in result.output, "attributed once, to the cost gate"

@@ -80,6 +80,7 @@ from .leaderboard import big_case_agreement, build_leaderboard
 from .matrix import (
     CaseRequest,
     evaluate_matrix,
+    event_has_evaluations,
     event_has_predictions,
     parse_cases,
     predict_matrix,
@@ -3183,26 +3184,40 @@ def evaluate_matrix_cmd(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
     )
-    # The cost gate: events with no committed prediction are dropped here, at
-    # plan time, so no evaluator cell (and no model spend) is minted for them —
-    # a resolved-without-ever-predicted case has nothing to score.
+    # Two plan-time gates, both before any model spend: an event with no
+    # committed prediction has nothing to score, and a judge that already graded
+    # the event is not re-minted. See `evaluate_matrix`.
     evaluators_path = settings.config_root / "evaluators.yaml"
     matrix = evaluate_matrix(
         evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
     )
     evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
     # Report the two gates separately: one is a cost gate (nothing to score) and
-    # the other an idempotency gate (already scored). Collapsing them would make
-    # a fully-graded re-queue look like a run with no predictions.
-    predictionless = sum(
-        1
-        for case in cases
-        for event_id in case.events
-        for _ in evaluators
-        if not event_has_predictions(settings.data_root, case.court, case.docket, event_id)
-    )
-    dropped = len(evaluators) * sum(len(c.events) for c in cases) - len(matrix["include"])
-    already = dropped - predictionless
+    # the other an idempotency gate (already scored). Collapsed, a fully-graded
+    # re-queue would read as a run with no predictions. Each is counted from the
+    # same predicate the gate uses rather than by subtracting one from the total,
+    # so the arithmetic does not silently depend on the order the gates run in
+    # `evaluate_matrix` — reordering them there would otherwise print a negative.
+    predictionless = 0
+    already = 0
+    for case in cases:
+        for event_id in case.events:
+            if not event_has_predictions(settings.data_root, case.court, case.docket, event_id):
+                predictionless += len(evaluators)
+                continue  # attribute an event that is both to the cost gate only
+            if force:
+                continue
+            already += sum(
+                1
+                for evaluator in evaluators
+                if event_has_evaluations(
+                    settings.data_root,
+                    case.court,
+                    case.docket,
+                    event_id,
+                    evaluator_id=evaluator.id,
+                )
+            )
     if predictionless:
         typer.echo(f"evaluate-matrix: dropped {predictionless} predictionless cell(s)", err=True)
     if already:

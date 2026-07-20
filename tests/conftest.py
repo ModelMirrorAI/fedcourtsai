@@ -17,7 +17,7 @@ import pytest
 
 from fedcourtsai import casestore, corpus, fixture
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.schemas import Disposition, Prediction
+from fedcourtsai.schemas import Disposition, Evaluation, Prediction
 from fedcourtsai.serialize import write_json
 
 
@@ -109,12 +109,21 @@ def seed_evaluation(
     """Commit one minimal evaluation into the ledger under ``data_root``.
 
     The counterpart of :func:`seed_prediction`, for the already-evaluated gate.
-    Only the path shape matters to the gate, so the body stays minimal.
+    A schema-true body, not a stub: a test proving the leaderboard double-counts
+    without the gate has to *read* these files.
     """
-    path = (
+    write_json(
         CasePaths(data_root, court, docket)
         .event(event_id)
-        .evaluation(evaluator_id, predictor_id, run_id)
+        .evaluation(evaluator_id, predictor_id, run_id),
+        Evaluation(
+            case_id=f"{court}/{docket}",
+            event_id=event_id,
+            predictor_id=predictor_id,
+            evaluator_id=evaluator_id,
+            engine="claude-code",
+            run_id=run_id,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            correct=1,
+        ),
     )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("{}")
