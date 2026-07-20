@@ -221,6 +221,11 @@ class CollectPlan:
     otherwise let the ready PR close the trigger issue with a third of the board
     silently missing; ``collect_plan`` therefore withholds the close and names
     the gap, keeping the issue open for a backfill.
+
+    ``noun`` is the role's judgment word ("prediction" / "evaluation"). It rides
+    on the plan so the collect action can render its per-cell warnings from the
+    same mapping that names the PR title and commit message, rather than
+    re-deriving the role's vocabulary in shell and letting the two drift.
     """
 
     ready: PrPlan | None
@@ -230,6 +235,7 @@ class CollectPlan:
     feedback_comment: str = ""
     stalled: bool = False
     dead_actors: tuple[str, ...] = ()
+    noun: str = ""
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -460,6 +466,7 @@ def collect_plan(
         feedback_comment=render_feedback_comment(role, run_id, flags_md),
         stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
         dead_actors=dead_actors,
+        noun=noun,
     )
 
 

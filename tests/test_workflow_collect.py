@@ -67,9 +67,12 @@ def test_the_two_call_sites_differ_only_by_role() -> None:
     """Anything else that diverges is drift the composite was meant to end."""
     predict, evaluate = (_collect_job(w) for w in FAN_OUTS)
 
-    # The matrix job each waits on is legitimately per-workflow.
-    assert predict.pop("needs") == ["plan", "predict"]
-    assert evaluate.pop("needs") == ["plan", "evaluate"]
+    # The matrix job each waits on is legitimately per-workflow. Pop outside the
+    # assert: a mutating expression inside one vanishes under `python -O`.
+    predict_needs = predict.pop("needs")
+    evaluate_needs = evaluate.pop("needs")
+    assert predict_needs == ["plan", "predict"]
+    assert evaluate_needs == ["plan", "evaluate"]
 
     # The delegating step differs only in `role`; normalize it out, then the two
     # jobs must be byte-equal — setup steps, permissions, timeout, everything.
@@ -103,22 +106,34 @@ def test_the_composite_derives_every_role_dependent_string() -> None:
     _, run_block = body.split("runs:", 1)
     for stray in ("--role predict", "--role evaluate", "pattern: predict-", "pattern: evaluate-"):
         assert stray not in run_block, f"{stray!r} is hardcoded; derive it from `role`"
-    # Both nouns are reachable, and an unknown role fails loudly rather than
-    # rendering an empty warning.
-    assert "predict) noun=prediction" in run_block
-    assert "evaluate) noun=evaluation" in run_block
-    assert "::error::unknown role" in run_block
+    # The judgment noun comes off the plan, not a second mapping in shell, so the
+    # warning text cannot drift from the PR title `_JUDGMENT_NOUN` names.
+    assert "noun=prediction" not in run_block
+    assert ".noun as $noun" in run_block
 
 
-def test_the_issue_comments_use_the_ambient_token_not_the_app_token() -> None:
-    """Least privilege: commenting triggers nothing, so issue-write stays off the
-    contents-write App token. Preserved verbatim through the extraction."""
-    action = _load(COLLECT_ACTION)
-    commenting = [
-        s
-        for s in action["runs"]["steps"]
-        if "gh issue comment" in s.get("run", "") or "post-agent-feedback" in s.get("run", "")
-    ]
-    assert len(commenting) == 3, "expected the stall, secret-scan, and feedback-latch steps"
-    for step in commenting:
-        assert step["env"]["GH_TOKEN"] == "${{ inputs.github-token }}"
+def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> None:
+    """A cancelled or timed-out collect must still leave a trace.
+
+    Job-level `always()` steps run on cancellation; a composite step's remaining
+    inner steps are not guaranteed to. These three exist so a dead collect does
+    not leave a silently orphaned trigger issue, so they belong in the caller.
+    """
+    for workflow in FAN_OUTS:
+        steps = _steps(_collect_job(workflow))
+        reporting = [
+            s
+            for s in steps
+            if "gh issue comment" in s.get("run", "") or "post-agent-feedback" in s.get("run", "")
+        ]
+        assert len(reporting) == 3, f"{workflow}: expected stall, secret-scan, and feedback steps"
+        for step in reporting:
+            assert "always()" in step["if"]
+            # Least privilege: commenting triggers nothing, so issue-write stays
+            # off the contents-write App token.
+            assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
+
+    action_body = COLLECT_ACTION.read_text()
+    assert "gh issue comment" not in action_body, (
+        "a reporting step moved into the composite; it would stop firing on cancellation"
+    )

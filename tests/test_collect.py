@@ -440,3 +440,15 @@ def test_render_stall_comment_names_the_role_and_retry_path() -> None:
     assert "produced no output" in comment
     assert "https://github.com/o/r/actions/runs/1" in comment
     assert "`run:predict`" in comment  # the re-fire instruction names the label
+
+
+def test_the_plan_carries_the_judgment_noun_for_each_role() -> None:
+    """The collect action renders its per-cell warnings from this, rather than
+    re-deriving the role's vocabulary in shell where it could drift from the PR
+    title and commit message `_JUDGMENT_NOUN` already names."""
+    for role, noun in ((FinalizeRole.predict, "prediction"), (FinalizeRole.evaluate, "evaluation")):
+        plan = collect_plan(role, run_id="R", cells=[_cell("claude-baseline")])
+        assert plan.noun == noun
+        # Same source as the human-facing PR text, so the two cannot disagree.
+        assert plan.ready is not None
+        assert noun in plan.ready.title

@@ -13,6 +13,15 @@ description: >
   env, git identity): that is the security posture, and it stays reviewable next
   to the trigger rather than hidden behind a `uses:`.
 
+  The caller also keeps the three `always()` reporting steps that post the stall
+  comment, the secret-scan hit, and the agent-flag latch. That is deliberate and
+  load-bearing: a cancellation (a manual cancel, or this job's `timeout-minutes`)
+  tears down a composite step and does not guarantee its remaining inner steps
+  run, whereas job-level `always()` steps still fire. Those three exist precisely
+  so a collect that dies leaves a trace instead of a silently orphaned trigger
+  issue, so they must not lose that guarantee. They carry no role dependency, so
+  keeping them in the caller costs no drift risk.
+
 inputs:
   role:
     description: '`predict` or `evaluate` — selects the artifact prefix, the `--role` flag, and the noun.'
@@ -67,13 +76,6 @@ runs:
       run: |
         set -euo pipefail
         gh auth setup-git
-        # The judgment noun for operator-facing warnings, derived from the role so
-        # the two workflows share one body.
-        case "$ROLE" in
-          predict) noun=prediction ;;
-          evaluate) noun=evaluation ;;
-          *) echo "::error::unknown role ${ROLE}"; exit 1 ;;
-        esac
         # Every cell was cancelled before it could upload — nothing to collect.
         run_url="https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"
         if [ ! -d cell-artifacts ] || [ -z "$(ls -A cell-artifacts)" ]; then
@@ -94,10 +96,12 @@ runs:
         # closes the triggering issue on merge (unless a draft still has work).
         plan=$(uv run fedcourts collect-plan --role "$ROLE" --run-id "$run_id" \
           --status-dir cell-artifacts --issue "$ISSUE")
-        # Never silently drop a cell: warn for each that produced no output.
-        jq -r --arg noun "$noun" \
-          '.skipped[] | "::warning::no \($noun) for \(.actor) on \(.court)/\(.docket) \(.event_id)"' \
-          <<<"$plan"
+        # Never silently drop a cell: warn for each that produced no output. The
+        # judgment noun rides on the plan (`_JUDGMENT_NOUN`, the same mapping that
+        # names the PR title and commit message) rather than being re-derived
+        # here, so the warning text cannot drift from the PR's.
+        jq -r '.noun as $noun | .skipped[]
+          | "::warning::no \($noun) for \(.actor) on \(.court)/\(.docket) \(.event_id)"' <<<"$plan"
         if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
           # Artifacts arrived but no cell produced output and no agent finished
           # cleanly (the tested `stalled` signal) — same stall, same comment.
@@ -216,57 +220,3 @@ runs:
             printf '%s\n' "$feedback" > feedback-comment.md
           fi
         fi
-
-    - name: Flag a stalled run on the trigger issue
-      # A run that produced no output opens no PR, so nothing would close — or
-      # even mention — the trigger issue; it would sit silently orphaned open.
-      # Post the tested stall comment (rendered by the aggregate step) with the
-      # ambient GITHUB_TOKEN: commenting triggers nothing, so the contents-write
-      # App token stays out of it. Runs even if the aggregate step failed; the
-      # file is absent whenever the run produced output.
-      if: ${{ always() && inputs.issue }}
-      shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-        REPO: ${{ inputs.repo }}
-        ISSUE: ${{ inputs.issue }}
-      run: |
-        set -euo pipefail
-        [ -s stall-comment.md ] || exit 0
-        gh issue comment "$ISSUE" --repo "$REPO" --body-file stall-comment.md
-
-    - name: Flag a secret-scan hit on the trigger issue
-      # A withheld branch opens no PR, so without this the scan hit would be
-      # visible only in the Actions log. Same ambient-token posture as the
-      # stall step above; the file is absent whenever the scan came back
-      # clean.
-      if: ${{ always() && inputs.issue }}
-      shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-        REPO: ${{ inputs.repo }}
-        ISSUE: ${{ inputs.issue }}
-      run: |
-        set -euo pipefail
-        [ -s secret-scan-issue.md ] || exit 0
-        gh issue comment "$ISSUE" --repo "$REPO" --body-file secret-scan-issue.md
-
-    - name: Latch run flags onto the agent-feedback issue
-      # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev
-      # App token: latching needs no cross-workflow trigger (`agent-feedback` is a
-      # non-triggering label), so issue-write stays off this job's contents-write
-      # token. The find-or-create and once-only idempotency are the tested
-      # `post-agent-feedback` command (agent_feedback.py); this only invokes it.
-      # The file is empty/absent when the run raised no flags — and also when
-      # the aggregate step aborted mid-loop or the run's secret scan did not
-      # pass, since the roll-up is written (scanned) at that step's end: the
-      # latch is best-effort, deliberately fail-closed on agent free text.
-      if: ${{ always() }}
-      shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-        REPO: ${{ inputs.repo }}
-      run: |
-        set -euo pipefail
-        [ -s feedback-comment.md ] || exit 0
-        uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md

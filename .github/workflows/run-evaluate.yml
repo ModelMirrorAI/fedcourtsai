@@ -730,3 +730,57 @@ jobs:
           issue: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           courtlistener-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
+
+      - name: Flag a stalled run on the trigger issue
+        # A run that produced no output opens no PR, so nothing would close — or
+        # even mention — the trigger issue; it would sit silently orphaned open.
+        # Post the tested stall comment (rendered by the aggregate step) with the
+        # ambient GITHUB_TOKEN: commenting triggers nothing, so the contents-write
+        # App token stays out of it. Runs even if the aggregate step failed; the
+        # file is absent whenever the run produced output.
+        if: ${{ always() && github.event.issue.number }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          [ -s stall-comment.md ] || exit 0
+          gh issue comment "$ISSUE" --repo "$REPO" --body-file stall-comment.md
+
+      - name: Flag a secret-scan hit on the trigger issue
+        # A withheld branch opens no PR, so without this the scan hit would be
+        # visible only in the Actions log. Same ambient-token posture as the
+        # stall step above; the file is absent whenever the scan came back
+        # clean.
+        if: ${{ always() && github.event.issue.number }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          [ -s secret-scan-issue.md ] || exit 0
+          gh issue comment "$ISSUE" --repo "$REPO" --body-file secret-scan-issue.md
+
+      - name: Latch run flags onto the agent-feedback issue
+        # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev
+        # App token: latching needs no cross-workflow trigger (`agent-feedback` is a
+        # non-triggering label), so issue-write stays off this job's contents-write
+        # token. The find-or-create and once-only idempotency are the tested
+        # `post-agent-feedback` command (agent_feedback.py); this only invokes it.
+        # The file is empty/absent when the run raised no flags — and also when
+        # the aggregate step aborted mid-loop or the run's secret scan did not
+        # pass, since the roll-up is written (scanned) at that step's end: the
+        # latch is best-effort, deliberately fail-closed on agent free text.
+        if: ${{ always() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -s feedback-comment.md ] || exit 0
+          uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md
