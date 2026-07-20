@@ -94,3 +94,27 @@ def seed_prediction(
             predicted_disposition=Disposition.denied,
         ),
     )
+
+
+def seed_evaluation(
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    *,
+    evaluator_id: str = "claude-judge",
+    predictor_id: str = "claude-baseline",
+    run_id: str = "20260101T000000Z",
+) -> None:
+    """Commit one minimal evaluation into the ledger under ``data_root``.
+
+    The counterpart of :func:`seed_prediction`, for the already-evaluated gate.
+    Only the path shape matters to the gate, so the body stays minimal.
+    """
+    path = (
+        CasePaths(data_root, court, docket)
+        .event(event_id)
+        .evaluation(evaluator_id, predictor_id, run_id)
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}")

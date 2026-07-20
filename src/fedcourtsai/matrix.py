@@ -143,18 +143,60 @@ def event_has_predictions(data_root: Path, court: str, docket: int, event_id: st
     return any(predictions_root.glob("*/*/prediction.json"))
 
 
+def event_has_evaluations(
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    *,
+    evaluator_id: str | None = None,
+) -> bool:
+    """Whether the git ledger already holds an evaluation for this event.
+
+    The idempotency gate, and the mirror of :func:`event_has_predictions`. With
+    ``evaluator_id`` it asks about one judge, which is the actionable grain: an
+    evaluate cell scores *every* predictor for its event in one run, so a run
+    where two of three judges landed should re-mint only the third.
+
+    Committed evaluations live at
+    ``evaluations/<evaluator>/<predictor>/<run>/evaluation.json``. The glob is
+    depth-anchored by that filename, so it cannot match the per-run siblings one
+    level shallower (``evaluations/<evaluator>/<run>/usage.json`` and friends) —
+    the same shape :func:`fedcourtsai.finalize.agent_produced_output` relies on.
+    """
+    root = CasePaths(data_root, court, docket).event(event_id).base / "evaluations"
+    return any(root.glob(f"{evaluator_id or '*'}/*/*/evaluation.json"))
+
+
 def evaluate_matrix(
     evaluators_path: Path,
     cases: list[CaseRequest],
     run_id: str,
     data_root: Path | None = None,
+    *,
+    skip_evaluated: bool = True,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Build the evaluator x case x event matrix, dropping predictionless events.
+    """Build the evaluator x case x event matrix, dropping cells with nothing to do.
 
-    With ``data_root``, an event with no committed prediction is dropped before
-    any agent cell is minted (:func:`event_has_predictions`) — the plan job's
-    deterministic cost gate. ``None`` skips the gate (callers that assemble
-    their own ledger).
+    With ``data_root``, two deterministic gates run before any agent cell is
+    minted, so neither costs model spend:
+
+    * **predictionless** — an event with no committed prediction has nothing to
+      score (:func:`event_has_predictions`).
+    * **already evaluated** — a judge that has already graded this event is not
+      re-minted (:func:`event_has_evaluations`, per evaluator). This is what
+      makes the fan-out idempotent: a re-queued event, a duplicate trigger
+      issue, or a manual single-issue recovery mints only the *missing* judges.
+      Without it a re-queue would double-count, because the leaderboard reads
+      every committed ``evaluation.json`` into a per-(predictor, case, event)
+      list with no run dedup — a second grading of the same cell silently
+      reweights the standings.
+
+    ``data_root=None`` skips both (callers that assemble their own ledger).
+    ``skip_evaluated=False`` keeps the second gate off for a deliberate
+    re-grade — a prompt or rubric change, where the point *is* to score an
+    already-graded event again — so that never requires deleting committed
+    artifacts to get a cell minted.
     """
     include: list[dict[str, Any]] = []
     for evaluator in enabled_evaluators(evaluators_path):
@@ -162,6 +204,18 @@ def evaluate_matrix(
             for event_id in case.events:
                 if data_root is not None and not event_has_predictions(
                     data_root, case.court, case.docket, event_id
+                ):
+                    continue
+                if (
+                    data_root is not None
+                    and skip_evaluated
+                    and event_has_evaluations(
+                        data_root,
+                        case.court,
+                        case.docket,
+                        event_id,
+                        evaluator_id=evaluator.id,
+                    )
                 ):
                     continue
                 include.append(

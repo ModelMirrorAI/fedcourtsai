@@ -77,7 +77,13 @@ from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .leaderboard import big_case_agreement, build_leaderboard
-from .matrix import CaseRequest, evaluate_matrix, parse_cases, predict_matrix
+from .matrix import (
+    CaseRequest,
+    evaluate_matrix,
+    event_has_predictions,
+    parse_cases,
+    predict_matrix,
+)
 from .ops import (
     build_ops_report,
     render_data_health,
@@ -3144,10 +3150,25 @@ def evaluate_matrix_cmd(
         list[str] | None,
         typer.Option(help="Single-case event id(s); default: all resolved events."),
     ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Re-mint cells for events a judge has already graded (a deliberate "
+            "re-grade after a prompt or rubric change).",
+        ),
+    ] = False,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
     A case with no listed ``events`` defaults to that case's resolved events.
+
+    Two deterministic gates drop cells before any model spend: an event with no
+    committed prediction has nothing to score, and a judge that already graded
+    the event is not re-minted. The second is what makes the fan-out idempotent,
+    so a re-queue cannot double-count in the leaderboard. ``--force`` disables
+    it for a deliberate re-grade, which otherwise would need committed artifacts
+    deleted to get a cell minted.
     """
     settings = get_settings()
     scope = load_predict_config(settings.config_root).scope
@@ -3165,15 +3186,27 @@ def evaluate_matrix_cmd(
     # The cost gate: events with no committed prediction are dropped here, at
     # plan time, so no evaluator cell (and no model spend) is minted for them —
     # a resolved-without-ever-predicted case has nothing to score.
+    evaluators_path = settings.config_root / "evaluators.yaml"
     matrix = evaluate_matrix(
-        settings.config_root / "evaluators.yaml", cases, run_id, data_root=settings.data_root
+        evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
     )
-    evaluator_count = len(
-        [e for e in load_evaluators(settings.config_root / "evaluators.yaml") if e.enabled]
+    evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
+    # Report the two gates separately: one is a cost gate (nothing to score) and
+    # the other an idempotency gate (already scored). Collapsing them would make
+    # a fully-graded re-queue look like a run with no predictions.
+    predictionless = sum(
+        1
+        for case in cases
+        for event_id in case.events
+        for _ in evaluators
+        if not event_has_predictions(settings.data_root, case.court, case.docket, event_id)
     )
-    dropped = evaluator_count * sum(len(c.events) for c in cases) - len(matrix["include"])
-    if dropped:
-        typer.echo(f"evaluate-matrix: dropped {dropped} predictionless cell(s)", err=True)
+    dropped = len(evaluators) * sum(len(c.events) for c in cases) - len(matrix["include"])
+    already = dropped - predictionless
+    if predictionless:
+        typer.echo(f"evaluate-matrix: dropped {predictionless} predictionless cell(s)", err=True)
+    if already:
+        typer.echo(f"evaluate-matrix: dropped {already} already-evaluated cell(s)", err=True)
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
