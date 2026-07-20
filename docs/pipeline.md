@@ -116,7 +116,8 @@ daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (de
                                  └─ create issues  ← APP TOKEN
                                     ├─ run:predict    (changed case with open events,
                                     │                  unless the docket already looks
-                                    │                  decided — skipped + surfaced)
+                                    │                  decided — skipped + surfaced;
+                                    │                  held if PREDICT_HANDOFF_ENABLED=0)
                                     └─ run:evaluate   (predicted event that gained
                                                        an outcome)
    daily ×4 → run-pull (live job) → open live-log issue → push fresh facts to the corpus
@@ -128,6 +129,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (de
                                  │    unrecorded outcome, surfaced per-case on the
                                  │    live-log issue comment
                                  └─ create run:predict / run:evaluate issues  ← APP TOKEN
+                                    (predict held if PREDICT_HANDOFF_ENABLED=0)
        run:predict → plan (build matrix) → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft PR for partials)
        run:evaluate → plan → evaluate[matrix] (artifact per cell)
@@ -315,6 +317,66 @@ cleanly — or whose output failed schema validation — into the run's **draft*
 (never the auto-merging ready one), and a cell that produced nothing is warned
 about rather than committed. A run that finished cleanly is
 unaffected: the draft path only triggers when the agent stopped early.
+
+## Pausing the tournament without pausing ingestion
+
+`seed`/`pull`/`live` (cheap, API-budgeted) and `predict` (the model spend) can be
+run independently. One variable holds the predict fan-out at the handoff seam:
+
+| Variable | Unset | Effect when `0` or `false` |
+|---|---|---|
+| `PREDICT_HANDOFF_ENABLED` | `1` — files | `run:predict` issues are not filed |
+
+Set it in the `runner` environment (a repository-level variable of the same name
+works identically, unless an environment-level one shadows it). It defaults to
+filing, so an unset or mistyped variable keeps the tournament running: the
+failure that costs coverage is the quiet one. Ingestion is untouched — the corpus
+keeps refreshing and outcomes keep being recorded, so a pause costs prediction
+coverage for that window, never data.
+
+**Holding predict is lossless, and resuming needs no backfill.** The predict
+queue lives in the corpus, not in the issue — the issue is only a trigger
+carrying a snapshot of it. A **selected** case stays queueable for as long as it
+has open, never-predicted events, and the live channel's selection sweep re-polls
+exactly that set each cycle (`pipeline/live.py`, gated on `event_has_predictions`
+from `matrix.py`), debounced to daily by `predict_queued_at`. So a held window
+never needs its issue re-filed or re-opened.
+
+The drain is paced, not instant: the sweep is capped at
+`salience.sweep_cases_per_cycle` (25 in `config/tracking.yaml`) and works stalest
+first, so a backlog larger than the cap spreads over the following cycles — the
+same behaviour [salience.md](salience.md) describes. A case that is unselected or
+latched out of scope is never re-queued at all.
+
+Held windows are marked **held** on the run log and step summary rather than
+reported as dispatched, so a growing backlog is legible as a paused channel and
+not misread as a stalled fan-out.
+
+### Why there is no `EVALUATE_HANDOFF_ENABLED`
+
+The evaluate queue is **edge-triggered** and one-shot, so the same treatment
+would silently destroy data. It is built from `result.resolved` — events that
+*this poll* closed — and `upsert_events` is resolved-latching, so no later poll
+re-emits them. There is no evaluate sweep, no `evaluate_queued_at`, and nothing
+that derives an evaluate backlog from corpus state.
+
+A held evaluate window would therefore be lost permanently, and lost *silently*:
+the corpus push and the outcome commit both land before the handoff step, so the
+outcomes would be recorded and the predictions would exist with nothing left to
+ever grade them. Evaluate volume is also small — one cell per evaluator on newly
+resolved events, against predict's case × predictor fan-out — so it is not where
+the spend is. For `run:evaluate`, the open issue *is* load-bearing queue state,
+not merely a trigger; if one must be stopped, close it deliberately and use the
+[single-issue manual path](#the-predictevaluate-matrix) to recover.
+
+### Disabling the workflow is not the same as holding the handoff
+
+Disabling `run-predict` / `run-evaluate` in the GitHub UI stops the *runs* but
+not the *issues*. The issues keep arriving and sit unconsumed — and `run-ops`
+lists every still-open `run:*` issue as a **stalled fan-out**, so a
+workflow-disabled-only pause steadily reddens the ops dashboard with what looks
+like broken runs. Holding the handoff avoids that; for a full predict pause, do
+both.
 
 ## Snapshot sequencing
 

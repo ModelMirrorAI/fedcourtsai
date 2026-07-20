@@ -1,0 +1,105 @@
+name: Open a tournament run handoff
+description: >
+  File the single `run:predict` / `run:evaluate` trigger issue for a window's
+  queue — one issue per channel per window, carrying the queue JSON as its body,
+  which the matching workflow fans out over.
+
+  `enabled` can hold the filing, so the tournament's model spend can be paused
+  without pausing ingestion. Only apply it to a channel whose queue is
+  **level-triggered** — that is, re-derivable from corpus state on a later cycle.
+  `run:predict` is: a selected case stays queueable for as long as it has open,
+  never-predicted events, and the live selection sweep re-polls exactly that set
+  each cycle (`predict_queued_at` debounces it to daily), so a held window costs
+  latency and nothing else.
+
+  `run:evaluate` is NOT, and must not be held. Its queue comes from
+  `result.resolved` — events that this poll closed — and `upsert_events` is
+  resolved-latching, so no later poll re-emits them. There is no evaluate sweep
+  and no backlog deriver. A held evaluate window is lost permanently, and it
+  would be lost silently: the outcomes are already committed and the predictions
+  already exist, so nothing downstream would ever report the missing grading.
+
+inputs:
+  token:
+    description: 'A GitHub token with `issues: write`, used to file the trigger issue.'
+    required: true
+  repo:
+    description: The `owner/name` the issue is filed against.
+    required: true
+  queue:
+    description: >
+      Path to the queue JSON (a list of `{court, docket, events}`). An empty
+      list files nothing — there is no work to trigger.
+    required: true
+  label:
+    description: The `run:*` trigger label to apply, e.g. `run:predict`.
+    required: true
+  noun:
+    description: Issue-title noun for the channel, e.g. `predict`.
+    required: true
+  enabled:
+    description: >
+      `0` or `false` holds the handoff (queue counted and reported, no issue
+      filed); any other value files it. Defaults to filing, so an unset or
+      mistyped variable keeps the tournament running rather than silently
+      stopping it — the failure that costs coverage is the quiet one. Only pass
+      this for a level-triggered channel (see above).
+    required: false
+    default: '1'
+
+outputs:
+  count:
+    description: Cases in the queue, whether or not an issue was filed.
+    value: ${{ steps.handoff.outputs.count }}
+  filed:
+    description: '`true` when a trigger issue was filed, `false` otherwise.'
+    value: ${{ steps.handoff.outputs.filed }}
+  held:
+    description: '`true` when a non-empty queue was held by `enabled`.'
+    value: ${{ steps.handoff.outputs.held }}
+  note:
+    description: >
+      Ready-to-interpolate Markdown suffix for the caller's run log and step
+      summary — empty unless the queue was held. Rendered here so each caller
+      interpolates one output instead of re-implementing the same conditional.
+    value: ${{ steps.handoff.outputs.note }}
+
+runs:
+  using: composite
+  steps:
+    - id: handoff
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repo }}
+        QUEUE: ${{ inputs.queue }}
+        LABEL: ${{ inputs.label }}
+        NOUN: ${{ inputs.noun }}
+        ENABLED: ${{ inputs.enabled }}
+      run: |
+        set -euo pipefail
+
+        count=$(jq 'length' "$QUEUE")
+        echo "count=${count}" >> "$GITHUB_OUTPUT"
+        echo "Queued ${count} case(s) for ${NOUN}."
+
+        if [ "$count" -eq 0 ]; then
+          printf 'filed=false\nheld=false\nnote=\n' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if [ "$ENABLED" = "0" ] || [ "$ENABLED" = "false" ]; then
+          printf 'filed=false\nheld=true\n' >> "$GITHUB_OUTPUT"
+          printf 'note= — **held** (channel paused; re-queued on a later cycle)\n' \
+            >> "$GITHUB_OUTPUT"
+          echo "::notice::${NOUN} handoff held (${count} case(s) queued, no issue filed)." \
+            "The backlog is re-queued automatically once the channel is re-enabled."
+          exit 0
+        fi
+
+        body=$(jq '[.[] | {court, docket, events}]' "$QUEUE")
+        gh issue create --repo "$REPO" \
+          --title "${NOUN}: ${count} case(s)" \
+          --body "$(printf '```json\n%s\n```\n' "$body")" \
+          --label "$LABEL"
+        printf 'filed=true\nheld=false\nnote=\n' >> "$GITHUB_OUTPUT"
