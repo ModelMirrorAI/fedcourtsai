@@ -751,6 +751,7 @@ jobs:
       contents: write # commit the run's predictions to a branch
       pull-requests: write # open the run PR and enable auto-merge
       issues: write # GITHUB_TOKEN posts flags to the agent-feedback issue (not the App token)
+      actions: read # list + download THIS run's own cell artifacts (per-artifact, no write)
     steps:
       # The collect job opens the PR with the dev App token. The dev App is *not* a
       # branch-protection bypass actor (see docs/security.md), so its auto-merge is

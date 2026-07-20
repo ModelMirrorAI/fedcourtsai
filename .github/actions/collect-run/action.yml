@@ -55,11 +55,75 @@ inputs:
 runs:
   using: composite
   steps:
+    # One artifact at a time, NOT `actions/download-artifact` over the whole set.
+    # That action fetches every artifact as a single fail-fast unit: on
+    # 2026-07-18 one transient failure after its five internal retries killed the
+    # step, and because the aggregate step is chained under it, all 46 of that
+    # run's successful cells were discarded. Downloading per artifact makes the
+    # loop the degradation boundary, so one bad artifact costs one cell instead
+    # of the run.
     - name: Download cell artifacts
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-      with:
-        path: cell-artifacts
-        pattern: ${{ inputs.role }}-*
+      shell: bash
+      env:
+        # `actions: read` on this run only — enough to list and fetch its own
+        # artifacts. Deliberately the ambient token, not the contents-write App
+        # token: reading artifacts needs no write anywhere.
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+        ROLE: ${{ inputs.role }}
+      run: |
+        set -euo pipefail
+        mkdir -p cell-artifacts
+
+        # This run's own cell artifacts. Listing is per-run, which is what makes
+        # `gh run rerun --failed` a recovery path: a rerun of just this job
+        # re-lists the original attempt's artifacts and re-fetches them.
+        gh api --paginate "repos/${REPO}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+          --jq '.artifacts[] | select(.expired == false) | .name' > all-artifacts.txt
+        grep -E "^${ROLE}-" all-artifacts.txt | sort -u > artifact-names.txt || true
+        expected=$(wc -l < artifact-names.txt)
+        echo "found ${expected} ${ROLE} artifact(s) on this run"
+
+        collected=0
+        : > missing-artifacts.txt
+        while IFS= read -r name; do
+          [ -n "$name" ] || continue
+          downloaded=false
+          for attempt in 1 2 3; do
+            # Clear any truncated extraction first: a half-written data/ subtree
+            # would otherwise be unioned into the PR as if it were complete.
+            rm -rf "cell-artifacts/${name}"
+            if gh run download "$GITHUB_RUN_ID" --repo "$REPO" \
+                 --name "$name" --dir "cell-artifacts/${name}"; then
+              downloaded=true
+              break
+            fi
+            [ "$attempt" -lt 3 ] && sleep $((attempt * 5))
+          done
+          if [ "$downloaded" = true ]; then
+            collected=$((collected + 1))
+          else
+            rm -rf "cell-artifacts/${name}"
+            echo "$name" >> missing-artifacts.txt
+            echo "::warning::artifact ${name} did not download after 3 attempts;" \
+              "that cell's output is NOT in this run's PR"
+          fi
+        done < artifact-names.txt
+
+        echo "collected ${collected} of ${expected} artifact(s)"
+
+        # Distinguish an infrastructure failure from a genuine stall. With zero
+        # artifacts on disk the aggregate step renders the stall comment, which
+        # tells a maintainer to re-label and re-run the whole matrix — the right
+        # advice when no cell uploaded anything, and an expensive misdiagnosis
+        # when the artifacts exist and merely failed to transfer. Fail loudly
+        # instead and leave them intact: `gh run rerun --failed` is the fix.
+        if [ "$expected" -gt 0 ] && [ "$collected" -eq 0 ]; then
+          echo "::error::${expected} artifact(s) exist on this run but none downloaded." \
+            "This is a transfer failure, not a stalled run — re-run the collect job" \
+            "(cell artifacts are retained 7 days)."
+          exit 1
+        fi
 
     - name: Aggregate the run into one PR
       shell: bash
@@ -87,9 +151,10 @@ runs:
           exit 0
         fi
         # All cells share the plan's run id; read it off any status file. Search
-        # recursively, matching collect-plan: the download nests each cell in its
-        # own directory only when several artifacts match, while a single-cell
-        # run extracts flat into cell-artifacts/ itself.
+        # recursively, matching collect-plan. The per-artifact download nests
+        # every cell under its own directory *by construction*, so the old
+        # single-artifact flattening case (which used to extract flat into
+        # cell-artifacts/ itself) can no longer arise.
         run_id=$(find cell-artifacts -name status.json -exec jq -r '.run_id' {} + | head -n1)
         # The ready/draft partition, branch names, and PR prose are computed by the
         # tested `collect-plan`; this step only runs git and gh. The ready PR
