@@ -121,11 +121,13 @@ jobs:
     # change being staged). Unset → '1' → filing, so a mistyped variable keeps
     # the tournament running rather than silently stopping it.
     #
-    # Predict only, deliberately: its queue is level-triggered (the selection
-    # sweep re-derives it from corpus state), so holding it costs latency alone.
-    # The evaluate queue is edge-triggered off this poll's resolutions and is
-    # never re-emitted, so there is no EVALUATE_HANDOFF_ENABLED — holding it
-    # would silently drop those gradings forever. See the handoff action.
+    # Predict only: its queue is level-triggered (the selection sweep re-derives
+    # it from corpus state), so holding it costs latency alone. The evaluate
+    # queue is level-triggered too (the evaluate backlog deriver, see
+    # docs/pipeline.md), so an EVALUATE_HANDOFF_ENABLED would be safe to add — a
+    # held window re-derives on resume — but is intentionally not wired, so the
+    # deriver runs in production before a switch depends on it. See the handoff
+    # action.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}

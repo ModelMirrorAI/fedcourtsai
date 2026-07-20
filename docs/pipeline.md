@@ -386,22 +386,47 @@ Held windows are marked **held** on the run log and step summary rather than
 reported as dispatched, so a growing backlog is legible as a paused channel and
 not misread as a stalled fan-out.
 
-### Why there is no `EVALUATE_HANDOFF_ENABLED`
+### The evaluate queue is level-triggered too
 
-The evaluate queue is **edge-triggered** and one-shot, so the same treatment
-would silently destroy data. It is built from `result.resolved` — events that
-*this poll* closed — and `upsert_events` is resolved-latching, so no later poll
-re-emits them. There is no evaluate sweep, no `evaluate_queued_at`, and nothing
-that derives an evaluate backlog from corpus state.
+The poll seams queue `run:evaluate` off *this cycle's* resolutions — events that
+`result.resolved` reports as newly closed — and `upsert_events` is
+resolved-latching, so no later poll re-emits them. On its own that would make a
+failed or dropped evaluate run lossy: the corpus push and the outcome commit both
+land before the handoff, so the outcomes and predictions would exist with nothing
+left to grade them.
 
-A held evaluate window would therefore be lost permanently, and lost *silently*:
-the corpus push and the outcome commit both land before the handoff step, so the
-outcomes would be recorded and the predictions would exist with nothing left to
-ever grade them. Evaluate volume is also small — one cell per evaluator on newly
-resolved events, against predict's case × predictor fan-out — so it is not where
-the spend is. For `run:evaluate`, the open issue *is* load-bearing queue state,
-not merely a trigger; if one must be stopped, close it deliberately and use the
-[single-issue manual path](#the-predictevaluate-matrix) to recover.
+The **evaluate backlog deriver** (`pipeline.pull.evaluate_backlog`) closes that.
+Each `pull-all` / `live-poll` cycle re-derives owed gradings straight from
+committed ledger state — a resolved event that has a prediction and is missing at
+least one enabled evaluator's evaluation — and appends them to the same evaluate
+queue the fresh-resolution path feeds. So a run that is dropped, fails, or is
+never dispatched is picked up on a later cycle; the trigger issue is a trigger,
+not load-bearing state.
+
+It mirrors the predict selection sweep, with one deliberate difference and one
+deliberate similarity:
+
+- **Different:** it is purely local (git ledger + corpus, no network), so its
+  `evaluate.backlog_cases_per_cycle` cap bounds model spend and PR volume, not
+  request rate.
+- **Same:** an `evaluate_queued_at` corpus column debounces re-derivation to
+  daily and drains the backlog stalest-first, so an in-flight or failed run PR is
+  not re-queued every cycle. That column is scheduling metadata only — the queue
+  itself is re-derivable from git — so losing it costs at most a duplicate trigger
+  issue, never a grading.
+
+Re-queueing is safe because the `evaluate-matrix` plan gate drops a cell whose
+judge has already graded the event (per evaluator), so a re-derivation mints only
+the *missing* judges and cannot double-count. The gate works at (evaluator,
+event) grain, which carries one accepted limitation: a prediction committed
+*after* a judge graded the event is not re-scored. That coverage gap is findable
+by a ledger scan (a resolved event whose prediction has no matching evaluation),
+which is the safer failure than the silent miscount a re-grade would cause.
+
+An `EVALUATE_HANDOFF_ENABLED` pause switch is therefore safe to add — a held
+evaluate window re-derives on resume rather than being lost — but is
+intentionally not wired, so the deriver's behaviour can be observed in production
+before a pause switch depends on it.
 
 ### Disabling the workflow is not the same as holding the handoff
 

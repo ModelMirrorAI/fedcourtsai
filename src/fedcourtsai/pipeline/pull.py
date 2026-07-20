@@ -29,7 +29,8 @@ import httpx
 from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
-from ..matrix import event_has_predictions
+from ..matrix import event_has_evaluations, event_has_predictions
+from ..registry import enabled_evaluators
 from ..store import open_events
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
@@ -142,13 +143,17 @@ class PullQueues:
     # or retires it.
     predict_skipped_decided: list[dict[str, object]] = field(default_factory=list)
     evaluate: list[dict[str, object]] = field(default_factory=list)
-    # Resolved events dropped from the evaluate queue because the ledger holds
-    # no prediction to score. Surfaced (never silently discarded): resolution
-    # latches closed, so the drop is once-only — if a prediction lands *after*
-    # the outcome (an in-flight predict run racing a fast resolution), nothing
-    # re-queues it automatically, and the recovery is a ledger scan (outcome +
-    # predictions present, evaluations absent).
+    # Resolved events dropped from *this poll's* evaluate queue because the ledger
+    # holds no prediction to score. Surfaced (never silently discarded), but not
+    # lost either: a prediction that lands after the outcome (an in-flight predict
+    # run racing a fast resolution) is picked up by `evaluate_backlog`, which
+    # scans the same outcome-present / prediction-present / evaluation-absent
+    # condition on a later cycle and re-queues it.
     evaluate_skipped: list[dict[str, object]] = field(default_factory=list)
+    # Of the `evaluate` entries above, how many the backlog deriver contributed
+    # (as opposed to this poll's fresh resolutions). Count, not a parallel list,
+    # so a caller cannot write it to a second file and double-queue.
+    evaluate_from_backlog: int = 0
     unrecorded: list[dict[str, object]] = field(default_factory=list)
     # Cases whose refresh hit an unrecoverable REST error this run (e.g. a 404,
     # or retries exhausted). Recorded so a single bad docket degrades the run
@@ -220,6 +225,103 @@ def _queue_predict(
         queues.predict.append({"court": court, "docket": docket, "events": events})
     with corpus.connect(corpus_db_path) as conn:
         corpus.stamp_predict_queued(conn, [result.case_id], date.today())
+
+
+def evaluate_backlog(
+    corpus_db_path: Path,
+    data_root: Path,
+    evaluators_path: Path,
+    queues: PullQueues,
+    *,
+    cap: int,
+    already_queued: set[str] | None = None,
+    today: date | None = None,
+) -> None:
+    """Re-derive the evaluate queue from committed ledger state.
+
+    This is what makes ``run:evaluate`` level-triggered. The poll seams
+    (``pull_cases`` / ``live`` routing) queue evaluate off *this cycle's*
+    resolutions, and resolution latches closed, so a failed or paused evaluate
+    run drops those gradings with no automatic recovery. This scan finds them
+    again: an event that is resolved, has a committed prediction, and is missing
+    at least one enabled evaluator's evaluation is graded work still owed.
+
+    Purely local — the git ledger plus the corpus, no network — so unlike the
+    predict selection sweep it takes no client, no deadline, and no politeness
+    throttle. ``cap`` bounds model spend and PR volume, not request rate: each
+    queued case fans out one cell per not-yet-graded evaluator. Candidates drain
+    stalest-first by ``evaluate_queued_at`` across cycles, debounced to daily by
+    the same stamp (a case queued today waits for tomorrow's cycle rather than
+    re-queuing while its run PR is in flight or failed).
+
+    Scope is deliberately *not* ``_in_predict_scope``: that gate drops a
+    salience-*deferred* case (``is_salience_deferred``), which is a predict
+    *funding* decision. A petition predicted before it drifted below the funding
+    line still has a prediction that must be graded, so scoping the backlog by
+    predict funding would silently strand exactly those gradings. It uses the
+    immutable scope only — SCOTUS and not out-of-scope by the row rules.
+
+    Appends to ``queues.evaluate`` (the same list the poll seams feed, so the
+    workflow consumes one queue) and counts the additions in
+    ``evaluate_from_backlog``. ``already_queued`` is the case ids this cycle's
+    poll seams already queued, so the deriver does not double-queue a case the
+    fresh-resolution path just covered — case-granular, so a case queued this
+    cycle for one event defers its *other* owed events to the next cycle. That
+    is fine: they are debounced anyway, and re-derived stalest-first later. For
+    SCOTUS, where ``evt-petition-disposition`` is typically the sole event, the
+    case rarely has other owed events at all.
+    """
+    if cap <= 0:
+        return
+    day = today or date.today()
+    seen = already_queued or set()
+    evaluator_ids = [e.id for e in enabled_evaluators(evaluators_path)]
+
+    # A plain (writable) connection, matching the selection sweep: `iter_rows`
+    # and `out_of_scope_reason_full` are typed to it, and the deriver only reads
+    # here — the single write is the stamp below, on its own connection.
+    with corpus.connect(corpus_db_path) as conn:
+        rows_by_case = {row.case_id: row for row in corpus.iter_rows(conn, court="scotus")}
+        resolved_by_case: dict[str, list[str]] = {}
+        for event in corpus.iter_resolved_events(conn, court="scotus"):
+            resolved_by_case.setdefault(event.case_id, []).append(event.event_id)
+        candidates = [
+            row
+            for case_id, row in rows_by_case.items()
+            if case_id in resolved_by_case
+            and case_id not in seen
+            and row.evaluate_queued_at != day
+            and corpus.out_of_scope_reason_full(conn, row) is None
+        ]
+
+    # Stalest first, so the backlog drains fairly under the cap; a never-queued
+    # case (evaluate_queued_at is None) sorts first.
+    candidates.sort(key=lambda r: (r.evaluate_queued_at or date.min, r.case_id))
+
+    queued_case_ids: list[str] = []
+    for row in candidates:
+        if len(queued_case_ids) >= cap:
+            break
+        court, docket_str = row.case_id.split("/", 1)
+        docket = int(docket_str)
+        owed = [
+            event_id
+            for event_id in resolved_by_case[row.case_id]
+            if event_has_predictions(data_root, court, docket, event_id)
+            and any(
+                not event_has_evaluations(data_root, court, docket, event_id, evaluator_id=ev)
+                for ev in evaluator_ids
+            )
+        ]
+        if not owed:
+            continue
+        queues.evaluate.append({"court": court, "docket": docket, "events": owed})
+        queues.evaluate_from_backlog += 1
+        queued_case_ids.append(row.case_id)
+
+    if queued_case_ids:
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.stamp_evaluate_queued(conn, queued_case_ids, day)
 
 
 def pull_cases(

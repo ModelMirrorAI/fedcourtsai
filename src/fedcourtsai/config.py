@@ -377,3 +377,26 @@ def load_salience_config(config_root: Path) -> SalienceConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return SalienceConfig.model_validate((data or {}).get("salience", {}))
+
+
+class EvaluateConfig(BaseModel):
+    """Knobs for the evaluate backlog deriver (`tracking.yaml`'s `evaluate` section)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    # Bounds how many cases the backlog deriver queues per cycle. NOT a politeness
+    # limit like the selection sweep's — the deriver reads the git ledger and the
+    # corpus, no network — but a spend/PR-volume cap: each queued case fans out
+    # one cell per not-yet-graded evaluator. The backlog drains across cycles,
+    # stalest first, under the daily `evaluate_queued_at` debounce.
+    backlog_cases_per_cycle: int = Field(default=25, ge=0)
+
+
+def load_evaluate_config(config_root: Path) -> EvaluateConfig:
+    """Read the evaluate backlog knobs from ``config_root/tracking.yaml``.
+
+    Falls back to the defaults if the file or its ``evaluate`` section is absent.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return EvaluateConfig.model_validate((data or {}).get("evaluate", {}))

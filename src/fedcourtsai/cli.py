@@ -66,6 +66,7 @@ from .config import (
     PredictScope,
     get_settings,
     load_courts,
+    load_evaluate_config,
     load_historical_config,
     load_live_config,
     load_predict_config,
@@ -100,7 +101,7 @@ from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
-from .pipeline.pull import pull_case, pull_cases
+from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
 from .pipeline.runner import EngineFailed, EngineUnavailable
 from .pipeline.salience import reconcile_salience_selection
 from .pipeline.scope_reconcile import reconcile_predict_scope
@@ -2706,6 +2707,17 @@ def pull_all(
             deadline=deadline,
             max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
         )
+    # Re-derive owed gradings from the ledger, on top of this poll's fresh
+    # resolutions. `already_queued` keeps a case the poll just queued from being
+    # double-queued here.
+    evaluate_backlog(
+        db,
+        settings.data_root,
+        settings.config_root / "evaluators.yaml",
+        queues,
+        cap=load_evaluate_config(settings.config_root).backlog_cases_per_cycle,
+        already_queued={f"{e['court']}/{e['docket']}" for e in queues.evaluate},
+    )
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
@@ -2713,8 +2725,13 @@ def pull_all(
     refreshed = len(due) - len(queues.failed) - len(queues.deferred)
     typer.echo(
         f"Refreshed {refreshed}/{cap} case(s){_format_refresh_failures(queues.failed)}; "
-        f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.unrecorded)} unrecorded"
+        f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate"
+        + (
+            f" ({queues.evaluate_from_backlog} from backlog)"
+            if queues.evaluate_from_backlog
+            else ""
+        )
+        + f", {len(queues.unrecorded)} unrecorded"
         + (
             f" ({len(queues.evaluate_skipped)} resolved case(s) had no prediction to score)"
             if queues.evaluate_skipped
@@ -2810,6 +2827,15 @@ def live_poll(
             today=today,
             deadline=deadline,
         )
+    evaluate_backlog(
+        db,
+        settings.data_root,
+        settings.config_root / "evaluators.yaml",
+        queues,
+        cap=load_evaluate_config(settings.config_root).backlog_cases_per_cycle,
+        already_queued={f"{e['court']}/{e['docket']}" for e in queues.evaluate},
+        today=today,
+    )
     _ensure_corpus_layout(db)
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
@@ -2818,8 +2844,13 @@ def live_poll(
     typer.echo(
         f"Live cycle (OT{probe_term:02d}): onboarded {len(discovery.onboarded)} new petition(s)"
         f"{discovery_failed}{_format_refresh_failures(queues.failed)}; "
-        f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate, "
-        f"{len(queues.unrecorded)} unrecorded"
+        f"queued {len(queues.predict)} predict, {len(queues.evaluate)} evaluate"
+        + (
+            f" ({queues.evaluate_from_backlog} from backlog)"
+            if queues.evaluate_from_backlog
+            else ""
+        )
+        + f", {len(queues.unrecorded)} unrecorded"
         + (
             f" ({len(queues.evaluate_skipped)} resolved case(s) had no prediction to score)"
             if queues.evaluate_skipped
