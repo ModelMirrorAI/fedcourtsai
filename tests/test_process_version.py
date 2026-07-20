@@ -16,6 +16,8 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import process_version
+from fedcourtsai.process_version import _config_canonical
+from fedcourtsai.registry import load_predictors
 from fedcourtsai.schemas import ProcessVersion
 
 CONFIG = Path("config")
@@ -41,6 +43,17 @@ def test_the_digest_moves_on_any_real_process_change() -> None:
     assert base != process_version.compute_process_digest(
         b"prompt", {"engine": "claude-code", "model": "m2"}
     )
+
+
+def test_a_cosmetic_mcp_description_edit_does_not_bump_the_version() -> None:
+    """A manifest comment is documentation, not a process input — editing it
+    must not re-version every actor. The resolved config the digest hashes
+    excludes the MCP `description`, consistent with the actor-level one."""
+    entry = next(p for p in load_predictors(CONFIG / "predictors.yaml") if p.mcp_servers)
+    canonical = _config_canonical(CONFIG / "predictors.yaml", entry)
+    servers = canonical["mcp_servers"]
+    assert isinstance(servers, list) and servers, "the fixture predictor pins a server"
+    assert all("description" not in server for server in servers)
 
 
 def test_the_prompt_config_boundary_cannot_be_forged() -> None:

@@ -69,9 +69,12 @@ def test_stamp_injects_the_process_version_into_the_agents_prediction(_data_root
     assert pv["pipeline_sha"] == "sha-abc"
 
 
-def test_stamp_is_byte_stable_on_a_re_run(_data_root: Path) -> None:
-    """`gh run rerun` re-stamps a cell; with a fixed clock it must be identical,
-    so a rerun never produces a spurious metrics diff."""
+def test_stamp_is_byte_stable_under_a_fixed_clock(_data_root: Path) -> None:
+    """Everything but `stamped_at` is deterministic: re-stamping with the same
+    clock is byte-identical. In production `stamped_at` defaults to now, so a
+    rerun's bytes differ there — but the partition-relevant `digest` is stable
+    (proven in test_process_version), and a rerun regenerates the cell from the
+    agent anyway, so the wall-clock field never moves a metric."""
     seed_prediction(_data_root, "scotus", 1, "evt-x", predictor_id="claude-baseline")
     path = (
         CasePaths(_data_root, "scotus", 1)

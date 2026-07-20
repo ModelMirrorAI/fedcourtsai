@@ -86,7 +86,12 @@ def _config_canonical(
         "engine": actor.engine,
         "model": _resolved_model(actor.engine, actor.model),
         "prompt_path": actor.prompt,
-        "mcp_servers": [s.model_dump(mode="json") for s in servers],
+        # Exclude `description` — a manifest comment is documentation, not a
+        # process input. Folding it in would bump every actor's version on a
+        # cosmetic edit, and the actor-level description is already excluded
+        # (only engine/model/prompt/mcp are hashed), so this keeps the two
+        # consistent.
+        "mcp_servers": [s.model_dump(mode="json", exclude={"description"}) for s in servers],
     }
 
 
