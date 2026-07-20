@@ -433,9 +433,10 @@ def collect_plan(
 
     ``issue`` is the triggering issue, which the ready PR closes on merge — but
     only when nothing is left to salvage, **no whole engine is absent** (a
-    fully-missing engine at 0/N, see ``dead_actors``), and **no cell's artifact
-    was lost in transfer** (``missing_artifacts``), so a run with a pending
-    draft or any uncovered gap keeps its trigger issue open for the follow-up.
+    fully-missing engine at 0/N, see ``dead_actors``), **no cell's artifact was
+    lost in transfer** (``missing_artifacts``), and **no queued cell went missing
+    entirely** (``expected``), so a run with a pending draft or any uncovered gap
+    keeps its trigger issue open for the follow-up.
 
     ``missing_artifacts`` names the cells whose artifacts the collect job could
     not download. They are invisible to the cell census — a lost artifact leaves
@@ -445,6 +446,16 @@ def collect_plan(
     whole run while quietly omitting cells, with the only trace a log line that
     expires. They are recoverable (re-run the collect job while the artifacts
     live), which is why this withholds the close rather than failing the run.
+
+    ``expected`` is the cell set the plan job queued, from its matrix. A cell
+    absent from the census *and* from ``missing_artifacts`` never uploaded at
+    all — its job died before it could report — and is returned as
+    ``uncovered_cells``. The distinction from a lost artifact is the remedy, and
+    it is worth the extra field: a lost artifact is recovered by re-running
+    collect while the artifact lives, whereas an uncovered cell produced nothing
+    to recover and needs a re-queue. Sending an operator down the wrong one
+    means either waiting out a rerun that cannot help, or paying for the cell
+    twice. Empty ``expected`` disables the census entirely.
 
     ``flags`` is the run's per-cell :class:`~fedcourtsai.schemas.AgentFlags`. Their
     roll-up is appended to whichever PR body opens (the ready PR, else the draft)
@@ -465,12 +476,12 @@ def collect_plan(
     lost_names = set(lost)
     uncovered = tuple(
         sorted(
-            (
+            {
                 cell
                 for cell in expected
                 if (cell.actor, cell.court, cell.docket, cell.event_id) not in observed
                 and cell_artifact_name(role, cell) not in lost_names
-            ),
+            },
             key=lambda c: (c.actor, c.court, c.docket, c.event_id),
         )
     )

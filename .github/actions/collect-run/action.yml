@@ -185,20 +185,18 @@ runs:
         # The ready/draft partition, branch names, and PR prose are computed by the
         # tested `collect-plan`; this step only runs git and gh. The ready PR
         # closes the triggering issue on merge (unless a draft still has work).
-        # The two gap sources the cell census cannot see, each with its own
-        # remedy: `--missing-file` is a cell whose artifact failed to transfer
-        # (re-run collect), `--matrix-file` catches a queued cell that uploaded
-        # nothing at all (the cell died; needs a re-queue).
+        # Two gaps the cell census cannot see, because neither leaves a
+        # status.json — without them the run would auto-merge a PR presenting
+        # itself as complete while quietly omitting cells. Each names its own
+        # remedy, and both withhold the issue close as a fully-absent engine
+        # already does:
+        #   --missing-file  the artifact failed to transfer   -> re-run collect
+        #   --matrix-file   the cell uploaded nothing at all  -> needs a re-queue
         matrix_args=()
         if [ -n "${PLAN_MATRIX:-}" ]; then
           printf '%s' "$PLAN_MATRIX" > plan-matrix.json
           matrix_args=(--matrix-file plan-matrix.json)
         fi
-        # `--missing-file` carries the cells whose artifacts failed to transfer.
-        # They leave no status.json, so they are invisible to the cell census —
-        # without this the run would auto-merge a PR presenting itself as
-        # complete while quietly omitting them. Naming them withholds the issue
-        # close, exactly as a fully-absent engine already does.
         plan=$(uv run fedcourts collect-plan --role "$ROLE" --run-id "$run_id" \
           --status-dir cell-artifacts --issue "$ISSUE" \
           --missing-file missing-artifacts.txt "${matrix_args[@]}")
@@ -208,6 +206,13 @@ runs:
         # here, so the warning text cannot drift from the PR's.
         jq -r '.noun as $noun | .skipped[]
           | "::warning::no \($noun) for \(.actor) on \(.court)/\(.docket) \(.event_id)"' <<<"$plan"
+        # Same for a queued cell that uploaded nothing at all. Warned here, not
+        # only in the PR body: the body is rendered under the ready PR, so on a
+        # run where most cells died — exactly what this census is for — there is
+        # no PR to carry the note and the cells would vanish from the log too.
+        jq -r '.uncovered_cells[]
+          | "::warning::no cell output at all for \(.actor) on \(.court)/\(.docket) \(.event_id);"
+          + " re-running collect will not recover it — it needs a re-queue"' <<<"$plan"
         if [ "$(jq -r '.stalled' <<<"$plan")" = "true" ]; then
           # Artifacts arrived but no cell produced output and no agent finished
           # cleanly (the tested `stalled` signal) — same stall, same comment.

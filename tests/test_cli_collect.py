@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
@@ -326,3 +327,136 @@ def test_collect_plan_tolerates_malformed_flag_file(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert json.loads(result.stdout)["flags"] == ""
+
+
+_CELL = {"court": "scotus", "docket": 1, "event_id": "evt-x", "run_id": "R"}
+_READY = {"produced": True, "validated": True, "agent_ok": True}
+
+
+def _matrix(tmp_path: Path, *actors: str) -> Path:
+    path = tmp_path / "plan-matrix.json"
+    path.write_text(json.dumps({"include": [{"predictor_id": a, **_CELL} for a in actors]}))
+    return path
+
+
+def test_collect_plan_matrix_file_names_cells_that_uploaded_nothing(tmp_path: Path) -> None:
+    """The CLI wiring for the queued-cell census: a matrix entry with no
+    corresponding status.json is reported and holds the trigger issue open."""
+    cells = tmp_path / "cells"
+    _write_cell(cells, "cell-a", actor="claude-baseline", **_CELL, **_READY)
+    result = runner.invoke(
+        app,
+        [
+            "collect-plan",
+            "--role",
+            "predict",
+            "--run-id",
+            "R",
+            "--status-dir",
+            str(cells),
+            "--issue",
+            "42",
+            "--matrix-file",
+            str(_matrix(tmp_path, "claude-baseline", "gemini-baseline")),
+        ],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert [c["actor"] for c in plan["uncovered_cells"]] == ["gemini-baseline"]
+    assert "Closes #42" not in plan["ready"]["body"]
+
+
+def test_collect_plan_missing_file_names_transfer_lost_cells(tmp_path: Path) -> None:
+    cells = tmp_path / "cells"
+    _write_cell(cells, "cell-a", actor="claude-baseline", **_CELL, **_READY)
+    missing = tmp_path / "missing.txt"
+    missing.write_text("predict-gemini-baseline-scotus-1-evt-x\n")
+    result = runner.invoke(
+        app,
+        [
+            "collect-plan",
+            "--role",
+            "predict",
+            "--run-id",
+            "R",
+            "--status-dir",
+            str(cells),
+            "--issue",
+            "42",
+            "--missing-file",
+            str(missing),
+        ],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert plan["missing_artifacts"] == ["predict-gemini-baseline-scotus-1-evt-x"]
+    assert "Closes #42" not in plan["ready"]["body"]
+
+
+@pytest.mark.parametrize(
+    ("label", "content"),
+    [
+        ("truncated", '{"include":[{"predictor_id":"claude-base'),
+        ("not an object", '["a","b"]'),
+        ("entry missing keys", '{"include":[{"court":"scotus"}]}'),
+        ("no include key", "{}"),
+        ("empty file", ""),
+    ],
+)
+def test_a_malformed_matrix_degrades_the_census_and_never_costs_the_run(
+    tmp_path: Path, label: str, content: str
+) -> None:
+    """The census is advisory; the aggregation alongside it carries the run's
+    only copy of its agent output. A matrix that fails to parse must not abort
+    `collect-plan` — under `set -euo pipefail` that kills the aggregate step
+    before any commit, discarding every cell. It would also be deterministic, so
+    a rerun fails identically and strands the run.
+    """
+    cells = tmp_path / "cells"
+    _write_cell(cells, "cell-a", actor="claude-baseline", **_CELL, **_READY)
+    bad = tmp_path / "bad-matrix.json"
+    bad.write_text(content)
+    result = runner.invoke(
+        app,
+        [
+            "collect-plan",
+            "--role",
+            "predict",
+            "--run-id",
+            "R",
+            "--status-dir",
+            str(cells),
+            "--issue",
+            "42",
+            "--matrix-file",
+            str(bad),
+        ],
+    )
+    assert result.exit_code == 0, f"{label}: a bad matrix must not abort the aggregation"
+    plan = json.loads(result.stdout)
+    # The run's actual output still aggregates; only the census is lost.
+    assert plan["ready"]["artifact_dirs"] == ["cell-a"]
+    assert plan["uncovered_cells"] == []
+
+
+def test_an_absent_matrix_file_is_simply_no_census(tmp_path: Path) -> None:
+    cells = tmp_path / "cells"
+    _write_cell(cells, "cell-a", actor="claude-baseline", **_CELL, **_READY)
+    result = runner.invoke(
+        app,
+        [
+            "collect-plan",
+            "--role",
+            "predict",
+            "--run-id",
+            "R",
+            "--status-dir",
+            str(cells),
+            "--issue",
+            "42",
+            "--matrix-file",
+            str(tmp_path / "does-not-exist.json"),
+        ],
+    )
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["uncovered_cells"] == []
