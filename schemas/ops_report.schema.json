@@ -315,7 +315,7 @@
     },
     "CostEstimate": {
       "additionalProperties": false,
-      "description": "A rough monthly cost run-rate, derived without billing-API access.\n\nGitHub Actions cost is estimated from observed run durations x the per-minute\nrate; model cost is the cumulative recorded usage ledger; fixed monthly captures\nthe infra not metered per run (CourtListener membership, S3). All figures are\nestimates against the rates in ``docs/budget.md`` \u2014 check the provider billing\ndashboards for ground truth.",
+      "description": "A rough monthly cost run-rate, derived without billing-API access.\n\nGitHub Actions cost is estimated from observed run durations x the per-minute\nrate; model cost is the recorded usage ledger, both cumulatively and projected\nto 30 days from the ledger's own span; fixed monthly captures the infra not\nmetered per run (CourtListener membership, S3). All figures are estimates\nagainst the rates in ``docs/budget.md`` \u2014 check the provider billing dashboards\nfor ground truth.\n\nThe model projection averages the ledger's full span, first record to last.\nA trailing idle tail (a paused tournament, an exhausted cap) falls outside\nthe span and does not deflate it, but an interior gap or a low-volume early\nera falls inside it and does \u2014 so the figure trends toward a lifetime average\nas history accumulates. It answers \"what has this cost per day while\nrunning\", not \"what will this month's invoice be\".",
       "properties": {
         "actions_cost_usd": {
           "description": "actions_minutes x the per-minute rate",
@@ -354,7 +354,7 @@
             }
           ],
           "default": null,
-          "description": "actions_monthly + fixed_monthly, when derivable",
+          "description": "actions_monthly + model_monthly + fixed_monthly. None when a known-nonzero component cannot be rated \u2014 a partial total that silently omits the dominant cost is worse than no total",
           "title": "Estimated Monthly Usd"
         },
         "fixed_monthly_usd": {
@@ -368,6 +368,20 @@
           "minimum": 0.0,
           "title": "Model Cost Usd",
           "type": "number"
+        },
+        "model_monthly_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model spend projected to 30 days from the usage ledger's span; None when the ledger has no span to rate against",
+          "title": "Model Monthly Usd"
         },
         "window_days": {
           "anyOf": [
@@ -840,6 +854,20 @@
           "minimum": 0,
           "title": "Total Tokens",
           "type": "integer"
+        },
+        "window_days": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unrounded span of the ledger's own created_at stamps, which turns the cumulative spend into a rate; None when fewer than two records or all records share one instant (no span to divide by). Carried at full precision because it is a divisor \u2014 rounding happens at the render sites, so display precision never moves the reported rate",
+          "title": "Window Days"
         }
       },
       "required": [

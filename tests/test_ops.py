@@ -87,7 +87,14 @@ def test_summarize_health_empty() -> None:
     assert ops.summarize_health([]) == []
 
 
-def _usage(actor: str, cost: float, *, in_tok: int = 100, out_tok: int = 10) -> ModelUsage:
+def _usage(
+    actor: str,
+    cost: float,
+    *,
+    in_tok: int = 100,
+    out_tok: int = 10,
+    created_at: datetime | None = None,
+) -> ModelUsage:
     return ModelUsage(
         case_id="ca9/1",
         event_id="evt-x",
@@ -96,7 +103,7 @@ def _usage(actor: str, cost: float, *, in_tok: int = 100, out_tok: int = 10) -> 
         actor_id=actor,
         engine=Engine.claude_code,
         model="claude-opus-4-8",
-        created_at=datetime(2026, 6, 26),
+        created_at=created_at or datetime(2026, 6, 26),
         input_tokens=in_tok,
         output_tokens=out_tok,
         cache_read_input_tokens=5,
@@ -117,6 +124,31 @@ def test_summarize_spend_empty_has_zero_mean() -> None:
     spend = ops.summarize_spend([])
     assert (spend.runs, spend.total_tokens, spend.estimated_cost_usd) == (0, 0, 0.0)
     assert spend.mean_cost_usd_per_run == 0.0
+    assert spend.window_days is None
+
+
+def test_summarize_spend_window_spans_the_ledgers_own_stamps() -> None:
+    spend = ops.summarize_spend(
+        [
+            _usage("a", 0.10, created_at=datetime(2026, 6, 24)),
+            _usage("b", 0.30, created_at=datetime(2026, 6, 28)),
+        ]
+    )
+    assert spend.window_days == 4.0
+
+
+@pytest.mark.parametrize(
+    ("stamps", "why"),
+    [
+        ([datetime(2026, 6, 24)], "one record spans nothing"),
+        ([datetime(2026, 6, 24), datetime(2026, 6, 24)], "a same-instant batch spans nothing"),
+    ],
+)
+def test_summarize_spend_leaves_an_unspanned_ledger_unrated(
+    stamps: list[datetime], why: str
+) -> None:
+    spend = ops.summarize_spend([_usage("a", 0.10, created_at=s) for s in stamps])
+    assert spend.window_days is None, why
 
 
 def test_build_report_is_passed_the_clock_and_validates() -> None:
@@ -159,7 +191,150 @@ def test_estimate_cost_single_run_has_no_window_or_projection() -> None:
     assert cost.actions_minutes == 30.0
     assert cost.window_days is None  # need >1 run to span a window
     assert cost.actions_monthly_usd is None
-    assert cost.estimated_monthly_usd is None
+    # Actions is free here, so an unrateable Actions window omits nothing: the
+    # total still lands. Only a known-*nonzero* unrateable component blanks it.
+    assert cost.estimated_monthly_usd == ops._FIXED_MONTHLY_USD
+
+
+def test_estimate_cost_quiet_week_still_reports_the_model_rate() -> None:
+    """A degraded Actions window must degrade its own cell, not the headline.
+
+    Regression: the projection was suppressed whenever `actions_monthly` was None,
+    so too few dated runs (a quiet week, or a degraded `gh run list`) erased a
+    fully-rated model figure — blanking the number the dashboard exists to show.
+    """
+    one_run = [
+        _run("run-pull", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:30:00Z")
+    ]
+    spend = ops.summarize_spend(
+        [
+            _usage("a", 20.0, created_at=datetime(2026, 6, 20)),
+            _usage("b", 40.0, created_at=datetime(2026, 6, 26)),
+        ]
+    )
+    cost = ops.estimate_cost(one_run, spend)
+
+    assert cost.actions_monthly_usd is None  # the degraded component
+    assert cost.model_monthly_usd == 300.0  # the rated one survives
+    assert cost.estimated_monthly_usd == 300.0 + ops._FIXED_MONTHLY_USD
+
+
+def _two_day_runs() -> list[dict[str, object]]:
+    return [
+        _run("run-pull", "success", started="2026-06-24T00:00:00Z", ended="2026-06-24T00:30:00Z"),
+        _run("run-pull", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:30:00Z"),
+    ]
+
+
+def test_estimate_cost_projects_model_spend_into_the_run_rate() -> None:
+    """The dominant variable cost must be rated, not just reported cumulatively.
+
+    Regression: the projection was `actions + fixed`, so the headline run-rate was
+    the infra alone ($55/mo) while the tournament was burning orders of magnitude
+    more — the reading that missed a cap breach.
+    """
+    # $60 of model spend over a 6-day ledger span -> $10/day -> $300/mo.
+    spend = ops.summarize_spend(
+        [
+            _usage("a", 20.0, created_at=datetime(2026, 6, 20)),
+            _usage("b", 40.0, created_at=datetime(2026, 6, 26)),
+        ]
+    )
+    assert spend.window_days == 6.0
+    cost = ops.estimate_cost(_two_day_runs(), spend)
+
+    assert cost.model_monthly_usd == 300.0
+    assert cost.model_cost_usd == 60.0  # cumulative still reported alongside the rate
+    # Actions is free here, so the all-in total is the model rate plus fixed infra.
+    assert cost.estimated_monthly_usd == 300.0 + ops._FIXED_MONTHLY_USD
+    assert cost.estimated_monthly_usd != ops._FIXED_MONTHLY_USD
+
+
+def test_estimate_cost_withholds_a_total_it_cannot_honestly_compute() -> None:
+    """Recorded spend with no span to rate -> no projection, rather than infra alone."""
+    spend = ops.summarize_spend([_usage("a", 500.0, created_at=datetime(2026, 6, 26))])
+    assert (spend.estimated_cost_usd, spend.window_days) == (500.0, None)
+
+    cost = ops.estimate_cost(_two_day_runs(), spend)
+    assert cost.model_monthly_usd is None
+    assert cost.estimated_monthly_usd is None, "a total omitting $500 of spend would mislead"
+
+
+def test_estimate_cost_still_totals_when_the_ledger_is_genuinely_empty() -> None:
+    """No spend recorded is not unrated spend — the infra-only total is correct."""
+    cost = ops.estimate_cost(_two_day_runs(), ops.summarize_spend([]))
+    assert cost.model_monthly_usd is None
+    assert cost.estimated_monthly_usd == ops._FIXED_MONTHLY_USD
+
+
+def test_estimate_cost_rates_a_sub_day_span_at_full_precision() -> None:
+    """The divisor is the raw span, so display rounding cannot move the rate.
+
+    Regression: `window_days` was persisted as `round(span, 1)` and used as the
+    divisor. A 70-minute ledger rounded to `0.0` — stored, not None, because it
+    still passed `span > 0` — which unrated a real rate and rendered as `0d`.
+    """
+    spend = ops.summarize_spend(
+        [
+            _usage("a", 15.0, created_at=datetime(2026, 6, 26, 0, 0)),
+            _usage("b", 15.0, created_at=datetime(2026, 6, 26, 1, 10)),
+        ]
+    )
+    # 70 minutes, carried unrounded rather than collapsing to 0.0.
+    assert spend.window_days == pytest.approx(70 / 1440)
+
+    cost = ops.estimate_cost(_two_day_runs(), spend)
+    # $30 over 70 min -> $30 * (1440/70) per day * 30 days.
+    assert cost.model_monthly_usd == pytest.approx(30 * (1440 / 70) * 30, rel=1e-3)
+    assert cost.estimated_monthly_usd is not None
+
+
+def test_summarize_spend_tolerates_a_naive_ledger_stamp() -> None:
+    """One malformed agent-written stamp must not crash the whole ops report."""
+    spend = ops.summarize_spend(
+        [
+            _usage("a", 10.0, created_at=datetime(2026, 6, 20)),
+            _usage("b", 10.0, created_at=datetime(2026, 6, 24, tzinfo=UTC)),
+        ]
+    )
+    assert spend.window_days == pytest.approx(4.0)
+
+
+def test_render_surfaces_the_model_rate_not_just_the_cumulative_total() -> None:
+    """Both operator-facing surfaces must name the rate the fix exists to expose."""
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=_two_day_runs(),
+        usage=[
+            _usage("a", 20.0, created_at=datetime(2026, 6, 20)),
+            _usage("b", 40.0, created_at=datetime(2026, 6, 26)),
+        ],
+    )
+    assert report.cost.model_monthly_usd == 300.0
+
+    all_in = f"{300.0 + ops._FIXED_MONTHLY_USD:,.0f}"
+    body = ops.render_markdown(report)
+    assert "model $300/mo" in body
+    assert "$60.00 cumulative over 6.0d of ledger" in body
+    assert f"Run-rate **~${all_in}/mo** projected" in body
+
+    digest = ops.render_weekly_digest(report)
+    assert "(~$300/mo while running)" in digest
+    assert f"~${all_in}/mo projected all-in" in digest
+
+
+def test_render_digest_says_unrated_rather_than_implying_zero_spend() -> None:
+    """The None branch must read as 'not computed', never as a small number."""
+    report = ops.build_ops_report(
+        generated_at="2026-06-26T12:00:00+00:00",
+        runs=_two_day_runs(),
+        usage=[_usage("a", 500.0)],  # one record -> no span -> unrateable
+    )
+    assert report.cost.estimated_monthly_usd is None
+
+    digest = ops.render_weekly_digest(report)
+    assert "$500.00 model spend cumulative (unrated while running)" in digest
+    assert "~— projected all-in" in digest
 
 
 def test_render_markdown_smoke() -> None:
@@ -1247,10 +1422,10 @@ def test_estimate_cost_projection_arithmetic_with_a_nonzero_rate(
         _run("run-pull", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:30:00Z"),
     ]
     cost = ops.estimate_cost(runs, ops.summarize_spend([]))
-    # $0.36 over a 2-day window -> $5.40/mo Actions + $55 fixed.
+    # $0.36 over a 2-day window -> $5.40/mo Actions, plus the fixed infra.
     assert cost.actions_cost_usd == 0.36
     assert cost.actions_monthly_usd == 5.4
-    assert cost.estimated_monthly_usd == 60.4
+    assert cost.estimated_monthly_usd == 5.4 + ops._FIXED_MONTHLY_USD
 
 
 def test_summarize_health_excludes_label_filter_skips() -> None:

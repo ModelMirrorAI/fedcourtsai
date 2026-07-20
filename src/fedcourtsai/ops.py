@@ -53,8 +53,12 @@ _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_
 # signal. Set a real rate here if the repo ever goes private or moves to
 # larger runners.
 _ACTIONS_USD_PER_MINUTE = 0.0
-# Infra not metered per run: CourtListener Tier 3 ($50) + S3 (~$5), USD/month.
-_FIXED_MONTHLY_USD = 55.0
+# Infra not metered per run: CourtListener Tier 3 ($50) + S3 (~$15), USD/month.
+# The S3 line is dominated by internet egress, not storage — GitHub runners are
+# Azure-hosted, so the scan-shaped writers' recurring full index pulls (~250-300
+# GB/mo at today's ~1 GB blob) carry it just past the free tier. It scales with
+# the blob, so revisit this alongside `docs/budget.md` when the index grows.
+_FIXED_MONTHLY_USD = 65.0
 _DAYS_PER_MONTH = 30.0
 
 
@@ -448,11 +452,29 @@ def render_weekly_digest(report: OpsReport) -> str:
         if report.cost.estimated_monthly_usd is None
         else f"${report.cost.estimated_monthly_usd:,.0f}/mo"
     )
+    # Name the model rate here, not just the all-in total: the cumulative figure
+    # next to a total that used to exclude it was the misreading this line invited.
+    model_rate = (
+        "unrated"
+        if report.cost.model_monthly_usd is None
+        else f"~${report.cost.model_monthly_usd:,.0f}/mo"
+    )
     lines.append(
-        f"- **Spend vs budget: ${report.spend.estimated_cost_usd:,.2f} model spend cumulative, "
-        f"~{monthly} projected — within plan?**"
+        f"- **Spend vs budget: ${report.spend.estimated_cost_usd:,.2f} model spend cumulative "
+        f"({model_rate} while running), ~{monthly} projected all-in — within plan?**"
     )
     return "\n".join(lines) + "\n"
+
+
+def _as_utc(stamp: datetime) -> datetime:
+    """Treat a naive ``created_at`` as UTC so ledger stamps stay comparable.
+
+    ``ModelUsage.created_at`` is an unconstrained ``datetime``, so a naive stamp
+    is schema-valid. Mixing naive and aware stamps raises on comparison, which
+    would take the whole ops report down over one malformed record — the ledger
+    is written by agents, so tolerate the shape rather than trusting it.
+    """
+    return stamp.replace(tzinfo=UTC) if stamp.tzinfo is None else stamp
 
 
 def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
@@ -464,11 +486,20 @@ def summarize_spend(usage: Iterable[ModelUsage]) -> SpendSummary:
         r.input_tokens + r.output_tokens + r.cache_read_input_tokens + r.cache_creation_input_tokens
         for r in rows
     )
+    # The ledger's own span, so cumulative spend can be turned into a rate. A
+    # single record — or a batch that all landed on one instant — spans nothing
+    # and stays unrated rather than being divided by zero. Kept unrounded: this
+    # is a divisor, and rounding it to a display precision would let the render
+    # format move the reported rate (a sub-day span rounds to 0.1d or, on a
+    # fresh ledger, to 0.0d — silently unrating a real rate).
+    stamps = [_as_utc(r.created_at) for r in rows]
+    span = (max(stamps) - min(stamps)).total_seconds() / 86400.0 if len(stamps) > 1 else 0.0
     return SpendSummary(
         runs=runs,
         total_tokens=tokens,
         estimated_cost_usd=round(cost, 6),
         mean_cost_usd_per_run=round(cost / runs, 6) if runs else 0.0,
+        window_days=span if span > 0 else None,
     )
 
 
@@ -659,9 +690,17 @@ def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> 
     GitHub Actions minutes are summed from completed-run wall-clock and priced
     at the configured per-minute rate — zero on this public repository, where
     standard runners are free, so the minutes ride along as a runtime-health
-    signal and the projection reduces to the fixed monthly infra. Model token
-    cost is reported cumulatively (not a rate), so it is shown but not added
-    into the projection.
+    signal rather than a dollar figure.
+
+    Model token cost is the dominant variable cost of the tournament, so it is
+    rated (over the usage ledger's own span, which is not the Actions window) and
+    added into the projection. It used to be reported cumulatively and left out,
+    which made the headline run-rate the fixed infra alone — reassuring, and wrong
+    by the entire model bill.
+
+    The projection is None whenever a component that is known to be nonzero cannot
+    be rated. A total that silently drops the biggest line item reads as authoritative
+    and understates; no number at all prompts a look at the provider dashboard.
     """
     run_list = list(runs)
     seconds = [s for r in run_list if (s := _run_seconds(r)) is not None]
@@ -673,10 +712,24 @@ def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> 
     actions_monthly = (
         actions_cost / window_days * _DAYS_PER_MONTH if window_days and window_days > 0 else None
     )
-    estimated_monthly = (
-        round((actions_monthly or 0.0) + _FIXED_MONTHLY_USD, 2)
-        if actions_monthly is not None
+    model_window = spend.window_days
+    model_monthly = (
+        spend.estimated_cost_usd / model_window * _DAYS_PER_MONTH
+        if model_window is not None and model_window > 0
         else None
+    )
+    # A component suppresses the total only when it is known-nonzero *and*
+    # unrateable — that is when a total would understate. An unrateable
+    # known-zero component costs nothing to omit, so it must not blank the
+    # headline: on this public repo Actions is always $0, and a quiet week (too
+    # few dated runs to span a window) would otherwise erase a fully-rated model
+    # figure. Degrade the component, not the number the dashboard exists to show.
+    unrated_actions = actions_cost > 0 and actions_monthly is None
+    unrated_spend = spend.estimated_cost_usd > 0 and model_monthly is None
+    estimated_monthly = (
+        None
+        if unrated_actions or unrated_spend
+        else round((actions_monthly or 0.0) + (model_monthly or 0.0) + _FIXED_MONTHLY_USD, 2)
     )
     return CostEstimate(
         window_days=round(window_days, 1) if window_days is not None else None,
@@ -684,6 +737,7 @@ def estimate_cost(runs: Iterable[Mapping[str, object]], spend: SpendSummary) -> 
         actions_cost_usd=round(actions_cost, 4),
         actions_monthly_usd=round(actions_monthly, 2) if actions_monthly is not None else None,
         model_cost_usd=spend.estimated_cost_usd,
+        model_monthly_usd=round(model_monthly, 2) if model_monthly is not None else None,
         fixed_monthly_usd=_FIXED_MONTHLY_USD,
         estimated_monthly_usd=estimated_monthly,
     )
@@ -1042,19 +1096,27 @@ def render_markdown(report: OpsReport) -> str:
     actions_monthly = (
         "—" if ce.actions_monthly_usd is None else f"${ce.actions_monthly_usd:,.0f}/mo"
     )
+    model_monthly = "—" if ce.model_monthly_usd is None else f"${ce.model_monthly_usd:,.0f}/mo"
     lines += [
         "",
         "## Spend & cost",
         f"**{s.runs}** run(s) · **{s.total_tokens:,}** tokens · "
         f"**${s.estimated_cost_usd:,.2f}** est. (~${s.mean_cost_usd_per_run:.4f}/run).",
         "",
-        f"Run-rate **~{monthly}** projected · Actions {actions_monthly} "
-        f"({ce.actions_minutes:,.0f} min ~ ${ce.actions_cost_usd:,.2f} over "
-        f"{'—' if ce.window_days is None else f'{ce.window_days:g}d'}) · "
-        f"fixed ${ce.fixed_monthly_usd:,.0f}/mo · model ${ce.model_cost_usd:,.2f} cumulative.",
+        f"Run-rate **~{monthly}** projected · model {model_monthly} "
+        f"(${ce.model_cost_usd:,.2f} cumulative over "
+        f"{'—' if s.window_days is None else f'{s.window_days:.1f}d'} of ledger) · "
+        f"Actions {actions_monthly} ({ce.actions_minutes:,.0f} min ~ "
+        f"${ce.actions_cost_usd:,.2f} over "
+        f"{'—' if ce.window_days is None else f'{ce.window_days:g}d'} of run history) · "
+        f"fixed ${ce.fixed_monthly_usd:,.0f}/mo.",
         "",
         "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
-        + "no billing-API access); check the provider billing dashboards for ground truth.",
+        + "no billing-API access); check the provider billing dashboards for ground truth. "
+        + "The model rate averages the usage ledger's **full span**, first record to "
+        + "last — a trailing pause does not deflate it, but an interior gap or a "
+        + "low-volume early era does, so it trends toward a lifetime average as "
+        + "history accumulates.",
     ]
 
     # Only surface stalled fan-outs when there are any (the empty case is the norm).
