@@ -244,3 +244,25 @@ def test_is_correct_treats_gvr_as_a_distinct_label_but_a_grant_for_brier() -> No
     assert is_correct(said_granted, gvr_outcome) == 0  # label differs
     assert is_correct(said_gvr, gvr_outcome) == 1
     assert brier_score(said_granted, gvr_outcome) == pytest.approx(0.01)  # grant on the binary axis
+
+
+def test_process_version_is_optional_so_shakedown_cells_still_validate() -> None:
+    # The backward-compat contract: existing predictions/evaluations written
+    # before the stamp existed carry no process_version and must stay valid.
+    assert _prediction().process_version is None
+    assert _evaluation().process_version is None
+
+
+def test_process_version_round_trips_when_stamped() -> None:
+    stamp = {
+        "label": "proc-v1",
+        "digest": "sha256:abc",
+        "pipeline_sha": "deadbeef",
+        "stamped_at": "2026-01-01T00:00:00Z",
+    }
+    pred = _prediction(process_version=stamp)
+    assert pred.process_version is not None
+    assert pred.process_version.digest == "sha256:abc"
+    assert pred.process_version.algo == "sha256"  # defaulted
+    # Round-trips through the strict schema.
+    assert Prediction.model_validate(pred.model_dump()).process_version == pred.process_version

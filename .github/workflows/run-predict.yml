@@ -666,6 +666,28 @@ jobs:
           uv run fedcourts "${args[@]}" \
             || echo "::warning::no retrieval log captured for ${EVENT_ID}"
 
+      # Stamp the agent's prediction.json with its process version — the prompt
+      # template and resolved registry config in force at run time, hashed by the
+      # harness (not the agent's word, exactly like usage.json). Metrics partition
+      # the frozen headline on this digest. Runs BEFORE "Record cell status" (which
+      # validates), so a stamp of a genuine config inconsistency fails the cell
+      # honestly; a missing artifact (no-output cell) is a clean no-op. NOT
+      # continue-on-error: unlike the flaky-log captures above, stamping is
+      # deterministic and local, so a failure is a real bug worth surfacing.
+      - name: Stamp the process version
+        if: ${{ !cancelled() }}
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts stamp-cell \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --run-id "$RUN_ID" --role predictor --actor "$PREDICTOR_ID"
+
       # The cell no longer opens a PR. Even when the agent failed or timed out
       # (`!cancelled()`), record what it produced and hand its output to the
       # collect job; that job aggregates the whole run into one PR. The decisions

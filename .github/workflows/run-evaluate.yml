@@ -607,6 +607,25 @@ jobs:
           uv run fedcourts "${args[@]}" \
             || echo "::warning::no retrieval log captured for ${EVENT_ID}"
 
+      # Stamp every evaluation.json this cell wrote with the evaluator's process
+      # version (see the predict workflow's step for the rationale). One evaluate
+      # cell scores every predictor, so `stamp-cell --role evaluator` stamps all
+      # of this evaluator+event+run's evaluation.json files. Runs before "Record
+      # cell status" (validate); not continue-on-error — stamping is deterministic.
+      - name: Stamp the process version
+        if: ${{ !cancelled() }}
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          EVALUATOR_ID: ${{ matrix.evaluator_id }}
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts stamp-cell \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --run-id "$RUN_ID" --role evaluator --actor "$EVALUATOR_ID"
+
       # Finalize even when the agent step failed or timed out (`!cancelled()`), so a
       # run stopped by max-turns or the step timeout still hands its partial output
       # to a maintainer instead of vanishing with the runner.

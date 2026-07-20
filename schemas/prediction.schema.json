@@ -41,6 +41,54 @@
       ],
       "title": "JudgeVote",
       "type": "object"
+    },
+    "ProcessVersion": {
+      "additionalProperties": false,
+      "description": "Harness-written stamp of the process that produced a prediction/evaluation.\n\nHybrid identity. ``digest`` is a content hash of the *actual* process inputs\n\u2014 the prompt-template bytes plus the resolved registry config for this actor\n(engine, resolved model, pinned MCP manifest) \u2014 so a silent prompt or config\nchange is automatically a distinct version. ``label`` is human-readable sugar\nfor a digest. The frozen/shakedown partition keys on ``digest``, never the\nlabel, so two different processes cannot hide behind one label.\n\n``pipeline_sha`` is provenance only and is deliberately **not** folded into\n``digest``: the checkout commit changes on every unrelated pipeline edit, and\nfolding it in would break the frozen set every time predict/evaluate resume at\na newer HEAD. The digest captures what defines the process; the sha records\nwhich commit ran it.\n\nOptional on the ledger models (defaults to absent), so shakedown cells written\nbefore the stamp existed still validate. The agent never writes this \u2014 a\npost-agent harness step (``fedcourts stamp-cell``) does, so a cell's version\nis the harness's word, not the agent's, exactly like ``usage.json``.",
+      "properties": {
+        "algo": {
+          "const": "sha256",
+          "default": "sha256",
+          "title": "Algo",
+          "type": "string"
+        },
+        "digest": {
+          "description": "Content digest of the process inputs, 'sha256:<hex>'",
+          "title": "Digest",
+          "type": "string"
+        },
+        "label": {
+          "description": "Human process label, e.g. 'proc-v1'",
+          "title": "Label",
+          "type": "string"
+        },
+        "pipeline_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Git commit of the pipeline checkout that stamped this cell; provenance only, NOT part of `digest`.",
+          "title": "Pipeline Sha"
+        },
+        "stamped_at": {
+          "description": "When the harness stamped the cell (UTC)",
+          "format": "date-time",
+          "title": "Stamped At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "digest",
+        "stamped_at"
+      ],
+      "title": "ProcessVersion",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -143,6 +191,18 @@
       "minimum": 0.0,
       "title": "Probability",
       "type": "number"
+    },
+    "process_version": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProcessVersion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Harness-stamped process version (absent on shakedown cells written before the stamp existed); the frozen-headline partition key."
     },
     "reasoning_doc": {
       "default": "reasoning.md",

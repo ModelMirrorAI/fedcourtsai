@@ -33,6 +33,7 @@ from . import (
     integration_check,
     mcp,
     metrics_refresh,
+    process_version,
     provision,
     repo_gate,
     retrieval,
@@ -107,6 +108,7 @@ from .pipeline.salience import reconcile_salience_selection
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .registry import (
+    enabled_evaluators,
     enabled_predictors,
     load_evaluators,
     load_mcp_servers,
@@ -121,17 +123,20 @@ from .schemas import (
     DataHealth,
     Disposition,
     Engine,
+    Evaluation,
     GroupBy,
     LiveFrontier,
     ModelUsage,
     OpsReport,
     PredictableEvent,
+    Prediction,
+    ProcessVersion,
     RetrievalCall,
     RetrievalLog,
     StatPack,
     UsageRole,
 )
-from .serialize import write_json, write_raw_json, write_text, write_yaml
+from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .store import (
     cases_due_for_pull,
     iter_flags,
@@ -987,6 +992,116 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         f"usage: {actor} {counts.total_tokens} tok ~${record.estimated_cost_usd:.4f} "
         f"-> {destination}"
     )
+
+
+@app.command("stamp-cell")
+def stamp_cell(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id this cell predicted/scored.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    role: Annotated[str, typer.Option(help="predictor | evaluator.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
+    pipeline_sha: Annotated[
+        str,
+        typer.Option(
+            help="Pipeline checkout commit (provenance); defaults to GITHUB_SHA, "
+            "then the local git HEAD, else omitted."
+        ),
+    ] = "",
+    stamped_at: Annotated[
+        str, typer.Option(help="ISO timestamp of the stamp; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Stamp a cell's ``prediction.json`` / ``evaluation.json`` with its process version.
+
+    The harness owns the stamp, not the agent — so a cell's version is derived
+    from the registry and prompt in force at run time, exactly like ``usage.json``
+    reads the engine's own log rather than the agent's word. Runs as a post-agent
+    step, before ``validate``.
+
+    The digest is resolved from the working tree (:func:`process_version.digest_for_actor`):
+    the actor's prompt-template bytes plus its resolved registry config. A missing
+    artifact is a clean no-op (a no-output cell has nothing to stamp and is already
+    routed to a draft), but a missing registry entry or prompt file exits non-zero
+    — a config inconsistency must fail the cell loudly rather than ship an
+    unstamped-but-frozen-looking prediction.
+
+    For ``--role evaluator`` a single cell writes one ``evaluation.json`` per
+    scored predictor, so every one under this evaluator+event+run is stamped.
+    """
+    settings = get_settings()
+    if role not in ("predictor", "evaluator"):
+        typer.echo(f"role must be predictor or evaluator, not {role!r}", err=True)
+        raise typer.Exit(code=2)
+
+    digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
+    stamp = ProcessVersion(
+        label=process_version.CURRENT_PROCESS_LABEL,
+        digest=digest,
+        pipeline_sha=resolve_pipeline_sha(pipeline_sha),
+        stamped_at=datetime.fromisoformat(stamped_at) if stamped_at else datetime.now(UTC),
+    )
+
+    event_paths = CasePaths(settings.data_root, court, docket).event(event)
+    if role == "predictor":
+        targets = [event_paths.prediction(actor, run_id)]
+        model_cls: type[Prediction] | type[Evaluation] = Prediction
+    else:
+        # One evaluate cell scores every predictor, so it writes one
+        # evaluation.json per predictor at evaluations/<actor>/<predictor>/<run>/.
+        targets = sorted(
+            (event_paths.base / "evaluations" / actor).glob(f"*/{run_id}/evaluation.json")
+        )
+        model_cls = Evaluation
+
+    stamped = 0
+    for path in targets:
+        if not path.is_file():
+            continue
+        record = read_model(path, model_cls)
+        write_json(path, record.model_copy(update={"process_version": stamp}))
+        stamped += 1
+
+    if stamped == 0:
+        typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+        return
+    typer.echo(f"stamp: {actor} {digest} -> {stamped} file(s)")
+
+
+@app.command("process-digest")
+def process_digest_cmd(
+    role: Annotated[str, typer.Option(help="predictor | evaluator (ignored with --all).")] = "",
+    actor: Annotated[str, typer.Option(help="Actor id (ignored with --all).")] = "",
+    all_actors: Annotated[
+        bool, typer.Option("--all", help="Print the digest of every enabled actor.")
+    ] = False,
+) -> None:
+    """Print an actor's process digest — the value a maintainer blesses to freeze.
+
+    The freeze procedure: run ``fedcourts process-digest --all``, paste the
+    blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py`` in
+    a one-line freeze commit, and record that commit as the cutover in the docs.
+    Because the digest excludes the pipeline commit, the blessed set survives
+    unrelated pipeline changes — predict/evaluate can resume at a newer HEAD and
+    still match.
+    """
+    settings = get_settings()
+    if all_actors:
+        predictors = enabled_predictors(settings.config_root / "predictors.yaml")
+        evaluators = enabled_evaluators(settings.config_root / "evaluators.yaml")
+        rows = [("predictor", p.id) for p in predictors]
+        rows += [("evaluator", e.id) for e in evaluators]
+    else:
+        if role not in ("predictor", "evaluator") or not actor:
+            typer.echo("pass --all, or both --role and --actor.", err=True)
+            raise typer.Exit(code=2)
+        rows = [(role, actor)]
+    for actor_role, actor_id in rows:
+        digest = process_version.digest_for_actor(
+            Path.cwd(), settings.config_root, actor_role, actor_id
+        )
+        typer.echo(f"{process_version.CURRENT_PROCESS_LABEL}  {actor_role}  {actor_id}  {digest}")
 
 
 @app.command("record-retrieval")
