@@ -1,8 +1,69 @@
 {
-  "entries": [],
-  "evaluations_total": 0,
-  "forward_evaluations": 0,
-  "predictors_ranked": 0,
+  "entries": [
+    {
+      "big_case": {
+        "cases": 1,
+        "rank_agreement": null
+      },
+      "evaluators": 3,
+      "forward": {
+        "accuracy": 1.0,
+        "evaluations": 3,
+        "events_scored": 1,
+        "mean_brier_score": 0.0,
+        "mean_brier_skill_score": null,
+        "mean_reasoning_quality": 0.84,
+        "mean_vote_accuracy": null
+      },
+      "predictor_id": "gemini-baseline",
+      "procedural": null,
+      "rank": 1,
+      "retrospective": null
+    },
+    {
+      "big_case": {
+        "cases": 1,
+        "rank_agreement": null
+      },
+      "evaluators": 3,
+      "forward": {
+        "accuracy": 1.0,
+        "evaluations": 3,
+        "events_scored": 1,
+        "mean_brier_score": 4e-06,
+        "mean_brier_skill_score": null,
+        "mean_reasoning_quality": 0.9666666666666667,
+        "mean_vote_accuracy": null
+      },
+      "predictor_id": "codex-baseline",
+      "procedural": null,
+      "rank": 2,
+      "retrospective": null
+    },
+    {
+      "big_case": {
+        "cases": 1,
+        "rank_agreement": null
+      },
+      "evaluators": 3,
+      "forward": {
+        "accuracy": 1.0,
+        "evaluations": 3,
+        "events_scored": 1,
+        "mean_brier_score": 0.0001,
+        "mean_brier_skill_score": null,
+        "mean_reasoning_quality": 0.9700000000000001,
+        "mean_vote_accuracy": null
+      },
+      "predictor_id": "claude-baseline",
+      "procedural": null,
+      "rank": 3,
+      "retrospective": null
+    }
+  ],
+  "evaluations_total": 9,
+  "forward_evaluations": 9,
+  "predictors_ranked": 3,
   "procedural_evaluations": 0,
   "retrospective_evaluations": 0,
   "schema_version": "1.0"
