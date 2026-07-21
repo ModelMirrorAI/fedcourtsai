@@ -63,6 +63,11 @@ non-interactive** container. Two consequences shape everything you do:
   PR description; where it directly affects output, show a produced example.
 - **The schema is law.** Every artifact must validate. Run
   `uv run fedcourts validate data` before you finish; if it fails, fix it.
+- **Some fields are the harness's, not yours.** `usage.json`, `retrieval_log.json`,
+  and the `process_version` stamp on your `prediction.json` / `evaluation.json`
+  are written by post-run harness steps from the engine log and the registry —
+  never the agent's word. Do not write `process_version`; anything you put there
+  is overwritten (see `docs/process-version.md`).
 - **The snapshot is the baseline; timing is the leakage control.** The
   provisioned snapshot is every predictor's guaranteed-common input, not a
   ceiling; what else a cell may retrieve is keyed on its **mode**
