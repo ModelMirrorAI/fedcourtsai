@@ -356,6 +356,14 @@ class SalienceConfig(BaseModel):
     # so the cap keeps the sweep a small tail on the cycle; the backlog drains
     # across cycles under the sticky latch.
     sweep_cases_per_cycle: int = Field(default=25, ge=0)
+    # A relist (not a first distribution) inside this many days of the case's
+    # last ``predict_queued_at`` stamp is administrative churn, not a materially
+    # different posture, so the live cycle suppresses re-queuing it while
+    # capacity is enforced (gated scope + a salience config). The default of 1
+    # suppresses only a same-day repeat (the observed failure mode: a petition
+    # re-tournamented hours after its first prediction); 0 disables suppression,
+    # so every relist queues unconditionally.
+    relist_requeue_cooldown_days: int = Field(default=1, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:

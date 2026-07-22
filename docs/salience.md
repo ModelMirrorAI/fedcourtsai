@@ -131,7 +131,11 @@ structurally analogous to the scope reconcile — carries the decision:
    case and not that one" is always answered within one conference's candidate pool
    at a fixed score version.
 2. **Score** every Tier-0-eligible SCOTUS row in the cohort (`salience_score`,
-   `salience_version`).
+   `salience_version`) — including an already-**decided** petition, so its
+   historical row still carries a band. A decided petition never enters cohort
+   selection, though: it has no open event left to predict, and latching it
+   would muddy "`salience_selected` = tournament spend" with cases the gate
+   never actually funds.
 3. **Always-include carve-outs**, unconditionally selected **above** the `N`
    budget: CVSG petitions (`cvsg_date IS NOT NULL`) and anything at or above a
    documented **salience floor** — set at the grant-rate level of clearly
@@ -186,6 +190,19 @@ entry debounces that retry to daily, so an open-but-unmerged run PR is not
 re-queued every cycle. Document provisioning follows the same gate: a deferred
 petition's transition fetches nothing, and its documents are provisioned by the
 sweep if it is ever latched.
+
+**The relist requeue cooldown.** A **relist** — a distribution transition on a
+petition already distributed before, as opposed to its first distribution — inside
+`salience.relist_requeue_cooldown_days` (default 1) of the case's last
+`predict_queued_at` stamp is treated as administrative churn rather than a
+materially different posture, and is not requeued: the divert is surfaced on
+`predict_skipped_relist_cooldown` for triage, never silently dropped, and it
+re-stamps `predict_queued_at` (anchoring the next cooldown check and keeping
+the same-cycle sweep from immediately re-queuing what was just suppressed). The
+default suppresses only a same-day repeat — a petition re-tournamented hours
+after its first prediction, the observed failure mode — while a relist the
+next day or later queues normally. Only applies under the gated scope with a
+salience config in force (capacity actually enforced); `0` disables it.
 
 ## Capacity `N` — the funding knob
 

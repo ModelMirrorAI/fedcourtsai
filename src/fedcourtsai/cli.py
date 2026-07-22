@@ -3014,9 +3014,14 @@ def live_poll(
             if queues.predict_skipped_decided
             else ""
         )
+        + (
+            f" ({len(queues.predict_skipped_relist_cooldown)} relisted case(s) held on cooldown)"
+            if queues.predict_skipped_relist_cooldown
+            else ""
+        )
         + "."
     )
-    for skipped in queues.predict_skipped_decided:
+    for skipped in (*queues.predict_skipped_decided, *queues.predict_skipped_relist_cooldown):
         typer.echo(
             "Skipped forward prediction for "
             f"{skipped['court']}/{skipped['docket']} — {skipped['reason']}"

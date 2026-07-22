@@ -142,6 +142,15 @@ class PullQueues:
     # will re-skip on later refreshes until a maintainer records its outcome
     # or retires it.
     predict_skipped_decided: list[dict[str, object]] = field(default_factory=list)
+    # Live-channel only: changed cases with open events that were NOT queued
+    # forward because the case relisted inside the salience config's
+    # `relist_requeue_cooldown_days` of its last predict queue — administrative
+    # churn, not a materially different posture, while capacity is enforced.
+    # Surfaced for triage, never silently dropped. The divert re-stamps
+    # `predict_queued_at` to today (same as a decided-skip divert), which both
+    # anchors the next cooldown check and keeps the same-cycle selection sweep
+    # from immediately re-queuing what this cycle just suppressed.
+    predict_skipped_relist_cooldown: list[dict[str, object]] = field(default_factory=list)
     evaluate: list[dict[str, object]] = field(default_factory=list)
     # Resolved events dropped from *this poll's* evaluate queue because the ledger
     # holds no prediction to score. Surfaced (never silently discarded), but not

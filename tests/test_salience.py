@@ -21,7 +21,7 @@ REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
 LONG_CONFERENCE = date(2025, 9, 29)  # the Term's opening long conference (September)
 
 
-def _petition(
+def _petition(  # noqa: PLR0913 - a keyword-only test fixture builder, one arg per row feature
     case_id: str,
     *,
     distribution_count: int | None = 1,
@@ -31,6 +31,7 @@ def _petition(
     docket: str = "25-100",
     selected: bool = False,
     court: str = "scotus",
+    date_cert_denied: date | None = None,
 ) -> corpus.CorpusRow:
     return corpus.CorpusRow.model_validate(
         {
@@ -43,6 +44,7 @@ def _petition(
             "originating_court": circuit,
             "distributed_for_conference": conference,
             "salience_selected": selected,
+            "date_cert_denied": date_cert_denied,
         }
     )
 
@@ -200,6 +202,38 @@ def test_petition_not_yet_distributed_is_scored_but_not_selected(tmp_path: Path)
     assert row is not None
     assert row.salience_score is not None  # scored
     assert row.salience_selected is False  # but not selected — not up for prediction yet
+
+
+def test_decided_petition_is_scored_but_never_cohorted(tmp_path: Path) -> None:
+    # A historical, already-decided docket still carries a distribution
+    # conference, but it has no open event left to predict — the pass must
+    # score it (the board wants a band) without ever latching it selected.
+    db = _seed(
+        tmp_path,
+        [_petition("scotus/decided", distribution_count=3, date_cert_denied=date(2026, 1, 12))],
+    )
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, SalienceConfig(), apply=True)
+        row = corpus.get_row(conn, "scotus/decided")
+    assert row is not None
+    assert row.salience_score is not None  # scored
+    assert row.salience_selected is False  # never cohorted, so never latched
+    assert result.newly_selected == 0
+
+
+def test_decided_petition_never_displaces_an_open_petition_within_capacity(tmp_path: Path) -> None:
+    # A decided high-relist docket sharing a conference with a still-open,
+    # lower-relist one must not eat into the open petition's cap — it is
+    # excluded from the cohort entirely, not merely outranked.
+    rows = [
+        _petition("scotus/decided", distribution_count=3, date_cert_denied=date(2026, 1, 12)),
+        _petition("scotus/open", distribution_count=1),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(per_conference_capacity=1, floor=0.28)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, config, apply=True)
+    assert _selected_ids(db) == {"scotus/open"}
 
 
 def test_out_of_scope_petition_is_not_scored(tmp_path: Path) -> None:

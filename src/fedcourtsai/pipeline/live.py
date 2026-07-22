@@ -296,6 +296,7 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     due: list[corpus.CorpusRow],
     *,
     scope: PredictScope = PredictScope.all,
+    salience_config: SalienceConfig | None = None,
     document_text_cap: int = 150_000,
     today: date,
     deadline: float | None = None,
@@ -314,6 +315,13 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     previously served number) is recorded on ``failed`` and its
     ``last_live_polled`` still advances via the row upsert path — it must not
     pin the rotation's front.
+
+    ``salience_config`` (when the scope is gated) additionally suppresses a
+    **relist** transition — as opposed to a petition's first distribution —
+    inside ``relist_requeue_cooldown_days`` of the case's last predict queue:
+    administrative churn, not a materially different posture, while capacity
+    is enforced. ``None`` (or an ungated scope) leaves every relist queueing
+    unconditionally.
     """
     queues = PullQueues()
     gated = scope == PredictScope.scotus_docket
@@ -368,7 +376,21 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
         queue_predict = transitioned and (
             not gated or _in_predict_scope(corpus_db_path, result.case_id)
         )
-        if queue_predict:
+        # A relist is a transition where `row` (the pre-poll state) already
+        # carried a distribution — as opposed to a petition's first ever
+        # distribution — so the cooldown never touches a case's first
+        # prediction, only a repeat. `row.predict_queued_at` is the pre-poll
+        # stamp: the elapsed days since the case's last predict queue.
+        relisted = transitioned and row.distributed_for_conference is not None
+        relist_suppressed = (
+            queue_predict
+            and relisted
+            and gated
+            and salience_config is not None
+            and row.predict_queued_at is not None
+            and (today - row.predict_queued_at).days < salience_config.relist_requeue_cooldown_days
+        )
+        if queue_predict and not relist_suppressed:
             # Predict is about to be queued for this petition — provision its
             # documents (petition / QP / BIO) on the same trigger. Idempotent
             # per (kind, url), so a relist with unchanged filings costs nothing.
@@ -388,6 +410,7 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
             gated=gated,
             queue_predict=queue_predict,
             today=today,
+            relist_suppressed=relist_suppressed,
         )
     return queues
 
@@ -416,6 +439,7 @@ def _route_result(
     gated: bool,
     queue_predict: bool,
     today: date,
+    relist_suppressed: bool = False,
 ) -> None:
     """Sort one poll result into the handoff queues (pull's routing, verbatim).
 
@@ -424,6 +448,9 @@ def _route_result(
     prediction (an unscoreable resolution lands on ``evaluate_skipped``);
     unrecorded outcomes always route. A predict queue entry stamps
     ``predict_queued_at`` (the selection sweep's daily-retry debounce).
+    ``relist_suppressed`` diverts an otherwise-queueable relist to
+    ``predict_skipped_relist_cooldown`` instead (checked after the decided
+    guard, since a decided docket is never queued regardless of relist timing).
     """
     docket_id = int(result.case_id.rsplit("/", 1)[-1])
     in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
@@ -435,10 +462,19 @@ def _route_result(
             queues.predict_skipped_decided.append(
                 {"court": "scotus", "docket": docket_id, "events": events, "reason": decided_reason}
             )
+        elif relist_suppressed:
+            queues.predict_skipped_relist_cooldown.append(
+                {
+                    "court": "scotus",
+                    "docket": docket_id,
+                    "events": events,
+                    "reason": "relisted inside the requeue cooldown of its last predict queue",
+                }
+            )
         else:
             queues.predict.append({"court": "scotus", "docket": docket_id, "events": events})
-        # Queue entry and divert both stamp: the sweep's daily debounce must
-        # cover a decided-looking selected case too, or a later window's sweep
+        # Queue entry and both diverts stamp: the sweep's daily debounce must
+        # cover a diverted selected case too, or a later window's sweep
         # re-fetches it and appends a duplicate divert entry the same day.
         with corpus.connect(corpus_db_path) as conn:
             corpus.stamp_predict_queued(conn, [result.case_id], today)
@@ -608,15 +644,17 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     conference (frontier catch-up); an undistributed one simply enters the
     watchlist, and the refresh queues it when its distribution lands.
 
-    ``salience_config`` wires the salience gate into the cycle: after the polls
-    have ingested the day's transitions, the selection pass scores and latches
-    against the fresh cohorts (:func:`apply_salience_selection` — before the
-    caller's corpus push, so the committed pointer carries the post-pass latch:
-    every sweep pick is selected at the pointer the predict matrix gate reads,
-    and a fail-open queue entry the same pass scores-and-defers is dropped by
-    that read-time gate, non-destructively), and under the gated scope the
+    ``salience_config`` wires the salience gate into the cycle: it also
+    suppresses a near-immediate relist's re-queue during the refresh (see
+    :func:`poll_live_cases`), and after the polls have ingested the day's
+    transitions, the selection pass scores and latches against the fresh
+    cohorts (:func:`apply_salience_selection` — before the caller's corpus
+    push, so the committed pointer carries the post-pass latch: every sweep
+    pick is selected at the pointer the predict matrix gate reads, and a
+    fail-open queue entry the same pass scores-and-defers is dropped by that
+    read-time gate, non-destructively), and under the gated scope the
     selection sweep queues what the transition trigger missed. ``None`` skips
-    both, leaving the queue-time deferral check fail-open.
+    all three, leaving the queue-time deferral check fail-open.
     """
     gated = scope == PredictScope.scotus_docket
     discovery = discover_live(
@@ -662,6 +700,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
         data_root,
         due,
         scope=scope,
+        salience_config=salience_config,
         document_text_cap=config.document_text_cap,
         today=today,
         deadline=deadline,
@@ -669,6 +708,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     )
     queues.predict.extend(refreshed.predict)
     queues.predict_skipped_decided.extend(refreshed.predict_skipped_decided)
+    queues.predict_skipped_relist_cooldown.extend(refreshed.predict_skipped_relist_cooldown)
     queues.evaluate.extend(refreshed.evaluate)
     queues.evaluate_skipped.extend(refreshed.evaluate_skipped)
     queues.unrecorded.extend(refreshed.unrecorded)
@@ -683,6 +723,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                 for entry in (
                     *queues.predict,
                     *queues.predict_skipped_decided,
+                    *queues.predict_skipped_relist_cooldown,
                     *queues.unrecorded,
                     *queues.failed,
                 )
