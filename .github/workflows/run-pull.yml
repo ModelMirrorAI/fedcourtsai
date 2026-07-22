@@ -114,24 +114,24 @@ jobs:
     # clean-slate cutover): '1' stops packing payloads into the blob (the corpus
     # collapses to the small metadata index) and routes the writer's own payload
     # reads to the store. Unset variable → '0' → off; needs CASESTORE_URL set.
-    # PREDICT_HANDOFF_ENABLED pauses the predict fan-out's trigger issues without
-    # pausing ingestion — set it to '0' in the `runner` environment (a repo-level
-    # variable of the same name works too) and this channel keeps collecting and
-    # committing while predict stays quiet (a provider spend cap, a pipeline
-    # change being staged). Unset → '1' → filing, so a mistyped variable keeps
-    # the tournament running rather than silently stopping it.
+    # PREDICT_HANDOFF_ENABLED / EVALUATE_HANDOFF_ENABLED pause their fan-out's
+    # trigger issues without pausing ingestion — set either to '0' in the
+    # `runner` environment (a repo-level variable of the same name works too)
+    # and that channel keeps collecting and committing while it stays quiet (a
+    # provider spend cap, a pipeline change being staged). Unset → '1' →
+    # filing, so a mistyped variable keeps the tournament running rather than
+    # silently stopping it.
     #
-    # Predict only: its queue is level-triggered (the selection sweep re-derives
-    # it from corpus state), so holding it costs latency alone. The evaluate
-    # queue is level-triggered too (the evaluate backlog deriver, see
-    # docs/pipeline.md), so an EVALUATE_HANDOFF_ENABLED would be safe to add — a
-    # held window re-derives on resume — but is intentionally not wired, so the
-    # deriver runs in production before a switch depends on it. See the handoff
-    # action.
+    # Both queues are level-triggered, so holding either costs latency alone,
+    # never a missed prediction/grading: predict's selection sweep re-derives
+    # its queue from corpus state, and evaluate's backlog deriver (see
+    # docs/pipeline.md) re-derives owed gradings from committed ledger state on
+    # a later cycle. See the handoff action.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
+      EVALUATE_HANDOFF_ENABLED: ${{ vars.EVALUATE_HANDOFF_ENABLED || '1' }}
     permissions:
       contents: write
       issues: write
@@ -340,6 +340,7 @@ jobs:
           queue: evaluate-queue.json
           label: run:evaluate
           noun: evaluate
+          enabled: ${{ env.EVALUATE_HANDOFF_ENABLED }}
 
       - name: Summarize the run; close the log after the final daily window
         if: success() && steps.run-issue.outputs.number != ''
@@ -349,6 +350,7 @@ jobs:
           ISSUE: ${{ steps.run-issue.outputs.number }}
           COMMITTED: ${{ steps.commit.outputs.committed }}
           PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
+          EVALUATE_NOTE: ${{ steps.evaluate-handoff.outputs.note }}
           # The shared daily log is closed only after the last scheduled window
           # (so the day's windows collapse into one thread), or by a one-off
           # manual / `run:pull` run (no schedule, so it owns its own log).
@@ -368,8 +370,8 @@ jobs:
           # outcome could not be recorded deterministically, for maintainer triage.
           unrecorded_lines=$(jq -r \
             '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' unrecorded-queue.json)
-          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window (predict/evaluate batch into one issue each):\n- run:predict cases queued: **%s**%s\n- run:evaluate cases queued: **%s**\n- outcomes left unrecorded (not deterministically recordable): **%s**\n' \
-            "$snap" "$predict" "$PREDICT_NOTE" "$evaluate" "$unrecorded")
+          body=$(printf '### ✅ Pull refresh window complete\n\n%s\n\nHandoffs this window (predict/evaluate batch into one issue each):\n- run:predict cases queued: **%s**%s\n- run:evaluate cases queued: **%s**%s\n- outcomes left unrecorded (not deterministically recordable): **%s**\n' \
+            "$snap" "$predict" "$PREDICT_NOTE" "$evaluate" "$EVALUATE_NOTE" "$unrecorded")
           if [ "$unrecorded" -gt 0 ]; then
             body=$(printf '%s\n%s\n' "$body" "$unrecorded_lines")
           fi
@@ -385,7 +387,7 @@ jobs:
             echo "| Handoff | Count |"
             echo "|---------|------:|"
             echo "| run:predict cases queued | ${predict}${PREDICT_NOTE} |"
-            echo "| run:evaluate cases queued | ${evaluate} |"
+            echo "| run:evaluate cases queued | ${evaluate}${EVALUATE_NOTE} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -412,12 +414,14 @@ jobs:
     environment: runner
     # Corpus-split flags (see the pull job): dual-write off unless CASESTORE_URL
     # is set; FEDCOURTS_CORPUS_SPLIT is the phase-4 go-live switch (unset → '0' → off).
-    # PREDICT_HANDOFF_ENABLED likewise mirrors `pull` — both writers queue at the
-    # same seam, so a pause has to hold both or predict issues keep arriving.
+    # PREDICT_HANDOFF_ENABLED / EVALUATE_HANDOFF_ENABLED likewise mirror `pull`
+    # — both writers queue at the same seam, so a pause has to hold both or
+    # trigger issues keep arriving from whichever channel is left unheld.
     env:
       FEDCOURTS_CASESTORE_URL: ${{ vars.CASESTORE_URL }}
       FEDCOURTS_CORPUS_SPLIT: ${{ vars.FEDCOURTS_CORPUS_SPLIT || '0' }}
       PREDICT_HANDOFF_ENABLED: ${{ vars.PREDICT_HANDOFF_ENABLED || '1' }}
+      EVALUATE_HANDOFF_ENABLED: ${{ vars.EVALUATE_HANDOFF_ENABLED || '1' }}
     # Unlike `pull`, the ambient GITHUB_TOKEN is never used here (checkout, the
     # corpus push, and every gh call run on the App token, and there is no
     # authorize-trigger step to need a read) — so it carries no write at all.
@@ -565,6 +569,7 @@ jobs:
           queue: evaluate-queue.json
           label: run:evaluate
           noun: evaluate
+          enabled: ${{ env.EVALUATE_HANDOFF_ENABLED }}
 
       # Unrecorded outcomes are surfaced on the log/summary below, exactly as in
       # `pull`: live resolution is machine-readable by construction (the
@@ -579,6 +584,7 @@ jobs:
           ISSUE: ${{ steps.run-issue.outputs.number }}
           COMMITTED: ${{ steps.commit.outputs.committed }}
           PREDICT_NOTE: ${{ steps.predict-handoff.outputs.note }}
+          EVALUATE_NOTE: ${{ steps.evaluate-handoff.outputs.note }}
           IS_FINAL_WINDOW: ${{ github.event_name != 'schedule' || github.event.schedule == '47 22 * * *' }}
         run: |
           set -euo pipefail
@@ -592,8 +598,8 @@ jobs:
           fi
           unrecorded_lines=$(jq -r \
             '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' unrecorded-queue.json)
-          body=$(printf '### ✅ Live poll window complete\n\n%s\n\nHandoffs this window:\n- run:predict cases queued: **%s**%s\n- run:evaluate cases queued: **%s**\n- outcomes left unrecorded (triage if persistent): **%s**\n' \
-            "$snap" "$predict" "$PREDICT_NOTE" "$evaluate" "$unrecorded")
+          body=$(printf '### ✅ Live poll window complete\n\n%s\n\nHandoffs this window:\n- run:predict cases queued: **%s**%s\n- run:evaluate cases queued: **%s**%s\n- outcomes left unrecorded (triage if persistent): **%s**\n' \
+            "$snap" "$predict" "$PREDICT_NOTE" "$evaluate" "$EVALUATE_NOTE" "$unrecorded")
           if [ "$unrecorded" -gt 0 ]; then
             body=$(printf '%s\n%s\n' "$body" "$unrecorded_lines")
           fi
@@ -608,6 +614,6 @@ jobs:
             echo "| Handoff | Count |"
             echo "|---------|------:|"
             echo "| run:predict cases queued | ${predict}${PREDICT_NOTE} |"
-            echo "| run:evaluate cases queued | ${evaluate} |"
+            echo "| run:evaluate cases queued | ${evaluate}${EVALUATE_NOTE} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
           } >> "$GITHUB_STEP_SUMMARY"
