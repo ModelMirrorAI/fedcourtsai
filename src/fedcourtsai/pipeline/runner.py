@@ -538,8 +538,12 @@ def _agent_base_env(own_auth: Collection[str]) -> dict[str, str]:
 # refuses to retry a 404.
 _TRANSIENT_FAILURE = re.compile(
     r"""
+    # A bare 429 is a distinctive status with low false-positive risk, so it
+    # stays broad; the 5xx set is pinned to the statuses providers actually
+    # return (a general \b5\d\d\b would match any 500-599 number — a docket id,
+    # token count, or line number on a *permanent* failure — and burn retries).
       \b429\b                          # HTTP 429 Too Many Requests
-    | \b5\d\d\b                         # any HTTP 5xx upstream/server error
+    | \b(?:500|502|503|504|529)\b      # server 5xx (+ Anthropic 529 overloaded)
     | quota[\s_-]*exceeded             # OpenAI / Gemini quota
     | insufficient[\s_-]*quota
     | rate[\s_-]*limit                 # throttling, all three providers
@@ -598,13 +602,16 @@ def _backoff_delay(
 ) -> float:
     """Seconds to wait before retry ``attempt`` (1-based over the *failed* tries).
 
-    Honors a server ``Retry-After`` verbatim when the failure surfaced one (capped
-    at ``cap``); otherwise an exponential ceiling ``base * 2**(attempt-1)``, capped
-    at ``cap``, passed through ``jitter``.
+    Honors a server ``Retry-After`` when the failure surfaced one; otherwise an
+    exponential ceiling ``base * 2**(attempt-1)`` passed through ``jitter``. Both
+    are capped at ``cap`` so a wait cannot read as a hang inside the CI job.
     """
     retry_after = _retry_after_seconds(result.stderr)
     if retry_after is not None:
-        return min(retry_after, cap)
+        # Retry-After is a *floor*, not a ceiling — waiting less than the server
+        # asked only re-trips the limit — so jitter is ADDED on top of it (not
+        # applied below it) to still desync cells that share the same hint.
+        return min(cap, retry_after + jitter(base))
     ceiling = min(cap, base * (2 ** (attempt - 1)))
     return jitter(ceiling)
 

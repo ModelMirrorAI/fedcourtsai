@@ -341,21 +341,23 @@ def test_backoff_grows_exponentially_and_is_capped(tmp_path: Path) -> None:
     assert sleeps == [2.0, 4.0, 8.0, 10.0]
 
 
-def test_retry_after_hint_is_honored(tmp_path: Path) -> None:
+def test_retry_after_hint_is_honored_with_jitter_added_on_top(tmp_path: Path) -> None:
     request = _predict_request(tmp_path / "data")
     StubRunner().run(request)
     seq = _SequenceRunner(
         [CommandResult(1, "429 Too Many Requests; Retry-After: 7"), CommandResult(0)]
     )
     sleeps: list[float] = []
-
-    def _boom(_ceiling: float) -> float:
-        raise AssertionError("jitter must not run when a server retry-after is honored")
-
-    runner = ClaudeCodeRunner(command_runner=seq, sleep=sleeps.append, jitter=_boom)
+    runner = ClaudeCodeRunner(
+        command_runner=seq,
+        backoff_base_seconds=2.0,
+        sleep=sleeps.append,
+        jitter=_identity_jitter,
+    )
     runner.run(request)
-    # The server's hint is slept verbatim, not the computed exponential backoff.
-    assert sleeps == [7.0]
+    # Retry-After (7) is a floor honored in full, with jitter (here identity of the
+    # base, 2) added ON TOP to desync cells sharing the hint — never applied below.
+    assert sleeps == [9.0]
 
 
 def test_retry_after_hint_is_capped_at_backoff_max(tmp_path: Path) -> None:
@@ -399,6 +401,10 @@ def test_transient_signatures_are_retryable(stderr: str) -> None:
         "context length exceeded: 200000 tokens requested",
         "401 Unauthorized: invalid api key",
         "404 Not Found",
+        # Bare 500-599 numbers that are NOT provider statuses (a docket id, a line
+        # number): the narrowed 5xx set must not misread these as a transient 5xx.
+        "content filter tripped on docket 555 near line 512",
+        "invalid request: 511 tokens over the context window",
     ],
 )
 def test_permanent_signatures_are_not_retryable(stderr: str) -> None:
