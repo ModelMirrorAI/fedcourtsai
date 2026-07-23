@@ -287,8 +287,9 @@ def evaluate_backlog(
     the same stamp (a case queued today waits for tomorrow's cycle rather than
     re-queuing while its run PR is in flight or failed).
 
-    ``max_attempts`` is the poison-pill backstop the daily debounce lacks (part of
-    the durable failure queue, ``corpus.cell_attempts``): an (evaluator, event)
+    ``max_attempts`` is the poison-pill backstop the daily debounce lacks (counted
+    from the committed ``attempt.json`` failure facts, see
+    :func:`fedcourtsai.matrix.cell_failure_count`): an (evaluator, event)
     cell recorded failed that many times is not re-derived, so a cell that fails
     every attempt — a persistent quota wall, a malformed record — cannot re-queue
     forever. The count keys on cell identity, not process version, so a retry
