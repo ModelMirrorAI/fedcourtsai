@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from fedcourtsai.paths import CasePaths
 
 runner = CliRunner()
 
@@ -203,6 +204,7 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         "noun": "prediction",
         "missing_artifacts": [],
         "uncovered_cells": [],
+        "cell_failures": [],
     }
 
 
@@ -460,3 +462,62 @@ def test_an_absent_matrix_file_is_simply_no_census(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert json.loads(result.stdout)["uncovered_cells"] == []
+
+
+def test_record_cell_failures_writes_run_scoped_facts_and_reruns_overwrite(
+    tmp_path: Path,
+) -> None:
+    """The attempt-recording seam end to end: `collect-plan` decides the failed
+    partition and carries it in its JSON; `record-cell-failures` materializes one
+    run-scoped `attempt.json` per failed cell. A rerun (same run id) overwrites
+    rather than duplicating, so the deriver's ledger count cannot inflate."""
+    cells = tmp_path / "cells"
+    # A ready cell keeps claude-baseline a live engine; a skipped sibling (docket 2)
+    # is the truly-failed cell whose fact we expect.
+    _write_cell(cells, "cell-a", actor="claude-baseline", **_CELL, **_READY)
+    _write_cell(
+        cells,
+        "cell-b",
+        actor="claude-baseline",
+        court="scotus",
+        docket=2,
+        event_id="evt-x",
+        run_id="R",
+        produced=False,
+        validated=False,
+        agent_ok=False,
+    )
+    plan_json = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(cells)],
+    )
+    assert plan_json.exit_code == 0
+    plan = json.loads(plan_json.stdout)
+    assert [f["error_class"] for f in plan["cell_failures"]] == ["no_output"]
+
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(plan_json.stdout)
+    data_root = tmp_path / "data"
+    result = runner.invoke(
+        app,
+        ["record-cell-failures", "--plan-file", str(plan_file), "--data-root", str(data_root)],
+    )
+    assert result.exit_code == 0
+
+    fact_path = (
+        CasePaths(data_root, "scotus", 2).event("evt-x").prediction_attempt("claude-baseline", "R")
+    )
+    assert fact_path.is_file()
+    assert json.loads(fact_path.read_text())["error_class"] == "no_output"
+    predictions = fact_path.parent.parent  # predictions/claude-baseline/
+    assert len(list(predictions.glob("*/attempt.json"))) == 1
+
+    # Rerun of the same run id overwrites its own fact — no second file.
+    assert (
+        runner.invoke(
+            app,
+            ["record-cell-failures", "--plan-file", str(plan_file), "--data-root", str(data_root)],
+        ).exit_code
+        == 0
+    )
+    assert len(list(predictions.glob("*/attempt.json"))) == 1

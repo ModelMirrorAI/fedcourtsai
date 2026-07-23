@@ -29,7 +29,7 @@ import httpx
 from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
-from ..matrix import event_has_evaluations, event_has_predictions
+from ..matrix import cell_failure_count, event_has_evaluations, event_has_predictions
 from ..registry import enabled_evaluators
 from ..store import open_events
 from .events import AmbiguousEntry, extract_events
@@ -237,18 +237,26 @@ def _queue_predict(
 
 
 def _cell_capped(
-    row: corpus.CorpusRow, evaluator_id: str, event_id: str, max_attempts: int
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    evaluator_id: str,
+    max_attempts: int,
 ) -> bool:
     """Whether an evaluate cell has exhausted the per-cell attempt cap.
 
-    Reads the durable failure queue (``corpus.cell_attempts``) at the ``evaluate``
-    seam, keyed on cell identity — so a cell retried under a newer process version
-    counts against the same cap rather than resetting it. ``max_attempts <= 0``
-    disables the cap.
+    Counts the committed ``attempt.json`` failure facts at the ``evaluate`` seam
+    (:func:`fedcourtsai.matrix.cell_failure_count`), keyed on cell identity — the
+    corpus-blind ``collect`` job records one per failed run, so a cell retried
+    across runs counts against the same cap rather than resetting it.
+    ``max_attempts <= 0`` disables the cap.
     """
     if max_attempts <= 0:
         return False
-    return corpus.cell_attempt_count(row, "evaluate", evaluator_id, event_id) >= max_attempts
+    return cell_failure_count(data_root, court, docket, event_id, evaluator_id, "evaluate") >= (
+        max_attempts
+    )
 
 
 def evaluate_backlog(
@@ -349,7 +357,7 @@ def evaluate_backlog(
             if event_has_predictions(data_root, court, docket, event_id)
             and any(
                 not event_has_evaluations(data_root, court, docket, event_id, evaluator_id=ev)
-                and not _cell_capped(row, ev, event_id, max_attempts)
+                and not _cell_capped(data_root, court, docket, event_id, ev, max_attempts)
                 for ev in evaluator_ids
             )
         ]

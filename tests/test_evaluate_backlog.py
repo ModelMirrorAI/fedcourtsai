@@ -12,9 +12,11 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from fedcourtsai import corpus
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.pull import PullQueues, evaluate_backlog
 from fedcourtsai.registry import enabled_evaluators
-from fedcourtsai.schemas import EventKind
+from fedcourtsai.schemas import CellFailure, EventKind
+from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
 
 EVALUATORS = Path("config/evaluators.yaml")
@@ -223,13 +225,29 @@ def test_cap_zero_is_a_no_op(tmp_path: Path) -> None:
     assert _derive(tmp_path, cap=0).evaluate == []
 
 
-def _fail_cell(db: Path, case_id: str, evaluator_id: str, event_id: str, times: int) -> None:
-    """Record `times` failed attempts for one evaluate cell in the durable queue."""
-    with corpus.connect(db) as conn:
-        for _ in range(times):
-            corpus.record_cell_attempt(
-                conn, case_id, "evaluate", evaluator_id, event_id, "transient"
-            )
+def _fail_cell(
+    data_root: Path, court: str, docket: int, evaluator_id: str, event_id: str, times: int
+) -> None:
+    """Commit `times` evaluate-seam failure facts for one cell into the ledger.
+
+    One run-scoped `attempt.json` per distinct run, so the deriver's ledger glob
+    (`cell_failure_count`) counts `times`, mirroring what the collect job writes."""
+    for i in range(times):
+        run_id = f"20260101T0000{i:02d}Z"
+        write_json(
+            CasePaths(data_root, court, docket)
+            .event(event_id)
+            .evaluation_attempt(evaluator_id, run_id),
+            CellFailure(
+                seam="evaluate",
+                actor=evaluator_id,
+                court=court,
+                docket=docket,
+                event_id=event_id,
+                run_id=run_id,
+                error_class="no_output",
+            ),
+        )
 
 
 def test_a_fresh_never_attempted_cell_is_owed_under_the_cap(tmp_path: Path) -> None:
@@ -256,7 +274,7 @@ def test_a_cell_at_the_cap_is_not_re_derived(tmp_path: Path) -> None:
     seed_prediction(data, "scotus", 1, event)
     # Drive every enabled evaluator's cell to the cap.
     for ev in enabled_evaluators(EVALUATORS):
-        _fail_cell(db, "scotus/1", ev.id, event, times=3)
+        _fail_cell(data, "scotus", 1, ev.id, event, times=3)
 
     capped = _derive(tmp_path, max_attempts=3, today=date(2026, 7, 20))
     assert capped.evaluate == [], "all cells exhausted the cap — nothing is owed"
@@ -278,7 +296,7 @@ def test_the_cap_is_per_cell_a_sibling_evaluator_is_still_owed(tmp_path: Path) -
     seed_prediction(data, "scotus", 1, event)
     # Only the first evaluator's cell is a poison pill; the others are fresh.
     poison = enabled_evaluators(EVALUATORS)[0].id
-    _fail_cell(db, "scotus/1", poison, event, times=3)
+    _fail_cell(data, "scotus", 1, poison, event, times=3)
 
     owed = _derive(tmp_path, max_attempts=3, today=date(2026, 7, 20))
     assert owed.evaluate == [{"court": "scotus", "docket": 1, "events": [event]}], (

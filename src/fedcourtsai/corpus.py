@@ -146,6 +146,13 @@ class PanelMember(BaseModel):
 class CellAttempt(BaseModel):
     """One predict/evaluate cell's durable failure record — attempt count + last error.
 
+    deprecated: superseded by ledger-derived attempt facts (attempt.json); safe to
+    drop in a follow-up. The per-cell attempt cap now counts committed ledger files
+    (:func:`fedcourtsai.matrix.cell_failure_count`) rather than this corpus map,
+    because the only failure observer — the ``collect`` job — is corpus-blind. Kept
+    defined but unwritten so existing corpus DBs stay readable; no destructive
+    schema migration lands here.
+
     The value side of the :attr:`CorpusRow.cell_attempts` map. A *cell* is the
     agentic unit that runs and can fail: a predict cell is (predictor, event), an
     evaluate cell is (evaluator, event). ``attempts`` is how many times the cell
@@ -366,20 +373,13 @@ class CorpusRow(BaseModel):
     )
     cell_attempts: dict[str, CellAttempt] = Field(
         default_factory=dict,
-        description="The durable failure queue: a map from cell-identity key "
-        "(`<seam>:<agent_id>:<event_id>`, e.g. `evaluate:claude-judge:evt-...`) to "
-        "that cell's attempt count and last error class. A single corpus row is "
-        "per-case, but a predict/evaluate cell is per-(agent, event) — so per-cell "
-        "attempt tracking lives in this keyed map rather than a coarse per-case "
-        "counter that would let one poison-pill cell silence its siblings. The key "
-        "carries no process-version component, so a cell retried under a newer "
-        "version increments the same counter (the cap keys on cell identity, not "
-        "version). Owned by the failure-queue writer "
-        "(:func:`record_cell_attempt`), never an ingestion channel; the derivers "
-        "read it to stop re-queuing a cell that has hit the per-cell attempt cap "
-        "(a poison-pill backstop). Ephemeral scheduling metadata — the owed work "
-        "is re-derivable from the git ledger, so a lost/clobbered map costs at "
-        "most a duplicate trigger, never a grading.",
+        description="deprecated: superseded by ledger-derived attempt facts "
+        "(attempt.json); safe to drop in a follow-up. A per-cell failure map keyed "
+        "`<seam>:<agent_id>:<event_id>`. The per-cell attempt cap now counts "
+        "committed ledger files instead (the collect job, its only writer, is "
+        "corpus-blind), so nothing writes this map; it stays defined and empty "
+        "(default `{}`) only so existing corpus DBs remain readable without a "
+        "destructive migration.",
     )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
@@ -516,10 +516,12 @@ CREATE TABLE IF NOT EXISTS cases (
     -- The last date the evaluate backlog deriver queued evaluate. Owned the same
     -- way; the deriver's daily-retry debounce reads it.
     evaluate_queued_at  TEXT,
-    -- The durable failure queue: a JSON map from cell-identity key to that cell's
-    -- {attempts, last_error} (see CorpusRow.cell_attempts). Owned by the
-    -- failure-queue writer, never an ingestion channel; the derivers read it to
-    -- stop re-queuing a cell that has hit the per-cell attempt cap.
+    -- deprecated: superseded by ledger-derived attempt facts (attempt.json); safe
+    -- to drop in a follow-up. A JSON per-cell failure map (see
+    -- CorpusRow.cell_attempts). The per-cell attempt cap now counts committed
+    -- ledger files instead, so nothing writes this column; it stays defined with
+    -- its `{}` default only so existing corpus DBs remain readable (no destructive
+    -- migration here).
     cell_attempts       TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
@@ -653,6 +655,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "salience_selected": "INTEGER NOT NULL DEFAULT 0",
     "predict_queued_at": "TEXT",
     "evaluate_queued_at": "TEXT",
+    # deprecated: superseded by ledger-derived attempt facts (attempt.json); safe to
+    # drop in a follow-up. Retained so existing DBs still migrate/read; no writer.
     "cell_attempts": "TEXT NOT NULL DEFAULT '{}'",
 }
 
@@ -1020,16 +1024,16 @@ def _update_clause(column: str) -> str:
         "evaluate_queued_at",
         "cell_attempts",
     ):
-        # The salience selection pass owns the salience columns, the queue routing
-        # owns the `*_queued_at` stamps, and the failure-queue writer owns
-        # `cell_attempts` (none are ingestion facts): the pass recomputes
-        # score/version and maintains the one-way `salience_selected` latch,
-        # clearing a queue stamp on re-ingest would let a deriver's daily-retry
-        # debounce re-queue a case every cycle its rotation poll touches it, and
-        # clearing `cell_attempts` would reset every cell's attempt count to zero
-        # on the next re-ingest — silently defeating the poison-pill cap and
-        # re-queuing a cell that had already exhausted it. Keep the stored values,
-        # exactly like `predict_excluded`.
+        # The salience selection pass owns the salience columns and the queue
+        # routing owns the `*_queued_at` stamps (none are ingestion facts): the pass
+        # recomputes score/version and maintains the one-way `salience_selected`
+        # latch, and clearing a queue stamp on re-ingest would let a deriver's
+        # daily-retry debounce re-queue a case every cycle its rotation poll touches
+        # it. `cell_attempts` is deprecated (superseded by ledger-derived
+        # attempt.json facts; safe to drop in a follow-up) but stays in this
+        # keep-stored guard so an existing DB's map is never clobbered by a
+        # re-ingest while the dormant column lives. Keep the stored values, exactly
+        # like `predict_excluded`.
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
@@ -1877,64 +1881,12 @@ def stamp_predict_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day:
         )
 
 
-def cell_attempt_key(seam: str, agent_id: str, event_id: str) -> str:
-    """The stable identity key for one predict/evaluate cell in a row's attempt map.
-
-    ``<seam>:<agent_id>:<event_id>`` — ``seam`` is ``predict`` / ``evaluate`` (so
-    an engine id and an evaluator id that happen to collide stay distinct),
-    ``agent_id`` is the predictor / evaluator registry id, and ``event_id`` is the
-    predictable event. Deliberately carries **no** process-version component: a
-    cell retried under a newer process version must increment the *same* counter,
-    so the cap keys on cell identity rather than being reset by a version change.
-    """
-    return f"{seam}:{agent_id}:{event_id}"
-
-
-def record_cell_attempt(
-    conn: sqlite3.Connection,
-    case_id: str,
-    seam: str,
-    agent_id: str,
-    event_id: str,
-    error_class: str,
-) -> None:
-    """Record one *failed* attempt of a predict/evaluate cell, keyed by cell identity.
-
-    The failure-queue writer — the durable analogue of the runner-local unrecorded
-    queue. Increments the cell's ``attempts`` and stamps its ``last_error`` with
-    ``error_class`` (the ``transient`` / ``permanent`` split from
-    :func:`fedcourtsai.courtlistener.classify_error`, so there is no parallel
-    taxonomy). Read-modify-write on the per-case JSON map: a cell absent from the
-    map starts at zero, so a fresh (never-attempted) cell is created on its first
-    failure. A no-op when the case row is absent (nothing owns the attempt).
-    """
-    key = cell_attempt_key(seam, agent_id, event_id)
-    with conn:
-        record = conn.execute(
-            "SELECT cell_attempts FROM cases WHERE case_id = ?", (case_id,)
-        ).fetchone()
-        if record is None:
-            return
-        attempts: dict[str, dict[str, object]] = json.loads(record["cell_attempts"] or "{}")
-        prior_count = attempts.get(key, {}).get("attempts", 0)
-        attempts[key] = {
-            "attempts": (prior_count if isinstance(prior_count, int) else 0) + 1,
-            "last_error": error_class,
-        }
-        conn.execute(
-            "UPDATE cases SET cell_attempts = ? WHERE case_id = ?",
-            (json.dumps(attempts, sort_keys=True), case_id),
-        )
-
-
-def cell_attempt_count(row: CorpusRow, seam: str, agent_id: str, event_id: str) -> int:
-    """Recorded failed-attempt count for one cell on ``row``; 0 if never attempted.
-
-    The read path the derivers consult against the per-cell attempt cap: a cell
-    whose count has reached the cap is a poison pill and must not be re-queued.
-    """
-    cell = row.cell_attempts.get(cell_attempt_key(seam, agent_id, event_id))
-    return cell.attempts if cell is not None else 0
+# The failure-queue helpers (`cell_attempt_key` / `record_cell_attempt` /
+# `cell_attempt_count`) were retired: the per-cell attempt cap now counts committed
+# ledger facts (`fedcourtsai.matrix.cell_failure_count` over attempt.json), because
+# the only failure observer — the corpus-blind collect job — cannot write the
+# corpus. The dormant `cell_attempts` column/model remain only to keep existing DBs
+# readable (see their deprecated notes); a follow-up may drop them.
 
 
 DEFAULT_PRIOR_LIMIT = 20

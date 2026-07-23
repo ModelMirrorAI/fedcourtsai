@@ -323,6 +323,34 @@ def event_has_evaluations(
     return any(root.glob(f"{evaluator_id or '*'}/*/*/evaluation.json"))
 
 
+def cell_failure_count(
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    actor: str,
+    seam: str,
+) -> int:
+    """How many committed failure facts this ``(actor, event, seam)`` cell holds.
+
+    The activation of the per-cell attempt cap. The corpus-blind ``collect`` job
+    writes one run-scoped ``attempt.json`` per failed cell
+    (:class:`fedcourtsai.schemas.CellFailure`); this counts them at the seam's
+    directory grain — ``predictions/<predictor>/*/attempt.json`` for predict,
+    ``evaluations/<evaluator>/*/attempt.json`` for evaluate — the same shape the
+    ``event_has_*`` gates use, one level shallower because the failure fact is keyed
+    by (actor, run) rather than (actor, predictor, run). The count is the poison
+    pill the derivers read against ``max_attempts``: a cell recorded failed that
+    many times is no longer owed. Inherently idempotent — a run-scoped path means a
+    rerun overwrites rather than accumulating, so counting committed facts can
+    never double-count. ``seam`` is ``predict`` / ``evaluate``, matching the
+    ledger subtree the facts live under.
+    """
+    event = CasePaths(data_root, court, docket).event(event_id)
+    root = event.predictions_dir if seam == "predict" else event.base / "evaluations"
+    return sum(1 for _ in root.glob(f"{actor}/*/attempt.json"))
+
+
 def evaluate_matrix(
     evaluators_path: Path,
     cases: list[CaseRequest],

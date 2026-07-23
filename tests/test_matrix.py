@@ -5,6 +5,7 @@ import pytest
 from fedcourtsai.matrix import (
     CaseRequest,
     cap_predict_cells,
+    cell_failure_count,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
@@ -13,6 +14,8 @@ from fedcourtsai.matrix import (
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
+from fedcourtsai.schemas import CellFailure
+from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
 
 PREDICTORS = Path("config/predictors.yaml")
@@ -348,3 +351,54 @@ def test_a_fully_graded_event_mints_nothing_so_a_requeue_is_a_no_op(tmp_path: Pa
     # deleting committed artifacts to get a cell minted.
     forced = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root, skip_evaluated=False)
     assert len(forced["include"]) == len(evaluators)
+
+
+def _write_failure(
+    data_root: Path, court: str, docket: int, event_id: str, actor: str, seam: str, run_id: str
+) -> None:
+    events = CasePaths(data_root, court, docket).event(event_id)
+    dest = (
+        events.prediction_attempt(actor, run_id)
+        if seam == "predict"
+        else events.evaluation_attempt(actor, run_id)
+    )
+    write_json(
+        dest,
+        CellFailure(
+            seam=seam,
+            actor=actor,
+            court=court,
+            docket=docket,
+            event_id=event_id,
+            run_id=run_id,
+            error_class="no_output",
+        ),
+    )
+
+
+def test_cell_failure_count_counts_distinct_run_facts(tmp_path: Path) -> None:
+    """Two distinct-run failure facts for one cell count as 2; a rerun writing the
+    same run id overwrites rather than double-counting (run-scoped path)."""
+    data_root = tmp_path / "data"
+    event = "evt-petition-disposition"
+    assert cell_failure_count(data_root, "scotus", 1, event, "gemini-baseline", "predict") == 0
+    _write_failure(data_root, "scotus", 1, event, "gemini-baseline", "predict", "R1")
+    _write_failure(data_root, "scotus", 1, event, "gemini-baseline", "predict", "R2")
+    assert cell_failure_count(data_root, "scotus", 1, event, "gemini-baseline", "predict") == 2
+    # A rerun of R1 overwrites its own fact — counting committed files can't dupe.
+    _write_failure(data_root, "scotus", 1, event, "gemini-baseline", "predict", "R1")
+    assert cell_failure_count(data_root, "scotus", 1, event, "gemini-baseline", "predict") == 2
+
+
+def test_cell_failure_count_is_per_actor_event_and_seam(tmp_path: Path) -> None:
+    """The count is keyed on (actor, event, seam): a fact for a sibling actor, a
+    different event, or the other seam does not leak into a cell's tally."""
+    data_root = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _write_failure(data_root, "scotus", 1, event, "claude-judge", "evaluate", "R1")
+    # Same event/run, other actor and the predict seam — must not be counted for
+    # claude-judge's evaluate cell.
+    _write_failure(data_root, "scotus", 1, event, "codex-judge", "evaluate", "R1")
+    _write_failure(data_root, "scotus", 1, event, "claude-judge", "predict", "R1")
+    _write_failure(data_root, "scotus", 1, "evt-other", "claude-judge", "evaluate", "R1")
+    assert cell_failure_count(data_root, "scotus", 1, event, "claude-judge", "evaluate") == 1

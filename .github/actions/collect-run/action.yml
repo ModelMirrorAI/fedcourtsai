@@ -218,6 +218,19 @@ runs:
           # cleanly (the tested `stalled` signal) — same stall, same comment.
           uv run fedcourts stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
         fi
+        # Record one durable failure fact per failed cell (skipped/salvage/died)
+        # into the ledger, BEFORE the union loop's `git add data/`, so the facts
+        # ride this run's per-run PR. `collect` is the only observer of a cell that
+        # ran and produced no usable artifact, but it is corpus-blind (git-ledger
+        # write only), so the per-cell attempt cap counts these committed files
+        # rather than a corpus column. The failed partition is already decided by
+        # `collect-plan` (carried in its JSON); this only materializes the files.
+        # Written on the job's checkout as untracked, run-scoped paths: they survive
+        # the loop's `checkout -B "$branch" origin/main` and are picked up by the
+        # first branch's `git add data/`, so a rerun overwrites rather than
+        # duplicating, and the append-only path jail still passes.
+        printf '%s' "$plan" > collect-plan.json
+        uv run fedcourts record-cell-failures --plan-file collect-plan.json --data-root data
         for kind in ready partial; do
           pr=$(jq -c ".${kind}" <<<"$plan")
           [ "$pr" = "null" ] && continue
