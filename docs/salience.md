@@ -180,13 +180,18 @@ non-destructively. Ordering is the load-bearing detail: the queue-time
 deferral check reads
 the *pre-pass* latch, so transition routing alone would silently drop a petition
 whose first transition and first selection land in the same cycle. The cycle
-therefore ends with a **selection sweep**: every selected petition with open,
-never-predicted events is re-polled, provisioned, and queued — stalest first,
-capped by `salience.sweep_cases_per_cycle` in `config/tracking.yaml`. The same
-sweep is the catch-up for petitions whose transitions all predate the first
-applied pass, and the retry for a selected petition whose queued run committed
-no prediction; the `predict_queued_at` stamp the routing writes with every queue
-entry debounces that retry to daily, so an open-but-unmerged run PR is not
+therefore ends with a **selection sweep**: every selected petition with an open
+event still *owed* a prediction is re-polled, provisioned, and queued — stalest
+first, capped by `salience.sweep_cases_per_cycle` in `config/tracking.yaml`. Owed
+is per `(predictor, event)` cell — mirroring the evaluate backlog deriver — so a
+case where two of three engines landed and one quota-failed is still swept for
+the missing engine, and the per-cell attempt cap `predict.max_attempts_per_cell`
+keeps one cell that fails every attempt from re-queuing forever without
+suppressing a sibling engine still owed the same event. The same sweep is the
+catch-up for petitions whose transitions all predate the first applied pass, and
+the retry for a selected petition whose queued run left a cell without a
+committed prediction; the `predict_queued_at` stamp the routing writes with every
+queue entry debounces that retry to daily, so an open-but-unmerged run PR is not
 re-queued every cycle. Document provisioning follows the same gate: a deferred
 petition's transition fetches nothing, and its documents are provisioned by the
 sweep if it is ever latched.

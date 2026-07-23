@@ -1018,6 +1018,7 @@ def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> Non
 
 _DISTRIBUTED_ENTRY = {"Date": "Jul 10 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
 _GATED = PredictScope.scotus_docket
+_PREDICTORS = Path("config/predictors.yaml")
 
 
 def _sweep_config(**kw: Any) -> SalienceConfig:
@@ -1213,6 +1214,141 @@ def test_sweep_debounces_a_case_polled_today_and_skips_a_predicted_one(tmp_path:
             today=date(2026, 7, 12),
         )
     assert queues4.predict == []
+
+
+def _distributed_selected(tmp_path: Path) -> tuple[Path, Path, int]:
+    """A distributed, selectable petition ingested and ready for the sweep.
+
+    The salience pass selects it (default capacity/floor), so the cycle-end sweep
+    considers it — the shared setup for the per-cell owed tests below.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    distributed = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+    )
+    ingest_live_payload(db, data_root, distributed, docket_id, today=date(2026, 7, 9))
+    return db, data_root, docket_id
+
+
+def test_sweep_requeues_a_partially_predicted_selected_case_per_cell(tmp_path: Path) -> None:
+    """The keystone: a selected case where two of three engines committed a
+    prediction and one quota-failed is still owed the missing engine, so the sweep
+    re-queues it. The old case-level gate treated any single landed prediction as
+    'done' and never retried — this is exactly the behavior change."""
+    db, data_root, docket_id = _distributed_selected(tmp_path)
+    seed_prediction(
+        data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id="claude-baseline"
+    )
+    seed_prediction(
+        data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id="codex-baseline"
+    )
+    served = {
+        "25-1": _payload(
+            "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            predictors_path=_PREDICTORS,
+            today=date(2026, 7, 10),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+
+
+def test_sweep_leaves_a_fully_predicted_selected_case_alone(tmp_path: Path) -> None:
+    # Every enabled engine has predicted the open event: nothing owed, no sweep —
+    # even with the per-cell registry handle wired in.
+    db, data_root, docket_id = _distributed_selected(tmp_path)
+    for pid in ("claude-baseline", "codex-baseline", "gemini-baseline"):
+        seed_prediction(
+            data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id=pid
+        )
+    served = {
+        "25-1": _payload(
+            "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+        )
+    }
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            predictors_path=_PREDICTORS,
+            today=date(2026, 7, 10),
+        )
+    assert queues.predict == []
+
+
+def test_sweep_owed_honors_the_predict_attempt_cap(tmp_path: Path) -> None:
+    """A (predictor, event) cell recorded failed up to the cap is no longer owed,
+    so a case whose only-missing engine is capped is not swept; max_attempts=0
+    disables the cap and the cell is owed again. The cap ships dormant in
+    production (nothing records predict attempts yet); this drives the read/skip
+    structure directly."""
+    db, data_root, docket_id = _distributed_selected(tmp_path)
+    case_id = f"scotus/{docket_id}"
+    # Two engines landed; gemini-baseline is the only cell still missing.
+    seed_prediction(
+        data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id="claude-baseline"
+    )
+    seed_prediction(
+        data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id="codex-baseline"
+    )
+    with corpus.connect(db) as conn:
+        for _ in range(2):
+            corpus.record_cell_attempt(
+                conn, case_id, "predict", "gemini-baseline", "evt-petition-disposition", "transient"
+            )
+    served = {
+        "25-1": _payload(
+            "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+        )
+    }
+
+    # Capped at 2 attempts: the only owed cell is poison-pilled → nothing swept.
+    with _frontier_client(served) as client:
+        capped, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            predictors_path=_PREDICTORS,
+            predict_max_attempts=2,
+            today=date(2026, 7, 10),
+        )
+    assert capped.predict == []
+
+    # max_attempts=0 disables the cap → the cell is owed again and swept.
+    with _frontier_client(served) as client:
+        uncapped, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            predictors_path=_PREDICTORS,
+            predict_max_attempts=0,
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in uncapped.predict] == [docket_id]
 
 
 def test_sweep_respects_the_cap_and_the_ungated_scope(tmp_path: Path) -> None:

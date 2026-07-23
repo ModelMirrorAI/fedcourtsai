@@ -327,17 +327,29 @@ class PredictConfig(BaseModel):
     # out an unbounded run. It bounds two things at once: GitHub's 256-job matrix
     # ceiling (a wider matrix is rejected outright, losing the whole run) and the
     # run's worst-case model spend. Enforced after scope filtering, in
-    # `predict_matrix`, by dropping whole overflow cases (never splitting a case's
-    # engines — predict has no already-predicted skip, so a re-queued half-case
-    # would double-commit the engines that landed) in a deterministic,
-    # salience-independent order (ascending ``case_id``, a LEXICAL sort over the
-    # ``court/docket`` string — numeric-ascending only within a uniform docket
-    # digit width). A dropped case is deferred, never destroyed: it
+    # `cap_predict_cells`, by dropping whole overflow cases (never splitting a
+    # case's engines — a determinism / simplicity choice now that predict has a
+    # per-predictor already-predicted skip, so a deferred case is a single clean
+    # re-queue unit rather than partial admission tracked per engine) in a
+    # deterministic, salience-independent order (ascending ``case_id``, a LEXICAL
+    # sort over the ``court/docket`` string — numeric-ascending only within a
+    # uniform docket digit width). A dropped case is deferred, never destroyed: it
     # keeps its place in the corpus predict queue and re-queues on a later cycle.
     # Default 240 = 80 fully-tournamented cases x 3 engines, 16 under the 256
     # ceiling; `ge=1` because a volume backstop that can be zeroed is not a
     # backstop.
     max_predict_cells_per_run: int = Field(default=240, ge=1)
+    # The poison-pill backstop the live selection sweep's daily `predict_queued_at`
+    # debounce lacks (part of the durable failure queue, `corpus.cell_attempts`):
+    # once a (predictor, event) cell has been recorded failed this many times, the
+    # sweep stops re-queuing it — so one cell that fails every attempt (a
+    # persistent quota wall, a malformed record) cannot re-queue forever. Keyed on
+    # cell identity, so a retry under a newer process version still counts against
+    # the same cap. 0 disables the cap (every unpredicted cell re-queues, as
+    # before). The predict mirror of `EvaluateConfig.max_attempts_per_cell`; sized
+    # a few attempts above the runner's in-request retry so a genuinely transient
+    # streak still gets several cross-cycle retries before the cell is given up.
+    max_attempts_per_cell: int = Field(default=5, ge=0)
 
 
 def load_predict_config(config_root: Path) -> PredictConfig:

@@ -165,6 +165,17 @@ predict:
   # ceiling. This is the numeric backstop; PREDICT_HANDOFF_ENABLED is the separate
   # coarse on/off pause.
   max_predict_cells_per_run: 240
+  # Per-cell poison-pill cap for the durable failure queue (corpus.cell_attempts),
+  # the predict mirror of evaluate.max_attempts_per_cell. Once a (predictor, event)
+  # cell has been recorded failed this many times, the live selection sweep stops
+  # re-queuing it, so a cell that fails every attempt (a persistent quota wall, a
+  # malformed record) cannot re-queue forever — the ceiling the daily
+  # predict_queued_at debounce alone does not have. Keyed on cell identity, so a
+  # retry under a newer process version still counts against the same cap. 0
+  # disables the cap (every unpredicted cell re-queues). A few attempts above the
+  # runner's in-request retry, so a genuinely transient streak still gets several
+  # cross-cycle retries before the cell is given up.
+  max_attempts_per_cell: 5
   # Hard cap on concurrent predictor matrix jobs. The enforced value is the
   # `strategy.max-parallel` literal in run-predict/run-evaluate;
   # keep this in step with it (nothing reads this key today — it documents intent).

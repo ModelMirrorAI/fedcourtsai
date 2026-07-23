@@ -7,11 +7,12 @@ from fedcourtsai.matrix import (
     cap_predict_cells,
     evaluate_matrix,
     event_has_evaluations,
+    event_has_predictions,
     parse_cases,
     predict_matrix,
 )
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.registry import enabled_evaluators
+from fedcourtsai.registry import enabled_evaluators, enabled_predictors
 from tests.conftest import seed_evaluation, seed_prediction
 
 PREDICTORS = Path("config/predictors.yaml")
@@ -209,6 +210,60 @@ def test_predict_matrix_rejects_unknown_predictor_ids() -> None:
     cases = [CaseRequest("scotus", 1, ("evt-a",), predictors=("codex-basline",))]
     with pytest.raises(ValueError, match="codex-basline"):
         predict_matrix(PREDICTORS, cases, "RID")
+
+
+def test_event_has_predictions_can_ask_about_one_predictor(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    seed_prediction(data_root, "scotus", 1, "evt-x", predictor_id="claude-baseline")
+    assert event_has_predictions(data_root, "scotus", 1, "evt-x", predictor_id="claude-baseline")
+    assert not event_has_predictions(data_root, "scotus", 1, "evt-x", predictor_id="codex-baseline")
+    # No predictor named: any prediction at all counts (the original semantics).
+    assert event_has_predictions(data_root, "scotus", 1, "evt-x")
+
+
+def test_predict_matrix_mints_only_the_engines_that_have_not_predicted(tmp_path: Path) -> None:
+    """Cell granularity: a run where two of three engines landed and one
+    quota-failed should re-mint only the third. This is what makes a partial
+    predict re-queue idempotent, the mirror of the evaluate already-graded gate."""
+    data_root = tmp_path / "data"
+    seed_prediction(
+        data_root, "scotus", 1, "evt-petition-disposition", predictor_id="claude-baseline"
+    )
+    seed_prediction(
+        data_root, "scotus", 1, "evt-petition-disposition", predictor_id="codex-baseline"
+    )
+    cases = [CaseRequest(court="scotus", docket=1, events=("evt-petition-disposition",))]
+
+    gated = predict_matrix(PREDICTORS, cases, "RID", data_root=data_root)
+    minted = {c["predictor_id"] for c in gated["include"]}
+    unpredicted = {p.id for p in enabled_predictors(PREDICTORS)} - {
+        "claude-baseline",
+        "codex-baseline",
+    }
+    assert minted == unpredicted, "exactly the engines that have not predicted, and no others"
+    # Without a ledger the gate is off and every enabled engine fans out (offline
+    # callers, back-compat with a caller that assembles its own ledger).
+    ungated = predict_matrix(PREDICTORS, cases, "RID")
+    assert {c["predictor_id"] for c in ungated["include"]} == {
+        p.id for p in enabled_predictors(PREDICTORS)
+    }
+    # skip_predicted=False is the deliberate re-predict path (a prompt change),
+    # so it never requires deleting committed artifacts to get a cell minted.
+    forced = predict_matrix(PREDICTORS, cases, "RID", data_root=data_root, skip_predicted=False)
+    assert {c["predictor_id"] for c in forced["include"]} == {
+        p.id for p in enabled_predictors(PREDICTORS)
+    }
+
+
+def test_a_fully_predicted_event_mints_nothing(tmp_path: Path) -> None:
+    # Every enabled engine has predicted: a re-queue mints nothing (the whole-case
+    # volume cap can then treat the empty case as cleanly deferred).
+    data_root = tmp_path / "data"
+    predictors = enabled_predictors(PREDICTORS)
+    for predictor in predictors:
+        seed_prediction(data_root, "scotus", 1, "evt-x", predictor_id=predictor.id)
+    cases = [CaseRequest(court="scotus", docket=1, events=("evt-x",))]
+    assert predict_matrix(PREDICTORS, cases, "RID", data_root=data_root)["include"] == []
 
 
 def test_parse_cases_requires_a_json_block() -> None:

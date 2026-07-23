@@ -2965,7 +2965,8 @@ def live_poll(
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
-    scope = load_predict_config(settings.config_root).scope
+    predict_cfg = load_predict_config(settings.config_root)
+    scope = predict_cfg.scope
     salience_cfg = load_salience_config(settings.config_root)
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
@@ -2981,6 +2982,10 @@ def live_poll(
             config=live_cfg.model_copy(update={"max_cases_per_run": cap}),
             scope=scope,
             salience_config=salience_cfg,
+            # The selection sweep's per-cell owed check reads the predictor
+            # registry and the predict-side attempt cap (see salience_sweep).
+            predictors_path=settings.config_root / "predictors.yaml",
+            predict_max_attempts=predict_cfg.max_attempts_per_cell,
             today=today,
             deadline=deadline,
         )
@@ -3382,7 +3387,13 @@ def predict_matrix_cmd(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
         ),
     )
-    matrix = predict_matrix(settings.config_root / "predictors.yaml", cases, run_id)
+    # Per-predictor plan-time gate, before any model spend: a (predictor, event)
+    # cell whose predictor already committed a prediction for that event is not
+    # re-minted, so a re-queue where two of three engines landed mints only the
+    # missing engine. See `predict_matrix` (the mirror of evaluate's gate).
+    matrix = predict_matrix(
+        settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
+    )
     # Salience-independent volume backstop, after scope filtering: hold the
     # fan-out under the cell cap even if selection failed open, deferring whole
     # overflow cases (they stay queued and re-run next cycle). See
