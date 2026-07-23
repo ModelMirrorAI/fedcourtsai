@@ -49,10 +49,13 @@ class CaseRequest:
 
     ``predictors`` narrows the predict fan-out to the named registry ids —
     the backfill path when one engine's cells failed (quota, outage) while the
-    others delivered: re-running the full registry would duplicate the healthy
-    engines' committed predictions, since predict has no already-predicted
-    skip. Empty means every enabled predictor; evaluate ignores it (an
-    evaluator scores every committed prediction for its event).
+    others delivered: it keeps a backfill body targeted at just the affected
+    engines. The ledger-based per-predictor already-predicted skip in
+    :func:`predict_matrix` (its ``data_root`` gate) independently drops any
+    healthy engine that already landed, so this filter is the explicit form of
+    the same intent, not the thing that prevents a double-commit. Empty means
+    every enabled predictor; evaluate ignores it (an evaluator scores every
+    committed prediction for its event).
     """
 
     court: str
@@ -96,7 +99,32 @@ def predict_matrix(
     predictors_path: Path,
     cases: list[CaseRequest],
     run_id: str,
+    data_root: Path | None = None,
+    *,
+    skip_predicted: bool = True,
 ) -> dict[str, list[dict[str, Any]]]:
+    """Build the predictor x case x event matrix, dropping cells already predicted.
+
+    With ``data_root`` a deterministic per-predictor gate runs before any agent
+    cell is minted, so it costs no model spend: a ``(predictor, event)`` cell
+    whose predictor already committed a prediction for that event is skipped
+    (:func:`event_has_predictions` with ``predictor_id``). This is the predict
+    mirror of :func:`evaluate_matrix`'s already-evaluated gate — what makes a
+    *sequential* re-queue idempotent at the cell grain: a run where two of three
+    engines landed and one quota-failed re-mints only the missing engine, rather
+    than the whole registry re-committing the healthy engines' predictions. It is
+    a plan-time read of the checked-out ledger, not a lock — two runs planned
+    before either's PR merges both see an unpredicted event and both mint.
+
+    ``data_root=None`` skips the gate entirely (offline callers, and back-compat
+    with a caller that assembles its own ledger). ``skip_predicted=False`` keeps
+    the gate off for a deliberate re-predict — a prompt change where the point
+    *is* to predict an already-predicted event again — so that never requires
+    deleting committed artifacts to get a cell minted. The explicit
+    ``CaseRequest.predictors`` narrowing is orthogonal: it names *which* engines a
+    backfill body targets, while this gate independently drops any of them that
+    already landed.
+    """
     predictors = enabled_predictors(predictors_path)
     enabled_ids = {p.id for p in predictors}
     for case in cases:
@@ -114,6 +142,14 @@ def predict_matrix(
             if case.predictors and predictor.id not in case.predictors:
                 continue
             for event_id in case.events:
+                if (
+                    data_root is not None
+                    and skip_predicted
+                    and event_has_predictions(
+                        data_root, case.court, case.docket, event_id, predictor_id=predictor.id
+                    )
+                ):
+                    continue
                 include.append(
                     {
                         "predictor_id": predictor.id,
@@ -162,10 +198,14 @@ def cap_predict_cells(matrix: dict[str, list[dict[str, Any]]], max_cells: int) -
 
     Two properties drive the shape:
 
-    * **Whole cases, never a split.** predict has no already-predicted skip (see
-      :class:`CaseRequest`), so a half-admitted case whose remaining engines
-      re-queued next cycle would re-commit the engines that already landed.
-      Admitting cases whole keeps a deferred case cleanly re-queueable.
+    * **Whole cases, never a split.** predict now *has* a per-predictor
+      already-predicted skip (:func:`predict_matrix`'s ``data_root`` gate over
+      :func:`event_has_predictions`), so a half-admitted case whose remaining
+      engines re-queued next cycle would re-mint only the missing engines — not
+      re-commit the ones that landed. Admitting cases whole is therefore a
+      determinism / simplicity choice now, not a double-commit necessity: it
+      keeps a deferred case a single clean re-queue unit rather than tracking
+      partial admission per engine.
     * **Deterministic and salience-independent.** The trigger body carries only
       ``{court, docket, events}`` — no salience score, and its order is the live
       cycle's processing order, not a priority ranking. Ascending ``case_id`` is
@@ -212,8 +252,15 @@ def cap_predict_cells(matrix: dict[str, list[dict[str, Any]]], max_cells: int) -
     return CappedMatrix(kept, len(include) - len(kept), dropped_cases)
 
 
-def event_has_predictions(data_root: Path, court: str, docket: int, event_id: str) -> bool:
-    """Whether the git ledger holds at least one prediction for this event.
+def event_has_predictions(
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    *,
+    predictor_id: str | None = None,
+) -> bool:
+    """Whether the git ledger holds a prediction for this event.
 
     The evaluate cost gate: an evaluator cell scores predictions against the
     outcome, so an event with none — typical for a petition the pipeline
@@ -221,9 +268,19 @@ def event_has_predictions(data_root: Path, court: str, docket: int, event_id: st
     a decided historical case) — has nothing for an agent to do, and every
     cell minted for it is pure model spend. Predictions are committed files,
     so the check is offline and exact at plan time.
+
+    With ``predictor_id`` it asks about one engine, the mirror of
+    :func:`event_has_evaluations`'s ``evaluator_id`` — the actionable grain for
+    the predict re-queue: a predict run where two of three engines landed and one
+    quota-failed should re-mint only the third. Committed predictions live at
+    ``predictions/<predictor>/<run>/prediction.json``, so the glob is
+    depth-anchored by that filename and cannot match the shallower per-run
+    siblings (``predictions/<predictor>/<run>/usage.json`` and friends), the same
+    shape :func:`event_has_evaluations` relies on. ``None`` (the default) keeps
+    the original any-predictor semantics for existing callers.
     """
     predictions_root = CasePaths(data_root, court, docket).event(event_id).predictions_dir
-    return any(predictions_root.glob("*/*/prediction.json"))
+    return any(predictions_root.glob(f"{predictor_id or '*'}/*/prediction.json"))
 
 
 def event_has_evaluations(

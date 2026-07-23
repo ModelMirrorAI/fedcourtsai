@@ -391,17 +391,25 @@ other channel's trigger issues arriving on their own.
 
 **Holding predict is lossless, and resuming needs no backfill.** The predict
 queue lives in the corpus, not in the issue — the issue is only a trigger
-carrying a snapshot of it. A **selected** case stays queueable for as long as it
-has open, never-predicted events, and the live channel's selection sweep re-polls
-exactly that set each cycle (`pipeline/live.py`, gated on `event_has_predictions`
-from `matrix.py`), debounced to daily by `predict_queued_at`. So a held window
-never needs its issue re-filed or re-opened.
+carrying a snapshot of it. A **selected** case stays queueable for as long as any
+enabled predictor still *owes* an open event, and the live channel's selection
+sweep re-polls exactly that set each cycle (`pipeline/live.py`, gated per
+`(predictor, event)` on `event_has_predictions(predictor_id=...)` from
+`matrix.py`), debounced to daily by `predict_queued_at`. Owed is per cell, so a
+case where two of three engines committed a prediction and one quota-failed is
+still swept for the missing engine — the same grain the `predict-matrix` plan
+gate uses to re-mint only the not-yet-predicted engines. So a held window never
+needs its issue re-filed or re-opened.
 
 The drain is paced, not instant: the sweep is capped at
 `salience.sweep_cases_per_cycle` (25 in `config/tracking.yaml`) and works stalest
 first, so a backlog larger than the cap spreads over the following cycles — the
 same behaviour [salience.md](salience.md) describes. A case that is unselected or
-latched out of scope is never re-queued at all.
+latched out of scope is never re-queued at all. The per-cell owed check also
+honors `predict.max_attempts_per_cell` via the durable failure queue
+(`cell_attempts`, described below for evaluate), so one `(predictor, event)` cell
+that fails every attempt cannot re-queue forever while a sibling engine still
+owed the same event is swept normally.
 
 Held windows are marked **held** on the run log and step summary rather than
 reported as dispatched, so a growing backlog is legible as a paused channel and

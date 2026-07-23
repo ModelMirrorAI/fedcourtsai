@@ -37,6 +37,7 @@ def _env(
     scope: str,
     cases: tuple[str, ...] = (),
     max_cells: int | None = None,
+    seed_predictions: bool = True,
 ) -> dict[str, str]:
     """A hermetic config + corpus for a matrix run.
 
@@ -45,6 +46,11 @@ def _env(
     volume backstop), and seeds a corpus holding a row for each of the ``cases``
     ids (the gate reads each case's row: an absent row, or a non-SCOTUS court, is
     out of scope).
+
+    ``seed_predictions`` commits one prediction per case's event: the evaluate
+    gate needs it (nothing to score = no cell), but the *predict* per-predictor
+    skip would then drop the seeded engine's cell, so predict fan-out/cap tests
+    that assert full cell counts pass ``seed_predictions=False``.
     """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
@@ -64,9 +70,10 @@ def _env(
     # The evaluate gate reads the ledger: seed one committed prediction per
     # case's event so evaluate-matrix keeps them.
     data_root = tmp_path / "data"
-    for cid in cases:
-        court, _, docket = cid.partition("/")
-        seed_prediction(data_root, court, int(docket), "evt-petition-cert")
+    if seed_predictions:
+        for cid in cases:
+            court, _, docket = cid.partition("/")
+            seed_prediction(data_root, court, int(docket), "evt-petition-cert")
     return {
         "FEDCOURTS_CONFIG_ROOT": str(config_root),
         "FEDCOURTS_CORPUS_ROOT": str(corpus_root),
@@ -77,7 +84,12 @@ def _env(
 def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None:
     body = tmp_path / "issue-body.md"
     body.write_text(_BATCH_BODY)
-    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+    )
     result = runner.invoke(
         app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
@@ -86,6 +98,25 @@ def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None
     # 3 predictors x 2 cases x 1 event
     assert len(cells) == 6
     assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24001), ("scotus", 24002)}
+
+
+def test_predict_matrix_skips_an_already_predicted_engine(tmp_path: Path) -> None:
+    # The data_root wiring end-to-end: with a committed claude-baseline prediction
+    # for the event, the CLI mints only the not-yet-predicted engines — the
+    # 2/3-landed backfill re-queue at the cell grain.
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        '```json\n{"court": "scotus", "docket": 24001, "events": ["evt-petition-cert"]}\n```\n'
+    )
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))  # seeds claude-baseline
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert {c["predictor_id"] for c in _cells(result.stdout)} == {
+        "codex-baseline",
+        "gemini-baseline",
+    }
 
 
 def test_predict_matrix_volume_cap_defers_overflow_and_surfaces_it(tmp_path: Path) -> None:
@@ -103,6 +134,7 @@ def test_predict_matrix_volume_cap_defers_overflow_and_surfaces_it(tmp_path: Pat
         scope="scotus_docket",
         cases=tuple(f"scotus/{d}" for d in dockets),
         max_cells=6,
+        seed_predictions=False,
     )
     summary = tmp_path / "step-summary.md"
     env["GITHUB_STEP_SUMMARY"] = str(summary)
@@ -140,6 +172,7 @@ def test_predict_matrix_volume_cap_deferring_every_case_escalates_to_error(tmp_p
         scope="scotus_docket",
         cases=("scotus/24001", "scotus/24002"),
         max_cells=2,
+        seed_predictions=False,
     )
     result = runner.invoke(
         app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
@@ -160,6 +193,7 @@ def test_predict_matrix_under_the_cap_is_unchanged(tmp_path: Path) -> None:
         scope="scotus_docket",
         cases=("scotus/24001", "scotus/24002"),
         max_cells=240,
+        seed_predictions=False,
     )
     result = runner.invoke(
         app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env

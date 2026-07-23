@@ -46,6 +46,7 @@ import httpx
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
 from ..matrix import event_has_predictions
+from ..registry import enabled_predictors
 from ..store import open_events
 from ..supremecourt import (
     IFP_SERIAL_BASE,
@@ -506,7 +507,24 @@ def _route_result(
         )
 
 
-def salience_sweep(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
+def _predict_cell_capped(
+    row: corpus.CorpusRow, predictor_id: str, event_id: str, max_attempts: int
+) -> bool:
+    """Whether a predict cell has exhausted the per-cell attempt cap.
+
+    The predict-seam mirror of :func:`fedcourtsai.pipeline.pull._cell_capped`:
+    reads the durable failure queue (``corpus.cell_attempts``) at the ``predict``
+    seam, keyed on cell identity — so a cell retried under a newer process version
+    counts against the same cap rather than resetting it. ``max_attempts <= 0``
+    disables the cap. (Ships dormant: nothing records predict attempts yet, so the
+    count is 0 and this returns False until the failure-queue writer is wired.)
+    """
+    if max_attempts <= 0:
+        return False
+    return corpus.cell_attempt_count(row, "predict", predictor_id, event_id) >= max_attempts
+
+
+def salience_sweep(  # noqa: PLR0913,PLR0912 - cycle args (deadline/clock) + the per-cell owed fallback branch
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -514,6 +532,8 @@ def salience_sweep(  # noqa: PLR0913 - soft-budget deadline + injected clock ove
     *,
     cap: int,
     already_queued: set[int],
+    predictors_path: Path | None = None,
+    max_attempts: int = 0,
     document_text_cap: int = 150_000,
     today: date,
     deadline: float | None = None,
@@ -526,10 +546,24 @@ def salience_sweep(  # noqa: PLR0913 - soft-budget deadline + injected clock ove
     real gaps remain: a petition whose first transition and first selection land
     in the same cycle (deferred at queue time), a petition latched when its
     transitions all predate the first applied pass (the catch-up backlog), and a
-    selected petition whose queued run produced no committed prediction (the
-    retry). The sweep closes all three: every latched petition with open,
-    never-predicted events is re-polled, provisioned, and queued, up to ``cap``
-    fetches per cycle, stalest first.
+    selected petition whose queued run left a ``(predictor, event)`` cell without
+    a committed prediction (the retry). The sweep closes all three: every latched
+    petition with an open event still *owed* a prediction is re-polled,
+    provisioned, and queued, up to ``cap`` fetches per cycle, stalest first.
+
+    **Owed is per ``(predictor, event)`` cell**, mirroring
+    :func:`fedcourtsai.pipeline.pull.evaluate_backlog`: with ``predictors_path``
+    the sweep re-queues a case while ANY enabled predictor lacks a prediction for
+    ANY open event, so a case where two of three engines landed and one
+    quota-failed is still swept for the missing engine — the old case-level gate
+    treated any single landed prediction as "done" and never retried it. The
+    per-cell attempt cap (``max_attempts``, the durable failure queue's poison-pill
+    backstop; ``0`` disables it) keeps one cell that fails every attempt from
+    re-queuing forever, and checking it per cell means a poison-pill engine never
+    suppresses a sibling still owed the same event. Without ``predictors_path``
+    (an offline / registry-free caller) the sweep falls back to the case-level
+    gate — any committed prediction suppresses — the same ``data_root=None``
+    convention :func:`fedcourtsai.matrix.predict_matrix` uses to keep its skip off.
 
     The ``predict_queued_at`` stamp debounces the retry to daily: a case queued
     today — by this cycle's routing or an earlier window — waits for tomorrow's
@@ -540,6 +574,11 @@ def salience_sweep(  # noqa: PLR0913 - soft-budget deadline + injected clock ove
     """
     if cap <= 0:
         return
+    # Resolve the enabled predictor ids once for the per-cell owed check. None
+    # (no registry handle) selects the case-level fallback gate below.
+    predictor_ids = (
+        [p.id for p in enabled_predictors(predictors_path)] if predictors_path is not None else None
+    )
     with corpus.connect(corpus_db_path) as conn:
         candidates = sorted(
             (
@@ -568,8 +607,27 @@ def salience_sweep(  # noqa: PLR0913 - soft-budget deadline + injected clock ove
         if row.predict_queued_at == today:
             continue
         events = open_events(corpus_db_path, "scotus", docket_id)
-        if not events or any(
-            event_has_predictions(data_root, "scotus", docket_id, event_id) for event_id in events
+        # The owed check runs BEFORE the fetch — a fully-predicted case costs no
+        # docket fetch — exactly where the old any-prediction case gate sat.
+        if not events:
+            continue
+        if predictor_ids is None:
+            # Registry-free fallback: the case-level gate (any committed
+            # prediction suppresses the whole case), unchanged from before.
+            if any(
+                event_has_predictions(data_root, "scotus", docket_id, event_id)
+                for event_id in events
+            ):
+                continue
+        elif not any(
+            # Per (predictor, event): the case is owed while some enabled predictor
+            # lacks a prediction for some open event and that cell is not
+            # attempt-capped. This re-queues a case where some engines landed and
+            # one quota-failed — the whole point of the per-cell grain.
+            not event_has_predictions(data_root, "scotus", docket_id, event_id, predictor_id=pid)
+            and not _predict_cell_capped(row, pid, event_id, max_attempts)
+            for event_id in events
+            for pid in predictor_ids
         ):
             continue
         parsed = parse_scotus_docket_number(row.docket_number)
@@ -626,6 +684,8 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     config: LiveConfig,
     scope: PredictScope = PredictScope.all,
     salience_config: SalienceConfig | None = None,
+    predictors_path: Path | None = None,
+    predict_max_attempts: int = 0,
     today: date,
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
@@ -655,6 +715,13 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     read-time gate, non-destructively), and under the gated scope the
     selection sweep queues what the transition trigger missed. ``None`` skips
     all three, leaving the queue-time deferral check fail-open.
+
+    ``predictors_path`` and ``predict_max_attempts`` feed the sweep's per-cell
+    owed check (see :func:`salience_sweep`): with the registry handle the sweep
+    re-queues a case while any enabled predictor still owes an open event — a
+    case where some engines landed and one quota-failed — instead of treating any
+    single landed prediction as done, honoring the predict-side per-cell attempt
+    cap. ``None`` leaves the sweep on its case-level fallback gate.
     """
     gated = scope == PredictScope.scotus_docket
     discovery = discover_live(
@@ -735,6 +802,8 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                 queues,
                 cap=salience_config.sweep_cases_per_cycle,
                 already_queued=already_queued,
+                predictors_path=predictors_path,
+                max_attempts=predict_max_attempts,
                 document_text_cap=config.document_text_cap,
                 today=today,
                 deadline=deadline,
