@@ -43,16 +43,19 @@ scoring is exactly the consume path under test); only the prediction is replayed
 from __future__ import annotations
 
 import os
+import random
 import re
 import subprocess
+import sys
 import tempfile
+import time
 from collections.abc import Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
-from ..config import get_settings
+from ..config import get_settings, load_runner_config
 from ..ids import case_id as make_case_id
 from ..ids import parse_run_id
 from ..paths import CasePaths, EventPaths
@@ -303,9 +306,28 @@ _CODEX_MODEL = DEFAULT_MODELS["codex"]
 _GEMINI_MODEL = DEFAULT_MODELS["gemini"]
 _MAX_TURNS = 120
 
-# A command executor: run argv with env, return the process exit code. Injected so
-# tests can assert on the constructed command without spawning a real agent.
-CommandRunner = Callable[[Sequence[str], Mapping[str, str]], int]
+
+@dataclass(frozen=True)
+class CommandResult:
+    """A finished agent invocation: its exit code and captured stderr.
+
+    ``stderr`` is what the transient-vs-permanent classifier
+    (:func:`_failure_is_transient`) reads to decide whether a non-zero exit is
+    worth a retry: the CLIs surface the provider's HTTP fault as an exit code
+    plus an error message on stderr, not as a distinguishable exit code, so a
+    429 / quota / 5xx / timeout is told from a content-filter or context-length
+    trip by the message text. Empty on success and for any runner that does not
+    capture stderr (an unclassifiable failure then reads as permanent).
+    """
+
+    returncode: int
+    stderr: str = ""
+
+
+# A command executor: run argv with env, return the finished :class:`CommandResult`
+# (exit code + captured stderr). Injected so tests can assert on the constructed
+# command — and drive the transient-retry path — without spawning a real agent.
+CommandRunner = Callable[[Sequence[str], Mapping[str, str]], CommandResult]
 
 # The codex login executor: feed the API key (over stdin, never argv) to
 # `codex login --with-api-key` under env, return the exit code. A separate seam
@@ -426,12 +448,25 @@ def _produced_artifacts(request: RunRequest) -> list[Path]:
     return sorted(p for p in candidates if p.is_file())
 
 
-def _run_subprocess(argv: Sequence[str], env: Mapping[str, str]) -> int:
-    """Default :data:`CommandRunner`: spawn the agent, inheriting stdio."""
+def _run_subprocess(argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
+    """Default :data:`CommandRunner`: spawn the agent, capturing stderr.
+
+    stdout is inherited so the agent's work still streams live into the run log;
+    stderr is captured because that is where the CLIs print the provider's fault
+    message, which :func:`_failure_is_transient` classifies. The captured text is
+    echoed back to this process's stderr so a failure still explains itself in the
+    log — nothing the agent wrote is swallowed, it just lands after the run rather
+    than streaming.
+    """
     try:
-        return subprocess.run(list(argv), env=dict(env), check=False).returncode
+        completed = subprocess.run(
+            list(argv), env=dict(env), check=False, stderr=subprocess.PIPE, text=True
+        )
     except FileNotFoundError as exc:
         raise EngineUnavailable(str(argv[0])) from exc
+    if completed.stderr:
+        sys.stderr.write(completed.stderr)
+    return CommandResult(returncode=completed.returncode, stderr=completed.stderr or "")
 
 
 def _codex_login(api_key: str, env: Mapping[str, str]) -> int:
@@ -491,6 +526,96 @@ def _agent_base_env(own_auth: Collection[str]) -> dict[str, str]:
     }
 
 
+# Signatures on a failed agent invocation's stderr that mark a *transient* fault —
+# the subprocess-surface analogue of :func:`fedcourtsai.courtlistener.is_transient`,
+# which for the pull client's httpx exceptions treats an HTTP 429 (throttle) or a
+# 5xx (server-side) or a network/timeout error as retryable and everything else
+# (a deterministic 4xx like a 404) as not. The agent CLIs do not surface the HTTP
+# status as a distinguishable exit code, so we recover the same split from the
+# provider's error text on stderr. Anything that matches none of these reads as
+# permanent — a content-filter trip or a context-length blowout is deterministic,
+# and retrying it only re-spends the cell's tokens, exactly as is_transient
+# refuses to retry a 404.
+_TRANSIENT_FAILURE = re.compile(
+    r"""
+    # A bare 429 is a distinctive status with low false-positive risk, so it
+    # stays broad; the 5xx set is pinned to the statuses providers actually
+    # return (a general \b5\d\d\b would match any 500-599 number — a docket id,
+    # token count, or line number on a *permanent* failure — and burn retries).
+      \b429\b                          # HTTP 429 Too Many Requests
+    | \b(?:500|502|503|504|529)\b      # server 5xx (+ Anthropic 529 overloaded)
+    | quota[\s_-]*exceeded             # OpenAI / Gemini quota
+    | insufficient[\s_-]*quota
+    | rate[\s_-]*limit                 # throttling, all three providers
+    | resource[\s_-]*exhausted         # Gemini RESOURCE_EXHAUSTED (429)
+    | overloaded                       # Anthropic 529 overloaded_error
+    | (?:timed?[\s_-]*out|timeout)     # network / gateway timeout
+    | deadline[\s_-]*exceeded          # gRPC deadline
+    | (?:temporarily[\s_-]*)?unavailable  # 503 UNAVAILABLE / temporarily unavailable
+    | connection[\s_-]*(?:reset|error|refused|aborted)
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# A server-advertised backoff hint on stderr — an HTTP ``Retry-After`` header (or
+# a provider message echoing it), in whole seconds. Honored in place of the
+# computed backoff when present (still capped at ``backoff_max_seconds``), since
+# the server's own hint is better than a blind exponential guess.
+_RETRY_AFTER = re.compile(r"retry[\s_-]*after[\s:=]+(\d+)", re.IGNORECASE)
+
+
+def _failure_is_transient(result: CommandResult) -> bool:
+    """Whether a non-zero-exit cell is worth retrying, from its stderr signature.
+
+    The subprocess-surface mirror of :func:`fedcourtsai.courtlistener.is_transient`
+    (429 / 5xx / timeout are transient; a deterministic client error is not).
+    Matches known-transient provider signatures on stderr; an unrecognized or
+    empty stderr reads as permanent, so an unclassifiable failure is not retried.
+    """
+    return bool(_TRANSIENT_FAILURE.search(result.stderr))
+
+
+def _retry_after_seconds(stderr: str) -> float | None:
+    """The server's ``Retry-After`` hint in seconds if the stderr carries one."""
+    match = _RETRY_AFTER.search(stderr)
+    return float(match.group(1)) if match else None
+
+
+def _full_jitter(ceiling: float) -> float:
+    """Full-jitter default: a uniform draw in ``[0, ceiling]``.
+
+    "Exponential backoff and jitter" (the AWS architecture note): spreading each
+    retry uniformly below its exponential ceiling desynchronizes cells that were
+    throttled together, so a fleet of 429'd cells does not stampede the upstream
+    in lockstep on every retry. Injectable (:attr:`AgenticRunner.jitter`) so a
+    test can make the wait deterministic.
+    """
+    return random.uniform(0.0, ceiling)
+
+
+def _backoff_delay(
+    attempt: int,
+    result: CommandResult,
+    base: float,
+    cap: float,
+    jitter: Callable[[float], float],
+) -> float:
+    """Seconds to wait before retry ``attempt`` (1-based over the *failed* tries).
+
+    Honors a server ``Retry-After`` when the failure surfaced one; otherwise an
+    exponential ceiling ``base * 2**(attempt-1)`` passed through ``jitter``. Both
+    are capped at ``cap`` so a wait cannot read as a hang inside the CI job.
+    """
+    retry_after = _retry_after_seconds(result.stderr)
+    if retry_after is not None:
+        # Retry-After is a *floor*, not a ceiling — waiting less than the server
+        # asked only re-trips the limit — so jitter is ADDED on top of it (not
+        # applied below it) to still desync cells that share the same hint.
+        return min(cap, retry_after + jitter(base))
+    ceiling = min(cap, base * (2 ** (attempt - 1)))
+    return jitter(ceiling)
+
+
 @dataclass(frozen=True)
 class AgenticRunner:
     """Drive a headless coding-agent CLI over one cell, off the shared seam.
@@ -498,10 +623,18 @@ class AgenticRunner:
     Subclasses supply :meth:`build_command` and name their engine's own auth
     variables in ``auth_vars``; this overlays a scrubbed ambient environment
     (:func:`_agent_base_env` — no cloud credentials, no other provider's key)
-    with the cell contract, runs the command, fails loudly on a non-zero exit,
-    and returns the artifacts the agent produced at the canonical paths. The
-    ``command_runner`` seam lets tests assert on the built command without
-    spawning an agent.
+    with the cell contract, runs the command, and returns the artifacts the agent
+    produced at the canonical paths. A non-zero exit is classified: a *transient*
+    fault (429 / quota / 5xx / timeout — :func:`_failure_is_transient`) is retried
+    with exponential backoff and jitter up to ``max_attempts``; a *permanent*
+    fault (content filter, context length, auth) fails loudly and immediately.
+    The ``command_runner`` seam lets tests assert on the built command — and drive
+    the retry path — without spawning an agent; the ``sleep`` / ``jitter`` seams
+    keep the backoff deterministic and instant under test.
+
+    The retry knobs default to the shipped ``runner:`` ``tracking.yaml`` values so
+    a directly-constructed runner (tests, ad-hoc use) behaves like production;
+    :func:`get_runner` overrides them from the loaded :class:`RunnerConfig`.
     """
 
     backend: str
@@ -515,6 +648,18 @@ class AgenticRunner:
     # the instance, so `self.command_runner(argv, env)` looks like a 3-arg call
     # to a 2-arg function. Keeping the default off the class sidesteps that.
     command_runner: CommandRunner | None = None
+    # Transient-retry governor. Defaults mirror config.RunnerConfig / the shipped
+    # tracking.yaml `runner:` section; get_runner() injects the configured values.
+    max_attempts: int = 3
+    backoff_base_seconds: float = 2.0
+    backoff_max_seconds: float = 30.0
+    # Backoff seams — the None-default / resolve-in-run trick again (see
+    # command_runner): `sleep` blocks between retries, `jitter` maps an
+    # exponential ceiling to an actual wait. Defaults are real time.sleep /
+    # full-jitter; a test injects a recording no-op sleep and a deterministic
+    # jitter so it neither waits nor flakes.
+    sleep: Callable[[float], None] | None = None
+    jitter: Callable[[float], float] | None = None
 
     def build_command(self, request: RunRequest) -> EngineCommand:  # pragma: no cover
         raise NotImplementedError
@@ -523,18 +668,45 @@ class AgenticRunner:
         return self._run_with(request, {})
 
     def _run_with(self, request: RunRequest, extra_env: Mapping[str, str]) -> list[Path]:
-        """The shared spawn, with an engine-specific env overlay under the
-        cell contract (CodexRunner's run-scoped auth home)."""
+        """The shared spawn, with an engine-specific env overlay under the cell
+        contract (CodexRunner's run-scoped auth home), retrying transient faults.
+
+        On a transient non-zero exit (429 / quota / 5xx / timeout) the command is
+        re-run after an exponential-backoff-with-jitter wait, up to
+        ``max_attempts`` total tries; a permanent fault, or the attempt cap, is a
+        hard failure (:class:`EngineFailed`). The same command and env are reused
+        across attempts — the cell contract is identical each try.
+        """
         command = self.build_command(request)
+        env = {**_agent_base_env(self.auth_vars), **extra_env, **command.env}
         run_command = self.command_runner or _run_subprocess
-        code = run_command(
-            command.argv, {**_agent_base_env(self.auth_vars), **extra_env, **command.env}
-        )
-        if code != 0:
-            raise EngineFailed(
-                f"{self.backend} exited {code} for cell {request.actor_id}/{request.event_id}"
+        sleep = self.sleep or time.sleep
+        jitter = self.jitter or _full_jitter
+
+        for attempt in range(1, self.max_attempts + 1):
+            result = run_command(command.argv, env)
+            if result.returncode == 0:
+                return _produced_artifacts(request)
+            base = (
+                f"{self.backend} exited {result.returncode} "
+                f"for cell {request.actor_id}/{request.event_id}"
             )
-        return _produced_artifacts(request)
+            if not _failure_is_transient(result):
+                # Deterministic fault (content filter, context length, auth): a
+                # retry would burn the same tokens for the same failure.
+                raise EngineFailed(base)
+            if attempt >= self.max_attempts:
+                raise EngineFailed(
+                    f"{base} after {attempt} attempts (transient failure, retry budget exhausted)"
+                )
+            sleep(
+                _backoff_delay(
+                    attempt, result, self.backoff_base_seconds, self.backoff_max_seconds, jitter
+                )
+            )
+        # Unreachable: the loop returns on success or raises on the final attempt;
+        # max_attempts >= 1 (RunnerConfig / the field) guarantees one iteration.
+        raise AssertionError("retry loop exited without a result")  # pragma: no cover
 
 
 @dataclass(frozen=True)
@@ -753,14 +925,36 @@ def _make_replay_runner() -> Runner:
     return ReplayRunner(cassette_root=root)
 
 
+def _agentic_backend(make: Callable[[], AgenticRunner]) -> Callable[[], Runner]:
+    """A factory that builds an agent runner with the retry governor from config.
+
+    ``make`` constructs the engine's runner with its own defaults; this overlays
+    the transient-retry knobs read from ``tracking.yaml``'s ``runner:`` section.
+    Reading them here — rather than baking constants into the classes — keeps that
+    section the single tuning point, exactly as the ``pull`` governor's
+    ``max_consecutive_transient_failures`` is read from the same file.
+    """
+
+    def build() -> Runner:
+        cfg = load_runner_config(get_settings().config_root)
+        return replace(
+            make(),
+            max_attempts=cfg.max_attempts,
+            backoff_base_seconds=cfg.backoff_base_seconds,
+            backoff_max_seconds=cfg.backoff_max_seconds,
+        )
+
+    return build
+
+
 # Backends keyed by name, mirroring how the workflow selects an engine: the
 # offline `stub` and `replay` plus the three real agents `local-cascade` and the
 # cert back-test can drive.
 _BACKENDS: dict[str, Callable[[], Runner]] = {
     "stub": StubRunner,
-    "claude-code": ClaudeCodeRunner,
-    "codex": CodexRunner,
-    "gemini": GeminiRunner,
+    "claude-code": _agentic_backend(ClaudeCodeRunner),
+    "codex": _agentic_backend(CodexRunner),
+    "gemini": _agentic_backend(GeminiRunner),
     "replay": _make_replay_runner,
 }
 

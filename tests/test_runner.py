@@ -17,11 +17,14 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.runner import (
     ClaudeCodeRunner,
     CodexRunner,
+    CommandResult,
     EngineFailed,
     EngineUnavailable,
     GeminiRunner,
     RunRequest,
     StubRunner,
+    _backoff_delay,
+    _failure_is_transient,
     _run_subprocess,
     get_runner,
 )
@@ -132,17 +135,18 @@ def test_get_runner_rejects_unknown_backend() -> None:
 
 
 class _Recorder:
-    """A `command_runner` seam that records the call and returns a canned code."""
+    """A `command_runner` seam that records the call and returns a canned result."""
 
-    def __init__(self, code: int = 0) -> None:
+    def __init__(self, code: int = 0, stderr: str = "") -> None:
         self.code = code
+        self.stderr = stderr
         self.argv: list[str] = []
         self.env: dict[str, str] = {}
 
-    def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> int:
+    def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
         self.argv = list(argv)
         self.env = dict(env)
-        return self.code
+        return CommandResult(returncode=self.code, stderr=self.stderr)
 
 
 def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
@@ -244,6 +248,180 @@ def test_missing_binary_raises_engine_unavailable() -> None:
     # The default subprocess executor maps a missing CLI to a clear EngineUnavailable.
     with pytest.raises(EngineUnavailable, match="not on PATH"):
         _run_subprocess(["fedcourts-no-such-binary-xyz"], {})
+
+
+# --- transient-retry-with-backoff (issue #788 part 1) --------------------------
+#
+# A cell that fails on a transient fault (429 / quota / 5xx / timeout) is retried
+# with exponential backoff + jitter; a permanent fault (content filter, context
+# length, auth) is a hard failure with no retry. The whole path is offline: the
+# `command_runner` seam supplies the failure, and the injected `sleep` / `jitter`
+# seams make the backoff instant and deterministic — no real waiting, no network.
+
+
+class _SequenceRunner:
+    """A `command_runner` that returns queued results in order, counting calls."""
+
+    def __init__(self, results: list[CommandResult]) -> None:
+        self._results = list(results)
+        self.calls = 0
+
+    def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
+        self.calls += 1
+        return self._results.pop(0)
+
+
+def _identity_jitter(ceiling: float) -> float:
+    """Deterministic-in-test jitter: the exponential ceiling itself, so a test can
+    assert exact backoff waits without the default's randomness."""
+    return ceiling
+
+
+def test_transient_failure_retries_then_succeeds(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)  # the agent "output" the successful retry then reports
+    seq = _SequenceRunner([CommandResult(1, "HTTP 429 Quota exceeded"), CommandResult(0)])
+    sleeps: list[float] = []
+    runner = ClaudeCodeRunner(command_runner=seq, sleep=sleeps.append, jitter=_identity_jitter)
+
+    written = runner.run(request)
+
+    assert seq.calls == 2  # failed once (transient), retried, succeeded
+    assert len(sleeps) == 1  # exactly one backoff wait between the two tries
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+
+
+def test_permanent_failure_is_not_retried(tmp_path: Path) -> None:
+    # A 400 content-filter trip is deterministic; retrying it only re-spends tokens.
+    seq = _SequenceRunner([CommandResult(1, "Error 400: content filter blocked the request")])
+    sleeps: list[float] = []
+    runner = ClaudeCodeRunner(command_runner=seq, sleep=sleeps.append, jitter=_identity_jitter)
+
+    with pytest.raises(EngineFailed, match="exited 1"):
+        runner.run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 1  # one try, no retry
+    assert sleeps == []  # and no backoff wait
+
+
+def test_transient_failure_stops_at_the_attempt_cap(tmp_path: Path) -> None:
+    # A persistently-degraded upstream exhausts the budget and hard-fails.
+    seq = _SequenceRunner([CommandResult(1, "503 Service Unavailable")] * 3)
+    sleeps: list[float] = []
+    runner = ClaudeCodeRunner(
+        command_runner=seq, max_attempts=3, sleep=sleeps.append, jitter=_identity_jitter
+    )
+
+    with pytest.raises(EngineFailed, match="retry budget exhausted"):
+        runner.run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 3  # tried the full attempt budget
+    assert len(sleeps) == 2  # a backoff between each pair of tries, none after the last
+
+
+def test_backoff_grows_exponentially_and_is_capped(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    # Four transient failures then success; base 2, cap 10, identity jitter so the
+    # ceiling is the wait: 2, 4, 8, then the exponential is capped at 10.
+    seq = _SequenceRunner([CommandResult(1, "429 quota exceeded")] * 4 + [CommandResult(0)])
+    sleeps: list[float] = []
+    runner = ClaudeCodeRunner(
+        command_runner=seq,
+        max_attempts=5,
+        backoff_base_seconds=2.0,
+        backoff_max_seconds=10.0,
+        sleep=sleeps.append,
+        jitter=_identity_jitter,
+    )
+
+    runner.run(request)
+
+    assert sleeps == [2.0, 4.0, 8.0, 10.0]
+
+
+def test_retry_after_hint_is_honored_with_jitter_added_on_top(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    seq = _SequenceRunner(
+        [CommandResult(1, "429 Too Many Requests; Retry-After: 7"), CommandResult(0)]
+    )
+    sleeps: list[float] = []
+    runner = ClaudeCodeRunner(
+        command_runner=seq,
+        backoff_base_seconds=2.0,
+        sleep=sleeps.append,
+        jitter=_identity_jitter,
+    )
+    runner.run(request)
+    # Retry-After (7) is a floor honored in full, with jitter (here identity of the
+    # base, 2) added ON TOP to desync cells sharing the hint — never applied below.
+    assert sleeps == [9.0]
+
+
+def test_retry_after_hint_is_capped_at_backoff_max(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    # A large retry-after is bounded so a retrying cell cannot sleep into the CI
+    # job timeout — the same bound the exponential ceiling gets.
+    seq = _SequenceRunner([CommandResult(1, "429 retry-after: 999"), CommandResult(0)])
+    sleeps: list[float] = []
+    runner = ClaudeCodeRunner(
+        command_runner=seq, backoff_max_seconds=30.0, sleep=sleeps.append, jitter=_identity_jitter
+    )
+    runner.run(request)
+    assert sleeps == [30.0]
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        "HTTP 429 Too Many Requests",
+        "Quota exceeded for this model",
+        "insufficient_quota",
+        "503 Service Unavailable",
+        "500 Internal Server Error",
+        "error: RESOURCE_EXHAUSTED",
+        "overloaded_error: the model is overloaded",
+        "the request timed out",
+        "deadline exceeded",
+        "Connection reset by peer",
+    ],
+)
+def test_transient_signatures_are_retryable(stderr: str) -> None:
+    assert _failure_is_transient(CommandResult(1, stderr))
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        "",  # unclassifiable -> permanent (not retried)
+        "Error 400: content filter blocked the request",
+        "context length exceeded: 200000 tokens requested",
+        "401 Unauthorized: invalid api key",
+        "404 Not Found",
+        # Bare 500-599 numbers that are NOT provider statuses (a docket id, a line
+        # number): the narrowed 5xx set must not misread these as a transient 5xx.
+        "content filter tripped on docket 555 near line 512",
+        "invalid request: 511 tokens over the context window",
+    ],
+)
+def test_permanent_signatures_are_not_retryable(stderr: str) -> None:
+    assert not _failure_is_transient(CommandResult(1, stderr))
+
+
+def test_backoff_delay_prefers_a_capped_retry_after() -> None:
+    # A retry-after wins over the exponential and is capped at cap.
+    honored = _backoff_delay(
+        1, CommandResult(1, "retry-after: 99"), base=2.0, cap=30.0, jitter=_identity_jitter
+    )
+    assert honored == 30.0
+    # With no hint, the exponential ceiling: base * 2**(attempt-1) = 2 * 2**2 = 8.
+    computed = _backoff_delay(
+        3, CommandResult(1, "429"), base=2.0, cap=30.0, jitter=_identity_jitter
+    )
+    assert computed == 8.0
 
 
 # --- predict -------------------------------------------------------------------
@@ -433,7 +611,7 @@ def test_codex_runner_logs_in_with_the_env_api_key_before_exec(
         login_env.update(env)
         return 0
 
-    def exec_and_record(argv: Sequence[str], env: Mapping[str, str]) -> int:
+    def exec_and_record(argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
         calls.append("exec")
         return recorder(argv, env)
 
