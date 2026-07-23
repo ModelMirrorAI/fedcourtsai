@@ -59,6 +59,7 @@ from .collect import (
     PrPlan,
     assert_cleanup_within_jail,
     assert_within_jail,
+    cell_failures,
     collect_plan,
     parse_name_status,
     render_stall_comment,
@@ -120,6 +121,7 @@ from .registry import (
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
+    CellFailure,
     ConferenceBucket,
     CorpusValidation,
     DataHealth,
@@ -3812,7 +3814,7 @@ def _pr_plan_json(plan: PrPlan | None) -> dict[str, object] | None:
     }
 
 
-def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
+def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) -> dict[str, object]:
     return {
         "ready": _pr_plan_json(plan.ready),
         "partial": _pr_plan_json(plan.partial),
@@ -3830,6 +3832,13 @@ def _collect_plan_json(plan: CollectPlan) -> dict[str, object]:
         "uncovered_cells": [
             {"actor": c.actor, "court": c.court, "docket": c.docket, "event_id": c.event_id}
             for c in plan.uncovered_cells
+        ],
+        # The per-cell failure facts `record-cell-failures` writes into the ledger
+        # so the attempt cap can count them. Computed here (pure) and carried on the
+        # plan JSON, so the collect step's writer step reads the already-decided
+        # partition rather than re-globbing the artifacts.
+        "cell_failures": [
+            f.model_dump(mode="json") for f in cell_failures(plan, run_id=run_id, role=role)
         ],
     }
 
@@ -3964,7 +3973,40 @@ def collect_plan_cmd(
         # cell that was never queued.
         expected=_expected_cells(matrix_file),
     )
-    typer.echo(json.dumps(_collect_plan_json(plan), separators=(",", ":")))
+    typer.echo(
+        json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))
+    )
+
+
+@app.command("record-cell-failures")
+def record_cell_failures_cmd(
+    plan_file: Annotated[
+        Path, typer.Option(help="The `collect-plan` JSON (its `cell_failures` list is read).")
+    ],
+    data_root: Annotated[Path, typer.Option(help="The git-ledger root to write facts under.")],
+) -> None:
+    """Write one durable ``attempt.json`` per failed cell into the git ledger.
+
+    The writer side of the per-cell attempt cap. ``collect`` is the only observer
+    of a cell that ran and produced no usable artifact, but it is corpus-blind, so
+    each failure is recorded as a run-scoped ledger file the pull/live derivers
+    later count (:func:`fedcourtsai.matrix.cell_failure_count`). The failure
+    partition is decided by ``collect-plan`` (pure) and carried in its JSON, so this
+    step only materializes those facts — it re-globs nothing. Run-scoped paths make
+    a rerun overwrite its own facts rather than duplicate them, and the facts ride
+    the run's existing per-run PR (append-only under ``data/``, passing the path
+    jail) because this runs before the ``git add data/`` union.
+    """
+    payload = json.loads(plan_file.read_text())
+    facts = [CellFailure.model_validate(entry) for entry in payload.get("cell_failures", [])]
+    for fact in facts:
+        events = CasePaths(data_root, fact.court, fact.docket).event(fact.event_id)
+        if fact.seam == "predict":
+            destination = events.prediction_attempt(fact.actor, fact.run_id)
+        else:
+            destination = events.evaluation_attempt(fact.actor, fact.run_id)
+        write_json(destination, fact)
+    typer.echo(f"recorded {len(facts)} cell-failure fact(s) under {data_root}")
 
 
 @app.command("stall-comment")

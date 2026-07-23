@@ -63,6 +63,12 @@ class EventPaths:
         # A predict cell's optional tooling.json self-report, alongside its prediction.
         return self.prediction_dir(predictor_id, run_id) / "tooling.json"
 
+    def prediction_attempt(self, predictor_id: str, run_id: str) -> Path:
+        # A predict cell's durable failure fact, written by the corpus-blind collect
+        # job when the cell ran and produced no usable prediction. Run-scoped so a
+        # rerun overwrites; counted per (predictor, event) against the attempt cap.
+        return self.prediction_dir(predictor_id, run_id) / "attempt.json"
+
     def prediction_usage(self, predictor_id: str, run_id: str) -> Path:
         return self.prediction_dir(predictor_id, run_id) / "usage.json"
 
@@ -89,6 +95,13 @@ class EventPaths:
         # An evaluate cell's optional tooling.json self-report, keyed by evaluator x
         # run like its usage and flags.
         return self.base / "evaluations" / evaluator_id / run_id / "tooling.json"
+
+    def evaluation_attempt(self, evaluator_id: str, run_id: str) -> Path:
+        # An evaluate cell's durable failure fact, keyed by evaluator x run like its
+        # usage and flags (one level above the per-predictor evaluation directories).
+        # Written by the corpus-blind collect job; counted per (evaluator, event)
+        # against the attempt cap.
+        return self.base / "evaluations" / evaluator_id / run_id / "attempt.json"
 
     def evaluation_dir(self, evaluator_id: str, predictor_id: str, run_id: str) -> Path:
         return self.base / "evaluations" / evaluator_id / predictor_id / run_id

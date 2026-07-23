@@ -16,6 +16,7 @@ from fedcourtsai.collect import (
     assert_cleanup_within_jail,
     assert_within_jail,
     cell_artifact_name,
+    cell_failures,
     collect_plan,
     feedback_marker,
     parse_name_status,
@@ -552,3 +553,58 @@ def test_expected_cell_parses_both_predictor_and_evaluator_matrices() -> None:
     assert ExpectedCell.from_matrix_entry({**base, "evaluator_id": "e"}).actor == "e"
     with pytest.raises(ValueError, match="neither predictor_id nor evaluator_id"):
         ExpectedCell.from_matrix_entry(base)
+
+
+# --- cell failure facts (the attempt-recording seam) -----------------------
+
+
+def _expected_docket(actor: str, docket: int) -> ExpectedCell:
+    return ExpectedCell(
+        actor=actor, court="scotus", docket=docket, event_id="evt-petition-disposition"
+    )
+
+
+def test_cell_failures_one_fact_per_failed_cell_with_coarse_class() -> None:
+    # One fact per truly-failed cell: skipped -> no_output, salvage -> partial,
+    # uncovered -> died. A ready cell yields nothing. The actor also has a ready
+    # cell (docket 1), so it is not a dead engine and no `quota` override applies.
+    plan = collect_plan(
+        FinalizeRole.evaluate,
+        run_id="R",
+        cells=[
+            _cell("claude-judge", docket=1),  # ready -> no fact
+            _cell("claude-judge", docket=2, produced=False),  # skipped -> no_output
+            _cell("claude-judge", docket=3, validated=False),  # salvage -> partial
+        ],
+        expected=[_expected_docket("claude-judge", d) for d in (1, 2, 3, 4)],  # 4 died
+    )
+    facts = cell_failures(plan, run_id="R", role=FinalizeRole.evaluate)
+    assert {f.docket: f.error_class for f in facts} == {2: "no_output", 3: "partial", 4: "died"}
+    assert all(
+        f.seam == "evaluate" and f.run_id == "R" and f.actor == "claude-judge" for f in facts
+    )
+
+
+def test_cell_failures_quota_class_for_dead_actor_and_excludes_lost() -> None:
+    # A dead engine (0 produced) has its failed cells promoted to `quota`. A cell
+    # whose artifact merely failed to transfer (missing_artifacts) is re-collectable,
+    # not a cell failure, so it yields NO fact.
+    lost = _expected_docket("claude-baseline", 9)
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[
+            _cell("claude-baseline", docket=1),  # ready -> claude alive
+            _cell("gemini-baseline", docket=1, produced=False),  # gemini 0 produced -> dead
+        ],
+        missing_artifacts=[cell_artifact_name(FinalizeRole.predict, lost)],
+        expected=[lost],  # matched by missing_artifacts -> lost, not uncovered
+    )
+    assert plan.dead_actors == ("gemini-baseline",)
+    facts = cell_failures(plan, run_id="R", role=FinalizeRole.predict)
+    assert {(f.actor, f.error_class) for f in facts} == {("gemini-baseline", "quota")}
+
+
+def test_cell_failures_empty_when_run_is_clean() -> None:
+    plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[_cell("claude-baseline")])
+    assert cell_failures(plan, run_id="R", role=FinalizeRole.predict) == []

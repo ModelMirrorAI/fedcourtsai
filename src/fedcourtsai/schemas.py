@@ -533,6 +533,45 @@ class AgentToolingFeedback(_Strict):
     )
 
 
+class CellFailure(_Strict):
+    """``attempt.json`` — one predict/evaluate cell's durable failure fact.
+
+    The activation of the per-cell attempt cap. The ``collect`` job is the only
+    observer of a cell that ran and produced no usable artifact, but it is
+    corpus-blind (git-ledger write only), so it records the failure here, in the
+    git ledger, rather than in the corpus. One file per failed cell, at a
+    run-scoped path (``predictions/<predictor>/<run>/attempt.json`` for predict,
+    ``evaluations/<evaluator>/<run>/attempt.json`` for evaluate), so a rerun of the
+    same run overwrites its own fact (collect-side idempotency) while distinct
+    failed runs accumulate distinct files. The deriver counts these files per
+    ``(actor, event, seam)`` cell (:func:`fedcourtsai.matrix.cell_failure_count`)
+    and stops re-queuing a cell that has failed the cap's worth of times — the
+    poison-pill backstop the level-triggered re-derivation otherwise lacks.
+
+    ``error_class`` is **coarse triage metadata only**; every fact counts equally
+    toward the cap regardless of its class. No genuine transient/permanent signal
+    is available at collect time — a cell's ``status.json`` carries only
+    produced/validated/agent_ok booleans and a died cell carries nothing — so the
+    class is derived from which collect bucket the cell fell in: ``no_output``
+    (ran, produced nothing), ``partial`` (produced output that failed validation or
+    stopped early), ``died`` (queued but never uploaded), overridden to ``quota``
+    when the cell's whole engine produced zero cells this run.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    seam: Literal["predict", "evaluate"] = Field(
+        description="Which stage's cell failed — matches the ledger subtree the fact lives under."
+    )
+    actor: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate).")
+    court: str
+    docket: int
+    event_id: str
+    run_id: str = Field(description="The fan-out run that observed the failure.")
+    error_class: Literal["no_output", "partial", "died", "quota"] = Field(
+        description="Coarse triage class only; every fact counts equally toward the cap."
+    )
+
+
 class RetrievalCall(_Strict):
     """One tool invocation harvested from the engine's own transcript.
 
@@ -2078,6 +2117,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "ops.json": OpsReport,
     "flags.json": AgentFlags,
     "tooling.json": AgentToolingFeedback,
+    "attempt.json": CellFailure,
     "retrieval_log.json": RetrievalLog,
     "scope.json": ScopeManifest,
 }
@@ -2103,6 +2143,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "statpack": StatPack,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
+    "cell_failure": CellFailure,
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
 }

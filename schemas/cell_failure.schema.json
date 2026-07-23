@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "description": "``attempt.json`` \u2014 one predict/evaluate cell's durable failure fact.\n\nThe activation of the per-cell attempt cap. The ``collect`` job is the only\nobserver of a cell that ran and produced no usable artifact, but it is\ncorpus-blind (git-ledger write only), so it records the failure here, in the\ngit ledger, rather than in the corpus. One file per failed cell, at a\nrun-scoped path (``predictions/<predictor>/<run>/attempt.json`` for predict,\n``evaluations/<evaluator>/<run>/attempt.json`` for evaluate), so a rerun of the\nsame run overwrites its own fact (collect-side idempotency) while distinct\nfailed runs accumulate distinct files. The deriver counts these files per\n``(actor, event, seam)`` cell (:func:`fedcourtsai.matrix.cell_failure_count`)\nand stops re-queuing a cell that has failed the cap's worth of times \u2014 the\npoison-pill backstop the level-triggered re-derivation otherwise lacks.\n\n``error_class`` is **coarse triage metadata only**; every fact counts equally\ntoward the cap regardless of its class. No genuine transient/permanent signal\nis available at collect time \u2014 a cell's ``status.json`` carries only\nproduced/validated/agent_ok booleans and a died cell carries nothing \u2014 so the\nclass is derived from which collect bucket the cell fell in: ``no_output``\n(ran, produced nothing), ``partial`` (produced output that failed validation or\nstopped early), ``died`` (queued but never uploaded), overridden to ``quota``\nwhen the cell's whole engine produced zero cells this run.",
+  "properties": {
+    "actor": {
+      "description": "The predictor_id (predict) or evaluator_id (evaluate).",
+      "title": "Actor",
+      "type": "string"
+    },
+    "court": {
+      "title": "Court",
+      "type": "string"
+    },
+    "docket": {
+      "title": "Docket",
+      "type": "integer"
+    },
+    "error_class": {
+      "description": "Coarse triage class only; every fact counts equally toward the cap.",
+      "enum": [
+        "no_output",
+        "partial",
+        "died",
+        "quota"
+      ],
+      "title": "Error Class",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "The fan-out run that observed the failure.",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "seam": {
+      "description": "Which stage's cell failed \u2014 matches the ledger subtree the fact lives under.",
+      "enum": [
+        "predict",
+        "evaluate"
+      ],
+      "title": "Seam",
+      "type": "string"
+    }
+  },
+  "required": [
+    "seam",
+    "actor",
+    "court",
+    "docket",
+    "event_id",
+    "run_id",
+    "error_class"
+  ],
+  "title": "CellFailure",
+  "type": "object"
+}

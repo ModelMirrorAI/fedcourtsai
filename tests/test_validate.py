@@ -13,6 +13,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
+    CellFailure,
     CorpusScopeAudit,
     CorpusValidation,
     Disposition,
@@ -674,6 +675,42 @@ def test_validate_ledger_flags_malformed_flags_file(tmp_path: Path) -> None:
     flags = ep.prediction_flags("p1", "r1")
     flags.parent.mkdir(parents=True)
     flags.write_text('{"flags": []}\n')  # empty list violates min_length
+    result = validate_ledger(data_root)
+    assert not result.ok
+    assert result.invalid == 1
+
+
+def test_validate_ledger_accepts_a_well_formed_attempt(tmp_path: Path) -> None:
+    # A committed attempt.json is schema law like any other artifact.
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition")
+    write_json(
+        ep.prediction_attempt("gemini-baseline", "r1"),
+        CellFailure(
+            seam="predict",
+            actor="gemini-baseline",
+            court="scotus",
+            docket=1,
+            event_id="evt-petition-disposition",
+            run_id="r1",
+            error_class="no_output",
+        ),
+    )
+    result = validate_ledger(data_root)
+    assert result.ok
+    assert result.checked == 1
+
+
+def test_validate_ledger_rejects_a_malformed_attempt(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition")
+    attempt = ep.prediction_attempt("gemini-baseline", "r1")
+    attempt.parent.mkdir(parents=True)
+    # `error_class` outside the allowed set violates the Literal.
+    attempt.write_text(
+        '{"seam": "predict", "actor": "gemini-baseline", "court": "scotus", "docket": 1,'
+        ' "event_id": "evt-petition-disposition", "run_id": "r1", "error_class": "boom"}\n'
+    )
     result = validate_ledger(data_root)
     assert not result.ok
     assert result.invalid == 1

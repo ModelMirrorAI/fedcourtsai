@@ -26,9 +26,10 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
+from typing import Literal
 
 from .finalize import FinalizeRole
-from .schemas import AgentFlags, FlagSeverity
+from .schemas import AgentFlags, CellFailure, FlagSeverity
 
 DATA_JAIL = "data/"
 
@@ -268,6 +269,13 @@ class CollectPlan:
     on the plan so the collect action can render its per-cell warnings from the
     same mapping that names the PR title and commit message, rather than
     re-deriving the role's vocabulary in shell and letting the two drift.
+
+    ``salvage`` are the cells that wrote output but stopped early or failed
+    validation — the ones the draft PR carries. It rides on the plan (rather than
+    living only inside ``partial``'s opaque ``artifact_dirs``) so that
+    :func:`cell_failures` can name them: a salvage cell ran and produced no
+    *usable* artifact, so it is a per-cell failure that counts toward the attempt
+    cap alongside ``skipped`` and ``uncovered_cells``.
     """
 
     ready: PrPlan | None
@@ -280,6 +288,7 @@ class CollectPlan:
     noun: str = ""
     missing_artifacts: tuple[str, ...] = ()
     uncovered_cells: tuple[ExpectedCell, ...] = ()
+    salvage: tuple[CellStatus, ...] = ()
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -575,6 +584,7 @@ def collect_plan(
         noun=noun,
         missing_artifacts=lost,
         uncovered_cells=uncovered,
+        salvage=tuple(salvage),
     )
 
 
@@ -594,3 +604,68 @@ def _append_flags(
     if partial is not None:
         return ready, replace(partial, body=f"{partial.body}\n\n{flags_md}")
     return ready, partial
+
+
+def cell_failures(plan: CollectPlan, *, run_id: str, role: FinalizeRole) -> list[CellFailure]:
+    """One durable failure fact per cell that ran and produced no usable artifact.
+
+    The writer side of the per-cell attempt cap. ``collect`` is the only observer
+    of a cell failure but is corpus-blind, so each fact is a git-ledger
+    ``attempt.json`` the derivers later count
+    (:func:`fedcourtsai.matrix.cell_failure_count`) — but only once it is
+    committed, and a fact rides the run's own PR. A run that opens no PR at all
+    (a wholesale failure where every cell died) writes the files but never
+    commits them, so its cells accrue no cap count that cycle; that tail is left
+    to the loud stall comment rather than a facts-only PR. The truly-failed cells
+    are the union of three disjoint buckets — ``skipped``, ``salvage``, and
+    ``uncovered_cells``:
+
+    * ``skipped`` — ran and produced nothing (``no_output``).
+    * ``salvage`` — produced output that failed validation or stopped early
+      (``partial``).
+    * ``uncovered_cells`` — queued but uploaded nothing at all; the job died before
+      it could report (``died``).
+
+    ``missing_artifacts`` is deliberately excluded: a lost artifact is
+    re-collectable download loss (re-run ``collect``), not a cell failure, so it
+    must not burn a cap attempt. ``dead_actors`` is not a separate bucket either —
+    it is engine-level and only *refines* the class. An engine that uploaded at
+    least one status but produced nothing lands in ``dead_actors``, so its
+    ``skipped``/``salvage`` cells read ``quota``; an engine that uploaded nothing
+    at all is absent from ``dead_actors`` (it never entered ``cells``), so its
+    ``uncovered`` cells stay ``died``. Either way every fact counts equally.
+
+    ``error_class`` is coarse triage metadata only: every fact counts equally
+    toward the cap. ``run_id`` is stamped on **all** facts from the collect job's
+    known run id — an uncovered cell carries no run id in its identity, and using
+    one uniform id keeps every fact's path run-scoped (so a rerun overwrites).
+    """
+    dead = set(plan.dead_actors)
+    seam = role.value  # FinalizeRole values are exactly the CellFailure seam literals
+
+    def _fact(
+        actor: str,
+        court: str,
+        docket: int,
+        event_id: str,
+        bucket: Literal["no_output", "partial", "died"],
+    ) -> CellFailure:
+        # A dead-actor cell reads as `quota` (its whole engine produced nothing);
+        # otherwise the coarse bucket the cell fell in.
+        error_class: Literal["no_output", "partial", "died", "quota"] = (
+            "quota" if actor in dead else bucket
+        )
+        return CellFailure(
+            seam=seam,
+            actor=actor,
+            court=court,
+            docket=docket,
+            event_id=event_id,
+            run_id=run_id,
+            error_class=error_class,
+        )
+
+    facts = [_fact(c.actor, c.court, c.docket, c.event_id, "no_output") for c in plan.skipped]
+    facts += [_fact(c.actor, c.court, c.docket, c.event_id, "partial") for c in plan.salvage]
+    facts += [_fact(c.actor, c.court, c.docket, c.event_id, "died") for c in plan.uncovered_cells]
+    return facts

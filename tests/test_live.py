@@ -24,8 +24,8 @@ from fedcourtsai.pipeline.live import (
     ingest_live_payload,
     live_poll_all,
 )
-from fedcourtsai.schemas import Disposition, Outcome
-from fedcourtsai.serialize import read_model
+from fedcourtsai.schemas import CellFailure, Disposition, Outcome
+from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.supremecourt import (
     SupremeCourtClient,
     current_october_term,
@@ -1293,13 +1293,11 @@ def test_sweep_leaves_a_fully_predicted_selected_case_alone(tmp_path: Path) -> N
 
 
 def test_sweep_owed_honors_the_predict_attempt_cap(tmp_path: Path) -> None:
-    """A (predictor, event) cell recorded failed up to the cap is no longer owed,
-    so a case whose only-missing engine is capped is not swept; max_attempts=0
-    disables the cap and the cell is owed again. The cap ships dormant in
-    production (nothing records predict attempts yet); this drives the read/skip
-    structure directly."""
+    """A (predictor, event) cell with the cap's worth of committed failure facts is
+    no longer owed, so a case whose only-missing engine is capped is not swept;
+    max_attempts=0 disables the cap and the cell is owed again. The cap reads the
+    ledger `attempt.json` facts the collect job writes."""
     db, data_root, docket_id = _distributed_selected(tmp_path)
-    case_id = f"scotus/{docket_id}"
     # Two engines landed; gemini-baseline is the only cell still missing.
     seed_prediction(
         data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id="claude-baseline"
@@ -1307,11 +1305,23 @@ def test_sweep_owed_honors_the_predict_attempt_cap(tmp_path: Path) -> None:
     seed_prediction(
         data_root, "scotus", docket_id, "evt-petition-disposition", predictor_id="codex-baseline"
     )
-    with corpus.connect(db) as conn:
-        for _ in range(2):
-            corpus.record_cell_attempt(
-                conn, case_id, "predict", "gemini-baseline", "evt-petition-disposition", "transient"
-            )
+    # Two committed predict-seam failure facts for the missing cell → count 2.
+    for i in range(2):
+        run_id = f"20260101T0000{i:02d}Z"
+        write_json(
+            CasePaths(data_root, "scotus", docket_id)
+            .event("evt-petition-disposition")
+            .prediction_attempt("gemini-baseline", run_id),
+            CellFailure(
+                seam="predict",
+                actor="gemini-baseline",
+                court="scotus",
+                docket=docket_id,
+                event_id="evt-petition-disposition",
+                run_id=run_id,
+                error_class="no_output",
+            ),
+        )
     served = {
         "25-1": _payload(
             "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
