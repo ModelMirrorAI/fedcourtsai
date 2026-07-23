@@ -96,6 +96,17 @@ def test_cap_predict_cells_under_the_cap_passes_through_unchanged() -> None:
     assert capped.dropped_cases == ()
 
 
+def test_cap_predict_cells_keeps_a_matrix_that_exactly_equals_the_cap() -> None:
+    # The `<=` boundary: 5 cases x 3 engines = 15 cells against a 15-cell cap is
+    # kept in full — the cap defers only what is strictly over it.
+    matrix = _oversized_matrix(5)
+    assert len(matrix["include"]) == 15
+    capped = cap_predict_cells(matrix, 15)
+    assert capped.include == matrix["include"]
+    assert capped.dropped_cells == 0
+    assert capped.dropped_cases == ()
+
+
 def test_cap_predict_cells_defers_whole_overflow_cases() -> None:
     # 5 cases x 3 engines = 15 cells; a 9-cell cap keeps exactly the three
     # lowest-case_id cases whole and defers the rest.

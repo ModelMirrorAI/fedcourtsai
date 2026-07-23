@@ -330,7 +330,9 @@ class PredictConfig(BaseModel):
     # `predict_matrix`, by dropping whole overflow cases (never splitting a case's
     # engines — predict has no already-predicted skip, so a re-queued half-case
     # would double-commit the engines that landed) in a deterministic,
-    # salience-independent order. A dropped case is deferred, never destroyed: it
+    # salience-independent order (ascending ``case_id``, a LEXICAL sort over the
+    # ``court/docket`` string — numeric-ascending only within a uniform docket
+    # digit width). A dropped case is deferred, never destroyed: it
     # keeps its place in the corpus predict queue and re-queues on a later cycle.
     # Default 240 = 80 fully-tournamented cases x 3 engines, 16 under the 256
     # ceiling; `ge=1` because a volume backstop that can be zeroed is not a

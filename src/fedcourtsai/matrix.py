@@ -172,7 +172,11 @@ def cap_predict_cells(matrix: dict[str, list[dict[str, Any]]], max_cells: int) -
       a stable order that yields the same kept subset for the same input however
       (or whether) selection ordered it — the point of a backstop that must hold
       when selection is exactly what failed. When a salience score reaches the
-      trigger body it can key this order instead.
+      trigger body it can key this order instead. ``case_id`` is
+      ``court/docket`` and the sort is **lexical over that string** (docket is
+      not zero-padded), so it is numeric-ascending only within a uniform docket
+      digit width — fine and deterministic for one Term's SCOTUS dockets, but a
+      future mixed-width caller must not read it as numeric order.
 
     Under the cap the matrix passes through unchanged (original cell order, no
     reordering). Over it, the kept cells keep their original order — only the

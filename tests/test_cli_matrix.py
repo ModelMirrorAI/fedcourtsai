@@ -128,6 +128,29 @@ def test_predict_matrix_volume_cap_defers_overflow_and_surfaces_it(tmp_path: Pat
             assert corpus.get_row(conn, f"scotus/{d}") is not None
 
 
+def test_predict_matrix_volume_cap_deferring_every_case_escalates_to_error(tmp_path: Path) -> None:
+    # Pathological cap-empty: even the single lowest-case_id case (3 cells) exceeds
+    # a 2-cell cap, so the matrix empties. The workflow's empty-matrix step will
+    # close the trigger issue as if out of scope, so the cap escalates to a
+    # correctly-attributed ::error:: — the deferred cases still re-run next cycle.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        max_cells=2,
+    )
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []  # matrix empty: has_jobs=false downstream
+    assert "::error::" in result.stderr
+    assert "deferred ALL 2 case(s)" in result.stderr
+    assert "out of scope" in result.stderr  # names the misattributed close
+
+
 def test_predict_matrix_under_the_cap_is_unchanged(tmp_path: Path) -> None:
     # A run inside the backstop fans out fully and surfaces no deferral warning.
     body = tmp_path / "issue-body.md"

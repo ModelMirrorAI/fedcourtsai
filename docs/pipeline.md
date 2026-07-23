@@ -224,7 +224,12 @@ If the matrix comes back **empty** — every queued case was out of scope (or al
 predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing
 would otherwise close the trigger issue; the `plan` job closes it with a note
 instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
-in the first place; this is the backstop for a manually-filed or partial one.)
+in the first place; this is the backstop for a manually-filed or partial one.) Note
+the volume cap above can also empty the matrix (when it defers *every* case), and
+that close step cannot tell cap-empty from scope-empty — so it closes with the
+out-of-scope note either way; the cap surfaces its own escalated `::error::` for
+correct attribution, and it is safe because the deferred cases stay in the corpus
+predict queue and re-queue next cycle regardless of the close.
 
 How a cell's output becomes a PR is the same across **`run:predict`** and
 **`run:evaluate`**: each cell validates its own output and
