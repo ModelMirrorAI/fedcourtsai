@@ -31,19 +31,29 @@ def _cells(stdout: str) -> list[dict[str, object]]:
     return cells
 
 
-def _env(tmp_path: Path, *, scope: str, cases: tuple[str, ...] = ()) -> dict[str, str]:
+def _env(
+    tmp_path: Path,
+    *,
+    scope: str,
+    cases: tuple[str, ...] = (),
+    max_cells: int | None = None,
+) -> dict[str, str]:
     """A hermetic config + corpus for a matrix run.
 
     Copies the real registries so the fan-out dimensions are unchanged, writes a
-    ``tracking.yaml`` pinning ``predict.scope``, and seeds a corpus holding a
-    row for each of the ``cases`` ids (the gate reads each case's row: an
-    absent row, or a non-SCOTUS court, is out of scope).
+    ``tracking.yaml`` pinning ``predict.scope`` (and, with ``max_cells``, the
+    volume backstop), and seeds a corpus holding a row for each of the ``cases``
+    ids (the gate reads each case's row: an absent row, or a non-SCOTUS court, is
+    out of scope).
     """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
     for name in ("predictors.yaml", "evaluators.yaml"):
         (config_root / name).write_text((_REPO_CONFIG / name).read_text())
-    (config_root / "tracking.yaml").write_text(f"predict:\n  scope: {scope}\n")
+    tracking = f"predict:\n  scope: {scope}\n"
+    if max_cells is not None:
+        tracking += f"  max_predict_cells_per_run: {max_cells}\n"
+    (config_root / "tracking.yaml").write_text(tracking)
 
     corpus_root = tmp_path / "corpus"
     with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
@@ -76,6 +86,64 @@ def test_predict_matrix_batch_body_fans_out_across_cases(tmp_path: Path) -> None
     # 3 predictors x 2 cases x 1 event
     assert len(cells) == 6
     assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24001), ("scotus", 24002)}
+
+
+def test_predict_matrix_volume_cap_defers_overflow_and_surfaces_it(tmp_path: Path) -> None:
+    # Four in-scope SCOTUS cases x 3 engines = 12 cells; a 6-cell backstop keeps
+    # the two lowest-case_id cases whole and defers the rest — regardless of
+    # salience — so a fail-open selection can never overflow the run.
+    dockets = (24001, 24002, 24003, 24004)
+    entries = ",\n".join(
+        f'  {{"court": "scotus", "docket": {d}, "events": ["evt-petition-cert"]}}' for d in dockets
+    )
+    body = tmp_path / "issue-body.md"
+    body.write_text(f"Long conference.\n\n```json\n[\n{entries}\n]\n```\n")
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=tuple(f"scotus/{d}" for d in dockets),
+        max_cells=6,
+    )
+    summary = tmp_path / "step-summary.md"
+    env["GITHUB_STEP_SUMMARY"] = str(summary)
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    cells = _cells(result.stdout)
+    # Capped to 6 cells, and only whole cases — the two lowest dockets.
+    assert len(cells) == 6
+    assert {(c["court"], c["docket"]) for c in cells} == {("scotus", 24001), ("scotus", 24002)}
+    # The deferral is surfaced loudly: a workflow annotation + a plain drop line.
+    assert "::warning::" in result.stderr
+    assert "deferred 6 cell(s)" in result.stderr
+    # ...and appended to the plan job's step summary.
+    assert "volume cap deferred 6 cell(s)" in summary.read_text()
+    assert "scotus/24003" in summary.read_text()
+    # Non-destructive: the deferred cases are untouched in the corpus, so a later
+    # cycle re-queues them — the cap defers, it does not delete.
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        for d in dockets:
+            assert corpus.get_row(conn, f"scotus/{d}") is not None
+
+
+def test_predict_matrix_under_the_cap_is_unchanged(tmp_path: Path) -> None:
+    # A run inside the backstop fans out fully and surfaces no deferral warning.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        max_cells=240,
+    )
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 6
+    assert "volume cap" not in result.stderr
 
 
 def test_predict_matrix_predictors_filter_survives_default_event_resolution(tmp_path: Path) -> None:

@@ -80,7 +80,9 @@ from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .leaderboard import big_case_agreement, build_leaderboard
 from .matrix import (
+    CappedMatrix,
     CaseRequest,
+    cap_predict_cells,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
@@ -3285,6 +3287,36 @@ def _requested_cases(
     raise typer.BadParameter("provide --body-file, or both --court and --docket.")
 
 
+def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
+    """Surface a volume-cap deferral loudly, so a capped run is never silent.
+
+    Two channels, both from here so no workflow change is needed: a ``::warning::``
+    workflow-command line on stderr (an Actions annotation, and loud in any plain
+    log), and — when ``$GITHUB_STEP_SUMMARY`` is set, i.e. inside Actions — a
+    Markdown block appended to the plan job's summary. stdout stays the pure
+    matrix JSON the plan step captures, so the warning must never go there. The
+    wording says *deferred*, not dropped: the overflow cases keep their place in
+    the predict queue and re-run next cycle.
+    """
+    cases = ", ".join(capped.dropped_cases)
+    typer.echo(
+        f"::warning::predict-matrix: volume cap hit — deferred {capped.dropped_cells} cell(s) "
+        f"across {len(capped.dropped_cases)} case(s) over the {max_cells}-cell backstop; "
+        f"they stay queued and re-run next cycle ({cases})",
+        err=True,
+    )
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"## run-predict — volume cap deferred {capped.dropped_cells} cell(s)\n"
+                f"The scope-filtered matrix exceeded the {max_cells}-cell backstop "
+                f"(predictor x case x event). Kept {len(capped.include)} cell(s); deferred "
+                f"{len(capped.dropped_cases)} whole case(s): {cases}. Deferred cases stay in the "
+                f"predict queue and re-run next cycle — nothing is dropped from the corpus.\n"
+            )
+
+
 @app.command("predict-matrix")
 def predict_matrix_cmd(
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
@@ -3307,11 +3339,11 @@ def predict_matrix_cmd(
     A case with no listed ``events`` defaults to that case's open events.
     """
     settings = get_settings()
-    scope = load_predict_config(settings.config_root).scope
+    predict_config = load_predict_config(settings.config_root)
     cases = _resolve_cases(
         _scope_filtered(
             _requested_cases(body_file, court, docket, event),
-            scope,
+            predict_config.scope,
             settings.corpus_root,
             settings.corpus_backend,
         ),
@@ -3320,7 +3352,14 @@ def predict_matrix_cmd(
         ),
     )
     matrix = predict_matrix(settings.config_root / "predictors.yaml", cases, run_id)
-    typer.echo(json.dumps(matrix, separators=(",", ":")))
+    # Salience-independent volume backstop, after scope filtering: hold the
+    # fan-out under the cell cap even if selection failed open, deferring whole
+    # overflow cases (they stay queued and re-run next cycle). See
+    # `cap_predict_cells` and PredictConfig.max_predict_cells_per_run.
+    capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
+    if capped.dropped_cells:
+        _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
+    typer.echo(json.dumps({"include": capped.include}, separators=(",", ":")))
 
 
 @app.command("evaluate-matrix")

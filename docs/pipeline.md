@@ -209,7 +209,16 @@ pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix. Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
-whole fan-out, however many cases it spans.
+whole fan-out, however many cases it spans. After scope filtering the builder
+also applies a **salience-independent volume cap**
+(`predict.max_predict_cells_per_run`, default 240): a hard backstop on the number
+of cells queued into one matrix, below GitHub's 256-job ceiling, that holds even
+if salience selection fails open. Overflow cases are deferred **whole** (never
+splitting a case's engines) in a deterministic case-id order, with the deferred
+count surfaced as a `::warning::` and in the plan's step summary; a deferred case
+stays in the predict queue and re-runs next cycle, so the cap defers rather than
+drops. This is the numeric backstop, distinct from the coarse
+`PREDICT_HANDOFF_ENABLED` on/off pause below.
 
 If the matrix comes back **empty** — every queued case was out of scope (or already
 predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing

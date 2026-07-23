@@ -152,6 +152,19 @@ predict:
   #   all           — no gate: every changed case with open events is in-scope;
   #                   keep for dev / unrestricted back-testing.
   scope: scotus_docket
+  # Salience-INDEPENDENT hard cap on predict cells (predictor x case x event jobs)
+  # queued into one run. A backstop *below* the salience gate, not part of it: it
+  # holds whatever selection did, so a selection that fails open cannot fan out an
+  # unbounded, expensive run (the failure mode behind a past cost breach). Bounds
+  # both GitHub's 256-job matrix ceiling (a wider matrix is rejected outright,
+  # losing the whole run) and the run's worst-case model spend. Enforced after
+  # scope filtering, by deferring WHOLE overflow cases (never splitting a case's
+  # engines) in a deterministic, salience-independent order; a deferred case stays
+  # in the predict queue and re-runs next cycle, so the cap defers, never
+  # destroys. 240 = 80 fully-tournamented cases x 3 engines, 16 under the 256
+  # ceiling. This is the numeric backstop; PREDICT_HANDOFF_ENABLED is the separate
+  # coarse on/off pause.
+  max_predict_cells_per_run: 240
   # Hard cap on concurrent predictor matrix jobs. The enforced value is the
   # `strategy.max-parallel` literal in run-predict/run-evaluate;
   # keep this in step with it (nothing reads this key today — it documents intent).
