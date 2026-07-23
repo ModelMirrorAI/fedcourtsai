@@ -408,3 +408,56 @@ def load_evaluate_config(config_root: Path) -> EvaluateConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return EvaluateConfig.model_validate((data or {}).get("evaluate", {}))
+
+
+class RunnerConfig(BaseModel):
+    """The ``runner`` section of ``config/tracking.yaml`` — the agentic-cell retry
+    governor.
+
+    A predict/evaluate agent cell (:class:`fedcourtsai.pipeline.runner.AgenticRunner`)
+    can fail on a *transient* fault — an HTTP 429 / quota-exceeded throttle, a 5xx
+    upstream error, or a timeout — where a retry may well succeed. These bound the
+    exponential backoff-and-jitter the runner applies before retrying such a
+    failure. A *permanent* fault (a content-filter trip, a context-length blowout,
+    an auth error) is deterministic and is never retried, so no cap here touches
+    it — the split mirrors :func:`fedcourtsai.courtlistener.is_transient` and the
+    ``pull`` governor's ``max_consecutive_transient_failures``.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # Total attempts a transient-failing cell gets (1 = the first try only, i.e.
+    # retries off). A few is enough: a 429/5xx that has not cleared after a
+    # handful of exponentially-spaced waits is a degraded upstream, and each
+    # extra attempt re-spends a full agent invocation's tokens and minutes.
+    max_attempts: int = Field(default=3, ge=1)
+    # Base of the exponential backoff, seconds: the wait before retry N is
+    # ``base * 2**(N-1)`` (pre-jitter), so 2.0 gives ~2s, ~4s, ~8s, ….
+    backoff_base_seconds: float = Field(default=2.0, gt=0)
+    # Ceiling on any single backoff wait, seconds — including one honored from a
+    # server ``retry-after``. Caps the exponential growth (and a long
+    # ``retry-after``) so a retrying cell cannot sleep its way into the CI job
+    # timeout, the same "don't let a wait read as a hang" bound the pull
+    # client's ``courtlistener_max_wait`` enforces.
+    backoff_max_seconds: float = Field(default=30.0, gt=0)
+
+    @model_validator(mode="after")
+    def _max_not_below_base(self) -> Self:
+        """Guard a fat-finger: the ceiling must not sit below the base wait."""
+        if self.backoff_max_seconds < self.backoff_base_seconds:
+            raise ValueError(
+                "backoff_max_seconds must be >= backoff_base_seconds "
+                f"({self.backoff_max_seconds} < {self.backoff_base_seconds})"
+            )
+        return self
+
+
+def load_runner_config(config_root: Path) -> RunnerConfig:
+    """Read the agentic-cell retry governor from ``config_root/tracking.yaml``.
+
+    Falls back to the defaults if the file or its ``runner`` section is absent, so
+    the runner retries conservatively rather than failing when config is missing.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return RunnerConfig.model_validate((data or {}).get("runner", {}))

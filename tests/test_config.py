@@ -6,10 +6,12 @@ from fedcourtsai.config import (
     PredictConfig,
     PredictScope,
     PullConfig,
+    RunnerConfig,
     Settings,
     load_courts,
     load_predict_config,
     load_pull_config,
+    load_runner_config,
 )
 
 
@@ -112,6 +114,39 @@ def test_load_predict_config_defaults_to_scotus_docket(tmp_path: Path) -> None:
 def test_repo_tracking_yaml_carries_default_scope() -> None:
     # The committed config pins the documented default the workflows read.
     assert load_predict_config(Path("config")).scope == PredictScope.scotus_docket
+
+
+def test_load_runner_config_reads_retry_governor(tmp_path: Path) -> None:
+    _write_tracking(
+        tmp_path,
+        "runner:\n  max_attempts: 5\n  backoff_base_seconds: 1.5\n  backoff_max_seconds: 45\n",
+    )
+    cfg = load_runner_config(tmp_path)
+    assert cfg.max_attempts == 5
+    assert cfg.backoff_base_seconds == 1.5
+    assert cfg.backoff_max_seconds == 45.0
+
+
+def test_load_runner_config_defaults_when_absent(tmp_path: Path) -> None:
+    # Missing file and missing section both keep the conservative retry defaults.
+    assert load_runner_config(tmp_path / "absent") == RunnerConfig()
+    cfg = load_runner_config(tmp_path / "absent")
+    assert cfg.max_attempts == 3
+    assert cfg.backoff_base_seconds == 2.0
+    assert cfg.backoff_max_seconds == 30.0
+
+
+def test_runner_config_rejects_a_ceiling_below_the_base() -> None:
+    with pytest.raises(ValueError, match="backoff_max_seconds must be >="):
+        RunnerConfig(backoff_base_seconds=10.0, backoff_max_seconds=5.0)
+
+
+def test_repo_tracking_yaml_carries_the_runner_retry_section() -> None:
+    # The committed config pins the shipped retry governor the runners read.
+    cfg = load_runner_config(Path("config"))
+    assert cfg.max_attempts == 3
+    assert cfg.backoff_base_seconds == 2.0
+    assert cfg.backoff_max_seconds == 30.0
 
 
 def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) -> None:

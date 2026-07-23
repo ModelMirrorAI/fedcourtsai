@@ -197,6 +197,24 @@ salience:
   # only a same-day repeat. 0 disables suppression.
   relist_requeue_cooldown_days: 1
 
+# runner = the agentic predict/evaluate cell runner's retry governor (see
+# src/fedcourtsai/pipeline/runner.py). A cell that fails on a TRANSIENT fault —
+# an HTTP 429 / quota-exceeded throttle, a 5xx upstream, or a timeout — is
+# retried with exponential backoff and jitter; a PERMANENT fault (content-filter
+# trip, context-length blowout, auth error) is a hard failure and never retried.
+# The transient/permanent split mirrors pull's is_transient classifier.
+runner:
+  # Total attempts a transient-failing cell gets (1 = no retries). A 429/5xx that
+  # has not cleared after a handful of exponentially-spaced waits is a degraded
+  # upstream, and each extra attempt re-spends a full agent invocation.
+  max_attempts: 3
+  # Base of the exponential backoff, seconds: the wait before retry N is
+  # base * 2**(N-1) before jitter, so this gives ~2s, ~4s, ~8s, … .
+  backoff_base_seconds: 2.0
+  # Ceiling on any single backoff wait, seconds — including a honored server
+  # retry-after — so a retrying cell cannot sleep its way into the CI job timeout.
+  backoff_max_seconds: 30.0
+
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
   # court id. pull keeps these current. District courts are intentionally out
