@@ -349,6 +349,10 @@ class PredictConfig(BaseModel):
     # before). The predict mirror of `EvaluateConfig.max_attempts_per_cell`; sized
     # a few attempts above the runner's in-request retry so a genuinely transient
     # streak still gets several cross-cycle retries before the cell is given up.
+    # Ships dormant: nothing records a predict-seam attempt into
+    # `corpus.cell_attempts` yet (the writer — collect observes the failure, the
+    # corpus writer folds it in — is a follow-up), so the count stays 0 and this
+    # ceiling is read but not yet enforced.
     max_attempts_per_cell: int = Field(default=5, ge=0)
 
 

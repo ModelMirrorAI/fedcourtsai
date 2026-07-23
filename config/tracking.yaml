@@ -174,7 +174,9 @@ predict:
   # retry under a newer process version still counts against the same cap. 0
   # disables the cap (every unpredicted cell re-queues). A few attempts above the
   # runner's in-request retry, so a genuinely transient streak still gets several
-  # cross-cycle retries before the cell is given up.
+  # cross-cycle retries before the cell is given up. Ships dormant: no writer
+  # records a predict-seam attempt yet (a follow-up), so the count stays 0 and
+  # this ceiling is read but not yet enforced.
   max_attempts_per_cell: 5
   # Hard cap on concurrent predictor matrix jobs. The enforced value is the
   # `strategy.max-parallel` literal in run-predict/run-evaluate;
