@@ -440,8 +440,8 @@ Disabling `run-predict` / `run-evaluate` in the GitHub UI stops the *runs* but
 not the *issues*. The issues keep arriving and sit unconsumed — and `run-ops`
 lists every still-open `run:*` issue as a **stalled fan-out**, so a
 workflow-disabled-only pause steadily reddens the ops dashboard with what looks
-like broken runs. Holding the handoff avoids that; for a full predict pause, do
-both.
+like broken runs. Holding the handoff avoids that; for a full pause of either
+channel, hold the handoff *and* disable the workflow.
 
 ## Snapshot sequencing
 
