@@ -7,17 +7,21 @@ description: >
   `enabled` can hold the filing, so the tournament's model spend can be paused
   without pausing ingestion. Only apply it to a channel whose queue is
   **level-triggered** — that is, re-derivable from corpus state on a later cycle.
-  `run:predict` is: a selected case stays queueable for as long as it has open,
+  Both channels are:
+
+  `run:predict` — a selected case stays queueable for as long as it has open,
   never-predicted events, and the live selection sweep re-polls exactly that set
   each cycle (`predict_queued_at` debounces it to daily), so a held window costs
   latency and nothing else.
 
-  `run:evaluate` is NOT, and must not be held. Its queue comes from
-  `result.resolved` — events that this poll closed — and `upsert_events` is
-  resolved-latching, so no later poll re-emits them. There is no evaluate sweep
-  and no backlog deriver. A held evaluate window is lost permanently, and it
-  would be lost silently: the outcomes are already committed and the predictions
-  already exist, so nothing downstream would ever report the missing grading.
+  `run:evaluate` — the fresh-resolution queue comes from `result.resolved`
+  (events this poll closed) and `upsert_events` is resolved-latching, so no
+  later poll re-emits them on its own. The **evaluate backlog deriver**
+  (`pipeline.pull.evaluate_backlog`) closes that gap: every cycle it re-derives
+  owed gradings from committed ledger state (a resolved event with a prediction
+  but a missing evaluation, `evaluate_queued_at`-debounced to daily) and appends
+  them to the same queue. So a held or dropped evaluate window is re-queued on
+  a later cycle, not lost.
 
 inputs:
   token:

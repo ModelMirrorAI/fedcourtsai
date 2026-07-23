@@ -119,7 +119,9 @@ daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (de
                                     │                  decided — skipped + surfaced;
                                     │                  held if PREDICT_HANDOFF_ENABLED=0)
                                     └─ run:evaluate   (predicted event that gained
-                                                       an outcome)
+                                                       an outcome, or an owed grading
+                                                       the backlog deriver surfaces;
+                                                       held if EVALUATE_HANDOFF_ENABLED=0)
    daily ×4 → run-pull (live job) → open live-log issue → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions (per-Term cursor)
@@ -129,7 +131,8 @@ daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (de
                                  │    unrecorded outcome, surfaced per-case on the
                                  │    live-log issue comment
                                  └─ create run:predict / run:evaluate issues  ← APP TOKEN
-                                    (predict held if PREDICT_HANDOFF_ENABLED=0)
+                                    (held per-channel by PREDICT_HANDOFF_ENABLED /
+                                     EVALUATE_HANDOFF_ENABLED)
        run:predict → plan (build matrix) → predict[matrix] (artifact per cell)
                                  └─ collect → one auto-merged PR per run (+ a draft PR for partials)
        run:evaluate → plan → evaluate[matrix] (artifact per cell)
@@ -354,19 +357,23 @@ unaffected: the draft path only triggers when the agent stopped early.
 
 ## Pausing the tournament without pausing ingestion
 
-`seed`/`pull`/`live` (cheap, API-budgeted) and `predict` (the model spend) can be
-run independently. One variable holds the predict fan-out at the handoff seam:
+`seed`/`pull`/`live` (cheap, API-budgeted) and `predict`/`evaluate` (the model
+spend) can be run independently. Two variables hold each fan-out at its handoff
+seam:
 
 | Variable | Unset | Effect when `0` or `false` |
 |---|---|---|
 | `PREDICT_HANDOFF_ENABLED` | `1` — files | `run:predict` issues are not filed |
+| `EVALUATE_HANDOFF_ENABLED` | `1` — files | `run:evaluate` issues are not filed |
 
-Set it in the `runner` environment (a repository-level variable of the same name
-works identically, unless an environment-level one shadows it). It defaults to
-filing, so an unset or mistyped variable keeps the tournament running: the
-failure that costs coverage is the quiet one. Ingestion is untouched — the corpus
-keeps refreshing and outcomes keep being recorded, so a pause costs prediction
-coverage for that window, never data.
+Set either in the `runner` environment (a repository-level variable of the same
+name works identically, unless an environment-level one shadows it). Both
+default to filing, so an unset or mistyped variable keeps the tournament
+running: the failure that costs coverage is the quiet one. Ingestion is
+untouched — the corpus keeps refreshing and outcomes keep being recorded, so a
+pause costs prediction/grading coverage for that window, never data. A full
+tournament pause needs both variables set to `0` — holding only one leaves the
+other channel's trigger issues arriving on their own.
 
 **Holding predict is lossless, and resuming needs no backfill.** The predict
 queue lives in the corpus, not in the issue — the issue is only a trigger
@@ -423,10 +430,9 @@ event) grain, which carries one accepted limitation: a prediction committed
 by a ledger scan (a resolved event whose prediction has no matching evaluation),
 which is the safer failure than the silent miscount a re-grade would cause.
 
-An `EVALUATE_HANDOFF_ENABLED` pause switch is therefore safe to add — a held
-evaluate window re-derives on resume rather than being lost — but is
-intentionally not wired, so the deriver's behaviour can be observed in production
-before a pause switch depends on it.
+An `EVALUATE_HANDOFF_ENABLED` pause switch mirrors `PREDICT_HANDOFF_ENABLED`:
+holding it costs latency alone — a held window re-derives on resume rather than
+being lost — so a full pause of both channels needs both variables set to `0`.
 
 ### Disabling the workflow is not the same as holding the handoff
 
@@ -434,8 +440,8 @@ Disabling `run-predict` / `run-evaluate` in the GitHub UI stops the *runs* but
 not the *issues*. The issues keep arriving and sit unconsumed — and `run-ops`
 lists every still-open `run:*` issue as a **stalled fan-out**, so a
 workflow-disabled-only pause steadily reddens the ops dashboard with what looks
-like broken runs. Holding the handoff avoids that; for a full predict pause, do
-both.
+like broken runs. Holding the handoff avoids that; for a full pause of either
+channel, hold the handoff *and* disable the workflow.
 
 ## Snapshot sequencing
 
