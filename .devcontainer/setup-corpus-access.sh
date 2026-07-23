@@ -11,6 +11,11 @@
 # Absent secrets, the hook notes it and succeeds anyway, because the offline
 # fixture loop and the full gate need no remote at all.
 #
+# Shell state goes to one generated file, ~/.fedcourts-env.sh, sourced from
+# .bashrc by a single guarded line. Regenerating that file wholesale is what
+# makes reruns idempotent, so no per-line grep guards are needed, and it gives
+# the post-start session check one thing to source.
+#
 # No corpus bytes are transferred here. Codespaces runs on Azure, so a full
 # pull is cross-cloud S3 internet egress — pulling is a deliberate command
 # (`uv run fedcourts corpus-pull`), never part of container creation; quick
@@ -20,6 +25,9 @@ set -euo pipefail
 
 # Anchor on the script's location rather than the caller's cwd.
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+env_file="${HOME}/.fedcourts-env.sh"
+: > "${env_file}"
 
 # The application accepts the bare workflow variable names as aliases of the
 # FEDCOURTS_-prefixed ones (see fedcourtsai.config); the DVC_* pair is the
@@ -31,12 +39,9 @@ if [[ -z "${AWS_SSO_START_URL:-}" && -z "${AWS_ACCESS_KEY_ID:-}" && -z "${remote
   exit 0
 fi
 
-sso_configured=false
 if [[ -n "${AWS_SSO_START_URL:-}" ]]; then
-  # Maintainer flow: an SSO session (short-lived tokens; refresh with
-  # `aws sso login --sso-session modelmirror --use-device-code` — device code
-  # because a codespace has no browser for the redirect flow) whose
-  # fedcourts-ro profile assumes the read-only corpus role.
+  # Maintainer flow: an SSO session (short-lived tokens) whose fedcourts-ro
+  # profile assumes the read-only corpus role.
   mkdir -p "${HOME}/.aws"
   cat > "${HOME}/.aws/config" <<EOF
 [sso-session modelmirror]
@@ -57,13 +62,17 @@ EOF
   # remoteEnv is static JSON and cannot depend on which secrets exist, so
   # profile selection happens here instead: SSO shells need AWS_PROFILE to
   # resolve the assumed role, while a dangling profile would break the
-  # static-key flow (boto3 fails on a profile no config file defines). The
-  # grep guard keeps container rebuilds from stacking duplicate lines.
-  if ! grep -qx "export AWS_PROFILE=fedcourts-ro" "${HOME}/.bashrc" 2>/dev/null; then
-    echo "export AWS_PROFILE=fedcourts-ro" >> "${HOME}/.bashrc"
-  fi
-  sso_configured=true
-  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run 'corpus-login' (aws sso login --sso-session modelmirror --use-device-code) when the session expires."
+  # static-key flow (boto3 fails on a profile no config file defines).
+  cat >> "${env_file}" <<'EOF'
+export AWS_PROFILE=fedcourts-ro
+
+# Refresh the short-lived SSO session. Device code because a codespace has no
+# browser for the redirect flow.
+corpus-login() {
+  aws sso login --sso-session modelmirror --use-device-code
+}
+EOF
+  echo "AWS SSO profiles written (fedcourts-sso -> fedcourts-ro); run 'corpus-login' when the session expires."
 elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
   # Contributor flow: nothing to configure — boto3 picks the key pair up from
   # the environment, and no profile must be set (see the remoteEnv note above).
@@ -73,11 +82,13 @@ fi
 # The remote's URL is independent of which credential flow is present. The
 # tooling reads it from the environment (any accepted alias), so all that is
 # needed is the preferred name in every shell; the SSO flow's AWS_PROFILE
-# export above already routes boto3 through the assumed-role profile. The
-# grep guard keeps container rebuilds from stacking duplicate lines.
+# export above already routes boto3 through the assumed-role profile.
 if [[ -n "${remote_url}" ]]; then
-  if ! grep -q "^export CORPUS_REMOTE_URL=" "${HOME}/.bashrc" 2>/dev/null; then
-    printf 'export CORPUS_REMOTE_URL=%q\n' "${remote_url}" >> "${HOME}/.bashrc"
-  fi
+  printf 'export CORPUS_REMOTE_URL=%q\n' "${remote_url}" >> "${env_file}"
   echo "Corpus remote URL exported as CORPUS_REMOTE_URL (read-only). Ranged queries work now; a full pull stays deliberate: uv run fedcourts corpus-pull"
+fi
+
+source_line='if [ -f "$HOME/.fedcourts-env.sh" ]; then . "$HOME/.fedcourts-env.sh"; fi'
+if ! grep -qxF "${source_line}" "${HOME}/.bashrc" 2>/dev/null; then
+  printf '%s\n' "${source_line}" >> "${HOME}/.bashrc"
 fi
