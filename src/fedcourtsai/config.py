@@ -398,6 +398,16 @@ class EvaluateConfig(BaseModel):
     # one cell per not-yet-graded evaluator. The backlog drains across cycles,
     # stalest first, under the daily `evaluate_queued_at` debounce.
     backlog_cases_per_cycle: int = Field(default=25, ge=0)
+    # The poison-pill backstop the `evaluate_queued_at` debounce lacks: once a
+    # cell (evaluator, event) has been recorded failed this many times in the
+    # durable failure queue (`corpus.cell_attempts`), the deriver stops
+    # re-queuing it — so one cell that fails every attempt (a persistent quota
+    # wall, a malformed record) cannot re-queue forever. Keyed on cell identity,
+    # so a retry under a newer process version still counts against the same cap.
+    # 0 disables the cap (every ungraded cell re-queues, as before). Sized a few
+    # attempts above the client's in-request retry so a genuinely transient run of
+    # failures still gets several cross-cycle retries before it is given up.
+    max_attempts_per_cell: int = Field(default=5, ge=0)
 
 
 def load_evaluate_config(config_root: Path) -> EvaluateConfig:

@@ -236,6 +236,21 @@ def _queue_predict(
         corpus.stamp_predict_queued(conn, [result.case_id], date.today())
 
 
+def _cell_capped(
+    row: corpus.CorpusRow, evaluator_id: str, event_id: str, max_attempts: int
+) -> bool:
+    """Whether an evaluate cell has exhausted the per-cell attempt cap.
+
+    Reads the durable failure queue (``corpus.cell_attempts``) at the ``evaluate``
+    seam, keyed on cell identity — so a cell retried under a newer process version
+    counts against the same cap rather than resetting it. ``max_attempts <= 0``
+    disables the cap.
+    """
+    if max_attempts <= 0:
+        return False
+    return corpus.cell_attempt_count(row, "evaluate", evaluator_id, event_id) >= max_attempts
+
+
 def evaluate_backlog(
     corpus_db_path: Path,
     data_root: Path,
@@ -243,6 +258,7 @@ def evaluate_backlog(
     queues: PullQueues,
     *,
     cap: int,
+    max_attempts: int,
     already_queued: set[str] | None = None,
     today: date | None = None,
 ) -> None:
@@ -262,6 +278,16 @@ def evaluate_backlog(
     stalest-first by ``evaluate_queued_at`` across cycles, debounced to daily by
     the same stamp (a case queued today waits for tomorrow's cycle rather than
     re-queuing while its run PR is in flight or failed).
+
+    ``max_attempts`` is the poison-pill backstop the daily debounce lacks (part of
+    the durable failure queue, ``corpus.cell_attempts``): an (evaluator, event)
+    cell recorded failed that many times is not re-derived, so a cell that fails
+    every attempt — a persistent quota wall, a malformed record — cannot re-queue
+    forever. The count keys on cell identity, not process version, so a retry
+    under a newer version still counts against the cap; ``max_attempts == 0``
+    disables it (every ungraded cell re-queues, as before). Because the cap is
+    per (evaluator, event) it never lets one exhausted cell suppress a sibling
+    evaluator still owed the same event.
 
     Scope is deliberately *not* ``_in_predict_scope``: that gate drops a
     salience-*deferred* case (``is_salience_deferred``), which is a predict
@@ -313,12 +339,17 @@ def evaluate_backlog(
             break
         court, docket_str = row.case_id.split("/", 1)
         docket = int(docket_str)
+        # An (evaluator, event) cell is owed when it is ungraded AND has not hit
+        # the per-cell attempt cap. Checking the cap per cell — not per case or
+        # per event — is what keeps one poison-pill evaluator from suppressing a
+        # sibling evaluator still owed the same event.
         owed = [
             event_id
             for event_id in resolved_by_case[row.case_id]
             if event_has_predictions(data_root, court, docket, event_id)
             and any(
                 not event_has_evaluations(data_root, court, docket, event_id, evaluator_id=ev)
+                and not _cell_capped(row, ev, event_id, max_attempts)
                 for ev in evaluator_ids
             )
         ]

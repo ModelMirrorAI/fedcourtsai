@@ -1405,6 +1405,113 @@ def test_from_record_tolerates_record_without_salience_columns() -> None:
     assert row == _row()
 
 
+def test_cell_attempts_roundtrip_through_the_corpus(tmp_path: Path) -> None:
+    """The durable failure-queue map survives a write/read round trip intact."""
+    db = tmp_path / "corpus.db"
+    row = _row(
+        cell_attempts={
+            "evaluate:claude-judge:evt-petition-disposition": corpus.CellAttempt(
+                attempts=2, last_error="transient"
+            )
+        }
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        fetched = corpus.get_row(conn, "ca9/123")
+    assert fetched == row
+
+
+def test_record_cell_attempt_increments_and_stamps_last_error(tmp_path: Path) -> None:
+    """The writer creates a fresh cell on first failure and increments thereafter,
+    always overwriting `last_error` with the most recent class."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus")])
+        # First failure: the cell is created at count 1.
+        corpus.record_cell_attempt(
+            conn, "scotus/1", "predict", "claude-baseline", "evt-petition-disposition", "transient"
+        )
+        after_one = corpus.get_row(conn, "scotus/1")
+        # Second failure of the same cell: count advances, last_error updates.
+        corpus.record_cell_attempt(
+            conn, "scotus/1", "predict", "claude-baseline", "evt-petition-disposition", "permanent"
+        )
+        after_two = corpus.get_row(conn, "scotus/1")
+    assert after_one is not None and after_two is not None
+    assert (
+        corpus.cell_attempt_count(
+            after_one, "predict", "claude-baseline", "evt-petition-disposition"
+        )
+        == 1
+    )
+    assert (
+        corpus.cell_attempt_count(
+            after_two, "predict", "claude-baseline", "evt-petition-disposition"
+        )
+        == 2
+    )
+    key = corpus.cell_attempt_key("predict", "claude-baseline", "evt-petition-disposition")
+    assert after_two.cell_attempts[key].last_error == "permanent"
+    # A never-attempted cell reads as zero.
+    assert corpus.cell_attempt_count(after_two, "evaluate", "claude-judge", "evt-x") == 0
+
+
+def test_record_cell_attempt_is_a_no_op_on_a_missing_row(tmp_path: Path) -> None:
+    """No case row owns the attempt — recording must not raise or create one."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.record_cell_attempt(conn, "scotus/404", "predict", "e", "evt-x", "transient")
+        assert corpus.get_row(conn, "scotus/404") is None
+
+
+def test_cell_attempts_are_writer_owned_not_clobbered_by_ingest(tmp_path: Path) -> None:
+    """The clobber trap. The failure-queue writer owns `cell_attempts`; an ingestion
+    write (which never carries an attempt opinion — the model default `{}` applies)
+    must keep the stored map, the same rule the salience columns and the queue
+    stamps use. Miss the `_update_clause` ownership guard and a re-ingest resets
+    every cell's count to zero, silently defeating the poison-pill cap."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="25-100")])
+        # The failure-queue writer records a couple of attempts.
+        corpus.record_cell_attempt(
+            conn, "scotus/1", "evaluate", "claude-judge", "evt-petition-disposition", "transient"
+        )
+        corpus.record_cell_attempt(
+            conn, "scotus/1", "evaluate", "claude-judge", "evt-petition-disposition", "permanent"
+        )
+        # A later re-ingest carries no attempt opinion (default: {}).
+        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="25-100")])
+        after = corpus.get_row(conn, "scotus/1")
+    assert after is not None
+    assert (
+        corpus.cell_attempt_count(after, "evaluate", "claude-judge", "evt-petition-disposition")
+        == 2
+    ), "re-ingest must not clobber the durable attempt count"
+
+
+def test_from_record_tolerates_record_without_cell_attempts() -> None:
+    """A ranged read of a remote blob packed before the failure-queue column existed."""
+    record = corpus._to_record(_row())
+    del record["cell_attempts"]
+    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
+    assert row.cell_attempts == {}
+    assert row == _row()
+
+
+def test_cell_attempt_key_is_process_version_independent() -> None:
+    """The key is (seam, agent, event) only — no version — so a retry under a newer
+    process version increments the same counter rather than starting a new one."""
+    assert corpus.cell_attempt_key("predict", "claude-baseline", "evt-x") == (
+        "predict:claude-baseline:evt-x"
+    )
+    # The same three coordinates always yield the same key, regardless of anything
+    # version-shaped the caller might be tempted to fold in.
+    assert corpus.cell_attempt_key("evaluate", "e", "evt-x") != corpus.cell_attempt_key(
+        "predict", "e", "evt-x"
+    ), "the seam disambiguates a predictor id colliding with an evaluator id"
+
+
 def test_ifp_petition_is_out_of_predict_scope() -> None:
     # The IFP docket serial starts at 5001; a paid cert docket stays in scope.
     ifp = _row(case_id="scotus/1", court="scotus", docket_number="25-5005")

@@ -422,6 +422,21 @@ deliberate similarity:
   itself is re-derivable from git — so losing it costs at most a duplicate trigger
   issue, never a grading.
 
+The daily debounce paces re-queuing but has no ceiling, so a cell that fails
+*every* attempt (a persistent quota wall, a malformed record) would re-queue
+forever. The **durable failure queue** is the backstop: a `cell_attempts` corpus
+column records, per cell, how many times it has been recorded failed and the
+class of the last failure (`transient` / `permanent`, the same
+`courtlistener.is_transient` split a retry uses — one taxonomy, not two). Once a
+cell reaches the `evaluate.max_attempts_per_cell` cap the deriver stops
+re-deriving it. The count keys on **cell identity** (`<seam>:<agent>:<event>`),
+not process version, so a cell retried under a newer version still counts against
+the same cap; and it is keyed per (evaluator, event), so one exhausted cell never
+suppresses a sibling evaluator still owed the same event. Like `evaluate_queued_at`
+it is scheduling metadata the ingestion upsert must not clobber (the
+`_update_clause` ownership guard keeps the stored map on re-ingest) — losing it
+costs at most a duplicate trigger, never a grading.
+
 Re-queueing is safe because the `evaluate-matrix` plan gate drops a cell whose
 judge has already graded the event (per evaluator), so a re-derivation mints only
 the *missing* judges and cannot double-count. The gate works at (evaluator,

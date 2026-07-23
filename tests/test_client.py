@@ -4,7 +4,13 @@ from typing import Any
 import httpx
 import pytest
 
-from fedcourtsai.courtlistener import CourtListenerClient, RateLimiter, default_rate_limiter
+from fedcourtsai.courtlistener import (
+    CourtListenerClient,
+    RateLimiter,
+    classify_error,
+    default_rate_limiter,
+    is_transient,
+)
 
 
 class _CountingLimiter(RateLimiter):
@@ -163,3 +169,31 @@ def test_missing_docket_404_is_not_retried() -> None:
 
     assert excinfo.value.response.status_code == 404
     assert limiter.calls == 1  # no retries spent on a guaranteed-to-fail request
+
+
+def _status_error(status: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("GET", "https://example.test")
+    return httpx.HTTPStatusError(
+        f"{status}", request=request, response=httpx.Response(status, request=request)
+    )
+
+
+def test_classify_error_agrees_with_is_transient() -> None:
+    """The failure-queue error class is the same transient/permanent split the
+    client retries on — one taxonomy, not two."""
+    transient: list[BaseException] = [
+        _status_error(429),  # throttled
+        _status_error(503),  # server-side
+        httpx.ReadTimeout("timed out", request=httpx.Request("GET", "https://example.test")),
+    ]
+    permanent: list[BaseException] = [
+        _status_error(404),  # missing docket
+        _status_error(403),  # a quota / permission wall
+        ValueError("not an httpx error at all"),
+    ]
+    for exc in transient:
+        assert is_transient(exc) is True
+        assert classify_error(exc) == "transient"
+    for exc in permanent:
+        assert is_transient(exc) is False
+        assert classify_error(exc) == "permanent"

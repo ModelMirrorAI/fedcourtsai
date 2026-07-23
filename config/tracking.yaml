@@ -168,6 +168,16 @@ evaluate:
   # each queued case fans out one cell per not-yet-graded evaluator. The backlog
   # drains across cycles, stalest first, under a daily evaluate_queued_at debounce.
   backlog_cases_per_cycle: 25
+  # Per-cell poison-pill cap for the durable failure queue (corpus.cell_attempts).
+  # Once an (evaluator, event) cell has been recorded failed this many times, the
+  # deriver stops re-queuing it, so a cell that fails every attempt (a persistent
+  # quota wall, a malformed record) cannot re-queue forever — the ceiling the
+  # evaluate_queued_at daily debounce alone does not have. Keyed on cell identity,
+  # so a retry under a newer process version still counts against the same cap.
+  # 0 disables the cap (every ungraded cell re-queues). A few attempts above the
+  # client's in-request retry, so a genuinely transient streak still gets several
+  # cross-cycle retries before the cell is given up.
+  max_attempts_per_cell: 5
 
 # salience = the salience gate (see docs/salience.md): ranks in-scope cert
 # petitions by a deterministic score and spends the tournament on the top slice
