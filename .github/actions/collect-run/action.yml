@@ -166,30 +166,15 @@ runs:
       run: |
         set -euo pipefail
         gh auth setup-git
-        # Every cell was cancelled before it could upload — nothing to collect.
         run_url="https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"
-        if [ ! -d cell-artifacts ] || [ -z "$(ls -A cell-artifacts)" ]; then
-          # Wholesale failure: no cell delivered anything. Render the tested
-          # stall comment for the trigger issue so the run's silence is loud
-          # there; the next step posts it with the ambient token.
-          echo "::warning::no cell artifacts to collect"
-          uv run fedcourts stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
-          exit 0
-        fi
-        # All cells share the plan's run id; read it off any status file. Search
-        # recursively, matching collect-plan. The per-artifact download nests
-        # every cell under its own directory *by construction*, so the old
-        # single-artifact flattening case (which used to extract flat into
-        # cell-artifacts/ itself) can no longer arise.
-        run_id=$(find cell-artifacts -name status.json -exec jq -r '.run_id' {} + | head -n1)
-        # The ready/draft partition, branch names, and PR prose are computed by the
-        # tested `collect-plan`; this step only runs git and gh. The ready PR
-        # closes the triggering issue on merge (unless a draft still has work).
-        # Two gaps the cell census cannot see, because neither leaves a
-        # status.json — without them the run would auto-merge a PR presenting
-        # itself as complete while quietly omitting cells. Each names its own
-        # remedy, and both withhold the issue close as a fully-absent engine
-        # already does:
+        # The plan's matrix is the only record of what the run was supposed to
+        # produce. Written once (via env, never interpolated) and read below both
+        # as collect-plan's queued-cell census and — on a run where no cell
+        # uploaded — as the sole source of the run id. Two gaps the cell census
+        # cannot see, because neither leaves a status.json — without them the run
+        # would auto-merge a PR presenting itself as complete while quietly
+        # omitting cells. Each names its own remedy, and both withhold the issue
+        # close as a fully-absent engine already does:
         #   --missing-file  the artifact failed to transfer   -> re-run collect
         #   --matrix-file   the cell uploaded nothing at all  -> needs a re-queue
         matrix_args=()
@@ -197,6 +182,42 @@ runs:
           printf '%s' "$PLAN_MATRIX" > plan-matrix.json
           matrix_args=(--matrix-file plan-matrix.json)
         fi
+        # Did any cell deliver an artifact this run? A wholesale failure (every
+        # cell cancelled/dead before upload) leaves cell-artifacts empty. That run
+        # still has per-cell failure facts to persist and a stall to make loud —
+        # so it must NOT exit early past the fact-writing below — but it has no
+        # status.json to read the run id from.
+        had_artifacts=false
+        if [ -d cell-artifacts ] && [ -n "$(ls -A cell-artifacts)" ]; then
+          had_artifacts=true
+        fi
+        if [ "$had_artifacts" = true ]; then
+          # All cells share the plan's run id; read it off any status file. Search
+          # recursively, matching collect-plan. The per-artifact download nests
+          # every cell under its own directory *by construction*, so the old
+          # single-artifact flattening case (which used to extract flat into
+          # cell-artifacts/ itself) can no longer arise.
+          run_id=$(find cell-artifacts -name status.json -exec jq -r '.run_id' {} + | head -n1)
+        else
+          # No cell uploaded: render the tested stall comment for the trigger issue
+          # so the run's silence is loud there (the next step posts it with the
+          # ambient token), and take the run id from the matrix — every queued cell
+          # stamped the same id, and there is no status.json to read.
+          echo "::warning::no cell artifacts to collect"
+          uv run fedcourts stall-comment --role "$ROLE" --run-url "$run_url" > stall-comment.md
+          run_id=$(jq -r 'first(.include[].run_id) // empty' plan-matrix.json 2>/dev/null || true)
+        fi
+        # Neither a status.json nor a matrix: the run left no trace of what it was
+        # meant to produce, so there are no facts to record and no census to take.
+        # The stall comment above (on a no-artifact run) is the only signal; stop.
+        if [ -z "$run_id" ]; then
+          echo "::warning::no run id from artifacts or matrix; nothing to aggregate"
+          exit 0
+        fi
+        # The ready/draft/facts-only partition, branch names, and PR prose are
+        # computed by the tested `collect-plan`; this step only runs git and gh.
+        # The ready PR closes the triggering issue on merge (unless a draft still
+        # has work); the facts-only PR never does.
         plan=$(uv run fedcourts collect-plan --role "$ROLE" --run-id "$run_id" \
           --status-dir cell-artifacts --issue "$ISSUE" \
           --missing-file missing-artifacts.txt "${matrix_args[@]}")
@@ -227,7 +248,7 @@ runs:
         # `collect-plan` (carried in its JSON); this only materializes the files.
         # Written on the job's checkout as untracked, run-scoped paths: they survive
         # the loop's `checkout -B "$branch" origin/main` and are picked up by the
-        # first branch's `git add data/`, so a rerun overwrites rather than
+        # first pushed branch's `git add data/`, so a rerun overwrites rather than
         # duplicating, and the append-only path jail still passes.
         printf '%s' "$plan" > collect-plan.json
         # Fail-soft: recording failure facts is advisory metadata and must never
@@ -235,11 +256,19 @@ runs:
         # aggregation strands the run's real predictions. On any error the facts
         # are simply not written (the acceptable degradation) and collection
         # proceeds, mirroring this step's empty-census-on-malformed-input rule.
-        # The facts ride the run's PR; a wholesale-failed run that opens no PR
-        # does not persist them that cycle, which the loud stall comment covers.
+        # On a run with output the facts ride the ready/partial PR's `git add
+        # data/`; on a wholesale-failed run with neither, the facts-only kind in
+        # the loop below opens a small PR to commit them so the attempt cap still
+        # advances (`collect-plan` emits it exactly when ready and partial are both
+        # absent, so the facts are never committed twice).
         uv run fedcourts record-cell-failures --plan-file collect-plan.json --data-root data \
           || echo "::warning::could not record cell-failure facts; continuing"
-        for kind in ready partial; do
+        # `facts_only` is null on any run that opened a ready or partial PR (its
+        # facts rode that PR) and on a run with no failed cell, so this loop can
+        # never double-commit the facts. It is a non-draft, deterministic-body PR,
+        # so it runs the same three gates and auto-merges like `ready` — but it
+        # carries no `Closes #`, leaving the trigger issue open for the failed run.
+        for kind in ready partial facts_only; do
           pr=$(jq -c ".${kind}" <<<"$plan")
           [ "$pr" = "null" ] && continue
           branch=$(jq -r '.branch' <<<"$pr")
