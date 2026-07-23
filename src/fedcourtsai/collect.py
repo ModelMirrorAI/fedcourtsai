@@ -276,6 +276,19 @@ class CollectPlan:
     :func:`cell_failures` can name them: a salvage cell ran and produced no
     *usable* artifact, so it is a per-cell failure that counts toward the attempt
     cap alongside ``skipped`` and ``uncovered_cells``.
+
+    ``facts_only`` is the small auto-merging PR a *wholesale-failed* run opens to
+    persist its per-cell failure facts when there is no ``ready`` and no
+    ``partial`` PR to carry them (every cell was skipped, died, or otherwise left
+    nothing to commit). Without it the ``attempt.json`` files
+    :func:`cell_failures` computes would be written to the runner's checkout and
+    then thrown away with it, so a persistently-100%-failing narrow run's attempt
+    cap would never advance. Non-None exactly when ``ready`` and ``partial`` are
+    both None **and** there is at least one failed cell; the workflow drives it
+    through the same branch/gate/push loop as the other two kinds. It carries no
+    ``Closes #`` — the run genuinely failed, so the trigger issue stays open for
+    the stall/human — and its body is deterministic (no agent free text), so the
+    secret scan cannot withhold the very facts it exists to persist.
     """
 
     ready: PrPlan | None
@@ -289,6 +302,7 @@ class CollectPlan:
     missing_artifacts: tuple[str, ...] = ()
     uncovered_cells: tuple[ExpectedCell, ...] = ()
     salvage: tuple[CellStatus, ...] = ()
+    facts_only: PrPlan | None = None
 
 
 def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
@@ -571,6 +585,23 @@ def collect_plan(
             artifact_dirs=tuple(c.artifact_dir for c in salvage),
         )
 
+    # A wholesale-failed run — no ready PR and no draft — still has failure facts
+    # to persist (skipped/salvage/uncovered), and no other PR to carry them. The
+    # facts-only PR does that so the attempt cap advances even for a narrow run
+    # that never opens a normal PR. Only when there is genuinely no other PR: any
+    # ready or partial PR already unions the same `data/` (where the facts are
+    # written) into its own commit, so opening a facts-only PR alongside would
+    # duplicate them.
+    facts_only_plan: PrPlan | None = None
+    if ready_plan is None and partial_plan is None:
+        facts_only_plan = _facts_only_plan(
+            role,
+            run_id=run_id,
+            skipped=skipped,
+            salvage=tuple(salvage),
+            uncovered=uncovered,
+        )
+
     flags_md = render_flags(flags)
     ready_plan, partial_plan = _append_flags(ready_plan, partial_plan, flags_md)
     return CollectPlan(
@@ -585,7 +616,63 @@ def collect_plan(
         missing_artifacts=lost,
         uncovered_cells=uncovered,
         salvage=tuple(salvage),
+        facts_only=facts_only_plan,
     )
+
+
+def _facts_only_plan(
+    role: FinalizeRole,
+    *,
+    run_id: str,
+    skipped: Sequence[CellStatus],
+    salvage: Sequence[CellStatus],
+    uncovered: Sequence[ExpectedCell],
+) -> PrPlan | None:
+    """The auto-merging PR that persists a wholesale-failed run's failure facts.
+
+    Returns None when there is nothing to record (no failed cell), so the caller
+    opens no PR. Otherwise it mirrors the ready PR — a run-scoped ``<role>/run-<
+    run_id>-facts`` branch the workflow drives through the same gate/push loop —
+    but carries no ``data/`` union of its own: the ``attempt.json`` facts are
+    already written into the checkout's ``data/`` by ``record-cell-failures``
+    before the loop, so this PR's ``git add data/`` simply picks them up. It never
+    closes the trigger issue (the run failed) and its body is deterministic — no
+    agent-authored text — so the producer-side secret scan can never withhold the
+    branch and lose the very facts it exists to persist.
+    """
+    total = len(skipped) + len(salvage) + len(uncovered)
+    if total == 0:
+        return None
+    rows = [
+        *(_facts_row(c.actor, c.court, c.docket, c.event_id, "no output") for c in skipped),
+        *(
+            _facts_row(c.actor, c.court, c.docket, c.event_id, "produced, unusable")
+            for c in salvage
+        ),
+        *(_facts_row(c.actor, c.court, c.docket, c.event_id, "never uploaded") for c in uncovered),
+    ]
+    table = "\n".join(["| actor | case | event | why |", "|---|---|---|---|", *rows])
+    body = (
+        f"Every cell of run `{run_id}` failed, so this run produced no output and "
+        f"opens no {_JUDGMENT_NOUN[role]} PR. This PR persists one durable "
+        f"`attempt.json` per failed cell so the per-cell attempt cap advances "
+        f"even for a run that never opens a normal PR.\n\n"
+        f"{table}\n\n"
+        f"The trigger issue stays open — the run genuinely failed and still needs "
+        f"a successful retry or a human."
+    )
+    return PrPlan(
+        branch=f"{role.value}/run-{run_id}-facts",
+        commit_message=f"{role.value}(run {run_id}): {total} cell-failure fact(s)",
+        title=f"{role.value}: {total} cell-failure fact(s) (run {run_id})",
+        body=body,
+        draft=False,
+        artifact_dirs=(),
+    )
+
+
+def _facts_row(actor: str, court: str, docket: int, event_id: str, why: str) -> str:
+    return f"| `{actor}` | `{court}/{docket}` | `{event_id}` | {why} |"
 
 
 def _append_flags(
@@ -613,10 +700,14 @@ def cell_failures(plan: CollectPlan, *, run_id: str, role: FinalizeRole) -> list
     of a cell failure but is corpus-blind, so each fact is a git-ledger
     ``attempt.json`` the derivers later count
     (:func:`fedcourtsai.matrix.cell_failure_count`) — but only once it is
-    committed, and a fact rides the run's own PR. A run that opens no PR at all
-    (a wholesale failure where every cell died) writes the files but never
-    commits them, so its cells accrue no cap count that cycle; that tail is left
-    to the loud stall comment rather than a facts-only PR. The truly-failed cells
+    committed, and a fact rides a PR. On a run with any output the facts ride the
+    run's own ready/partial PR; on a wholesale-failed run where every cell died
+    and no ready/partial PR opens, they ride the small auto-merging *facts-only*
+    PR (``ready``/``partial`` both None → :func:`_facts_only_plan`), so even a
+    persistently-100%-failing narrow run accrues committed facts and its cap
+    advances. The only tail left uncovered is a run that leaves no trace at all
+    (no cell artifact *and* no matrix to enumerate what it should have produced),
+    for which the loud stall comment is the sole signal. The truly-failed cells
     are the union of three disjoint buckets — ``skipped``, ``salvage``, and
     ``uncovered_cells``:
 

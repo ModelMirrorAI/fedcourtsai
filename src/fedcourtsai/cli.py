@@ -3818,6 +3818,11 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
     return {
         "ready": _pr_plan_json(plan.ready),
         "partial": _pr_plan_json(plan.partial),
+        # The small auto-merging PR a wholesale-failed run opens to persist its
+        # per-cell failure facts when there is no ready/partial PR to carry them;
+        # null on any run that opened one (its facts ride that PR) and on a run
+        # with no failed cell. Driven through the same loop as ready/partial.
+        "facts_only": _pr_plan_json(plan.facts_only),
         "skipped": [
             {"actor": c.actor, "court": c.court, "docket": c.docket, "event_id": c.event_id}
             for c in plan.skipped

@@ -194,6 +194,8 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
     assert json.loads(result.stdout) == {
         "ready": None,
         "partial": None,
+        # No cell failed and no matrix census, so no facts-only PR either.
+        "facts_only": None,
         "skipped": [],
         "flags": "",
         "feedback_comment": "",
@@ -521,3 +523,51 @@ def test_record_cell_failures_writes_run_scoped_facts_and_reruns_overwrite(
         == 0
     )
     assert len(list(predictions.glob("*/attempt.json"))) == 1
+
+
+def test_a_no_artifact_run_emits_a_facts_only_pr_and_records_facts_from_the_matrix(
+    tmp_path: Path,
+) -> None:
+    """The wholesale no-artifact case end to end at the CLI layer: an empty
+    status dir plus the plan matrix makes every queued cell `uncovered`, so
+    `collect-plan` emits a facts-only PR (no ready, no partial, no `Closes #`)
+    and `record-cell-failures` still materializes one fact per cell — exactly
+    what the composite's matrix-derived run id feeds when no cell uploaded."""
+    empty_status_dir = tmp_path / "cells"  # no status.json under it
+    empty_status_dir.mkdir()
+    plan_json = runner.invoke(
+        app,
+        [
+            "collect-plan",
+            "--role",
+            "predict",
+            "--run-id",
+            "R",
+            "--status-dir",
+            str(empty_status_dir),
+            "--issue",
+            "788",
+            "--matrix-file",
+            str(_matrix(tmp_path, "claude-baseline", "gemini-baseline")),
+        ],
+    )
+    assert plan_json.exit_code == 0
+    plan = json.loads(plan_json.stdout)
+    assert plan["ready"] is None and plan["partial"] is None
+    assert plan["facts_only"]["branch"] == "predict/run-R-facts"
+    assert plan["facts_only"]["draft"] is False
+    assert "Closes #788" not in plan["facts_only"]["body"]
+    assert [f["error_class"] for f in plan["cell_failures"]] == ["died", "died"]
+
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(plan_json.stdout)
+    data_root = tmp_path / "data"
+    assert (
+        runner.invoke(
+            app,
+            ["record-cell-failures", "--plan-file", str(plan_file), "--data-root", str(data_root)],
+        ).exit_code
+        == 0
+    )
+    facts = list(data_root.glob("cases/scotus/1/events/evt-x/predictions/*/R/attempt.json"))
+    assert {f.parent.parent.name for f in facts} == {"claude-baseline", "gemini-baseline"}

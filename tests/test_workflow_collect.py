@@ -356,3 +356,49 @@ def test_the_secret_scan_report_is_deduped_by_content_not_only_by_run() -> None:
         body = (WORKFLOWS / workflow).read_text()
         assert "collect-secret-scan: ${GITHUB_RUN_ID}-${digest}" in body
         assert "sha256sum secret-scan-issue.md" in body
+
+
+def _aggregate_body() -> str:
+    step = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    return str(step["run"])
+
+
+def test_a_wholesale_failed_run_records_facts_before_the_pr_loop() -> None:
+    """The facts must be written before the branch loop's `git add data/`, or the
+    first pushed branch cannot pick them up. Recording is fail-soft so it never
+    aborts the aggregation that carries the run's real output."""
+    body = _aggregate_body()
+    record = body.index("record-cell-failures")
+    loop = body.index("for kind in")
+    assert record < loop, "facts must be recorded before the branch loop stages data/"
+    assert "could not record cell-failure facts; continuing" in body, "recording is fail-soft"
+
+
+def test_the_facts_only_pr_rides_the_same_loop_as_ready_and_partial() -> None:
+    """A wholesale-failed run's facts-only PR must reuse the existing branch/gate/
+    push plumbing, not a parallel mechanism — so it runs the same three gates and
+    force-pushes a run-scoped branch exactly like ready/partial."""
+    assert "for kind in ready partial facts_only; do" in _aggregate_body(), (
+        "the facts-only PR must be a third kind in the existing loop, not a fork"
+    )
+
+
+def test_a_no_artifact_run_still_records_facts_via_a_matrix_derived_run_id() -> None:
+    """The early no-artifact guard used to `exit 0` before any fact was written.
+    It must now fall through to collect-plan + record-cell-failures, taking the
+    run id from the matrix (a no-artifact run has no status.json to read it from),
+    so a wholesale no-artifact run still persists its facts."""
+    body = _aggregate_body()
+    # The run id has a matrix fallback for the no-status.json case.
+    assert "first(.include[].run_id)" in body, (
+        "derive the run id from the matrix when none uploaded"
+    )
+    # The only early exit left is the genuinely-uncoverable tail: no run id at all
+    # (no artifact AND no matrix). It must sit AFTER the run-id derivation, so the
+    # no-artifact-but-has-matrix case reaches the fact recording below it.
+    exit_idx = body.index("nothing to aggregate")
+    assert body.index("first(.include[].run_id)") < exit_idx < body.index("record-cell-failures")
+    # The old unconditional "no cell artifacts -> exit 0 immediately" must be gone.
+    assert "no run id from artifacts or matrix" in body

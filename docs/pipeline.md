@@ -134,9 +134,11 @@ daily ×4 → run-seed → walk Terms newest-first, ingest decided petitions (de
                                     (held per-channel by PREDICT_HANDOFF_ENABLED /
                                      EVALUATE_HANDOFF_ENABLED)
        run:predict → plan (build matrix) → predict[matrix] (artifact per cell)
-                                 └─ collect → one auto-merged PR per run (+ a draft PR for partials)
+                                 └─ collect → one auto-merged PR per run (+ a draft for partials;
+                                              a facts-only PR when a run lands nothing)
        run:evaluate → plan → evaluate[matrix] (artifact per cell)
-                                 └─ collect → one auto-merged PR per run (+ a draft PR for partials)
+                                 └─ collect → one auto-merged PR per run (+ a draft for partials;
+                                              a facts-only PR when a run lands nothing)
 ```
 
 To run the predict → evaluate → validate cascade for one case **locally** — off
@@ -333,6 +335,12 @@ not collect is named rather than silently dropped. Two gaps, two remedies:
 
 Either gap keeps the trigger issue open, so a run never auto-merges presenting
 itself as complete while omitting cells.
+
+A **wholesale-failed run** — every cell died, so no ready or partial PR opens —
+still records one `attempt.json` fact per failed cell via a small auto-merging
+**facts-only PR** (`<role>/run-<run_id>-facts`, no `Closes #`, so the trigger
+stays open for the re-queue). That is what lets the per-cell attempt cap advance
+for a persistently-failing cell even when the run itself produced nothing.
 
 **Re-running collect is safe and repeatable.** `gh run rerun --failed`
 re-executes only the failed job; the artifact listing is per-run, so it re-lists

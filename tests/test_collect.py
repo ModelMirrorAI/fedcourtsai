@@ -608,3 +608,77 @@ def test_cell_failures_quota_class_for_dead_actor_and_excludes_lost() -> None:
 def test_cell_failures_empty_when_run_is_clean() -> None:
     plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[_cell("claude-baseline")])
     assert cell_failures(plan, run_id="R", role=FinalizeRole.predict) == []
+
+
+# --- facts-only PR (wholesale-failed run) ----------------------------------
+
+
+def test_facts_only_pr_opens_when_every_cell_died_and_never_closes_the_issue() -> None:
+    # A run whose only cells were skipped (produced nothing) opens no ready and no
+    # draft, so its failure facts would die with the runner. The facts-only PR
+    # carries them — auto-merging (not a draft), run-scoped branch — but must not
+    # close the trigger issue, since the run genuinely failed.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", docket=2, produced=False)],
+        issue=788,
+    )
+    assert plan.ready is None and plan.partial is None
+    fo = plan.facts_only
+    assert fo is not None
+    assert fo.branch == "predict/run-R-facts"
+    assert fo.draft is False
+    assert fo.artifact_dirs == ()
+    assert "Closes #" not in fo.body, "a failed run must keep its trigger issue open"
+    # There is exactly one failure fact for this run, which the PR exists to commit.
+    assert len(cell_failures(plan, run_id="R", role=FinalizeRole.predict)) == 1
+
+
+def test_facts_only_pr_covers_a_no_artifact_run_from_the_matrix_alone() -> None:
+    # A no-artifact run has zero cells; the matrix census makes every queued cell
+    # `uncovered` (died), so cell_failures still names them and the facts-only PR
+    # opens to persist them. This is exactly the case the composite reorder feeds
+    # by deriving the run id from the matrix.
+    plan = collect_plan(
+        FinalizeRole.evaluate,
+        run_id="R",
+        cells=[],
+        issue=788,
+        expected=[_expected_docket("claude-judge", d) for d in (1, 2)],
+    )
+    assert plan.ready is None and plan.partial is None
+    assert plan.facts_only is not None
+    assert plan.facts_only.branch == "evaluate/run-R-facts"
+    assert "Closes #" not in plan.facts_only.body
+    facts = cell_failures(plan, run_id="R", role=FinalizeRole.evaluate)
+    assert [f.error_class for f in facts] == ["died", "died"]
+
+
+def test_a_run_with_output_opens_no_facts_only_pr_so_facts_are_not_duplicated() -> None:
+    # A ready PR already unions the same data/ (where the facts are written) into
+    # its own commit, so opening a facts-only PR alongside would commit the facts
+    # twice. The plan must therefore withhold it whenever any ready/partial opens —
+    # even on a partial run that also has a failed sibling cell.
+    ready_run = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[
+            _cell("claude-baseline", docket=1),
+            _cell("claude-baseline", docket=2, produced=False),
+        ],
+    )
+    assert ready_run.ready is not None and ready_run.facts_only is None
+
+    draft_run = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("codex-baseline", docket=1, validated=False)],  # salvage -> draft only
+    )
+    assert draft_run.partial is not None and draft_run.facts_only is None
+
+
+def test_a_genuinely_empty_run_opens_no_facts_only_pr() -> None:
+    # No cells and no matrix: nothing failed, nothing to record, no PR.
+    plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[])
+    assert plan.ready is None and plan.partial is None and plan.facts_only is None
