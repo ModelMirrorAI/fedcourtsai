@@ -17,7 +17,12 @@ Two invariants make the pass safe to re-run over a live conference:
   ``distributed_for_conference`` cohort, so "why this case and not that one"
   replays against one conference's candidate pool at a fixed score version. A
   petition not yet distributed for conference is scored but not selected — it is
-  not up for prediction yet.
+  not up for prediction yet. A petition already **decided**
+  (:func:`fedcourtsai.corpus.resolution_date` is not ``None``) is scored (the
+  board's historical rows still want a band) but never enters a cohort, so a
+  historical conference's decided docket cannot be newly latched — it has no
+  open event to predict, and counting it would muddy "selected = tournament
+  spend" on the salience board.
 
 The score is recomputed every run (a pure function of the row's current features);
 only the selection latch persists. This module owns no destructive behavior — it
@@ -194,7 +199,12 @@ def _selection_plan(
         scores[row.case_id] = salience_score(row)
         if row.salience_selected:
             already_selected.add(row.case_id)
-        if row.distributed_for_conference is not None:
+        # A decided petition has no open event left to predict, so latching it
+        # spends nothing — but it would still count toward "newly selected" and
+        # muddy the salience board's "selected = tournament spend" reading with
+        # historical cohorts. Score it (the board's historical rows still want a
+        # band), but leave it out of cohort selection entirely.
+        if row.distributed_for_conference is not None and corpus.resolution_date(row) is None:
             cohorts[row.distributed_for_conference].append(row)
 
     to_select: list[str] = []

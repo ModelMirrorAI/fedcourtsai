@@ -192,6 +192,10 @@ salience:
   # provisioning at the polite ~1 req/s, so the cap keeps the sweep a small
   # tail on the cycle; the backlog drains across cycles under the sticky latch.
   sweep_cases_per_cycle: 25
+  # A relist inside this many days of a petition's last predict queue is
+  # treated as administrative churn rather than re-tournamented; 1 suppresses
+  # only a same-day repeat. 0 disables suppression.
+  relist_requeue_cooldown_days: 1
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener

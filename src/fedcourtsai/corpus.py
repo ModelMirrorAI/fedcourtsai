@@ -320,8 +320,9 @@ class CorpusRow(BaseModel):
     predict_queued_at: date | None = Field(
         default=None,
         description="The last date a channel routed this case at the predict seam "
-        "— queued forward, or diverted decided-looking — by transition routing, "
-        "the pull queue, or the selection sweep; None if never routed. Owned by "
+        "— queued forward, or diverted (decided-looking, or a relist inside its "
+        "cooldown) — by transition routing, the pull queue, or the selection "
+        "sweep; None if never routed. Owned by "
         "the queue routing, never an ingestion channel; the selection sweep's "
         "debounce reads it so an already-routed case is retried no more than "
         "daily while its run PR is in flight or failed.",
@@ -1790,9 +1791,10 @@ def stamp_predict_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day:
 
     The queue routing's sole writer of ``predict_queued_at`` — the live
     transition routing, the pull queue, and the selection sweep all stamp
-    through here, on the forward queue entry and the decided-looking divert
-    alike. Overwrites forward — the stamp is "most recent routing date", which
-    the sweep's daily-retry debounce compares against today.
+    through here, on the forward queue entry and every divert alike
+    (decided-looking, or a relist inside its cooldown). Overwrites forward —
+    the stamp is "most recent routing date", which the sweep's daily-retry
+    debounce compares against today.
     """
     with conn:
         conn.executemany(

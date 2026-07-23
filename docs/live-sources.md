@@ -121,7 +121,8 @@ conference first; and **predict fires on the distribution transition** — a
 fresh distribution or a relist's new date — the cert-calendar analogue of
 `pull.predict_on_change_only`, for petitions the salience gate admits (a
 deferred petition's transition only keeps it on the watchlist; the cycle-end
-selection sweep queues what a later selection latches — see
+selection sweep queues what a later selection latches; a relist inside its
+requeue cooldown is suppressed instead — see
 [salience.md](salience.md)). The pending-before-conference set is readable via
 `fedcourts conference-set` (grouped by conference date; the September
 long-conference set is its largest bucket).

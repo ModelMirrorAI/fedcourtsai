@@ -1340,3 +1340,162 @@ def test_selected_case_transition_queues_exactly_once(tmp_path: Path) -> None:
             today=date(2026, 7, 11),
         )
     assert [q["docket"] for q in queues.predict] == [docket_id]
+
+
+def _relist_fixture(
+    tmp_path: Path, *, predict_queued_at: date
+) -> tuple[Path, Path, int, dict[str, Any]]:
+    """A selected, already-predicted petition, freshly relisted to a new conference.
+
+    Onboards via ``discover_live`` (not the direct ``ingest_live_payload``
+    helper other fixtures in this module use) so the frontier cursor actually
+    advances past serial 1 — otherwise the next cycle's discovery step would
+    re-probe and re-"onboard" this same docket from scratch (no persisted
+    cursor to tell it otherwise), routing the relist through the discovery
+    path's onboarding queue-check instead of the due-rotation refresh this
+    test targets (:func:`poll_live_cases`, the only place the cooldown applies).
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    distributed = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+    )
+    with _frontier_client({"25-1": distributed}) as client:
+        discover_live(client, db, data_root, 25, max_new=1, today=date(2026, 7, 9))
+    with corpus.connect(db) as conn:
+        corpus.latch_salience_selected(conn, ["scotus/9025000001"])
+        corpus.stamp_predict_queued(conn, ["scotus/9025000001"], predict_queued_at)
+    relisted = _payload(
+        "25-1",
+        proceedings=[
+            _payload()["ProceedingsandOrder"][0],
+            _DISTRIBUTED_ENTRY,
+            {"Date": "Jul 11 2026", "Text": "DISTRIBUTED for Conference of 10/10/2026."},
+        ],
+    )
+    return db, data_root, docket_id, {"25-1": relisted}
+
+
+def test_relist_inside_cooldown_is_suppressed_not_requeued(tmp_path: Path) -> None:
+    # Relisted the same day its predict was last queued: the default 1-day
+    # cooldown treats this as administrative churn, not a fresh prediction.
+    db, data_root, docket_id, served = _relist_fixture(
+        tmp_path, predict_queued_at=date(2026, 7, 11)
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert queues.predict == []
+    assert [q["docket"] for q in queues.predict_skipped_relist_cooldown] == [docket_id]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and row.predict_queued_at == date(2026, 7, 11)  # re-stamped
+
+
+def test_relist_after_cooldown_elapses_requeues_normally(tmp_path: Path) -> None:
+    # One full day has elapsed since the last predict queue: the default 1-day
+    # cooldown no longer applies, so the relist queues exactly like before.
+    db, data_root, docket_id, served = _relist_fixture(
+        tmp_path, predict_queued_at=date(2026, 7, 10)
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict_skipped_relist_cooldown == []
+
+
+def test_relist_cooldown_disabled_by_zero_always_requeues(tmp_path: Path) -> None:
+    # A same-day relist that would otherwise be suppressed queues normally when
+    # the knob is set to 0 (disabled).
+    db, data_root, docket_id, served = _relist_fixture(
+        tmp_path, predict_queued_at=date(2026, 7, 11)
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(relist_requeue_cooldown_days=0),
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict_skipped_relist_cooldown == []
+
+
+def test_relist_cooldown_longer_than_a_day_advances_the_stamp(tmp_path: Path) -> None:
+    # A longer cooldown (3 days) still suppresses two days after the last
+    # queue, and the divert re-stamps predict_queued_at forward to today —
+    # not a no-op, since the pre-poll stamp is genuinely in the past.
+    db, data_root, docket_id, served = _relist_fixture(tmp_path, predict_queued_at=date(2026, 7, 9))
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(relist_requeue_cooldown_days=3),
+            today=date(2026, 7, 11),
+        )
+    assert queues.predict == []
+    assert [q["docket"] for q in queues.predict_skipped_relist_cooldown] == [docket_id]
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and row.predict_queued_at == date(2026, 7, 11)  # advanced, not stale
+
+
+def test_relist_cooldown_does_not_suppress_a_first_distribution(tmp_path: Path) -> None:
+    # The cooldown only ever applies to a relist (a case already distributed
+    # before this poll) -- a case's first-ever distribution must never be
+    # suppressed, even if it was queued (e.g. onboarded) earlier the same day.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    undistributed = _payload("25-1")
+    # discover_live (not the direct ingest helper) so the frontier cursor
+    # advances and the next cycle's transition reaches poll_live_cases via the
+    # due rotation rather than being re-onboarded by discovery.
+    with _frontier_client({"25-1": undistributed}) as client:
+        discover_live(client, db, data_root, 25, max_new=1, today=date(2026, 7, 11))
+    with corpus.connect(db) as conn:
+        corpus.latch_salience_selected(conn, ["scotus/9025000001"])
+        corpus.stamp_predict_queued(conn, ["scotus/9025000001"], date(2026, 7, 11))
+    distributed = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _DISTRIBUTED_ENTRY]
+    )
+    served = {"25-1": distributed}
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict_skipped_relist_cooldown == []
