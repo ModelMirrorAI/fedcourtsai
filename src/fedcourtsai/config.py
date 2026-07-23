@@ -340,19 +340,16 @@ class PredictConfig(BaseModel):
     # backstop.
     max_predict_cells_per_run: int = Field(default=240, ge=1)
     # The poison-pill backstop the live selection sweep's daily `predict_queued_at`
-    # debounce lacks (part of the durable failure queue, `corpus.cell_attempts`):
-    # once a (predictor, event) cell has been recorded failed this many times, the
-    # sweep stops re-queuing it — so one cell that fails every attempt (a
-    # persistent quota wall, a malformed record) cannot re-queue forever. Keyed on
-    # cell identity, so a retry under a newer process version still counts against
-    # the same cap. 0 disables the cap (every unpredicted cell re-queues, as
-    # before). The predict mirror of `EvaluateConfig.max_attempts_per_cell`; sized
-    # a few attempts above the runner's in-request retry so a genuinely transient
-    # streak still gets several cross-cycle retries before the cell is given up.
-    # Ships dormant: nothing records a predict-seam attempt into
-    # `corpus.cell_attempts` yet (the writer — collect observes the failure, the
-    # corpus writer folds it in — is a follow-up), so the count stays 0 and this
-    # ceiling is read but not yet enforced.
+    # debounce lacks (counted from the committed `attempt.json` failure facts, see
+    # `matrix.cell_failure_count`): once a (predictor, event) cell has been recorded
+    # failed this many times, the sweep stops re-queuing it — so one cell that fails
+    # every attempt (a persistent quota wall, a malformed record) cannot re-queue
+    # forever. Keyed on cell identity, so a retry under a newer process version
+    # still counts against the same cap. 0 disables the cap (every unpredicted cell
+    # re-queues, as before). The predict mirror of
+    # `EvaluateConfig.max_attempts_per_cell`; sized a few attempts above the
+    # runner's in-request retry so a genuinely transient streak still gets several
+    # cross-cycle retries before the cell is given up.
     max_attempts_per_cell: int = Field(default=5, ge=0)
 
 
@@ -434,7 +431,8 @@ class EvaluateConfig(BaseModel):
     backlog_cases_per_cycle: int = Field(default=25, ge=0)
     # The poison-pill backstop the `evaluate_queued_at` debounce lacks: once a
     # cell (evaluator, event) has been recorded failed this many times in the
-    # durable failure queue (`corpus.cell_attempts`), the deriver stops
+    # committed `attempt.json` failure facts (counted by
+    # `matrix.cell_failure_count`), the deriver stops
     # re-queuing it — so one cell that fails every attempt (a persistent quota
     # wall, a malformed record) cannot re-queue forever. Keyed on cell identity,
     # so a retry under a newer process version still counts against the same cap.

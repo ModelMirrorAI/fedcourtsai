@@ -143,39 +143,6 @@ class PanelMember(BaseModel):
     seniority: str | None = None
 
 
-class CellAttempt(BaseModel):
-    """One predict/evaluate cell's durable failure record — attempt count + last error.
-
-    deprecated: superseded by ledger-derived attempt facts (attempt.json); safe to
-    drop in a follow-up. The per-cell attempt cap now counts committed ledger files
-    (:func:`fedcourtsai.matrix.cell_failure_count`) rather than this corpus map,
-    because the only failure observer — the ``collect`` job — is corpus-blind. Kept
-    defined but unwritten so existing corpus DBs stay readable; no destructive
-    schema migration lands here.
-
-    The value side of the :attr:`CorpusRow.cell_attempts` map. A *cell* is the
-    agentic unit that runs and can fail: a predict cell is (predictor, event), an
-    evaluate cell is (evaluator, event). ``attempts`` is how many times the cell
-    has been recorded failed; ``last_error`` is the class of the most recent
-    failure (``transient`` / ``permanent``, from the shared
-    :func:`fedcourtsai.courtlistener.is_transient` split — never a parallel
-    taxonomy). Ephemeral scheduling metadata, not a fact: the owed work itself is
-    re-derivable from the git ledger, so losing this costs at most a duplicate
-    trigger, never a lost prediction.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    attempts: int = Field(
-        default=0, ge=0, description="Recorded failed-attempt count for the cell."
-    )
-    last_error: str | None = Field(
-        default=None,
-        description="Class of the most recent failure — `transient` / `permanent`, "
-        "the `is_transient` split. None until the cell has failed once.",
-    )
-
-
 class CorpusRow(BaseModel):
     """One normalized, labeled raw-fact record in the corpus.
 
@@ -371,16 +338,6 @@ class CorpusRow(BaseModel):
         "losing this stamp costs at most a duplicate trigger issue, never a "
         "grading.",
     )
-    cell_attempts: dict[str, CellAttempt] = Field(
-        default_factory=dict,
-        description="deprecated: superseded by ledger-derived attempt facts "
-        "(attempt.json); safe to drop in a follow-up. A per-cell failure map keyed "
-        "`<seam>:<agent_id>:<event_id>`. The per-cell attempt cap now counts "
-        "committed ledger files instead (the collect job, its only writer, is "
-        "corpus-blind), so nothing writes this map; it stays defined and empty "
-        "(default `{}`) only so existing corpus DBs remain readable without a "
-        "destructive migration.",
-    )
     # embedding[] — a later upgrade for semantic retrieval; not stored yet.
 
     @model_validator(mode="after")
@@ -515,14 +472,7 @@ CREATE TABLE IF NOT EXISTS cases (
     predict_queued_at   TEXT,
     -- The last date the evaluate backlog deriver queued evaluate. Owned the same
     -- way; the deriver's daily-retry debounce reads it.
-    evaluate_queued_at  TEXT,
-    -- deprecated: superseded by ledger-derived attempt facts (attempt.json); safe
-    -- to drop in a follow-up. A JSON per-cell failure map (see
-    -- CorpusRow.cell_attempts). The per-cell attempt cap now counts committed
-    -- ledger files instead, so nothing writes this column; it stays defined with
-    -- its `{}` default only so existing corpus DBs remain readable (no destructive
-    -- migration here).
-    cell_attempts       TEXT NOT NULL DEFAULT '{}'
+    evaluate_queued_at  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -655,9 +605,6 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "salience_selected": "INTEGER NOT NULL DEFAULT 0",
     "predict_queued_at": "TEXT",
     "evaluate_queued_at": "TEXT",
-    # deprecated: superseded by ledger-derived attempt facts (attempt.json); safe to
-    # drop in a follow-up. Retained so existing DBs still migrate/read; no writer.
-    "cell_attempts": "TEXT NOT NULL DEFAULT '{}'",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -855,10 +802,6 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "evaluate_queued_at": (
             row.evaluate_queued_at.isoformat() if row.evaluate_queued_at else None
         ),
-        "cell_attempts": json.dumps(
-            {key: cell.model_dump() for key, cell in row.cell_attempts.items()},
-            sort_keys=True,
-        ),
     }
 
 
@@ -903,21 +846,6 @@ def _optional_float(record: RecordRow, column: str) -> float | None:
     return float(raw) if raw is not None else None
 
 
-def _cell_attempts_from(record: RecordRow) -> dict[str, CellAttempt]:
-    """Read the ``cell_attempts`` JSON map an older remote blob lacks (see ``_optional_str``).
-
-    A blob packed before the failure-queue column existed has no such key; treat
-    that — and a NULL/empty value — as an empty map rather than failing the row.
-    """
-    try:
-        raw = record["cell_attempts"]
-    except (KeyError, IndexError):
-        return {}
-    if not raw:
-        return {}
-    return {key: CellAttempt(**value) for key, value in json.loads(raw).items()}
-
-
 def _from_record(record: RecordRow) -> CorpusRow:
     return CorpusRow(
         case_id=record["case_id"],
@@ -958,7 +886,6 @@ def _from_record(record: RecordRow) -> CorpusRow:
         salience_selected=bool(_optional_int(record, "salience_selected")),
         predict_queued_at=_optional_date(record, "predict_queued_at"),
         evaluate_queued_at=_optional_date(record, "evaluate_queued_at"),
-        cell_attempts=_cell_attempts_from(record),
     )
 
 
@@ -1022,18 +949,13 @@ def _update_clause(column: str) -> str:
         "salience_selected",
         "predict_queued_at",
         "evaluate_queued_at",
-        "cell_attempts",
     ):
         # The salience selection pass owns the salience columns and the queue
         # routing owns the `*_queued_at` stamps (none are ingestion facts): the pass
         # recomputes score/version and maintains the one-way `salience_selected`
         # latch, and clearing a queue stamp on re-ingest would let a deriver's
         # daily-retry debounce re-queue a case every cycle its rotation poll touches
-        # it. `cell_attempts` is deprecated (superseded by ledger-derived
-        # attempt.json facts; safe to drop in a follow-up) but stays in this
-        # keep-stored guard so an existing DB's map is never clobbered by a
-        # re-ingest while the dormant column lives. Keep the stored values, exactly
-        # like `predict_excluded`.
+        # it. Keep the stored values, exactly like `predict_excluded`.
         return f"{column}=cases.{column}"
     return f"{column}=excluded.{column}"
 
@@ -1881,12 +1803,13 @@ def stamp_predict_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day:
         )
 
 
-# The failure-queue helpers (`cell_attempt_key` / `record_cell_attempt` /
-# `cell_attempt_count`) were retired: the per-cell attempt cap now counts committed
-# ledger facts (`fedcourtsai.matrix.cell_failure_count` over attempt.json), because
+# The per-cell attempt cap counts committed ledger facts
+# (`fedcourtsai.matrix.cell_failure_count` over the per-run attempt.json), because
 # the only failure observer — the corpus-blind collect job — cannot write the
-# corpus. The dormant `cell_attempts` column/model remain only to keep existing DBs
-# readable (see their deprecated notes); a follow-up may drop them.
+# corpus. An earlier durable-failure-queue corpus column and its helpers were
+# retired here; the model and DDL no longer name that column, so a newly created DB
+# omits it and an existing DB simply keeps an unreferenced extra table column
+# (SQLite tolerates it) — no destructive migration.
 
 
 DEFAULT_PRIOR_LIMIT = 20

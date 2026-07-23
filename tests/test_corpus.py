@@ -1406,60 +1406,35 @@ def test_from_record_tolerates_record_without_salience_columns() -> None:
     assert row == _row()
 
 
-def test_cell_attempts_roundtrip_through_the_corpus(tmp_path: Path) -> None:
-    """The dormant failure-queue map still survives a write/read round trip intact.
+def test_existing_db_with_retired_cell_attempts_column_still_reads(tmp_path: Path) -> None:
+    """Forward-compat: a live DB physically carrying the retired `cell_attempts`
+    column round-trips through the normal corpus API.
 
-    The map is deprecated (the per-cell attempt cap now counts ledger `attempt.json`
-    facts, not this column) and nothing writes it, but it stays defined so an
-    existing corpus DB carrying a populated map remains readable."""
+    The column and its model were dropped, but a corpus DB created under the old
+    schema still has the physical column. The model/DDL no longer name it and the
+    INSERT/UPSERT/SELECT use explicit column lists (SELECT * simply ignores the
+    extra column in `_from_record`), so the residual column is harmless — no
+    destructive migration needed. Simulate that DB by adding the column back after
+    the schema is created, then write and read a row through the public API,
+    including a populated legacy value to prove `SELECT *` tolerates it."""
     db = tmp_path / "corpus.db"
-    row = _row(
-        cell_attempts={
-            "evaluate:claude-judge:evt-petition-disposition": corpus.CellAttempt(
-                attempts=2, last_error="transient"
-            )
-        }
-    )
+    row = _row(case_id="scotus/1", court="scotus", docket_number="25-100")
     with corpus.connect(db) as conn:
+        # An older schema physically had this column; re-add it to mimic a live DB.
+        conn.execute("ALTER TABLE cases ADD COLUMN cell_attempts TEXT NOT NULL DEFAULT '{}'")
         corpus.upsert_rows(conn, [row])
-        fetched = corpus.get_row(conn, "ca9/123")
-    assert fetched == row
-
-
-def test_cell_attempts_are_not_clobbered_by_ingest(tmp_path: Path) -> None:
-    """The clobber trap on the dormant column. Nothing writes `cell_attempts` any
-    more, but an existing DB may carry a populated map, and a re-ingest (which never
-    carries an attempt opinion — the model default `{}` applies) must not reset it.
-    Miss the `_update_clause` ownership guard and a re-ingest would wipe a stored
-    map, so the guard stays even while the column is dormant."""
-    db = tmp_path / "corpus.db"
-    stored = {
-        "evaluate:claude-judge:evt-petition-disposition": {"attempts": 2, "last_error": "permanent"}
-    }
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="25-100")])
-        # Seed a populated map directly (there is no writer any more), as an older DB
-        # would have.
+        # Populate the residual column directly, as an existing DB would carry it.
         conn.execute(
             "UPDATE cases SET cell_attempts = ? WHERE case_id = ?",
-            (json.dumps(stored, sort_keys=True), "scotus/1"),
+            (json.dumps({"evaluate:claude-judge:evt-x": {"attempts": 2}}), "scotus/1"),
         )
-        # A later re-ingest carries no attempt opinion (default: {}).
-        corpus.upsert_rows(conn, [_row(case_id="scotus/1", court="scotus", docket_number="25-100")])
-        after = corpus.get_row(conn, "scotus/1")
-    assert after is not None
-    assert after.cell_attempts["evaluate:claude-judge:evt-petition-disposition"].attempts == 2, (
-        "re-ingest must not clobber a stored attempt map"
-    )
-
-
-def test_from_record_tolerates_record_without_cell_attempts() -> None:
-    """A ranged read of a remote blob packed before the failure-queue column existed."""
-    record = corpus._to_record(_row())
-    del record["cell_attempts"]
-    row = corpus._from_record(record)  # a plain dict raises KeyError like the ranged Row
-    assert row.cell_attempts == {}
-    assert row == _row()
+        fetched = corpus.get_row(conn, "scotus/1")
+        # A re-ingest through the explicit-column upsert must not choke on the extra
+        # physical column either.
+        corpus.upsert_rows(conn, [row])
+        refetched = corpus.get_row(conn, "scotus/1")
+    assert fetched == row
+    assert refetched == row
 
 
 def test_ifp_petition_is_out_of_predict_scope() -> None:
