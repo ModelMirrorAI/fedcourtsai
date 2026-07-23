@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .ids import case_id
 from .paths import CasePaths
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
@@ -129,6 +130,86 @@ def predict_matrix(
                     }
                 )
     return {"include": include}
+
+
+@dataclass(frozen=True)
+class CappedMatrix:
+    """A predict matrix after the salience-independent volume cap, and what it deferred.
+
+    ``include`` is the kept fan-out (never more than the cap). ``dropped_cells``
+    and ``dropped_cases`` name the overflow the cap held back — those cases stay
+    in the corpus predict queue and re-queue on a later cycle, so the numbers
+    report a **deferral, never a deletion**. Both are ``0`` / empty when the
+    matrix fit under the cap and passed through unchanged.
+    """
+
+    include: list[dict[str, Any]]
+    dropped_cells: int
+    dropped_cases: tuple[str, ...]
+
+
+def cap_predict_cells(matrix: dict[str, list[dict[str, Any]]], max_cells: int) -> CappedMatrix:
+    """Hold the predict fan-out under ``max_cells`` by deferring whole overflow cases.
+
+    The salience-INDEPENDENT volume backstop (see
+    :class:`fedcourtsai.config.PredictConfig`). It runs on the fully-built,
+    scope-filtered matrix, so it holds even when selection queued far more than a
+    fundable run — the failure mode a past cost breach hit — bounding both
+    GitHub's 256-job matrix ceiling (a wider matrix is rejected outright, losing
+    the whole run) and the run's worst-case model spend. Cases are admitted
+    **whole** (every predictor x event cell for a case, or none) in ascending
+    ``case_id`` order, keeping the prefix that fits; the rest are deferred.
+
+    Two properties drive the shape:
+
+    * **Whole cases, never a split.** predict has no already-predicted skip (see
+      :class:`CaseRequest`), so a half-admitted case whose remaining engines
+      re-queued next cycle would re-commit the engines that already landed.
+      Admitting cases whole keeps a deferred case cleanly re-queueable.
+    * **Deterministic and salience-independent.** The trigger body carries only
+      ``{court, docket, events}`` — no salience score, and its order is the live
+      cycle's processing order, not a priority ranking. Ascending ``case_id`` is
+      a stable order that yields the same kept subset for the same input however
+      (or whether) selection ordered it — the point of a backstop that must hold
+      when selection is exactly what failed. When a salience score reaches the
+      trigger body it can key this order instead. ``case_id`` is
+      ``court/docket`` and the sort is **lexical over that string** (docket is
+      not zero-padded), so it is numeric-ascending only within a uniform docket
+      digit width — fine and deterministic for one Term's SCOTUS dockets, but a
+      future mixed-width caller must not read it as numeric order.
+
+    Under the cap the matrix passes through unchanged (original cell order, no
+    reordering). Over it, the kept cells keep their original order — only the
+    deferred cases' cells are removed. A single case whose own cells exceed the
+    whole cap is deferred like any other (it would overflow the matrix ceiling on
+    its own); this is unreachable for cert petitions, which carry one or two open
+    events, i.e. three or six cells.
+    """
+    include = matrix["include"]
+    if len(include) <= max_cells:
+        return CappedMatrix(include, 0, ())
+    # Cells for one case are scattered across the predictor-major list, so first
+    # tally each case's cell count, then admit whole cases in a stable order.
+    per_case: dict[str, int] = {}
+    for cell in include:
+        cid = case_id(str(cell["court"]), int(cell["docket"]))
+        per_case[cid] = per_case.get(cid, 0) + 1
+    kept_cases: set[str] = set()
+    running = 0
+    for cid in sorted(per_case):
+        # Prefix semantics: stop at the first case that would cross the cap
+        # rather than skipping ahead to pack a smaller later one, so the kept set
+        # is the ascending-case_id prefix that fits (with the uniform per-case
+        # cell counts of a cert fan-out, prefix and best-pack coincide anyway).
+        if running + per_case[cid] > max_cells:
+            break
+        running += per_case[cid]
+        kept_cases.add(cid)
+    kept = [
+        cell for cell in include if case_id(str(cell["court"]), int(cell["docket"])) in kept_cases
+    ]
+    dropped_cases = tuple(cid for cid in sorted(per_case) if cid not in kept_cases)
+    return CappedMatrix(kept, len(include) - len(kept), dropped_cases)
 
 
 def event_has_predictions(data_root: Path, court: str, docket: int, event_id: str) -> bool:

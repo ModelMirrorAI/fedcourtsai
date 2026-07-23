@@ -4,6 +4,7 @@ import pytest
 
 from fedcourtsai.matrix import (
     CaseRequest,
+    cap_predict_cells,
     evaluate_matrix,
     event_has_evaluations,
     parse_cases,
@@ -77,6 +78,71 @@ def test_predict_matrix_fans_out_across_many_cases() -> None:
         ("scotus", 2, "evt-petition-b"),
         ("scotus", 2, "evt-petition-c"),
     }
+
+
+def _oversized_matrix(n_cases: int) -> dict[str, list[dict[str, object]]]:
+    """A predict matrix over ``n_cases`` single-event SCOTUS dockets (3 cells each)."""
+    cases = [CaseRequest("scotus", d, ("evt-petition-cert",)) for d in range(1, n_cases + 1)]
+    return predict_matrix(PREDICTORS, cases, "RID")
+
+
+def test_cap_predict_cells_under_the_cap_passes_through_unchanged() -> None:
+    # The common path: a normal run is well under the backstop, so the matrix is
+    # returned byte-for-byte with nothing deferred.
+    matrix = _oversized_matrix(5)  # 15 cells
+    capped = cap_predict_cells(matrix, 240)
+    assert capped.include == matrix["include"]
+    assert capped.dropped_cells == 0
+    assert capped.dropped_cases == ()
+
+
+def test_cap_predict_cells_keeps_a_matrix_that_exactly_equals_the_cap() -> None:
+    # The `<=` boundary: 5 cases x 3 engines = 15 cells against a 15-cell cap is
+    # kept in full — the cap defers only what is strictly over it.
+    matrix = _oversized_matrix(5)
+    assert len(matrix["include"]) == 15
+    capped = cap_predict_cells(matrix, 15)
+    assert capped.include == matrix["include"]
+    assert capped.dropped_cells == 0
+    assert capped.dropped_cases == ()
+
+
+def test_cap_predict_cells_defers_whole_overflow_cases() -> None:
+    # 5 cases x 3 engines = 15 cells; a 9-cell cap keeps exactly the three
+    # lowest-case_id cases whole and defers the rest.
+    matrix = _oversized_matrix(5)
+    capped = cap_predict_cells(matrix, 9)
+    assert len(capped.include) == 9
+    kept_cases = {(c["court"], c["docket"]) for c in capped.include}
+    assert kept_cases == {("scotus", 1), ("scotus", 2), ("scotus", 3)}
+    # Every kept case is present WHOLE — all three of its engines, none split off.
+    assert all(sum(1 for c in capped.include if c["docket"] == d) == 3 for d in (1, 2, 3))
+    assert capped.dropped_cells == 6
+    assert capped.dropped_cases == ("scotus/4", "scotus/5")
+
+
+def test_cap_predict_cells_rounds_down_to_the_case_boundary() -> None:
+    # A cap that falls mid-case (10, between the 9th and 12th cell) must not slice
+    # a case to hit it exactly: predict has no already-predicted skip, so a
+    # half-admitted case would double-commit its landed engines on re-queue. It
+    # keeps the whole-case prefix (9) instead.
+    capped = cap_predict_cells(_oversized_matrix(5), 10)
+    assert len(capped.include) == 9
+    assert capped.dropped_cells == 6
+
+
+def test_cap_predict_cells_defers_without_destroying_or_mutating() -> None:
+    # Non-destructive: the deferred cases are exactly the ones not kept — none
+    # invented, none lost — and the input matrix is left untouched, so the
+    # overflow is queueable on a later cycle rather than deleted.
+    matrix = _oversized_matrix(5)
+    original = [dict(c) for c in matrix["include"]]
+    capped = cap_predict_cells(matrix, 9)
+    kept_cases = {f"scotus/{c['docket']}" for c in capped.include}
+    all_cases = {f"scotus/{d}" for d in range(1, 6)}
+    assert kept_cases | set(capped.dropped_cases) == all_cases
+    assert kept_cases.isdisjoint(capped.dropped_cases)
+    assert matrix["include"] == original  # the cap read the matrix, it did not edit it
 
 
 def test_parse_cases_accepts_single_object() -> None:

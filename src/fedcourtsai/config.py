@@ -320,6 +320,24 @@ class PredictConfig(BaseModel):
 
     # Which cases the agentic stages run on; `scotus_docket` is the default.
     scope: PredictScope = PredictScope.scotus_docket
+    # Salience-INDEPENDENT hard cap on predict cells (predictor x case x event
+    # matrix jobs) queued into one run. A backstop *below* the salience gate, not
+    # part of it: it holds regardless of what selection did, so a selection that
+    # fails open — the failure mode behind a past cost breach — still cannot fan
+    # out an unbounded run. It bounds two things at once: GitHub's 256-job matrix
+    # ceiling (a wider matrix is rejected outright, losing the whole run) and the
+    # run's worst-case model spend. Enforced after scope filtering, in
+    # `predict_matrix`, by dropping whole overflow cases (never splitting a case's
+    # engines — predict has no already-predicted skip, so a re-queued half-case
+    # would double-commit the engines that landed) in a deterministic,
+    # salience-independent order (ascending ``case_id``, a LEXICAL sort over the
+    # ``court/docket`` string — numeric-ascending only within a uniform docket
+    # digit width). A dropped case is deferred, never destroyed: it
+    # keeps its place in the corpus predict queue and re-queues on a later cycle.
+    # Default 240 = 80 fully-tournamented cases x 3 engines, 16 under the 256
+    # ceiling; `ge=1` because a volume backstop that can be zeroed is not a
+    # backstop.
+    max_predict_cells_per_run: int = Field(default=240, ge=1)
 
 
 def load_predict_config(config_root: Path) -> PredictConfig:

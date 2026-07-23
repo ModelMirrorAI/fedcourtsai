@@ -80,7 +80,9 @@ from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .leaderboard import big_case_agreement, build_leaderboard
 from .matrix import (
+    CappedMatrix,
     CaseRequest,
+    cap_predict_cells,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
@@ -3289,6 +3291,63 @@ def _requested_cases(
     raise typer.BadParameter("provide --body-file, or both --court and --docket.")
 
 
+def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
+    """Surface a volume-cap deferral loudly, so a capped run is never silent.
+
+    Two channels, both from here so no workflow change is needed: a ``::warning::``
+    workflow-command line on stderr (an Actions annotation, and loud in any plain
+    log), and — when ``$GITHUB_STEP_SUMMARY`` is set, i.e. inside Actions — a
+    Markdown block appended to the plan job's summary. stdout stays the pure
+    matrix JSON the plan step captures, so the warning must never go there. The
+    wording says *deferred*, not dropped: the overflow cases keep their place in
+    the predict queue and re-run next cycle.
+
+    **All-deferred coupling.** When the cap defers *every* case (the kept matrix
+    is empty because of the cap, not scope — reachable when the single
+    lowest-``case_id`` case alone exceeds the cap, i.e. a pathological many-event
+    case or a misconfigured tiny ``max_predict_cells_per_run``), the plan reports
+    ``has_jobs=false`` and the workflow's empty-matrix step closes the trigger
+    issue with an *out-of-scope* message — cap-empty and scope-empty are
+    indistinguishable to that YAML step. So emit a distinct, escalated
+    ``::error::`` here that names the cap as the cause, so the misattributed
+    close is never the only record. It is still safe: the deferred cases stay in
+    the corpus predict queue and re-queue next cycle regardless of the issue
+    close.
+    """
+    cases = ", ".join(capped.dropped_cases)
+    if not capped.include:
+        # All cases deferred by the cap: escalate past the normal warning, because
+        # the workflow's empty-matrix step will close the trigger issue with the
+        # generic out-of-scope note (it cannot tell cap-empty from scope-empty).
+        # This line is the correctly-attributed record; the close is harmless
+        # because the deferred cases persist in the predict queue (see docstring).
+        typer.echo(
+            f"::error::predict-matrix: volume cap deferred ALL {len(capped.dropped_cases)} "
+            f"case(s) this run — nothing fits under the {max_cells}-cell backstop, so the "
+            f"matrix is empty and the trigger issue will close as if out of scope. The cases "
+            f"remain queued and re-run next cycle ({cases}). Raise "
+            f"predict.max_predict_cells_per_run or split the trigger if this is unexpected.",
+            err=True,
+        )
+    else:
+        typer.echo(
+            f"::warning::predict-matrix: volume cap hit — deferred {capped.dropped_cells} cell(s) "
+            f"across {len(capped.dropped_cases)} case(s) over the {max_cells}-cell backstop; "
+            f"they stay queued and re-run next cycle ({cases})",
+            err=True,
+        )
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"## run-predict — volume cap deferred {capped.dropped_cells} cell(s)\n"
+                f"The scope-filtered matrix exceeded the {max_cells}-cell backstop "
+                f"(predictor x case x event). Kept {len(capped.include)} cell(s); deferred "
+                f"{len(capped.dropped_cases)} whole case(s): {cases}. Deferred cases stay in the "
+                f"predict queue and re-run next cycle — nothing is dropped from the corpus.\n"
+            )
+
+
 @app.command("predict-matrix")
 def predict_matrix_cmd(
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
@@ -3311,11 +3370,11 @@ def predict_matrix_cmd(
     A case with no listed ``events`` defaults to that case's open events.
     """
     settings = get_settings()
-    scope = load_predict_config(settings.config_root).scope
+    predict_config = load_predict_config(settings.config_root)
     cases = _resolve_cases(
         _scope_filtered(
             _requested_cases(body_file, court, docket, event),
-            scope,
+            predict_config.scope,
             settings.corpus_root,
             settings.corpus_backend,
         ),
@@ -3324,7 +3383,22 @@ def predict_matrix_cmd(
         ),
     )
     matrix = predict_matrix(settings.config_root / "predictors.yaml", cases, run_id)
-    typer.echo(json.dumps(matrix, separators=(",", ":")))
+    # Salience-independent volume backstop, after scope filtering: hold the
+    # fan-out under the cell cap even if selection failed open, deferring whole
+    # overflow cases (they stay queued and re-run next cycle). See
+    # `cap_predict_cells` and PredictConfig.max_predict_cells_per_run.
+    #
+    # Coupling to watch: if the cap defers ALL cases the emitted matrix is empty,
+    # which the plan job's `has_jobs=false` path routes to the workflow's
+    # empty-matrix step — and that step closes the trigger issue with a generic
+    # *out-of-scope* note, since cap-empty and scope-empty look identical to it.
+    # `_report_predict_cap` escalates to a ::error:: in that case so the cause is
+    # on the record; it is safe because the deferred cases persist in the corpus
+    # predict queue and re-queue next cycle regardless of the close.
+    capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
+    if capped.dropped_cells:
+        _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
+    typer.echo(json.dumps({"include": capped.include}, separators=(",", ":")))
 
 
 @app.command("evaluate-matrix")

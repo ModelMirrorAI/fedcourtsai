@@ -209,13 +209,27 @@ pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix. Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
-whole fan-out, however many cases it spans.
+whole fan-out, however many cases it spans. After scope filtering the builder
+also applies a **salience-independent volume cap**
+(`predict.max_predict_cells_per_run`, default 240): a hard backstop on the number
+of cells queued into one matrix, below GitHub's 256-job ceiling, that holds even
+if salience selection fails open. Overflow cases are deferred **whole** (never
+splitting a case's engines) in a deterministic case-id order, with the deferred
+count surfaced as a `::warning::` and in the plan's step summary; a deferred case
+stays in the predict queue and re-runs next cycle, so the cap defers rather than
+drops. This is the numeric backstop, distinct from the coarse
+`PREDICT_HANDOFF_ENABLED` on/off pause below.
 
 If the matrix comes back **empty** — every queued case was out of scope (or already
 predicted) — the `predict`/`evaluate` and `collect` jobs are skipped, so nothing
 would otherwise close the trigger issue; the `plan` job closes it with a note
 instead of leaving it orphaned open. (Pull avoids filing such all-out-of-scope runs
-in the first place; this is the backstop for a manually-filed or partial one.)
+in the first place; this is the backstop for a manually-filed or partial one.) Note
+the volume cap above can also empty the matrix (when it defers *every* case), and
+that close step cannot tell cap-empty from scope-empty — so it closes with the
+out-of-scope note either way; the cap surfaces its own escalated `::error::` for
+correct attribution, and it is safe because the deferred cases stay in the corpus
+predict queue and re-queue next cycle regardless of the close.
 
 How a cell's output becomes a PR is the same across **`run:predict`** and
 **`run:evaluate`**: each cell validates its own output and
