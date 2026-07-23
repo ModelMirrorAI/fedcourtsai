@@ -612,8 +612,12 @@ def cell_failures(plan: CollectPlan, *, run_id: str, role: FinalizeRole) -> list
     The writer side of the per-cell attempt cap. ``collect`` is the only observer
     of a cell failure but is corpus-blind, so each fact is a git-ledger
     ``attempt.json`` the derivers later count
-    (:func:`fedcourtsai.matrix.cell_failure_count`). The truly-failed cells are the
-    union of three disjoint buckets — ``skipped``, ``salvage``, and
+    (:func:`fedcourtsai.matrix.cell_failure_count`) — but only once it is
+    committed, and a fact rides the run's own PR. A run that opens no PR at all
+    (a wholesale failure where every cell died) writes the files but never
+    commits them, so its cells accrue no cap count that cycle; that tail is left
+    to the loud stall comment rather than a facts-only PR. The truly-failed cells
+    are the union of three disjoint buckets — ``skipped``, ``salvage``, and
     ``uncovered_cells``:
 
     * ``skipped`` — ran and produced nothing (``no_output``).
@@ -625,8 +629,11 @@ def cell_failures(plan: CollectPlan, *, run_id: str, role: FinalizeRole) -> list
     ``missing_artifacts`` is deliberately excluded: a lost artifact is
     re-collectable download loss (re-run ``collect``), not a cell failure, so it
     must not burn a cap attempt. ``dead_actors`` is not a separate bucket either —
-    a dead engine's cells already surface in ``uncovered`` (or ``skipped``); its
-    membership only *refines* the class, promoting the cell to ``quota``.
+    it is engine-level and only *refines* the class. An engine that uploaded at
+    least one status but produced nothing lands in ``dead_actors``, so its
+    ``skipped``/``salvage`` cells read ``quota``; an engine that uploaded nothing
+    at all is absent from ``dead_actors`` (it never entered ``cells``), so its
+    ``uncovered`` cells stay ``died``. Either way every fact counts equally.
 
     ``error_class`` is coarse triage metadata only: every fact counts equally
     toward the cap. ``run_id`` is stamped on **all** facts from the collect job's

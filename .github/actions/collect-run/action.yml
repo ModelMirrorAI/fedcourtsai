@@ -230,7 +230,15 @@ runs:
         # first branch's `git add data/`, so a rerun overwrites rather than
         # duplicating, and the append-only path jail still passes.
         printf '%s' "$plan" > collect-plan.json
-        uv run fedcourts record-cell-failures --plan-file collect-plan.json --data-root data
+        # Fail-soft: recording failure facts is advisory metadata and must never
+        # abort the aggregation — losing the facts costs a warning, losing the
+        # aggregation strands the run's real predictions. On any error the facts
+        # are simply not written (the acceptable degradation) and collection
+        # proceeds, mirroring this step's empty-census-on-malformed-input rule.
+        # The facts ride the run's PR; a wholesale-failed run that opens no PR
+        # does not persist them that cycle, which the loud stall comment covers.
+        uv run fedcourts record-cell-failures --plan-file collect-plan.json --data-root data \
+          || echo "::warning::could not record cell-failure facts; continuing"
         for kind in ready partial; do
           pr=$(jq -c ".${kind}" <<<"$plan")
           [ "$pr" = "null" ] && continue
