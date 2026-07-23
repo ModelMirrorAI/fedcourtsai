@@ -2863,12 +2863,14 @@ def pull_all(
     # Re-derive owed gradings from the ledger, on top of this poll's fresh
     # resolutions. `already_queued` keeps a case the poll just queued from being
     # double-queued here.
+    evaluate_cfg = load_evaluate_config(settings.config_root)
     evaluate_backlog(
         db,
         settings.data_root,
         settings.config_root / "evaluators.yaml",
         queues,
-        cap=load_evaluate_config(settings.config_root).backlog_cases_per_cycle,
+        cap=evaluate_cfg.backlog_cases_per_cycle,
+        max_attempts=evaluate_cfg.max_attempts_per_cell,
         already_queued={f"{e['court']}/{e['docket']}" for e in queues.evaluate},
     )
     _ensure_corpus_layout(db)
@@ -2980,12 +2982,14 @@ def live_poll(
             today=today,
             deadline=deadline,
         )
+    evaluate_cfg = load_evaluate_config(settings.config_root)
     evaluate_backlog(
         db,
         settings.data_root,
         settings.config_root / "evaluators.yaml",
         queues,
-        cap=load_evaluate_config(settings.config_root).backlog_cases_per_cycle,
+        cap=evaluate_cfg.backlog_cases_per_cycle,
+        max_attempts=evaluate_cfg.max_attempts_per_cell,
         already_queued={f"{e['court']}/{e['docket']}" for e in queues.evaluate},
         today=today,
     )

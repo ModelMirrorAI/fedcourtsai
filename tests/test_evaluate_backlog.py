@@ -41,7 +41,9 @@ def _resolved_event(
         )
 
 
-def _derive(tmp_path: Path, *, cap: int = 25, **kwargs: object) -> PullQueues:
+def _derive(
+    tmp_path: Path, *, cap: int = 25, max_attempts: int = 0, **kwargs: object
+) -> PullQueues:
     queues = PullQueues()
     evaluate_backlog(
         corpus.corpus_db_path(tmp_path / "corpus"),
@@ -49,6 +51,7 @@ def _derive(tmp_path: Path, *, cap: int = 25, **kwargs: object) -> PullQueues:
         EVALUATORS,
         queues,
         cap=cap,
+        max_attempts=max_attempts,
         **kwargs,  # type: ignore[arg-type]
     )
     return queues
@@ -138,6 +141,7 @@ def test_already_queued_by_the_poll_is_not_double_queued(tmp_path: Path) -> None
         EVALUATORS,
         queues,
         cap=25,
+        max_attempts=0,
         already_queued={"scotus/1"},
     )
     assert len(queues.evaluate) == 1
@@ -217,6 +221,69 @@ def test_cap_zero_is_a_no_op(tmp_path: Path) -> None:
     _resolved_event(db, "scotus", 1)
     seed_prediction(data, "scotus", 1, "evt-petition-disposition")
     assert _derive(tmp_path, cap=0).evaluate == []
+
+
+def _fail_cell(db: Path, case_id: str, evaluator_id: str, event_id: str, times: int) -> None:
+    """Record `times` failed attempts for one evaluate cell in the durable queue."""
+    with corpus.connect(db) as conn:
+        for _ in range(times):
+            corpus.record_cell_attempt(
+                conn, case_id, "evaluate", evaluator_id, event_id, "transient"
+            )
+
+
+def test_a_fresh_never_attempted_cell_is_owed_under_the_cap(tmp_path: Path) -> None:
+    """The baseline the cap must not disturb: a cell with no recorded attempts is
+    below any positive cap, so it re-derives exactly as it would with no cap."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, event)
+
+    owed = _derive(tmp_path, max_attempts=5, today=date(2026, 7, 20))
+    assert owed.evaluate == [{"court": "scotus", "docket": 1, "events": [event]}]
+
+
+def test_a_cell_at_the_cap_is_not_re_derived(tmp_path: Path) -> None:
+    """The poison-pill backstop. Once every evaluator's cell for the event has hit
+    the attempt cap, the event is no longer owed — so a cell that fails every
+    attempt cannot re-queue forever, which the daily debounce alone would allow."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, event)
+    # Drive every enabled evaluator's cell to the cap.
+    for ev in enabled_evaluators(EVALUATORS):
+        _fail_cell(db, "scotus/1", ev.id, event, times=3)
+
+    capped = _derive(tmp_path, max_attempts=3, today=date(2026, 7, 20))
+    assert capped.evaluate == [], "all cells exhausted the cap — nothing is owed"
+
+    # The cap is the only thing holding it back: raise the ceiling and the same
+    # under-cap cells are owed again (they are ungraded).
+    reopened = _derive(tmp_path, max_attempts=4, today=date(2026, 7, 21))
+    assert reopened.evaluate == [{"court": "scotus", "docket": 1, "events": [event]}]
+
+
+def test_the_cap_is_per_cell_a_sibling_evaluator_is_still_owed(tmp_path: Path) -> None:
+    """Per-(evaluator, event) granularity: one evaluator hitting the cap must not
+    suppress a sibling evaluator still owed the same event — the reason the queue
+    keys the cap on cell identity rather than a coarse per-case counter."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, event)
+    # Only the first evaluator's cell is a poison pill; the others are fresh.
+    poison = enabled_evaluators(EVALUATORS)[0].id
+    _fail_cell(db, "scotus/1", poison, event, times=3)
+
+    owed = _derive(tmp_path, max_attempts=3, today=date(2026, 7, 20))
+    assert owed.evaluate == [{"court": "scotus", "docket": 1, "events": [event]}], (
+        "a capped cell must not suppress a sibling evaluator still owed the event"
+    )
 
 
 def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) -> None:

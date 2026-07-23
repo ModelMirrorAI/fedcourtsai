@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import date
 from types import TracebackType
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from tenacity import (
@@ -42,6 +42,23 @@ def is_transient(exc: BaseException) -> bool:
         status = exc.response.status_code
         return status == 429 or status >= 500
     return isinstance(exc, httpx.RequestError)
+
+
+# The failure-queue error-class taxonomy — deliberately the *same* transient /
+# permanent split as `is_transient`, not a parallel one, so a retry (part of the
+# client) and the durable failure queue agree on what "worth retrying" means.
+ErrorClass = Literal["transient", "permanent"]
+
+
+def classify_error(exc: BaseException) -> ErrorClass:
+    """The error class the durable failure queue records for a failed cell.
+
+    A thin label over :func:`is_transient`: a transient fault (timeout, 5xx, 429)
+    is worth another attempt; anything else (a 404, a quota/permission wall, a
+    deterministic client error) is permanent. Kept here beside ``is_transient``
+    so the two never diverge.
+    """
+    return "transient" if is_transient(exc) else "permanent"
 
 
 class CourtListenerClient:
