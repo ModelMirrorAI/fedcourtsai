@@ -10,15 +10,10 @@
   },
   "onCreateCommand": "uv sync",
   "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && bash .devcontainer/setup-corpus-access.sh",
+  "postCreateCommand": "bash .devcontainer/setup-corpus-access.sh",
   "postStartCommand": "bash .devcontainer/check-corpus-session.sh",
   "waitFor": "postCreateCommand",
   "userEnvProbe": "loginInteractiveShell",
-  "mounts": [
-    "source=fedcourtsai-claude-config,target=/home/vscode/.claude,type=volume"
-  ],
-  "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
-  },
   "secrets": {
     "CLAUDE_CODE_OAUTH_TOKEN": {
       "description": "Claude Code OAuth token from `claude setup-token`; skips interactive login (user-scoped, optional)"
