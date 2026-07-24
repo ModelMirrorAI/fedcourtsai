@@ -16,12 +16,19 @@ pending-docket entry — a motion order reciting the petition as its object, a
 party paper suggesting a vacatur — must not match. A deliberate miss falls to
 the high-recall routing backstop
 (:func:`fedcourtsai.pipeline.outcome.termination_signal`) for the shapes it
-carries (Rule 39.8 IFP dismissals, cert-before-judgment grants, denials, and
-dismissals, and a SCOTUS merits judgment), where a false positive only parks a
-case for triage rather than fabricating ground truth; anything neither
-instrument reads is an accepted residual, surfaced by re-running the
-reachability probe (``fedcourts probe-live-terms``) — do that after any pattern
-change to re-establish the recall claim over the live sample.
+carries (Rule 39.8 IFP dismissals, cert-before-judgment denials and dismissals,
+and a SCOTUS merits judgment), where a false positive only parks a case for
+triage rather than fabricating ground truth; anything neither instrument reads is
+an accepted residual, surfaced by re-running the reachability probe
+(``fedcourts probe-live-terms``) — do that after any pattern change to
+re-establish the recall claim over the live sample.
+
+The cert-before-judgment *grant* is read here, not left to routing — start-
+anchored to the disposition entry's own noun so the expedite-motion recital
+stays a miss — because a decided grant otherwise only wastes a forward-predict
+cell each cycle (its event never resolves to be scored); its denial and
+dismissal siblings, whose miss costs nothing but a triage parking, stay
+routing-only.
 """
 
 from __future__ import annotations
@@ -77,6 +84,28 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
         re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?grant\w*", re.IGNORECASE),
         Disposition.granted,
         "cert granted",
+    ),
+    # Cert-before-judgment grant. The multi-word "before judgment" gap defeats the
+    # single-word grant pattern above, so this names the shape explicitly. Start-
+    # anchored — like the bare-vacate GVR row and the routing backstop's own CBJ
+    # branch (``outcome._TERMINAL_ENTRY_RE``) — so the expedite *motion* reciting
+    # the same noun phrase ("Motion ... to expedite consideration of the petition
+    # for a writ of certiorari before judgment granted") opens with "Motion", so
+    # the ``^`` anchor alone never lets it read here; ``_is_non_order_sentence``
+    # is the second net for the rarer recital that *does* open with the petition
+    # noun ("... before judgment granted filed."). Its
+    # denial/dismissal siblings stay deliberate misses (routing-only): only the
+    # grant is read, because a decided grant otherwise wastes forward-predict
+    # cells every cycle. A CBJ grant that also vacates and remands is a GVR,
+    # already read by the grant/vacate/remand rows above (scanned first).
+    (
+        re.compile(
+            r"^(?:the\s+)?petitions? for (?:a )?writs? of certiorari before judgment "
+            r"(?:is |are )?grant\w*",
+            re.IGNORECASE,
+        ),
+        Disposition.granted,
+        "cert granted before judgment",
     ),
     (re.compile(r"\bcertiorari denied\b", re.IGNORECASE), Disposition.denied, "cert denied"),
     (re.compile(r"\bcertiorari granted\b", re.IGNORECASE), Disposition.granted, "cert granted"),

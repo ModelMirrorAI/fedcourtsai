@@ -138,13 +138,17 @@ _TERMINAL_ENTRY_RE = re.compile(
     # cell: its latest entry is the merits ruling, which no other branch read.
     r"|^(?:adjudged|judgment)\b.{0,40}?\b(?:affirmed|reversed)\b"
     # The cert-before-judgment disposition — grant as well as denial/dismissal.
-    # All three are deliberate resolver misses (the multi-word noun-verb gap
-    # would also admit the expedite-motion recital), so routing is their only
-    # net; once cert-before-judgment is *granted* the petition-disposition
-    # event is decided (granted), so a snapshot showing it must route out too.
-    # Start-anchored — the disposition entry opens with the noun, while the
-    # expedite order opens with "Motion ..." and must stay pending.
-    r"|^petitions? for (?:a )?writs? of certiorari before judgment "
+    # Denial and dismissal are deliberate resolver misses (the multi-word
+    # noun-verb gap would also admit the expedite-motion recital), so routing is
+    # their only net. The *grant* the resolver now reads at ingest (a decided
+    # grant otherwise wastes forward-predict cells), but the branch stays here as
+    # defense in depth: once cert-before-judgment is granted the petition event
+    # is decided, so a snapshot still carrying it must route out of the forward
+    # queue / refuse provisioning even if ingest resolution did not fire (a
+    # pre-resolution snapshot, a replay, a multi-event docket the resolver
+    # declined). Start-anchored — the disposition entry opens with the noun,
+    # while the expedite order opens with "Motion ..." and must stay pending.
+    r"|^(?:the\s+)?petitions? for (?:a )?writs? of certiorari before judgment "
     r"(?:are |is )?(?:denied|dismiss|granted)",
     re.IGNORECASE,
 )
