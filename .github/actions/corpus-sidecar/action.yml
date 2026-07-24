@@ -9,7 +9,7 @@ description: >-
   directly (provisioning) take the credentials from this action's outputs as
   step-scoped env. The cell-job successor to `corpus-ranged`, which the
   agentless plan jobs keep (job-wide credentials are fine where no agent
-  runs). The calling job must grant `id-token: write` and run in the `runner`
+  runs). The calling job must grant `id-token: write` and run in the `prod`
   environment so the role and remote variables are available to pass in.
 
 inputs:

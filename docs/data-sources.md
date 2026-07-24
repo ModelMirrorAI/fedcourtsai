@@ -68,7 +68,7 @@ The automated consumer stays within CourtListener's published API limits by desi
   site has no metered API; the client is simply polite (browser user-agent,
   ~1 request/second, backoff on errors).
 - **`pull` owns the CourtListener API budget**, throttled in-process
-  (`courtlistener/ratelimit.py`) to the ceilings set in the runner environment
+  (`courtlistener/ratelimit.py`) to the ceilings set in the prod environment
   (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`, wired from repo variables
   to the held Free Law Project tier — see [budget.md](budget.md)), with
   per-run caps in [`config/tracking.yaml`](../config/tracking.yaml) well under

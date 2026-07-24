@@ -51,7 +51,7 @@ jobs:
     # loud escalation. Kept well under the App token's 1h life so one token
     # covers the whole run.
     timeout-minutes: 55
-    environment: runner
+    environment: prod
     # Corpus-split flags (see run-pull): dual-write off unless CASESTORE_URL is
     # set; FEDCOURTS_CORPUS_SPLIT is the go-live switch (unset → '0' → off).
     env:

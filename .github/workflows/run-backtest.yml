@@ -71,7 +71,7 @@ jobs:
     # ran, so the cap is raised accordingly while still keeping a hung engine
     # from burning six billable hours.
     timeout-minutes: 330
-    environment: runner
+    environment: prod
     permissions:
       contents: read
       issues: write # comment the run/PR link back on the trigger issue

@@ -53,7 +53,7 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
 
 CourtListener's REST API is throttled per token (see [budget.md](budget.md)
 for the held tier); the in-process governor (`courtlistener/ratelimit.py`)
-throttles to whatever ceilings the runner environment sets
+throttles to whatever ceilings the prod environment sets
 (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`). At roughly **3 requests per
 docket** the budget is a few hundred dockets a day at most — and the
 supremecourt.gov live channel spends none of it.
@@ -174,7 +174,7 @@ live in different stores, split by **kind**:
    parity gate (`tests/test_corpus_split_writer.py`) proves the payload-free
    blob equals a legacy full blob run through `build-index`.
    `FEDCOURTS_CORPUS_SPLIT` (`Settings.corpus_split`) selects these split
-   read/write paths: set on the production `runner` environment, default
+   read/write paths: set on the `prod` environment, default
    **off** so a dev environment without the store (the fixture loop, offline
    tests) reads and writes a single self-contained blob. The store's location
    comes from `FEDCOURTS_CASESTORE_URL` (wired per writer job in `run-pull`);
