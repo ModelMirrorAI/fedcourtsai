@@ -13,30 +13,18 @@ the change workflow every contributor follows, see [AGENTS.md](../AGENTS.md).
 ## The local gate
 
 The gate is the contract: "passes the local gate" and "green CI" mean the same
-thing, because [`ci.yml`](../.github/workflows/ci.yml) runs exactly these commands
-and nothing secret.
+thing, because [`ci.yml`](../.github/workflows/ci.yml) and the local gate invoke
+the same script — [`scripts/gate.sh`](../scripts/gate.sh), the single definition of
+what the gate runs (stages and usage: [AGENTS.md](../AGENTS.md)). It needs nothing
+secret.
 
-```bash
-uv run ruff format --check .
-uv run ruff check .
-uv run mypy
-uv run pytest --cov --cov-report=term-missing
-uv run fedcourts validate data       # ledger schema + git-only references
-uv run fedcourts corpus-status       # corpus + metrics bookkeeping is consistent
-```
-
-The `pytest` run includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
+The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
 it drives provision → predict → evaluate → `validate` over the fixture corpus with no
 network, so a broken predict/evaluate cell fails in the gate in seconds. Run just it
 with `uv run pytest -k cascade_smoke`.
 
-If you changed the pydantic models, regenerate and commit the exported schemas —
-CI fails on drift:
-
-```bash
-uv run fedcourts export-schemas schemas
-git diff --exit-code schemas
-```
+If you changed the pydantic models, the `schemas` stage regenerates the exported
+schemas and fails on drift — so regenerate and commit them in the same change.
 
 Run it all in the included devcontainer (`.devcontainer/`) or any environment with
 [uv](https://docs.astral.sh/uv/).

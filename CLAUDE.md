@@ -1,5 +1,7 @@
 # CLAUDE.md
 
-See [AGENTS.md](AGENTS.md) for all repository conventions, the branch-and-PR
-workflow, the local gate, and the data contract. AGENTS.md is the single source
-of truth; this file intentionally only points to it.
+@AGENTS.md
+
+The line above imports [AGENTS.md](AGENTS.md) — the single source of truth for
+all repository conventions, the branch-and-PR workflow, the local gate, and the
+data contract — so it loads at the start of every session. Read it in full.
