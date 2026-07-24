@@ -471,8 +471,8 @@ def test_termination_signal_reads_a_cert_before_judgment_grant() -> None:
     # The grant half of the CBJ disposition, symmetric with the denial: once
     # cert-before-judgment is granted the petition-disposition event is decided,
     # so the docket must route out of the forward queue with the grant latest.
-    # The resolver misses it ("before judgment" separates the noun from the
-    # grant verb), so this backstop is its only net.
+    # The resolver now reads this grant at ingest too; this routing backstop
+    # stays as defense in depth (a pre-resolution or replay snapshot).
     docket = {
         "id": 1,
         "docket_entries": [
@@ -483,6 +483,21 @@ def test_termination_signal_reads_a_cert_before_judgment_grant() -> None:
         ],
     }
     assert termination_signal(docket) is not None
+    # The common order-list phrasing opens with "The petition ..."; the backstop
+    # (and the leakage-guard whole-snapshot scan it shares) must catch that form
+    # too, matching the shapes the resolver now records.
+    the_form = {
+        "id": 2,
+        "docket_entries": [
+            {
+                "id": 10,
+                "description": (
+                    "The petition for a writ of certiorari before judgment is granted."
+                ),
+            }
+        ],
+    }
+    assert termination_signal(the_form) is not None
     # The grant is caught on the raw live payload shape too — the window before
     # argument where the grant is the latest entry, which would otherwise leak.
     live = {

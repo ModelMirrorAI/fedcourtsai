@@ -195,15 +195,36 @@ def test_rehearing_denial_is_not_the_cert_disposition() -> None:
     assert match_disposition_signal("Petition for rehearing DENIED.") is None
 
 
-def test_bare_cert_before_judgment_disposition_is_a_deliberate_miss() -> None:
-    # A CBJ disposition *without* a vacatur ("... before judgment DENIED.")
-    # stays unmatched by design: accepting the multi-word gap would also
-    # accept the expedite-motion recital above. The miss is cheap — the
-    # routing backstop's anchored CBJ-denial shape (termination_signal) parks
-    # the quiet decided docket for maintainer triage instead of recording.
+def test_bare_cert_before_judgment_denial_is_a_deliberate_miss() -> None:
+    # A CBJ *denial* or dismissal stays unmatched by design: accepting the
+    # multi-word gap on those verbs would also accept the expedite-motion recital
+    # above, and the miss is cheap — the routing backstop's anchored CBJ shape
+    # (termination_signal) parks the quiet decided docket for triage instead of
+    # recording. The grant is the deliberate exception (it wastes forward cells);
+    # see test_cert_before_judgment_grant_reads_as_granted.
     assert (
         match_disposition_signal("Petition for writ of certiorari before judgment DENIED.") is None
     )
+    assert (
+        match_disposition_signal("Petition for a writ of certiorari before judgment DISMISSED.")
+        is None
+    )
+
+
+def test_cert_before_judgment_grant_reads_as_granted() -> None:
+    # The CBJ grant is read (start-anchored to the petition noun), so a decided
+    # grant records its outcome and routes to evaluate instead of wasting a
+    # forward-predict cell every cycle. Cover the order-list variants: with and
+    # without "a", singular/plural, and the "is granted" / bare "granted" forms.
+    for text in (
+        "Petition for a writ of certiorari before judgment GRANTED.",
+        "Petition for writ of certiorari before judgment granted.",
+        "The petition for a writ of certiorari before judgment is granted.",
+        "Petitions for writs of certiorari before judgment are granted.",
+    ):
+        matched = match_disposition_signal(text)
+        assert matched is not None and matched[0] == Disposition.granted, text
+        assert matched[1] == "cert granted before judgment", text
 
 
 def test_judgment_issued_is_not_a_disposition() -> None:
