@@ -228,9 +228,10 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Cell-local agent-engine state and the generated MCP client configs (#525):
-# ephemeral runner files that carry the agent token — never committed, never
-# part of the uploaded artifact (which lists status.json + data/ explicitly).
+# Cell-local agent-engine state and the generated MCP client configs
 /mcp-servers.json
 /.codex/
 /.gemini/
+
+# Claude Code's stored subscription credential.
+.credentials.json
