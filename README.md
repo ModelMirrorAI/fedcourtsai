@@ -208,10 +208,7 @@ Requires [uv](https://docs.astral.sh/uv/). A devcontainer is included
 ```bash
 uv sync                       # install deps into .venv
 uv run fedcourts --help       # CLI (full reference: docs/cli.md)
-uv run fedcourts validate data
-# the local gate CI also runs:
-uv run ruff format --check . && uv run ruff check .
-uv run mypy && uv run pytest
+scripts/gate.sh               # the local gate CI enforces (stages: see AGENTS.md)
 ```
 
 `pull` fetches one case from the CourtListener REST API into the corpus

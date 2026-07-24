@@ -94,16 +94,18 @@ the subset that fits what you changed, enough for honest confidence (a
 docs-only change needs none of the Python checks).
 
 ```bash
-uv sync
-uv run ruff format --check .
-uv run ruff check .
-uv run mypy
-uv run pytest
-uv run fedcourts validate data
-uv run fedcourts corpus-status
-uv run fedcourts export-schemas schemas
-git diff --exit-code schemas   # CI fails if the committed schemas drift
+uv sync                    # once, to sync the env the stages assume
+scripts/gate.sh            # every stage, in CI order — what CI enforces
+# or run just the stages that fit your change:
+scripts/gate.sh lint       # ruff format --check + ruff check
+scripts/gate.sh types      # mypy
+scripts/gate.sh test       # pytest  (GATE_COV=1 adds coverage, as CI does)
+scripts/gate.sh data       # validate data + corpus-status
+scripts/gate.sh schemas    # export-schemas + schema-drift check (CI fails on drift)
 ```
+
+`scripts/gate.sh` is the single definition of the gate; `ci.yml` and `README.md`
+invoke the same script, so a change to what the gate runs lands in one place.
 
 `pytest` includes an offline stub-cascade smoke (`uv run pytest -k
 cascade_smoke`): provision → predict → evaluate → validate over the fixture

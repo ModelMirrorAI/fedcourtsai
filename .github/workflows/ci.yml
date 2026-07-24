@@ -1,8 +1,9 @@
 name: ci
 
-# The local gate, enforced on every PR and on pushes to main. Mirrors the
-# commands in AGENTS.md so "green CI" and "passes the local gate" mean the same
-# thing. Uses no secrets, so it does not declare the `runner` environment.
+# The local gate, enforced on every PR and on pushes to main. The gate job below
+# invokes scripts/gate.sh — the single definition AGENTS.md and README.md also
+# point to — so "green CI" and "passes the local gate" cannot drift apart. Uses
+# no secrets, so it does not declare the `runner` environment.
 on:
   pull_request:
   push:
@@ -27,18 +28,23 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
-      - name: ruff format
-        run: uv run ruff format --check .
-      - name: ruff check
-        run: uv run ruff check .
-      - name: mypy
-        run: uv run mypy
-      - name: pytest
-        run: uv run pytest --cov --cov-report=term-missing
+      # Each step invokes one stage of scripts/gate.sh — the single definition of
+      # the gate — so the individual step names and their tool annotations survive
+      # while the commands live in exactly one place.
+      - name: lint
+        run: scripts/gate.sh lint
+      - name: types
+        run: scripts/gate.sh types
+      - name: test
+        # GATE_COV=1 runs pytest under coverage, which the summary step below reads.
+        env:
+          GATE_COV: "1"
+        run: scripts/gate.sh test
       - name: coverage summary
-        # Surface coverage to maintainers in the run's job summary (no badge, no
-        # commit, no upload). Needs no permissions — $GITHUB_STEP_SUMMARY is a
-        # runner-local file — so this stays fork-safe.
+        # Reporting, not gating: surface coverage to maintainers in the run's job
+        # summary (no badge, no commit, no upload). Depends on the test step having
+        # run with GATE_COV=1 so a .coverage file exists. Needs no permissions —
+        # $GITHUB_STEP_SUMMARY is a runner-local file — so this stays fork-safe.
         run: |
           {
             echo "## Coverage: $(uv run coverage report --format=total)%"
@@ -49,14 +55,10 @@ jobs:
             echo ""
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: validate data
-        run: uv run fedcourts validate data
-      - name: corpus status
-        run: uv run fedcourts corpus-status
-      - name: schema drift
-        run: |
-          uv run fedcourts export-schemas schemas
-          git diff --exit-code schemas
+      - name: data
+        run: scripts/gate.sh data
+      - name: schemas
+        run: scripts/gate.sh schemas
 
   paths:
     # Defense-in-depth path jail for the auto-merged data-production PRs: a
