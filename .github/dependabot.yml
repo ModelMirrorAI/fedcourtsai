@@ -7,6 +7,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Dependency bumps are code/config, so they land on the staging branch
+    # and ride a promotion batch to main like every other change.
+    target-branch: staging
     groups:
       actions:
         patterns:
@@ -17,6 +20,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    target-branch: staging
     groups:
       python:
         patterns:

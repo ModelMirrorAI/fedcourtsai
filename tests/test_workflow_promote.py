@@ -5,13 +5,18 @@ PR). These tests lock that shape: both call sites delegate to the one script,
 the promote workflow stays credential-minimal (no environment, no secrets,
 ambient token only), the CI job is unreachable from anything but the same-repo
 staging→main PR, and the freshness matcher's run-title coupling with the
-integration-test workflow holds at both ends.
+integration-test workflow holds at both ends. The `main-base` merge-routing
+jail and dependabot's staging targeting live here too: routing to `main` is
+policy these tests keep mechanical.
 """
 
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from fedcourtsai import metrics_refresh
+from fedcourtsai.finalize import FinalizeRole
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -110,3 +115,43 @@ def test_promote_help_text_lists_every_required_scenario() -> None:
     for entry in _required_scenario_entries():
         for name in entry.split("/", 1):
             assert name in text, f"promote.yml help text is missing {name!r}"
+
+
+def test_main_base_jail_covers_every_legitimate_lane() -> None:
+    # Merge routing to main is a required check; its allowlist must track the
+    # real bot lanes mechanically, or a renamed lane's PRs hit the jail.
+    job = _load(WORKFLOWS / "ci.yml")["jobs"]["main-base"]
+    condition = job["if"]
+    assert "github.base_ref == 'main'" in condition
+    assert "github.head_ref == 'staging'" in condition
+    # The negation is the load-bearing structure: the job runs on everything
+    # OUTSIDE the allowlist. Without the `!(` the jail inverts — it would fail
+    # exactly the legitimate lanes and wave feature PRs through.
+    assert "!(" in condition
+    assert condition.index("!(") < condition.index("github.head_ref == 'staging'")
+    # Fork heads must never match the allowlist, whatever their branch name —
+    # the same-repo conjunct must sit INSIDE the negated group.
+    same_repo = "github.event.pull_request.head.repo.full_name == github.repository"
+    assert same_repo in condition
+    assert condition.index("!(") < condition.index(same_repo)
+    for role in FinalizeRole:
+        assert f"startsWith(github.head_ref, '{role.value}/run-')" in condition
+    # Pin the other end of the prefix coupling: the collect plan builder must
+    # still construct branches under `<role>/run-`, or the jail's allowlist
+    # silently stops matching what collect actually pushes.
+    collect_src = (ROOT / "src" / "fedcourtsai" / "collect.py").read_text()
+    assert 'f"{role.value}/run-{run_id}"' in collect_src
+    assert "startsWith(github.head_ref, 'cleanup/')" in condition
+    assert f"github.head_ref == '{metrics_refresh.REFRESH_BRANCH}'" in condition
+    assert f"github.head_ref == '{metrics_refresh.BACKTEST_BRANCH}'" in condition
+    assert job["permissions"] == {}
+    # The job exists only to fail: when the `if` matches, the PR must not merge.
+    assert "exit 1" in _steps_text(job)
+
+
+def test_dependabot_targets_staging() -> None:
+    # Dependency bumps are code/config; without an explicit target-branch
+    # dependabot PRs go to main, where the main-base jail would strand them.
+    config = _load(ROOT / ".github" / "dependabot.yml")
+    for update in config["updates"]:
+        assert update.get("target-branch") == "staging", update["package-ecosystem"]

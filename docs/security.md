@@ -73,9 +73,17 @@ bypass list applies to the whole ruleset); further rulesets protect the
   go through a reviewed PR. The dev App is deliberately **absent** from this
   bypass list. Required approvals are `0` (a maintainer reviews at merge time); set
   to `1` if a second reviewer exists.
-  - Required checks are `gate`, `paths`, and `promotion-gate` (which reports
+  - Required checks are `gate`, `paths`, `promotion-gate` (which reports
     `skipped` — satisfying the requirement — on every PR that is not the
-    staging→main promotion). **Not** `zizmor` — it is path-filtered
+    staging→main promotion), and `main-base` (the merge-routing jail: it
+    runs — and fails — only on a PR to `main` whose head is not a same-repo
+    `staging` or reviewed non-feature lane, so a feature PR cannot ride around the
+    promotion path by mistake; rulesets cannot constrain a PR's source
+    branch, which is why this is a check — and like any check, the reviewed
+    merge, not the expression, is the backstop against a PR that edits
+    ci.yml itself). `cleanup-paths` is deliberately **not** in the required
+    list — a cleanup PR is never auto-merged, so it is review-time
+    defense-in-depth. **Not** `zizmor` — it is path-filtered
     to `.github/**`, so requiring it would hang any PR that does not touch workflows.
   - `paths` is the **auto-merge path jail**. The predict/evaluate
     collect jobs open one PR per run that auto-merges when green, opened with the

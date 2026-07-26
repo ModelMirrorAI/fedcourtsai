@@ -222,13 +222,21 @@ below describes the damage). The promotion gates target exactly those two.
 
 The mechanics:
 
-- **Feature PRs target `staging`** (AGENTS.md). The branch's ruleset requires
-  a pull request plus the same status checks as `main`, with the **repository
-  admin role as its sole bypass actor** — a required-checks rule blocks
-  direct pushes of commits that carry no passing check runs, so the
-  maintainer is the only identity that can land the sync merge below.
-  Neither GitHub App bypasses `staging`, and no workflow holds a write token
-  to it: the promote workflow is strictly read-only.
+- **Feature PRs target `staging`** (AGENTS.md), and the routing is
+  mechanical, not conventional: the **`main-base`** required check fails any
+  PR to `main` whose head is not `staging` or a reviewed non-feature lane
+  (the collect run branches, the maintainer's cleanup sweep, the
+  metrics-refresh and cert-backtest PRs) — rulesets cannot constrain a PR's source branch, which is why this
+  lives as a check. Like every required check it binds with the strength of
+  the maintainer-merges backstop: a PR that edits ci.yml runs the edited
+  definition, so the check deters routing mistakes, and the human merge
+  catches sabotage. Dependabot targets `staging` for the same reason. The `staging`
+  ruleset itself requires a pull request plus the same status checks as
+  `main`, with the **repository admin role as its sole bypass actor** — a
+  required-checks rule blocks direct pushes of commits that carry no passing
+  check runs, so the maintainer is the only identity that can land the sync
+  merge below. Neither GitHub App bypasses `staging`, and no workflow holds
+  a write token to it: the promote workflow is strictly read-only.
 - **Sync-at-promotion.** `staging` never owns data. At the start of each
   batch, `main` is merged into `staging` (the corpus pointer and data
   commits), so the batch is integration-tested against current data
@@ -253,15 +261,33 @@ The mechanics:
   **merge commit**, never squash — `staging` and `main` must share history or
   every later sync re-merges rewritten commits.
 
+The full path of a change, operator's view:
+
+1. Branch off `staging`, work, run the relevant gate stages and reviewers,
+   open the PR against `staging`; review and merge. The change is now staged
+   but **not live** — production jobs execute from `main`.
+2. When a batch is worth promoting: dispatch `promote`; if it asks, run the
+   printed sync commands (your admin-bypass push) and re-dispatch.
+3. Dispatch the required integration scenarios at staging's post-sync head
+   (the summary lists them; each staging deployment waits for your
+   approval), then re-dispatch `promote`.
+4. Green promote hands you the `gh pr create` for the staging→main PR; its
+   `promotion-gate` check re-verifies quiescence + freshness. Re-run that
+   check right before merging, and merge with a **merge commit**. Live on
+   the next workflow run.
+
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 same required status checks as `main`, **repository admin role as the only
-bypass actor** (docs/security.md inventories it); and add `promotion-gate` to
-`main`'s required checks — it reports `skipped`, which satisfies the
-requirement, on every non-promotion PR. The `staging` *deployment
-environment* the freshness runs deploy to (required reviewer, read-only role
-trust, per-environment engine keys) is separate wiring, described in
-docs/security.md.
+bypass actor** (docs/security.md inventories it); and add `promotion-gate`
+and `main-base` to `main`'s required checks — each reports `skipped`, which
+satisfies the requirement, on every PR it does not police. Order matters for
+`main-base`: require it only once the job's ci.yml definition has been
+**promoted to `main`**, because a required check that no workflow run
+reports leaves every collect auto-merge PR waiting forever. The `staging`
+*deployment environment* the freshness runs deploy to (required reviewer,
+read-only role trust, per-environment engine keys) is separate wiring,
+described in docs/security.md.
 
 ## The predict/evaluate matrix
 
