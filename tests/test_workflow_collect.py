@@ -385,6 +385,67 @@ def test_the_facts_only_pr_rides_the_same_loop_as_ready_and_partial() -> None:
     )
 
 
+INTEGRATION_TEST = WORKFLOWS / "integration-test.yml"
+
+
+def _collect_scenario_job() -> dict[str, Any]:
+    job = _load(INTEGRATION_TEST)["jobs"]["collect-scenario"]
+    assert isinstance(job, dict)
+    return job
+
+
+def test_the_collect_scenario_is_token_and_environment_free() -> None:
+    """The integration scenario proves collect's durability contract without a
+    live matrix, so it must stay runnable from any branch: no deployment
+    environment, read-only permissions, and no secret anywhere in the job —
+    the composite gets a placeholder token and its push is diverted to a
+    runner-local scratch remote."""
+    job = _collect_scenario_job()
+    assert "environment" not in job, "binding an environment would gate a job that needs no role"
+    assert job["permissions"] == {"contents": "read", "actions": "read"}
+    assert "secrets." not in yaml.safe_dump(job), "no secret may reach the collect scenario"
+
+
+def test_the_collect_scenario_reruns_the_composite_with_identical_inputs() -> None:
+    """Two invocations: the second is the `gh run rerun --failed` recovery path
+    the composite documents, asserted to update rather than duplicate. Any
+    input drift between them would make the idempotency assertion vacuous."""
+    delegations = [
+        s
+        for s in _steps(_collect_scenario_job())
+        if s.get("uses") == "./.github/actions/collect-run"
+    ]
+    assert len(delegations) == 2, "the scenario must exercise a first pass and a rerun"
+    assert all(d["with"]["role"] == "predict" for d in delegations)
+    assert delegations[0]["with"] == delegations[1]["with"]
+
+
+def test_the_collect_scenario_uploads_census_compatible_artifact_names() -> None:
+    """The composite keys its download on the role prefix and the census
+    rebuilds `cell_artifact_name` from matrix identities; a scenario artifact
+    named off-pattern would silently fall out of both."""
+    uploads = [
+        s
+        for s in _steps(_collect_scenario_job())
+        if str(s.get("uses", "")).startswith("actions/upload-artifact")
+    ]
+    assert uploads, "the scenario must seed cell artifacts"
+    for step in uploads:
+        assert str(step["with"]["name"]).startswith("predict-")
+
+
+def test_the_collect_scenario_is_partitioned_from_the_environment_bound_job() -> None:
+    """The shared `scenario` job binds the deploy-environment input; running it
+    for a collect dispatch would re-attach the approval gate (or, from a
+    branch, fail the run at the deployment gate) for a job that does nothing."""
+    workflow = _load(INTEGRATION_TEST)
+    assert workflow["jobs"]["scenario"]["if"] == "${{ inputs.scenario != 'collect' }}"
+    assert _collect_scenario_job()["if"] == "${{ inputs.scenario == 'collect' }}"
+    # `on:` parses as the YAML boolean True.
+    options = workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"]
+    assert "collect" in options
+
+
 def test_a_no_artifact_run_still_records_facts_via_a_matrix_derived_run_id() -> None:
     """The early no-artifact guard used to `exit 0` before any fact was written.
     It must now fall through to collect-plan + record-cell-failures, taking the
