@@ -19,7 +19,7 @@ jobs:
   plan:
     if: github.event.label.name == 'run:predict'
     runs-on: ubuntu-latest
-    environment: runner
+    environment: prod
     # Corpus-split read side for the matrix scope backstop: the bare-opinion-
     # import exclusion fetches the case's latest snapshot, which under
     # FEDCOURTS_CORPUS_SPLIT=1 lives only in the per-case content store (the
@@ -119,7 +119,7 @@ jobs:
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    environment: runner
+    environment: prod
     permissions:
       # The cell no longer commits or opens a PR — it only reads the repo and
       # uploads an artifact; the collect job does the git/PR with its own token.
@@ -778,7 +778,7 @@ jobs:
     if: ${{ always() && needs.plan.outputs.has_jobs == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: runner
+    environment: prod
     permissions:
       contents: write # commit the run's predictions to a branch
       pull-requests: write # open the run PR and enable auto-merge

@@ -81,9 +81,9 @@ composites, the blob's physical layout) **or to a corpus-consuming workflow**,
 and as a preflight **before a release dry run** and **before a prediction
 freeze** — the moments when a silent read regression would be most expensive.
 The `deploy-environment` input names which deployment environment supplies the
-role and remote variables: main dispatches use `runner`, and a
-maintainer-approval-gated environment (deployment-branch policy open, required
-reviewer) lets a PR branch's changed read seams run against real
+role and remote variables: main dispatches use `prod`, and the
+maintainer-approval-gated `staging` environment (deployment-branch policy open,
+required reviewer) lets a PR branch's changed read seams run against real
 infrastructure before merge — the capability the trigger path structurally
 cannot provide.
 

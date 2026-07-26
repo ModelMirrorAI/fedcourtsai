@@ -81,7 +81,7 @@ sidecar under the tested `mcp-integration-check` client, a stub
 `local-cascade` cell, or (the one token-spending scenario) a single
 real-engine cell over the service sidecar — dispatched around changes to
 corpus access, the sidecars, engine CLIs, or the corpus-consuming workflows
-and before releases, from main or (via an approval-gated deployment
+and before releases, from main or (via the approval-gated `staging` deployment
 environment) from a PR branch. See *Infra-bound integration* in
 [testing.md](testing.md).
 
@@ -388,7 +388,7 @@ seam:
 | `PREDICT_HANDOFF_ENABLED` | `1` — files | `run:predict` issues are not filed |
 | `EVALUATE_HANDOFF_ENABLED` | `1` — files | `run:evaluate` issues are not filed |
 
-Set either in the `runner` environment (a repository-level variable of the same
+Set either in the `prod` environment (a repository-level variable of the same
 name works identically, unless an environment-level one shadows it). Both
 default to filing, so an unset or mistyped variable keeps the tournament
 running: the failure that costs coverage is the quiet one. Ingestion is

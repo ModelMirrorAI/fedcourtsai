@@ -31,7 +31,7 @@ everything outside `.github/workflows`.)
   the one documented file carve-out is a *local* stdio `mcp-config` run
   injecting the dev's own token into the runner-local gitignored client file.
   Anything beyond that needs the docs updated and a justification. New
-  secrets belong on the `runner` environment and in `docs/security.md`'s
+  secrets belong on the `prod` environment and in `docs/security.md`'s
   inventory.
 - **Authorization stays fail-closed.** Anything an outside actor can cause
   (issue forms apply labels regardless of permissions!) must be authorized

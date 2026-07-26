@@ -20,7 +20,7 @@ The corpus has two halves:
   [`fedcourtsai.corpus_remote`](../src/fedcourtsai/corpus_remote.py))
   is committed to git (the blob and its
   sidecars are gitignored). In production (the corpus-split mode,
-  `FEDCOURTS_CORPUS_SPLIT=1` on the runner environment) the writers keep it
+  `FEDCOURTS_CORPUS_SPLIT=1` on the prod environment) the writers keep it
   **payload-free**: the `snapshots`/`documents` tables stay empty and
   `cases.opinion_text` stays NULL (a `has_opinion` presence bit is retained),
   so the blob stays a small metadata index and its per-run push does not

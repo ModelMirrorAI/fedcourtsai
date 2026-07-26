@@ -8,7 +8,7 @@
 # pull's budget goes to keeping the tracked set's CourtListener records
 # current.
 # The per-request rate limits the client throttles to are NOT set here: they live
-# in the runner env (FEDCOURTS_COURTLISTENER_RPM/_RPH/_RPD, wired from repo
+# in the prod env (FEDCOURTS_COURTLISTENER_RPM/_RPH/_RPD, wired from repo
 # variables to the active Free Law Project tier — see docs/budget.md). The caps
 # below bound how much work each run and each day does within that envelope.
 pull:

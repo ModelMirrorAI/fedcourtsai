@@ -9,7 +9,7 @@ description: >-
   `corpus-sidecar`, which keeps the credentials step-scoped, and the
   scan-heavy consumers (analytics, the metrics refresh) keep `corpus-readonly`
   for their full pulls. The calling job must grant
-  `id-token: write` and run in the `runner` environment so the role and remote
+  `id-token: write` and run in the `prod` environment so the role and remote
   variables are available to pass in.
 
 inputs:

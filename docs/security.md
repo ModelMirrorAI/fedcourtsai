@@ -1,7 +1,7 @@
 # Security setup (operational runbook)
 
 The concrete configuration behind the invariants in [SECURITY.md](../SECURITY.md):
-the GitHub App, branch protection, the `runner` environment, and the S3 roles.
+the GitHub App, branch protection, the `prod` environment, and the S3 roles.
 SECURITY.md says *what* the invariants are; this says *how* they are wired, so a
 maintainer can reproduce or audit the setup.
 
@@ -30,7 +30,7 @@ agent is merely instructed to follow:
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   reviewed PR.
 
-All four live on the `runner` environment (the two client ids as variables, the
+All four live on the `prod` environment (the two client ids as variables, the
 two keys as secrets). Each workflow mints a token scoped to only what it needs:
 
 | Workflow | App | Token scope | Notes |
@@ -92,7 +92,7 @@ branch:
     report goes to the trigger issue) because pushing would itself publish the
     secret. The scan has no merge-time counterpart by design: its job is to act
     before the push, and it needs a live token env that the merge-time check —
-    running on PR branches without the `runner` environment — cannot hold.
+    running on PR branches without the `prod` environment — cannot hold.
   - `cleanup-paths` is the destructive counterpart for the cleanup sweep. That
     sweep *deletes* out-of-scope predictions (the tested `fedcourts
     cleanup-out-of-scope-predictions`, run locally by a maintainer), so it is the
@@ -162,9 +162,9 @@ closes the trigger issue (with a note) so the run doesn't orphan it, and closing
 issue triggers no workflow — so this stays on the lower-trust ambient token, never
 the App token.
 
-## The `runner` environment
+## The `prod` environment
 
-Every secret and both S3 role ARNs live on the `runner` environment — the App
+Every secret and both S3 role ARNs live on the `prod` environment — the App
 credentials, the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the cells' MCP
 sidecar launch step, whose background `mcp-serve` process serves agent
@@ -173,7 +173,7 @@ carries the token and no client config file does either; unset degrades the
 agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
-them declares `environment: runner`.
+them declares `environment: prod`.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -202,28 +202,28 @@ workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
 reaches the privileged context only after it is merged to `main`, which required
 review.
 
-Every `runner` job already runs from a `main` ref for its trigger — `schedule`,
+Every `prod` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
 **The integration-test workflow selects its environment by input**
-(`deploy-environment`, default `runner`). Today that is fail-closed twice over
-for any branch dispatch: naming `runner` is refused at its deployment-branch
+(`deploy-environment`, default `prod`). Today that is fail-closed twice over
+for any branch dispatch: naming `prod` is refused at its deployment-branch
 gate before any step runs, and naming any other environment resolves no role
 variables — and the AWS roles' trust policies additionally pin the OIDC `sub`
-to the `runner` environment, so an auto-created empty environment can assume
-nothing. Standing up a real pre-merge environment (any-branch deployment
+to the `prod` environment, so an auto-created empty environment can assume
+nothing. Standing up the `staging` pre-merge environment (any-branch deployment
 policy) therefore requires two deliberate steps **in this order**: add its
 required-reviewer protection rule first, then widen the read-only role's trust
-policy to that environment's `sub` — the reviewer rule is the gate, and
+policy to the `staging` environment's `sub` — the reviewer rule is the gate, and
 widening trust before it exists would make the gate decorative.
 
 The workflow's engine-smoke scenario additionally reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
 other engines' keys never enter the job. Like every secret in this repo the
-keys live on the `runner` environment, so the scenario fully resolves only on
+keys live on the `prod` environment, so the scenario fully resolves only on
 a main dispatch; a branch dispatch gets an empty key and fails closed right
 alongside the role variables, independent of step ordering. Standing up the
-gated pre-merge environment extends to engine-smoke only if the maintainer
+`staging` pre-merge environment extends to engine-smoke only if the maintainer
 also places the engine keys on it as environment secrets — the
 required-reviewer rule then gates model spend exactly as it gates the
 read-only role. A codex smoke additionally loosens the runner kernel's
@@ -284,8 +284,8 @@ Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped
 read-only to the corpus bucket — the one static credential in the system.
 
-Both roles' OIDC trust is scoped to this repo's `runner` environment
-(`...:sub` like `repo:<owner>/<repo>:environment:runner`), so only `runner`-
+Both roles' OIDC trust is scoped to this repo's `prod` environment
+(`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only `prod`-
 environment jobs can assume them.
 
 **Agent shells hold no cloud credential; the residual is a localhost query
@@ -338,7 +338,7 @@ same-user parent-process residual above already dominates what reachable
 sudo adds, and the other engines have always run unsandboxed in these jobs.
 
 **The corpus-split mode constrains the read-only role's policy.**
-**`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `runner`
+**`FEDCOURTS_CORPUS_SPLIT=1`** (`Settings.corpus_split`) is set on the `prod`
 environment: the entire forward predict/evaluate fleet provisions from the
 casestore path (it overrides the env-configured `ranged` backend; an explicit
 per-command `--corpus-backend` is the only thing that still wins), and the

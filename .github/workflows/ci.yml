@@ -3,7 +3,7 @@ name: ci
 # The local gate, enforced on every PR and on pushes to main. The gate job below
 # invokes scripts/gate.sh — the single definition AGENTS.md and README.md also
 # point to — so "green CI" and "passes the local gate" cannot drift apart. Uses
-# no secrets, so it does not declare the `runner` environment.
+# no secrets, so it does not declare the `prod` environment.
 on:
   pull_request:
   push:

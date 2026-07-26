@@ -95,7 +95,7 @@ def test_the_caller_keeps_the_security_posture_visible() -> None:
     `uses:` — they are the trust boundary and belong next to the trigger."""
     for workflow in FAN_OUTS:
         job = _collect_job(workflow)
-        assert job["environment"] == "runner"
+        assert job["environment"] == "prod"
         assert job["permissions"] == {
             "contents": "write",
             "pull-requests": "write",

@@ -70,7 +70,7 @@ jobs:
     if: ${{ inputs.mode == 'corpus-stats' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: runner
+    environment: prod
     concurrency:
       group: run-analytics-analysis
       cancel-in-progress: true
@@ -123,7 +123,7 @@ jobs:
     if: ${{ github.event_name == 'schedule' || inputs.mode == 'metrics-refresh' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: runner
+    environment: prod
     concurrency:
       group: run-analytics-metrics-refresh
       cancel-in-progress: false

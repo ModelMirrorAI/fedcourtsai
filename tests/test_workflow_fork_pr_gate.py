@@ -1,5 +1,5 @@
-"""Fork `pull_request` runs must get **no** `runner` secrets (see SECURITY.md and
-docs/security.md -> *Going public*). The `runner` environment's deployment branches
+"""Fork `pull_request` runs must get **no** `prod` secrets (see SECURITY.md and
+docs/security.md -> *Going public*). The `prod` environment's deployment branches
 are restricted to `main`, so a workflow running from a fork PR (a non-`main` ref)
 executes without the App keys, agent tokens, CourtListener token, or S3 role. These
 tests lock the *code-side* shape of that control in place so a future edit cannot
@@ -63,17 +63,17 @@ def test_no_pull_request_target_anywhere() -> None:
         )
 
 
-def test_runner_environment_jobs_are_unreachable_on_pull_request() -> None:
-    """Any job that declares `environment: runner` can read the runner secrets only
+def test_prod_environment_jobs_are_unreachable_on_pull_request() -> None:
+    """Any job that declares `environment: prod` can read the prod secrets only
     from a `main` ref (deployment-branch policy). Such a workflow must therefore not
     be reachable on `pull_request`, where the ref is a fork/PR ref."""
     for name in _all_workflows():
         wf = _load(name)
-        runner_jobs = [j for j, job in wf["jobs"].items() if _env_name(job) == "runner"]
-        if runner_jobs:
+        prod_jobs = [j for j, job in wf["jobs"].items() if _env_name(job) == "prod"]
+        if prod_jobs:
             assert not _reachable_on_pull_request(wf), (
-                f"{name} triggers on pull_request yet has runner-environment job(s) "
-                f"{runner_jobs}; a fork PR could reach a secret-bearing job"
+                f"{name} triggers on pull_request yet has prod-environment job(s) "
+                f"{prod_jobs}; a fork PR could reach a secret-bearing job"
             )
 
 

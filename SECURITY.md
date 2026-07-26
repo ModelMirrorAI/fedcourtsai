@@ -3,7 +3,7 @@
 ## Invariants enforced in this repo
 
 The concrete wiring behind each invariant — the GitHub Apps, rulesets, the
-`runner` environment, and the IAM roles/policies — lives in the operational
+`prod` environment, and the IAM roles/policies — lives in the operational
 runbook, [docs/security.md](docs/security.md).
 
 - **Pin actions to a full commit SHA**, with the version in a trailing comment.
@@ -84,7 +84,7 @@ runbook, [docs/security.md](docs/security.md).
   delete**) and every corpus consumer a **read-only** role, so a compromised
   consumer runner cannot tamper with the data; the buckets keep **versioning**
   on, so no run can wipe corpus objects. Both roles' OIDC trust is scoped to
-  this repo's `runner` environment, so a PR-branch job cannot assume them. No
+  this repo's `prod` environment, so a PR-branch job cannot assume them. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the URL out of band as the `CORPUS_REMOTE_URL`
   environment variable, and boto3 reads its credentials from the environment.
@@ -114,7 +114,7 @@ runbook, [docs/security.md](docs/security.md).
   the agent workflows authenticate as a separate, non-bypass **dev App**. A
   second ruleset with **no** bypass blocks force-pushes and branch deletion for
   everyone, so the predictions, outcomes, and evaluations under `data/` cannot
-  be rewritten or dropped. Secrets and the S3 roles live in the `runner`
+  be rewritten or dropped. Secrets and the S3 roles live in the `prod`
   environment, whose deployment branches are restricted to `main`: a workflow
   authored on a PR branch runs without them.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent

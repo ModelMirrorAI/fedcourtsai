@@ -20,15 +20,15 @@ name: integration-test
 # run history.
 #
 # The `deploy-environment` input is what makes pre-merge testing possible: a
-# dispatch from main uses the production `runner` environment as always, while
-# a dispatch from a PR branch can name a maintainer-approval-gated environment
+# dispatch from main uses the `prod` environment as always, while a dispatch
+# from a PR branch can name the maintainer-approval-gated `staging` environment
 # (deployment-branch policy: any branch; protection rule: required reviewer)
 # holding the same read-only role and remote variables — so a branch's changed
 # read seams run against real infrastructure only after a human approves that
-# specific run. Until such an environment exists, a branch dispatch naming
-# `runner` is refused at its deployment-branch gate, and naming anything else
+# specific run. Until the `staging` environment exists, a branch dispatch naming
+# `prod` is refused at its deployment-branch gate, and naming anything else
 # resolves no role variables — fail-closed twice over (the AWS trust policy
-# additionally pins the role to the runner environment; see docs/security.md
+# additionally pins the role to the `prod` environment; see docs/security.md
 # for what standing up the gated environment actually requires).
 on:
   workflow_dispatch:
@@ -79,10 +79,10 @@ on:
       deploy-environment:
         description: >-
           Deployment environment supplying the role/remote variables. Main
-          dispatches use `runner`; a branch dispatch names the
-          maintainer-approval-gated environment.
+          dispatches use `prod`; a branch dispatch names the
+          maintainer-approval-gated `staging` environment.
         type: string
-        default: runner
+        default: prod
 
 # Least privilege by default; the job widens only to what the scenarios need.
 permissions: {}

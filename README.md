@@ -173,7 +173,7 @@ State lives in two stores, split by **kind of data**:
   Only changed cases upload, so storage scales with case churn, not run count,
   and forward predict/evaluate cells provision their case record from the
   store. (The `FEDCOURTS_CORPUS_SPLIT` flag selects these split read/write
-  paths; it is on in the production `runner` environment and defaults off, so
+  paths; it is on in the `prod` environment and defaults off, so
   a dev environment without the store works against a self-contained blob.)
 - **Derived judgments → the git ledger.** Outcomes, predictions, and
   evaluations under `data/`, organized **case-centrically** so everything

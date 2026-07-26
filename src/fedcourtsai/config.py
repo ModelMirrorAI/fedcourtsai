@@ -106,7 +106,7 @@ class Settings(BaseSettings):
     def _empty_corpus_split_is_off(cls, value: object) -> object:
         """An empty ``FEDCOURTS_CORPUS_SPLIT`` reads as off, not as a parse error.
 
-        Any env wiring that passes the ``runner``-environment variable (or its
+        Any env wiring that passes the ``prod``-environment variable (or its
         repo-level fallback) through raw — or an empty ``.env`` entry — lands
         here as the empty string, which pydantic's
         bool parser rejects. Empty must degrade to the default (off), matching
