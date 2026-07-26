@@ -123,3 +123,32 @@ jobs:
           esac
           git diff --name-status "${BASE_SHA}...HEAD" > changes.txt
           uv run fedcourts assert-cleanup-paths --name-status-file changes.txt
+
+  promotion-gate:
+    # The staging→main promotion PR's gate: quiescence plus integration-run
+    # freshness at the PR head, via scripts/promotion-gate.sh — the same
+    # script the `promote` dispatch runs, so the pre-flight and this required
+    # check cannot drift apart. Skipped — and therefore green as a required
+    # check — on every other PR. Gate state is point-in-time: re-run this
+    # check immediately before merging the promotion. Same-repo head only: a
+    # fork branch named `staging` gets the skip, never the gate (and a fork's
+    # read-only token could not satisfy it anyway).
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'main' &&
+      github.head_ref == 'staging' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      issues: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Quiescence and freshness at the PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: scripts/promotion-gate.sh all "$HEAD_SHA"

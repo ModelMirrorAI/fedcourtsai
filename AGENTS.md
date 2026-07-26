@@ -42,13 +42,17 @@ non-interactive** container. Two consequences shape everything you do:
 
 ## The golden rules
 
-- **Branch and PR.** Never commit to `main`. Create a branch off `main`
-  (`git switch -c <type>/<short-description>`), do the work, open one focused
-  PR against `main` with a conventional-commit title and a description of what
-  changed and why; prefer a small, correct, well-tested change over a large
-  speculative one. (For `run:predict`/`run:evaluate` the *workflow* commits and
-  opens the PR — you only write files; the task prompt says which mode you are
-  in.)
+- **Branch and PR.** Never commit to `main` or `staging` directly. Create a
+  branch off `staging` (`git switch -c <type>/<short-description>
+  origin/staging`), do the work, open one focused PR against `staging` with a
+  conventional-commit title and a description of what changed and why; prefer
+  a small, correct, well-tested change over a large speculative one. `main` is
+  the pre-registration record: code and config reach it only in a reviewed
+  staging→main promotion batch (*Promotion* in `docs/pipeline.md`), while data
+  commits — the deterministic writers and the data-run collect PRs — land on
+  `main` directly and never ride staging. (For `run:predict`/`run:evaluate`
+  the *workflow* commits and opens the PR — you only write files; the task
+  prompt says which mode you are in.)
 - **The maintainer merges.** Open the PR, get its required checks green, and
   report it ready — do not merge it yourself or enable auto-merge on it. The
   one built-in exception: the data-run `collect` jobs open their per-run PR

@@ -1,5 +1,10 @@
 name: integration-test
 
+# The staging→main promotion freshness gate matches runs on this title format
+# (scripts/promotion-gate.sh); change the two together — a workflow-shape test
+# pins both ends.
+run-name: "integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @ ${{ inputs.deploy-environment }}"
+
 # Live integration scenarios for the pieces a PR branch cannot exercise through
 # the trigger path: the corpus read backends, the credential-scoped corpus
 # sidecar, the tokenless CourtListener MCP sidecar, and cascade cells — stub or

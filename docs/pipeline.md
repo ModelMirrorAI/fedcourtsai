@@ -204,6 +204,52 @@ subagent (`.claude/agents/workflow-reviewer.md`) on the diff before pushing — 
 runs those linters and reviews for what they miss (the security model and the
 logic-in-tested-Python convention above).
 
+## Promotion: staging → main
+
+Code and config land on `staging`; `main` is the official pre-registration
+record and takes code only in reviewed **promotion batches**. Data never waits
+on promotion: the deterministic writers (pull, seed, live) and the data-run
+collect PRs land on `main` directly.
+
+Why the indirection: two classes of bug are invisible to per-PR CI but caught
+by an integration pass over real infrastructure — a workflow that is never
+invoked, and a workflow-file change that reaches `main` mid-matrix and changes
+what a running fan-out's later jobs execute (the collect-recovery section
+below describes the damage). The promotion gates target exactly those two.
+
+The mechanics:
+
+- **Feature PRs target `staging`** (AGENTS.md). The branch requires the same
+  status checks as `main` but allows direct pushes — the promote workflow's
+  sync push needs that; humans and agents still land every change as a PR by
+  convention.
+- **Sync-at-promotion.** `staging` never owns data. As the first step of each
+  batch, the `promote` workflow merges `origin/main` into `staging` (the
+  corpus pointer and data commits), so the batch is integration-tested against
+  current data read-only. There is no scheduled sync; staging is exactly as
+  fresh as its gate requires.
+- **Two gates, one definition.** `scripts/promotion-gate.sh` checks
+  *quiescence* (no `run:predict` / `run:evaluate` matrix in flight — no open
+  trigger issue, no queued/in-progress fan-out run) and *freshness* (every
+  required integration scenario green at exactly the staging head being
+  promoted). The `promote` dispatch runs it as pre-flight; ci.yml's
+  `promotion-gate` job runs it as a required check on the promotion PR.
+  Re-run that check right before merging — quiescence is point-in-time.
+- **The loop.** Dispatch `promote`; it gates, syncs, and either prints the
+  scenario dispatch commands still needed (each staging deployment waits for
+  the required reviewer) or, when green, the `gh pr create` command for the
+  promotion PR. The workflow never opens the PR itself: a PR created with a
+  workflow's own token triggers no `pull_request` checks, so the maintainer
+  creating it is what makes the required checks real. Merge promotions with a
+  **merge commit**, never squash — `staging` and `main` must share history or
+  every later sync re-merges rewritten commits.
+
+One-time setup (maintainer): create the branch from main (`git push origin
+main:staging`), protect it with the same required status checks as `main` but
+no require-PR rule (the sync push must land directly), and add
+`promotion-gate` to `main`'s required checks — it reports `skipped`, which
+satisfies the requirement, on every non-promotion PR.
+
 ## The predict/evaluate matrix
 
 `plan` parses the issue body's ` ```json ``` ` case block and runs
