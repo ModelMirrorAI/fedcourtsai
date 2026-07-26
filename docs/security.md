@@ -110,16 +110,16 @@ bypass list applies to the whole ruleset); further rulesets protect the
   misbehaving writer that holds the data App's bypass token.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
   requires a pull request plus the same required checks as `main`. **Bypass:
-  the GitHub Actions app only**, which is what lets the `promote` workflow's
-  main→staging sync merge land as a direct push — its content is by
-  construction already-gated `main` history merged with already-gated
-  `staging` history, and `promote` is the only dispatch surface holding
-  ambient `contents: write` (any second one is a reviewed workflow-file
-  change). **Neither App is a bypass actor here**, so the identity-enforced
-  "everything agentic lands via a reviewed PR" invariant holds one hop before
-  `main` as well: the dev App token minted in the agent runs has no zero-PR
-  path onto the promotion train or onto the ref the staging-environment
-  deployments execute.
+  the repository admin role only** — the maintainer's own main→staging sync
+  push at each promotion batch, whose content is by construction
+  already-gated `main` history merged with already-gated `staging` history.
+  (The GitHub Actions app is not offered as a ruleset bypass actor, and the
+  `promote` workflow is deliberately read-only — no workflow holds a write
+  token to this branch.) **Neither App is a bypass actor here**, so the
+  identity-enforced "everything agentic lands via a reviewed PR" invariant
+  holds one hop before `main` as well: the dev App token minted in the agent
+  runs has no zero-PR path onto the promotion train or onto the ref the
+  staging-environment deployments execute.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
   corpus-writer path (`run-pull`, via the `publish-corpus-verdict` action) publishes

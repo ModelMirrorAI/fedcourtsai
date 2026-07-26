@@ -114,8 +114,8 @@ runbook, [docs/security.md](docs/security.md).
   the agent workflows authenticate as a separate, non-bypass **dev App**. Code
   and config reach `main` only as a gated promotion batch from `staging`,
   whose own ruleset requires a PR plus the same checks (sole bypass: the
-  GitHub Actions app, for the promote workflow's deterministic sync merge —
-  neither App bypasses it). A
+  repository admin role, for the maintainer's deterministic sync push —
+  neither App and no workflow token can write to it). A
   second ruleset with **no** bypass blocks force-pushes and branch deletion for
   everyone, so the predictions, outcomes, and evaluations under `data/` cannot
   be rewritten or dropped. Secrets and the S3 roles live in the `prod`

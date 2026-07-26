@@ -3,31 +3,36 @@ name: promote
 # Maintainer-dispatched driver for a staging→main promotion batch. Idempotent
 # and level-triggered: dispatch it, read the step summary, do what it says,
 # dispatch again — until every gate is green, at which point the summary hands
-# back the one command this workflow deliberately does not run itself:
-# `gh pr create` for the promotion PR. A PR created with a workflow's own
-# GITHUB_TOKEN triggers no `pull_request` workflows, so its required checks
-# would never report; the maintainer creating the PR is what makes the gate
-# real, not a courtesy.
+# back the `gh pr create` command for the promotion PR. The workflow is
+# strictly read-only: the two writes a promotion needs are both the
+# maintainer's own, deliberately —
+#
+#   * the main→staging sync push: the staging ruleset requires a PR plus
+#     passing checks, and its sole bypass actor is the repository admin role,
+#     so only the maintainer can land the sync merge (the summary prints the
+#     exact commands; the merge's content is already-gated main history joined
+#     with already-gated staging history);
+#   * the promotion PR: a PR created with a workflow's own GITHUB_TOKEN
+#     triggers no `pull_request` workflows, so its required checks would never
+#     report — the maintainer creating it is what makes the gate real.
 #
 # Its own workflow file rather than a mode on an existing dispatch surface:
-# this is the only dispatch-triggered job that pushes to a shared long-lived
-# branch (the main→staging sync merge below) rather than a job-owned scratch
-# branch — a risk class no other dispatch surface carries. It holds only the
-# ambient token (contents: write for that one push); no environment, no App
-# credentials, no secret material.
+# promotion is a release-shaped operational surface whose run history is the
+# audit trail of every batch attempt, like integration-test's — not an
+# analysis that answers a question about the data.
 #
 # One dispatch does, in order (every step is a no-op when already satisfied):
-#   1. Quiescence gate — no predict/evaluate matrix in flight
+#   1. Quiescence gate — no predict/evaluate/backtest fan-out in flight
 #      (scripts/promotion-gate.sh, the single gate definition ci.yml's
 #      `promotion-gate` job shares).
-#   2. Sync main→staging: merge origin/main into staging and push, so the
-#      batch is tested against main's current data commits without owning
-#      them — staging carries code/config only; main is the pre-registration
-#      record. A merge conflict fails with instructions: resolve it as a PR
-#      to staging, then re-dispatch.
-#   3. Freshness gate at staging's post-sync head: every required integration
-#      scenario green at exactly that sha. When the sync just moved staging
-#      this fails by construction — the summary prints the scenario dispatch
+#   2. Sync check: staging must already contain main, so the batch is tested
+#      against main's current data commits without owning them — staging
+#      carries code/config only; main is the pre-registration record. When it
+#      does not, the summary prints the merge-and-push commands (run them,
+#      resolving any conflict in the merge commit) and the run fails.
+#   3. Freshness gate at the staging head: every required integration
+#      scenario green at exactly that sha. After a sync moved staging this
+#      fails by construction — the summary prints the scenario dispatch
 #      commands (each staging deployment waits for reviewer approval), and
 #      this workflow is re-dispatched after they land.
 
@@ -37,7 +42,7 @@ on:
 permissions: {}
 
 # One promotion attempt at a time; a queued re-dispatch waits rather than
-# racing the sync push.
+# interleaving its summary with a running attempt's.
 concurrency:
   group: promote
   cancel-in-progress: false
@@ -47,9 +52,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write # push the main→staging sync merge
+      contents: read # checkout + ancestry check; this workflow never writes
       actions: read # fan-out + integration-test run state for the gates
-      issues: read # open run:* trigger issues mean a matrix is in flight
+      issues: read # open run:* trigger issues mean a matrix in flight
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,45 +64,37 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/promotion-gate.sh quiesce
-      - name: Sync main into staging
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
+      - name: Sync check — staging must contain main
         run: |
           set -euo pipefail
           if ! git rev-parse --verify -q origin/staging >/dev/null; then
             echo "::error::no 'staging' branch on origin — create it from main (docs/pipeline.md, 'Promotion: staging → main') before dispatching"
             exit 1
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c sync origin/staging
-          if ! git merge --no-edit origin/main; then
-            echo "::error::main→staging sync merge conflicts — resolve it as a PR to staging, then re-dispatch"
-            exit 1
-          fi
-          if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/staging)" ]; then
-            echo "staging already contains main; nothing to push"
+          if git merge-base --is-ancestor origin/main origin/staging; then
+            echo "staging already contains main"
           else
-            # Plain (non-force) push with the job's own token; blank any
-            # ambient extraheader at command scope so it authenticates. A
-            # non-fast-forward reject here means someone pushed staging since
-            # checkout — re-dispatch rather than force. The ambient token
-            # cannot carry workflow-file changes; that is safe because
-            # promotion merges keep main's workflow state an ancestor of
-            # staging's. A workflow fix landed directly on main breaks that
-            # invariant and this push is refused — recover by running the
-            # same merge locally and pushing with maintainer credentials.
-            git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
-              push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
-              "HEAD:refs/heads/staging"
+            {
+              echo "## Sync needed: staging is behind main's data commits"
+              echo
+              echo "Run (as the staging ruleset's admin bypass; resolve any conflict in the merge commit), then re-dispatch this workflow:"
+              echo
+              echo '```'
+              echo "git fetch origin"
+              echo "git switch staging && git reset --hard origin/staging"
+              echo "git merge --no-edit origin/main"
+              echo "git push origin staging"
+              echo '```'
+            } >>"$GITHUB_STEP_SUMMARY"
+            echo "::error::staging does not contain main — run the sync commands in the step summary, then re-dispatch"
+            exit 1
           fi
       - name: Freshness gate at the staging head
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          sha=$(git rev-parse HEAD)
+          sha=$(git rev-parse origin/staging)
           # Keep the dispatch-command list below in step with the script's
           # REQUIRED_SCENARIOS default — the script is the gate; this list is
           # the help text for satisfying it.

@@ -34,11 +34,11 @@ def test_promote_is_dispatch_only_and_credential_minimal() -> None:
     assert list(wf[True].keys()) == ["workflow_dispatch"]
     assert wf["permissions"] == {}
     job = wf["jobs"]["promote"]
-    # The sync push is the only write this workflow performs; widening this
-    # block (or binding an environment, which would put App keys and role
-    # ARNs in reach of a branch-mutating job) is a posture change.
+    # Strictly read-only: the sync push and the promotion PR are both the
+    # maintainer's own writes. Any write scope here (or a bound environment,
+    # which would put App keys and role ARNs in reach) is a posture change.
     assert job["permissions"] == {
-        "contents": "write",
+        "contents": "read",
         "actions": "read",
         "issues": "read",
     }
