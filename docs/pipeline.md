@@ -223,22 +223,19 @@ below describes the damage). The promotion gates target exactly those two.
 The mechanics:
 
 - **Feature PRs target `staging`** (AGENTS.md). The branch's ruleset requires
-  a pull request plus the same status checks as `main`, with the **GitHub
-  Actions app as its sole bypass actor** — a required-checks rule blocks
-  direct pushes of commits that carry no passing check runs, and the bypass
-  is what lets the promote workflow's freshly created sync merge land. Only a
-  workflow job that a reviewed workflow file explicitly grants
-  `contents: write` pushes as that identity; today that is exactly the sync
-  step. The sync push rides the ambient token, which cannot carry
-  workflow-file changes — safe because promotions keep `main`'s workflow
-  state an ancestor of `staging`'s; a workflow fix landed directly on `main`
-  breaks that invariant and the next sync push is refused (recover by
-  running the same merge locally with maintainer credentials).
-- **Sync-at-promotion.** `staging` never owns data. As the first step of each
-  batch, the `promote` workflow merges `origin/main` into `staging` (the
-  corpus pointer and data commits), so the batch is integration-tested against
-  current data read-only. There is no scheduled sync; staging is exactly as
-  fresh as its gate requires.
+  a pull request plus the same status checks as `main`, with the **repository
+  admin role as its sole bypass actor** — a required-checks rule blocks
+  direct pushes of commits that carry no passing check runs, so the
+  maintainer is the only identity that can land the sync merge below.
+  Neither GitHub App bypasses `staging`, and no workflow holds a write token
+  to it: the promote workflow is strictly read-only.
+- **Sync-at-promotion.** `staging` never owns data. At the start of each
+  batch, `main` is merged into `staging` (the corpus pointer and data
+  commits), so the batch is integration-tested against current data
+  read-only. The `promote` workflow checks the ancestry and, when staging is
+  behind, prints the merge-and-push commands for the maintainer — the push is
+  the maintainer's own, via the ruleset's admin bypass. There is no scheduled
+  sync; staging is exactly as fresh as its gate requires.
 - **Two gates, one definition.** `scripts/promotion-gate.sh` checks
   *quiescence* (no `run:predict` / `run:evaluate` / `run:backtest` fan-out in
   flight — no open trigger issue, no unfinished run) and *freshness* (every
@@ -246,10 +243,11 @@ The mechanics:
   promoted). The `promote` dispatch runs it as pre-flight; ci.yml's
   `promotion-gate` job runs it as a required check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
-- **The loop.** Dispatch `promote`; it gates, syncs, and either prints the
-  scenario dispatch commands still needed (each staging deployment waits for
-  the required reviewer) or, when green, the `gh pr create` command for the
-  promotion PR. The workflow never opens the PR itself: a PR created with a
+- **The loop.** Dispatch `promote`; it gates and prints exactly what is still
+  needed — the sync commands when staging is behind, the scenario dispatch
+  commands when freshness is unmet (each staging deployment waits for the
+  required reviewer), or, when green, the `gh pr create` command for the
+  promotion PR. The workflow performs no write itself: a PR created with a
   workflow's own token triggers no `pull_request` checks, so the maintainer
   creating it is what makes the required checks real. Merge promotions with a
   **merge commit**, never squash — `staging` and `main` must share history or
@@ -257,7 +255,7 @@ The mechanics:
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
-same required status checks as `main`, **GitHub Actions app as the only
+same required status checks as `main`, **repository admin role as the only
 bypass actor** (docs/security.md inventories it); and add `promotion-gate` to
 `main`'s required checks — it reports `skipped`, which satisfies the
 requirement, on every non-promotion PR. The `staging` *deployment
