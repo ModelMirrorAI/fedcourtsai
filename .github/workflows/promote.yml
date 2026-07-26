@@ -10,10 +10,11 @@ name: promote
 # real, not a courtesy.
 #
 # Its own workflow file rather than a mode on an existing dispatch surface:
-# this is the only dispatch-triggered job that mutates a branch (the
-# main→staging sync merge below) — a risk class none of the read-only
-# dispatch surfaces carry. It holds only the ambient token (contents: write
-# for that one push); no environment, no App credentials, no secret material.
+# this is the only dispatch-triggered job that pushes to a shared long-lived
+# branch (the main→staging sync merge below) rather than a job-owned scratch
+# branch — a risk class no other dispatch surface carries. It holds only the
+# ambient token (contents: write for that one push); no environment, no App
+# credentials, no secret material.
 #
 # One dispatch does, in order (every step is a no-op when already satisfied):
 #   1. Quiescence gate — no predict/evaluate matrix in flight
@@ -81,7 +82,12 @@ jobs:
             # Plain (non-force) push with the job's own token; blank any
             # ambient extraheader at command scope so it authenticates. A
             # non-fast-forward reject here means someone pushed staging since
-            # checkout — re-dispatch rather than force.
+            # checkout — re-dispatch rather than force. The ambient token
+            # cannot carry workflow-file changes; that is safe because
+            # promotion merges keep main's workflow state an ancestor of
+            # staging's. A workflow fix landed directly on main breaks that
+            # invariant and this push is refused — recover by running the
+            # same merge locally and pushing with maintainer credentials.
             git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
               push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
               "HEAD:refs/heads/staging"

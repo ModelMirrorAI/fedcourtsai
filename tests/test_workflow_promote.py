@@ -62,6 +62,10 @@ def test_ci_promotion_gate_runs_only_on_the_same_repo_promotion_pr() -> None:
     assert "github.event.pull_request.head.repo.full_name == github.repository" in condition
     assert "scripts/promotion-gate.sh all" in _steps_text(job)
     assert "environment" not in job
+    # Freshness must see the PR *head* sha — no integration run ever carries
+    # the synthetic merge-commit sha, so github.sha would be vacuously red.
+    (gate_step,) = [s for s in job["steps"] if "promotion-gate" in str(s.get("run", ""))]
+    assert gate_step["env"]["HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
 
 
 def test_freshness_title_coupling_holds_at_both_ends() -> None:
@@ -69,20 +73,40 @@ def test_freshness_title_coupling_holds_at_both_ends() -> None:
     # what produces them. A drift on either side makes freshness pass or fail
     # vacuously, so both literals are pinned here.
     script = GATE_SCRIPT.read_text()
-    assert 'pattern="integration-test: ${scenario} / ${engine} @"' in script
-    assert 'pattern="integration-test: ${scenario} /"' in script
+    assert 'prefix="integration-test: ${scenario} / ${engine} @"' in script
+    assert 'prefix="integration-test: ${scenario} /"' in script
+    # The suffix match is what pins the staging deployment environment.
+    assert 'grep -F "@ staging"' in script
     run_name = _load(WORKFLOWS / "integration-test.yml")["run-name"]
     assert isinstance(run_name, str)
     assert run_name.startswith("integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @")
+    assert run_name.endswith("@ ${{ inputs.deploy-environment }}")
+
+
+def _required_scenario_entries() -> list[str]:
+    script = GATE_SCRIPT.read_text()
+    (line,) = [ln for ln in script.splitlines() if ln.startswith("REQUIRED_SCENARIOS=")]
+    return line.split(":-", 1)[1].rstrip('}"').split()
 
 
 def test_required_scenarios_exist_on_the_integration_workflow() -> None:
-    # Every scenario the gate demands must be dispatchable, or a promotion
-    # could never satisfy freshness.
-    script = GATE_SCRIPT.read_text()
-    (line,) = [ln for ln in script.splitlines() if ln.startswith("REQUIRED_SCENARIOS=")]
-    default = line.split(":-", 1)[1].rstrip('}"')
-    required = {entry.split("/")[0] for entry in default.split()}
-    wf = _load(WORKFLOWS / "integration-test.yml")
-    dispatchable = set(wf[True]["workflow_dispatch"]["inputs"]["scenario"]["options"])
-    assert required <= dispatchable
+    # Every scenario — and every engine variant — the gate demands must be
+    # dispatchable, or a promotion could never satisfy freshness.
+    entries = _required_scenario_entries()
+    required = {entry.split("/")[0] for entry in entries}
+    engines = {entry.split("/", 1)[1] for entry in entries if "/" in entry}
+    inputs = _load(WORKFLOWS / "integration-test.yml")[True]["workflow_dispatch"]["inputs"]
+    assert required <= set(inputs["scenario"]["options"])
+    assert engines <= set(inputs["engine"]["options"])
+
+
+def test_promote_help_text_lists_every_required_scenario() -> None:
+    # On a freshness failure promote.yml prints the dispatch commands that
+    # would satisfy the gate; if that help text drifts from the script's
+    # required set, the maintainer is told to dispatch the wrong runs.
+    # The names ride shell for-loops, so pin each name's presence in the step
+    # text rather than a fully expanded command line.
+    text = _steps_text(_load(WORKFLOWS / "promote.yml")["jobs"]["promote"])
+    for entry in _required_scenario_entries():
+        for name in entry.split("/", 1):
+            assert name in text, f"promote.yml help text is missing {name!r}"

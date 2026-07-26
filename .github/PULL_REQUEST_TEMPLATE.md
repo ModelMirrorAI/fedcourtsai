@@ -13,7 +13,8 @@ See AGENTS.md for the full workflow and CONTRIBUTING.md for the short version.
 
 ## Checklist
 
-- [ ] Branched off `main`; this PR is focused on one thing.
+- [ ] Branched off `staging` and targets `staging` (only data-run and
+      promotion PRs target `main`); this PR is focused on one thing.
 - [ ] Ran the relevant parts of the local gate (`ruff`, `mypy`, `pytest`,
       `fedcourts validate data`) — enough for honest confidence in what changed.
 - [ ] Regenerated `schemas/` if a pydantic model changed (`fedcourts export-schemas schemas`).

@@ -8,13 +8,16 @@
 # Stages:
 #
 #   scripts/promotion-gate.sh quiesce
-#       No predict/evaluate matrix may be in flight: an open trigger issue
-#       carrying either run label, or a queued/in-progress/waiting run of
-#       either fan-out workflow, fails the gate. A workflow-file change that
-#       reaches main mid-matrix changes what the run's later jobs execute
+#       No predict/evaluate/backtest fan-out may be in flight: an open trigger
+#       issue carrying one of the run labels, or an unfinished run of any of
+#       the three fan-out workflows, fails the gate. A workflow-file change
+#       that reaches main mid-run changes what the run's later jobs execute
 #       against (see "Recovering a run whose `collect` failed" in
-#       docs/pipeline.md), so promotions wait for quiet. Label fan-out means
-#       every `issues: labeled` event briefly spawns to-be-skipped runs of the
+#       docs/pipeline.md), so promotions wait for quiet — and backtests end in
+#       a branch push + PR against main, so they count as matrices here.
+#       Anything but a literal 0 from a count read — including a malformed
+#       API response — fails the gate. Label fan-out means every
+#       `issues: labeled` event briefly spawns to-be-skipped runs of the
 #       fan-outs; a false positive from that window clears in seconds — re-run.
 #
 #   scripts/promotion-gate.sh freshness <sha>
@@ -43,20 +46,22 @@ fail=0
 
 quiesce() {
   local label wf status n
-  for label in "run:predict" "run:evaluate"; do
+  for label in "run:predict" "run:evaluate" "run:backtest"; do
     n=$(gh api "repos/${REPO}/issues?labels=${label}&state=open&per_page=100" \
       --jq '[.[] | select(.pull_request | not)] | length')
-    if [ "$n" -gt 0 ]; then
-      echo "::error::quiescence: ${n} open '${label}' trigger issue(s) — a matrix is in flight (or stalled: resolve it before promoting)"
+    # Fail on anything that is not a literal 0, so a malformed count fails
+    # closed instead of reading as "quiet".
+    if [ "$n" != "0" ]; then
+      echo "::error::quiescence: open '${label}' trigger issue count is ${n} — a run is in flight (or stalled: resolve it before promoting)"
       fail=1
     fi
   done
-  for wf in run-predict.yml run-evaluate.yml; do
-    for status in queued in_progress waiting; do
+  for wf in run-predict.yml run-evaluate.yml run-backtest.yml; do
+    for status in queued in_progress waiting pending requested; do
       n=$(gh api "repos/${REPO}/actions/workflows/${wf}/runs?status=${status}&per_page=1" \
         --jq .total_count)
-      if [ "$n" -gt 0 ]; then
-        echo "::error::quiescence: ${wf} has ${n} ${status} run(s)"
+      if [ "$n" != "0" ]; then
+        echo "::error::quiescence: ${wf} ${status} run count is ${n}"
         fail=1
       fi
     done
@@ -64,19 +69,24 @@ quiesce() {
 }
 
 freshness() {
-  local sha="$1" titles req scenario engine pattern
+  local sha="$1" titles req scenario engine prefix
   titles=$(gh api "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${sha}&per_page=100" \
     --jq '.workflow_runs[] | select(.conclusion == "success") | .display_title')
   for req in $REQUIRED_SCENARIOS; do
     scenario="${req%%/*}"
     engine=""
     case "$req" in */*) engine="${req#*/}" ;; esac
+    # Two fixed-string matches per title: the prefix pins the scenario (and
+    # engine, for the smokes), the suffix pins the staging deployment
+    # environment — so only reviewer-approved staging runs satisfy the gate,
+    # independent of the prod environment's main-only deployment policy. The
+    # second grep runs without -q so the first never dies on a closed pipe.
     if [ -n "$engine" ]; then
-      pattern="integration-test: ${scenario} / ${engine} @"
+      prefix="integration-test: ${scenario} / ${engine} @"
     else
-      pattern="integration-test: ${scenario} /"
+      prefix="integration-test: ${scenario} /"
     fi
-    if ! grep -qF "$pattern" <<<"$titles"; then
+    if ! grep -F "$prefix" <<<"$titles" | grep -F "@ staging" >/dev/null; then
       echo "::error::freshness: no green '${req}' integration-test run at ${sha}"
       fail=1
     fi

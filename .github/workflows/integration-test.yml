@@ -33,11 +33,11 @@ run-name: "integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @ ${{
 # (deployment-branch policy: any branch; protection rule: required reviewer)
 # holding the same read-only role and remote variables — so a branch's changed
 # read seams run against real infrastructure only after a human approves that
-# specific run. Until the `staging` environment exists, a branch dispatch naming
-# `prod` is refused at its deployment-branch gate, and naming anything else
-# resolves no role variables — fail-closed twice over (the AWS trust policy
-# additionally pins the role to the `prod` environment; see docs/security.md
-# for what standing up the gated environment actually requires).
+# specific run. A branch dispatch naming `prod` is refused at its
+# deployment-branch gate, and one naming any environment that does not exist
+# resolves no role variables — fail-closed either way (the AWS trust policies
+# pin each role to its named environments; docs/security.md describes the
+# gated environment's wiring).
 on:
   workflow_dispatch:
     inputs:
