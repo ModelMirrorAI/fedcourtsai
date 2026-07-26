@@ -9,7 +9,10 @@ name: integration-test
 # log, and any cell output lands only in the runner's throwaway checkout. Every
 # scenario is also token-free except engine-smoke, which spends about one
 # predict cell's worth of the selected engine's model tokens and says so on
-# its input.
+# its input. The collect scenario is environment-free on top of token-free:
+# it exercises the collect-run composite against synthetic cell artifacts
+# with every write surface stubbed or diverted on the runner, so its job
+# binds no deployment environment and dispatches from any branch.
 #
 # Manual dispatch only. Its own workflow rather than a run-analytics mode
 # because it is a preflight of the pipeline *infrastructure* itself, not an
@@ -43,6 +46,7 @@ on:
           - stub-cascade
           - engine-smoke
           - mcp-sidecar
+          - collect
       # The known-good case the scenarios target: it must exist in the corpus
       # with at least one open (predictable) event and — for the snapshot and
       # cascade reads — a snapshot in the per-case content store, which under
@@ -80,7 +84,8 @@ on:
         description: >-
           Deployment environment supplying the role/remote variables. Main
           dispatches use `prod`; a branch dispatch names the
-          maintainer-approval-gated `staging` environment.
+          maintainer-approval-gated `staging` environment. Unused by the
+          collect scenario, whose job binds no environment.
         type: string
         default: prod
 
@@ -99,6 +104,10 @@ concurrency:
 
 jobs:
   scenario:
+    # Every dispatch-selected scenario except `collect`, which runs on its own
+    # environment-free job below: it needs no role variables, so binding it to
+    # this job's deployment environment would only add a needless gate.
+    if: ${{ inputs.scenario != 'collect' }}
     runs-on: ubuntu-latest
     # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
     # real agent cell, which alone can run tens of minutes on a slow model day.
@@ -392,4 +401,390 @@ jobs:
         run: |
           set -euo pipefail
           uv run fedcourts mcp-integration-check --summary-out "$GITHUB_STEP_SUMMARY"
+
+  # --- collect: the run-PR writer over synthetic cells, environment-free ---
+
+  # Exercises the collect-run composite — the single writer for a predict/
+  # evaluate run's agent output — against synthetic cell artifacts this job
+  # uploads to its own run, so collect's durability contract is provable
+  # without spending a live matrix: a forced download failure costs one cell
+  # and not the run, the queued-cell census names the gaps and withholds the
+  # trigger-issue close, and a rerun updates in place instead of duplicating.
+  #
+  # Deliberately no deployment environment and no AWS role: the job reads no
+  # corpus and holds no secret. The composite is handed a placeholder in
+  # place of the App token, a gh shim on PATH stubs every PR surface (and
+  # forces the one transfer failure), and a git URL rewrite keyed on that
+  # placeholder diverts the branch push to a runner-local scratch remote — so
+  # nothing can write to the real repo, and a push that somehow escaped the
+  # rewrite would authenticate with a non-credential and be refused. The only
+  # real token in the job is the ambient read-only one the composite's
+  # downloader uses to list and fetch this run's own artifacts.
+  collect-scenario:
+    if: ${{ inputs.scenario == 'collect' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read # checkout; the run-PR push goes to the scratch remote, never here
+      actions: read # list and fetch this run's own synthetic cell artifacts
+    env:
+      # One synthetic predict fan-out, shared by the seeding, the artifact
+      # names, and the assertions. The run and event ids are fixed literals
+      # because the fixture corpus is deterministic; the seed step fails
+      # loudly if the fixture's ca9/103 case stops producing this event.
+      CELL_RUN_ID: 20260401T000000Z
+      CELL_EVENT: evt-appeal-disposition
+      # Stands in for the App token input. Not a credential: its only job is
+      # to key the push-diversion rewrite below.
+      PLACEHOLDER_TOKEN: collect-scenario-placeholder-token
+      # Stands in for the CourtListener token input. Long enough to arm the
+      # secret scan's literal-containment detector (short known-secret values
+      # are skipped), so the scan proves the run's added files do NOT contain
+      # the "credential" instead of passing vacuously with no needle at all.
+      SCAN_NEEDLE: collect-scenario-synthetic-scan-needle
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: the composite branches the run PR from a freshly
+          # fetched origin/main and pushes that history to the scratch
+          # remote, which a shallow clone cannot serve.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      # Three production-shaped cells over the deterministic fixture corpus —
+      # two ready (claude, codex) and one salvage (gemini: valid output, agent
+      # stopped early) — each in its own status.json + data/ layout, exactly
+      # what a cell workflow uploads. The cell workflows stamp every produced
+      # prediction.json with its process version post-agent, so a cell
+      # reaching collect is a *stamped* cell; the fixtures are stamped the
+      # same way, keeping collect's validate gate on production-shaped input
+      # (collect itself is stamp-agnostic).
+      - name: Seed the synthetic cells
+        id: seed
+        run: |
+          set -euo pipefail
+          fixtures="$RUNNER_TEMP/collect-fixtures"
+          export FEDCOURTS_CORPUS_ROOT="$fixtures/corpus"
+          uv run fedcourts make-fixture-corpus --out "$fixtures/corpus/corpus.db"
+
+          for actor in claude-baseline codex-baseline gemini-baseline; do
+            cell="$fixtures/cells/predict-${actor}-ca9-103-${CELL_EVENT}"
+            export FEDCOURTS_DATA_ROOT="${cell}/data"
+            uv run fedcourts local-cascade --court ca9 --docket 103 \
+              --engine stub --predictor "$actor" --run-id "$CELL_RUN_ID" \
+              --require-predictions
+            uv run fedcourts stamp-cell --court ca9 --docket 103 \
+              --event "$CELL_EVENT" --run-id "$CELL_RUN_ID" \
+              --role predictor --actor "$actor"
+            # Fixture-drift guard: stamp-cell no-ops on a missing artifact, so
+            # assert the stamped prediction really exists at the event id the
+            # artifact names and assertions are keyed on.
+            test -f "${cell}/data/cases/ca9/103/events/${CELL_EVENT}/predictions/${actor}/${CELL_RUN_ID}/prediction.json"
+            agent_ok=true
+            if [ "$actor" = gemini-baseline ]; then agent_ok=false; fi
+            jq -n --arg actor "$actor" --arg event "$CELL_EVENT" \
+              --arg run_id "$CELL_RUN_ID" --argjson agent_ok "$agent_ok" \
+              '{court:"ca9",docket:103,event_id:$event,actor:$actor,run_id:$run_id,produced:true,validated:true,agent_ok:$agent_ok}' \
+              > "${cell}/status.json"
+          done
+
+          # The lost cell: it must exist on the run (the downloader lists it)
+          # but its download is forced to fail, so its content is never read —
+          # a placeholder file is enough, and keeps the loss distinguishable
+          # from the never-uploaded cell below.
+          lost="$fixtures/cells/predict-claude-baseline-ca9-101-${CELL_EVENT}"
+          mkdir -p "$lost"
+          echo "download is forced to fail; this content is never read" \
+            > "$lost/placeholder.txt"
+
+          # The plan matrix — what the run was *supposed* to produce: the
+          # three delivered cells, the lost cell, and one queued cell (codex
+          # on ca9/101) that neither uploads nor is listed as lost, which the
+          # census must therefore call never-uploaded.
+          matrix=$(jq -nc --arg event "$CELL_EVENT" --arg run_id "$CELL_RUN_ID" \
+            '{include:[
+              {predictor_id:"claude-baseline",court:"ca9",docket:103,event_id:$event,run_id:$run_id},
+              {predictor_id:"codex-baseline",court:"ca9",docket:103,event_id:$event,run_id:$run_id},
+              {predictor_id:"gemini-baseline",court:"ca9",docket:103,event_id:$event,run_id:$run_id},
+              {predictor_id:"claude-baseline",court:"ca9",docket:101,event_id:$event,run_id:$run_id},
+              {predictor_id:"codex-baseline",court:"ca9",docket:101,event_id:$event,run_id:$run_id}
+            ]}')
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+
+      # One artifact per cell, named exactly as the cell workflows name theirs
+      # (`<role>-<actor>-<court>-<docket>-<event>`): the composite keys its
+      # download on the `predict-` prefix, and the census rebuilds these names
+      # from matrix identities to classify a lost artifact.
+      - name: Upload the ready claude cell
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
+          path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload the ready codex cell
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
+          path: ${{ runner.temp }}/collect-fixtures/cells/predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload the salvage gemini cell
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
+          path: ${{ runner.temp }}/collect-fixtures/cells/predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload the cell whose download will be forced to fail
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
+          path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
+          if-no-files-found: error
+          retention-days: 1
+
+      # Every write surface the composite touches, stubbed or diverted before
+      # it runs. The gh shim passes `api` and `run` through to the real gh
+      # (read-only, ambient token) except the one forced transfer failure,
+      # no-ops `auth`, answers the PR queries from its own ledger, and fails
+      # loudly on anything unstubbed — so a composite change that grows a new
+      # write surface breaks this scenario instead of reaching the network.
+      # The URL rewrite sends the composite's push — addressed to github.com
+      # with the placeholder token — into a bare scratch repo on the runner.
+      - name: Divert every write surface to runner-local stubs
+        run: |
+          set -euo pipefail
+          shim="$RUNNER_TEMP/collect-shim"
+          mkdir -p "$shim"
+          printf '%s\n' "predict-claude-baseline-ca9-101-${CELL_EVENT}" > "$shim/lost-artifact"
+          : > "$shim/log"
+          : > "$shim/prs.tsv"
+          command -v gh > "$shim/real-gh"
+          cat > "$shim/gh" <<'SHIM'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          printf 'gh %s\n' "$*" >> "$here/log"
+          real="$(cat "$here/real-gh")"
+          arg() { # print the value following the given flag, if any
+            local flag="$1"; shift
+            while [ "$#" -gt 0 ]; do
+              if [ "$1" = "$flag" ] && [ "$#" -gt 1 ]; then printf '%s' "$2"; return; fi
+              shift
+            done
+          }
+          case "${1-}" in
+            api) exec "$real" "$@" ;; # passthrough; the job's permissions block, not this shim, is what caps the token at read
+            run)
+              if [ "${2-}" = download ] && [ "$(arg --name "$@")" = "$(cat "$here/lost-artifact")" ]; then
+                echo "shim: forcing a transfer failure for $(arg --name "$@")" >&2
+                exit 1
+              fi
+              exec "$real" "$@" ;; # passthrough; capped at read by the job's permissions block
+            auth) exit 0 ;; # leave git credential-less; the push is diverted anyway
+            pr)
+              case "${2-}" in
+                list)
+                  if [ "$(arg --state "$@")" = all ]; then echo 0; exit 0; fi
+                  awk -v b="$(arg --head "$@")" '$1 == b { print $2 }' "$here/prs.tsv"
+                  exit 0 ;;
+                create)
+                  head_branch="$(arg --head "$@")"
+                  url="https://prs.invalid/${head_branch}"
+                  printf '%s\t%s\n' "$head_branch" "$url" >> "$here/prs.tsv"
+                  echo "$url"; exit 0 ;;
+                edit|ready|merge) exit 0 ;;
+              esac
+              echo "gh shim: unstubbed pr subcommand: $*" >&2; exit 64 ;;
+          esac
+          echo "gh shim: unstubbed command: $*" >&2
+          exit 64
+          SHIM
+          chmod +x "$shim/gh"
+          echo "$shim" >> "$GITHUB_PATH"
+
+          scratch="$RUNNER_TEMP/collect-scratch.git"
+          git init --bare -q "$scratch"
+          git config --global \
+            "url.file://${scratch}.insteadOf" \
+            "https://x-access-token:${PLACEHOLDER_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # The commit identity the caller workflows normally configure from
+          # the App token; commits only ever reach the scratch remote.
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # First pass: the shim forces the claude ca9/101 artifact's download to
+      # fail, so this collects 3 of the 4 listed artifacts and must degrade
+      # per-cell, not per-run.
+      - name: Collect the synthetic run
+        uses: ./.github/actions/collect-run
+        with:
+          role: predict
+          token: ${{ env.PLACEHOLDER_TOKEN }}
+          repo: ${{ github.repository }}
+          # A synthetic trigger-issue number, not a reference to any real
+          # issue: the census assertions below need a non-zero issue to prove
+          # the ready PR withholds its close, and the stubbed gh never posts
+          # it anywhere.
+          issue: "987654321"
+          matrix: ${{ steps.seed.outputs.matrix }}
+          github-token: ${{ github.token }}
+          courtlistener-token: ${{ env.SCAN_NEEDLE }}
+
+      - name: Assert per-cell degradation, the census, and the gates
+        run: |
+          set -euo pipefail
+          shim="$RUNNER_TEMP/collect-shim"
+          scratch="$RUNNER_TEMP/collect-scratch.git"
+          ready_branch="predict/run-${CELL_RUN_ID}"
+          partial_branch="predict/run-${CELL_RUN_ID}-partial"
+          ready_url="https://prs.invalid/${ready_branch}"
+          partial_url="https://prs.invalid/${partial_branch}"
+          lost="predict-claude-baseline-ca9-101-${CELL_EVENT}"
+          fail() { echo "::error::$1"; exit 1; }
+
+          # The forced loss cost exactly one cell, and the downloader named it.
+          [ "$(cat missing-artifacts.txt)" = "$lost" ] \
+            || fail "the downloader should have lost exactly ${lost}"
+
+          # The census tells the lost artifact from the never-uploaded cell.
+          jq -e --arg evt "$CELL_EVENT" '.ready.artifact_dirs == [
+              "predict-claude-baseline-ca9-103-" + $evt,
+              "predict-codex-baseline-ca9-103-" + $evt
+            ] and .ready.draft == false' collect-plan.json > /dev/null \
+            || fail "the ready PR should carry exactly the two clean cells"
+          jq -e --arg evt "$CELL_EVENT" \
+            '.partial.artifact_dirs == ["predict-gemini-baseline-ca9-103-" + $evt]
+             and .partial.draft == true' collect-plan.json > /dev/null \
+            || fail "the salvage cell should ride the draft PR"
+          jq -e --arg lost "$lost" '.missing_artifacts == [$lost]' collect-plan.json > /dev/null \
+            || fail "the plan should name the lost artifact"
+          jq -e --arg evt "$CELL_EVENT" '.uncovered_cells == [
+              {actor:"codex-baseline",court:"ca9",docket:101,event_id:$evt}
+            ]' collect-plan.json > /dev/null \
+            || fail "the census should name the queued cell that never uploaded"
+          jq -e '(.ready.body | contains("Closes #") | not)
+             and (.ready.body | contains("did not transfer"))
+             and (.ready.body | contains("uploaded nothing at all"))' collect-plan.json > /dev/null \
+            || fail "the ready PR body should disclose both gaps and withhold the issue close"
+          jq -e '.facts_only == null and .stalled == false and .dead_actors == []' \
+            collect-plan.json > /dev/null \
+            || fail "a run with ready cells is neither stalled nor facts-only"
+
+          # The pushes landed on the scratch remote: both run branches, and
+          # nothing else, with the right cells on each.
+          [ "$(git -C "$scratch" for-each-ref --format='%(refname:short)' refs/heads \
+              | sort | paste -sd' ')" = "$ready_branch $partial_branch" ] \
+            || fail "the scratch remote should hold exactly the ready and draft branches"
+          ready_tree=$(git -C "$scratch" ls-tree -r --name-only "$ready_branch")
+          for path in \
+            "data/cases/ca9/103/events/${CELL_EVENT}/predictions/claude-baseline/${CELL_RUN_ID}/prediction.json" \
+            "data/cases/ca9/103/events/${CELL_EVENT}/predictions/codex-baseline/${CELL_RUN_ID}/prediction.json" \
+            "data/cases/ca9/103/events/${CELL_EVENT}/predictions/gemini-baseline/${CELL_RUN_ID}/attempt.json" \
+            "data/cases/ca9/101/events/${CELL_EVENT}/predictions/codex-baseline/${CELL_RUN_ID}/attempt.json"; do
+            grep -qx "$path" <<< "$ready_tree" || fail "ready branch is missing ${path}"
+          done
+          if grep -q "gemini-baseline/${CELL_RUN_ID}/prediction.json" <<< "$ready_tree"; then
+            fail "the salvage cell's prediction must not ride the auto-merging ready PR"
+          fi
+          if grep -q "cases/ca9/101/.*/prediction.json" <<< "$ready_tree"; then
+            fail "a lost cell's content cannot appear anywhere (it never downloaded)"
+          fi
+          # A transfer loss is re-collectable, not a cell failure: no fact.
+          if grep -q "claude-baseline/${CELL_RUN_ID}/attempt.json" <<< "$ready_tree"; then
+            fail "a lost artifact must not record a cell-failure fact"
+          fi
+          partial_tree=$(git -C "$scratch" ls-tree -r --name-only "$partial_branch")
+          grep -qx "data/cases/ca9/103/events/${CELL_EVENT}/predictions/gemini-baseline/${CELL_RUN_ID}/prediction.json" \
+            <<< "$partial_tree" \
+            || fail "the draft branch should carry the salvage cell's output"
+
+          # The PR surface: one PR per branch, auto-merge armed only on ready.
+          [ "$(grep -c '^gh pr create' "$shim/log")" = 2 ] \
+            || fail "expected exactly two PR creations"
+          grep -q "^gh pr merge --auto --squash ${ready_url}\$" "$shim/log" \
+            || fail "auto-merge should be enabled on the ready PR"
+          if grep -q "merge --auto --squash ${partial_url}\$" "$shim/log"; then
+            fail "a draft PR must never arm auto-merge"
+          fi
+
+          # Snapshot for the idempotency pass, mark the shim log so the second
+          # pass's calls are separable, and restore the trigger-ref working
+          # tree a real rerun would start from (the composite left it on the
+          # draft branch).
+          git -C "$scratch" rev-parse "${ready_branch}^{tree}" "${partial_branch}^{tree}" \
+            > "$RUNNER_TEMP/trees-first.txt"
+          cp collect-plan.json "$RUNNER_TEMP/plan-first.json"
+          echo "--- rerun ---" >> "$shim/log"
+          git checkout -q --detach "$GITHUB_SHA"
+
+      # Second pass, identical inputs: `gh run rerun --failed` is the
+      # documented recovery for a transfer failure, so collect must be safe
+      # to repeat — same branch trees, same plan, find-and-update instead of
+      # a second PR.
+      - name: Collect the synthetic run again (the rerun recovery path)
+        uses: ./.github/actions/collect-run
+        with:
+          role: predict
+          token: ${{ env.PLACEHOLDER_TOKEN }}
+          repo: ${{ github.repository }}
+          # A synthetic trigger-issue number, not a reference to any real
+          # issue: the census assertions below need a non-zero issue to prove
+          # the ready PR withholds its close, and the stubbed gh never posts
+          # it anywhere.
+          issue: "987654321"
+          matrix: ${{ steps.seed.outputs.matrix }}
+          github-token: ${{ github.token }}
+          courtlistener-token: ${{ env.SCAN_NEEDLE }}
+
+      - name: Assert the rerun is idempotent
+        run: |
+          set -euo pipefail
+          shim="$RUNNER_TEMP/collect-shim"
+          scratch="$RUNNER_TEMP/collect-scratch.git"
+          ready_branch="predict/run-${CELL_RUN_ID}"
+          partial_branch="predict/run-${CELL_RUN_ID}-partial"
+          ready_url="https://prs.invalid/${ready_branch}"
+          partial_url="https://prs.invalid/${partial_branch}"
+          fail() { echo "::error::$1"; exit 1; }
+
+          # Whole-tree comparison, and both passes branch from a freshly
+          # fetched origin/main — so a merge to main landing between the two
+          # passes moves both branches' bases and fails this spuriously. Read
+          # that failure as "main moved" and re-dispatch, not "collect broke".
+          git -C "$scratch" rev-parse "${ready_branch}^{tree}" "${partial_branch}^{tree}" \
+            > "$RUNNER_TEMP/trees-second.txt"
+          cmp -s "$RUNNER_TEMP/trees-first.txt" "$RUNNER_TEMP/trees-second.txt" \
+            || fail "the rerun changed a run branch's content (or main moved mid-scenario; re-dispatch)"
+          cmp -s "$RUNNER_TEMP/plan-first.json" collect-plan.json \
+            || fail "the rerun changed the collect plan"
+
+          rerun=$(sed -n '/^--- rerun ---$/,$p' "$shim/log")
+          if grep -q '^gh pr create' <<< "$rerun"; then
+            fail "the rerun opened a second PR instead of updating the first"
+          fi
+          grep -q "^gh pr edit ${ready_url} " <<< "$rerun" \
+            || fail "the rerun should update the ready PR in place"
+          grep -q "^gh pr edit ${partial_url} " <<< "$rerun" \
+            || fail "the rerun should update the draft PR in place"
+          grep -q "^gh pr ready --undo ${partial_url}\$" <<< "$rerun" \
+            || fail "the rerun must return the salvage PR to a draft"
+          grep -q "^gh pr merge --auto --squash ${ready_url}\$" <<< "$rerun" \
+            || fail "the rerun should re-arm auto-merge on the ready PR"
+
+          {
+            echo ""
+            echo "## Collect over synthetic cells"
+            echo ""
+            echo "- collected 3 of 4 listed artifacts; the forced loss cost one cell, not the run"
+            echo "- ready PR: 2 cells, auto-merge armed, issue close withheld (1 lost artifact, 1 never-uploaded cell)"
+            echo "- draft PR: 1 salvage cell; failure facts recorded for the salvage and never-uploaded cells only"
+            echo "- rerun: identical branch trees and plan; PRs updated in place, none duplicated"
+          } >> "$GITHUB_STEP_SUMMARY"
 

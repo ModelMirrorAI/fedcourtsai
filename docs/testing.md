@@ -53,7 +53,8 @@ manual workflow dispatch, never on every iteration.
 
 That infrastructure has a dedicated path:
 [`integration-test.yml`](../.github/workflows/integration-test.yml) (manual
-dispatch, read-only role, strictly side-effect free) runs one scenario per
+dispatch, read-only role — the collect scenario none at all — strictly
+side-effect free) runs one scenario per
 dispatch. `ranged-reads` is the tested `fedcourts corpus-integration-check`
 read set — a point lookup, a priors retrieval, a snapshot provisioning —
 against the real remote blob for a known case, asserting every read comes back
@@ -66,6 +67,19 @@ end. `mcp-sidecar` launches the same CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs
 the tested `fedcourts mcp-integration-check` client against it (initialize +
 tools/list, failing unless the handshake completes and tools are advertised).
+`collect` exercises the `collect-run` composite — the single writer for a
+predict/evaluate run's agent output — against synthetic stamped cells the job
+itself builds from the fixture corpus and uploads to its own run: a `gh` shim
+forces one artifact's download to fail and stubs every PR surface, and a git
+URL rewrite diverts the branch push to a runner-local scratch remote, so the
+scenario asserts collect's whole durability contract (a transfer loss costs
+one cell and not the run; the plan names the lost artifact and the
+queued-cell census the never-uploaded cell, and both withhold the
+trigger-issue close; the salvage cell
+rides the draft; a rerun updates in place) with no App token, no PR, and no
+matrix spend. It is the one scenario whose job binds no deployment
+environment at all — it needs no role variables and no secret — so it
+dispatches from any branch without the approval gate.
 `engine-smoke` is the one token-spending scenario: a single real-engine
 predictor cell (the `engine` input picks which; one predict cell's spend
 against the default open-event case — a resolved event also replays
@@ -78,8 +92,10 @@ in. Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
 **engine-smoke around any engine CLI version bump or sandbox/config change**,
-and as a preflight **before a release dry run** and **before a prediction
-freeze** — the moments when a silent read regression would be most expensive.
+**collect around any change to the `collect-run` composite or the collect
+jobs that call it**, and as a preflight **before a release dry run** and
+**before a prediction freeze** — the moments when a silent read regression
+would be most expensive.
 The `deploy-environment` input names which deployment environment supplies the
 role and remote variables: main dispatches use `prod`, and the
 maintainer-approval-gated `staging` environment (deployment-branch policy open,

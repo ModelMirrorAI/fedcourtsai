@@ -217,7 +217,17 @@ required-reviewer protection rule first, then widen the read-only role's trust
 policy to the `staging` environment's `sub` — the reviewer rule is the gate, and
 widening trust before it exists would make the gate decorative.
 
-The workflow's engine-smoke scenario additionally reads one model-provider
+The workflow's collect scenario binds no environment at all: its job holds no
+secret and no role — the collect-run composite under test is handed a
+placeholder in place of the App token, a `gh` shim stubs its PR surface, and
+a git URL rewrite keyed on that placeholder diverts its branch push to a
+runner-local scratch remote — so a branch dispatch runs it without any
+approval, and there is nothing for an ungated dispatch to reach. Its only
+real credential is the ambient read-only token that lists and fetches the
+run's own synthetic cell artifacts.
+
+The workflow's engine-smoke scenario additionally — beyond the role
+variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
 other engines' keys never enter the job. Like every secret in this repo the
 keys live on the `prod` environment, so the scenario fully resolves only on
