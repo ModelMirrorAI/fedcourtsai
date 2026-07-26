@@ -6,6 +6,11 @@ name: ci
 # no secrets, so it does not declare the `prod` environment.
 on:
   pull_request:
+    # `edited` re-evaluates the base-sensitive checks (main-base,
+    # promotion-gate, paths, cleanup-paths) when a PR is retargeted — without it a PR opened
+    # against staging keeps its stale `skipped` main-base run after a
+    # retarget to main, and skipped satisfies the required check.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
@@ -96,7 +101,9 @@ jobs:
   cleanup-paths:
     # The destructive counterpart of `paths`: a cleanup-sweep branch may only *delete*
     # files under a data/cases/**/events/*/predictions/ subtree. A no-op that passes
-    # for every other branch, so it is safe as a required status check on all PRs.
+    # for every other branch, so it is safe to require on all PRs — but it is
+    # deliberately left out of the required list: a cleanup PR is never
+    # auto-merged, so this is review-time defense.
     # A maintainer runs the jail locally before opening the sweep PR; this enforces
     # it independently.
     # Logic lives in the tested `assert-cleanup-paths` command; this step only runs git.
@@ -153,3 +160,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: scripts/promotion-gate.sh all "$HEAD_SHA"
+
+  main-base:
+    # Merge routing as a required check (the `paths` pattern): code reaches
+    # `main` only through the staging→main promotion or a reviewed
+    # non-feature lane — the collect run branches, the maintainer's cleanup
+    # sweep, and the metrics-refresh / cert-backtest PRs. This job runs (and fails) only on
+    # a PR to `main` from any other head; every legitimate PR skips it, and a
+    # skipped required check is satisfied. Fork heads never match the
+    # allowlist — outside contributions route through `staging` too. The
+    # emergency escape hatch is a repo admin editing the ruleset: deliberate
+    # and auditable. Expression `==`/`startsWith` compare case-insensitively,
+    # so a write-access branch named `Staging` skips the jail — a hygiene
+    # gap, not a hole: the PR still needs the human merge.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'main' &&
+      !(
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (
+          github.head_ref == 'staging' ||
+          startsWith(github.head_ref, 'predict/run-') ||
+          startsWith(github.head_ref, 'evaluate/run-') ||
+          startsWith(github.head_ref, 'cleanup/') ||
+          github.head_ref == 'metrics/refresh' ||
+          github.head_ref == 'metrics/cert-backtest'
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - run: |
+          set -euo pipefail
+          echo "::error::PRs to main carry only promotion batches (head 'staging') or the bot lanes; feature PRs target 'staging' (AGENTS.md)."
+          exit 1
