@@ -59,11 +59,11 @@ Commits and PRs are attributed to each App's own bot user (the
 `configure-git-identity` action resolves `<app-slug>[bot]` from the token), so
 deterministic corpus pushes and agent PRs are visibly authored by different bots.
 
-## Branch protection — three rulesets
+## Branch protection — the rulesets
 
 The two `main` rulesets are split so the per-rule bypass is correct (a ruleset's
-bypass list applies to the whole ruleset); a third protects the `ops-metrics`
-branch:
+bypass list applies to the whole ruleset); further rulesets protect the
+`staging` and `ops-metrics` branches:
 
 - **`main: require PR`** — requires a pull request plus the `gate` status check to
   merge. **Bypass: the data App only**, so the deterministic
@@ -73,7 +73,9 @@ branch:
   go through a reviewed PR. The dev App is deliberately **absent** from this
   bypass list. Required approvals are `0` (a maintainer reviews at merge time); set
   to `1` if a second reviewer exists.
-  - Required checks are `gate` and `paths`. **Not** `zizmor` — it is path-filtered
+  - Required checks are `gate`, `paths`, and `promotion-gate` (which reports
+    `skipped` — satisfying the requirement — on every PR that is not the
+    staging→main promotion). **Not** `zizmor` — it is path-filtered
     to `.github/**`, so requiring it would hang any PR that does not touch workflows.
   - `paths` is the **auto-merge path jail**. The predict/evaluate
     collect jobs open one PR per run that auto-merges when green, opened with the
@@ -106,6 +108,18 @@ branch:
   bypass — neither App.** This is what guarantees the predictions, outcomes,
   and evaluations under `data/` cannot be rewritten or dropped, even by a
   misbehaving writer that holds the data App's bypass token.
+- **`staging: require PR`** — the pre-merge branch every feature PR targets
+  requires a pull request plus the same required checks as `main`. **Bypass:
+  the GitHub Actions app only**, which is what lets the `promote` workflow's
+  main→staging sync merge land as a direct push — its content is by
+  construction already-gated `main` history merged with already-gated
+  `staging` history, and `promote` is the only dispatch surface holding
+  ambient `contents: write` (any second one is a reviewed workflow-file
+  change). **Neither App is a bypass actor here**, so the identity-enforced
+  "everything agentic lands via a reviewed PR" invariant holds one hop before
+  `main` as well: the dev App token minted in the agent runs has no zero-PR
+  path onto the promotion train or onto the ref the staging-environment
+  deployments execute.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
   corpus-writer path (`run-pull`, via the `publish-corpus-verdict` action) publishes
@@ -206,16 +220,16 @@ Every `prod` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
 **The integration-test workflow selects its environment by input**
-(`deploy-environment`, default `prod`). Today that is fail-closed twice over
-for any branch dispatch: naming `prod` is refused at its deployment-branch
-gate before any step runs, and naming any other environment resolves no role
-variables — and the AWS roles' trust policies additionally pin the OIDC `sub`
-to the `prod` environment, so an auto-created empty environment can assume
-nothing. Standing up the `staging` pre-merge environment (any-branch deployment
-policy) therefore requires two deliberate steps **in this order**: add its
-required-reviewer protection rule first, then widen the read-only role's trust
-policy to the `staging` environment's `sub` — the reviewer rule is the gate, and
-widening trust before it exists would make the gate decorative.
+(`deploy-environment`, default `prod`). A branch dispatch naming `prod` is
+refused at its deployment-branch gate before any step runs; one naming the
+`staging` pre-merge environment (any-branch deployment policy) proceeds only
+after the required reviewer approves that specific deployment; and one naming
+anything else resolves no role variables — the AWS roles' trust policies pin
+the OIDC `sub` to the named environments, so an auto-created empty environment
+can assume nothing. `staging` pairs its **required-reviewer** rule with the
+read-only role's trust naming its `sub`; the rule is the gate and must exist
+before the trust does (trust without it would be decorative — rebuild in that
+order). The write role's trust never names `staging`.
 
 The workflow's collect scenario binds no environment at all: its job holds no
 secret and no role — the collect-run composite under test is handed a
@@ -229,14 +243,14 @@ run's own synthetic cell artifacts.
 The workflow's engine-smoke scenario additionally — beyond the role
 variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
-other engines' keys never enter the job. Like every secret in this repo the
-keys live on the `prod` environment, so the scenario fully resolves only on
-a main dispatch; a branch dispatch gets an empty key and fails closed right
-alongside the role variables, independent of step ordering. Standing up the
-`staging` pre-merge environment extends to engine-smoke only if the maintainer
-also places the engine keys on it as environment secrets — the
-required-reviewer rule then gates model spend exactly as it gates the
-read-only role. A codex smoke additionally loosens the runner kernel's
+other engines' keys never enter the job. The keys live on the `prod`
+environment and, as **separate per-environment secrets**, on `staging` — a
+pre-merge smoke spends against staging's own keys (independently revocable,
+isolated from tournament spend) and only after the required reviewer approves
+the run, so the reviewer rule gates model spend exactly as it gates the
+read-only role. A dispatch naming an environment without the keys gets an
+empty key and fails closed right alongside the role variables, independent of
+step ordering. A codex smoke additionally loosens the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
 cells) without dropping sudo afterwards — accepted for the same reason as in
 the back-test residual below: same-user co-residency is already conceded as

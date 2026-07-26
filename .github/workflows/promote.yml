@@ -1,0 +1,132 @@
+name: promote
+
+# Maintainer-dispatched driver for a staging→main promotion batch. Idempotent
+# and level-triggered: dispatch it, read the step summary, do what it says,
+# dispatch again — until every gate is green, at which point the summary hands
+# back the one command this workflow deliberately does not run itself:
+# `gh pr create` for the promotion PR. A PR created with a workflow's own
+# GITHUB_TOKEN triggers no `pull_request` workflows, so its required checks
+# would never report; the maintainer creating the PR is what makes the gate
+# real, not a courtesy.
+#
+# Its own workflow file rather than a mode on an existing dispatch surface:
+# this is the only dispatch-triggered job that pushes to a shared long-lived
+# branch (the main→staging sync merge below) rather than a job-owned scratch
+# branch — a risk class no other dispatch surface carries. It holds only the
+# ambient token (contents: write for that one push); no environment, no App
+# credentials, no secret material.
+#
+# One dispatch does, in order (every step is a no-op when already satisfied):
+#   1. Quiescence gate — no predict/evaluate matrix in flight
+#      (scripts/promotion-gate.sh, the single gate definition ci.yml's
+#      `promotion-gate` job shares).
+#   2. Sync main→staging: merge origin/main into staging and push, so the
+#      batch is tested against main's current data commits without owning
+#      them — staging carries code/config only; main is the pre-registration
+#      record. A merge conflict fails with instructions: resolve it as a PR
+#      to staging, then re-dispatch.
+#   3. Freshness gate at staging's post-sync head: every required integration
+#      scenario green at exactly that sha. When the sync just moved staging
+#      this fails by construction — the summary prints the scenario dispatch
+#      commands (each staging deployment waits for reviewer approval), and
+#      this workflow is re-dispatched after they land.
+
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+# One promotion attempt at a time; a queued re-dispatch waits rather than
+# racing the sync push.
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the main→staging sync merge
+      actions: read # fan-out + integration-test run state for the gates
+      issues: read # open run:* trigger issues mean a matrix is in flight
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Quiescence gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/promotion-gate.sh quiesce
+      - name: Sync main into staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! git rev-parse --verify -q origin/staging >/dev/null; then
+            echo "::error::no 'staging' branch on origin — create it from main (docs/pipeline.md, 'Promotion: staging → main') before dispatching"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c sync origin/staging
+          if ! git merge --no-edit origin/main; then
+            echo "::error::main→staging sync merge conflicts — resolve it as a PR to staging, then re-dispatch"
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/staging)" ]; then
+            echo "staging already contains main; nothing to push"
+          else
+            # Plain (non-force) push with the job's own token; blank any
+            # ambient extraheader at command scope so it authenticates. A
+            # non-fast-forward reject here means someone pushed staging since
+            # checkout — re-dispatch rather than force. The ambient token
+            # cannot carry workflow-file changes; that is safe because
+            # promotion merges keep main's workflow state an ancestor of
+            # staging's. A workflow fix landed directly on main breaks that
+            # invariant and this push is refused — recover by running the
+            # same merge locally and pushing with maintainer credentials.
+            git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+              push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+              "HEAD:refs/heads/staging"
+          fi
+      - name: Freshness gate at the staging head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          # Keep the dispatch-command list below in step with the script's
+          # REQUIRED_SCENARIOS default — the script is the gate; this list is
+          # the help text for satisfying it.
+          if scripts/promotion-gate.sh freshness "$sha"; then
+            {
+              echo "## Promotion gates green at \`${sha}\`"
+              echo
+              echo "Open (or refresh) the promotion PR — required checks run under your identity:"
+              echo
+              echo '```'
+              echo "gh pr create --base main --head staging --title \"chore: promote staging to main\" --body \"Promotion batch; gates green at ${sha}.\""
+              echo '```'
+              echo
+              echo "Merge with a **merge commit** (never squash — staging and main must share history), and re-run the promotion-gate check right before merging: quiescence is point-in-time."
+            } >>"$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Integration runs needed at \`${sha}\`"
+              echo
+              echo "Dispatch each scenario (staging deployments wait for reviewer approval), then re-dispatch this workflow:"
+              echo
+              echo '```'
+              for s in ranged-reads corpus-service stub-cascade mcp-sidecar; do
+                echo "gh workflow run integration-test.yml --ref staging -f deploy-environment=staging -f scenario=${s}"
+              done
+              for e in claude-code codex gemini; do
+                echo "gh workflow run integration-test.yml --ref staging -f deploy-environment=staging -f scenario=engine-smoke -f engine=${e}"
+              done
+              echo '```'
+            } >>"$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

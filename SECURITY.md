@@ -111,7 +111,11 @@ runbook, [docs/security.md](docs/security.md).
   PR plus the `gate` check; the **data App** is the sole bypass actor, so the
   deterministic `run-pull` writers push corpus facts straight to `main` while
   everything agentic goes through a reviewed PR — enforced by identity, since
-  the agent workflows authenticate as a separate, non-bypass **dev App**. A
+  the agent workflows authenticate as a separate, non-bypass **dev App**. Code
+  and config reach `main` only as a gated promotion batch from `staging`,
+  whose own ruleset requires a PR plus the same checks (sole bypass: the
+  GitHub Actions app, for the promote workflow's deterministic sync merge —
+  neither App bypasses it). A
   second ruleset with **no** bypass blocks force-pushes and branch deletion for
   everyone, so the predictions, outcomes, and evaluations under `data/` cannot
   be rewritten or dropped. Secrets and the S3 roles live in the `prod`

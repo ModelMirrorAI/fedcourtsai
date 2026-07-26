@@ -17,9 +17,11 @@ opening a PR; this page only covers what is specific to outside contributors.
   [`docs/pipeline.md`](docs/pipeline.md)). Applying those labels is
   **maintainer-gated** and is the pipeline's trust boundary (see
   [SECURITY.md](SECURITY.md)).
-- **Never commit to `main`.** Every change lands through a focused pull request
-  that must pass the `gate` check before merge — see the branch-and-PR flow and
-  local gate in [AGENTS.md](AGENTS.md).
+- **Never commit to `main` or `staging`.** Every change lands through a focused
+  pull request against `staging` (name it explicitly — `gh pr create` defaults
+  to `main`) that must pass the `gate` check, and reaches `main` in reviewed
+  promotion batches — see the branch-and-PR flow and local gate in
+  [AGENTS.md](AGENTS.md).
 - **Stay in your lane.** Pipeline-code changes don't touch `data/`;
   data-production runs don't change pipeline code to make a task easier.
 
