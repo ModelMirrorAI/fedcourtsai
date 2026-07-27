@@ -39,7 +39,14 @@ Monday schedule tick it additionally posts the short **weekly digest** comment
 to the dashboard issue — the same numbers as fixed questions demanding a
 reaction ("Replay calibration on N scored cell(s): lift over always-deny — do
 you believe it?"), with the daily dashboard staying the reference view. It triggers
-nothing and touches neither `main` nor the corpus.
+nothing and touches neither `main` nor the corpus. It reports the **promoted**
+state: scheduled runs execute from the default branch, so the dashboard describes
+the tree that is actually running rather than the one staged for the next batch —
+and the lag is confined to code and config, since the substance and spend
+sections read `data/` and `metrics/`, which the writers commit to `main`
+directly. One reading note the dashboard now carries itself: `promote` is
+level-triggered, so its failures are unsatisfied-gate reports rather than
+incidents, and its success rate counts promotion attempts.
 
 It is also the **presenter** of the published corpus-side artifacts (see *Data
 validation* in [data-pipeline.md](data-pipeline.md)): the corpus-writer path

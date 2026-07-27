@@ -48,6 +48,15 @@ from .schemas import (
 # Conclusions that count as a completed-but-not-successful run.
 _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_failure"})
 
+# Workflows whose non-zero exit is a REPORT, not an incident. `promote` is
+# level-triggered: each dispatch either names an unsatisfied gate and exits 1
+# with the fix in its step summary, or hands back the promotion command. A
+# promotion sequence therefore accumulates failures on the way to succeeding, so
+# a low success rate here is the design working. The health table still shows the
+# row — a genuinely broken gate must stay visible — and footnotes it, rather than
+# hiding it or letting a reader take it for breakage.
+_GATE_WORKFLOWS = frozenset({"promote"})
+
 # Cost constants, kept in sync with docs/budget.md (the single source for rates).
 # GitHub Actions standard runners are free on a public repository, so the
 # per-minute rate is zero; minutes are still tracked as a runtime-health
@@ -1121,6 +1130,14 @@ def render_markdown(report: OpsReport) -> str:
                 f"| {h.workflow} | {last} | {rate} | {h.failures} | "
                 f"{_fmt_duration(h.median_seconds)} | {_fmt_duration(h.p95_seconds)} |"
             )
+        gates = sorted(h.workflow for h in active if h.workflow in _GATE_WORKFLOWS)
+        if gates:
+            lines += [
+                "",
+                f"_{', '.join(gates)} is level-triggered: a failure there reports an "
+                "unsatisfied gate (with the fix in its own run summary), not a broken "
+                "workflow — read its rate as promotion attempts, not incidents._",
+            ]
         dormant = len(report.health) - len(active)
         if dormant:
             lines += ["", f"_{dormant} dormant workflow(s) with no runs in the window hidden._"]
