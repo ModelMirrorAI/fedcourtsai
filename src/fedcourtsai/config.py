@@ -452,6 +452,41 @@ def load_evaluate_config(config_root: Path) -> EvaluateConfig:
     return EvaluateConfig.model_validate((data or {}).get("evaluate", {}))
 
 
+class SpendConfig(BaseModel):
+    """The ex-post spend backstop (`tracking.yaml`'s `spend` section).
+
+    The one control that reads what has actually been spent rather than bounding
+    what a single decision or run may do — see :mod:`fedcourtsai.spend`. It gates
+    both agentic stages, because the ceiling governs total inference spend rather
+    than one stage's share.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # Trailing-window ceiling on measured inference spend, USD. `0` DISABLES the
+    # backstop (the convention the other caps use), which is the default: adopting
+    # it is a deliberate act, and a missing config can never wedge the pipeline.
+    # Reaching the ceiling defers new cells — the queue is untouched and re-runs
+    # next cycle — it never destroys queued work.
+    ceiling_usd: float = Field(default=0.0, ge=0.0)
+    # The window the ceiling applies over, days. Sized to the billing period the
+    # ceiling is meant to protect rather than to a run: a per-run bound already
+    # exists (`predict.max_predict_cells_per_run`), and what was missing is a
+    # bound above it.
+    window_days: int = Field(default=30, ge=1)
+
+
+def load_spend_config(config_root: Path) -> SpendConfig:
+    """Read the spend backstop's knobs from ``config_root/tracking.yaml``.
+
+    Falls back to the defaults — i.e. **disabled** — if the file or its ``spend``
+    section is absent, so a checkout without the section behaves exactly as before.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return SpendConfig.model_validate((data or {}).get("spend", {}))
+
+
 class RunnerConfig(BaseModel):
     """The ``runner`` section of ``config/tracking.yaml`` — the agentic-cell retry
     governor.

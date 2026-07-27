@@ -114,6 +114,25 @@ scoring is itself ≈$0 (a deterministic pure function of corpus features, no mo
 call), so the gate spends nothing to *decide* what the tournament runs on. Raising
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
 
+**The controls, and the one that reads the bill.** Capacity `N`, the per-run cell
+cap (`predict.max_predict_cells_per_run`), the live cycle's sweep cap, and the
+per-cell attempt caps are all **ex ante** — each bounds one decision or one run,
+and none of them knows what has been spent. They therefore compose into a per-run
+limit with no per-period limit above it: across the day's scheduled windows, spend
+is bounded only by how many cells happen to be owed, which is exactly the quantity
+that becomes large at a long conference. The `spend` section of
+[`config/tracking.yaml`](../config/tracking.yaml) is the bound above them — a
+trailing-window ceiling on **measured** cost, read from the committed `usage.json`
+ledger by both plan seams before either mints a matrix. Reaching it **defers**:
+the predict queue and the evaluate backlog are untouched and re-derive next cycle.
+
+Two limits to set it with rather than against. It is **off by default** (a ceiling
+of `0`), because a cost control that wedges the pipeline when misconfigured is
+worse than none. And the ledger **lags** — a cell's `usage.json` reaches `data/`
+only when its run's collect PR merges — so the figure it compares is a *floor* on
+spend inside the window, never a live balance. Leave the gap between the ceiling
+and the number you genuinely cannot exceed.
+
 **Monthly spend by provider.** The per-case cost splits across the three API
 bills — one predict cell and one evaluate cell per provider per case, both
 columns measured — so at a cadence of `C` tournamented cases per month each

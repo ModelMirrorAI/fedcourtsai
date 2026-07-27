@@ -236,6 +236,30 @@ salience:
   # only a same-day repeat. 0 disables suppression.
   relist_requeue_cooldown_days: 1
 
+# spend = the EX-POST inference-spend backstop (see src/fedcourtsai/spend.py).
+# Every other cost control here is ex ante — it bounds one decision or one run
+# (salience capacity N, predict.max_predict_cells_per_run,
+# salience.sweep_cases_per_cycle, the per-cell attempt caps). None of them reads
+# what has actually been spent, so they compose into a per-run limit with no
+# per-period limit above it: across the day's scheduled windows, spend is bounded
+# only by how many cells happen to be owed — the quantity that becomes large at a
+# long conference. This section is the bound above them, read by the predict and
+# evaluate plan seams before either mints a matrix.
+spend:
+  # Trailing-window ceiling on measured spend, USD. 0 DISABLES the backstop (the
+  # convention the other caps use) and is the default: turning it on is a
+  # deliberate act, and a missing section can never wedge the pipeline. Reaching
+  # the ceiling DEFERS new cells — the predict queue and the evaluate backlog are
+  # untouched and re-derive next cycle — it never destroys queued work. Set it
+  # against the envelope in docs/budget.md, and leave room for the ledger lag
+  # below rather than at the exact figure you cannot afford to exceed.
+  ceiling_usd: 0.0
+  # The window the ceiling applies over, days. Sized to the billing period being
+  # protected, not to a run. NOTE the measurement lags: a cell's usage.json
+  # reaches data/ only when its run's collect PR merges, so the ledger is a FLOOR
+  # on spend within the window, never a live figure.
+  window_days: 30
+
 # runner = the agentic predict/evaluate cell runner's retry governor (see
 # src/fedcourtsai/pipeline/runner.py). A cell that fails on a TRANSIENT fault —
 # an HTTP 429 / quota-exceeded throttle, a 5xx upstream, or a timeout — is
