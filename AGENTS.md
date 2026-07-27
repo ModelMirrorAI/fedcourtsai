@@ -53,10 +53,36 @@ non-interactive** container. Two consequences shape everything you do:
   `main` directly and never ride staging. (For `run:predict`/`run:evaluate`
   the *workflow* commits and opens the PR — you only write files; the task
   prompt says which mode you are in.)
-- **The maintainer merges.** Open the PR, get its required checks green, and
-  report it ready — do not merge it yourself or enable auto-merge on it. The
-  one built-in exception: the data-run `collect` jobs open their per-run PR
-  with auto-merge, still gated on the same required checks.
+- **You may merge to `staging`; only the maintainer merges to `main`.** The two
+  branches carry different risk, so they get different rules. Into `staging`,
+  once the required checks are green and you have resolved the reviewer
+  subagents' blockers, merge your own PR — a merge commit, never a squash, so
+  `staging` and `main` keep the shared history the promotion gate's ancestry
+  check needs. Into `main`, never: `main` is the pre-registration record and
+  reaches it only through a maintainer-merged promotion batch. (The data-run
+  `collect` jobs are the standing exception, opening their per-run PR to `main`
+  with auto-merge, still gated on the same required checks.)
+  **Four kinds of change still wait for the maintainer even into `staging`**,
+  because a green gate is weakest evidence exactly where they are strongest
+  risk: anything under `.github/workflows/` or `.github/actions/` (the
+  permission surface), `SECURITY.md` or the security posture it describes, the
+  promotion gate itself (`scripts/promotion-gate.sh`, `promote.yml`,
+  `sync-staging.yml`, ci.yml's gate jobs), and `config/predictors.yaml` /
+  `config/evaluators.yaml` (what agents are and what they may reach). Open
+  those, get them green, and report them ready.
+  The branch rulesets do not encode this: both require zero approvals, so the
+  discipline is yours to keep, not the platform's to enforce.
+- **The reviewer subagents are the only review a `staging` merge gets.** With
+  the maintainer out of the loop, "run the relevant reviewer(s)" below stops
+  being a courtesy and becomes the review itself. If you could not invoke one
+  and self-reviewed against its checklist instead, say so in the PR
+  description — an unstated self-review reads as a review that happened.
+- **`Closes #<n>` does not close anything from `staging`.** GitHub only
+  auto-closes a linked issue when the PR merges into the **default** branch, so
+  a reference in a staging PR fires at the next promotion, not on merge. Put it
+  in the description anyway — it is the durable link — and then close the issue
+  by hand when the PR merges, or the backlog reports finished work as
+  outstanding for a whole promotion cycle.
 - **Stay in your lane.** A predictor writes only under its own
   `predictions/<predictor_id>/<run_id>/` path; an evaluator only under its own
   `evaluations/<evaluator_id>/...` path. Never edit another agent's output, the
@@ -153,7 +179,10 @@ step**: if your change makes any documentation stale (`README.md`,
   numbers, no changelog, no "we used to / now we" — on *every committed
   surface*: docs, docstrings, code/workflow/config comments, and prose that
   code renders. State the reason in place; `git blame` finds the history.
-- **Close issues from the PR.** Put `Closes #<n>` in the PR description. PR
+- **Reference the issue in the PR, then close it yourself.** Put `Closes #<n>`
+  in the PR description — it is the durable link between the work and its
+  reason — but see the merge rule above: the reference does not fire from a
+  `staging` merge, so close the issue by hand once the PR lands. PR
   descriptions and commit messages are the only places an issue number belongs.
 - **`run:*` labels are triggers, not categories.** Applying one immediately
   starts the matching workflow and its agent. Apply one only when you intend to
