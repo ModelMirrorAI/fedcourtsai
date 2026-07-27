@@ -366,7 +366,16 @@ config edit, not a redesign. `N` **is a guaranteed floor, not a hard ceiling** �
 the posture below keeps selection additive and never destructive:
 
 - **Capacity `N`** — per-conference, OT2026 default ~150 / regular conference and
-  ~200 / long conference (the bootstrapping envelope above).
+  ~200 / long conference (the bootstrapping envelope above). **Whether the cap
+  binds at all depends on the Tier-0 IFP filter, which is larger than it sounds.**
+  Measured on the accumulating OT2026 long-conference cohort: of the petitions
+  distributed for it, **roughly two thirds are IFP** and leave at Tier 0, so the
+  eligible pool is about a third of the raw distribution volume. At that ratio the
+  200-case cap starts binding only once the conference draws more than ~600
+  petitions; below that every eligible petition is funded and `N` is inert. Read a
+  raw distribution count as a *ceiling* on the funded slice, never an estimate of
+  it — and re-measure the ratio rather than assuming it holds, since it is a
+  property of who files, not of the pipeline.
 - **Carve-outs sit above `N`** (not consuming it): CVSG and above-floor cases are
   guaranteed in, and `N` still fills with the next-best ranked cases, so no major
   case is ever crowded out.
