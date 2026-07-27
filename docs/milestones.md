@@ -135,10 +135,9 @@ project is actually building toward.
   the gate as the durable scope. Options kept open until the data is in.
 
 **Housekeeping, in parallel:** verify the S3 egress projections against the split
-stores ([budget.md](budget.md)); route the remaining opinion-body reader
-(`query --full`) through the content store; unify the index's transport onto the
-same boto3 pattern as the content store; finish re-anchoring the budget once
-evaluate-side per-run cost is measured (the predict side now is).
+stores ([budget.md](budget.md)); unify the index's transport onto the same boto3
+pattern as the content store; finish re-anchoring the budget once evaluate-side
+per-run cost is measured (the predict side now is).
 
 ## Beyond a year — the automated-research goal
 

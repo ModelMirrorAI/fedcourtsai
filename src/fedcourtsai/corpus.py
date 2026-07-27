@@ -1002,13 +1002,15 @@ def _mirror_sink() -> MirrorSink | None:
 
 # --- payload read source (dependency-inverted, symmetric to the mirror sink) --
 #
-# Under the corpus split the bulk payloads (snapshots, documents) live only in the
-# content store, not the blob — so the payload *reads* must come from the store
-# too: change detection and document dedup in the writer, and provisioning /
-# back-test replay in the readers. casestore registers a read source here with the
-# same inversion as the mirror sink (corpus never imports casestore). The snapshot
-# / document read functions consult it ONLY when `corpus_split` is on, so with the
-# mode off every read is the byte-for-byte SQLite path it is today.
+# Under the corpus split the bulk payloads (snapshots, documents, the opinion
+# body) live only in the content store, not the blob — so the payload *reads* must
+# come from the store too: change detection and document dedup in the writer,
+# provisioning / back-test replay in the readers, and the opinion body that
+# `query --full` emits (the one consumer that is a query-output field rather than a
+# snapshot or document). casestore registers a read source here with the same
+# inversion as the mirror sink (corpus never imports casestore). Every consulting
+# reader checks it ONLY when `corpus_split` is on, so with the mode off every read
+# is the byte-for-byte SQLite path it is today.
 
 
 class PayloadReadSource(Protocol):
@@ -1019,6 +1021,8 @@ class PayloadReadSource(Protocol):
     def latest_live_snapshot(self, case_id: str) -> tuple[date, dict[str, Any]] | None: ...
 
     def documents_for_case(self, case_id: str) -> list[CaseDocument]: ...
+
+    def opinion_text(self, case_id: str) -> str | None: ...
 
 
 _READ_SOURCE: dict[str, PayloadReadSource] = {}
@@ -1877,12 +1881,27 @@ def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
     stored; carrying it on each prior makes relevance judgeable without
     re-deriving), with ``opinion_text`` omitted unless ``full``. Shared by the
     CLI's local/ranged path and the corpus query service's handler, so every
-    backend emits byte-identical rows.
+    backend emits byte-identical rows — which is why the split-mode opinion
+    hydration below lives here and not at either call site.
+
+    Under the corpus-split mode the body is not in the blob (the ``cases`` column
+    is NULL; the content store holds it), so ``full`` would otherwise emit an
+    empty body. The hydration is narrowly gated to keep the default path exactly
+    as it was and to spend no request it does not have to: only when ``full`` is
+    asked for, only when the row's retained ``has_opinion`` bit says a body
+    exists, and only when the column is actually empty. With the mode off, or no
+    store built, nothing here runs.
     """
     payload = row.model_dump(mode="json")
     payload["era"] = case_era(row)
     if not full:
         payload.pop("opinion_text", None)
+    elif (
+        row.opinion_text is None
+        and row.has_opinion
+        and (source := _payload_read_source()) is not None
+    ):
+        payload["opinion_text"] = source.opinion_text(row.case_id)
     return payload
 
 
