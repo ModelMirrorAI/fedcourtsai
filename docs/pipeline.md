@@ -200,6 +200,14 @@ pattern rather than rediscovering it:
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
   expensive shared state once per job and reuse it across a loop's chunks rather
   than per chunk.
+- **A branch built during a long job must be based on a freshly fetched remote
+  tip, not the job's own checkout.** The deterministic writers commit to `main`
+  throughout, so a matrix that runs for an hour finishes holding a stale local
+  `main`; a branch cut from it carries commits that are no longer on the remote —
+  including any merged `.github/workflows/*` change — into the push pack, and a
+  token without `workflows` permission has the whole push rejected. `collect-run`
+  carries the worked reasoning and the fetch-then-branch shape; copy it in any
+  job that pushes a branch it built while other jobs were writing.
 
 Validate any `.github/` change locally with the linters CI enforces (see the
 local gate in [AGENTS.md](../AGENTS.md)), and run the **`workflow-reviewer`**
