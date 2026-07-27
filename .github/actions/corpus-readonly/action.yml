@@ -38,6 +38,13 @@ runs:
       with:
         role-to-assume: ${{ inputs.role-to-assume }}
         aws-region: ${{ inputs.aws-region }}
+        # Bound the assume-role wall clock: unbounded, its 12 retries over a
+        # multi-minute connect timeout outlast every job budget here (see the
+        # workflow-traps list in docs/pipeline.md). Note the cost this buys —
+        # the action does not clear its timer on the error path, so ANY failing
+        # assume-role now burns the full 120s and ends on "Action timed out"
+        # rather than its own message; the real cause is earlier in the log.
+        action-timeout-s: 120
     - name: Pull the corpus
       shell: bash
       env:

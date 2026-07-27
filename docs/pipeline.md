@@ -200,6 +200,18 @@ pattern rather than rediscovering it:
 - **The runner is ephemeral, so fixed per-run costs are re-paid every run.** Build
   expensive shared state once per job and reuse it across a loop's chunks rather
   than per chunk.
+- **A step that calls a cloud provider can hang far longer than it can fail.**
+  `aws-actions/configure-aws-credentials` retries a failed AssumeRole 12 times by
+  default, and an unreachable STS endpoint fails each attempt on a multi-minute
+  TCP connect timeout rather than promptly — so the default policy outlasts every
+  job budget here and the job is killed mid-retry instead of returning an error.
+  A window is then spent entirely on hanging, and a `cancelled` result gets
+  attributed to whatever the job was *supposed* to be doing. Every call site
+  passes `action-timeout-s`; note that a composite action cannot put
+  `timeout-minutes` on its own steps, so the action's own timeout input is the
+  only bound available inside one. The same question is worth asking of any step
+  that talks to an external service: what is its worst case, and is it shorter
+  than the job budget?
 - **A branch built during a long job must be based on a freshly fetched remote
   tip, not the job's own checkout.** The deterministic writers commit to `main`
   throughout, so a matrix that runs for an hour finishes holding a stale local
