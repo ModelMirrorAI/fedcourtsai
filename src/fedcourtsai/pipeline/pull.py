@@ -324,19 +324,29 @@ def evaluate_backlog(
     # A plain (writable) connection, matching the selection sweep: `iter_rows`
     # and `out_of_scope_reason_full` are typed to it, and the deriver only reads
     # here — the single write is the stamp below, on its own connection.
+    #
+    # Drive from the resolved-event set and fetch each candidate's row, rather
+    # than indexing the whole court and probing it. Only cases with a resolved
+    # event can be owed a grading, and that set is small (thousands) against a
+    # SCOTUS slice of hundreds of thousands that only ever grows — so indexing
+    # the court would make peak memory a function of the corpus rather than of
+    # the work, for no gain. Both orders are `case_id`-ascending and the
+    # candidates are re-sorted below, so the queue is unchanged either way.
     with corpus.connect(corpus_db_path) as conn:
-        rows_by_case = {row.case_id: row for row in corpus.iter_rows(conn, court="scotus")}
         resolved_by_case: dict[str, list[str]] = {}
         for event in corpus.iter_resolved_events(conn, court="scotus"):
             resolved_by_case.setdefault(event.case_id, []).append(event.event_id)
-        candidates = [
-            row
-            for case_id, row in rows_by_case.items()
-            if case_id in resolved_by_case
-            and case_id not in seen
-            and row.evaluate_queued_at != day
-            and corpus.out_of_scope_reason_full(conn, row) is None
-        ]
+        candidates: list[corpus.CorpusRow] = []
+        for case_id in resolved_by_case:
+            if case_id in seen:
+                continue
+            row = corpus.get_row(conn, case_id)
+            if (
+                row is not None
+                and row.evaluate_queued_at != day
+                and corpus.out_of_scope_reason_full(conn, row) is None
+            ):
+                candidates.append(row)
 
     # Stalest first, so the backlog drains fairly under the cap; a never-queued
     # case (evaluate_queued_at is None) sorts first.
