@@ -64,6 +64,8 @@ def _metrics_dir(tmp_path: Path) -> Path:
                     events_scored=1500,
                     accuracy=0.9,
                     granted_accuracy=0.9,
+                    always_denied_accuracy=0.9,
+                    lift_over_always_denied=0.0,
                 )
             ],
         ),

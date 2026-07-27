@@ -16,6 +16,30 @@ gate-checked:
   retrospective by construction** (see the stratification note below): every
   replayed event resolved long before any modern model's training cutoff, so the
   figures measure recall and calibration over known history, never foresight.
+
+  **Each entry carries the always-deny floor and the lift over it, per court and
+  overall.** Raw accuracy here is close to meaningless alone: a constant predictor
+  scores its slice's base rate *exactly*, so `constant-denied` posting a high
+  accuracy is arithmetic, not skill. The floor beside it is what makes the number
+  readable — a lift of zero says the predictor learned nothing.
+
+  **Read the per-court cut, not the pooled row.** The pooled figure is dominated by
+  whichever court supplies the most resolved events, and that court's floor may be
+  near zero, so a pooled lift can average away a severe failure on the population
+  that is actually predicted. It also mixes outcome vocabularies: `granted` means
+  cert was granted on a SCOTUS row and a motion was granted on a court-of-appeals
+  docket. The overall row is a reference point; the per-court rows are where floor
+  and lift are comparable.
+
+  Lift is **presentational** — entries still rank on accuracy then Brier, because
+  ranking on a pooled floor that spans those vocabularies would promote an
+  incomparable number to the headline. Skill against a *leakage-safe* baseline, with
+  the salience adjustment, is `cert-backtest.json`'s job on the predicted
+  population; this one is the broad reproducibility floor plus enough context to
+  read it. One asymmetry worth knowing: this artifact is on the scheduled refresh
+  and `cert-backtest.json` is maintainer-triggered because it spends tokens on
+  agentic replay, so continuous skill tracking would mean scheduling a cert-scoped
+  run.
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
   under `data/`: per predictor, accuracy, mean Brier score, mean vote accuracy, a
   mean reasoning-quality summary, and counts (events scored, evaluations,

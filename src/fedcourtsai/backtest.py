@@ -8,6 +8,18 @@ the prediction against the known label. The result rolls up into
 ``metrics/backtest.json`` (git-tracked) so its reviewed diffs track predictor
 quality on history alongside the live leaderboard.
 
+Every entry carries the **always-deny floor** and the lift over it, per court and
+overall, because raw accuracy on this set is close to meaningless alone: a constant
+predictor scores its slice's base rate exactly, so a high accuracy here can be
+arithmetic rather than skill. The **per-court** cut is the one to read — the pooled
+figure is dominated by whichever court supplies the most resolved events, whose
+floor may be near zero, and it mixes outcome vocabularies (``granted`` is cert
+granted on a SCOTUS row, a motion granted on a circuit docket). Lift is therefore
+presentational: entries rank on accuracy then Brier, never on a pooled floor that
+spans those vocabularies. Skill against a leakage-safe, salience-adjusted baseline
+belongs to :mod:`fedcourtsai.cert_backtest`, scoped to the population actually
+predicted.
+
 The scoring half here is deterministic and offline — a pure function of the
 corpus, with no clock or randomness — so the same corpus always yields
 byte-identical output. The *predictor* half is a seam: a :class:`Backtester`
@@ -29,7 +41,7 @@ from typing import Protocol
 from . import corpus
 from .corpus import CorpusRow
 from .pipeline.outcome import granted_flag, is_machine_readable
-from .schemas import Backtest, BacktestEntry, Disposition
+from .schemas import Backtest, BacktestCourtScore, BacktestEntry, Disposition
 
 # Brier scores are bounded in [0, 1]; a predictor that reported none sorts after
 # every one that did, without colliding with a real worst score (mirrors the
@@ -328,26 +340,68 @@ def default_backtesters(conn: sqlite3.Connection) -> list[Backtester]:
     ]
 
 
+@dataclass
+class _Tally:
+    """Running scores for one predictor over one slice (a court, or the whole set)."""
+
+    n: int = 0
+    correct: int = 0
+    granted_correct: int = 0
+    brier_sum: float = 0.0
+    denied_actual: int = 0
+
+    def add(self, *, correct: bool, granted_correct: bool, brier: float, denied: bool) -> None:
+        self.n += 1
+        self.correct += correct
+        self.granted_correct += granted_correct
+        self.brier_sum += brier
+        self.denied_actual += denied
+
+    @property
+    def floor(self) -> float:
+        """The always-deny floor over this slice: the fraction whose label is `denied`.
+
+        The base rate a constant predictor scores exactly, and therefore the number
+        that says whether an accuracy is skill or arithmetic.
+        """
+        return self.denied_actual / self.n
+
+
 def _score_one(backtester: Backtester, items: list[BacktestItem]) -> BacktestEntry:
-    correct = 0
-    granted_correct = 0
-    brier_sum = 0.0
+    overall = _Tally()
+    per_court: dict[str, _Tally] = defaultdict(_Tally)
     for item in items:
         prediction = backtester.predict(item.features)
-        if prediction.predicted_disposition == item.actual_disposition:
-            correct += 1
         actual_granted = granted_flag(item.actual_disposition)
-        if granted_flag(prediction.predicted_disposition) == actual_granted:
-            granted_correct += 1
-        brier_sum += (prediction.probability_granted - actual_granted) ** 2
-    n = len(items)
+        scored = {
+            "correct": prediction.predicted_disposition == item.actual_disposition,
+            "granted_correct": granted_flag(prediction.predicted_disposition) == actual_granted,
+            "brier": (prediction.probability_granted - actual_granted) ** 2,
+            "denied": item.actual_disposition == Disposition.denied,
+        }
+        overall.add(**scored)  # type: ignore[arg-type]
+        per_court[item.features.court].add(**scored)  # type: ignore[arg-type]
     return BacktestEntry(
         predictor_id=backtester.id,
         rank=1,  # provisional; assigned after sorting
-        events_scored=n,
-        accuracy=correct / n,
-        granted_accuracy=granted_correct / n,
-        mean_brier_score=brier_sum / n,
+        events_scored=overall.n,
+        accuracy=overall.correct / overall.n,
+        granted_accuracy=overall.granted_correct / overall.n,
+        mean_brier_score=overall.brier_sum / overall.n,
+        always_denied_accuracy=overall.floor,
+        lift_over_always_denied=overall.correct / overall.n - overall.floor,
+        courts=[
+            BacktestCourtScore(
+                court=court,
+                events_scored=tally.n,
+                accuracy=tally.correct / tally.n,
+                granted_accuracy=tally.granted_correct / tally.n,
+                mean_brier_score=tally.brier_sum / tally.n,
+                always_denied_accuracy=tally.floor,
+                lift_over_always_denied=tally.correct / tally.n - tally.floor,
+            )
+            for court, tally in sorted(per_court.items())
+        ],
     )
 
 
