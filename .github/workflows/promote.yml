@@ -3,15 +3,15 @@ name: promote
 # Maintainer-dispatched driver for a staging→main promotion batch. Idempotent
 # and level-triggered: dispatch it, read the step summary, do what it says,
 # dispatch again — until every gate is green, at which point the summary hands
-# back the `gh pr create` command for the promotion PR. The workflow is
-# strictly read-only: the two writes a promotion needs are both the
-# maintainer's own, deliberately —
+# back the `gh pr create` command for the promotion PR. This workflow itself
+# performs no write. Of the two writes a promotion needs —
 #
-#   * the main→staging sync push: the staging ruleset requires a PR plus
-#     passing checks, and its sole bypass actor is the repository admin role,
-#     so only the maintainer can land the sync merge (the summary prints the
-#     exact commands; the merge's content is already-gated main history joined
-#     with already-gated staging history);
+#   * the main→staging sync, normally landed by the scheduled `sync-staging`
+#     workflow (a PR through the staging ruleset, not a bypass). Reaching the
+#     sync gate here means that PR is open, conflicting, or has not run yet;
+#     the summary prints the manual merge-and-push commands as the escape
+#     hatch, which only the maintainer can use — the repository admin role is
+#     the ruleset's sole bypass actor;
 #   * the promotion PR: a PR created with a workflow's own GITHUB_TOKEN
 #     triggers no `pull_request` workflows, so its required checks would never
 #     report — the maintainer creating it is what makes the gate real.
@@ -77,7 +77,9 @@ jobs:
             {
               echo "## Sync needed: staging is behind main's data commits"
               echo
-              echo "Run (as the staging ruleset's admin bypass; resolve any conflict in the merge commit), then re-dispatch this workflow:"
+              echo "The scheduled \`sync-staging\` workflow normally lands this on its own; reaching here means its PR is still open, conflicting, or the schedule has not run since main moved. Check for an open PR into \`staging\` first — dispatching \`sync-staging\` is the cheaper fix."
+              echo
+              echo "Otherwise run (as the staging ruleset's admin bypass; resolve any conflict in the merge commit), then re-dispatch this workflow:"
               echo
               echo '```'
               echo "git fetch origin"

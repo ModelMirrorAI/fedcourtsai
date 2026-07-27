@@ -40,6 +40,7 @@ two keys as secrets). Each workflow mints a token scoped to only what it needs:
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only; the workflow commits |
 | `run-backtest` | dev | contents, pull-requests | open the reviewed back-test PR (minted after the replay ran) |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token |
+| `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
 the App level the union of what its workflows mint:
@@ -122,8 +123,17 @@ bypass list applies to the whole ruleset); further rulesets protect the
   push at each promotion batch, whose content is by construction
   already-gated `main` history merged with already-gated `staging` history.
   (The GitHub Actions app is not offered as a ruleset bypass actor, and the
-  `promote` workflow is deliberately read-only — no workflow holds a write
-  token to this branch.) **Neither App is a bypass actor here**, so the
+  `promote` workflow is deliberately read-only.) The scheduled `sync-staging`
+  workflow does hold a write token to this branch — but it **bypasses
+  nothing**: it opens an ordinary PR that must satisfy the same required checks
+  as any other, and merges it only through them. Worth being precise about what
+  binds there, since the sync PR is a special shape: `paths` is a genuine no-op
+  for a head that is not a data-production branch, and the head sha may already
+  carry a green `gate` from its push-to-`main` run — so the real control is
+  `gate` re-running over the merged tree, which re-validates data and schemas.
+  That is adequate for content that is by construction already-gated `main`
+  history, and it is not the same as a human reading the diff.
+  **Neither App is a bypass actor here**, so the
   identity-enforced "everything agentic lands via a reviewed PR" invariant
   holds one hop before `main` as well: the dev App token minted in the agent
   runs has no zero-PR path onto the promotion train or onto the ref the
@@ -148,10 +158,11 @@ the branch list clean. To reproduce the repo (or use it as a template), set:
 |---------|-------|-----|
 | **Allow auto-merge** | **on** | The `collect` job runs `gh pr merge --auto --squash`. With it off that call errors — the job degrades gracefully (logs a warning, leaves the PR open for a manual merge) but nothing auto-merges. |
 | **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
-| **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. |
+| **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
+| **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
 
-Merge-commit and rebase-merge are not used by the pipeline; leave them at
-whatever the repo prefers. Auto-merge does **not** weaken the gate: it is a
+Rebase-merge is not used by the pipeline; leave it at whatever the repo
+prefers. Auto-merge does **not** weaken the gate: it is a
 deferred merge that still waits for the required `gate` + `paths` checks, and the
 dev App that opens these PRs is not a branch-protection bypass actor (above), so
 the checks bind. The append-only `data/` jail (`paths`) is what makes
