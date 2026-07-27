@@ -15,6 +15,7 @@ stage.
 | _(none)_        | `run-analytics`  | manual dispatch + weekly schedule   | script (no agent)    |
 | _(none)_        | `integration-test` | manual dispatch                 | script; the engine-smoke scenario runs one real agent cell |
 | _(none)_        | `promote`        | manual dispatch                     | script (no agent)    |
+| _(none)_        | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
 
 `run-ops` is not part of the issue cascade: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
@@ -255,15 +256,27 @@ The mechanics:
   `main`, with the **repository admin role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
   check runs, so the maintainer is the only identity that can land the sync
-  merge below. Neither GitHub App bypasses `staging`, and no workflow holds
-  a write token to it: the promote workflow is strictly read-only.
-- **Sync-at-promotion.** `staging` never owns data. At the start of each
-  batch, `main` is merged into `staging` (the corpus pointer and data
-  commits), so the batch is integration-tested against current data
-  read-only. The `promote` workflow checks the ancestry and, when staging is
-  behind, prints the merge-and-push commands for the maintainer — the push is
-  the maintainer's own, via the ruleset's admin bypass. There is no scheduled
-  sync; staging is exactly as fresh as its gate requires.
+  merge below. Neither GitHub App *bypasses* `staging`: the scheduled
+  `sync-staging` workflow holds a write token to it but opens an ordinary PR
+  that must satisfy the same required checks, and `promote` itself performs no
+  write at all.
+- **Scheduled sync.** `staging` never owns data, so it falls behind `main`
+  as the writers and bot lanes commit there. The `sync-staging` workflow
+  merges `main` into `staging` daily by opening a PR that auto-merges once
+  the staging ruleset's checks pass — gated like any other change, not
+  bypassed. Syncing on a schedule rather than at batch time is what keeps the
+  cost off the promotion path: the same merge done at promotion moves
+  `staging`'s head, and integration freshness is per-SHA, so every scenario
+  would have to be re-dispatched and re-approved for a merge whose content is
+  already-gated main history joined with already-gated staging history.
+  `promote` still checks the ancestry, and still prints the manual
+  merge-and-push commands for the maintainer's admin bypass — the escape
+  hatch for a conflicting sync the schedule could not land on its own. The
+  sync defers itself while a promotion PR is open, so it never moves the head
+  a batch in flight is being tested against. **Ordering:** `schedule` and
+  `workflow_dispatch` both read the file from `main`, and the `prod`
+  environment is `main`-only, so `sync-staging` does nothing until it is
+  promoted — the promotion that carries it is itself still synced by hand.
 - **Two gates, one definition.** `scripts/promotion-gate.sh` checks
   *quiescence* (no `run:predict` / `run:evaluate` / `run:backtest` fan-out in
   flight — no open trigger issue, no unfinished run) and *freshness* (every
@@ -287,7 +300,9 @@ The full path of a change, operator's view:
    open the PR against `staging`; review and merge. The change is now staged
    but **not live** — production jobs execute from `main`.
 2. When a batch is worth promoting: dispatch `promote`; if it asks, run the
-   printed sync commands (your admin-bypass push) and re-dispatch.
+   sync — dispatch `sync-staging` and let its PR land, or, if that PR
+   conflicts, run the printed commands (your admin-bypass push) — then
+   re-dispatch.
 3. Dispatch the required integration scenarios at staging's post-sync head
    (the summary lists them; each staging deployment waits for your
    approval), then re-dispatch `promote`.
