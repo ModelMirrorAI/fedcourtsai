@@ -201,3 +201,88 @@ def test_split_documents_merge_across_batches(
         corpus.upsert_documents(conn, [_doc("brief-in-opposition", "B", date(2026, 5, 2))])
         docs = corpus.documents_for_case(conn, "scotus/74112233")
     assert sorted(d.kind for d in docs) == ["brief-in-opposition", "petition"]
+
+
+# --- `query --full` opinion hydration -----------------------------------------
+
+
+def test_prior_payload_full_hydrates_the_opinion_body_from_the_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under the mode `--full` routes to the store: the blob's column is NULL, so
+    without hydration the body would come back empty."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    casestore.set_active_transport(casestore.InMemoryObjectTransport())
+    body = "The judgment of the court of appeals is affirmed."
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row(opinion_text=body)])
+        stored = corpus.get_row(conn, "scotus/74112233")
+
+    assert stored is not None
+    assert stored.opinion_text is None and stored.has_opinion is True  # stripped in the blob
+    assert corpus.prior_payload(stored, full=True)["opinion_text"] == body
+    # The default path is untouched: no body, and no store read to get there.
+    assert "opinion_text" not in corpus.prior_payload(stored)
+
+
+def test_prior_payload_full_is_unchanged_with_the_mode_off(tmp_path: Path) -> None:
+    """Mode off: the body is in the blob and the shaper never consults a store — the
+    parity the `query` CLI gate depends on."""
+    body = "The judgment of the court of appeals is affirmed."
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row(opinion_text=body)])
+        stored = corpus.get_row(conn, "scotus/74112233")
+    assert stored is not None and stored.opinion_text == body
+    assert corpus.prior_payload(stored, full=True)["opinion_text"] == body
+
+
+def test_prior_payload_full_spends_no_store_read_when_the_case_has_no_opinion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The retained `has_opinion` bit is the cost gate: an opinion-less prior costs
+    zero store requests, which is what keeps a wide `--full` result set affordable."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+
+    class _CountingTransport(casestore.InMemoryObjectTransport):
+        def __init__(self) -> None:
+            super().__init__()
+            self.gets = 0
+
+        def get(self, key: str) -> bytes | None:
+            self.gets += 1
+            return super().get(key)
+
+    transport = _CountingTransport()
+    casestore.set_active_transport(transport)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row()])  # no opinion body
+        stored = corpus.get_row(conn, "scotus/74112233")
+    assert stored is not None and stored.has_opinion is False
+    transport.gets = 0  # ignore the writer's own mirror reads
+    assert corpus.prior_payload(stored, full=True)["opinion_text"] is None
+    assert transport.gets == 0
+
+
+def test_prior_payload_full_reads_as_empty_when_the_store_object_is_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A case whose `case.json` was never mirrored (a legacy row) degrades to an empty
+    body rather than raising — the same convention every other store read follows."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    casestore.set_active_transport(casestore.InMemoryObjectTransport())
+    row = _row(opinion_text="body that never reached the store")
+    stripped = row.model_copy(update={"opinion_text": None})
+    assert stripped.has_opinion is True
+    assert corpus.prior_payload(stripped, full=True)["opinion_text"] is None
+
+
+def test_read_opinion_text_round_trips_and_absent_reads_none(tmp_path: Path) -> None:
+    """The store reader itself: the mirrored body comes back, an unmirrored case is
+    `None`, and a case stored without a body is `None` rather than an empty string."""
+    store = casestore.InMemoryObjectTransport()
+    body = "The petition for a writ of certiorari is granted."
+    casestore.write_case(store, _row(opinion_text=body))
+    casestore.write_case(store, _row(case_id="scotus/2"))
+    assert casestore.read_opinion_text(store, "scotus/74112233") == body
+    assert casestore.read_opinion_text(store, "scotus/2") is None
+    assert casestore.read_opinion_text(store, "scotus/999999") is None

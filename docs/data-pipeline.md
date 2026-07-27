@@ -356,10 +356,10 @@ exported data schemas), and a request that fails — sidecar down, backend error
 cell continues on provisioned inputs. A hung upstream read blocks the
 single-threaded server (including its health endpoint) until the transport
 times out; if the sidecar is ever shared beyond one cell, a threaded server
-with a connection lock is the named fallback. The deferred
-`--full`-via-content-store routing (below, under *Provisioning*) stays
-deferred, but `full` already rides the wire contract, so that work lands
-server-side with no client change.
+with a connection lock is the named fallback. `full` rides the wire contract,
+and the opinion-body hydration it triggers lives in the shared payload shaper,
+so the service serves a full body with no client change — the sidecar is the
+credentialed process, which is what lets a credential-free cell ask for one.
 
 ### Provisioning: how a cell gets its record
 
@@ -373,9 +373,25 @@ parity gate (`tests/test_provision_casestore.py`). The `casestore` backend has
 no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay
 reads its redacted snapshots from the store through the payload read source.
-One reader is deliberately not store-routed: `query --full` /
-`--include-opinion` reads the opinion body from the `cases` column, empty in
-the payload-free index — a documented follow-up.
+`query --full` is the one reader that needs a payload the index does not hold:
+it hydrates each prior's opinion body from the store through the same payload
+read source, inside the shared payload shaper so the CLI and the query service
+behave identically — the sidecar is the credentialed process, which is what
+lets a credential-free cell ask for a body at all. The hydration is gated on
+`full` *and* on the row's retained `has_opinion` bit, so the default path never
+leaves the index and an opinion-less prior costs no store request. It degrades
+rather than fails: a case whose `case.json` was never mirrored, and a store that
+cannot be read at all, both yield an empty body, because the rows are shaped and
+emitted one at a time and a raised error would truncate the result stream.
+
+Two **preconditions** gate whether a body actually comes back, and neither holds
+across the corpus today — so this reader is correct but largely latent:
+`has_opinion` is set only from a non-empty `opinion_text` at row construction, and
+the committed corpus carries the bit on no rows (while ~653k rows do have a linked
+opinion by citation); and `case.json` is mirrored only by `upsert_rows`, so a case
+last ingested before the store went live has no stored body and no backfill exists
+to give it one. Populating the presence bit and backfilling the store are the work
+that makes `--full` useful in production.
 
 `provision-snapshot --refuse-terminal` (used by the `run-predict` forward path
 only) is the forward-cell guard at the provisioning seam: it refuses to

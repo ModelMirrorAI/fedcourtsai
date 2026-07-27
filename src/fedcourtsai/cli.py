@@ -1663,6 +1663,11 @@ def _echo_read_stats(conn: corpus.ReadConnection) -> None:
     The per-query egress evidence: retrieval logging and the integration check
     read these numbers, and a human sees at a glance that a lookup moved KBs,
     not the blob. A no-op for the local backend (nothing was transferred).
+
+    Scope: **ranged index reads only.** Content-store transfer is not counted here
+    — most importantly the per-row opinion bodies `query --full` hydrates under the
+    corpus-split mode, which are the largest objects the system moves. So this line
+    is a floor on a `--full` query's egress, not its total.
     """
     if isinstance(conn, corpus_ranged.RangedConnection):
         stats = conn.stats
