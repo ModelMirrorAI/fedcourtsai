@@ -201,6 +201,27 @@ or a new predicate, exercise it against the real corpus through a read-only
 analytics run and read the numbers it reports. The fixture proves the logic;
 only the corpus proves it at scale.
 
+## Investigating a real docket without credentials
+
+Diagnosing a provisioning or document-selection bug usually looks like it needs
+the remote corpus, and often it does not. Two facts make a specific docket
+investigable from a checkout with no S3 access and no CourtListener token:
+
+- **A local `corpus.db` carries `docket_number`**, so a case id
+  (`scotus/<internal id>`) resolves to the Court's own `<term>-<serial>` docket
+  number with a point query — no remote read.
+- **The supremecourt.gov per-docket JSON is publicly fetchable**, at
+  `https://www.supremecourt.gov/rss/cases/JSON/<term>-<serial>.json`
+  (`supremecourt.DOCKET_JSON_URL`). That is the authoritative record the live
+  channel ingests, so it answers what the pipeline *should* have seen: the
+  proceedings text, the distribution history, the filed-document links.
+
+Together those cover most "why did this cell get the wrong documents" questions
+directly against the real docket. Reach for a corpus pull only when the question
+is genuinely about the *stored* row rather than the upstream record — and
+remember the local blob is a snapshot, so its freshness is whatever the last
+pull left behind.
+
 ## The boundary that remains
 
 Even with the harness, two things stay outside the fast loop by design, and that is

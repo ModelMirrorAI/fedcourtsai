@@ -159,6 +159,13 @@ step**: if your change makes any documentation stale (`README.md`,
   starts the matching workflow and its agent. Apply one only when you intend to
   start that job *now*; an issue filed for later pickup, or one you plan to fix
   in your own PR, gets no `run:*` label.
+- **You cannot dispatch a workflow.** The repo-scoped token an interactive
+  session holds is refused (403) on `workflow_dispatch`, even where it can read
+  the run history and push branches. So `gh workflow run …` is never your step:
+  compose the exact command, put it where the maintainer will see it (the PR
+  description, or the run summary for an automated surface), and continue with
+  what does not depend on it. The same holds for anything else the token is
+  refused on — environment and variable administration, and merging.
 - **Keep environment variables out of PR and issue text.** Refer to a var by
   its role, not its name or value. Secrets never appear anywhere.
 - **Don't commit personal or organizational email addresses.** Commit identity

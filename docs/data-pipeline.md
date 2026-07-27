@@ -553,6 +553,15 @@ give the data **invariants** worth asserting on their own, distinct from
 - **Schema conformance** — every git-ledger artifact under `data/` validates
   against its model (`fedcourts validate`, in the local gate and PR CI, and on
   the schedule to catch anything that bypassed the gate).
+
+  The path that bypasses it is the **deterministic writers**: pull, live, and
+  seed commit to `main` directly, with no PR and therefore no gate. So a writer
+  that lands a malformed or orphaned artifact reddens the data stage on *every
+  open PR at once*, since each one validates the whole tree it checked out —
+  the failure surfaces far from its cause and looks like the PR's own fault.
+  **When a PR's data check fails for no reason you can find in its diff, check
+  `main` first**: validate a clean checkout of the default branch, and if that
+  fails too the fix belongs in the writer, not the PR.
 - **Corpus integrity** — the committed pointer resolves, the corpus opens, its
   row count only ever **grows**, required columns are non-null, dates are
   ordered and not future-dated, coded columns hold declared vocabulary, and no
