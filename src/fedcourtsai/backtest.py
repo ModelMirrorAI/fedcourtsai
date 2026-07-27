@@ -9,15 +9,19 @@ the prediction against the known label. The result rolls up into
 quality on history alongside the live leaderboard.
 
 This harness reports **no skill baseline**, and that is a decision rather than an
-omission: its set spans all fourteen courts, where the great majority of
-machine-readable labels are courts-of-appeals dispositions and most of those are
-dismissals. ``granted`` therefore does not mean one thing across the pooled set —
-cert granted on a SCOTUS row, a motion granted on a circuit docket — so a lift or
-per-court base rate would dress an incoherent comparison as a rigorous one, over a
-population prediction scope never forecasts anyway. Its value is as a broad
-reproducibility floor: the same corpus must yield the same numbers. Forecasting
-skill against a leakage-safe baseline lives in the cert back-test
-(:mod:`fedcourtsai.cert_backtest`), scoped to the population actually predicted.
+omission. Both reference floors are trivial by construction, so their skill against
+a base rate is a closed-form function of that rate rather than a measurement — the
+statpack already publishes it. Nearly all of this harness's SCOTUS rows are also in
+the cert back-test's set, which already scores the salience-adjusted baseline
+(scoped to the paid segment or the gate's carve-out core, with per-band segment
+skill); the few rows unique to this set are the non-modern-cert regimes that
+instrument deliberately excludes to keep the label space clean. A *cross-court*
+baseline fails separately: most machine-readable events here are courts-of-appeals
+dispositions, so ``granted`` means cert granted on a SCOTUS row and a motion
+granted on a circuit docket, and no per-court rate reconciles that. The value here
+is a broad reproducibility floor — the same corpus must yield the same numbers.
+Forecasting skill lives in :mod:`fedcourtsai.cert_backtest`, scoped to the
+population actually predicted.
 
 The scoring half here is deterministic and offline — a pure function of the
 corpus, with no clock or randomness — so the same corpus always yields

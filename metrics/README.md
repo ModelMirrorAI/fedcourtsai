@@ -18,19 +18,40 @@ gate-checked:
   figures measure recall and calibration over known history, never foresight.
 
   **It reports no baseline, deliberately** — unlike `cert-backtest.json`, which
-  scores lift over the always-deny floor and per-band segment skill. The reason is
-  the set's composition, not the triviality of its predictors: roughly **four in
-  five** machine-readable events are courts-of-appeals rows, and roughly **nine in
-  ten of those are `dismissed`. So the pooled label is not one quantity. A
-  `granted` on a SCOTUS row means cert was granted; on a circuit docket it means a
-  motion was, and the two are averaged together here. A per-court base rate would
-  make that comparison *look* rigorous while leaving it incoherent — and it would
-  describe a population the pipeline never forecasts, since prediction scope is
-  SCOTUS-only and the circuit rows exist for retrieval context. Read this artifact
-  as a **broad reproducibility floor**: it answers "does the replay harness still
-  run and still produce the same numbers over the same corpus", not "how good is
-  this predictor". Forecasting skill is `cert-backtest.json`'s job, on the
-  population that is actually predicted.
+  scores lift over the always-deny floor and per-band segment skill. Three reasons,
+  strongest first.
+
+  *A baseline carries no information about these predictors.* Both reference floors
+  are trivial by construction — `constant-denied` always answers denied,
+  `prior-vote` votes from time-masked retrieval — so their Brier skill against a
+  base rate is a closed-form function of that base rate, not a measurement. The
+  statpack already publishes the rate; deriving the lift from it adds a column and
+  no knowledge.
+
+  *The population is already covered by the instrument built for skill.* Of this
+  harness's SCOTUS rows, all but a few per cent are also in `cert-backtest.json`'s
+  set, and that instrument already reports the salience-adjusted baseline: scoped to
+  the paid segment (the gate's Tier-0 exclusion) or to the carve-out core (the
+  closest replay-safe analog of the live selected slice), with per-band segment
+  skill inside it. A baseline here would recompute that over nearly the same rows.
+
+  *The rows unique to this harness are the ones a baseline should not cover.* They
+  are the non-modern-cert regimes — mandatory jurisdiction, applications, original
+  jurisdiction — which the cert instrument excludes precisely so they cannot
+  contaminate the label space. And a **cross-court** baseline is a separate
+  non-starter for a separate reason: roughly four in five machine-readable events
+  here are courts-of-appeals rows, mostly dismissals, so `granted` does not mean one
+  thing across the set (cert granted on a SCOTUS row, a motion granted on a circuit
+  docket). A per-court base rate would dress that in rigour rather than resolve it.
+
+  Read this artifact as a **broad reproducibility floor**: it answers "does the
+  replay harness still run and still produce the same numbers over the same corpus",
+  not "how good is this predictor". Forecasting skill is `cert-backtest.json`'s job,
+  on the population that is actually predicted. One consequence worth knowing: the
+  continuously-refreshed artifact is the one without a skill signal, and the one
+  with a skill signal is maintainer-triggered because it spends tokens on agentic
+  replay. If continuous skill tracking is ever wanted, the answer is a scheduled
+  cert-scoped run, not a baseline bolted onto the cross-court floor.
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
   under `data/`: per predictor, accuracy, mean Brier score, mean vote accuracy, a
   mean reasoning-quality summary, and counts (events scored, evaluations,
