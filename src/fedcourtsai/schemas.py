@@ -2061,7 +2061,7 @@ class McpServerConfig(_Strict):
 
     id: str = Field(description="Manifest key, e.g. `courtlistener`")
     package: str = Field(
-        description="Pinned installable, e.g. `courtlistener-api-client[mcp]==1.0.0` — "
+        description="Pinned installable, e.g. `courtlistener-api-client[mcp]==1.1.0` — "
         "launched via `uvx --from <package> <command>` so no separate install step runs"
     )
     command: str = Field(description="The stdio server entrypoint, e.g. `courtlistener-mcp`")

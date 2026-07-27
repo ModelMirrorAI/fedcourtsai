@@ -25,7 +25,7 @@
       "type": "string"
     },
     "package": {
-      "description": "Pinned installable, e.g. `courtlistener-api-client[mcp]==1.0.0` \u2014 launched via `uvx --from <package> <command>` so no separate install step runs",
+      "description": "Pinned installable, e.g. `courtlistener-api-client[mcp]==1.1.0` \u2014 launched via `uvx --from <package> <command>` so no separate install step runs",
       "title": "Package",
       "type": "string"
     },
