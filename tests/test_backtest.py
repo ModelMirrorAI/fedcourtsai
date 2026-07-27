@@ -3,6 +3,7 @@
 from datetime import date
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture
@@ -369,3 +370,103 @@ def test_cli_missing_corpus_writes_empty_report(tmp_path: Path) -> None:
     assert report.predictors_evaluated == 0
     assert report.events_scored == 0
     assert report.entries == []
+
+
+# --- the always-deny floor, per court ------------------------------------------
+#
+# Raw accuracy on this set is close to meaningless on its own: a constant
+# predictor scores its slice's base rate exactly, and the pooled figure is
+# dominated by whichever court happens to have the most resolved events. The
+# per-court floor is what separates skill from arithmetic.
+
+
+def _court_item(court: str, docket: int, actual: Disposition) -> BacktestItem:
+    return BacktestItem(
+        features=_features(f"{court}/{docket}", court=court),
+        actual_disposition=actual,
+    )
+
+
+def test_a_constant_predictor_scores_exactly_the_floor_everywhere() -> None:
+    """Lift zero, overall and in every court — the signal that it learned nothing.
+
+    The property that makes the floor worth reporting: without it, this predictor's
+    accuracy is indistinguishable from a real one's.
+    """
+    items = [_court_item("ca9", i, Disposition.denied) for i in range(7)]
+    items += [_court_item("ca9", 100 + i, Disposition.granted) for i in range(3)]
+    items += [_court_item("scotus", i, Disposition.denied) for i in range(4)]
+
+    report = run_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)], items
+    )
+    entry = report.entries[0]
+    assert entry.accuracy == entry.always_denied_accuracy
+    assert entry.lift_over_always_denied == 0.0
+    for court in entry.courts:
+        assert court.accuracy == court.always_denied_accuracy
+        assert court.lift_over_always_denied == 0.0
+    # And the floors genuinely differ by court, so this is not a degenerate case.
+    assert {c.court: round(c.always_denied_accuracy, 3) for c in entry.courts} == {
+        "ca9": 0.7,
+        "scotus": 1.0,
+    }
+
+
+def test_the_per_court_cut_exposes_a_failure_the_pooled_figure_hides() -> None:
+    """A predictor can be at the floor on a large court and far below it on a small
+    one, and the pooled lift averages the failure away.
+
+    This is the shape the real corpus takes: one court supplies most of the resolved
+    events at a near-zero floor, so a pooled number is effectively that court's and
+    says nothing about the population actually predicted.
+    """
+    # 90 ca4 events that are never `denied` (floor 0), plus 10 SCOTUS events that
+    # almost always are (floor 0.9).
+    items = [_court_item("ca4", i, Disposition.dismissed) for i in range(90)]
+    items += [_court_item("scotus", i, Disposition.denied) for i in range(9)]
+    items.append(_court_item("scotus", 99, Disposition.granted))
+
+    report = run_backtest(
+        [ConstantBacktester(id="constant-granted", disposition=Disposition.granted)], items
+    )
+    entry = report.entries[0]
+    by_court = {c.court: c for c in entry.courts}
+    # On SCOTUS it is catastrophic against that court's own floor...
+    assert by_court["scotus"].always_denied_accuracy == 0.9
+    assert by_court["scotus"].lift_over_always_denied == pytest.approx(-0.8)
+    # ...but the pooled lift is an order of magnitude smaller, because ca4's 90
+    # events carry a floor of zero and dominate the average.
+    pooled = entry.lift_over_always_denied
+    assert pooled is not None
+    assert pooled == pytest.approx(-0.08)
+    assert pooled > by_court["scotus"].lift_over_always_denied
+
+
+def test_lift_is_presentational_and_never_reorders_entries() -> None:
+    """Ranking stays on accuracy then Brier. The pooled floor mixes outcome
+    vocabularies, so ordering on it would promote an incomparable number."""
+    items = [_court_item("scotus", i, Disposition.denied) for i in range(9)]
+    items.append(_court_item("scotus", 99, Disposition.granted))
+
+    report = run_backtest(
+        [
+            ConstantBacktester(id="b-granted", disposition=Disposition.granted),
+            ConstantBacktester(id="a-denied", disposition=Disposition.denied),
+        ],
+        items,
+    )
+    # a-denied is at the floor (lift 0), b-granted far below it — and accuracy puts
+    # them in that same order here, so assert the ranking key rather than the outcome.
+    assert [e.predictor_id for e in report.entries] == ["a-denied", "b-granted"]
+    assert [e.rank for e in report.entries] == [1, 2]
+    assert report.entries[0].accuracy > report.entries[1].accuracy
+
+
+def test_courts_are_id_ordered_and_cover_every_scored_court() -> None:
+    items = [_court_item(c, 1, Disposition.denied) for c in ("scotus", "ca1", "ca9")]
+    entry = run_backtest(
+        [ConstantBacktester(id="c", disposition=Disposition.denied)], items
+    ).entries[0]
+    assert [c.court for c in entry.courts] == ["ca1", "ca9", "scotus"]
+    assert sum(c.events_scored for c in entry.courts) == entry.events_scored

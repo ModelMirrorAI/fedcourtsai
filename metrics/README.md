@@ -17,41 +17,29 @@ gate-checked:
   replayed event resolved long before any modern model's training cutoff, so the
   figures measure recall and calibration over known history, never foresight.
 
-  **It reports no baseline, deliberately** — unlike `cert-backtest.json`, which
-  scores lift over the always-deny floor and per-band segment skill. Three reasons,
-  strongest first.
+  **Each entry carries the always-deny floor and the lift over it, per court and
+  overall.** Raw accuracy here is close to meaningless alone: a constant predictor
+  scores its slice's base rate *exactly*, so `constant-denied` posting a high
+  accuracy is arithmetic, not skill. The floor beside it is what makes the number
+  readable — a lift of zero says the predictor learned nothing.
 
-  *A baseline carries no information about these predictors.* Both reference floors
-  are trivial by construction — `constant-denied` always answers denied,
-  `prior-vote` votes from time-masked retrieval — so their Brier skill against a
-  base rate is a closed-form function of that base rate, not a measurement. The
-  statpack already publishes the rate; deriving the lift from it adds a column and
-  no knowledge.
+  **Read the per-court cut, not the pooled row.** The pooled figure is dominated by
+  whichever court supplies the most resolved events, and that court's floor may be
+  near zero, so a pooled lift can average away a severe failure on the population
+  that is actually predicted. It also mixes outcome vocabularies: `granted` means
+  cert was granted on a SCOTUS row and a motion was granted on a court-of-appeals
+  docket. The overall row is a reference point; the per-court rows are where floor
+  and lift are comparable.
 
-  *The population is already covered by the instrument built for skill.* Of this
-  harness's SCOTUS rows, all but a few per cent are also in `cert-backtest.json`'s
-  set, and that instrument already reports the salience-adjusted baseline: scoped to
-  the paid segment (the gate's Tier-0 exclusion) or to the carve-out core (the
-  closest replay-safe analog of the live selected slice), with per-band segment
-  skill inside it. A baseline here would recompute that over nearly the same rows.
-
-  *The rows unique to this harness are the ones a baseline should not cover.* They
-  are the non-modern-cert regimes — mandatory jurisdiction, applications, original
-  jurisdiction — which the cert instrument excludes precisely so they cannot
-  contaminate the label space. And a **cross-court** baseline is a separate
-  non-starter for a separate reason: roughly four in five machine-readable events
-  here are courts-of-appeals rows, mostly dismissals, so `granted` does not mean one
-  thing across the set (cert granted on a SCOTUS row, a motion granted on a circuit
-  docket). A per-court base rate would dress that in rigour rather than resolve it.
-
-  Read this artifact as a **broad reproducibility floor**: it answers "does the
-  replay harness still run and still produce the same numbers over the same corpus",
-  not "how good is this predictor". Forecasting skill is `cert-backtest.json`'s job,
-  on the population that is actually predicted. One consequence worth knowing: the
-  continuously-refreshed artifact is the one without a skill signal, and the one
-  with a skill signal is maintainer-triggered because it spends tokens on agentic
-  replay. If continuous skill tracking is ever wanted, the answer is a scheduled
-  cert-scoped run, not a baseline bolted onto the cross-court floor.
+  Lift is **presentational** — entries still rank on accuracy then Brier, because
+  ranking on a pooled floor that spans those vocabularies would promote an
+  incomparable number to the headline. Skill against a *leakage-safe* baseline, with
+  the salience adjustment, is `cert-backtest.json`'s job on the predicted
+  population; this one is the broad reproducibility floor plus enough context to
+  read it. One asymmetry worth knowing: this artifact is on the scheduled refresh
+  and `cert-backtest.json` is maintainer-triggered because it spends tokens on
+  agentic replay, so continuous skill tracking would mean scheduling a cert-scoped
+  run.
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
   under `data/`: per predictor, accuracy, mean Brier score, mean vote accuracy, a
   mean reasoning-quality summary, and counts (events scored, evaluations,

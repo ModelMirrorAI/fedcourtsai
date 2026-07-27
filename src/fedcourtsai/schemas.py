@@ -780,6 +780,48 @@ class Leaderboard(_Strict):
     entries: list[LeaderboardEntry] = Field(default_factory=list)
 
 
+class BacktestCourtScore(_Strict):
+    """One predictor's standings over a single court's slice of the back-test set.
+
+    The per-court cut exists because the pooled figure is not interpretable on its
+    own: ``granted`` means cert granted on a SCOTUS row and a motion granted on a
+    court-of-appeals docket, and each court carries its own outcome skew. Reading
+    accuracy against the court's own always-deny floor is what separates skill from
+    the base rate — a constant predictor scores the floor exactly, so a lift of zero
+    is the signal that it learned nothing.
+    """
+
+    court: str
+    events_scored: int = Field(ge=0, description="Events replayed for this predictor in this court")
+    accuracy: float = Field(
+        ge=0.0, le=1.0, description="Fraction whose predicted disposition matched the known label"
+    )
+    granted_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Fraction whose binary granted/denied projection matched the outcome",
+    )
+    mean_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+    )
+    always_denied_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="This court's always-deny floor — the fraction of its scored events whose "
+        "disposition is `denied`. The base rate that makes the accuracy above readable",
+    )
+    lift_over_always_denied: float = Field(
+        ge=-1.0,
+        le=1.0,
+        description="Disposition accuracy minus this court's always-deny floor. Zero means the "
+        "predictor matched the base rate and added nothing; the same convention the cert "
+        "back-test uses, so the two instruments are read the same way",
+    )
+
+
 class BacktestEntry(_Strict):
     """One predictor's standings over the historical back-test set."""
 
@@ -801,6 +843,28 @@ class BacktestEntry(_Strict):
         ge=0.0,
         le=1.0,
         description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+    )
+    always_denied_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The always-deny floor over the whole scored set. Reported for context only: "
+        "the set spans courts whose `denied` labels are different acts, so this is a reference "
+        "point rather than a comparable skill baseline — read the per-court cut for that. `null` "
+        "on an artifact written before the floor was computed, like `mean_brier_score`",
+    )
+    lift_over_always_denied: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Disposition accuracy minus the pooled always-deny floor. Presentational: "
+        "entries rank on raw accuracy and Brier, not on this, because the pooled floor mixes "
+        "outcome vocabularies. `null` when the floor was not computed",
+    )
+    courts: list[BacktestCourtScore] = Field(
+        default_factory=list,
+        description="Per-court breakdown, court-id ordered — the grain at which the floor and "
+        "the lift are actually comparable",
     )
 
 

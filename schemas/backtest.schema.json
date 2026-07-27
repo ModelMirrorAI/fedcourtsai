@@ -1,5 +1,74 @@
 {
   "$defs": {
+    "BacktestCourtScore": {
+      "additionalProperties": false,
+      "description": "One predictor's standings over a single court's slice of the back-test set.\n\nThe per-court cut exists because the pooled figure is not interpretable on its\nown: ``granted`` means cert granted on a SCOTUS row and a motion granted on a\ncourt-of-appeals docket, and each court carries its own outcome skew. Reading\naccuracy against the court's own always-deny floor is what separates skill from\nthe base rate \u2014 a constant predictor scores the floor exactly, so a lift of zero\nis the signal that it learned nothing.",
+      "properties": {
+        "accuracy": {
+          "description": "Fraction whose predicted disposition matched the known label",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "always_denied_accuracy": {
+          "description": "This court's always-deny floor \u2014 the fraction of its scored events whose disposition is `denied`. The base rate that makes the accuracy above readable",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Always Denied Accuracy",
+          "type": "number"
+        },
+        "court": {
+          "title": "Court",
+          "type": "string"
+        },
+        "events_scored": {
+          "description": "Events replayed for this predictor in this court",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "granted_accuracy": {
+          "description": "Fraction whose binary granted/denied projection matched the outcome",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Granted Accuracy",
+          "type": "number"
+        },
+        "lift_over_always_denied": {
+          "description": "Disposition accuracy minus this court's always-deny floor. Zero means the predictor matched the base rate and added nothing; the same convention the cert back-test uses, so the two instruments are read the same way",
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Lift Over Always Denied",
+          "type": "number"
+        },
+        "mean_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+          "title": "Mean Brier Score"
+        }
+      },
+      "required": [
+        "court",
+        "events_scored",
+        "accuracy",
+        "granted_accuracy",
+        "always_denied_accuracy",
+        "lift_over_always_denied"
+      ],
+      "title": "BacktestCourtScore",
+      "type": "object"
+    },
     "BacktestEntry": {
       "additionalProperties": false,
       "description": "One predictor's standings over the historical back-test set.",
@@ -10,6 +79,29 @@
           "minimum": 0.0,
           "title": "Accuracy",
           "type": "number"
+        },
+        "always_denied_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The always-deny floor over the whole scored set. Reported for context only: the set spans courts whose `denied` labels are different acts, so this is a reference point rather than a comparable skill baseline \u2014 read the per-court cut for that. `null` on an artifact written before the floor was computed, like `mean_brier_score`",
+          "title": "Always Denied Accuracy"
+        },
+        "courts": {
+          "description": "Per-court breakdown, court-id ordered \u2014 the grain at which the floor and the lift are actually comparable",
+          "items": {
+            "$ref": "#/$defs/BacktestCourtScore"
+          },
+          "title": "Courts",
+          "type": "array"
         },
         "events_scored": {
           "description": "Resolved corpus events replayed for this predictor",
@@ -23,6 +115,21 @@
           "minimum": 0.0,
           "title": "Granted Accuracy",
           "type": "number"
+        },
+        "lift_over_always_denied": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Disposition accuracy minus the pooled always-deny floor. Presentational: entries rank on raw accuracy and Brier, not on this, because the pooled floor mixes outcome vocabularies. `null` when the floor was not computed",
+          "title": "Lift Over Always Denied"
         },
         "mean_brier_score": {
           "anyOf": [
