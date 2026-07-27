@@ -8,6 +8,17 @@ the prediction against the known label. The result rolls up into
 ``metrics/backtest.json`` (git-tracked) so its reviewed diffs track predictor
 quality on history alongside the live leaderboard.
 
+This harness reports **no skill baseline**, and that is a decision rather than an
+omission: its set spans all fourteen courts, where the great majority of
+machine-readable labels are courts-of-appeals dispositions and most of those are
+dismissals. ``granted`` therefore does not mean one thing across the pooled set —
+cert granted on a SCOTUS row, a motion granted on a circuit docket — so a lift or
+per-court base rate would dress an incoherent comparison as a rigorous one, over a
+population prediction scope never forecasts anyway. Its value is as a broad
+reproducibility floor: the same corpus must yield the same numbers. Forecasting
+skill against a leakage-safe baseline lives in the cert back-test
+(:mod:`fedcourtsai.cert_backtest`), scoped to the population actually predicted.
+
 The scoring half here is deterministic and offline — a pure function of the
 corpus, with no clock or randomness — so the same corpus always yields
 byte-identical output. The *predictor* half is a seam: a :class:`Backtester`

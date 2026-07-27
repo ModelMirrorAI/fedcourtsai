@@ -16,6 +16,21 @@ gate-checked:
   retrospective by construction** (see the stratification note below): every
   replayed event resolved long before any modern model's training cutoff, so the
   figures measure recall and calibration over known history, never foresight.
+
+  **It reports no baseline, deliberately** — unlike `cert-backtest.json`, which
+  scores lift over the always-deny floor and per-band segment skill. The reason is
+  the set's composition, not the triviality of its predictors: roughly **four in
+  five** machine-readable events are courts-of-appeals rows, and roughly **nine in
+  ten of those are `dismissed`. So the pooled label is not one quantity. A
+  `granted` on a SCOTUS row means cert was granted; on a circuit docket it means a
+  motion was, and the two are averaged together here. A per-court base rate would
+  make that comparison *look* rigorous while leaving it incoherent — and it would
+  describe a population the pipeline never forecasts, since prediction scope is
+  SCOTUS-only and the circuit rows exist for retrieval context. Read this artifact
+  as a **broad reproducibility floor**: it answers "does the replay harness still
+  run and still produce the same numbers over the same corpus", not "how good is
+  this predictor". Forecasting skill is `cert-backtest.json`'s job, on the
+  population that is actually predicted.
 - `leaderboard.json` — predictors ranked best-first from the evaluations ledger
   under `data/`: per predictor, accuracy, mean Brier score, mean vote accuracy, a
   mean reasoning-quality summary, and counts (events scored, evaluations,
