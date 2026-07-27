@@ -49,34 +49,43 @@ artifacts over several tool-use turns — so effective token usage (≈280–400
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
 `fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary`.
-Measured per-run cost spans **≈$0.29–7.87 by model mix** (blended mean **≈$2.12**
-over the 160 predict runs on the ledger: claude-baseline ≈$4.06, codex ≈$1.51,
-gemini ≈$0.61); the cheapest runs approach ≈$0.30 only when the byte-stable prefix
-(AGENTS.md + prompt template + schema) is served from the prompt cache — automatic
-on all three engines, billing cached reads at ≈0.1×, and the reason to keep that
-prefix stable. Budget the range, not the point; evaluate per-run cost is still
-projected (no event has been evaluated yet).
+Measured per-cell cost spans **≈$0.29–7.87 by model mix** (blended mean **≈$1.86**
+over the 413 cells on the ledger — predict: claude-baseline ≈$3.65, codex ≈$1.38,
+gemini ≈$0.55; evaluate, from the one graded event: claude-judge ≈$4.16, codex-judge
+≈$0.92, gemini-judge ≈$0.52); the cheapest cells approach ≈$0.30 only when the
+byte-stable prefix (AGENTS.md + prompt template + schema) is served from the prompt
+cache — automatic on all three engines, billing cached reads at ≈0.1×, and the
+reason to keep that prefix stable. Budget the range, not the point. The evaluate
+means come from a single event, so treat them as a first measurement rather than a
+settled figure; the planning rate below is held deliberately above both.
 
 **Scope: the SCOTUS-docket gate.** The pilot predicts and evaluates only SCOTUS
 dockets. Ingestion is unchanged — the channels still assemble all fourteen courts
 deterministically (≈$0 model spend) so the full history stays queryable for
-retrieval and back-testing; only the agentic stages are gated. Full 14-court
-scope is the reference ceiling:
+retrieval and back-testing; only the agentic stages are gated.
+
+The unit throughout is the **agent cell**, and both roles fan out the same way:
+one predict cell per (predictor, event) and one evaluate cell per (evaluator,
+event) — a judge grades *every* predictor for its event in a single invocation,
+so cross-evaluation multiplies the `evaluation.json` count but not the cell
+count. Three engines cross-evaluated is therefore **6 cells per case**, not 12.
+
+Full 14-court scope is the reference ceiling:
 
 ```
 predictions  ≈ 48,000 events   × 3 predictors × $2.12   ≈ $305K
-evaluations  ≈ 42,000 resolved × (3 × 3)      × $2.12   ≈ $801K
+evaluations  ≈ 42,000 resolved × 3 evaluators × $2.12   ≈ $267K
                                                           ────────
-full scope                                                ≈ $1.1M / yr
+full scope                                                ≈ $570K / yr
 ```
 
 The SCOTUS gate is roughly 1/8 of that — ≈5,500 cert decisions per term:
 
 ```
-predict   ≈ 5,500 × 3     × $2.12   ≈ $35K
-evaluate  ≈ 5,500 × (3×3) × $2.12   ≈ $105K
-                                     ────────
-full cert gate                       ≈ $140K / yr
+predict   ≈ 5,500 × 3 × $2.12   ≈ $35K
+evaluate  ≈ 5,500 × 3 × $2.12   ≈ $35K
+                                 ───────
+full cert gate                   ≈ $70K / yr
 ```
 
 **Capacity `N`: the funding knob.** Within the gate, [salience.md](salience.md)'s
@@ -85,43 +94,51 @@ petitions per conference plus a few always-include carve-outs, so inference spen
 is `N × per-case`. One fully-tournamented case:
 
 ```
-predict:   3 predictors           × $2.12 = $6.36
-evaluate:  3 evaluators × 3 preds  × $2.12 = $19.08
-                                            ──────
-per case ≈ $25   (measured blended mean, three engines cross-evaluated)
+predict:   3 predictor cells × $2.12 = $6.36
+evaluate:  3 evaluator cells × $2.12 = $6.36
+                                       ──────
+per case ≈ $13   (planning rate, three engines cross-evaluated)
 ```
 
-so `N ≈ inference_budget / (≈$25 per fully-tournamented case)`. Tier-1 salience
+`$2.12` is a **deliberately conservative** per-cell rate, held above the current
+measured blended mean of `$1.86` (413 cells) so the knob does not have to be
+re-cut every time the ledger grows. Priced at today's measured per-engine means
+the same case is **≈$11** — predict `$5.57` (claude `$3.65` + codex `$1.38` +
+gemini `$0.55`) plus evaluate `$5.60` (claude `$4.16` + codex `$0.92` + gemini
+`$0.52`). Treat `$13` as the number to fund against and `$11` as the number to
+expect; the evaluate half rests on a single graded event, so it is indicative
+rather than settled, and the gap is the margin.
+
+So `N ≈ inference_budget / (≈$13 per fully-tournamented case)`. Tier-1 salience
 scoring is itself ≈$0 (a deterministic pure function of corpus features, no model
 call), so the gate spends nothing to *decide* what the tournament runs on. Raising
 `N` deepens the salience-ranked slice; it never reshuffles the ranking.
 
 **Monthly spend by provider.** The per-case cost splits across the three API
-bills (measured predict means per engine; evaluate projected at the same
-per-run means — each provider's judge scores all three predictions, so three
-judge-runs per provider per case), so at a cadence of `C` tournamented cases
-per month each provider's bill is its per-case line × `C`. The predict column
-sums to $6.18, slightly under 3 × the $2.12 blended mean, because the blended
-mean weights engines by run count:
+bills — one predict cell and one evaluate cell per provider per case, both
+columns measured — so at a cadence of `C` tournamented cases per month each
+provider's bill is its per-case line × `C`:
 
-| Provider (engine) | Predict $/case | Evaluate $/case (proj.) | $/case | Share | At `C` = 150/mo |
-|-------------------|---------------:|------------------------:|-------:|------:|----------------:|
-| Anthropic (`claude-fable-5`) | $4.06 | $12.18 | $16.24 | ≈66% | ≈$2,440 |
-| OpenAI (`gpt-5.6-sol`) | $1.51 | $4.53 | $6.04 | ≈24% | ≈$910 |
-| Google (`gemini-3.1-pro-preview`) | $0.61 | $1.83 | $2.44 | ≈10% | ≈$370 |
-| **Total** | **$6.18** | **$18.54** | **≈$25** | | **≈$3.7K** |
+| Provider (engine) | Predict $/case | Evaluate $/case | $/case | Share | At `C` = 150/mo |
+|-------------------|---------------:|----------------:|-------:|------:|----------------:|
+| Anthropic (`claude-fable-5`) | $3.65 | $4.16 | $7.81 | ≈70% | ≈$1,170 |
+| OpenAI (`gpt-5.6-sol`) | $1.38 | $0.92 | $2.30 | ≈21% | ≈$345 |
+| Google (`gemini-3.1-pro-preview`) | $0.55 | $0.52 | $1.07 | ≈10% | ≈$160 |
+| **Total** | **$5.58** | **$5.60** | **≈$11** | | **≈$1.7K** |
 
-Two-thirds of every inference dollar goes to Anthropic — size that provider's
-spend limit accordingly, and expect a limit breach there to cost a third of a
-run's coverage (the other engines are billed independently). The `C` = 150
-column is a reference month of one conference cohort filled to the
-per-conference cap (`C` counts cases per month; a month holds several
-conferences, but mid-Term cohorts run well under the cap — median ~11
-petitions per conference — so 150/month is a generous Term-month reference).
-September's long-conference month is the peak: clearing the summer backlog at
-the larger cap is ≈200 × $25 ≈ $5K, the bootstrapping envelope. Until evaluate
-goes live only the predict column is being spent (≈$6.18/case, ≈$930 at
-`C` = 150).
+The predict column rests on 138 / 132 / 140 cells per engine and is solid; the
+evaluate column is one graded event, so read it as a first measurement. Roughly
+**seven dollars in ten go to Anthropic** — size that provider's spend limit
+accordingly, and expect a limit breach there to cost a third of a run's coverage
+(the other engines are billed independently). The `C` = 150 column is a
+reference month of one conference cohort filled to the per-conference cap (`C`
+counts cases per month; a month holds several conferences, but mid-Term cohorts
+run well under the cap — median ~11 petitions per conference — so 150/month is a
+generous Term-month reference). September's long-conference month is the peak:
+clearing the summer backlog at the larger cap is ≈200 × $13 ≈ **$2.6K** at the
+planning rate (≈$2.2K measured), comfortably inside the ≈$5K bootstrapping
+envelope — the headroom is deliberate, since the long conference is the one
+cohort whose size is not yet observed.
 
 ### 2. CourtListener API (membership for pull throughput)
 
@@ -191,17 +208,23 @@ The non-inference lines — misc floor ($350/mo), CourtListener ($250–1,200/yr
 (≈$15/mo, the one line that grows with the corpus blob), Codespaces ($0–50/mo),
 Actions ($0) — sum to a near-constant **≈$5K/yr floor**. Everything
 above it is inference `= N × per-case`, so funding moves a single dial: `N`, where
-`N ≈ inference_budget ÷ (≈$25 per fully-tournamented case)`. Each order of
+`N ≈ inference_budget ÷ (≈$13 per fully-tournamented case)`. Each order of
 magnitude in funding buys roughly ten times the tournamented cases:
 
 | Scenario | ≈ Annual | Inference (= total − ≈$5K floor) | Reach |
 |----------|----------|----------------------------------|-------|
-| Bootstrapping | ≈$10K | ≈$5K | the OT2026 long-conference cert release — ≈200 petitions, all three engines cross-evaluated (the `long_conference_capacity` cap) |
-| Initial funding | ≈$100K | ≈$95K | ≈3,800 fully-tournamented cases — most of a cert term (the full ≈5,500-event gate runs ≈$140K uncapped, 3×3); salience still a spend control at this `N` |
-| Well funded | ≈$1M | ≈$995K | approaches all-14-court full scope (every event, 3×3 ≈$1.1M); the cert gate is fully covered, so salience becomes the public ranking, not a spend control |
+| Bootstrapping | ≈$10K | ≈$5K | ≈390 fully-tournamented cases: the OT2026 long-conference cert release (≈200 petitions at the `long_conference_capacity` cap, ≈$2.6K) **plus** the Term's first regular conferences from the same envelope |
+| Initial funding | ≈$100K | ≈$95K | ≈7,500 cases — more than the whole ≈5,500-event cert gate, which runs ≈$70K uncapped. The cert term is fully covered here, so salience is already a public ranking rather than a spend control |
+| Well funded | ≈$1M | ≈$995K | covers all-14-court full scope outright (every event, ≈$570K), with room for deeper panels or more engines |
 | **Floor (all scenarios)** | **≈$5K** | **—** | **misc + CourtListener + S3 + Actions; does not scale with `N`** |
 
-Start at **bootstrapping** with a small `N`, let the ledger measure real per-case
-cost against the ≈$25 estimate, then raise `N` as funding lifts it. The funding path
+The ladder is shorter than it looks: the corrected cell count puts **full cert
+coverage inside the initial-funding step**, not beyond it. That makes the case for
+salience-as-spend-control a *bootstrapping* argument specifically — above that
+step it survives as the public ranking and the replay story, which is how
+[salience.md](salience.md) frames it.
+
+Start at **bootstrapping** with a small `N`, let the ledger keep measuring real
+per-case cost against the ≈$13 planning rate, then raise `N` as funding lifts it. The funding path
 to each state — credit programs and external support — is tracked in
 [milestones.md](milestones.md).
