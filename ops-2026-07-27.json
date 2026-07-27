@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 667.9,
+    "actions_minutes": 666.8,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 5195.1,
     "fixed_monthly_usd": 65.0,
     "model_cost_usd": 767.344291,
     "model_monthly_usd": 5130.1,
-    "window_days": 3.5
+    "window_days": 3.6
   },
   "data_health": {
     "corpus": {
@@ -443,7 +443,7 @@
     "warnings": 27,
     "window_days": 14
   },
-  "generated_at": "2026-07-27T11:17:16.573114+00:00",
+  "generated_at": "2026-07-27T11:53:09.304419+00:00",
   "health": [
     {
       "failures": 0,
@@ -471,11 +471,11 @@
       "failures": 1,
       "last_conclusion": "success",
       "last_run_at": "2026-07-27T11:01:38Z",
-      "median_seconds": 98,
+      "median_seconds": 99,
       "p95_seconds": 117,
-      "runs_considered": 53,
-      "success_rate": 0.9811320754716981,
-      "successes": 52,
+      "runs_considered": 52,
+      "success_rate": 0.9807692307692307,
+      "successes": 51,
       "workflow": "codeql"
     },
     {
@@ -536,12 +536,12 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-07-27T11:16:53Z",
+      "last_run_at": "2026-07-27T11:52:46Z",
       "median_seconds": 34,
       "p95_seconds": 63,
-      "runs_considered": 4,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 4,
       "workflow": "run-ops"
     },
     {
