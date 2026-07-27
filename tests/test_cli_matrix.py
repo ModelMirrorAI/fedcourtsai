@@ -1,6 +1,6 @@
 import json
 import shutil
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -8,7 +8,8 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.corpus_ranged import RangedBackendError
-from fedcourtsai.schemas import EventKind
+from fedcourtsai.schemas import Engine, EventKind, ModelUsage, UsageRole
+from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
 
 runner = CliRunner()
@@ -38,12 +39,15 @@ def _env(
     cases: tuple[str, ...] = (),
     max_cells: int | None = None,
     seed_predictions: bool = True,
+    spend_ceiling_usd: float | None = None,
 ) -> dict[str, str]:
     """A hermetic config + corpus for a matrix run.
 
     Copies the real registries so the fan-out dimensions are unchanged, writes a
     ``tracking.yaml`` pinning ``predict.scope`` (and, with ``max_cells``, the
-    volume backstop), and seeds a corpus holding a row for each of the ``cases``
+    volume backstop; with ``spend_ceiling_usd``, the ex-post spend backstop, which
+    is otherwise absent and therefore disabled), and seeds a corpus holding a row
+    for each of the ``cases``
     ids (the gate reads each case's row: an absent row, or a non-SCOTUS court, is
     out of scope).
 
@@ -59,6 +63,8 @@ def _env(
     tracking = f"predict:\n  scope: {scope}\n"
     if max_cells is not None:
         tracking += f"  max_predict_cells_per_run: {max_cells}\n"
+    if spend_ceiling_usd is not None:
+        tracking += f"spend:\n  ceiling_usd: {spend_ceiling_usd}\n"
     (config_root / "tracking.yaml").write_text(tracking)
 
     corpus_root = tmp_path / "corpus"
@@ -627,3 +633,112 @@ def test_an_event_that_is_both_gaps_is_counted_once_as_predictionless(tmp_path: 
     assert result.exit_code == 0
     assert "dropped 3 predictionless cell(s)" in result.output
     assert "already-evaluated" not in result.output, "attributed once, to the cost gate"
+
+
+# --- the ex-post spend backstop -----------------------------------------------
+
+
+def _spend_ledger(data_root: Path, *, cost: float) -> None:
+    """Commit one predict `usage.json` dated now, so it lands inside any window."""
+    now = datetime.now(tz=UTC)
+    write_json(
+        data_root
+        / "cases/scotus/23999/events/evt-petition-cert/predictions"
+        / "claude-baseline/RIDOLD/usage.json",
+        ModelUsage(
+            case_id="scotus/23999",
+            event_id="evt-petition-cert",
+            run_id="RIDOLD",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            engine=Engine.claude_code,
+            model="claude-fable-5",
+            created_at=now,
+            input_tokens=1000,
+            output_tokens=100,
+            estimated_cost_usd=cost,
+        ),
+    )
+
+
+def test_predict_matrix_mints_nothing_once_the_spend_ceiling_is_reached(tmp_path: Path) -> None:
+    """A breach empties the matrix and says so loudly — the queued cases are
+    untouched in the corpus and re-run next cycle."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+        spend_ceiling_usd=10.0,
+    )
+    _spend_ledger(Path(env["FEDCOURTS_DATA_ROOT"]), cost=12.0)
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "::error::predict-matrix: spend backstop reached" in result.stderr
+    assert "$12.00" in result.stderr and "$10.00" in result.stderr
+
+
+def test_predict_matrix_under_the_spend_ceiling_is_unaffected(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+        spend_ceiling_usd=100.0,
+    )
+    _spend_ledger(Path(env["FEDCOURTS_DATA_ROOT"]), cost=12.0)
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 6
+    assert "spend backstop" not in result.stderr
+
+
+def test_evaluate_matrix_mints_nothing_once_the_spend_ceiling_is_reached(tmp_path: Path) -> None:
+    """The ceiling governs total inference spend, so it gates gradings too. An owed
+    grading is never lost — the backlog deriver re-derives it from the ledger."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        spend_ceiling_usd=10.0,
+    )
+    _spend_ledger(Path(env["FEDCOURTS_DATA_ROOT"]), cost=12.0)
+
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "::error::evaluate-matrix: spend backstop reached" in result.stderr
+
+
+def test_matrix_is_unaffected_when_no_spend_section_is_configured(tmp_path: Path) -> None:
+    """The default is off: a large ledger with no `spend:` section changes nothing."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(
+        tmp_path,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+    )
+    _spend_ledger(Path(env["FEDCOURTS_DATA_ROOT"]), cost=10_000.0)
+
+    result = runner.invoke(
+        app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 6

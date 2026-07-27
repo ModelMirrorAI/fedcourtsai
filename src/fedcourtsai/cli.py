@@ -74,6 +74,7 @@ from .config import (
     load_predict_config,
     load_pull_config,
     load_salience_config,
+    load_spend_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
@@ -141,6 +142,7 @@ from .schemas import (
     UsageRole,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
+from .spend import SpendVerdict, check_spend
 from .store import (
     cases_due_for_pull,
     iter_evaluations,
@@ -3303,6 +3305,49 @@ def _requested_cases(
     raise typer.BadParameter("provide --body-file, or both --court and --docket.")
 
 
+def _spend_gate_or_empty(stage: str) -> SpendVerdict:
+    """The ex-post spend backstop, consulted before either stage mints a matrix.
+
+    Returns the verdict so the caller can emit an empty matrix on a breach —
+    deferring, never destroying: the trigger's cases stay in their queue and
+    re-derive next cycle, exactly as under the volume cap. Reports on the same two
+    channels as the other plan-time gates (a workflow-command line on stderr, and
+    the step summary inside Actions), never on stdout, which carries only the
+    matrix JSON.
+
+    Disabled by default (a ceiling of ``0``), in which case this is silent and the
+    ledger is never read. See :mod:`fedcourtsai.spend` for what the ceiling can and
+    cannot promise — chiefly that the ledger lags by however long a collect PR
+    takes to merge, so it is a floor on spend rather than a live figure.
+    """
+    settings = get_settings()
+    verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
+    if not verdict.breached:
+        return verdict
+    typer.echo(
+        f"::error::{stage}: spend backstop reached — ${verdict.spent_usd:.2f} recorded over the "
+        f"trailing {verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+        f"${verdict.ceiling_usd:.2f} ceiling, so no cells are minted this run. The queued work is "
+        f"untouched and re-runs once the window rolls off or the ceiling is raised "
+        f"(spend.ceiling_usd). NOTE: the ledger only counts cells whose collect PR has merged, so "
+        f"actual spend is at least this.",
+        err=True,
+    )
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"## {stage} — spend backstop reached, no cells minted\n"
+                f"Recorded **${verdict.spent_usd:.2f}** over the trailing "
+                f"{verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+                f"**${verdict.ceiling_usd:.2f}** ceiling (`spend.ceiling_usd`). Queued work is "
+                f"deferred, not dropped — it re-runs once the window rolls off or the ceiling is "
+                f"raised. The ledger counts only cells whose collect PR has merged, so actual "
+                f"spend is at least this figure.\n"
+            )
+    return verdict
+
+
 def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
     """Surface a volume-cap deferral loudly, so a capped run is never silent.
 
@@ -3416,6 +3461,12 @@ def predict_matrix_cmd(
     capped = cap_predict_cells(matrix, predict_config.max_predict_cells_per_run)
     if capped.dropped_cells:
         _report_predict_cap(capped, predict_config.max_predict_cells_per_run)
+    # The ex-post backstop, last: it reads measured spend rather than projected
+    # volume, so it holds whatever the caps above decided. Checked after the cap
+    # so a breach is reported against the run that would actually have been minted.
+    if _spend_gate_or_empty("predict-matrix").breached:
+        typer.echo(json.dumps({"include": []}, separators=(",", ":")))
+        return
     typer.echo(json.dumps({"include": capped.include}, separators=(",", ":")))
 
 
@@ -3507,6 +3558,13 @@ def evaluate_matrix_cmd(
         typer.echo(f"evaluate-matrix: dropped {predictionless} predictionless cell(s)", err=True)
     if already:
         typer.echo(f"evaluate-matrix: dropped {already} already-evaluated cell(s)", err=True)
+    # The same ex-post backstop predict consults: the ceiling governs total
+    # inference spend, and a grading costs a cell like a forecast does. An owed
+    # grading is never lost by deferring it — the backlog deriver re-derives it
+    # from committed ledger state on a later cycle.
+    if _spend_gate_or_empty("evaluate-matrix").breached:
+        typer.echo(json.dumps({"include": []}, separators=(",", ":")))
+        return
     typer.echo(json.dumps(matrix, separators=(",", ":")))
 
 
