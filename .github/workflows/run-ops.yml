@@ -7,6 +7,17 @@ name: run-ops
 # Actions spend (the usage ledger + run durations) — rendered by
 # `fedcourts ops-report`.
 #
+# It reports the PROMOTED state, deliberately. Scheduled runs check out the
+# default branch, so this executes the `fedcourts ops-report` that has reached
+# `main` and reads the tree that is actually running the pipeline — not the newer
+# one staged for the next batch. A dashboard describing code that is not yet
+# executing would be the wrong artifact: `main` is the pre-registration record,
+# and "is the machine producing" is a question about what is live. The lag is
+# narrower than it looks, because the substance and spend sections read `data/`
+# and `metrics/`, which the writers commit to `main` directly and which are
+# therefore current either way; only what reflects code or config trails a batch.
+# An ops-report change consequently shows up here only after promotion.
+#
 # Persistence is FULLY in GitHub and never touches the default branch: each run
 # posts the current view to one long-lived "Ops dashboard" issue (updated in place)
 # and appends the JSON snapshot to a dedicated `ops-metrics` branch (an orphan

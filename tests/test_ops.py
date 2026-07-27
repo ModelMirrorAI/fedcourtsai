@@ -360,6 +360,50 @@ def test_render_markdown_smoke() -> None:
     assert "Run-rate" in md and "## Cost run-rate" not in md
 
 
+def test_render_markdown_footnotes_a_level_triggered_gate_workflow() -> None:
+    """`promote` fails by design until its gates are satisfied, so its rate must not
+    read as breakage — the row stays (a broken gate must be visible) and is annotated."""
+    report = ops.build_ops_report(
+        generated_at="2026-07-27T20:00:00+00:00",
+        runs=[
+            _run(
+                "promote",
+                "failure",
+                started="2026-07-26T22:04:00Z",
+                ended="2026-07-26T22:05:00Z",
+            ),
+            _run(
+                "run-pull",
+                "success",
+                started="2026-07-27T01:17:00Z",
+                ended="2026-07-27T01:20:00Z",
+            ),
+        ],
+        usage=[],
+    )
+    md = ops.render_markdown(report)
+    assert "| promote | failure |" in md  # still shown, never hidden
+    assert "promote is level-triggered" in md
+    assert "not incidents" in md
+
+
+def test_render_markdown_omits_the_gate_footnote_when_no_gate_workflow_ran() -> None:
+    """The note is scoped to what actually ran, so an ordinary day carries no aside."""
+    report = ops.build_ops_report(
+        generated_at="2026-07-27T20:00:00+00:00",
+        runs=[
+            _run(
+                "run-pull",
+                "success",
+                started="2026-07-27T01:17:00Z",
+                ended="2026-07-27T01:20:00Z",
+            )
+        ],
+        usage=[],
+    )
+    assert "level-triggered" not in ops.render_markdown(report)
+
+
 def test_render_markdown_handles_empty_health() -> None:
     report = ops.build_ops_report(
         generated_at="2026-06-26T12:00:00+00:00",
