@@ -202,7 +202,7 @@ def test_record_retrieval_writes_log_with_manifest(
     )
     log = json.loads(destination.read_text())
     assert log["mode"] == "forward"
-    assert log["mcp_servers"] == ["courtlistener=courtlistener-api-client[mcp]==1.0.0"]
+    assert log["mcp_servers"] == ["courtlistener=courtlistener-api-client[mcp]==1.1.0"]
     assert log["calls"][0]["tool"] == "mcp__courtlistener__search"
 
 

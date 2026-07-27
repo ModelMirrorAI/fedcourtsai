@@ -26,20 +26,19 @@ mcp_servers:
     # `uvx --from '<package>'`; exact-version pinned. Two transports, one
     # pin: stdio for local runs, and in the cell workflows a tokenless
     # localhost HTTP sidecar (`fedcourts mcp-serve`) so no client config
-    # carries the token. This release has two bugs — it ships without its
-    # icon assets (crashes at startup), and its search/call_endpoint tools
-    # demand a Redis session store the local modes never configure (every
-    # call fails with "REDIS_URL is not set") — so `fedcourtsai.mcp`
-    # launches it through shims keyed to this exact pin that write
-    # placeholder assets and pre-seed an in-process fakeredis store (the
-    # HTTP shim also builds the server directly, bypassing the release's
-    # hard Redis/OAuth requirements for hosted HTTP). Bumping the pin to a
-    # fixed release self-retires the shims.
-    package: "courtlistener-api-client[mcp]==1.0.0"
+    # carries the token. stdio runs the release's own entry point directly.
+    # The sidecar cannot: the release's `create_http_app()` requires a Redis
+    # URL and forces its OAuth provider, neither of which fits a loopback
+    # sidecar, so `fedcourtsai.mcp` builds the server itself and serves HTTP
+    # on localhost — a bypass keyed to this exact pin, so a bump re-checks it.
+    # This release validates tool arguments strictly (unknown keys and
+    # out-of-enum endpoint ids are hard errors, not ignored), so a sloppy
+    # retrieval call now fails loudly rather than silently returning nothing.
+    package: "courtlistener-api-client[mcp]==1.1.0"
     command: courtlistener-mcp
     # The CourtListener API token env name. In the cell workflows only the
     # MCP sidecar's launch step holds it; locally the stdio launch injects
-    # it from the emitting process's env. Unset, this release's tool calls
+    # it from the emitting process's env. Unset, the release's tool calls
     # error and the cell degrades to corpus tooling (never blocks).
     token_env: COURTLISTENER_API_TOKEN
     description: >-

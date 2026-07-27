@@ -10,7 +10,7 @@
 # judge can check a cited authority rather than take it on faith.
 mcp_servers:
   - id: courtlistener
-    package: "courtlistener-api-client[mcp]==1.0.0"
+    package: "courtlistener-api-client[mcp]==1.1.0"
     command: courtlistener-mcp
     token_env: COURTLISTENER_API_TOKEN
     description: >-
