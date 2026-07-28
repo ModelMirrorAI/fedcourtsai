@@ -286,8 +286,12 @@ prediction's timing contract:
 - **Evaluator** — scores a **Brier skill score / lift vs the segment base rate**,
   so a prediction that merely parrots the base rate earns ~zero skill and a genuine
   edge shows as positive lift. The leaderboard carries the aggregated
-  skill-vs-baseline column; the ops dashboard reports the selected segment's size,
-  its base grant rate, and predictions-vs-baseline.
+  skill-vs-baseline column, **per stratum** — so a forward cell's skill lands
+  there. The ops dashboard reports the selected segment's size and its base grant
+  rate, and compares predictions to that baseline **for the replay stratum
+  only**: its calibration block filters to retrospective cells before averaging,
+  so no volume of forward grading ever fills that line. Replay cells come from
+  the cert back-test, not the evaluate channel.
 
 **The lookback window is a stated choice, not a default.** The band rate is pooled
 over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
