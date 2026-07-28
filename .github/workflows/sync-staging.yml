@@ -12,9 +12,8 @@ name: sync-staging
 # Doing that catch-up *at* promotion time is what costs: the merge moves
 # staging's head, and integration-test freshness is per-SHA, so every scenario
 # green at the old head is instantly stale and all of them must be re-dispatched
-# — each waiting on a reviewer approval. A promotion therefore paid a full
-# re-dispatch cycle for a merge whose content is, by construction, already-gated
-# main history joined with already-gated staging history. Syncing on a schedule
+# — a full re-dispatch cycle for a merge whose content is, by construction,
+# already-gated main history joined with already-gated staging history. Syncing on a schedule
 # moves that cost off the promotion path: at batch time staging already contains
 # main, its head has not just moved, and the freshness evidence still stands.
 #

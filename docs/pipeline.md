@@ -94,9 +94,9 @@ diverted on the runner), or (the one token-spending scenario) a single
 real-engine cell over the service sidecar — dispatched around changes to
 corpus access, the sidecars, engine CLIs, the collect contract, or the
 corpus-consuming workflows and before releases — from main, or via the
-approval-gated `staging` deployment environment (the collect scenario needs
-none) from a PR branch or from the `staging` branch itself (those
-staging-branch runs are the promotion gate's freshness evidence; see
+`staging` deployment environment (the collect scenario needs
+none) from the `staging` branch, which is the only branch that environment
+accepts (those runs are the promotion gate's freshness evidence; see
 *Promotion: staging → main* below). See *Infra-bound integration* in
 [testing.md](testing.md).
 
@@ -274,7 +274,7 @@ The mechanics:
   bypassed. Syncing on a schedule rather than at batch time is what keeps the
   cost off the promotion path: the same merge done at promotion moves
   `staging`'s head, and integration freshness is per-SHA, so every scenario
-  would have to be re-dispatched and re-approved for a merge whose content is
+  would have to be re-dispatched for a merge whose content is
   already-gated main history joined with already-gated staging history.
   `promote` still checks the ancestry, and still prints the manual
   merge-and-push commands for the maintainer's admin bypass — the escape
@@ -293,9 +293,8 @@ The mechanics:
   Re-run that check right before merging — quiescence is point-in-time.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
-  commands when freshness is unmet (each staging deployment waits for the
-  required reviewer), or, when green, the `gh pr create` command for the
-  promotion PR. The workflow performs no write itself: a PR created with a
+  commands when freshness is unmet, or, when green, the `gh pr create` command
+  for the promotion PR. The workflow performs no write itself: a PR created with a
   workflow's own token triggers no `pull_request` checks, so the maintainer
   creating it is what makes the required checks real. Merge promotions with a
   **merge commit**, never squash — `staging` and `main` must share history or
@@ -311,8 +310,7 @@ The full path of a change, operator's view:
    conflicts, run the printed commands (your admin-bypass push) — then
    re-dispatch.
 3. Dispatch the required integration scenarios at staging's post-sync head
-   (the summary lists them; each staging deployment waits for your
-   approval), then re-dispatch `promote`.
+   (the summary lists them), then re-dispatch `promote`.
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Re-run that
    check right before merging, and merge with a **merge commit**. Live on
@@ -327,9 +325,9 @@ satisfies the requirement, on every PR it does not police. Order matters for
 `main-base`: require it only once the job's ci.yml definition has been
 **promoted to `main`**, because a required check that no workflow run
 reports leaves every collect auto-merge PR waiting forever. The `staging`
-*deployment environment* the freshness runs deploy to (required reviewer,
-read-only role trust, per-environment engine keys) is separate wiring,
-described in docs/security.md.
+*deployment environment* the freshness runs deploy to (deployment branches
+restricted to `staging`, read-only role trust, per-environment engine keys) is
+separate wiring, described in docs/security.md.
 
 ## The predict/evaluate matrix
 

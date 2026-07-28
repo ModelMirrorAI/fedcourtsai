@@ -78,8 +78,9 @@ freshness() {
     case "$req" in */*) engine="${req#*/}" ;; esac
     # Two fixed-string matches per title: the prefix pins the scenario (and
     # engine, for the smokes), the suffix pins the staging deployment
-    # environment — so only reviewer-approved staging runs satisfy the gate,
-    # independent of the prod environment's main-only deployment policy. The
+    # environment — which is restricted to the staging branch, so only runs
+    # that ran from staging satisfy the gate, independent of the prod
+    # environment's main-only deployment policy. The
     # second grep runs without -q so the first never dies on a closed pipe.
     if [ -n "$engine" ]; then
       prefix="integration-test: ${scenario} / ${engine} @"

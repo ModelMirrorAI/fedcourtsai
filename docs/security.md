@@ -206,7 +206,8 @@ carries the token and no client config file does either; unset degrades the
 agents to anonymous rate limits; and by the collect jobs' secret scan, which
 needs the live value to search the run's output for it), the AWS role ARNs
 and region, and the corpus remote URL (referenced by role, never committed). Every job that needs any of
-them declares `environment: prod`.
+them declares an environment, and every job outside `integration-test` declares
+`prod`.
 
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
@@ -239,23 +240,80 @@ Every `prod` job already runs from a `main` ref for its trigger — `schedule`,
 `workflow_dispatch`, and `issues` — so the restriction breaks nothing.
 
 **The integration-test workflow selects its environment by input**
-(`deploy-environment`, default `prod`). A branch dispatch naming `prod` is
-refused at its deployment-branch gate before any step runs; one naming the
-`staging` pre-merge environment (any-branch deployment policy) proceeds only
-after the required reviewer approves that specific deployment; and one naming
-anything else resolves no role variables — the AWS roles' trust policies pin
-the OIDC `sub` to the named environments, so an auto-created empty environment
-can assume nothing. `staging` pairs its **required-reviewer** rule with the
-read-only role's trust naming its `sub`; the rule is the gate and must exist
-before the trust does (trust without it would be decorative — rebuild in that
-order). The write role's trust never names `staging`.
+(`deploy-environment`, default `prod`). A dispatch whose job *binds* `prod` from
+anything but `main`, or binds `staging` from anything but `staging`, is refused
+at its deployment-branch gate before any step runs; one naming anything else
+auto-creates an unprotected, empty environment and resolves no role variables —
+the AWS roles' trust policies pin the OIDC `sub` to the named environments, so
+it can assume nothing. The refusal keys on binding, not on the input string: the
+collect scenario binds no environment and so dispatches from anywhere regardless
+of what its input says.
+
+**`staging` is restricted to the `staging` branch, and carries no reviewer
+rule** — the same shape as `prod`, one branch lower. The branch policy is the
+gate, and what it enforces is **code provenance**: only code that passed a pull
+request plus the `gate` and `paths` checks on the `staging` ruleset can bind the
+environment — with two carve-outs this document records above: the admin bypass
+on that ruleset, and the absence of `strict_required_status_checks_policy`, so a
+PR may be green against a stale base. It holds without a human present at
+dispatch time, and it is a property of the *code* — which a per-run approval
+does not assert, since the approval UI shows a workflow name and a ref, not a
+diff.
+
+A per-run approval is the stronger control against a *second* write-access
+human, who could otherwise merge to `staging` (the ruleset requires zero
+approving reviews) and reach the environment without the maintainer. It is
+redundant against the arrangement that exists: no workflow declares
+`actions: write`, neither App is granted an Actions scope, and the repo-scoped
+token agents hold is refused on `workflow_dispatch` — so dispatching is already
+a maintainer-only act, and with `prevent_self_review` off the approval is a
+second click on the same decision by the same person. **Revisit the moment any
+premise changes**: a second write-access collaborator; the first *token* that
+can dispatch, whether a workflow declaring `actions: write` or either App
+granted an Actions scope; or the first workflow that binds `staging` on a
+**non-dispatch trigger** — a `push` or `pull_request` filter naming the branch
+would bind the environment on the merge itself, and agents merge their own PRs
+to `staging`. No workflow filters on a staging ref today; every branch filter
+names `main`.
+
+What neither shape covers: the `staging` ruleset requires no workflow linter, so
+a workflow change that reads a secret is caught by no *required* check.
+`lint-actions` still runs zizmor and actionlint on any PR touching `.github/**`,
+non-blockingly, and the branch policy forces such a change to become a PR diff
+at all. The real control is `AGENTS.md`'s rule that `.github/workflows/**` and
+`.github/actions/**` — the permission surface, composites included, since a
+composite runs inside the job and reads the same secrets — wait for the
+maintainer even into `staging`. Convention, not ruleset, and recorded as such.
+
+Blast radius is bounded on **integrity**, not on confidentiality or spend:
+staging's engine keys are separate and independently revocable, and its AWS role
+is read-only with no write path to the corpus — but that role reads and lists
+the access-gated corpus and the per-case content store. So the exposure a
+workflow change at the staging head buys is corpus *read* and model *spend*,
+which is why the linter gap above is worth naming rather than glossing.
+
+The read-only role's trust names `staging`'s `sub` (the staging integration runs
+assume it, so this is observed, not assumed); the write role's trust never does.
+Restoring a lane for arbitrary branches, if one is ever wanted, means a
+**separate** environment — its own keys, its own trust statement, and a required
+reviewer, since arbitrary code is exactly what a human should see — not widening
+this one. It costs no workflow change: `deploy-environment` is a free-form
+string input.
+
+**The invariant behind the wiring order:** the environment must never be
+reachable from an arbitrary branch while the read-only role's trust names it.
+The trust is the standing fact, so the deployment-branch restriction is the
+piece that must be in place first, and any future loosening of that branch
+policy is a change to the trust statement too — not to the branch policy alone.
+An environment reachable from any branch, with no gate above it, hands the
+read-only role to whatever an agent last pushed.
 
 The workflow's collect scenario binds no environment at all: its job holds no
 secret and no role — the collect-run composite under test is handed a
 placeholder in place of the App token, a `gh` shim stubs its PR surface, and
 a git URL rewrite keyed on that placeholder diverts its branch push to a
-runner-local scratch remote — so a branch dispatch runs it without any
-approval, and there is nothing for an ungated dispatch to reach. Its only
+runner-local scratch remote — so it dispatches from any branch, and there is
+nothing for such a dispatch to reach. Its only
 real credential is the ambient read-only token that lists and fetches the
 run's own synthetic cell artifacts.
 
@@ -264,10 +322,11 @@ variables — reads one model-provider
 secret — the selected engine's API key, chosen by expression ternary so the
 other engines' keys never enter the job. The keys live on the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
-pre-merge smoke spends against staging's own keys (independently revocable,
-isolated from tournament spend) and only after the required reviewer approves
-the run, so the reviewer rule gates model spend exactly as it gates the
-read-only role. A dispatch naming an environment without the keys gets an
+smoke dispatched at the staging head spends against staging's own keys
+(independently revocable, isolated from tournament spend), so a promotion's
+freshness runs cannot touch the tournament's budget. Spend is gated the same way
+the read-only role is: by who may dispatch, and from which branch. A dispatch
+naming an environment without the keys gets an
 empty key and fails closed right alongside the role variables, independent of
 step ordering. A codex smoke additionally loosens the runner kernel's
 AppArmor userns restriction (codex-action's own prerequisite for the live
@@ -327,9 +386,11 @@ Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped
 read-only to the corpus bucket — the one static credential in the system.
 
-Both roles' OIDC trust is scoped to this repo's `prod` environment
-(`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only `prod`-
-environment jobs can assume them.
+Both roles' OIDC trust is scoped to named environments of this repo
+(`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only a job binding
+one of those environments can assume them. The read-write role names `prod`
+alone; the read-only role also names `staging`, which is what lets the
+integration scenarios read the corpus from the staging branch.
 
 **Agent shells hold no cloud credential; the residual is a localhost query
 surface.** A predict/evaluate cell runs an agent over third-party snapshot

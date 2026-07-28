@@ -17,7 +17,8 @@ run-name: "integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @ ${{
 # its input. The collect scenario is environment-free on top of token-free:
 # it exercises the collect-run composite against synthetic cell artifacts
 # with every write surface stubbed or diverted on the runner, so its job
-# binds no deployment environment and dispatches from any branch.
+# binds no deployment environment and is the one scenario that still
+# dispatches from any branch.
 #
 # Manual dispatch only. Its own workflow rather than a run-analytics mode
 # because it is a preflight of the pipeline *infrastructure* itself, not an
@@ -27,17 +28,18 @@ run-name: "integration-test: ${{ inputs.scenario }} / ${{ inputs.engine }} @ ${{
 # exists to check — and a distinct workflow gives release preflights their own
 # run history.
 #
-# The `deploy-environment` input is what makes pre-merge testing possible: a
-# dispatch from main uses the `prod` environment as always, while a dispatch
-# from a PR branch can name the maintainer-approval-gated `staging` environment
-# (deployment-branch policy: any branch; protection rule: required reviewer)
-# holding the same read-only role and remote variables — so a branch's changed
-# read seams run against real infrastructure only after a human approves that
-# specific run. A branch dispatch naming `prod` is refused at its
-# deployment-branch gate, and one naming any environment that does not exist
-# resolves no role variables — fail-closed either way (the AWS trust policies
-# pin each role to its named environments; docs/security.md describes the
-# gated environment's wiring).
+# The `deploy-environment` input is what lets a change be exercised against real
+# infrastructure before it is promoted: a dispatch from main uses the `prod`
+# environment as always, while a dispatch from `staging` names the `staging`
+# environment, holding the same read-only role and remote variables plus its own
+# engine keys. Each environment restricts deployments to its one branch, so the
+# gate is code provenance — only what passed a PR and the branch's required
+# checks can bind either — rather than a per-run approval, which asserts
+# nothing about the code. A dispatch whose job BINDS an environment from the
+# wrong branch is refused at its deployment-branch gate, and one naming an
+# environment that does not exist resolves no role variables — fail-closed
+# either way (the AWS trust policies pin each role to its named environments;
+# docs/security.md describes the wiring and when to revisit the shape).
 on:
   workflow_dispatch:
     inputs:
@@ -87,10 +89,11 @@ on:
         default: ""
       deploy-environment:
         description: >-
-          Deployment environment supplying the role/remote variables. Main
-          dispatches use `prod`; a branch dispatch names the
-          maintainer-approval-gated `staging` environment. Unused by the
-          collect scenario, whose job binds no environment.
+          Deployment environment supplying the role/remote variables. Each is
+          pinned to one branch: `main` dispatches use `prod`, `staging`
+          dispatches use `staging`. Unused by the collect scenario, whose job
+          binds no environment and so dispatches from anywhere. Any other
+          value resolves no role variables and no keys — fail-closed.
         type: string
         default: prod
 
@@ -179,8 +182,8 @@ jobs:
 
       # The same composite the cell workflows launch: assumes the role with
       # step-scoped credentials, starts `fedcourts corpus-serve`, health-gates,
-      # and publishes the non-secret service URL job-wide. A branch dispatch
-      # therefore exercises the branch's own composite + service code. The
+      # and publishes the non-secret service URL job-wide. A dispatch therefore
+      # exercises the dispatched ref's own composite + service code. The
       # engine-smoke scenario also takes the step-scoped credential outputs
       # for the cascade's own provisioning reads.
       - uses: ./.github/actions/corpus-sidecar
@@ -331,9 +334,9 @@ jobs:
       # ids). One predictor cell, so the spend is one cell's worth against
       # the default open-event case (a resolved event would also replay
       # evaluator cells — the input description says so). The engine keys
-      # resolve from the deployment environment like every other secret, so
-      # an ungated branch dispatch gets an empty key and the cell fails
-      # closed regardless of step ordering. Output lands only in the
+      # resolve from the deployment environment like every other secret, so a
+      # dispatch naming an environment without the keys gets an empty key and
+      # the cell fails closed regardless of step ordering. Output lands only in the
       # runner's throwaway checkout.
       - name: Run one real-engine cascade cell over the service sidecar
         if: ${{ inputs.scenario == 'engine-smoke' }}

@@ -120,7 +120,9 @@ runbook, [docs/security.md](docs/security.md).
   everyone, so the predictions, outcomes, and evaluations under `data/` cannot
   be rewritten or dropped. Secrets and the S3 roles live in the `prod`
   environment, whose deployment branches are restricted to `main`: a workflow
-  authored on a PR branch runs without them.
+  authored on a PR branch runs without them. A second environment, `staging`,
+  is restricted to the `staging` branch and holds the read-only role and its
+  own engine keys for the pre-promotion integration runs.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions include actor-permission checks; matrix inputs are parsed from a
   fixed JSON block rather than free text, and agents are instructed to treat
