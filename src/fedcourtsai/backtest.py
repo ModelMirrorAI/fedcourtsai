@@ -184,12 +184,20 @@ class PriorIndex:
     court, the candidate list in the zero-score rank order (most recent decision
     first, then ``case_id`` — :func:`corpus.recency_key`'s order) plus inverted
     judge/citation postings, and :meth:`top` reproduces ``retrieve_priors``'
-    semantics over the **disposition-labeled subset** of its results (overlap
-    filters required when given; rank by overlap score, then the candidate
-    order). The subset is deliberate: ``retrieve_priors`` also returns decided
-    rows whose disposition was never machine-labeled, but the prior-vote
-    baseline needs a label to vote with, so the index feeds from the labeled
-    slice only. Parity against that subset is pinned by tests.
+    semantics over the **votable subset** of its results (overlap filters
+    required when given; rank by overlap score, then the candidate order).
+
+    The subset is deliberate, and it is the same bar
+    :func:`select_backtest_set` applies to the scored set: a candidate must
+    carry a **machine-readable** disposition. That excludes two classes
+    ``retrieve_priors`` itself returns — rows never disposition-labeled (a
+    decision date closes a case without classifying it) and rows labeled
+    ``other`` (decided but unclassified). Both are unvotable for opposite
+    reasons: the first gives the baseline nothing to vote with, and the second
+    lets it vote for a label the scored set defines as unscoreable, so every
+    such prediction is wrong by construction. Keeping the pool and the scored
+    set on one bar is what makes the vote answerable. Parity against that
+    subset is pinned by tests.
     """
 
     def __init__(self) -> None:
@@ -203,6 +211,11 @@ class PriorIndex:
         rows_by_court: defaultdict[str, list[CorpusRow]] = defaultdict(list)
         for row in corpus.iter_rows(conn, resolved=True):
             if row.disposition is None:  # unreachable under resolved=True; narrows the type
+                continue
+            # The scored set's bar, applied to the pool it is scored against:
+            # `other` is decided-but-unclassified, so a vote for it can never be
+            # correct (see the class docstring).
+            if not is_machine_readable(Disposition(row.disposition)):
                 continue
             rows_by_court[row.court].append(row)
         index = cls()
@@ -235,11 +248,16 @@ class PriorIndex:
         court: str,
         judges: tuple[str, ...],
         citations: tuple[str, ...],
-        limit: int,
+        limit: int | None,
         *,
         decided_before: int | None = None,
     ) -> list[_PriorCandidate]:
         """Up to ``limit`` priors, most relevant first — ``retrieve_priors`` semantics.
+
+        ``limit`` of ``None`` returns every qualifying candidate, which is what a
+        base-rate estimator wants: the ranking below is a *relevance* order, so
+        truncating it samples the most recent decisions rather than the
+        population.
 
         Overlap filters are required when given (a candidate sharing no judge, or
         no citation, is skipped); rank is overlap score descending, then the
@@ -297,11 +315,22 @@ class PriorVoteBacktester:
     matching prior, so it always returns a prediction. Retrieval runs against a
     :class:`PriorIndex` built lazily on the first trial, so a full replay pays
     one resolved-slice scan rather than one per trial.
+
+    **It votes over the whole eligible history, uncapped** (``limit`` of
+    ``None``). This is a base-rate estimator, so a cap is the wrong shape: the
+    index ranks by relevance, which falls back to most-recent-decision order
+    when a trial shares no judge to overlap on, and truncating that order
+    samples recent decisions rather than the population. On a court whose
+    judges are not recorded — SCOTUS — every trial takes that fallback, so a
+    capped vote reads the most recent N decisions and inherits their
+    composition rather than the court's. Where judges *are* recorded the
+    overlap filter still does the selecting, and the uncap only widens the tail
+    it votes over.
     """
 
     conn: sqlite3.Connection
     id: str = "prior-vote"
-    limit: int = corpus.DEFAULT_PRIOR_LIMIT
+    limit: int | None = None
     _index: PriorIndex | None = field(default=None, repr=False)
 
     def predict(self, features: BacktestFeatures) -> BacktestPrediction:
