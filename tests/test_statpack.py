@@ -607,6 +607,11 @@ def test_render_statpack_markdown_renders_the_segment_base_rate(
     assert "| Term | high | elevated | baseline |" in md
     # OT22's lone elevated petition is a weight-5 denial: 0.0% over n=5, other bands —.
     assert "| 2022 | — | 0.0% (n=5) | — |" in md
+    # The band table states its own rendered window. The predict/evaluate prompts
+    # tell agents that this caption is how they detect truncation, so the count has
+    # to sit on THIS table — the parent Term table's caption is a different section.
+    band_caption = md.split("### Segment base rate by salience band")[1].split("\n\n")[0]
+    assert "Term(s)" in band_caption
 
 
 def test_render_statpack_markdown_caps_long_sections() -> None:
@@ -629,6 +634,38 @@ def test_render_statpack_markdown_caps_long_sections() -> None:
     assert "| court-000 |" in md and "| court-024 |" in md
     assert "| court-025 |" not in md
     assert "5 more bucket(s) in the JSON" in md
+
+
+def _terms_pack(*years: int) -> StatPack:
+    return StatPack(
+        corpus_rows=1,
+        overall=BaseRateBucket(cases=1),
+        terms=[StatPackTerm(term=y, base_rates=BaseRateBucket()) for y in years],
+    )
+
+
+def test_render_statpack_markdown_caps_the_term_table() -> None:
+    # The per-Term cap is the forward stratum's segment base-rate lookback: the
+    # predict/evaluate agents can anchor only on Terms this table renders.
+    pack = _terms_pack(*range(2026, 2014, -1))  # 12 Terms
+    md = analytics.render_statpack_markdown(pack)
+    assert md.count("Most recent 10 of 12 Term(s)") == 2  # the Term table and the band table
+    assert "| 2017 |" in md  # the 10th most recent
+    assert "| 2016 |" not in md
+
+
+def test_render_statpack_markdown_zero_markdown_terms_shows_every_term() -> None:
+    # `0` means unbounded, as everywhere else in the config; `terms[:0]` would be
+    # the empty slice, so the sentinel has to branch.
+    md = analytics.render_statpack_markdown(_terms_pack(*range(2026, 2014, -1)), markdown_terms=0)
+    assert "Most recent 12 of 12 Term(s)" in md
+    assert "| 2015 |" in md
+
+
+def test_render_statpack_markdown_honours_an_explicit_markdown_terms() -> None:
+    md = analytics.render_statpack_markdown(_terms_pack(2025, 2024, 2023), markdown_terms=2)
+    assert "Most recent 2 of 3 Term(s)" in md
+    assert "| 2023 |" not in md
 
 
 def test_render_statpack_markdown_empty() -> None:

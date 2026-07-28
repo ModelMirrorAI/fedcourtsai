@@ -119,6 +119,68 @@ def test_segment_base_rate_skips_bands_with_nothing_resolved() -> None:
     assert segment_base_rate(_row("24-100"), pack) is None
 
 
+# --- the lookback window: `salience.base_rate_lookback_terms` --------------------
+
+
+def test_the_default_lookback_pools_every_prior_term() -> None:
+    # The shipped default is unbounded, and it must stay that way silently: this
+    # pins that the bare call and an explicit 0 agree, and that both reach the
+    # oldest Term in the pack.
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2023, {"high": (0.20, 100)}),
+        _term(2018, {"high": (0.60, 100)}),  # six Terms back — still pooled
+    )
+    unbounded = segment_base_rate(_row("25-100"), pack)
+    assert unbounded == pytest.approx(0.40)  # (0.40 + 0.20 + 0.60) * 100 / 300
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=0) == unbounded
+
+
+def test_the_lookback_window_bounds_the_pool() -> None:
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2023, {"high": (0.20, 100)}),
+        _term(2022, {"high": (0.90, 100)}),  # outside a 2-Term window
+    )
+    # OT25 case, lookback 2 -> OT24 + OT23 only: (0.40 + 0.20) * 100 / 200 = 0.30.
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=2) == pytest.approx(0.30)
+
+
+def test_the_lookback_is_a_term_year_band_not_a_rank_slice() -> None:
+    # OT2023 is absent from the pack. A rank slice would take the two most recent
+    # prior *rows* (OT24 + OT22) and quietly reach outside the stated window; the
+    # year band takes OT24 alone and shrinks the sample honestly. Published skill
+    # numbers must not move because the walker's coverage changed.
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2022, {"high": (0.90, 100)}),
+        _term(2021, {"high": (0.90, 100)}),
+    )
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=2) == pytest.approx(0.40)
+
+
+def test_a_zero_row_cursor_term_inside_the_window_does_not_extend_it() -> None:
+    # Cursor-only Terms appear in the pack for every band with no resolved rows.
+    # One inside the window contributes no weight and must not push the floor back
+    # to admit an older Term — the failure mode a rank slice would have.
+    pack = _statpack(
+        _term(2024, {"high": (0.40, 100)}),
+        _term(2023, {"high": (None, 0)}),  # type: ignore[dict-item]
+        _term(2022, {"high": (0.90, 100)}),
+    )
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=2) == pytest.approx(0.40)
+
+
+def test_the_window_never_reaches_the_cases_own_term() -> None:
+    # The leakage guard is not a lookback bound and cannot be widened past it.
+    pack = _statpack(
+        _term(2026, {"high": (0.99, 100)}),  # later than the case: excluded
+        _term(2025, {"high": (0.99, 100)}),  # the case's own Term: excluded
+        _term(2024, {"high": (0.40, 100)}),
+    )
+    assert segment_base_rate(_row("25-100"), pack, lookback_terms=50) == pytest.approx(0.40)
+
+
 # --- brier_skill_score: lift over the naive base-rate forecaster -----------------
 
 

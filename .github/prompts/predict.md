@@ -151,9 +151,11 @@ per-Term **"Segment base rate by salience band"** table folds the relist/CVSG
 signal into one number: find this case's band (its grant-likelihood tier) and
 anchor on that band's grant rate over Terms **strictly before** this case's own —
 the base rate for the slice the salience gate actually predicts on, and the exact
-yardstick the evaluator scores your skill against. For a selected cert petition
-prefer it to the low whole-docket rate. For a historical case, the era breakdown base-rates it against its
-own period. Weigh every cut against this case's specifics rather than adopting
+yardstick the evaluator scores your skill against. Pool every Term row that table
+shows that precedes yours: its caption states how many of the pack's Terms are
+rendered, and where that is fewer than the pack holds, the shown window *is* your
+window. For a selected cert petition prefer it to the low whole-docket rate. For
+a historical case, the era breakdown base-rates it against its own period. Weigh every cut against this case's specifics rather than adopting
 it wholesale. Each `query` prior carries its caption, dates, and derived
 `era`, and `--era` restricts retrieval to the case's own period. See
 `docs/cli.md`.
