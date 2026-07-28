@@ -11,14 +11,20 @@ name: run-analytics
 #                      backtest / statpack) and land any change as a **reviewed**
 #                      PR — never a direct commit to main, never auto-merged.
 #                      Also the schedule's job (weekly).
+#   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
+#                      report (`fedcourts tool-usage`) — which configured MCP
+#                      tools cells actually call. Reads `data/` only, so unlike
+#                      its siblings it needs no corpus and no credential at all.
 #
-# The analysis mode is strictly read-only: it writes neither the corpus, `data/`,
-# the corpus remote, nor git, opens no PR, and files no issue — every result goes to the Actions
+# The analysis modes are strictly read-only: they write neither the corpus, `data/`,
+# the corpus remote, nor git, open no PR, and file no issue — every result goes to the Actions
 # step summary and the run log.
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats holds only the read-only S3 role, and metrics-refresh alone
-# mints the dev App token (contents + PR write) to open its review PR.
+# corpus-stats holds only the read-only S3 role, metrics-refresh alone
+# mints the dev App token (contents + PR write) to open its review PR, and
+# tool-usage binds no environment and assumes no role — there is nothing for it
+# to reach.
 on:
   schedule:
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
@@ -34,8 +40,9 @@ on:
         options:
           - corpus-stats
           - metrics-refresh
+          - tool-usage
         default: corpus-stats
-      # corpus-stats inputs (ignored by metrics-refresh). All are optional; an
+      # corpus-stats inputs (ignored by metrics-refresh and tool-usage). All are optional; an
       # empty value means "no filter" / "no grouping".
       court:
         description: "corpus-stats: restrict to one court id (e.g. scotus). Empty = all courts."
@@ -115,6 +122,32 @@ jobs:
             --group-by "$GROUP_BY" \
             --term "$TERM_YEAR" \
             --summary-out "$GITHUB_STEP_SUMMARY"
+
+  tool-usage:
+    # Which configured MCP tools cells actually call. Reads `data/` only — no
+    # corpus, no network, no credentials — so unlike the sibling jobs it binds
+    # no environment and assumes no role: there is nothing for it to reach.
+    if: ${{ inputs.mode == 'tool-usage' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: run-analytics-tool-usage
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Roll up offered-vs-called tool usage
+        run: |
+          set -euo pipefail
+          # Markdown to the step summary and to the run log. Writes nothing to
+          # git: this is a read of the committed ledger, not an artifact.
+          uv run fedcourts tool-usage --markdown-out "$GITHUB_STEP_SUMMARY"
 
   metrics-refresh:
     # Runs on the weekly schedule, or on dispatch with mode=metrics-refresh —

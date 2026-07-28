@@ -39,6 +39,7 @@ from . import (
     retrieval,
     scope_manifest,
     secretscan,
+    tool_usage,
 )
 from .agent_feedback import post_agent_feedback, post_once
 from .authz import authorize_trigger
@@ -654,6 +655,59 @@ def leaderboard(
     )
 
 
+@app.command("tool-usage")
+def tool_usage_command(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the ToolUsage JSON artifact here (default: stdout only)."),
+    ] = None,
+    markdown_out: Annotated[
+        Path | None, typer.Option(help="Write the Markdown rollup here (e.g. a run summary).")
+    ] = None,
+) -> None:
+    """Roll committed retrieval logs into an offered-vs-called tool report.
+
+    Answers which configured MCP tools are actually earning their place: which
+    were offered but never called, which are used by some engines and not
+    others, and how often each is called and by whom. Reads ``data/`` only — no
+    corpus, no network — so it runs offline and in the gate.
+
+    The offered denominator comes from each log's ``mcp_tools`` snapshot, not
+    from ``mcp_servers`` (which names servers, and a server advertises many
+    tools). Logs written before that field existed contribute calls but no
+    denominator, and are counted separately rather than read as offering
+    nothing. Call names are normalized to ``<server>.<tool>`` first, because
+    engines spell the same MCP tool differently.
+
+    A zero means **never called**, not useless — the prompt may never mention
+    the tool, or a sandbox may have blocked it. The report says so; check the
+    cause before retiring anything.
+    """
+    settings = get_settings()
+    # The current manifest's advertised set, so a never-called tool is visible
+    # even though no committed log predating `mcp_tools` carries its own
+    # denominator. Union across both registries: a tool offered to evaluators
+    # but not predictors is still offered.
+    offered_now: set[str] = set()
+    for filename in ("predictors.yaml", "evaluators.yaml"):
+        path = settings.config_root / filename
+        if path.exists():
+            offered_now.update(mcp.manifest_tools(load_mcp_servers(path)))
+    usage = tool_usage.build_tool_usage(settings.data_root, sorted(offered_now))
+    markdown = tool_usage.render_tool_usage_markdown(usage)
+    if out is not None:
+        write_json(out, usage)
+    if markdown_out is not None:
+        write_text(markdown_out, markdown)
+    typer.echo(markdown)
+    never = sum(1 for e in usage.entries if e.calls == 0)
+    typer.echo(
+        f"tool-usage: {usage.logs} log(s), {len(usage.entries)} tool(s), "
+        f"{never} offered but never called",
+        err=True,
+    )
+
+
 @app.command()
 def backtest(
     out: Annotated[
@@ -1169,7 +1223,9 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     never the agent's word, so the cross-evaluator's leakage grading can see what a replay cell
     actually retrieved. The pinned tool manifest the cell was configured with
     (from the actor's registry entry) is snapshotted alongside — the
-    pipeline-attribution record. A cell with zero tool calls still records an
+    pipeline-attribution record — as both the server pins and the tool names
+    they advertise, so a later offered-vs-called rollup has a denominator rather
+    than only the numerator. A cell with zero tool calls still records an
     empty log: "retrieved nothing" is itself evidence.
     """
     settings = get_settings()
@@ -1185,6 +1241,7 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         "predictors.yaml" if role == UsageRole.predictor else "evaluators.yaml"
     )
     labels: list[str] = []
+    offered: list[str] = []
     try:
         actors: list[Any] = (
             load_predictors(registry_file)
@@ -1195,10 +1252,12 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         if match is not None:
             servers = resolve_mcp_servers(load_mcp_servers(registry_file), match.mcp_servers)
             labels = mcp.manifest_labels(servers)
+            offered = mcp.manifest_tools(servers)
     except (OSError, KeyError):
         # Attribution is best-effort here: a registry drift must not lose the
         # harvested calls (the plan already validated the registry).
         labels = []
+        offered = []
 
     record = RetrievalLog(
         case_id=ids.case_id(court, docket),
@@ -1208,6 +1267,7 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         engine=engine,
         mode=mode or None,
         mcp_servers=labels,
+        mcp_tools=offered,
         calls=calls,
     )
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
@@ -2542,12 +2602,24 @@ def mcp_integration_check(
     points at, exercised without spending a CourtListener call, so the sidecar
     may run token-free. Emits the machine report JSON on stdout and the
     Markdown summary on stderr; ``--summary-out`` also appends the Markdown.
+
+    It also checks the registry manifest's recorded ``tools`` against what the
+    server advertises. That list is the offered denominator every retrieval log
+    snapshots and is captured by hand at pin time, so this is what stops a
+    version bump from leaving it silently wrong.
+
     Exits 2 when the endpoint cannot be probed at all (a setup problem), 1
-    when the protocol disappoints (no server name, no tools) or the budget
-    blows.
+    when the protocol disappoints (no server name, no tools), the manifest has
+    drifted from the server, or the budget blows.
     """
+    expected: list[str] = []
+    registry = get_settings().config_root / "predictors.yaml"
+    if registry.exists():
+        expected = sorted({tool for server in load_mcp_servers(registry) for tool in server.tools})
     try:
-        report = integration_check.run_mcp_check(mcp_url=url, budget_seconds=budget_seconds)
+        report = integration_check.run_mcp_check(
+            mcp_url=url, budget_seconds=budget_seconds, expected_tools=expected
+        )
     except integration_check.McpProbeError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc

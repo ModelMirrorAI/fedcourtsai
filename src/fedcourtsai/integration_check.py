@@ -320,7 +320,9 @@ def _mcp_result(response: httpx.Response) -> dict[str, object]:
     return result
 
 
-def run_mcp_check(*, mcp_url: str, budget_seconds: float = 120.0) -> McpCheckReport:
+def run_mcp_check(
+    *, mcp_url: str, budget_seconds: float = 120.0, expected_tools: list[str] | None = None
+) -> McpCheckReport:
     """Probe the MCP sidecar: complete the handshake, list the tools.
 
     Two steps, mirroring the corpus checks' shape: ``initialize`` must return
@@ -332,6 +334,15 @@ def run_mcp_check(*, mcp_url: str, budget_seconds: float = 120.0) -> McpCheckRep
     checks green. Transport failures raise :class:`McpProbeError`; a
     protocol-level disappointment (no server name, an empty tool list)
     reports as a failed step.
+
+    ``expected_tools`` adds a third step: the manifest's recorded ``tools`` for
+    this pin, compared against what the server actually advertises. The
+    manifest list is the offered denominator every retrieval log snapshots, and
+    it is captured by hand at pin time — so without this check a version bump
+    that adds or drops a tool leaves it silently wrong, and every later
+    offered-vs-called rollup inherits the error. Drift fails the step and names
+    both directions; an empty/omitted list skips it rather than asserting the
+    server offers nothing.
     """
     started = time.monotonic()
     steps: list[IntegrationStep] = []
@@ -394,6 +405,25 @@ def run_mcp_check(*, mcp_url: str, budget_seconds: float = 120.0) -> McpCheckRep
                 seconds=time.monotonic() - t0,
             )
         )
+        if expected_tools:
+            advertised, expected = set(names), set(expected_tools)
+            missing = sorted(expected - advertised)
+            added = sorted(advertised - expected)
+            parts = []
+            if missing:
+                parts.append(f"recorded but not advertised: {', '.join(missing)}")
+            if added:
+                parts.append(f"advertised but not recorded: {', '.join(added)}")
+            steps.append(
+                IntegrationStep(
+                    name="manifest tools",
+                    ok=not parts,
+                    detail=" · ".join(parts)
+                    if parts
+                    else f"manifest matches the server ({len(expected)} tool(s))",
+                    seconds=0.0,
+                )
+            )
 
     seconds = time.monotonic() - started
     within_budget = seconds <= budget_seconds

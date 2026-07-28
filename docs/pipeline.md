@@ -80,6 +80,12 @@ each as its own least-privilege job holding only the credentials its mode needs:
   write-capable job (it alone mints the dev App token). The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking.
+- **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
+  **offered-vs-called** report: which configured MCP tools were never called,
+  which are used by some engines and not others, and call counts per tool /
+  engine / actor. It reads `data/` only — no corpus, no network — so it binds no
+  environment and assumes no role, and the same `fedcourts tool-usage` runs
+  locally and in the gate. Results go to the step summary; it commits nothing.
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
 a manual-dispatch, strictly side-effect-free scenario runner over the **corpus

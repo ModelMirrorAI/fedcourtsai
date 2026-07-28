@@ -134,6 +134,14 @@
       "title": "Mcp Servers",
       "type": "array"
     },
+    "mcp_tools": {
+      "description": "Tool names those pinned servers advertise \u2014 the cell's OFFERED set, snapshotted from the manifest so an offered-vs-called comparison has a denominator. `mcp_servers` names servers, not tools, so it cannot supply one. Empty on records written before the field existed: offered-unknown, not nothing-offered.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Mcp Tools",
+      "type": "array"
+    },
     "mode": {
       "anyOf": [
         {

@@ -630,6 +630,14 @@ class RetrievalLog(_Strict):
         default_factory=list,
         description="Pinned manifest entries the cell was configured with (id==version strings)",
     )
+    mcp_tools: list[str] = Field(
+        default_factory=list,
+        description="Tool names those pinned servers advertise — the cell's OFFERED set, "
+        "snapshotted from the manifest so an offered-vs-called comparison has a "
+        "denominator. `mcp_servers` names servers, not tools, so it cannot supply one. "
+        "Empty on records written before the field existed: offered-unknown, not "
+        "nothing-offered.",
+    )
     calls: list[RetrievalCall] = Field(
         default_factory=list,
         max_length=500,
@@ -865,6 +873,73 @@ class BacktestEntry(_Strict):
         default_factory=list,
         description="Per-court breakdown, court-id ordered — the grain at which the floor and "
         "the lift are actually comparable",
+    )
+
+
+class ToolUsageEntry(_Strict):
+    """One MCP tool's offered-vs-called record, qualified ``<server>.<tool>``."""
+
+    tool: str = Field(description="Server-qualified tool name, e.g. `courtlistener.search`")
+    offered_cells: int = Field(
+        default=0,
+        ge=0,
+        description="Cells whose manifest advertised this tool — the denominator. 0 means "
+        "no cell recorded it as offered, which on logs predating the offered-tools "
+        "record means unknown rather than not-offered",
+    )
+    called_cells: int = Field(
+        default=0, ge=0, description="Cells that called it at least once (not total calls)"
+    )
+    calls: int = Field(default=0, ge=0, description="Total invocations across every cell")
+    engines: dict[str, int] = Field(
+        default_factory=dict,
+        description="Calls per engine — a tool used by one engine and not another is "
+        "usually a prompt or sandbox difference, not a tool problem",
+    )
+    actors: dict[str, int] = Field(
+        default_factory=dict, description="Calls per predictor/evaluator id"
+    )
+
+
+class ToolUsage(_Strict):
+    """The offered-vs-called tool rollup over every committed retrieval log.
+
+    Answers which configured tools are actually earning their place. A zero in
+    ``calls`` means **never called** — not useless: the prompt may never mention
+    the tool, or a sandbox may have blocked it, and this data cannot separate
+    those from genuine uselessness. Read it beside ``offered_cells``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    logs: int = Field(default=0, ge=0, description="Retrieval logs rolled up")
+    logs_without_offered_record: int = Field(
+        default=0,
+        ge=0,
+        description="Logs carrying no `mcp_tools` (written before the field existed), so "
+        "they contribute calls but no offered denominator",
+    )
+    pins: dict[str, int] = Field(
+        default_factory=dict,
+        description="Logs per `<id>=<pinned package>` the cells actually ran under. Read it "
+        "beside `offered_now`: when they name different versions, the offered set is "
+        "today's and the calls are from an older server",
+    )
+    offered_now: list[str] = Field(
+        default_factory=list,
+        description="What the CURRENT manifest advertises, server-qualified. Supplies a "
+        "denominator for logs written before per-cell `mcp_tools` existed; a tool listed "
+        "here with no calls is genuinely never-called, while one called but absent here "
+        "ran under an older pin",
+    )
+    entries: list[ToolUsageEntry] = Field(
+        default_factory=list,
+        description="Offered-but-never-called first, then by descending calls — the "
+        "actionable rows lead",
+    )
+    builtin_calls: dict[str, int] = Field(
+        default_factory=dict,
+        description="Calls to engine built-ins (shell, file IO, web search), counted "
+        "separately because they are not what the manifest offers",
     )
 
 
@@ -2123,7 +2198,13 @@ class McpServerConfig(_Strict):
     (``fedcourts mcp-serve`` + ``mcp-config --http-url``).
     """
 
-    id: str = Field(description="Manifest key, e.g. `courtlistener`")
+    id: str = Field(
+        pattern=r"^[a-z0-9]+$",
+        description="Manifest key, e.g. `courtlistener`. Lowercase alphanumeric: the "
+        "tool-usage normalizer splits engine-spelled call names (`mcp__<id>__<tool>`) "
+        "on this, and an id carrying an underscore or a capital would be mis-split "
+        "or missed entirely.",
+    )
     package: str = Field(
         description="Pinned installable, e.g. `courtlistener-api-client[mcp]==1.1.0` — "
         "launched via `uvx --from <package> <command>` so no separate install step runs"
@@ -2133,6 +2214,14 @@ class McpServerConfig(_Strict):
         default=None,
         description="Environment variable carrying the server's API token. Unset/empty "
         "at runtime degrades to anonymous rate limits rather than failing the cell.",
+    )
+    tools: list[str] = Field(
+        default_factory=list,
+        description="Tool names this pinned version advertises over `tools/list` — the "
+        "OFFERED set, recorded because a cell's log can only show what it called. "
+        "Belongs with `package` because it is a property of the pin: a version bump "
+        "may add or drop tools, so the two move together. Empty means unrecorded, "
+        "never 'offers nothing'.",
     )
     description: str | None = None
 
@@ -2196,6 +2285,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "evaluator_config": EvaluatorConfig,
     "leaderboard": Leaderboard,
     "backtest": Backtest,
+    "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,
     "usage": ModelUsage,
     "ops_report": OpsReport,
