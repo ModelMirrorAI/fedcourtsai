@@ -78,8 +78,8 @@ queued-cell census the never-uploaded cell, and both withhold the
 trigger-issue close; the salvage cell
 rides the draft; a rerun updates in place) with no App token, no PR, and no
 matrix spend. It is the one scenario whose job binds no deployment
-environment at all — it needs no role variables and no secret — so it
-dispatches from any branch without the approval gate.
+environment at all — it needs no role variables and no secret — so it is the
+one scenario that still dispatches from any branch.
 `engine-smoke` is the one token-spending scenario: a single real-engine
 predictor cell (the `engine` input picks which; one predict cell's spend
 against the default open-event case — a resolved event also replays
@@ -97,11 +97,18 @@ jobs that call it**, and as a preflight **before a release dry run** and
 **before a prediction freeze** — the moments when a silent read regression
 would be most expensive.
 The `deploy-environment` input names which deployment environment supplies the
-role and remote variables: main dispatches use `prod`, and the
-maintainer-approval-gated `staging` environment (deployment-branch policy open,
-required reviewer) lets a PR branch's changed read seams run against real
-infrastructure before merge — the capability the trigger path structurally
-cannot provide.
+role and remote variables, and each is pinned to one branch: `main` dispatches
+use `prod`, and dispatches from `staging` use the `staging` environment, which
+holds the same read-only role and remote variables plus its own engine keys.
+That is what lets a change's read seams run against real infrastructure once it
+is on `staging` and before it is promoted — the capability the trigger path
+structurally cannot provide. Changed seams are therefore validated after the
+merge to `staging` rather than on the PR branch; nothing broken reaches `main`
+regardless: the gate needs the seven required integration runs — five of the
+six scenarios, with engine-smoke counted once per engine — green at exactly that
+staging head, and `promotion-gate` is a required check on `main`, so it is
+branch-protection-enforced rather than advisory. The collect scenario is outside
+the gate, and is also the one scenario still dispatchable from any branch.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that

@@ -33,7 +33,7 @@ name: promote
 #   3. Freshness gate at the staging head: every required integration
 #      scenario green at exactly that sha. After a sync moved staging this
 #      fails by construction — the summary prints the scenario dispatch
-#      commands (each staging deployment waits for reviewer approval), and
+#      commands (each runs from the staging branch, which is the gate), and
 #      this workflow is re-dispatched after they land.
 
 on:
@@ -116,7 +116,7 @@ jobs:
             {
               echo "## Integration runs needed at \`${sha}\`"
               echo
-              echo "Dispatch each scenario (staging deployments wait for reviewer approval), then re-dispatch this workflow:"
+              echo "Dispatch each scenario from the staging branch, then re-dispatch this workflow:"
               echo
               echo '```'
               for s in ranged-reads corpus-service stub-cascade mcp-sidecar; do
