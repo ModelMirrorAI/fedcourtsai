@@ -259,8 +259,10 @@ The mechanics:
   the maintainer-merges backstop: a PR that edits ci.yml runs the edited
   definition, so the check deters routing mistakes, and the human merge
   catches sabotage. Dependabot targets `staging` for the same reason. The `staging`
-  ruleset itself requires a pull request plus the same status checks as
-  `main`, with the **repository admin role as its sole bypass actor** — a
+  ruleset itself requires a pull request plus the status checks that can report
+  on a staging-targeted PR — `gate` and `paths`; `main`'s other two key on a
+  base of `main` and are always `skipped` here — with the **repository admin
+  role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
   check runs, so the maintainer is the only identity that can land the sync
   merge below. Neither GitHub App *bypasses* `staging`: the scheduled

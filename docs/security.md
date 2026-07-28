@@ -64,7 +64,12 @@ deterministic corpus pushes and agent PRs are visibly authored by different bots
 
 The two `main` rulesets are split so the per-rule bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
-`staging` and `ops-metrics` branches:
+`staging` and `ops-metrics` branches. Both require-PR rulesets pin
+`allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
+promotion must keep `main` and `staging` sharing history, `squash` because the
+data-run `collect` PRs auto-merge with it, and no rebase because replaying
+commits onto either branch would break that shared history and rewrite the
+pre-registration record's commit ids.
 
 - **`main: require PR`** — requires a pull request plus the `gate` status check to
   merge. **Bypass: the data App only**, so the deterministic
@@ -118,10 +123,13 @@ bypass list applies to the whole ruleset); further rulesets protect the
   and evaluations under `data/` cannot be rewritten or dropped, even by a
   misbehaving writer that holds the data App's bypass token.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
-  requires a pull request plus the same required checks as `main`. **Bypass:
-  the repository admin role only** — the maintainer's own main→staging sync
-  push at each promotion batch, whose content is by construction
-  already-gated `main` history merged with already-gated `staging` history.
+  requires a pull request plus the required checks that can report on a
+  staging-targeted PR: `gate` and `paths`. (`main`'s other two are structurally
+  always-`skipped` here — `promotion-gate` and `main-base` both key on a base of
+  `main` — so requiring them would add no signal.) **Bypass: the repository
+  admin role only**, the escape hatch for a main→staging sync when the ordinary
+  PR path is unavailable; its content is by construction already-gated `main`
+  history merged with already-gated `staging` history.
   (The GitHub Actions app is not offered as a ruleset bypass actor, and the
   `promote` workflow is deliberately read-only.) The scheduled `sync-staging`
   workflow does hold a write token to this branch — but it **bypasses
@@ -161,8 +169,12 @@ the branch list clean. To reproduce the repo (or use it as a template), set:
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
 | **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
 
-Rebase-merge is not used by the pipeline; leave it at whatever the repo
-prefers. Auto-merge does **not** weaken the gate: it is a
+Rebase-merge is not used by the pipeline, and both require-PR rulesets pin
+`allowed_merge_methods` to `merge, squash` — so it is refused on `main` and
+`staging` regardless of the repo-level toggle. A rebase-merge of either
+ancestry-critical merge would replay commits onto the target, breaking the
+shared history *and* rewriting the pre-registration record's commit ids; no
+lane needs it. Auto-merge does **not** weaken the gate: it is a
 deferred merge that still waits for the required `gate` + `paths` checks, and the
 dev App that opens these PRs is not a branch-protection bypass actor (above), so
 the checks bind. The append-only `data/` jail (`paths`) is what makes
