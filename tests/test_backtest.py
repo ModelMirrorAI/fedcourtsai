@@ -19,6 +19,7 @@ from fedcourtsai.backtest import (
     select_backtest_set,
 )
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.outcome import is_machine_readable
 from fedcourtsai.schemas import Backtest, Disposition
 from fedcourtsai.serialize import read_model
 from tests.conftest import FixtureCorpus
@@ -193,6 +194,52 @@ def test_prior_vote_builds_its_index_once(tmp_path: Path) -> None:
     assert bt._index is built
 
 
+def test_prior_vote_never_predicts_an_unscoreable_label(tmp_path: Path) -> None:
+    # `other` is decided-but-unclassified. The scored set drops it, so a vote for
+    # it is wrong by construction — the pool must apply the same bar the scored
+    # set does, even when `other` is the outright majority of the history.
+    db = tmp_path / "corpus.db"
+    _seed(
+        db,
+        [
+            _row(f"ca9/{i}", Disposition.other, judges=["smith"], date_decided=date(2026, 1, i))
+            for i in range(1, 6)
+        ]
+        + [_row("ca9/90", Disposition.denied, judges=["smith"])],
+    )
+    with corpus.connect(db) as conn:
+        pred = PriorVoteBacktester(conn).predict(_features("ca9/99", judges=("smith",)))
+    # 5 `other` vs 1 denied: a pool that admitted `other` would vote for it.
+    assert pred.predicted_disposition == Disposition.denied
+    assert pred.probability_granted == 0.0
+
+
+def test_prior_vote_reads_the_population_not_the_most_recent_slice(tmp_path: Path) -> None:
+    # No judges, so relevance falls back to most-recent-decision order — the
+    # SCOTUS case, where nothing narrows the pool. A capped vote reads the top of
+    # that order and inherits its composition; the population says the opposite.
+    # 25 denied decided early, 21 granted decided late, all before the trial.
+    db = tmp_path / "corpus.db"
+    _seed(
+        db,
+        [_row(f"ca9/d{i}", Disposition.denied, date_decided=date(2025, 1, 1)) for i in range(25)]
+        + [
+            _row(f"ca9/g{i}", Disposition.granted, date_decided=date(2025, 12, 1))
+            for i in range(21)
+        ],
+    )
+    with corpus.connect(db) as conn:
+        uncapped = PriorVoteBacktester(conn).predict(_features("ca9/99"))
+        capped = PriorVoteBacktester(conn, limit=20).predict(_features("ca9/99"))
+    # The population is 25 denied / 21 granted, so the honest majority is denied.
+    assert uncapped.predicted_disposition == Disposition.denied
+    assert uncapped.probability_granted == 21 / 46
+    # The 20 most recently decided are all grants — the sampling defect, pinned
+    # so the uncapped default cannot regress back to it unnoticed.
+    assert capped.predicted_disposition == Disposition.granted
+    assert capped.probability_granted == 1.0
+
+
 # --- prior index parity with retrieve_priors -----------------------------------
 
 
@@ -240,9 +287,20 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
             _row("ca1/6", Disposition.granted, court="ca1", judges=["alpha"]),
             # Decided but never disposition-labeled: `retrieve_priors` returns it
             # (a decision date closes a case), the index deliberately does not
-            # (the prior-vote baseline needs a label to vote with) — the one
-            # designed asymmetry between the two retrieval paths.
+            # (the prior-vote baseline needs a label to vote with) — one of the
+            # two designed asymmetries between the retrieval paths.
             _row("ca9/7", None, judges=["alpha"], date_decided=date(2026, 4, 1)),
+            # Decided but unclassified (`other`): also returned by
+            # `retrieve_priors` and also withheld by the index — the scored set
+            # drops `other`, so a vote for it could never be correct. The second
+            # designed asymmetry.
+            _row(
+                "ca9/8",
+                Disposition.other,
+                judges=["alpha"],
+                date_filed=date(2023, 6, 1),
+                date_decided=date(2026, 5, 1),
+            ),
         ],
     )
     queries: list[tuple[str, tuple[str, ...], tuple[str, ...], int | None]] = [
@@ -264,7 +322,9 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
     with corpus.connect(db) as conn:
         index = PriorIndex.build(conn)
         for court, judges, citations, decided_before in queries:
-            for limit in (1, 3, 10):
+            # `None` is what the production caller passes, so parity has to hold
+            # there and not only at the truncated limits.
+            for limit in (1, 3, 10, None):
                 # Parity holds over the disposition-labeled subset: fetch wide,
                 # drop the label-less rows `retrieve_priors` alone returns, then
                 # truncate — so limits compare like against like.
@@ -279,7 +339,11 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                     ),
                     limit=50,
                 )
-                expected = [r for r in wide if r.disposition is not None][:limit]
+                expected = [
+                    r
+                    for r in wide
+                    if r.disposition is not None and is_machine_readable(Disposition(r.disposition))
+                ][:limit]
                 got = index.top(court, judges, citations, limit, decided_before=decided_before)
                 assert [c.case_id for c in got] == [r.case_id for r in expected], (
                     court,
@@ -288,11 +352,12 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                     decided_before,
                     limit,
                 )
-        # The asymmetry itself, pinned: the unlabeled decided row retrieves
-        # through `retrieve_priors` but never through the index.
+        # Both asymmetries, pinned: the unlabeled decided row and the `other`
+        # row retrieve through `retrieve_priors` but never through the index.
         full = corpus.retrieve_priors(conn, corpus.PriorQuery(court="ca9"), limit=50)
-        assert "ca9/7" in [r.case_id for r in full]
-        assert "ca9/7" not in [c.case_id for c in index.top("ca9", (), (), 50)]
+        indexed = [c.case_id for c in index.top("ca9", (), (), 50)]
+        assert "ca9/7" in [r.case_id for r in full] and "ca9/7" not in indexed
+        assert "ca9/8" in [r.case_id for r in full] and "ca9/8" not in indexed
 
 
 # --- scoring ------------------------------------------------------------------
