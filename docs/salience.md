@@ -352,6 +352,41 @@ blended across every Term and unmasked by any clock (`fedcourtsai.ops`). It is a
 operational statistic for the human board, never the scored baseline, so neither
 knob applies to it.
 
+### Scope: SCOTUS cert only, deliberately
+
+The segment baseline is **not** generalised to other courts, and that is a
+decision rather than an omission. Circuit rows are ingested for retrieval context
+and never predicted; when they enter prediction scope they will need a skill
+baseline, and this one does not translate. Three of its four load-bearing parts
+are SCOTUS-cert-shaped by construction:
+
+- **The Term is the leakage control**, not a label. Pooling Terms strictly before
+  the case's own is what makes the anchor replay-safe, and `segment_base_rate`
+  returns `None` without one. A circuit docket has no Term, so an equivalent
+  guard has to be built from something else — a rolling window on the decision
+  date is the nearest candidate, and a calendar year is not a natural unit of
+  appellate practice the way a Term is for the Court.
+- **The `sal-v1` bands do not generalise at all.** Relist count, CVSG presence,
+  originating circuit and fee class have no circuit analogues — there is no
+  relist, no CVSG, no court below in the same sense, and no IFP serial convention
+  to read a fee class from. A circuit band function is a new scorer over
+  different features, not a re-parameterisation.
+- **The outcome is a different act.** `granted` means cert was granted on a
+  SCOTUS row and a motion was granted on a circuit one. A circuit baseline has to
+  choose which binary it estimates before it can estimate a rate, and the useful
+  one is probably affirm/reverse — which no column carries cleanly today.
+
+What *does* generalise is the **per-court always-deny floor**, which
+`metrics/backtest.json` already reports per court. That is the reason the cut is
+per-court rather than SCOTUS-only: a circuit predictor gets an interpretable
+floor the day it runs, with no new machinery.
+
+So the near-term position is that circuits are covered by the floor and by
+nothing else. Publishing a cross-court "segment base rate" would produce a number
+that looks comparable between courts and is not, which is worse than reporting
+none — the same reasoning the generic back-test applies in declining a segment
+baseline of its own.
+
 ## GVR as a first-class label
 
 A grant/vacate/remand — and especially a Munsingwear vacatur, where the Court
@@ -456,5 +491,10 @@ the posture below keeps selection additive and never destructive:
   `statpack.markdown_terms: 10`. Both are stated so the pair can be moved
   together, on evidence, in one reviewable diff (*Base rates & baselines for the
   predicted segment* above).
+- **The segment baseline stays SCOTUS-cert-only** — the Term is its leakage
+  control, the `sal-v1` bands have no circuit analogue, and `granted` names a
+  different act on a circuit docket. Other courts are covered by the per-court
+  always-deny floor and nothing else, because a cross-court "segment base rate"
+  would look comparable between courts without being so (*Scope* above).
 - **The `big_case` grade is rank-agreement across the cohort** (bigness is
   comparative), with a per-case absolute delta kept only as a secondary diagnostic.
