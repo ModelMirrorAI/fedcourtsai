@@ -56,9 +56,14 @@ non-interactive** container. Two consequences shape everything you do:
 - **You may merge to `staging`; only the maintainer merges to `main`.** The two
   branches carry different risk, so they get different rules. Into `staging`,
   once the required checks are green and you have resolved the reviewer
-  subagents' blockers, merge your own PR — a merge commit, never a squash, so
-  `staging` and `main` keep the shared history the promotion gate's ancestry
-  check needs. Into `main`, never: `main` is the pre-registration record and
+  subagents' blockers, merge your own PR — merge commit or squash, whichever
+  suits the change. A feature PR is not ancestry-critical: its squash commit's
+  sole parent is `staging`'s previous tip, so it changes nothing about how much
+  of `main` `staging` already contains. Exactly two merges *are*, and neither is
+  yours: the **sync** (`main` → `staging`) and the **promotion**
+  (`staging` → `main`). Both must be merge commits, or `main` and `staging` stop
+  sharing history — and every later sync re-merges rewritten commits. Into
+  `main`, never: `main` is the pre-registration record and
   reaches it only through a maintainer-merged promotion batch. (The data-run
   `collect` jobs are the standing exception, opening their per-run PR to `main`
   with auto-merge, still gated on the same required checks.)
