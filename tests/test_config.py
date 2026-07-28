@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
 from fedcourtsai.config import (
     PredictConfig,
@@ -8,10 +9,13 @@ from fedcourtsai.config import (
     PullConfig,
     RunnerConfig,
     Settings,
+    StatpackConfig,
     load_courts,
     load_predict_config,
     load_pull_config,
     load_runner_config,
+    load_salience_config,
+    load_statpack_config,
 )
 
 
@@ -147,6 +151,32 @@ def test_repo_tracking_yaml_carries_the_runner_retry_section() -> None:
     assert cfg.max_attempts == 3
     assert cfg.backoff_base_seconds == 2.0
     assert cfg.backoff_max_seconds == 30.0
+
+
+def test_load_statpack_config_reads_markdown_terms(tmp_path: Path) -> None:
+    _write_tracking(tmp_path, "statpack:\n  markdown_terms: 3\n")
+    assert load_statpack_config(tmp_path).markdown_terms == 3
+
+
+def test_load_statpack_config_defaults_when_absent(tmp_path: Path) -> None:
+    assert load_statpack_config(tmp_path / "absent") == StatpackConfig()
+    assert load_statpack_config(tmp_path / "absent").markdown_terms == 10
+
+
+def test_repo_tracking_yaml_carries_the_two_base_rate_windows() -> None:
+    # The segment base rate's lookback exists in two places — in code for the cert
+    # back-test, and as the Term table the predict/evaluate agents read. Both are
+    # stated config; this pins the shipped values, because they are the ones every
+    # committed metrics artifact was generated under. Changing either re-bases
+    # published skill numbers, so it must be a deliberate diff and never a drift.
+    assert load_salience_config(Path("config")).base_rate_lookback_terms == 0
+    assert load_statpack_config(Path("config")).markdown_terms == 10
+    # Both loaders fall back to the field defaults, which are these same values, so
+    # the assertions above survive the keys being deleted. The point of the change
+    # is that the window is *stated*, so assert the keys are literally present.
+    tracking = yaml.safe_load((Path("config") / "tracking.yaml").read_text())
+    assert "base_rate_lookback_terms" in tracking["salience"]
+    assert "markdown_terms" in tracking["statpack"]
 
 
 def test_corpus_split_empty_env_reads_as_off(monkeypatch: pytest.MonkeyPatch) -> None:

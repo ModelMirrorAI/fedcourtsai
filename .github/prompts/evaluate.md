@@ -71,8 +71,11 @@ For each predictor you score, write to
     only, read from committed `metrics/statpack.md`. Find the case's band (its
     relist/CVSG tier, in the per-Term "Segment base rate by salience band" table) and
     pool that band's rate (resolved-weighted) over Terms **strictly before** this
-    case's Term — the same leakage-safe cut a replay self-selects. Omit when the case
-    has no Term or no prior-Term band resolved.
+    case's Term — the same leakage-safe cut a replay self-selects. Pool every Term
+    row that table shows that precedes the case's; its caption states how many of
+    the pack's Terms are rendered, and where that is fewer than the pack holds, the
+    shown window *is* your window. Omit when the case has no Term or no prior-Term
+    band resolved.
   - `brier_skill_score` — `1 - brier_score / (segment_base_rate - actual_granted)**2`:
     the forecast's skill over the naive baseline that always predicts the segment base
     rate (positive beats it, ~0 merely parrots it, negative is worse). Omit when
@@ -96,7 +99,14 @@ For each predictor you score, write to
 
   The quantitative pieces are computed identically in code by
   `fedcourtsai.pipeline.evaluate` (`is_correct`, `brier_score`, `vote_accuracy`,
-  `segment_base_rate`, `brier_skill_score`) — match those definitions.
+  `segment_base_rate`, `brier_skill_score`) — match those definitions. One
+  exception, and it is explicit: `segment_base_rate`'s in-code lookback is
+  `salience.base_rate_lookback_terms`, while yours is bounded by what the Term
+  table in `statpack.md` renders. Where the caption shows fewer Terms than the
+  pack holds, prefer the rendered window — it is the only one you can compute —
+  and record the divergence in `flags.json` (with the detail in `evaluation.md`),
+  since a baseline computed over a different window is a machine-collectable fact
+  about the run, not a remark.
 - **`evaluation.md`** — your qualitative write-up: what the prediction got right or
   wrong and why, and what drove your `reasoning_quality` score.
 

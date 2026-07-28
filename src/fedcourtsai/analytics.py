@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus
+from .config import StatpackConfig
 from .corpus import CorpusRow
 from .pipeline.outcome import is_machine_readable
 from .pipeline.salience import SALIENCE_VERSION, salience_band, salience_bands
@@ -796,8 +797,6 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     )
 
 
-# How many recent Terms the Markdown detail table shows; the JSON carries them all.
-_MARKDOWN_TERMS = 10
 # How many buckets a section's Markdown table shows; the JSON carries them all.
 # Sized for the state-court originating-court cut, whose long tail is real data
 # but unreadable as a table.
@@ -818,14 +817,25 @@ def _scope_line(section: StatPackSection) -> str:
     return f"_Scope: {scope}._"
 
 
-def render_statpack_markdown(pack: StatPack) -> str:
+def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = None) -> str:
     """Render a :class:`StatPack` as a publishable Markdown document.
 
     Leads with headline counts, the overall base rate, coverage, and decision
     timing; then one table per curated breakdown (capped per section — the JSON
     carries every bucket) and the per-Term live-slice detail table for the most
     recent Terms. Deterministic; safe on the empty pack (renders a one-line
-    note)."""
+    note).
+
+    ``markdown_terms`` caps that per-Term detail; ``0`` renders every Term, and
+    ``None`` takes :class:`~fedcourtsai.config.StatpackConfig`'s *field* default —
+    not the value in ``config/tracking.yaml``, which only the CLI seam reads, so
+    this function stays a pure function of its arguments. The cap is not merely
+    cosmetic: this document is the surface the predict and evaluate prompts send
+    agents to anchor on, so it bounds the forward stratum's segment base-rate
+    window as instructed — the counterpart of
+    ``salience.base_rate_lookback_terms``, which bounds the same window in code
+    for the cert back-test. Both per-Term captions state the rendered window, so a
+    truncation is visible to the agent reading the table."""
     lines = ["# Corpus statpack", ""]
     if pack.corpus_rows == 0:
         lines.append("_Empty — no corpus present. Regenerated once a corpus is available._")
@@ -877,7 +887,11 @@ def render_statpack_markdown(pack: StatPack) -> str:
         if overflow > 0:
             lines.append(f"| _… {overflow} more bucket(s) in the JSON_ | | | | |")
     if pack.terms:
-        shown = pack.terms[:_MARKDOWN_TERMS]
+        # `0` means every Term, so it must branch — `pack.terms[:0]` is empty. A
+        # negative cap would invert the truncation (dropping the *oldest* Term);
+        # `ge=0` guards the config path, and this guards a direct caller.
+        window = markdown_terms if markdown_terms is not None else StatpackConfig().markdown_terms
+        shown = pack.terms[: max(0, window)] if window > 0 else list(pack.terms)
         lines += [
             "",
             "## SCOTUS cert petitions by Term",
@@ -902,7 +916,8 @@ def render_statpack_markdown(pack: StatPack) -> str:
                 "_Paid scored-segment grant rate per band, this Term's live slice only "
                 "(denial-reweighted); the leakage-safe base rate the predict prompt is designed "
                 "to anchor on and the evaluator will score skill against. `n` is the weighted "
-                "resolved denominator._"
+                f"resolved denominator. Most recent {len(shown)} of {len(pack.terms)} Term(s) — "
+                "pooling a band over the rows below is bounded by what this table renders._"
             ),
             "",
             "| Term | " + " | ".join(bands) + " |",

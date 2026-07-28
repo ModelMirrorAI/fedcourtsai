@@ -289,6 +289,65 @@ prediction's timing contract:
   skill-vs-baseline column; the ops dashboard reports the selected segment's size,
   its base grant rate, and predictions-vs-baseline.
 
+**The lookback window is a stated choice, not a default.** The band rate is pooled
+over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
+anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025) run
+**25.8%–48.0%**, nearly 2×; elevated runs 7.9%–18.8%. Anchored at an OT2026
+petition, the high band reads **37.1% (n=1006)** pooling every prior Term, **33.8%
+(n=609)** over the last five, and **43.7% (n=71)** over the last one. That is a
+~10-point spread in the number a forecast's Brier skill is scored against, and in
+the prior a cell is told to start from, turning on a parameter — so the parameter
+is stated rather than left to a default.
+
+The tension is bias against variance, and it has no free answer. Per-Term
+high-band samples are small (61–163 weighted-resolved petitions), so a short
+window is noisy: two Terms gives n≈192. Pooling every prior Term buys n≈1000 and a
+stable estimate, but assumes the Court's grant behaviour is stationary across the
+whole range, which the spread above suggests it is not. Two second-order effects
+push the same way. The bands are frozen at `sal-v1`, so a long window also assumes
+band *semantics* are stable across every Term pooled — each per-Term entry carries
+its own `salience_version` for exactly this reason, and a bounded window would
+limit that exposure as a side effect. And the pooling weights are
+`weighted_resolved`, not `resolved` (OT2024's high band is `resolved=58`,
+`weighted_resolved=121`), so a long window compounds Terms whose walk coverage
+differs.
+
+So the window is **config, not a constant**: `salience.base_rate_lookback_terms`
+in `config/tracking.yaml`, where `0` means every prior Term. It ships at **0**, the
+pre-registered behaviour, so that the choice is on the record and a change to it is
+a reviewable diff rather than an invisible shift in every published
+skill number. It is counted in Term *years*, not statpack rows: a Term absent from
+the pack, or present only as a zero-row cursor entry, shortens the sample rather
+than pulling an older Term in to refill the slot, so the window cannot move as the
+walker's coverage changes. Moving it off `0` is an evidence-led call worth making
+before the process-version freeze ([milestones.md](milestones.md)), since it
+re-bases every forward skill number at once.
+
+**The scored baseline and the anchor an agent reads do not share the window.** The
+baseline is computed in code
+(`fedcourtsai.pipeline.evaluate.segment_base_rate`) and honours
+`salience.base_rate_lookback_terms`. No agent runs that code: every agent that
+needs a prior — the forward predictor and evaluator, and the cert back-test's
+replayed predictors, which run the same prompt — reads the band table in
+`metrics/statpack.md`, so its window is whatever that table renders, capped by
+`statpack.markdown_terms` (default 10). The bound is conventional, not a capability
+limit: `statpack.json` sits in the same checkout and carries every Term, and the
+prompts are what direct anchoring at the table.
+
+With the walked range at OT2017–OT2025 the pack holds nine Terms, nothing is
+truncated, and the two windows **coincide**. They part the first season the pack
+passes ten Terms — and the sharpest consequence is inside a single back-test run,
+where a replayed agent would be scored against a Term it was never shown. Both
+knobs are stated for that reason, so the pair is reconciled — or deliberately left
+apart — as one decision rather than two accidents. Both per-Term captions in
+`statpack.md` state the rendered window, so a truncation is visible to the agent
+reading the table rather than silent.
+
+The ops dashboard's segment rate is a **third, different number**: pack-wide,
+blended across every Term and unmasked by any clock (`fedcourtsai.ops`). It is an
+operational statistic for the human board, never the scored baseline, so neither
+knob applies to it.
+
 ## GVR as a first-class label
 
 A grant/vacate/remand — and especially a Munsingwear vacatur, where the Court
@@ -387,5 +446,11 @@ the posture below keeps selection additive and never destructive:
 - **`sal-v1` weights are fit to the empirical per-bucket grant rates** (above); the
   salience floor sits at the relist-2 / CVSG grant-rate band (~25%+). Exact
   coefficients are pinned in the implementing change.
+- **The segment base rate's lookback is unbounded** —
+  `salience.base_rate_lookback_terms: 0`, every Term strictly before the case's
+  own, preserving the pre-registered behaviour exactly. The agent-facing window is
+  `statpack.markdown_terms: 10`. Both are stated so the pair can be moved
+  together, on evidence, in one reviewable diff (*Base rates & baselines for the
+  predicted segment* above).
 - **The `big_case` grade is rank-agreement across the cohort** (bigness is
   comparative), with a per-case absolute delta kept only as a secondary diagnostic.

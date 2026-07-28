@@ -374,6 +374,11 @@ class SalienceConfig(BaseModel):
     long conference (the Term's opening conference) carries a larger cap because
     it clears the summer backlog at once. ``floor`` is the always-include
     salience threshold (the relist-2 / CVSG grant-rate band).
+
+    ``base_rate_lookback_terms`` is the one non-selection knob here: it bounds the
+    segment base-rate window the evaluator and the cert back-test score skill
+    against (``0`` = every prior Term). It lives beside the band knobs because the
+    band is what it conditions on.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -395,6 +400,20 @@ class SalienceConfig(BaseModel):
     # re-tournamented hours after its first prediction); 0 disables suppression,
     # so every relist queues unconditionally.
     relist_requeue_cooldown_days: int = Field(default=1, ge=0)
+    # The lookback window for the salience-band segment base rate
+    # (``fedcourtsai.pipeline.evaluate.segment_base_rate``): how many October Terms
+    # immediately preceding a case's own Term may contribute to its band's pooled
+    # grant rate. 0 = unbounded — every prior Term in the statpack, which is the
+    # pre-registered behaviour and the shipped default. A bound trades variance for
+    # bias: the high band carries only ~60-165 weighted-resolved petitions per Term,
+    # so a short window is noisy, while a long one assumes the Court's grant
+    # behaviour is stationary across the whole walked range (it visibly is not —
+    # per-Term high-band rates run 25.8%-48.0%; see docs/salience.md, *Base rates &
+    # baselines for the predicted segment*). Moving this re-bases every forward
+    # Brier skill number and every
+    # `cert-backtest.json` per-band skill at once, which is exactly why it is config
+    # rather than a constant. Counted in Term *years*, not statpack rows.
+    base_rate_lookback_terms: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:
@@ -416,6 +435,41 @@ def load_salience_config(config_root: Path) -> SalienceConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return SalienceConfig.model_validate((data or {}).get("salience", {}))
+
+
+class StatpackConfig(BaseModel):
+    """The ``statpack`` section of ``config/tracking.yaml`` — publication knobs.
+
+    ``metrics/statpack.json`` always carries every Term and every bucket; these
+    bound only what the Markdown artifact renders. That is not merely cosmetic:
+    ``metrics/statpack.md`` is the surface the predict and evaluate prompts send
+    agents to anchor on, so ``markdown_terms`` bounds the agent stratum's
+    base-rate lookback *as instructed* — the sibling of
+    :attr:`SalienceConfig.base_rate_lookback_terms`, which bounds the same window
+    in code for the baseline those agents are scored against. The bound is
+    conventional rather than a capability limit: ``statpack.json`` sits in the
+    same checkout and carries every Term. Separate fields with separate defaults
+    on purpose; ``docs/salience.md`` states when the two coincide and when they
+    part.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # How many recent Terms the per-Term detail tables in `metrics/statpack.md`
+    # render (the JSON carries them all). 10 spans a decade of cert practice while
+    # keeping the document prompt-sized; 0 renders every Term.
+    markdown_terms: int = Field(default=10, ge=0)
+
+
+def load_statpack_config(config_root: Path) -> StatpackConfig:
+    """Read the statpack publication knobs from ``config_root/tracking.yaml``.
+
+    Falls back to the shipped defaults when the file or its ``statpack`` section is
+    absent, so the artifact still renders rather than failing.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return StatpackConfig.model_validate((data or {}).get("statpack", {}))
 
 
 class EvaluateConfig(BaseModel):

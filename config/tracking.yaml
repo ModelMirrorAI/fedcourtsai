@@ -235,6 +235,45 @@ salience:
   # treated as administrative churn rather than re-tournamented; 1 suppresses
   # only a same-day repeat. 0 disables suppression.
   relist_requeue_cooldown_days: 1
+  # Lookback window for the salience-band segment base rate — how many October
+  # Terms immediately before a case's own Term may contribute to the band grant
+  # rate the evaluator scores Brier skill against and `cert-backtest.json`
+  # reports per band. 0 = unbounded: every prior Term in the statpack, which is
+  # today's behaviour and stays the default so no published skill number moves.
+  # The tension is real and deliberate (docs/salience.md, *Base rates &
+  # baselines for the predicted segment*): per-Term high-band grant rates run
+  # 25.8%-48.0% across OT2017-OT2025, so a long window is stable but assumes the
+  # Court's grant behaviour is stationary, while a short one tracks the drift on
+  # only 61-163 weighted-resolved petitions per Term. Anchored at an OT2026
+  # petition the high band reads 37.1% (n=1006) unbounded, 33.8% (n=609) at 5,
+  # and 43.7% (n=71) at 1 — a ~10-point spread in the number skill is measured
+  # against. Move it on evidence, and before the freeze rather than part-way
+  # through a Term. Counted in Term YEARS, not statpack rows: a Term missing
+  # from the pack shortens the sample rather than pulling an older Term in. See
+  # also `statpack.markdown_terms`, the same window for the forward (agent)
+  # stratum.
+  base_rate_lookback_terms: 0
+
+# statpack = publication knobs for `metrics/statpack.md`
+# (src/fedcourtsai/analytics.py). The JSON artifact always carries every Term and
+# every bucket; this bounds only what the Markdown renders.
+statpack:
+  # How many recent Terms the two per-Term tables render. Load-bearing, not
+  # cosmetic: `metrics/statpack.md` is the surface the predict and evaluate
+  # prompts send agents to anchor on, so this bounds the agent stratum's
+  # base-rate window as instructed — the counterpart of
+  # `salience.base_rate_lookback_terms`, which bounds the same window for the
+  # in-code baseline those agents are scored against. (`statpack.json` sits in
+  # the same checkout and carries every Term, so the bound is conventional, not
+  # a capability limit; both per-Term captions state the rendered window so a
+  # truncation is visible where the agent reads.) The two defaults differ (10
+  # here, 0 = unbounded there) and that is stated rather than hidden. With the
+  # walked range at OT2017-OT2025 the pack holds 9 Terms, so nothing is truncated
+  # today and the two windows coincide; they diverge once the pack passes 10
+  # Terms, when the back-test would pool a Term the agents cannot see. 10 spans a
+  # decade of cert practice while keeping the document prompt-sized; 0 renders
+  # every Term.
+  markdown_terms: 10
 
 # spend = the EX-POST inference-spend backstop (see src/fedcourtsai/spend.py).
 # Every other cost control here is ex ante — it bounds one decision or one run

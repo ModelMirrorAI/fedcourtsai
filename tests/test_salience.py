@@ -274,6 +274,17 @@ def test_load_salience_config_defaults_when_absent(tmp_path: Path) -> None:
     assert config.per_conference_capacity == 150
     assert config.long_conference_capacity == 200
     assert config.floor == 0.28
+    assert config.base_rate_lookback_terms == 0  # unbounded: every prior Term
+
+
+def test_load_salience_config_reads_the_base_rate_lookback(tmp_path: Path) -> None:
+    (tmp_path / "tracking.yaml").write_text("salience:\n  base_rate_lookback_terms: 5\n")
+    assert load_salience_config(tmp_path).base_rate_lookback_terms == 5
+
+
+def test_salience_config_rejects_a_negative_lookback() -> None:
+    with pytest.raises(ValueError):
+        SalienceConfig(base_rate_lookback_terms=-1)
 
 
 def test_salience_config_rejects_a_smaller_long_conference_cap() -> None:

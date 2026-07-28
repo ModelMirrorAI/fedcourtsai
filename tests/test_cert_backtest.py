@@ -430,6 +430,59 @@ def test_segment_context_bands_only_the_paid_scored_segment(tmp_path: Path) -> N
     assert context["scotus/900"].base_rate is None
 
 
+def _seed_gapped_segment_corpus(db: Path) -> None:
+    # An OT25 high-band item whose only prior high-band anchor is OT23 — OT24 is
+    # absent, so the pack carries a Term GAP. That gap is what lets a lookback
+    # window discriminate: a 1-Term window reaches only OT24, which has no rows.
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-100",  # paid, OT25, 2 relists -> high band
+                    disposition=Disposition.granted,
+                    date_filed=date(2025, 10, 1),
+                    date_cert_granted=date(2026, 1, 6),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/900",
+                    court="scotus",
+                    docket_number="23-500",  # paid, OT23 high band -> the only anchor
+                    disposition=Disposition.denied,
+                    date_filed=date(2023, 10, 1),
+                    date_cert_denied=date(2024, 1, 8),
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=3,
+                ),
+            ],
+        )
+
+
+def test_build_segment_context_honours_the_lookback_window(tmp_path: Path) -> None:
+    # The seam that carries `salience.base_rate_lookback_terms` into the back-test.
+    # Over a gapped pack (OT25 item, OT23 anchor, no OT24) the window is decisive:
+    # unbounded reaches OT23 and yields its rate, while a 1-Term window reaches
+    # only the empty OT24 and leaves the item with no anchor at all. `None` must
+    # behave as the shipped default, 0 — dropping the kwarg fails this test.
+    db = tmp_path / "corpus.db"
+    _seed_gapped_segment_corpus(db)
+    with corpus.connect(db) as conn:
+        items = select_cert_backtest_set(conn)
+        statpack = analytics.build_statpack(corpus_db_path=db)
+        default = cert_backtest.build_segment_context(conn, items, statpack)
+        unbounded = cert_backtest.build_segment_context(conn, items, statpack, lookback_terms=0)
+        narrowed = cert_backtest.build_segment_context(conn, items, statpack, lookback_terms=1)
+    assert default["scotus/2"].base_rate == 0.0  # OT23's denial, pooled
+    assert unbounded["scotus/2"].base_rate == 0.0
+    assert narrowed["scotus/2"].base_rate is None  # OT23 is outside a 1-Term window
+
+
 def test_cert_backtest_reports_per_band_segment_skill(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _seed_segment_corpus(db)

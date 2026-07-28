@@ -75,6 +75,7 @@ from .config import (
     load_pull_config,
     load_salience_config,
     load_spend_config,
+    load_statpack_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
@@ -786,13 +787,14 @@ def cert_backtest_cmd(
         write_json(destination, run_cert_backtest([], []))
         typer.echo(f"No corpus at {db_path} — wrote empty cert back-test report -> {destination}")
         return
+    salience_cfg = load_salience_config(settings.config_root)
     with corpus.connect(db_path) as conn:
         items = select_cert_backtest_set(
             conn,
             limit=limit,
             scope=scope,
             spread=spread,
-            salience_floor=load_salience_config(settings.config_root).floor,
+            salience_floor=salience_cfg.floor,
         )
         backtesters = default_backtesters(conn)
         if engine:
@@ -852,7 +854,9 @@ def cert_backtest_cmd(
         # the forward stratum's yardstick; segment_base_rate masks each item to
         # Terms strictly before its own, so a full-corpus statpack is safe here.
         statpack = analytics.build_statpack(corpus_db_path=db_path)
-        segments = build_segment_context(conn, items, statpack)
+        segments = build_segment_context(
+            conn, items, statpack, lookback_terms=salience_cfg.base_rate_lookback_terms
+        )
         report = run_cert_backtest(backtesters, items, segments=segments)
     write_json(destination, report)
     typer.echo(
@@ -892,7 +896,12 @@ def statpack(
     json_dest = out if out is not None else settings.metrics_root / "statpack.json"
     md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "statpack.md"
     write_json(json_dest, pack)
-    write_text(md_dest, analytics.render_statpack_markdown(pack))
+    write_text(
+        md_dest,
+        analytics.render_statpack_markdown(
+            pack, markdown_terms=load_statpack_config(settings.config_root).markdown_terms
+        ),
+    )
     typer.echo(
         f"statpack: {pack.corpus_rows} case(s), {len(pack.sections)} section(s) "
         f"-> {json_dest}, {md_dest}"

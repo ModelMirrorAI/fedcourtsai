@@ -469,7 +469,11 @@ class _ItemSegment:
 
 
 def build_segment_context(
-    conn: sqlite3.Connection, items: list[BacktestItem], statpack: StatPack
+    conn: sqlite3.Connection,
+    items: list[BacktestItem],
+    statpack: StatPack,
+    *,
+    lookback_terms: int | None = None,
 ) -> dict[str, _ItemSegment]:
     """Map each **paid scored-segment** petition to its sal-v1 band + base rate.
 
@@ -478,14 +482,21 @@ def build_segment_context(
     before the item's own). IFP and other non-scored rows are omitted — they sit
     outside the population the salience gate predicts, so the per-band breakdown
     covers the same paid segment the statpack's segment rate is computed over.
+
+    ``lookback_terms`` bounds that pool; ``None`` takes
+    ``salience.base_rate_lookback_terms``'s default, ``0`` — every prior Term.
     """
+    window = (
+        lookback_terms if lookback_terms is not None else SalienceConfig().base_rate_lookback_terms
+    )
     context: dict[str, _ItemSegment] = {}
     for item in items:
         row = corpus.get_row(conn, item.features.case_id)
         if row is None or not _is_scored_segment_row(row):
             continue
         context[item.features.case_id] = _ItemSegment(
-            band=salience_band(row), base_rate=segment_base_rate(row, statpack)
+            band=salience_band(row),
+            base_rate=segment_base_rate(row, statpack, lookback_terms=window),
         )
     return context
 
