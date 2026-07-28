@@ -179,8 +179,15 @@ class PriorIndex:
 
     :func:`corpus.retrieve_priors` scans and scores its court's resolved rows on
     **every call**; replayed once per back-test trial that is O(trials x resolved
-    rows) and cannot finish over the full corpus. This index makes the same
-    retrieval O(1)-ish per trial: one pass over the resolved slice builds, per
+    rows) and cannot finish over the full corpus. This index removes the
+    per-trial SQL scan and row hydration entirely — a trial costs one pass over
+    its court's in-memory candidate list, so a replay pays one resolved-slice
+    scan rather than one per trial. (That pass is linear in the court's history,
+    and an uncapped vote walks all of it, so a replay is quadratic in a single
+    court's resolved rows. Comfortable at today's SCOTUS slice; if that slice
+    grows an order of magnitude, the no-overlap branch wants cumulative
+    label-counts-by-year precomputed at build time, which makes it O(1).) One
+    pass over the resolved slice builds, per
     court, the candidate list in the zero-score rank order (most recent decision
     first, then ``case_id`` — :func:`corpus.recency_key`'s order) plus inverted
     judge/citation postings, and :meth:`top` reproduces ``retrieve_priors``'
@@ -212,10 +219,11 @@ class PriorIndex:
         for row in corpus.iter_rows(conn, resolved=True):
             if row.disposition is None:  # unreachable under resolved=True; narrows the type
                 continue
+            disposition = Disposition(row.disposition)
             # The scored set's bar, applied to the pool it is scored against:
             # `other` is decided-but-unclassified, so a vote for it can never be
             # correct (see the class docstring).
-            if not is_machine_readable(Disposition(row.disposition)):
+            if not is_machine_readable(disposition):
                 continue
             rows_by_court[row.court].append(row)
         index = cls()
@@ -321,11 +329,19 @@ class PriorVoteBacktester:
     index ranks by relevance, which falls back to most-recent-decision order
     when a trial shares no judge to overlap on, and truncating that order
     samples recent decisions rather than the population. On a court whose
-    judges are not recorded — SCOTUS — every trial takes that fallback, so a
-    capped vote reads the most recent N decisions and inherits their
-    composition rather than the court's. Where judges *are* recorded the
+    judges are largely unrecorded — SCOTUS — nearly every trial takes that
+    fallback, so a capped vote reads the most recent N decisions and inherits
+    their composition rather than the court's. Where judges *are* recorded the
     overlap filter still does the selecting, and the uncap only widens the tail
     it votes over.
+
+    **Read its SCOTUS number with that in mind.** Where the fallback dominates,
+    the vote is the whole-history majority, which on cert is ``denied`` for
+    every trial — so its disposition head duplicates the always-deny floor and
+    its lift is structurally ~zero on any SCOTUS-only set, including the
+    lift-ranked cert back-test. That is the honest reading of a court with no
+    judges to retrieve on, not a regression: the signal it still carries is
+    calibration, in P(granted) and the Brier score, not the label.
     """
 
     conn: sqlite3.Connection

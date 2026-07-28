@@ -322,7 +322,9 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
     with corpus.connect(db) as conn:
         index = PriorIndex.build(conn)
         for court, judges, citations, decided_before in queries:
-            for limit in (1, 3, 10):
+            # `None` is what the production caller passes, so parity has to hold
+            # there and not only at the truncated limits.
+            for limit in (1, 3, 10, None):
                 # Parity holds over the disposition-labeled subset: fetch wide,
                 # drop the label-less rows `retrieve_priors` alone returns, then
                 # truncate — so limits compare like against like.

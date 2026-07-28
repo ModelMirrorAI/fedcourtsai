@@ -21,7 +21,12 @@ gate-checked:
   overall.** Raw accuracy here is close to meaningless alone: a constant predictor
   scores its slice's base rate *exactly*, so `constant-denied` posting a high
   accuracy is arithmetic, not skill. The floor beside it is what makes the number
-  readable — a lift of zero says the predictor learned nothing.
+  readable — a lift of zero says the predictor learned nothing. One structural
+  case to read differently: `prior-vote` retrieves on shared judges, and SCOTUS
+  rows largely carry none, so on that court it votes the whole-history majority
+  — `denied` — and its lift is ~zero *by construction* rather than by failing to
+  learn. There is nothing there to retrieve on. What it still measures on SCOTUS
+  is calibration: P(granted) and the Brier score.
 
   **Read the per-court cut, not the pooled row.** The pooled figure is dominated by
   whichever court supplies the most resolved events, and that court's floor may be
