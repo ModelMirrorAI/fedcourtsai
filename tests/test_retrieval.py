@@ -100,6 +100,32 @@ def test_codex_rollout_function_calls(tmp_path: Path) -> None:
     assert calls[0].timestamp == "2026-07-10T12:00:02Z"
 
 
+def test_codex_rollout_captures_hosted_web_search(tmp_path: Path) -> None:
+    # The hosted search runs provider-side, so it carries no name, no
+    # arguments and no call_id — only an `action`. The leakage grading reads
+    # this log, so a search that never lands here is a search nobody can see.
+    rollout = tmp_path / "sessions" / "2026" / "07" / "10" / "rollout-2026-07-10T12-00-00.jsonl"
+    rollout.parent.mkdir(parents=True)
+    lines = [
+        {
+            "timestamp": "2026-07-10T12:00:05Z",
+            "type": "response_item",
+            "payload": {
+                "id": "ws_1",
+                "type": "web_search_call",
+                "status": "completed",
+                "action": {"type": "search", "query": "cert granted Smith v Jones"},
+            },
+        },
+    ]
+    rollout.write_text("\n".join(json.dumps(line) for line in lines))
+    calls = parse_codex_retrieval(tmp_path / "sessions")
+    assert len(calls) == 1
+    assert calls[0].tool == "web_search_call"
+    assert calls[0].query == "cert granted Smith v Jones"
+    assert calls[0].timestamp == "2026-07-10T12:00:05Z"
+
+
 def test_gemini_telemetry_tool_calls(tmp_path: Path) -> None:
     telemetry = tmp_path / "telemetry.log"
     events = [

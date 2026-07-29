@@ -800,6 +800,12 @@ class CodexRunner(AgenticRunner):
             # engines can.
             "-c",
             "sandbox_workspace_write.network_access=true",
+            # Web search defaults to `cached`, which cannot reach the open
+            # web, and `exec` has no `--search` flag — so select `live`
+            # through config to match claude and gemini, which both carry it.
+            # In lockstep with the live codex steps.
+            "-c",
+            "web_search=live",
             _claude_instruction(request, self.model),
         ]
         return EngineCommand(argv=argv, env=_cell_env(request, self.model))

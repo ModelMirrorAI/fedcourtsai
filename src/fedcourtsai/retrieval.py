@@ -132,7 +132,15 @@ def _message_blocks(event: Any) -> list[dict[str, Any]]:
 
 
 # Codex payload types that represent a tool invocation / its output.
-_CODEX_CALL_TYPES = ("function_call", "custom_tool_call", "local_shell_call", "mcp_tool_call")
+# `web_search_call` is the hosted search the engine runs provider-side: it is a
+# retrieval channel like any other, so the leakage grading has to see it.
+_CODEX_CALL_TYPES = (
+    "function_call",
+    "custom_tool_call",
+    "local_shell_call",
+    "mcp_tool_call",
+    "web_search_call",
+)
 _CODEX_OUTPUT_SUFFIX = "_output"
 
 
@@ -167,7 +175,10 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         payload = _codex_payload(record)
         if payload is None or payload.get("type") not in _CODEX_CALL_TYPES:
             continue
-        params = _maybe_json(payload.get("arguments", payload.get("input")))
+        # A hosted `web_search_call` carries neither `arguments` nor `input`,
+        # and no `call_id` to pair an output against; its query sits under
+        # `action`, which `_query_slice` reads through the shared `query` key.
+        params = _maybe_json(payload.get("arguments", payload.get("input", payload.get("action"))))
         result = outputs.get(str(payload.get("call_id", "")))
         calls.append(
             RetrievalCall(

@@ -498,8 +498,18 @@ jobs:
           # sandbox semantics change only on an explicit maintainer bump —
           # keep it in lockstep with the evaluate step and the npm pins of the
           # same CLI in run-backtest and integration-test.
+          #
+          # Web search defaults to `cached`, which registers a search tool
+          # that cannot reach the open web, and `exec` carries no `--search`
+          # flag — so `live` is selected through config for the same reason as
+          # the network grant: claude and gemini both reach the open web, and
+          # a codex scored on a strictly smaller information set confounds the
+          # cross-engine comparison the leaderboard exists to make. A replay
+          # cell's obligation not to seek post-event material about its own
+          # case is carried by the prompt and the harness-side retrieval log,
+          # which records these hosted searches alongside shell and MCP calls.
           codex-version: "0.144.1"
-          codex-args: '["-c","sandbox_workspace_write.network_access=true"]'
+          codex-args: '["-c","sandbox_workspace_write.network_access=true","-c","web_search=live"]'
 
       # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
       # version is exactly pinned (transitive dependencies resolve fresh at every

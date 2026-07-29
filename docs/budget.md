@@ -35,7 +35,7 @@ Three engines run the agentic stages, routed per registry entry
 | Engine | Used by | Billing | Rate (per 1M tokens) |
 |--------|---------|---------|----------------------|
 | Claude Code (`claude-fable-5`) | `claude-baseline`, `claude-judge` (predict/evaluate default) | Anthropic API (workflows); Max subscription for interactive local dev | Subscription: $200/mo flat (Max 20x — dev only, in floor #5). API: $10 in / $50 out |
-| Codex (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token) | $5 in / $30 out |
+| Codex (`gpt-5.6-sol`) | `codex-baseline`, `codex-judge` | OpenAI API (pay-per-token, plus per-call hosted web search) | $5 in / $30 out |
 | Gemini (`gemini-3.1-pro-preview`) | `gemini-baseline`, `gemini-judge` | Gemini API (pay-per-token) | $2 in / $12 out (≤200k context; steps up beyond) |
 
 Sources: [Claude Max](https://support.claude.com/en/articles/11049741-what-is-the-max-plan),
@@ -49,6 +49,9 @@ artifacts over several tool-use turns — so effective token usage (≈280–400
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
 `fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary`.
+That estimate is token-derived, so codex's hosted web search — billed per call
+rather than per token — sits outside it and makes a codex cell's recorded cost a
+mild undercount.
 Measured per-cell cost spans **≈$0.29–7.87 by model mix** (blended mean **≈$1.86**
 over the 413 cells on the ledger — predict: claude-baseline ≈$3.65, codex ≈$1.38,
 gemini ≈$0.55; evaluate, from the one graded event: claude-judge ≈$4.16, codex-judge

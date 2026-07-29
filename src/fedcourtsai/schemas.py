@@ -933,8 +933,8 @@ class ToolUsage(_Strict):
     )
     web_calls: dict[str, int] = Field(
         default_factory=dict,
-        description="Calls to each engine's open-web tools. Codex ships none, so its "
-        "absence here is a tooling fact about the engine, not a choice its cells made",
+        description="Calls to each engine's open-web tools. All three engines carry one, "
+        "so a zero here is a cell's own restraint rather than a gap in its tooling",
     )
     cells_with_mcp: int = Field(
         default=0, ge=0, description="Cells that called at least one MCP tool"
