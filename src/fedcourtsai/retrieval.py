@@ -10,9 +10,13 @@ log tool calls in the same places their token usage lives:
 - **Claude Code**: the ``execution_file`` transcript's assistant messages carry
   ``tool_use`` content blocks (name + input); the paired ``tool_result`` blocks
   arrive in subsequent user messages, matched by ``tool_use_id``.
-- **Codex**: the session rollout JSONL's response items carry
-  ``function_call`` / ``custom_tool_call`` / ``mcp_tool_call`` payloads with a
-  ``call_id`` their ``*_output`` items echo.
+- **Codex**: the session rollout JSONL's response items carry ``function_call``
+  / ``custom_tool_call`` / ``local_shell_call`` / ``mcp_tool_call`` payloads
+  with a ``call_id`` their ``*_output`` items echo. The hosted
+  ``web_search_call`` is the exception: it runs provider-side and carries a
+  query but no ``call_id`` and no output item, so such a row records what was
+  asked and never what came back — a null ``retrieved_doc_date`` there means
+  the results were not captured, not that nothing was found.
 - **Gemini**: the OpenTelemetry log's ``gemini_cli.tool_call`` events carry
   ``function_name`` / ``function_args`` attributes.
 
@@ -178,6 +182,8 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         # A hosted `web_search_call` carries neither `arguments` nor `input`,
         # and no `call_id` to pair an output against; its query sits under
         # `action`, which `_query_slice` reads through the shared `query` key.
+        # `local_shell_call` also describes itself in `action`, so it records
+        # its command here for the same reason a shell `function_call` does.
         params = _maybe_json(payload.get("arguments", payload.get("input", payload.get("action"))))
         result = outputs.get(str(payload.get("call_id", "")))
         calls.append(

@@ -49,8 +49,9 @@ _MCP_CALL = re.compile(r"^mcp_{1,2}(?P<server>[a-z0-9]+)_{1,2}(?P<tool>.+)$")
 # The engines' open-web tools, by their own names: claude-code's `WebSearch` /
 # `WebFetch`, gemini's `google_web_search` / `web_fetch`, and codex's hosted
 # `web_search_call`, which the rollout names by payload type rather than by a
-# tool name. A codex cell can also reach the web through a spawned `curl`,
-# which lands here as a shell call rather than a web one.
+# tool name. A cell of any engine can also reach the web through a spawned
+# `curl`, which lands here as a shell call rather than a web one — so this
+# counts the tools, not every route to the open web.
 _WEB_TOOLS = frozenset(
     {"WebSearch", "WebFetch", "google_web_search", "web_fetch", "web_search_call"}
 )
@@ -244,8 +245,9 @@ def render_tool_usage_markdown(usage: ToolUsage) -> str:
             "_Suggestive, not proof. A forward cell is explicitly allowed to use public "
             "context the corpus does not carry, so web use is sanctioned rather than a "
             "fault; what it flags is a cell that needed something and did not get it from "
-            "the configured tools. All three engines carry a web tool, so a zero here is "
-            "a cell's own restraint rather than a gap in what it was handed._",
+            "the configured tools. Each engine is counted under its own tool names, so a "
+            "zero is not by itself evidence that a cell chose not to search — check the "
+            "retrieval surface its process version records._",
         ]
     if usage.builtin_calls:
         shown = list(usage.builtin_calls.items())[:10]

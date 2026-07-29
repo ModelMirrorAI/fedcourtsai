@@ -146,7 +146,10 @@ predictor:
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
    case's own docket/caption reaching past the event date, the disposing order
    or opinion, or the predictor's own `flags.json` disclosure (an honest
-   disclosure is a point *for* the cell's integrity, not against it)?
+   disclosure is a point *for* the cell's integrity, not against it)? A hosted
+   web search runs provider-side, so its log row records the query but never
+   the results: a null `retrieved_doc_date` there means the results were not
+   captured, not that nothing was found — grade such a row on its query.
    `influenced_prediction`: did that material plausibly shape the prediction —
    `none` (retrieved but demonstrably unused, or nothing retrieved), `possible`,
    or `likely` (reasoning presupposes the result, cites post-decision facts, or

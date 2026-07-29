@@ -176,9 +176,10 @@ class ProcessVersion(_Strict):
     """Harness-written stamp of the process that produced a prediction/evaluation.
 
     Hybrid identity. ``digest`` is a content hash of the *actual* process inputs
-    — the prompt-template bytes plus the resolved registry config for this actor
-    (engine, resolved model, pinned MCP manifest) — so a silent prompt or config
-    change is automatically a distinct version. ``label`` is human-readable sugar
+    — the prompt-template bytes plus the resolved configuration for this actor
+    (engine, resolved model, pinned MCP manifest, and the engine's retrieval
+    surface) — so a silent prompt or config change is automatically a distinct
+    version. ``label`` is human-readable sugar
     for a digest. The frozen/shakedown partition keys on ``digest``, never the
     label, so two different processes cannot hide behind one label.
 
@@ -933,8 +934,9 @@ class ToolUsage(_Strict):
     )
     web_calls: dict[str, int] = Field(
         default_factory=dict,
-        description="Calls to each engine's open-web tools. All three engines carry one, "
-        "so a zero here is a cell's own restraint rather than a gap in its tooling",
+        description="Calls to each engine's open-web tools, counted under that engine's own "
+        "tool names; a zero is not by itself evidence a cell chose not to search — check the "
+        "retrieval surface its process version records",
     )
     cells_with_mcp: int = Field(
         default=0, ge=0, description="Cells that called at least one MCP tool"

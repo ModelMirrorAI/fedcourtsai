@@ -501,10 +501,12 @@ jobs:
           #
           # Web search defaults to `cached`, which registers a search tool
           # that cannot reach the open web, and `exec` carries no `--search`
-          # flag — so `live` is selected through config for the same reason as
-          # the network grant: claude and gemini both reach the open web, and
-          # a codex scored on a strictly smaller information set confounds the
-          # cross-engine comparison the leaderboard exists to make. A replay
+          # flag — so `live` is selected through config. The reason mirrors the
+          # network grant above, though the channel is independent (this search
+          # runs provider-side and is unaffected by the sandbox): claude and
+          # gemini both reach the open web, and a codex scored on a strictly
+          # smaller information set confounds the cross-engine comparison the
+          # leaderboard exists to make. A replay
           # cell's obligation not to seek post-event material about its own
           # case is carried by the prompt and the harness-side retrieval log,
           # which records these hosted searches alongside shell and MCP calls.

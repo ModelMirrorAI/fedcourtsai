@@ -127,7 +127,7 @@
       "additionalProperties": {
         "type": "integer"
       },
-      "description": "Calls to each engine's open-web tools. All three engines carry one, so a zero here is a cell's own restraint rather than a gap in its tooling",
+      "description": "Calls to each engine's open-web tools, counted under that engine's own tool names; a zero is not by itself evidence a cell chose not to search \u2014 check the retrieval surface its process version records",
       "title": "Web Calls",
       "type": "object"
     },
