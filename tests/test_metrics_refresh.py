@@ -14,10 +14,15 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     CertBacktest,
     CertBacktestEntry,
+    DocketPack,
+    DocketPackTerm,
+    GroupBy,
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStratum,
     StatPack,
+    StatPackCoverage,
+    StatPackSection,
 )
 from fedcourtsai.serialize import write_json, write_text
 
@@ -25,7 +30,7 @@ runner = CliRunner()
 
 
 def _metrics_dir(tmp_path: Path) -> Path:
-    """A metrics directory holding all four regenerated artifacts."""
+    """A metrics directory holding every regenerated artifact."""
     metrics = tmp_path / "metrics"
     write_json(
         metrics / "leaderboard.json",
@@ -80,6 +85,18 @@ def _metrics_dir(tmp_path: Path) -> Path:
         ),
     )
     write_text(metrics / "statpack.md", "# Statpack\n")
+    write_json(
+        metrics / "docket.json",
+        DocketPack(
+            corpus_rows=80998,
+            resolved=60000,
+            open=20998,
+            coverage=StatPackCoverage(live_slice_rows=9924, live_slice_resolved=9327),
+            sections=[StatPackSection(title="Cases by court", group_by=GroupBy.court)],
+            terms=[DocketPackTerm(term=2025), DocketPackTerm(term=2024)],
+        ),
+    )
+    write_text(metrics / "docket.md", "# Docket pack\n")
     return metrics
 
 
@@ -111,6 +128,18 @@ def test_pr_names_the_artifacts_and_reads_headlines(tmp_path: Path) -> None:
     assert "2 predictor(s) over 1500 resolved event(s) (retrospective by construction)" in pr.body
     assert "80998 corpus case(s): 60000 resolved / 20998 open" in pr.body
     assert "RID" in pr.body
+
+
+def test_pr_carries_the_docket_pack(tmp_path: Path) -> None:
+    # An artifact missing from the display order is silently absent from the
+    # refresh PR, so the court-facing pack has to be listed with its own headline.
+    pr = render_refresh_pr(
+        ["metrics/docket.md", "metrics/docket.json"], _metrics_dir(tmp_path), "RID"
+    )
+    assert pr is not None
+    assert pr.title == "metrics: refresh docket"
+    assert "9924 live-slice case(s) (9327 resolved) over 2 Term(s)" in pr.body
+    assert "human-readable docket-pack companion" in pr.body
 
 
 def test_partial_refresh_lists_only_the_changed_artifacts(tmp_path: Path) -> None:

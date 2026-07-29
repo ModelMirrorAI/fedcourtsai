@@ -1498,12 +1498,15 @@ class AnalyticsReport(_Strict):
 
 
 class StatPackSection(_Strict):
-    """One named base-rate breakdown in the statpack: a dimension and its buckets.
+    """One named base-rate breakdown: a dimension, its population, and its buckets.
 
-    ``court`` records the court filter the section was computed under (``None`` = all
-    courts), so the artifact is self-describing — e.g. a SCOTUS-only Term breakdown vs
-    an all-courts view. ``buckets`` is the per-group base-rate breakdown, most cases
-    first (the same shape ``fedcourts stats --group-by`` produces).
+    The section shape both published base-rate artifacts are built from —
+    :class:`StatPack` and :class:`DocketPack` — so a cut computed for both carries
+    identical scope flags in each. ``court`` records the court filter the section
+    was computed under (``None`` = all courts), so the artifact is self-describing
+    — e.g. a SCOTUS-only Term breakdown vs an all-courts view. ``buckets`` is the
+    per-group base-rate breakdown, most cases first (the same shape ``fedcourts
+    stats --group-by`` produces).
     """
 
     title: str = Field(description="Human title of the breakdown, e.g. 'Cases by court'")
@@ -1779,6 +1782,117 @@ class StatPack(_Strict):
         default_factory=list,
         description="Per-SCOTUS-Term live-slice detail (weighted base rates, timing, "
         "per-fee-class census), most recent Term first",
+    )
+
+
+class DocketPackTerm(_Strict):
+    """One October Term's census in the court-facing docket pack.
+
+    The whole-docket view of a Term: how many petitions were docketed, how many
+    of them this project has ingested, and how the ingested ones came out. It
+    pools the paid and IFP streams that :class:`StatPackTerm` keeps apart, and
+    carries no salience segmentation — which petitions a model was pointed at is
+    a fact about the project, not about the Court.
+    """
+
+    term: int = Field(description="The October-Term year, e.g. 2024")
+    filings: int | None = Field(
+        default=None,
+        ge=0,
+        description="Docketed serials this Term across both fee streams, from the "
+        "discovery cursors; None when no stream has been probed",
+    )
+    complete: bool = Field(
+        default=False,
+        description="True when every probed stream was walked to its observed "
+        "frontier; False = the counts describe the walked prefix only",
+    )
+    ingested: int = Field(default=0, ge=0, description="Petitions present in the corpus")
+    resolved: int = Field(
+        default=0, ge=0, description="Ingested petitions carrying a disposition (raw count)"
+    )
+    weighted_resolved: int = Field(
+        default=0,
+        ge=0,
+        description="Denial-reweighted resolved estimate — the sample size behind "
+        "`est_grant_rate` and `dispositions`",
+    )
+    est_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Denial-reweighted grant-family share (granted + gvr) of the "
+        "resolved petitions; None when nothing resolved",
+    )
+    dispositions: list[DispositionShare] = Field(
+        default_factory=list,
+        description="Denial-reweighted disposition estimates over the resolved petitions",
+    )
+    grants: int = Field(
+        default=0, ge=0, description="Cert grants observed this Term (raw, not reweighted)"
+    )
+    median_days_to_grant: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Nearest-rank median days filing → cert grant over this Term's "
+        "granted petitions; None when none carry both dates",
+    )
+    dated_grants: int = Field(
+        default=0,
+        ge=0,
+        description="Granted petitions carrying both a filing and a cert-grant date — "
+        "the denominator `median_days_to_grant` is computed over, which is a subset "
+        "of `grants`",
+    )
+
+
+class DocketPack(_Strict):
+    """``metrics/docket.json`` — court-facing docket statistics (an independent artifact).
+
+    Facts about the dockets themselves: what the Supreme Court is asked to take,
+    from which court below, on what fee stream, after how many relists, and how it
+    disposes of the petitions. Deliberately **free of any claim about this
+    project's predictions** — no accuracy, no leaderboard, no salience — so it is
+    readable and citable by someone with no interest in whether the models are any
+    good. That exclusion is the artifact's contract, not a coincidence of what has
+    been built.
+
+    A pure function of the corpus (no clock, no network), so reruns over an
+    unchanged corpus reproduce it byte for byte; git-tracked and rendered to a
+    companion Markdown document. Every rate carries its scope and its denominator,
+    and each section states whether its counts are denial-reweighted: the
+    historical walk samples denials on a committed frame, so every cert cut is
+    reweighted and its counts are population *estimates* rather than rows on
+    hand. That distinction is why a reweighted denominator is not a sample size:
+    the observed row count behind it is smaller. A breakdown bucket carries no
+    raw view of its own; the per-Term entries carry both, so the gap between the
+    two is legible there. Starts empty (zero counts, scaffolded sections) until a
+    corpus is present.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    corpus_through: date | None = Field(
+        default=None,
+        description="The newest `last_pulled` date in the corpus — the vintage of "
+        "the rows behind every figure here, so a citation can name what it read. "
+        "Derived from the corpus rather than a clock, which keeps the artifact a "
+        "pure function of its input; None when no row carries the date",
+    )
+    corpus_rows: int = Field(default=0, ge=0, description="Case rows in the corpus")
+    resolved: int = Field(default=0, ge=0, description="Cases carrying a realized disposition")
+    open: int = Field(default=0, ge=0, description="Cases still unresolved")
+    coverage: StatPackCoverage = Field(
+        default_factory=StatPackCoverage,
+        description="The pack's own denominators: live-slice rows/resolved and the "
+        "cursor-derived filings census backing the cert sections",
+    )
+    sections: list[StatPackSection] = Field(
+        default_factory=list, description="Curated docket-composition breakdowns"
+    )
+    terms: list[DocketPackTerm] = Field(
+        default_factory=list,
+        description="Per-SCOTUS-Term census (filings, ingested, resolved, grant rate), "
+        "most recent Term first",
     )
 
 
@@ -2314,6 +2428,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
+    "docket": DocketPack,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
     "cell_failure": CellFailure,

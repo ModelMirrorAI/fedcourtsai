@@ -1,14 +1,14 @@
 """Scheduled refresh of the committed metrics artifacts.
 
-The three metrics artifacts — ``metrics/leaderboard.json``, ``metrics/backtest.json``,
-and ``metrics/statpack.{json,md}`` — are deterministic roll-ups, but nothing
-regenerated them as their inputs (the ``data/`` evaluations ledger, the corpus) grew,
-so they drifted stale on ``main`` between manual reruns. The
-``run-analytics`` workflow's weekly ``metrics-refresh`` job closes that gap: it
-regenerates the artifacts with the same tested ``fedcourts`` commands
-(``leaderboard`` / ``backtest`` / ``statpack``), and — when anything changed —
-lands the result as a **reviewed** PR (never a
-direct commit to ``main``, never auto-merged).
+The metrics artifacts are deterministic roll-ups whose inputs (the ``data/``
+evaluations ledger, the corpus) move without them. The ``run-analytics``
+workflow's weekly ``metrics-refresh`` job keeps the scheduled set current —
+``metrics/leaderboard.json``, ``metrics/backtest.json``, and
+``metrics/statpack.{json,md}`` — by rerunning the tested ``fedcourts`` commands
+(``leaderboard`` / ``backtest`` / ``statpack``) and, when anything changed,
+landing the result as a **reviewed** PR (never a direct commit to ``main``,
+never auto-merged). ``metrics/docket.{json,md}`` is committed alongside them but
+is regenerated on demand with ``fedcourts docket``, not on the schedule.
 
 This module is the tested half of that workflow: given the changed paths (``git
 diff --name-only -- metrics/``, plumbed by the workflow), it renders the branch and
@@ -28,13 +28,25 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from .schemas import Backtest, CertBacktest, Leaderboard, StatPack
+from .schemas import Backtest, CertBacktest, DocketPack, Leaderboard, StatPack
 from .serialize import read_model
 
 REFRESH_BRANCH = "metrics/refresh"
 
-# Display order for the artifacts in the PR title and table.
-_ARTIFACT_ORDER = ("leaderboard.json", "backtest.json", "statpack.json", "statpack.md")
+# Display order for the artifacts a refresh PR may carry. It is also the filter:
+# a changed path under `metrics/` that is not listed here drives no PR and
+# appears in none, so an artifact must be named to be reportable at all. The
+# docket pack is listed defensively: the analytics workflow does not regenerate
+# it, so it should never appear here — but if it ever does, being named is what
+# keeps it in the PR body rather than silently absent from it.
+_ARTIFACT_ORDER = (
+    "leaderboard.json",
+    "backtest.json",
+    "statpack.json",
+    "statpack.md",
+    "docket.json",
+    "docket.md",
+)
 
 
 class MetricsRefreshPr(BaseModel):
@@ -46,8 +58,19 @@ class MetricsRefreshPr(BaseModel):
     body: str
 
 
+# The rendered companions carry no headline of their own: the figures live in
+# the JSON sibling listed beside them.
+_COMPANION_HEADLINES = {
+    "statpack.md": "human-readable statpack companion",
+    "docket.md": "human-readable docket-pack companion",
+}
+
+
 def _headline(metrics_root: Path, filename: str) -> str:
     """One human line summarizing a refreshed artifact, read from the artifact itself."""
+    companion = _COMPANION_HEADLINES.get(filename)
+    if companion is not None:
+        return companion
     if filename == "leaderboard.json":
         board = read_model(metrics_root / filename, Leaderboard)
         # Name the scope, so a refresh PR that drops the board to 0 during the
@@ -68,8 +91,15 @@ def _headline(metrics_root: Path, filename: str) -> str:
     if filename == "statpack.json":
         pack = read_model(metrics_root / filename, StatPack)
         return f"{pack.corpus_rows} corpus case(s): {pack.resolved} resolved / {pack.open} open"
-    if filename == "statpack.md":
-        return "human-readable statpack companion"
+    if filename == "docket.json":
+        docket = read_model(metrics_root / filename, DocketPack)
+        # Lead with the figures that move between refreshes: the section count is
+        # a constant, so a row headlined by it would never show what changed.
+        return (
+            f"{docket.coverage.live_slice_rows} live-slice case(s) "
+            f"({docket.coverage.live_slice_resolved} resolved) over "
+            f"{len(docket.terms)} Term(s)"
+        )
     return "refreshed"
 
 

@@ -151,7 +151,7 @@
     },
     "StatPackSection": {
       "additionalProperties": false,
-      "description": "One named base-rate breakdown in the statpack: a dimension and its buckets.\n\n``court`` records the court filter the section was computed under (``None`` = all\ncourts), so the artifact is self-describing \u2014 e.g. a SCOTUS-only Term breakdown vs\nan all-courts view. ``buckets`` is the per-group base-rate breakdown, most cases\nfirst (the same shape ``fedcourts stats --group-by`` produces).",
+      "description": "One named base-rate breakdown: a dimension, its population, and its buckets.\n\nThe section shape both published base-rate artifacts are built from \u2014\n:class:`StatPack` and :class:`DocketPack` \u2014 so a cut computed for both carries\nidentical scope flags in each. ``court`` records the court filter the section\nwas computed under (``None`` = all courts), so the artifact is self-describing\n\u2014 e.g. a SCOTUS-only Term breakdown vs an all-courts view. ``buckets`` is the\nper-group base-rate breakdown, most cases first (the same shape ``fedcourts\nstats --group-by`` produces).",
       "properties": {
         "buckets": {
           "items": {

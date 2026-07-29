@@ -1,0 +1,378 @@
+{
+  "$defs": {
+    "BaseRateBucket": {
+      "additionalProperties": false,
+      "description": "Disposition base-rates over one slice of the corpus (the whole set, or a group).\n\nUsed both for the overall filtered set (``key`` empty) and for each value of the\n``group_by`` dimension. ``cases`` counts every matched case in the slice,\n``resolved`` those carrying a realized disposition, and ``open`` the remainder;\n``dispositions`` is the base-rate breakdown over the resolved subset, most common\nfirst (ties broken by disposition for a deterministic order).",
+      "properties": {
+        "cases": {
+          "default": 0,
+          "description": "Matched cases in this slice",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "dispositions": {
+          "description": "Base-rate breakdown over the resolved cases",
+          "items": {
+            "$ref": "#/$defs/DispositionShare"
+          },
+          "title": "Dispositions",
+          "type": "array"
+        },
+        "key": {
+          "default": "",
+          "description": "The group value (court id, topic, \u2026); empty overall",
+          "title": "Key",
+          "type": "string"
+        },
+        "open": {
+          "default": 0,
+          "description": "Matched cases still unresolved",
+          "minimum": 0,
+          "title": "Open",
+          "type": "integer"
+        },
+        "resolved": {
+          "default": 0,
+          "description": "Matched cases carrying a disposition",
+          "minimum": 0,
+          "title": "Resolved",
+          "type": "integer"
+        }
+      },
+      "title": "BaseRateBucket",
+      "type": "object"
+    },
+    "Disposition": {
+      "description": "The realized-outcome vocabulary, with the mapping conventions for\nnon-standard SCOTUS forms. A **grant/vacate/remand** is its own label,\n``gvr`` \u2014 including the Munsingwear vacatur, whose mootness basis is *also*\ncarried by ``Outcome.disposition_basis`` (``gvr`` + ``mootness`` = a\nMunsingwear vacatur, segmented into the procedural stratum; ``gvr`` +\n``standard`` = a merits GVR). ``gvr`` counts as a grant on the **binary axis**\n(it joins the granted set for ``actual_granted``), so ``probability`` /\nBrier stay comparable across the label's introduction; only the\ndisposition-label axis distinguishes it. The label is a **forward-convention**\nchange: historical GVRs recorded as ``granted`` before it existed keep that\nlabel except the identifiable Munsingwear ones (``granted`` + ``mootness``),\nwhich a one-time backfill relabels; a plain-``granted`` merits GVR in history\nis an accepted residual (indistinguishable post-hoc without re-resolving the\nsource, and immaterial on the binary axis). On mandatory-jurisdiction direct\nappeals the resolver latches only the vacatur-remand form (now ``gvr``); the\nother direct-appeal forms (probable jurisdiction noted, summary affirmance,\ndismissal for want of a substantial federal question) are deliberate resolver\nmisses that reach maintainer triage, where the convention is: grant-side for\nprobable jurisdiction, the denied/dismissed side for summary affirmance and\nwant-of-a-question.",
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "gvr",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "DispositionShare": {
+      "additionalProperties": false,
+      "description": "One realized outcome's count and share of the resolved cases in a slice.\n\n``share`` is ``count / resolved`` \u2014 the base rate for that disposition among the\n*decided* cases in the bucket (open cases carry no label, so they are excluded\nfrom the denominator). A bucket with no resolved cases carries no shares.",
+      "properties": {
+        "count": {
+          "description": "Resolved cases carrying this disposition",
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "disposition": {
+          "$ref": "#/$defs/Disposition"
+        },
+        "share": {
+          "description": "count / resolved \u2014 the base rate among decided cases",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Share",
+          "type": "number"
+        }
+      },
+      "required": [
+        "disposition",
+        "count",
+        "share"
+      ],
+      "title": "DispositionShare",
+      "type": "object"
+    },
+    "DocketPackTerm": {
+      "additionalProperties": false,
+      "description": "One October Term's census in the court-facing docket pack.\n\nThe whole-docket view of a Term: how many petitions were docketed, how many\nof them this project has ingested, and how the ingested ones came out. It\npools the paid and IFP streams that :class:`StatPackTerm` keeps apart, and\ncarries no salience segmentation \u2014 which petitions a model was pointed at is\na fact about the project, not about the Court.",
+      "properties": {
+        "complete": {
+          "default": false,
+          "description": "True when every probed stream was walked to its observed frontier; False = the counts describe the walked prefix only",
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "dated_grants": {
+          "default": 0,
+          "description": "Granted petitions carrying both a filing and a cert-grant date \u2014 the denominator `median_days_to_grant` is computed over, which is a subset of `grants`",
+          "minimum": 0,
+          "title": "Dated Grants",
+          "type": "integer"
+        },
+        "dispositions": {
+          "description": "Denial-reweighted disposition estimates over the resolved petitions",
+          "items": {
+            "$ref": "#/$defs/DispositionShare"
+          },
+          "title": "Dispositions",
+          "type": "array"
+        },
+        "est_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Denial-reweighted grant-family share (granted + gvr) of the resolved petitions; None when nothing resolved",
+          "title": "Est Grant Rate"
+        },
+        "filings": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Docketed serials this Term across both fee streams, from the discovery cursors; None when no stream has been probed",
+          "title": "Filings"
+        },
+        "grants": {
+          "default": 0,
+          "description": "Cert grants observed this Term (raw, not reweighted)",
+          "minimum": 0,
+          "title": "Grants",
+          "type": "integer"
+        },
+        "ingested": {
+          "default": 0,
+          "description": "Petitions present in the corpus",
+          "minimum": 0,
+          "title": "Ingested",
+          "type": "integer"
+        },
+        "median_days_to_grant": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Nearest-rank median days filing \u2192 cert grant over this Term's granted petitions; None when none carry both dates",
+          "title": "Median Days To Grant"
+        },
+        "resolved": {
+          "default": 0,
+          "description": "Ingested petitions carrying a disposition (raw count)",
+          "minimum": 0,
+          "title": "Resolved",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year, e.g. 2024",
+          "title": "Term",
+          "type": "integer"
+        },
+        "weighted_resolved": {
+          "default": 0,
+          "description": "Denial-reweighted resolved estimate \u2014 the sample size behind `est_grant_rate` and `dispositions`",
+          "minimum": 0,
+          "title": "Weighted Resolved",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term"
+      ],
+      "title": "DocketPackTerm",
+      "type": "object"
+    },
+    "GroupBy": {
+      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket. The three\ncert-signal dimensions read the live-parsed columns: ``relist_bucket``\ngroups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /\n3+ buckets, ``cvsg`` by whether the Court called for the views of the\nSolicitor General, and ``fee_class`` by the docket serial's numbering\nstream (paid / IFP); rows the live channel never parsed share one\n``(unknown)`` bucket on the first two, so parse coverage stays visible.\n``salience_band`` groups by the frozen ``sal-v1`` grant-likelihood band\n(high / elevated / baseline) over the paid modern-cert petitions \u2014 the\npredicted segment \u2014 so a case's base rate is its own salience tier's rate.",
+      "enum": [
+        "court",
+        "topic",
+        "judge",
+        "term_year",
+        "disposition",
+        "originating_court",
+        "era",
+        "relist_bucket",
+        "cvsg",
+        "fee_class",
+        "salience_band"
+      ],
+      "title": "GroupBy",
+      "type": "string"
+    },
+    "StatPackCoverage": {
+      "additionalProperties": false,
+      "description": "The statpack's own denominators: how much trustworthy data backs it.\n\nPublished so the artifact states its own coverage instead of implying the\nheadline corpus counts (dominated by the frozen bulk import) back the\npredictor-facing sections. ``census_filings`` totals the cursor-derived\nper-Term censuses, so live-slice ingestion can be read against the true\nfiling volume.",
+      "properties": {
+        "census_filings": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Total docketed filings across every Term x class census the discovery cursors cover; None before any walker has probed",
+          "title": "Census Filings"
+        },
+        "live_slice_resolved": {
+          "default": 0,
+          "description": "Live-slice rows carrying a disposition (raw count)",
+          "minimum": 0,
+          "title": "Live Slice Resolved",
+          "type": "integer"
+        },
+        "live_slice_rows": {
+          "default": 0,
+          "description": "Rows the live/historical channel has written",
+          "minimum": 0,
+          "title": "Live Slice Rows",
+          "type": "integer"
+        }
+      },
+      "title": "StatPackCoverage",
+      "type": "object"
+    },
+    "StatPackSection": {
+      "additionalProperties": false,
+      "description": "One named base-rate breakdown: a dimension, its population, and its buckets.\n\nThe section shape both published base-rate artifacts are built from \u2014\n:class:`StatPack` and :class:`DocketPack` \u2014 so a cut computed for both carries\nidentical scope flags in each. ``court`` records the court filter the section\nwas computed under (``None`` = all courts), so the artifact is self-describing\n\u2014 e.g. a SCOTUS-only Term breakdown vs an all-courts view. ``buckets`` is the\nper-group base-rate breakdown, most cases first (the same shape ``fedcourts\nstats --group-by`` produces).",
+      "properties": {
+        "buckets": {
+          "items": {
+            "$ref": "#/$defs/BaseRateBucket"
+          },
+          "title": "Buckets",
+          "type": "array"
+        },
+        "cert_stage": {
+          "default": false,
+          "description": "True when the section is restricted to modern Term-prefixed discretionary-cert dockets (the population the cert model predicts), so its base rates are not diluted by historical merits-era labels",
+          "title": "Cert Stage",
+          "type": "boolean"
+        },
+        "court": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Court filter applied; None = all courts",
+          "title": "Court"
+        },
+        "group_by": {
+          "$ref": "#/$defs/GroupBy",
+          "description": "The dimension the buckets break down by"
+        },
+        "live_slice": {
+          "default": false,
+          "description": "True when the section is computed over the live/historical provenance slice only (rows the supremecourt.gov channel wrote, whose dispositions come from parsed proceedings) rather than the whole corpus with its frozen bulk import",
+          "title": "Live Slice",
+          "type": "boolean"
+        },
+        "title": {
+          "description": "Human title of the breakdown, e.g. 'Cases by court'",
+          "title": "Title",
+          "type": "string"
+        },
+        "weighted": {
+          "default": false,
+          "description": "True when the section's counts are sample-weighted estimates (each row counted `sample_weight` times, so the historical walker's denial sampling does not bias the base rates); raw ingested counts otherwise",
+          "title": "Weighted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "title",
+        "group_by"
+      ],
+      "title": "StatPackSection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/docket.json`` \u2014 court-facing docket statistics (an independent artifact).\n\nFacts about the dockets themselves: what the Supreme Court is asked to take,\nfrom which court below, on what fee stream, after how many relists, and how it\ndisposes of the petitions. Deliberately **free of any claim about this\nproject's predictions** \u2014 no accuracy, no leaderboard, no salience \u2014 so it is\nreadable and citable by someone with no interest in whether the models are any\ngood. That exclusion is the artifact's contract, not a coincidence of what has\nbeen built.\n\nA pure function of the corpus (no clock, no network), so reruns over an\nunchanged corpus reproduce it byte for byte; git-tracked and rendered to a\ncompanion Markdown document. Every rate carries its scope and its denominator,\nand each section states whether its counts are denial-reweighted: the\nhistorical walk samples denials on a committed frame, so every cert cut is\nreweighted and its counts are population *estimates* rather than rows on\nhand. That distinction is why a reweighted denominator is not a sample size:\nthe observed row count behind it is smaller. A breakdown bucket carries no\nraw view of its own; the per-Term entries carry both, so the gap between the\ntwo is legible there. Starts empty (zero counts, scaffolded sections) until a\ncorpus is present.",
+  "properties": {
+    "corpus_rows": {
+      "default": 0,
+      "description": "Case rows in the corpus",
+      "minimum": 0,
+      "title": "Corpus Rows",
+      "type": "integer"
+    },
+    "corpus_through": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The newest `last_pulled` date in the corpus \u2014 the vintage of the rows behind every figure here, so a citation can name what it read. Derived from the corpus rather than a clock, which keeps the artifact a pure function of its input; None when no row carries the date",
+      "title": "Corpus Through"
+    },
+    "coverage": {
+      "$ref": "#/$defs/StatPackCoverage",
+      "description": "The pack's own denominators: live-slice rows/resolved and the cursor-derived filings census backing the cert sections"
+    },
+    "open": {
+      "default": 0,
+      "description": "Cases still unresolved",
+      "minimum": 0,
+      "title": "Open",
+      "type": "integer"
+    },
+    "resolved": {
+      "default": 0,
+      "description": "Cases carrying a realized disposition",
+      "minimum": 0,
+      "title": "Resolved",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sections": {
+      "description": "Curated docket-composition breakdowns",
+      "items": {
+        "$ref": "#/$defs/StatPackSection"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "terms": {
+      "description": "Per-SCOTUS-Term census (filings, ingested, resolved, grant rate), most recent Term first",
+      "items": {
+        "$ref": "#/$defs/DocketPackTerm"
+      },
+      "title": "Terms",
+      "type": "array"
+    }
+  },
+  "title": "DocketPack",
+  "type": "object"
+}

@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -35,6 +35,8 @@ from .schemas import (
     BaseRateBucket,
     Disposition,
     DispositionShare,
+    DocketPack,
+    DocketPackTerm,
     FeeClass,
     GroupBy,
     StatPack,
@@ -425,69 +427,134 @@ class _SectionSpec:
     row_filter: Callable[[CorpusRow], bool] | None = None
 
 
-# The curated breakdowns the statpack publishes. Two populations, deliberately
-# side by side: the full-corpus overview (court composition, era spread —
-# includes the frozen bulk import, labeled so in the render) for human context,
-# and the live-slice weighted cuts the predict/evaluate prompts anchor on. The
-# per-Term detail is not a section — it is the richer `terms` array, built in
+# The curated breakdowns, named individually so the two published artifacts
+# compose their own tuple from one definition apiece: a cut computed for both
+# is the *same* spec, not a copy that can drift.
+_BY_COURT = _SectionSpec("Cases by court", None, False, False, False, GroupBy.court)
+_SCOTUS_BY_ERA = _SectionSpec("SCOTUS cases by era", "scotus", False, False, False, GroupBy.era)
+# The same two cuts, reweighted, for the court-facing pack. Raw is defensible in
+# the statpack, whose reader is calibrating against a known frame; it is not
+# defensible in a citable artifact. Almost every labeled SCOTUS row is live
+# slice, where the walker keeps one denial in ten, so a raw disposition split
+# there overstates the grant family several-fold — while a bulk-import circuit
+# row carries weight 1 and is unaffected, which is why reweighting is the whole
+# fix rather than a trade.
+_BY_COURT_WEIGHTED = replace(_BY_COURT, weighted=True)
+_SCOTUS_BY_ERA_WEIGHTED = replace(_SCOTUS_BY_ERA, weighted=True)
+# The calibration anchor the predict prompts point at (and ops reads by its
+# cert_stage + disposition shape): modern Term-prefixed discretionary-cert
+# dockets, live slice, denial-reweighted — the trustworthy grant/deny split.
+_CERT_BY_DISPOSITION = _SectionSpec(
+    "Modern discretionary-cert petitions by disposition",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.disposition,
+)
+_CERT_BY_CIRCUIT = _SectionSpec(
+    "Modern cert petitions by originating circuit",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.originating_court,
+)
+_CERT_BY_RELIST = _SectionSpec(
+    "Cert petitions by relist count", "scotus", True, True, True, GroupBy.relist_bucket
+)
+_CERT_BY_CVSG = _SectionSpec(
+    "Cert petitions by CVSG status", "scotus", True, True, True, GroupBy.cvsg
+)
+# The segment base rate the salience program turns on: the paid scored segment
+# split by sal-v1 band. Pack-wide (blended across Terms) for the human board;
+# the leakage-safe per-Term counterpart is `StatPackTerm.segments`.
+_CERT_BY_SALIENCE_BAND = _SectionSpec(
+    "Cert petitions by salience band",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.salience_band,
+    row_filter=_is_scored_segment_row,
+)
+_PETITIONS_BY_ORIGINATING_COURT = _SectionSpec(
+    "Petitions by originating court (incl. state courts)",
+    "scotus",
+    True,
+    True,
+    False,
+    GroupBy.originating_court,
+    key_fn=_originating_court_or_name,
+)
+# The same reader cut, denial-reweighted, for the court-facing artifact. It is a
+# separate spec rather than a flag on the one above because the two answer
+# different questions: the statpack's raw version reports rows on hand, while a
+# published state-court grant rate has to estimate the population — over the
+# walker's frame an unweighted rate inflates the grant family several-fold,
+# since denials are sampled and every non-denial is kept. This is the only cut
+# in which a state court appears, so it is the one that must be reweighted.
+_PETITIONS_BY_ORIGINATING_COURT_WEIGHTED = _SectionSpec(
+    "Petitions by originating court (incl. state courts)",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.originating_court,
+    key_fn=_originating_court_or_name,
+)
+# Paid petitions number from 1 and IFP petitions from 5001, so the fee class is
+# exact from the docket number — the coarsest cut in the cert docket, and one a
+# reader of the court-facing artifact expects beside the circuit and relist cuts.
+_CERT_BY_FEE_CLASS = _SectionSpec(
+    "Cert petitions by fee class (paid vs IFP)",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.fee_class,
+)
+
+# The breakdowns the statpack publishes. Two populations, deliberately side by
+# side: the full-corpus overview (court composition, era spread — includes the
+# frozen bulk import, labeled so in the render) for human context, and the
+# live-slice weighted cuts the predict/evaluate prompts anchor on. The per-Term
+# detail is not a section — it is the richer `terms` array, built in
 # `build_statpack`.
 _STATPACK_SECTIONS: tuple[_SectionSpec, ...] = (
-    _SectionSpec("Cases by court", None, False, False, False, GroupBy.court),
-    _SectionSpec("SCOTUS cases by era", "scotus", False, False, False, GroupBy.era),
-    # The calibration anchor the predict prompts point at (and ops reads by its
-    # cert_stage + disposition shape): modern Term-prefixed discretionary-cert
-    # dockets, live slice, denial-reweighted — the trustworthy grant/deny split.
-    _SectionSpec(
-        "Modern discretionary-cert petitions by disposition",
-        "scotus",
-        True,
-        True,
-        True,
-        GroupBy.disposition,
-    ),
-    _SectionSpec(
-        "Modern cert petitions by originating circuit",
-        "scotus",
-        True,
-        True,
-        True,
-        GroupBy.originating_court,
-    ),
-    _SectionSpec(
-        "Cert petitions by relist count", "scotus", True, True, True, GroupBy.relist_bucket
-    ),
-    _SectionSpec("Cert petitions by CVSG status", "scotus", True, True, True, GroupBy.cvsg),
-    # The segment base rate the salience program turns on: the paid scored segment
-    # split by sal-v1 band. Pack-wide (blended across Terms) for the human board;
-    # the leakage-safe per-Term counterpart is `StatPackTerm.segments`.
-    _SectionSpec(
-        "Cert petitions by salience band",
-        "scotus",
-        True,
-        True,
-        True,
-        GroupBy.salience_band,
-        row_filter=_is_scored_segment_row,
-    ),
-    _SectionSpec(
-        "Petitions by originating court (incl. state courts)",
-        "scotus",
-        True,
-        True,
-        False,
-        GroupBy.originating_court,
-        key_fn=_originating_court_or_name,
-    ),
+    _BY_COURT,
+    _SCOTUS_BY_ERA,
+    _CERT_BY_DISPOSITION,
+    _CERT_BY_CIRCUIT,
+    _CERT_BY_RELIST,
+    _CERT_BY_CVSG,
+    _CERT_BY_SALIENCE_BAND,
+    _PETITIONS_BY_ORIGINATING_COURT,
+)
+
+# The breakdowns the court-facing docket pack publishes: the same docket
+# composition cuts, plus the fee-class split, minus the salience band — a band
+# is a statement about which petitions this project predicts, which is exactly
+# the kind of claim that artifact excludes. Every cert cut here is weighted, so
+# each published rate estimates the population rather than the walked sample.
+_DOCKET_SECTIONS: tuple[_SectionSpec, ...] = (
+    _BY_COURT_WEIGHTED,
+    _SCOTUS_BY_ERA_WEIGHTED,
+    _CERT_BY_DISPOSITION,
+    _CERT_BY_CIRCUIT,
+    _CERT_BY_RELIST,
+    _CERT_BY_CVSG,
+    _PETITIONS_BY_ORIGINATING_COURT_WEIGHTED,
+    _CERT_BY_FEE_CLASS,
 )
 
 
 class _Slice:
-    """Streaming accumulator for one statpack slice (the whole set, a bucket, a Term).
+    """Streaming accumulator for one published slice (the whole set, a bucket, a Term).
 
-    The corpus is millions of rows, so the statpack is built in **one streamed
-    pass**: each row updates the counters of every slice it belongs to, and the
-    buckets/timing are rolled up from the counters afterwards — no row list is
-    materialized and no per-section re-scan runs.
+    The unit :func:`_scan_corpus` fills as it streams: each row updates the
+    counters of every slice it belongs to, and the buckets/timing are rolled up
+    from the counters afterwards, so no row list is materialized.
 
     Every add records both raw and weighted counters (weight =
     ``sample_weight`` or 1, so unweighted-capture rows count once); the caller
@@ -696,49 +763,56 @@ def _term_entry(
     )
 
 
-def build_statpack(*, corpus_db_path: Path) -> StatPack:
-    """Roll the whole corpus into a base-rate statpack, or the empty pack if it is absent.
+@dataclass(frozen=True)
+class _CorpusScan:
+    """The counters one streamed pass over the corpus fills, for any published artifact.
 
-    Deterministic and offline — a pure function of the corpus — so reruns reproduce it
-    byte for byte. Mirrors ``fedcourts backtest`` / ``leaderboard``: an absent corpus
-    (run before a corpus pull) yields the empty zero-count pack rather than an error.
-
-    Two populations, kept apart by section flags: the full-corpus overview
-    (bulk import included) for composition context, and the live-slice weighted
-    cuts + per-Term entries the predict/evaluate prompts anchor on. The ``terms``
-    array iterates the union of row-derived Terms and cursor-table Terms, so a
-    Term the walkers have probed but not yet populated still shows its census.
+    ``sections`` holds one ``bucket key -> slice`` map per spec, so a caller rolls
+    its own sections up without re-reading the corpus. The scan carries the
+    ``specs`` it ran under rather than trusting a caller to re-supply them: both
+    artifacts' tuples are the same length, so a mismatched pairing would zip
+    cleanly and publish a section's buckets under another's title — which in the
+    docket pack would mean rendering the salience band the artifact exists to
+    exclude. ``terms`` and ``cursor_rows`` back the per-Term census, which both
+    published artifacts carry.
     """
-    if not corpus_db_path.exists():
-        # Keep the section scaffolding (empty buckets) so the artifact's shape is stable
-        # whether the corpus is merely absent or present-but-empty.
-        return StatPack(
-            sections=[
-                StatPackSection(
-                    title=spec.title,
-                    court=spec.court,
-                    cert_stage=spec.cert_stage,
-                    live_slice=spec.live_slice,
-                    weighted=spec.weighted,
-                    group_by=spec.group_by,
-                )
-                for spec in _STATPACK_SECTIONS
-            ]
-        )
+
+    specs: tuple[_SectionSpec, ...]
+    overall: _Slice
+    live_slice: _Slice
+    sections: tuple[defaultdict[str, _Slice], ...]
+    terms: dict[int, _TermAcc]
+    cursor_rows: list[tuple[int, str, int, int | None]]
+    corpus_through: date | None
+
+
+def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _CorpusScan:
+    """Stream every corpus row once, updating every slice the row belongs to.
+
+    The corpus is millions of rows, so a published artifact gets **one pass**: each
+    row is offered to each spec (court / live-slice / cert-stage / row filter), to
+    the pack-wide totals, and to its October Term's accumulator. No row list is
+    materialized and no per-section re-scan runs.
+    """
     overall = _Slice()
     live_slice_totals = _Slice()
-    section_slices: list[defaultdict[str, _Slice]] = [
-        defaultdict(_Slice) for _ in _STATPACK_SECTIONS
-    ]
+    # The corpus's own high-water mark, so an artifact can state its vintage
+    # without reading a clock and stay a pure function of its input.
+    corpus_through: date | None = None
+    section_slices: tuple[defaultdict[str, _Slice], ...] = tuple(defaultdict(_Slice) for _ in specs)
     term_accs: dict[int, _TermAcc] = {}
     with corpus.connect(corpus_db_path) as conn:
         cursor_rows = corpus.live_cursor_rows(conn)
         for row in corpus.iter_rows(conn):
             overall.add(row)
+            if row.last_pulled is not None and (
+                corpus_through is None or row.last_pulled > corpus_through
+            ):
+                corpus_through = row.last_pulled
             row_is_live = corpus.is_live_slice(row)
             if row_is_live:
                 live_slice_totals.add(row)
-            for spec, slices in zip(_STATPACK_SECTIONS, section_slices, strict=True):
+            for spec, slices in zip(specs, section_slices, strict=True):
                 if spec.court is not None and row.court != spec.court:
                     continue
                 if spec.live_slice and not row_is_live:
@@ -758,9 +832,36 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
                 year = corpus.scotus_term_year(row.docket_number)
                 if year is not None:
                     term_accs.setdefault(year, _TermAcc()).add(row)
+    return _CorpusScan(
+        specs=specs,
+        corpus_through=corpus_through,
+        overall=overall,
+        live_slice=live_slice_totals,
+        sections=section_slices,
+        terms=term_accs,
+        cursor_rows=cursor_rows,
+    )
 
+
+def _sections(
+    specs: tuple[_SectionSpec, ...], scan: _CorpusScan | None = None
+) -> list[StatPackSection]:
+    """Roll a scan's accumulated slices into one :class:`StatPackSection` per spec.
+
+    ``scan`` is ``None`` when no corpus is present: the sections still render as
+    empty scaffolding from ``specs``, so an artifact's shape is stable whether the
+    corpus is merely absent or present-but-empty. With a scan present its own
+    ``specs`` win — a scan can only be described by the specs it accumulated
+    under. Buckets sort by case count descending, then key, so ties order
+    deterministically.
+    """
+    slice_maps: tuple[defaultdict[str, _Slice], ...] = (
+        scan.sections if scan is not None else tuple(defaultdict(_Slice) for _ in specs)
+    )
+    if scan is not None:
+        specs = scan.specs
     sections = []
-    for spec, slices in zip(_STATPACK_SECTIONS, section_slices, strict=True):
+    for spec, slices in zip(specs, slice_maps, strict=True):
         buckets = [entry.bucket(key, weighted=spec.weighted) for key, entry in slices.items()]
         buckets.sort(key=lambda b: (-b.cases, b.key))
         sections.append(
@@ -774,7 +875,30 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
                 buckets=buckets,
             )
         )
-    census = _census(cursor_rows)
+    return sections
+
+
+def build_statpack(*, corpus_db_path: Path) -> StatPack:
+    """Roll the whole corpus into a base-rate statpack, or the empty pack if it is absent.
+
+    Deterministic and offline — a pure function of the corpus — so reruns reproduce it
+    byte for byte. Mirrors ``fedcourts backtest`` / ``leaderboard``: an absent corpus
+    (run before a corpus pull) yields the empty zero-count pack rather than an error.
+
+    Two populations, kept apart by section flags: the full-corpus overview
+    (bulk import included) for composition context, and the live-slice weighted
+    cuts + per-Term entries the predict/evaluate prompts anchor on. The ``terms``
+    array iterates the union of row-derived Terms and cursor-table Terms, so a
+    Term the walkers have probed but not yet populated still shows its census.
+    """
+    if not corpus_db_path.exists():
+        return StatPack(sections=_sections(_STATPACK_SECTIONS))
+    scan = _scan_corpus(corpus_db_path, _STATPACK_SECTIONS)
+    overall = scan.overall
+    live_slice_totals = scan.live_slice
+    term_accs = scan.terms
+    sections = _sections(_STATPACK_SECTIONS, scan)
+    census = _census(scan.cursor_rows)
     term_years = sorted({*term_accs, *(term for term, _ in census)}, reverse=True)
     total = overall.bucket("")
     live_total = live_slice_totals.bucket("")
@@ -797,6 +921,76 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     )
 
 
+def _docket_term_entry(
+    year: int, acc: _TermAcc | None, census: dict[tuple[int, FeeClass], tuple[int, bool]]
+) -> DocketPackTerm:
+    """Assemble one Term's docket-pack census, pooling the paid and IFP streams.
+
+    ``filings`` sums the two streams' censuses (``None`` only when neither has
+    been probed) and ``complete`` holds when every **probed** stream reached its
+    observed frontier. An unprobed stream is absent from the sum and cannot make
+    ``complete`` false, so a Term walked on one stream alone can read complete
+    over a census that covers half the docket — read ``filings`` alongside it.
+    ``acc`` is ``None`` for a cursor-only Term — probed, nothing ingested — which
+    still appears with zero counts so the coverage gap is visible.
+    """
+    probed = [census[(year, fee)] for fee in (FeeClass.paid, FeeClass.ifp) if (year, fee) in census]
+    acc = acc or _TermAcc()
+    raw = acc.overall.bucket("")
+    weighted = acc.overall.bucket("", weighted=True)
+    grant_days = sorted(acc.grant_days)
+    return DocketPackTerm(
+        term=year,
+        filings=sum(filings for filings, _ in probed) if probed else None,
+        complete=bool(probed) and all(complete for _, complete in probed),
+        ingested=acc.overall.cases,
+        resolved=raw.resolved,
+        weighted_resolved=weighted.resolved,
+        est_grant_rate=(
+            sum(d.share for d in weighted.dispositions if d.disposition in _GRANT_LABELS)
+            if weighted.resolved
+            else None
+        ),
+        dispositions=weighted.dispositions,
+        grants=acc.grants,
+        median_days_to_grant=_nearest_rank(grant_days, 0.5) if grant_days else None,
+        dated_grants=len(grant_days),
+    )
+
+
+def build_docket_pack(*, corpus_db_path: Path) -> DocketPack:
+    """Roll the corpus into the court-facing docket pack, or the empty pack if absent.
+
+    The same streamed pass and the same section machinery as
+    :func:`build_statpack`, over :data:`_DOCKET_SECTIONS` — the docket-composition
+    cuts plus the fee-class split, without the salience band — and a per-Term
+    census that pools the fee streams and drops the salience segments. Nothing
+    here reads a prediction, an evaluation, or the leaderboard. Deterministic and
+    offline, so reruns reproduce it byte for byte.
+    """
+    if not corpus_db_path.exists():
+        return DocketPack(sections=_sections(_DOCKET_SECTIONS))
+    scan = _scan_corpus(corpus_db_path, _DOCKET_SECTIONS)
+    census = _census(scan.cursor_rows)
+    term_years = sorted({*scan.terms, *(term for term, _ in census)}, reverse=True)
+    total = scan.overall.bucket("")
+    live_total = scan.live_slice.bucket("")
+    census_values = [filings for filings, _ in census.values()]
+    return DocketPack(
+        corpus_through=scan.corpus_through,
+        corpus_rows=scan.overall.cases,
+        resolved=total.resolved,
+        open=total.open,
+        coverage=StatPackCoverage(
+            live_slice_rows=scan.live_slice.cases,
+            live_slice_resolved=live_total.resolved,
+            census_filings=sum(census_values) if census_values else None,
+        ),
+        sections=_sections(_DOCKET_SECTIONS, scan),
+        terms=[_docket_term_entry(year, scan.terms.get(year), census) for year in term_years],
+    )
+
+
 # How many buckets a section's Markdown table shows; the JSON carries them all.
 # Sized for the state-court originating-court cut, whose long tail is real data
 # but unreadable as a table.
@@ -815,6 +1009,43 @@ def _scope_line(section: StatPackSection) -> str:
     if section.weighted:
         scope += "; counts are denial-reweighted estimates"
     return f"_Scope: {scope}._"
+
+
+def _section_tables(sections: list[StatPackSection], *, sample_size: bool = False) -> list[str]:
+    """One heading, scope line, and capped Markdown table per curated breakdown.
+
+    Shared by both published base-rate artifacts, so a section computed for each
+    renders identically. ``sample_size`` appends the base rate's denominator to
+    the cell, so a rate quoted out of the table keeps the count it was computed
+    over. On a weighted section that denominator is a denial-reweighted
+    *estimate* of the population, not a count of rows on hand, so it renders as
+    ``est. n=`` — the two are several-fold apart wherever the walker sampled, and
+    one ``n=`` spelling for both would misreport the weaker cells as far
+    better-evidenced than they are.
+    """
+    lines: list[str] = []
+    for section in sections:
+        lines += [
+            "",
+            f"## {section.title}",
+            _scope_line(section),
+            "",
+            f"| {section.group_by} | cases | resolved | open | base rate (resolved) |",
+            "| --- | --: | --: | --: | --- |",
+        ]
+        if not section.buckets:
+            lines.append("| _(none)_ | 0 | 0 | 0 | — |")
+        for bucket in section.buckets[:_MARKDOWN_BUCKETS]:
+            key = bucket.key or "—"
+            rate = _disposition_summary(bucket)
+            if sample_size and bucket.dispositions:
+                label = "est. n" if section.weighted else "n"
+                rate += f" ({label}={bucket.resolved})"
+            lines.append(f"| {key} | {bucket.cases} | {bucket.resolved} | {bucket.open} | {rate} |")
+        overflow = len(section.buckets) - _MARKDOWN_BUCKETS
+        if overflow > 0:
+            lines.append(f"| _… {overflow} more bucket(s) in the JSON_ | | | | |")
+    return lines
 
 
 def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = None) -> str:
@@ -866,26 +1097,7 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         "",
         f"**Filing → decision timing:** {_timing_summary(pack.timing)}",
     ]
-    for section in pack.sections:
-        lines += [
-            "",
-            f"## {section.title}",
-            _scope_line(section),
-            "",
-            f"| {section.group_by} | cases | resolved | open | base rate (resolved) |",
-            "| --- | --: | --: | --: | --- |",
-        ]
-        if not section.buckets:
-            lines.append("| _(none)_ | 0 | 0 | 0 | — |")
-        for bucket in section.buckets[:_MARKDOWN_BUCKETS]:
-            key = bucket.key or "—"
-            lines.append(
-                f"| {key} | {bucket.cases} | {bucket.resolved} | {bucket.open} "
-                f"| {_disposition_summary(bucket)} |"
-            )
-        overflow = len(section.buckets) - _MARKDOWN_BUCKETS
-        if overflow > 0:
-            lines.append(f"| _… {overflow} more bucket(s) in the JSON_ | | | | |")
+    lines += _section_tables(pack.sections)
     if pack.terms:
         # `0` means every Term, so it must branch — `pack.terms[:0]` is empty. A
         # negative cap would invert the truncation (dropping the *oldest* Term);
@@ -978,6 +1190,195 @@ def _term_row(entry: StatPackTerm) -> str:
         f"| {_pct(grant_rate) if grant_rate is not None else '—'} | {entry.grants} "
         f"| {_days(entry.timing.median_days)} "
         f"| {_complete(paid)}/{_complete(ifp)} |"
+    )
+
+
+# The statistics a reader of a published court stat pack expects and this
+# artifact cannot yet compute. Named in the document rather than left as silent
+# gaps, so a citation is not read as a claim that the number is zero.
+_DOCKET_GAPS = (
+    "**What the petitions are about.** A distribution of the questions presented "
+    "by subject matter needs a claim taxonomy to classify them against, and no "
+    "such taxonomy is built. Inventing one for this artifact alone would publish "
+    "a categorization nothing else in the project shares, and that no later work "
+    "could reproduce.",
+    "**Summary reversals are not broken out.** The disposition vocabulary carries "
+    "no label for them, and a summary reversal is counted inside the grant family "
+    "above rather than being missing from it. "
+    "On mandatory-jurisdiction direct appeals the outcome resolver latches only "
+    "the vacatur-remand form (`gvr`); summary affirmance and dismissal for want "
+    "of a substantial federal question are deliberate resolver misses that reach "
+    "maintainer triage instead. Counting them here would mean inventing a label "
+    "the corpus does not carry.",
+    "**Justice-level statistics.** Vote frequencies, agreement matrices, and "
+    "opinion authorship are per-justice facts; this corpus is docket-first and "
+    "holds no per-justice vote record.",
+)
+
+
+def render_docket_markdown(pack: DocketPack) -> str:
+    """Render a :class:`DocketPack` as a publishable Markdown document.
+
+    Leads with what the document is and — as pointedly — what it is not: a
+    reader who does not care how well this project's models forecast the Court
+    should still be able to read and cite every figure in it. Then the coverage
+    denominators, a how-to-read note covering the denial reweighting, one table
+    per docket-composition breakdown, the per-Term census, and the named gaps.
+    Deterministic; safe on the empty pack (renders a one-line note).
+
+    Every Term is rendered rather than capped. The statpack's cap bounds what the
+    predict/evaluate prompts point agents at; this document is not that surface,
+    and capping it would buy nothing anyway — the JSON sibling in the same
+    checkout is unbounded either way, so the bound is conventional. What the cap
+    does carry there and must carry here is the replay self-selection rule, which
+    rides under the Term table.
+    """
+    lines = ["# Docket pack", ""]
+    if pack.corpus_rows == 0:
+        lines.append("_Empty — no corpus present. Regenerated once a corpus is available._")
+        return "\n".join(lines) + "\n"
+
+    census = (
+        f"{pack.coverage.census_filings} docketed filing(s) across the walked Terms"
+        if pack.coverage.census_filings is not None
+        else "no Term census yet"
+    )
+    vintage = (
+        f", pulled through {pack.corpus_through.isoformat()}"
+        if pack.corpus_through is not None
+        else ""
+    )
+    lines += [
+        "Facts about the dockets themselves: what the Supreme Court is asked to take, "
+        "from which court below, on which fee stream, after how many relists, and how "
+        "it disposes of what it is asked. It carries **no claim about this project's "
+        "predictions** — no accuracy, no model ranking, no measure of which petitions "
+        "are worth predicting — so it is readable and citable without any interest in "
+        "whether those models are any good.",
+        "",
+        f"**Corpus.** {pack.corpus_rows} case(s): {pack.resolved} resolved, {pack.open} open"
+        f"{vintage}. Most rows are an unlabeled bulk import, so the two overview "
+        "sections below describe the **labeled subset only** — read `resolved` against "
+        "`cases` before quoting one.",
+        "",
+        f"**Live/historical slice.** {pack.coverage.live_slice_rows} case(s), "
+        f"{pack.coverage.live_slice_resolved} resolved — petitions read from the Court's "
+        "own docket pages, the population behind every cert statistic below; "
+        f"{census}.",
+        "",
+        "**How to read the tables.** Each section states its own scope: the court, the "
+        "population, and whether its counts are denial-reweighted. That reweighting "
+        "matters. The historical walk ingests every decided petition except denials, "
+        "which it samples on a committed frame, so a raw count would badly overstate "
+        "the grant rate; a reweighted section counts each ingested petition for the "
+        "number of petitions it stands in for. **Every section here is reweighted**, "
+        "including the two overview cuts: nearly every labeled SCOTUS row is a "
+        "sampled one, so a raw disposition split there would overstate the grant "
+        "family several-fold, while a bulk-import circuit row carries weight 1 and is "
+        "unchanged by it. So every count is a population **estimate** rather than rows "
+        "on hand, and every denominator is written `est. n=`. In the breakdown tables "
+        "that denominator is the `resolved` column beside the rate; the per-Term "
+        "census states its own the same way.",
+        "",
+        "**In the breakdown tables the estimate does not tell you** how many "
+        "petitions were actually read to produce it. An `est. n=` of a few hundred "
+        "rests on a raw row count several times smaller, and a breakdown row carries "
+        "no raw view of its own — so treat a small reweighted cell as weaker evidence "
+        "than its denominator suggests, and read a rate against the whole-population "
+        "figures above it rather than on its own. The per-Term census is the "
+        "exception and the place to calibrate that gap: it prints the observed "
+        "`ingested (rows)` beside the reweighted estimate, so the ratio between them "
+        "is legible for every Term.",
+        "",
+        "**Where a value is missing** the row still appears rather than being dropped, "
+        "so a coverage gap is never hidden inside a rate. A `(none)` bucket means "
+        "*no value on that dimension*, and what that stands for differs by cut, so "
+        "read it against the section rather than as one thing. On the circuit cut it "
+        "is mostly **not** an unknown court below: it is the petitions whose court "
+        "below is not a federal circuit — state supreme courts above all — and the "
+        "section that follows names them. On the era cut it is the absence of any "
+        "date signal. On the fee-class cut it is a parsing gap: fee class is read by "
+        "a stricter serial parser than the one behind the Term cuts, so docket "
+        "numbers it cannot read — annotated ones such as a capital-case marker most "
+        "visibly, but also consolidated and prefixed spellings — land here. That "
+        "bucket is therefore **not a random slice**, so read the paid/IFP table as a "
+        "split of the petitions whose numbers parse cleanly rather than a partition "
+        "of the whole docket. Where an `(unknown)` bucket appears — the relist and "
+        "CVSG cuts, whose signal comes from parsed proceedings — it means *not yet "
+        "parsed* rather than *did not happen*.",
+    ]
+    lines += _section_tables(pack.sections, sample_size=True)
+    if pack.terms:
+        lines += [
+            "",
+            "## SCOTUS cert petitions by Term",
+            "_Live/historical slice. `filings` is the count of docketed serials across "
+            "the paid and IFP streams, read from the discovery cursors — exact for "
+            "docketed numbers, a slight upper bound on real petitions since withheld "
+            "serials still count. **The two columns are not nested**: `ingested` counts "
+            "rows on hand, and a petition whose docket number carries an annotation the "
+            "serial parser cannot read (a capital-case marker, say) is ingested under "
+            "its Term but belongs to no stream's serial census, so `ingested` can "
+            "exceed `filings`. Within a stream it never does. `ingested` and `grants "
+            "observed` are raw counts of rows on hand; the grant rate is the "
+            "denial-reweighted estimate, and its `est. n` is the reweighted resolved "
+            "count it divides by — which is why it too can exceed `ingested`. The "
+            "plain `n` beside the pace to grant is different: that one is a raw count "
+            "of the granted petitions carrying both dates. Dividing "
+            "`grants observed` by `ingested` does **not** reproduce the rate and is "
+            "not a rate at all; the raw grant count is comparable to the weighted "
+            "denominator only because a grant is always kept at weight 1 while "
+            "denials are sampled. The rate pools the paid and IFP streams, whose own "
+            "grant rates differ several-fold, so a Term-over-Term move can be a shift "
+            "in that mix rather than in the Court's appetite. A Term reads `complete` "
+            "only "
+            "once every probed stream was walked to its observed end; until then its "
+            "figures describe the walked prefix, and for a Term still in progress that "
+            "end moves as the Court dockets more petitions, so `complete` there means "
+            "current, not final. Every Term the walk has touched is listed, most recent "
+            "first._",
+            "",
+            (
+                "| Term | filings | ingested (rows) | est. grant rate (weighted) "
+                "| grants observed (rows) | median days to grant | census |"
+            ),
+            "| --- | --: | --: | --- | --: | --- | --- |",
+        ]
+        for entry in pack.terms:
+            lines.append(_docket_term_row(entry))
+        lines += [
+            "",
+            (
+                "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
+                "this document sits in the same checkout as the statpack and the same rule "
+                "applies — anchor only on Term rows strictly preceding your clock, because "
+                "later Terms post-date what you are allowed to know._"
+            ),
+        ]
+    lines += ["", "## Not yet included", ""]
+    lines += [f"- {gap}" for gap in _DOCKET_GAPS]
+    return "\n".join(lines) + "\n"
+
+
+def _docket_term_row(entry: DocketPackTerm) -> str:
+    """One Term's row in the docket-pack census table."""
+    # `est. n` on the weighted rate, plain `n` on the pace-to-grant subset: one
+    # spelling rule across the document, and this row shows both side by side.
+    rate = (
+        f"{_pct(entry.est_grant_rate)} (est. n={entry.weighted_resolved})"
+        if entry.est_grant_rate is not None
+        else "—"
+    )
+    pace = (
+        "—"
+        if entry.median_days_to_grant is None
+        else f"{_days(entry.median_days_to_grant)} (n={entry.dated_grants})"
+    )
+    return (
+        f"| {entry.term} | {entry.filings if entry.filings is not None else '—'} "
+        f"| {entry.ingested} | {rate} | {entry.grants} "
+        f"| {pace} "
+        f"| {'complete' if entry.complete else 'partial'} |"
     )
 
 
