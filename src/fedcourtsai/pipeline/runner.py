@@ -965,6 +965,16 @@ _BACKENDS: dict[str, Callable[[], Runner]] = {
 }
 
 
+def available_backends() -> tuple[str, ...]:
+    """Every backend name :func:`get_runner` accepts, in registry order.
+
+    The public read of ``_BACKENDS``, so a CLI help string can render the set
+    rather than restate it — a hand-kept copy drifts the moment a backend lands,
+    and ``--help`` is what a caller reads to discover what it may ask for.
+    """
+    return tuple(_BACKENDS)
+
+
 def get_runner(backend: str = "stub") -> Runner:
     """Return the runner for ``backend`` (default the offline ``stub``).
 
