@@ -7,9 +7,10 @@ name: ci
 on:
   pull_request:
     # `edited` re-evaluates the base-sensitive checks (main-base,
-    # promotion-gate, paths, cleanup-paths) when a PR is retargeted — without it a PR opened
-    # against staging keeps its stale `skipped` main-base run after a
-    # retarget to main, and skipped satisfies the required check.
+    # promotion-gate, paths, cleanup-paths) when a PR is retargeted. For the
+    # required contexts a stale `skipped` run would satisfy the requirement
+    # outright; main-base is not required, so there the stale run instead
+    # leaves a mis-route unsignalled.
     types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
@@ -162,13 +163,19 @@ jobs:
         run: scripts/promotion-gate.sh all "$HEAD_SHA"
 
   main-base:
-    # Merge routing as a required check (the `paths` pattern): code reaches
-    # `main` only through the staging→main promotion or a reviewed
-    # non-feature lane — the collect run branches, the maintainer's cleanup
-    # sweep, and the metrics-refresh / cert-backtest PRs. This job runs (and fails) only on
-    # a PR to `main` from any other head; every legitimate PR skips it, and a
-    # skipped required check is satisfied. Fork heads never match the
-    # allowlist — outside contributions route through `staging` too. The
+    # Merge routing, on the `paths` pattern: code reaches `main` only through
+    # the staging→main promotion or a reviewed non-feature lane — the collect
+    # run branches, the maintainer's cleanup sweep, and the metrics-refresh /
+    # cert-backtest PRs. This job runs (and fails) only on a PR to `main` from
+    # any other head; every legitimate PR skips it. It is not among `main`'s
+    # required contexts (`gate`, `paths`, `promotion-gate`) and cannot be yet: a
+    # `pull_request` runs the workflow from the merge ref, and the legitimate
+    # lanes are cut from `main`, whose own ci.yml has no `main-base` job — the
+    # context would never report and an auto-merging collect PR would hang
+    # pending forever. Requireable once this definition promotes into `main`;
+    # until then it goes red on a mis-route without blocking the merge. Fork
+    # heads never match the allowlist — outside contributions route through
+    # `staging` too. The
     # emergency escape hatch is a repo admin editing the ruleset: deliberate
     # and auditable. Expression `==`/`startsWith` compare case-insensitively,
     # so a write-access branch named `Staging` skips the jail — a hygiene

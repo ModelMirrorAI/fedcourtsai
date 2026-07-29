@@ -56,17 +56,27 @@ non-interactive** container. Two consequences shape everything you do:
 - **You may merge to `staging`; only the maintainer merges to `main`.** The two
   branches carry different risk, so they get different rules. Into `staging`,
   once the required checks are green and you have resolved the reviewer
-  subagents' blockers, merge your own PR — merge commit or squash, whichever
-  suits the change. A feature PR is not ancestry-critical: its squash commit's
-  sole parent is `staging`'s previous tip, so it changes nothing about how much
-  of `main` `staging` already contains. Exactly two merges *are*, and neither is
-  yours: the **sync** (`main` → `staging`) and the **promotion**
-  (`staging` → `main`). Both must be merge commits, or `main` and `staging` stop
-  sharing history — and every later sync re-merges rewritten commits. Into
-  `main`, never: `main` is the pre-registration record and
-  reaches it only through a maintainer-merged promotion batch. (The data-run
+  subagents' blockers, you may merge your own PR — merge commit or squash,
+  whichever suits the change. A feature PR is not ancestry-critical: its squash
+  commit's sole parent is `staging`'s previous tip, so it changes nothing about
+  how much of `main` `staging` already contains. Exactly two merges *are*, and
+  neither is yours: the **sync** (`main` → `staging`) and the **promotion**
+  (`staging` → `main`). Both must be merge commits, or `main` and `staging`
+  stop sharing history — and every later sync re-merges rewritten commits.
+  Into `main`, never: `main` is the pre-registration record and reaches it only
+  through a maintainer-merged promotion batch. (The data-run
   `collect` jobs are the standing exception, opening their per-run PR to `main`
   with auto-merge, still gated on the same required checks.)
+  Your own changes travel by PR on both branches — "you may merge" never means
+  "you may skip the PR". The rulesets require one, with two documented bypasses
+  that are not your lane: the data App's deterministic writers push to `main`,
+  and an admin-role escape hatch on `staging`. Do not lean on the platform to
+  stop you; the identity you hold can bypass the `staging` PR requirement, so
+  this one is discipline. And the staging permission is a permission, not an
+  obligation: leaving a green PR for the maintainer is always a legitimate
+  call, and the better one when the change is large, novel, or rewrites a
+  contract others read. Use judgement; say which you chose in the PR
+  description.
   **Four kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
   risk: anything under `.github/workflows/` or `.github/actions/` (the
@@ -77,8 +87,9 @@ non-interactive** container. Two consequences shape everything you do:
   those, get them green, and report them ready.
   The branch rulesets do not encode this: both require zero approvals, so the
   discipline is yours to keep, not the platform's to enforce.
-- **The reviewer subagents are the only review a `staging` merge gets.** With
-  the maintainer out of the loop, "run the relevant reviewer(s)" below stops
+- **When you merge it yourself, the reviewer subagents are the only review a
+  `staging` merge gets.** With the maintainer out of the loop, "run the
+  relevant reviewer(s)" below stops
   being a courtesy and becomes the review itself. If you could not invoke one
   and self-reviewed against its checklist instead, say so in the PR
   description — an unstated self-review reads as a review that happened.
@@ -131,7 +142,7 @@ starts as a branch off `staging`:
 main     ──●─────────────────●────────────  promotion batches (maintainer only)
            │ sync            ↑ promote
            ↓                 │
-staging  ──●──●────●────●────●────────────  you merge here, once green
+staging  ──●──●────●────●────●────────────  you may merge here — or leave it
               ↑    ↑    ↑
               feature branches: git switch -c <type>/<desc> origin/staging
 ```
@@ -250,7 +261,8 @@ same PR.
   compose the exact command, put it where the maintainer will see it (the PR
   description, or the run summary for an automated surface), and continue with
   what does not depend on it. The same holds for anything else the token is
-  refused on — environment and variable administration, and merging.
+  refused on — environment and variable administration. Merging is **not** on
+  that list: what limits it is the merge rule above, not the credential.
 - **Keep environment variables out of PR and issue text.** Refer to a var by
   its role, not its name or value. Secrets never appear anywhere.
 - **Don't commit personal or organizational email addresses.** Commit identity
@@ -278,3 +290,19 @@ remote plus a per-case S3 content store); derived judgments live in git under
 *Data model* section of `README.md`; pipeline design: `docs/data-pipeline.md`;
 task-specific instructions: the prompt file named in your run
 (`.github/prompts/`).
+
+## Which doc answers which question
+
+| Question | Doc |
+| --- | --- |
+| What may I claim from a number? What do the strata mean? | `metrics/README.md` |
+| What does a label trigger, and how do I operate/recover a run? | `docs/pipeline.md` |
+| How does the corpus get filled, stored, and versioned? | `docs/data-pipeline.md`, `corpus/README.md` |
+| Where does upstream data come from, and on what terms? | `docs/data-sources.md`, `docs/live-sources.md` |
+| Which command does X, and with which flags? | `docs/cli.md` |
+| Which cases get predicted, and against which base rate? | `docs/salience.md` |
+| What is pre-registered, and when does a digest move? | `docs/process-version.md` |
+| Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
+| What does a cell agent have to produce? | `.github/prompts/` |
+| How do I test this, and what does CI run? | `docs/testing.md` |
+| What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |

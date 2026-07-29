@@ -94,8 +94,9 @@ denominator. Instead the scope is **salience-ordered** (design:
 2. **Salience ranking** — a cheap, deterministic score ranks the eligible
    petitions by how much each is worth forecasting, from features already in the
    corpus (relist history, a call for the Solicitor General's views, the
-   originating circuit). It publishes as a ranked board **before** the conference
-   sits.
+   originating circuit). The score and the selection are latched in the corpus
+   **before** the conference sits; they reach git through `data/scope/scope.json`
+   when the manifest is regenerated, and a published ranked board is planned.
 3. **Capacity `N`** — the three-engine tournament runs on the top-ranked slice up
    to a fundable capacity `N`, plus a few always-include carve-outs. `N` is the
    funding dial: raising it deepens the slice without reshuffling the ranking
@@ -234,15 +235,16 @@ src/fedcourtsai/    library: clients, corpus + casestore, schemas, registry, CLI
 config/             predictor & evaluator registries, tracking settings
 data/               the git ledger of derived judgments (versioned)
 schemas/            JSON Schema exported from the pydantic models
-docs/               data pipeline, sources, security, budget, milestones
+docs/               design & operations references (see Documentation below)
 .github/workflows/  the label-driven pipeline + CI + workflow linting
 .github/prompts/    engine-agnostic prompts shared by the three engines
 ```
 
 ## Documentation
 
-- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) · [Data sources, terms & PII](docs/data-sources.md)
+- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) · [Data sources, terms & PII](docs/data-sources.md) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
+- [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Testing](docs/testing.md) · [Contributing](CONTRIBUTING.md)

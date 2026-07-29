@@ -1,7 +1,7 @@
 name: run-seed
 
-# The historical Term walker (docs/live-sources.md), split out of run-pull so
-# the backfill runs on its own schedule instead of a single buried daily slot.
+# The historical Term walker (docs/live-sources.md). It carries the backfill on
+# its own schedule, separate from run-pull's forward windows.
 # It walks October Terms' docket serials newest-first over the supremecourt.gov
 # docket JSON and ingests the sampled decided set — every decided petition except
 # denials, which are systematically sampled per config/tracking.yaml's committed
@@ -12,18 +12,17 @@ name: run-seed
 # It is a corpus writer like run-pull's jobs, so it shares the repo-level
 # `corpus-write` concurrency group: the corpus is a single blob (pull → mutate →
 # push → commit corpus/corpus.db.ref to main), so only one writer runs at a time
-# regardless of workflow. The split does not change that — it decouples the
-# schedule. The windows sit in the dead zones between run-pull's forward windows
-# (`:17` pull, `:47` live) and yield the lock before the next one fires.
+# regardless of workflow. The windows sit in the dead zones between run-pull's
+# forward windows (`:17` pull, `:47` live) and yield the lock before the next
+# one fires.
 #
-# Simpler than the old in-run-pull job: each window is a bounded ~40-min chunk
-# that fits inside one App installation token's 1h life, so there is no
-# self-refreshing-token loop — one token up front covers the walk and the
-# trailing steps.
+# Each window is a bounded ~40-min chunk that fits inside one App installation
+# token's 1h life, so there is no self-refreshing-token loop — one token up
+# front covers the walk and the trailing steps.
 on:
   schedule:
-    # Four dead-zone windows/day (up from one), each after a pull and before the
-    # next live, so a chunk clears the lock before forward work needs it.
+    # Four dead-zone windows/day, each after a pull and before the next live,
+    # so a chunk clears the lock before forward work needs it.
     - cron: "31 2 * * *"
     - cron: "31 8 * * *"
     - cron: "31 14 * * *"
@@ -65,9 +64,9 @@ jobs:
       id-token: write # assume the AWS role for the corpus S3 remote (read-write)
     steps:
       # One token up front: a ≤40-min walk plus the trailing steps stay inside
-      # its 1h life, so unlike the old run-pull historical job there is no mid-loop
-      # re-mint. Scoped to contents:write only (the corpus pushes) — progress goes
-      # to the Actions step summary, not an issue, so no issues:write is needed;
+      # its 1h life, so no mid-loop re-mint is needed. Scoped to contents:write
+      # only (the corpus pushes) — progress goes to the Actions step summary,
+      # not an issue, so no issues:write is needed;
       # the guard job files its escalation on the ambient token instead.
       - name: Mint app token
         id: app-token

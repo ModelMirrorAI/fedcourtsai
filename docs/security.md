@@ -15,8 +15,9 @@ agent PR would never start CI.
 
 The token comes from one of **two Apps, split by trust** — mirroring the two S3
 roles. The split is what makes "data writes land directly, everything agentic
-lands via a reviewed PR" an *identity*-enforced invariant rather than a policy the
-agent is merely instructed to follow:
+lands via a PR" an *identity*-enforced invariant rather than a policy the
+agent is merely instructed to follow (that the PR is *reviewed* is a
+convention `AGENTS.md` carries, not something identity enforces):
 
 - **data App** — used by the deterministic writer `run-pull`. Its
   client id is the `DATA_APP_CLIENT_ID` variable and its private key the
@@ -28,7 +29,7 @@ agent is merely instructed to follow:
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
-  reviewed PR.
+  PR that satisfies the required checks.
 
 All four live on the `prod` environment (the two client ids as variables, the
 two keys as secrets). Each workflow mints a token scoped to only what it needs:
@@ -71,24 +72,32 @@ data-run `collect` PRs auto-merge with it, and no rebase because replaying
 commits onto either branch would break that shared history and rewrite the
 pre-registration record's commit ids.
 
-- **`main: require PR`** — requires a pull request plus the `gate` status check to
-  merge. **Bypass: the data App only**, so the deterministic
+- **`main: require PR`** — requires a pull request plus the status checks below
+  to merge. **Bypass: the data App only**, so the deterministic
   `run-pull` writer jobs push corpus facts (the corpus blob — rows and point-in-time
   snapshots — to the S3 corpus remote; its pointer and deterministic `outcome.json` to
   `main`) while all agent code changes — including anything the dev App holds —
-  go through a reviewed PR. The dev App is deliberately **absent** from this
-  bypass list. Required approvals are `0` (a maintainer reviews at merge time); set
-  to `1` if a second reviewer exists.
-  - Required checks are `gate`, `paths`, `promotion-gate` (which reports
-    `skipped` — satisfying the requirement — on every PR that is not the
-    staging→main promotion), and `main-base` (the merge-routing jail: it
-    runs — and fails — only on a PR to `main` whose head is not a same-repo
-    `staging` or reviewed non-feature lane, so a feature PR cannot ride around the
-    promotion path by mistake; rulesets cannot constrain a PR's source
-    branch, which is why this is a check — and like any check, the reviewed
-    merge, not the expression, is the backstop against a PR that edits
-    ci.yml itself). `cleanup-paths` is deliberately **not** in the required
-    list — a cleanup PR is never auto-merged, so it is review-time
+  go through a PR gated on the required checks. The dev App is deliberately
+  **absent** from this bypass list. Required approvals are `0` — the maintainer
+  reviews at merge time by convention, not by rule; set to `1` if a second
+  reviewer exists.
+  - Required checks are exactly `gate`, `paths`, and `promotion-gate` (which
+    reports `skipped` — satisfying the requirement — on every PR that is not
+    the staging→main promotion). **`main-base` is not among them.** It is the
+    merge-routing jail: it runs — and fails — only on a PR to `main` whose head
+    is not a same-repo `staging` or reviewed non-feature lane, so a feature PR
+    cannot ride around the promotion path by mistake. Rulesets cannot constrain
+    a PR's source branch, which is why it is a check rather than a rule. It
+    cannot be *required* yet: on a `pull_request` the workflow runs from the
+    merge ref, and every legitimate lane into `main` is cut **from** `main` —
+    the collect run branches, the cleanup sweep, the metrics-refresh and
+    cert-backtest PRs — so they run `main`'s own `ci.yml`, which carries no
+    `main-base` job. The context would never report, and an auto-merging
+    collect PR would hang pending forever. It becomes requireable once the job
+    definition promotes into `main`; until then routing rests on the promotion
+    convention and the maintainer's merge. `cleanup-paths` is
+    deliberately **not** in the required list — a cleanup PR is never
+    auto-merged, so it is review-time
     defense-in-depth. **Not** `zizmor` — it is path-filtered
     to `.github/**`, so requiring it would hang any PR that does not touch workflows.
   - `paths` is the **auto-merge path jail**. The predict/evaluate
@@ -124,9 +133,10 @@ pre-registration record's commit ids.
   misbehaving writer that holds the data App's bypass token.
 - **`staging: require PR`** — the pre-merge branch every feature PR targets
   requires a pull request plus the required checks that can report on a
-  staging-targeted PR: `gate` and `paths`. (`main`'s other two are structurally
-  always-`skipped` here — `promotion-gate` and `main-base` both key on a base of
-  `main` — so requiring them would add no signal.) **Bypass: the repository
+  staging-targeted PR: `gate` and `paths`. (`main`'s third, `promotion-gate`,
+  is structurally always-`skipped` here — it keys on a base of `main` — so
+  requiring it would add no signal. The same is true of the `main-base` job,
+  which is not a required context anywhere.) **Bypass: the repository
   admin role only**, the escape hatch for a main→staging sync when the ordinary
   PR path is unavailable; its content is by construction already-gated `main`
   history merged with already-gated `staging` history.
@@ -142,7 +152,7 @@ pre-registration record's commit ids.
   That is adequate for content that is by construction already-gated `main`
   history, and it is not the same as a human reading the diff.
   **Neither App is a bypass actor here**, so the
-  identity-enforced "everything agentic lands via a reviewed PR" invariant
+  identity-enforced "everything agentic lands via a PR" invariant
   holds one hop before `main` as well: the dev App token minted in the agent
   runs has no zero-PR path onto the promotion train or onto the ref the
   staging-environment deployments execute.

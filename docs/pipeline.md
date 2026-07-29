@@ -256,22 +256,31 @@ below describes the damage). The promotion gates target exactly those two.
 
 The mechanics:
 
-- **Feature PRs target `staging`** (AGENTS.md), and the routing is
-  mechanical, not conventional: the **`main-base`** required check fails any
-  PR to `main` whose head is not `staging` or a reviewed non-feature lane
-  (the collect run branches, the maintainer's cleanup sweep, the
-  metrics-refresh and cert-backtest PRs) — rulesets cannot constrain a PR's source branch, which is why this
-  lives as a check. Like every required check it binds with the strength of
-  the maintainer-merges backstop: a PR that edits ci.yml runs the edited
-  definition, so the check deters routing mistakes, and the human merge
-  catches sabotage. Dependabot targets `staging` for the same reason. The `staging`
+- **Feature PRs target `staging`** (AGENTS.md), and the routing rests on that
+  convention plus the maintainer's merge: `main`'s required checks are exactly
+  `gate`, `paths`, and `promotion-gate`. The **`main-base`** job signals a
+  mis-route — it runs, and fails, only on a PR to `main` whose head is not
+  `staging` or a reviewed non-feature lane (the collect run branches, the
+  maintainer's cleanup sweep, the metrics-refresh and cert-backtest PRs) —
+  but it is **not** a required context, so it goes red without being able to
+  block the merge. It cannot be required yet: a `pull_request` runs the
+  workflow from the merge ref, and every legitimate lane into `main` is cut
+  from `main`, whose own ci.yml carries no `main-base` job — the context would
+  never report and an auto-merging collect PR would hang pending forever. It
+  becomes requireable once that definition promotes into `main`
+  (docs/security.md inventories this).
+  Rulesets cannot constrain a PR's source branch, which is why the routing
+  lives as a check at all, and why the check deters mistakes while the human
+  merge is what catches sabotage: a PR that edits ci.yml runs the edited
+  definition. Dependabot targets `staging` for the same reason. The `staging`
   ruleset itself requires a pull request plus the status checks that can report
-  on a staging-targeted PR — `gate` and `paths`; `main`'s other two key on a
-  base of `main` and are always `skipped` here — with the **repository admin
+  on a staging-targeted PR — `gate` and `paths`; `promotion-gate` keys on a
+  base of `main` and is always `skipped` here — with the **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
-  check runs, so the maintainer is the only identity that can land the sync
-  merge below. Neither GitHub App *bypasses* `staging`: the scheduled
+  check runs, so the admin role is the only identity that can land the sync
+  merge below — the role an interactive agent session borrows, which is why
+  `AGENTS.md` carries the discipline rule against using it. Neither GitHub App *bypasses* `staging`: the scheduled
   `sync-staging` workflow holds a write token to it but opens an ordinary PR
   that must satisfy the same required checks, and `promote` itself performs no
   write at all.
@@ -326,13 +335,14 @@ The full path of a change, operator's view:
 
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
-same required status checks as `main`, **repository admin role as the only
-bypass actor** (docs/security.md inventories it); and add `promotion-gate`
-and `main-base` to `main`'s required checks — each reports `skipped`, which
-satisfies the requirement, on every PR it does not police. Order matters for
-`main-base`: require it only once the job's ci.yml definition has been
-**promoted to `main`**, because a required check that no workflow run
-reports leaves every collect auto-merge PR waiting forever. The `staging`
+checks that can report on a staging-targeted PR (`gate` and `paths`),
+**repository admin role as the only bypass actor** (docs/security.md
+inventories it); and add `promotion-gate` to `main`'s required checks
+alongside `gate` and `paths` — it reports `skipped`, which satisfies the
+requirement, on every PR that is not the promotion. `main-base` stays
+**unrequired** until its ci.yml definition has been **promoted to `main`**,
+because a required check that no workflow run reports leaves every collect
+auto-merge PR waiting forever. The `staging`
 *deployment environment* the freshness runs deploy to (deployment branches
 restricted to `staging`, read-only role trust, per-environment engine keys) is
 separate wiring, described in docs/security.md.
@@ -460,10 +470,11 @@ guess.
 
 ## Recovering a run whose `collect` failed
 
-`collect` is the single writer for a run's agent output, so its failure used to
-discard the whole run — on 2026-07-18 one transient artifact-download failure
-threw away 46 successful cells. It now degrades per artifact, and what it could
-not collect is named rather than silently dropped. Two gaps, two remedies:
+`collect` is the single writer for a run's agent output, so an all-or-nothing
+failure would discard the whole run — one transient artifact download can carry
+dozens of successful cells with it. It therefore degrades per artifact, and
+what it could not collect is named rather than silently dropped. Two gaps, two
+remedies:
 
 | the PR body / run log says | what happened | fix |
 |---|---|---|

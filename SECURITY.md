@@ -107,22 +107,25 @@ runbook, [docs/security.md](docs/security.md).
   workflow. The App-driven handoffs `run-pull` files are recognized and allowed
   — only a maintainer-installed App can apply a label that fires a workflow at
   all.
-- **Branch protection and the deployment boundary.** `main` requires a reviewed
-  PR plus the `gate` check; the **data App** is the sole bypass actor, so the
-  deterministic `run-pull` writers push corpus facts straight to `main` while
-  everything agentic goes through a reviewed PR — enforced by identity, since
-  the agent workflows authenticate as a separate, non-bypass **dev App**. Code
-  and config reach `main` only as a gated promotion batch from `staging`,
-  whose own ruleset requires a PR plus the same checks (sole bypass: the
-  repository admin role, for the maintainer's deterministic sync push —
-  neither App and no workflow token can write to it). A
-  second ruleset with **no** bypass blocks force-pushes and branch deletion for
-  everyone, so the predictions, outcomes, and evaluations under `data/` cannot
-  be rewritten or dropped. Secrets and the S3 roles live in the `prod`
-  environment, whose deployment branches are restricted to `main`: a workflow
-  authored on a PR branch runs without them. A second environment, `staging`,
-  is restricted to the `staging` branch and holds the read-only role and its
-  own engine keys for the pre-promotion integration runs.
+- **Branch protection and the deployment boundary.** `main` requires a PR
+  passing `gate`, `paths`, and `promotion-gate`; the **data App** is the sole
+  bypass actor, so the deterministic `run-pull` writers push corpus facts
+  straight to `main` while everything agentic goes through that PR — enforced
+  by identity, since the agent workflows authenticate as a separate,
+  non-bypass **dev App**. Both rulesets require **zero** approving reviews, so
+  maintainer review is a convention `AGENTS.md` carries, not something the
+  platform enforces. Code and config reach `main` only as a gated promotion
+  batch from `staging`, whose own ruleset requires a PR passing `gate` and
+  `paths` (sole bypass: the repository admin role, for the maintainer's
+  deterministic sync push — neither App bypasses it, and the `sync-staging`
+  workflow's write token reaches the branch only through a PR that satisfies
+  the same checks). A ruleset with **no** bypass blocks force-pushes and branch
+  deletion for everyone, so the predictions, outcomes, and evaluations under
+  `data/` cannot be rewritten or dropped. Secrets and the S3 roles live in the
+  `prod` environment, whose deployment branches are restricted to `main`: a
+  workflow authored on a PR branch runs without them. A second environment,
+  `staging`, is restricted to the `staging` branch and holds the read-only role
+  and its own engine keys for the pre-promotion integration runs.
 - **Prompt-injection awareness.** Issue bodies are untrusted input. The agent
   actions include actor-permission checks; matrix inputs are parsed from a
   fixed JSON block rather than free text, and agents are instructed to treat
