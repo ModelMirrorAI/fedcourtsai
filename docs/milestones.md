@@ -63,18 +63,11 @@ The machinery for the first release is running:
 
 ### The process-version freeze (cutover marker)
 
-The July/August predictions are the **shakedown** — real forward calls under a
-process still being corrected. The headline metrics default to the frozen process
-(see [process-version.md](process-version.md)), so the shakedown is excluded
-without being deleted: the earliest shakedown cells predate the stamp and carry
-no process version, and later cells are stamped but their digest is not yet
-blessed — neither is frozen, so neither reaches the headline.
-
-The **freeze** is the cutover: a one-line commit that blesses the current
-process digest(s) into `FROZEN_PROCESS_DIGESTS`, run when the process is settled
-and the first long-conference predictions are about to land. **Record the freeze
-commit here when it happens** — it is the marker that separates the shakedown
-from the frozen forward record.
+The freeze is the cutover that separates the shakedown from the frozen forward
+record — the milestone this file marks. What a process version is, which states
+it passes through, and how the freeze is performed all belong to
+[process-version.md](process-version.md#freezing-the-cutover-procedure);
+**record the resulting commit here when it happens.**
 
 - Freeze commit: _not yet frozen — the shakedown is ongoing._
 

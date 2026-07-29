@@ -31,19 +31,22 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   applications** (`22A123`) and **original-jurisdiction** matters (`22O141`),
   **pro se / in-forma-pauperis petitions** (the IFP docket serial ≥ 5001 — a
   documented scope decision so the salience gate spends the fundable slice on the
-  paid cert docket; see [salience.md](salience.md)), and a guard for
+  paid cert docket; see [salience.md](salience.md)), **disbarment dockets**
+  (attorney discipline, not discretionary cert), **consolidated dockets whose
+  members all classify out of scope**, and a guard for
   **internally inconsistent dates**. Each gates prediction only, never ingestion.
-  The two-directional scope reconcile releases a case latched for **staleness** or
-  a **bare published-opinion import** once it gains a real disposition; the
-  **form-keyed** exclusions (IFP serial, applications, original jurisdiction) are
-  permanent by construction — the docket form never changes, so they never
-  release. Because the corpus keys a case by
+  The two-directional scope reconcile releases any case whose exclusion stops
+  matching — one latched for **staleness**, a **bare published-opinion
+  import**, an undecided **disbarment** docket, or a **consolidated** parent
+  whose members later resolve. The purely **form-keyed** exclusions (IFP
+  serial, applications, original jurisdiction) are permanent by construction —
+  the docket form never changes, so they never release. Because the corpus keys a case by
   `<court>/<docket>`, a case's SCOTUS docket and its originating
   court-of-appeals docket are **separate rows**: only the SCOTUS row is
   predicted, and the lower-court link columns (`originating_court` /
   `originating_docket_number`) are retrieval context — never a scope trigger.
 
-  Within this prediction scope, [salience.md](salience.md) designs a
+  Within this prediction scope, [salience.md](salience.md) describes a live
   **salience-ordered** gate — hard eligibility filters, then a deterministic
   ranking that spends the tournament on the most salient slice up to a fundable
   capacity — plus the two pre-registered scores (deterministic salience and the
@@ -248,10 +251,10 @@ coherent (blob out of git, pointer well-formed, metrics committed, ranged
 layout); the online pull/push stays with the corpus-writer workflows that hold
 the credentials.
 
-The workflow variable is `CORPUS_REMOTE_URL` (the rename off the old
-`DVC_REMOTE_URL` spelling is done). The tooling still accepts the legacy
-`DVC_*` aliases, which now survive only for the Codespaces devcontainer secret
-(still spelled `DVC_REMOTE_URL`); they retire when that secret is renamed too.
+The workflow variable is `CORPUS_REMOTE_URL`. The tooling also accepts
+`DVC_*` aliases so the Codespaces devcontainer secret — spelled
+`DVC_REMOTE_URL` — keeps resolving; the new names win when both are set, and
+the aliases retire once that secret is renamed.
 
 ### Corpus-writer coordination
 
@@ -456,21 +459,17 @@ shared with the ledger models.
   ranked, defaulting to resolved cases. Semantic / embedding similarity lands
   on the same query seam once embeddings are stored.
 
-How much a back-test score is allowed to mean is fixed by the pre-registration
-stratification ([`fedcourtsai.leaderboard`](../src/fedcourtsai/leaderboard.py)):
-**forward predictions are the test set; the back-test is the validation set.**
-No redaction removes a model's parametric memory of a famous case, so back-test
-deltas drive the iteration loop while predictor *skill* is only ever claimed
-from forward cells; back-test reports carry a hard-coded `retrospective`
-stratum, and the leaderboard never blends the strata. The replay/forward
-difference is deliberately *behavioral, not technical* — the **leakage
-doctrine** in [AGENTS.md](../AGENTS.md): timing is the leakage control, and a
-`replay` cell gets the same tools plus etiquette, harness-side retrieval
-logging, and evaluator grading instead of walls. The live cells run over a
-`Runner` seam (`fedcourtsai.pipeline.runner`); an offline `stub` backend writes
-deterministic, schema-valid artifacts with no model call, and `fedcourts
-make-fixture-corpus` builds a tiny **synthetic** corpus, so the cell mechanics
-are exercised in pytest with no remote, token, or network.
+How much a back-test score is allowed to mean is fixed by the
+**backtest-as-iteration doctrine** — forward predictions are the test set, the
+back-test is the validation set, and timing rather than any retrieval wall
+separates them — stated in full under *Forward vs retrospective* and *The
+backtest-as-iteration doctrine* in [metrics/README.md](../metrics/README.md).
+
+The live cells run over a `Runner` seam (`fedcourtsai.pipeline.runner`); an
+offline `stub` backend writes deterministic, schema-valid artifacts with no
+model call, and `fedcourts make-fixture-corpus` builds a tiny **synthetic**
+corpus, so the cell mechanics are exercised in pytest with no remote, token,
+or network.
 
 ## Historical — the Term walker
 

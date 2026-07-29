@@ -118,7 +118,7 @@ def test_promote_help_text_lists_every_required_scenario() -> None:
 
 
 def test_main_base_jail_covers_every_legitimate_lane() -> None:
-    # Merge routing to main is a required check; its allowlist must track the
+    # Merge routing to main rides this job's allowlist, which must track the
     # real bot lanes mechanically, or a renamed lane's PRs hit the jail.
     job = _load(WORKFLOWS / "ci.yml")["jobs"]["main-base"]
     condition = job["if"]

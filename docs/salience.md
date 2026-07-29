@@ -10,19 +10,23 @@ the ingestion/prediction scope split this refines see the *Scope* section of
 [budget.md](budget.md); for where the board lands on the roadmap see
 [milestones.md](milestones.md).
 
-This doc fixes vocabulary and seams. It is the design; the implementation follows
-it without further design decisions.
+This doc fixes the vocabulary and the seams and describes the gate as it runs;
+its knobs are the `salience:` block of `config/tracking.yaml`. Where a piece is
+still ahead of the implementation, it says so in place.
 
 ## Why salience
 
-Today prediction scope is a hard court predicate (`court == "scotus"`) plus the
-shared exclusion rules, and **every** in-scope cert petition runs the full
-predict/evaluate tournament equally. The agentic stages cost one to two orders of
-magnitude more than ingestion, and predicting the whole cert denominator equally
-spends that budget on thousands of petitions that will be denied as a matter of
-course. A salience-ordered scope keeps the hard eligibility filters, then **ranks**
-eligible petitions by a cheap deterministic score and spends the tournament on the
-most salient slice up to a fundable **capacity `N`**.
+The agentic stages cost one to two orders of magnitude more than ingestion, so
+running the tournament over the whole cert denominator would spend that budget
+on thousands of petitions denied as a matter of course. Prediction scope is
+therefore **salience-ordered**: the hard eligibility filters run first, then a
+cheap deterministic score **ranks** the surviving petitions and the
+predict/evaluate tournament runs only on the most salient slice, up to a
+fundable **capacity `N`**.
+
+The gate is live. The selection pass runs inside every live-channel cycle, its
+decision is carried by the `salience_selected` corpus latch, and both the
+predict matrix and the pull queue read that latch (*Selection* below).
 
 Two scores fall out, and they are deliberately distinct:
 
@@ -39,16 +43,17 @@ Two scores fall out, and they are deliberately distinct:
 
 Selection is a funnel, cheap filters first:
 
-- **Tier 0 — hard eligibility (deterministic, at the row).** The existing
-  `corpus.OUT_OF_SCOPE_RULES`, evaluated through `out_of_scope_reason_full`, plus
-  one new rule: exclude **pro se / in-forma-pauperis** petitions. Fee class is
-  derivable — IFP serials start at `IFP_SERIAL_BASE` (`5001`) in the SCOTUS docket
-  number (`supremecourt.parse_scotus_docket_number`), so the rule is a row-only
-  predicate needing no new column. This is a **documented scope decision** — a
-  named rule in `OUT_OF_SCOPE_RULES`, surfaced on the salience board (below), not a
-  silent drop: IFP grants are rare but non-zero (Gideon arrived IFP), so excluding
-  them is a deliberate, recorded choice, not a claim that IFP cases never matter. A Tier-0 exclusion means *never predict, and prune
-  any prediction already committed* — the same destructive-on-purpose semantics
+- **Tier 0 — hard eligibility (deterministic, at the row).**
+  `corpus.OUT_OF_SCOPE_RULES`, evaluated through `out_of_scope_reason_full`,
+  including the rule excluding **pro se / in-forma-pauperis** petitions. Fee
+  class is derivable — IFP serials start at `IFP_SERIAL_BASE` (`5001`) in the
+  SCOTUS docket number (`supremecourt.parse_scotus_docket_number`), so the rule
+  is a row-only predicate needing no new column. This is a **documented scope
+  decision** — a named rule in `OUT_OF_SCOPE_RULES` carrying its own reason
+  string, not a silent drop: IFP grants are rare but non-zero (Gideon arrived
+  IFP), so excluding them is a deliberate, recorded choice, not a claim that
+  IFP cases never matter. A Tier-0 exclusion means *never predict, and prune any
+  prediction already committed* — the same destructive-on-purpose semantics
   every hard-scope rule already carries.
 - **Tier 1 — salience scoring (cheap, over all eligible).** A deterministic score
   over every Tier-0 survivor, from features the corpus already carries. This is a
@@ -296,9 +301,10 @@ prediction's timing contract:
 **The lookback window is a stated choice, not a default.** The band rate is pooled
 over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
 anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025) run
-**25.8%–48.0%**, nearly 2×; elevated runs 7.9%–18.8%. Anchored at an OT2026
-petition, the high band reads **37.1% (n=1006)** pooling every prior Term, **33.8%
-(n=609)** over the last five, and **43.7% (n=71)** over the last one. That is a
+**25.8%–48.0%**, nearly 2×; elevated runs 8.7%–18.8%. Anchored at an OT2026
+petition, the high band reads roughly **37% (n≈1000)** pooling every prior Term,
+**34% (n≈610)** over the last five, and **44% (n≈70)** over the last one — recompute
+from the statpack's per-Term band table rather than quoting these. That is a
 ~10-point spread in the number a forecast's Brier skill is scored against, and in
 the prior a cell is told to start from, turning on a parameter — so the parameter
 is stated rather than left to a default.
@@ -442,20 +448,22 @@ statpack Term rows behind the `DECIDED_BEFORE` clock.
   `salience_selected` as the published transparency artifact — but only for cases
   that already have a committed `data/cases` directory (its enumerate-from-the-tree
   invariant; it never scans the corpus). It is a *record*, not an input: no pipeline
-  seam reads it back to drive selection. The **full candidate pool** — including
-  Tier-0-excluded and below-cap cases that have no committed directory — lives on
-  the `metrics/salience` board, not here.
+  seam reads it back to drive selection. The **full candidate pool** —
+  including Tier-0-excluded and below-cap cases that have no committed
+  directory — belongs on the salience board (below), not here.
 - **The selection is driven by the `salience_selected` corpus latch**, not by
   reading `scope.json`. `predict-matrix`'s scope filter consumes the latch
   directly, the same way it consumes `predict_excluded` and the court predicate
   today.
 - **Hard eligibility** stays in `corpus.OUT_OF_SCOPE_RULES` /
-  `out_of_scope_reason_full` (the IFP rule joins here). Below-cap selection is a
+  `out_of_scope_reason_full` (the IFP rule among them). Below-cap selection is a
   **separate** latch and never enters this evaluator.
-- **The salience ranking** is published as a deterministic board under
-  `metrics/salience.{json,md}`, regenerated like the other roll-ups — the
-  pre-registered big-case board, carrying the ranking, the selected set, and the
-  segment base rate.
+- **The salience ranking** has no published board yet: the scores and the latch
+  live in the corpus and reach git only through `scope.json`. The planned
+  artifact is a deterministic board under `metrics/salience.{json,md}`,
+  regenerated like the other roll-ups — the pre-registered big-case board,
+  carrying the ranking, the full candidate pool, the selected set, and the
+  segment base rate ([milestones.md](milestones.md)).
 
 ## Ratified decisions (config, tunable)
 

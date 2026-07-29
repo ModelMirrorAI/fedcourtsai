@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     courtlistener_base_url: str = "https://www.courtlistener.com/api/rest/v4/"
     courtlistener_api_token: str | None = None
     request_timeout: float = 30.0
-    # CourtListener per-token rate limits (issue #1); override via FEDCOURTS_* env.
+    # CourtListener per-token rate limits; override via FEDCOURTS_* env.
     courtlistener_rpm: int = 5
     courtlistener_rph: int = 50
     courtlistener_rpd: int = 125
@@ -57,10 +57,10 @@ class Settings(BaseSettings):
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the committed corpus pointer against it. The bare workflow variable names
     # are accepted as aliases so the same runner env serves both. The workflow
-    # variable is now CORPUS_REMOTE_URL (the rename is done); the DVC_* aliases
-    # survive only for the Codespaces devcontainer secret, still spelled
-    # DVC_REMOTE_URL (see .devcontainer/) — new names win when both are set, and
-    # the DVC_* aliases retire when that secret is renamed too.
+    # variable is CORPUS_REMOTE_URL; the DVC_* aliases exist for the Codespaces
+    # devcontainer secret, which is spelled DVC_REMOTE_URL (see
+    # .devcontainer/) — new names win when both are set, and the aliases can
+    # retire once that secret is renamed too.
     corpus_remote_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices(

@@ -13,10 +13,10 @@ name: run-pull
 #   re-polls the pending watchlist. No CourtListener token, no API budget; the
 #   same corpus-writer plumbing (corpus push, pointer commit, queue handoffs).
 #
-# The historical Term walker (the backfill of past Terms) now lives in its own
-# workflow, run-seed.yml, so it can run on a denser schedule; it shares this
-# repo's `corpus-write` concurrency group, so it still serializes with these
-# forward writers. See run-seed.yml for that job.
+# The historical Term walker (the backfill of past Terms) lives in its own
+# workflow, run-seed.yml, so its schedule is independent of these forward
+# windows; it shares this repo's `corpus-write` concurrency group, so it still
+# serializes with these forward writers. See run-seed.yml for that job.
 #
 # Each scheduled run fires exactly one of the two (the cron minute is the mode
 # switch), so the shared corpus-write lock serializes writers. The live and pull

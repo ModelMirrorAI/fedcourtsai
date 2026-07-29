@@ -70,7 +70,7 @@ live:
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
   # absorb the long-conference onboarding burst within a day (~276 over ~4
-  # cycles) rather than trickling it over a week at the old cap; the same soft
+  # cycles) rather than trickling it over a week; the same soft
   # budget bounds the onboarding provisioning cost per cycle.
   max_new_cases_per_run: 100
   # Oldest October Term the refresh rotation reaches — the reachability probe's
@@ -88,15 +88,15 @@ live:
   # Predict timing is not configured here: the live channel queues run:predict
   # on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
-  # pull.predict_on_change_only. It replaced the interim predict_on_refresh
-  # spend guard; max_cases_per_run above bounds the transition path's worst-case
-  # daily volume, and the sweep path is separately bounded at
-  # windows x salience.sweep_cases_per_cycle. WHICH transitioned petitions
-  # queue is the salience gate's decision: each cycle ends with the selection
-  # pass and that bounded sweep of selected petitions the transition trigger
-  # missed (see `salience:` below and docs/salience.md).
+  # pull.predict_on_change_only. No separate refresh-rate spend guard is needed
+  # because both queueing paths are already bounded: max_cases_per_run above
+  # bounds the transition path's worst-case daily volume, and the sweep path is
+  # separately bounded at windows x salience.sweep_cases_per_cycle. WHICH
+  # transitioned petitions queue is the salience gate's decision: each cycle
+  # ends with the selection pass and that bounded sweep of selected petitions
+  # the transition trigger missed (see `salience:` below and docs/salience.md).
 
-# historical = the historical Term walker (run-pull's historical job):
+# historical = the historical Term walker (the run-seed workflow's `seed` job):
 # accumulates resolved outcomes reverse-chronologically by Term — primarily
 # for the statpack's per-Term base rates, secondarily the cert back-test set —
 # by walking October Terms over the supremecourt.gov docket JSON: the same
@@ -143,9 +143,10 @@ historical:
   document_text_cap: 150000
 
 predict:
-  # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md "The
-  # pilot slice"). Restricts only the agentic predict/evaluate stages; ingestion
-  # stays full-coverage. Read at the pull-queue and matrix seams.
+  # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md
+  # "Scope: the SCOTUS-docket gate"). Restricts only the agentic
+  # predict/evaluate stages; ingestion stays full-coverage. Read at the
+  # pull-queue and matrix seams.
   #   scotus_docket — only SCOTUS dockets (court == scotus); the cost gate.
   #                   Originating court-of-appeals dockets are ingested for
   #                   context and retrieval but not predicted.
@@ -245,8 +246,8 @@ salience:
   # 25.8%-48.0% across OT2017-OT2025, so a long window is stable but assumes the
   # Court's grant behaviour is stationary, while a short one tracks the drift on
   # only 61-163 weighted-resolved petitions per Term. Anchored at an OT2026
-  # petition the high band reads 37.1% (n=1006) unbounded, 33.8% (n=609) at 5,
-  # and 43.7% (n=71) at 1 — a ~10-point spread in the number skill is measured
+  # petition the high band reads roughly 37% (n~1000) unbounded, 34% (n~610) at
+  # 5, and 44% (n~70) at 1 — a ~10-point spread in the number skill is measured
   # against. Move it on evidence, and before the freeze rather than part-way
   # through a Term. Counted in Term YEARS, not statpack rows: a Term missing
   # from the pack shortens the sample rather than pulling an older Term in. See
