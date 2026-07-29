@@ -931,6 +931,23 @@ class ToolUsage(_Strict):
         "here with no calls is genuinely never-called, while one called but absent here "
         "ran under an older pin",
     )
+    web_calls: dict[str, int] = Field(
+        default_factory=dict,
+        description="Calls to each engine's open-web tools. Codex ships none, so its "
+        "absence here is a tooling fact about the engine, not a choice its cells made",
+    )
+    cells_with_mcp: int = Field(
+        default=0, ge=0, description="Cells that called at least one MCP tool"
+    )
+    cells_with_web: int = Field(
+        default=0, ge=0, description="Cells that reached the open web at least once"
+    )
+    web_without_mcp_by_engine: dict[str, int] = Field(
+        default_factory=dict,
+        description="Cells that searched the web and called NO MCP tool, per engine — the "
+        "MCP-gap signal. Suggestive, not proof: forward cells are explicitly allowed to "
+        "use public context, so this flags candidates to inspect, not failures",
+    )
     entries: list[ToolUsageEntry] = Field(
         default_factory=list,
         description="Offered-but-never-called first, then by descending calls — the "

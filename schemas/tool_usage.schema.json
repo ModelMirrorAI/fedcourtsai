@@ -65,6 +65,20 @@
       "title": "Builtin Calls",
       "type": "object"
     },
+    "cells_with_mcp": {
+      "default": 0,
+      "description": "Cells that called at least one MCP tool",
+      "minimum": 0,
+      "title": "Cells With Mcp",
+      "type": "integer"
+    },
+    "cells_with_web": {
+      "default": 0,
+      "description": "Cells that reached the open web at least once",
+      "minimum": 0,
+      "title": "Cells With Web",
+      "type": "integer"
+    },
     "entries": {
       "description": "Offered-but-never-called first, then by descending calls \u2014 the actionable rows lead",
       "items": {
@@ -108,6 +122,22 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "web_calls": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Calls to each engine's open-web tools. Codex ships none, so its absence here is a tooling fact about the engine, not a choice its cells made",
+      "title": "Web Calls",
+      "type": "object"
+    },
+    "web_without_mcp_by_engine": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Cells that searched the web and called NO MCP tool, per engine \u2014 the MCP-gap signal. Suggestive, not proof: forward cells are explicitly allowed to use public context, so this flags candidates to inspect, not failures",
+      "title": "Web Without Mcp By Engine",
+      "type": "object"
     }
   },
   "title": "ToolUsage",
