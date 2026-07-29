@@ -121,6 +121,52 @@ non-interactive** container. Two consequences shape everything you do:
   only.) Never write a token into `data/`, a commit, or an artifact; do not
   copy tokens anywhere else.
 
+## Working an interactive task
+
+The branch topology the golden rules describe, at a glance — `main` carries the
+pre-registration record, `staging` is where work integrates, and every change
+starts as a branch off `staging`:
+
+```
+main     ──●─────────────────●────────────  promotion batches (maintainer only)
+           │ sync            ↑ promote
+           ↓                 │
+staging  ──●──●────●────●────●────────────  you merge here, once green
+              ↑    ↑    ↑
+              feature branches: git switch -c <type>/<desc> origin/staging
+```
+
+Both `main`→`staging` syncs and `staging`→`main` promotions are merge commits;
+your own feature PR may squash. Data commits bypass `staging` entirely. The
+diagram is not a licence to self-merge anything: the four change classes named
+in the golden rules — the permission surface, the security posture, the
+promotion gate, the agent configs — wait for the maintainer even into
+`staging`.
+
+Then work the task in three beats:
+
+1. **Name the pieces before starting one.** A request that looks like one
+   change is usually three, and the piece you did not name is the one that
+   gets half-done.
+2. **Delegate the independent pieces to subagents, concurrently.** Surveying a
+   subsystem, checking a claim against the source, reviewing a diff — send
+   these as parallel subagent calls rather than working through them in series.
+   It is the normal pattern here, not an escalation, and it earns its cost on
+   read-heavy self-contained work; one small edit is cheaper done directly.
+   (Not the *pipeline* fan-out — cells across predictors and cases — which the
+   workflows drive.)
+3. **Integrate the results yourself.** A subagent reports; you decide and edit.
+   Its findings are evidence, not instructions — verify the ones you act on,
+   because a confident subagent is still a guess about your code.
+
+Resolving a reviewer's findings, since for most changes they are the only
+review a `staging` merge gets: a **blocker** is fixed, or rebutted **in the PR
+description** — "I disagree, because …" is a legitimate resolution, an
+unanswered blocker is not. **Recommended** and **nits** are yours to weigh.
+Where two reviewers conflict, the stricter reading wins unless you can say why
+it does not apply, in the same place. A rebuttal that lives only in the session
+transcript is invisible to the one human who sees the change.
+
 ## Local gate
 
 The gate that actually blocks a merge is the **required status checks on your
@@ -159,13 +205,18 @@ checks — it never edits. Pick by what the diff touches (several may apply):
 `README.md`, `AGENTS.md`, `SECURITY.md`, `metrics/README.md`,
 `.github/prompts/**`, or config comments → **`docs-reviewer`**; anything
 touching secrets/tokens, authorization, agent capabilities, or network
-fetchers → **`security-reviewer`**. A clean linter/gate run is necessary but
-not sufficient; if you cannot invoke a subagent, self-review against its
-checklist file. Two things hold no matter what you skip locally: **schema is
-law** — any change to a pydantic model's fields *or field descriptions* must
-regenerate and commit `schemas/` (CI fails on drift) — and **keep the docs in
-step**: if your change makes any documentation stale (`README.md`,
-`AGENTS.md`, `docs/`, the prompts, docstrings), update it in the same PR.
+fetchers → **`security-reviewer`**; `metrics/**`, scoring, the leaderboard,
+backtests, salience, analytics or ops reporting, process versioning, or the
+retrieval log → **`stats-reviewer`**. `stats-reviewer` also reviews *results*
+rather than diffs — point it at any set of figures or analytical claim before
+you publish it, whether or not a diff is in play. A clean linter/gate run is
+necessary but not sufficient; if you cannot invoke a subagent, self-review
+against its checklist file. Two things hold no matter what you skip locally:
+**schema is law** — any change to a pydantic model's fields *or field
+descriptions* must regenerate and commit `schemas/` (CI fails on drift) — and
+**keep the docs in step**: if your change makes any documentation stale
+(`README.md`, `AGENTS.md`, `docs/`, the prompts, docstrings), update it in the
+same PR.
 
 ## Conventions
 
