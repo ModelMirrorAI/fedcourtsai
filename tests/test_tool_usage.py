@@ -16,7 +16,12 @@ from fedcourtsai.mcp import manifest_tools
 from fedcourtsai.registry import load_mcp_servers
 from fedcourtsai.schemas import Engine, RetrievalCall, RetrievalLog, UsageRole
 from fedcourtsai.serialize import write_json
-from fedcourtsai.tool_usage import build_tool_usage, normalize_call, render_tool_usage_markdown
+from fedcourtsai.tool_usage import (
+    build_tool_usage,
+    is_web_tool,
+    normalize_call,
+    render_tool_usage_markdown,
+)
 
 
 def _log(
@@ -214,6 +219,50 @@ def test_an_unknown_denominator_renders_as_unknown_not_zero(tmp_path: Path) -> N
     # And the pin skew is disclosed, since the offered set is today's manifest
     # while the calls came from whatever those cells actually ran.
     assert "courtlistener=pkg==1.1.0" in md
+
+
+# --- the open-web substitution signal ------------------------------------------
+
+
+def test_every_engines_web_tool_is_recognised() -> None:
+    # Each engine names these itself; a miss here silently undercounts the signal.
+    for tool in ("WebSearch", "WebFetch", "google_web_search", "web_fetch"):
+        assert is_web_tool(tool)
+    for tool in ("Bash", "run_shell_command", "Read", "exec", "ToolSearch", "glob"):
+        assert not is_web_tool(tool)
+
+
+def test_web_without_mcp_counts_only_cells_that_substituted(tmp_path: Path) -> None:
+    # The signal is a cell that reached the web and called NO MCP tool. A cell
+    # doing both used the web to supplement, not to substitute, and must not
+    # inflate the number that gets read as an MCP gap.
+    _log(tmp_path, "sub", engine=Engine.claude_code, actor="c", tools=["WebSearch"])
+    _log(
+        tmp_path,
+        "both",
+        engine=Engine.gemini,
+        actor="g",
+        tools=["google_web_search", "mcp_cl_search"],
+    )
+    _log(tmp_path, "mcp", engine=Engine.gemini, actor="g", tools=["mcp_cl_search"])
+    _log(tmp_path, "neither", engine=Engine.codex, actor="x", tools=["exec"])
+    usage = build_tool_usage(tmp_path)
+    assert usage.cells_with_mcp == 2
+    assert usage.cells_with_web == 2
+    assert usage.web_without_mcp_by_engine == {"claude-code": 1}
+    assert usage.web_calls == {"WebSearch": 1, "google_web_search": 1}
+
+
+def test_the_web_signal_is_reported_as_suggestive_not_as_failure(tmp_path: Path) -> None:
+    # A forward cell is explicitly allowed to use public context, so web use is
+    # sanctioned. Rendering it as a fault would send a reader hunting a bug that
+    # the prompt licenses.
+    _log(tmp_path, "sub", engine=Engine.claude_code, actor="c", tools=["WebSearch"])
+    md = render_tool_usage_markdown(build_tool_usage(tmp_path))
+    assert "without calling the MCP at all" in md
+    assert "Suggestive, not proof" in md
+    # And codex's structural zero is explained rather than read as restraint.
+    assert "the engine ships no web tool" in md
 
 
 # --- the shipped registries ----------------------------------------------------

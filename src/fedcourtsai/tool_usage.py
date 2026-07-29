@@ -46,6 +46,17 @@ from .serialize import read_model
 # separator is matched greedily-left and the remainder taken whole.
 _MCP_CALL = re.compile(r"^mcp_{1,2}(?P<server>[a-z0-9]+)_{1,2}(?P<tool>.+)$")
 
+# The engines' open-web tools, by their own names: claude-code's `WebSearch` /
+# `WebFetch`, gemini's `google_web_search` / `web_fetch`. Codex ships none, so
+# its absence from this set is a tooling fact about the engine, never a choice
+# its cells made — read a codex zero accordingly.
+_WEB_TOOLS = frozenset({"WebSearch", "WebFetch", "google_web_search", "web_fetch"})
+
+
+def is_web_tool(tool: str) -> bool:
+    """Whether a call is to the open web rather than the corpus or the MCP."""
+    return tool in _WEB_TOOLS
+
 
 def normalize_call(tool: str) -> str | None:
     """An MCP call name as ``<server>.<tool>``, or ``None`` if it is not one.
@@ -89,6 +100,10 @@ def build_tool_usage(data_root: Path, offered_now: list[str] | None = None) -> T
     logs = 0
     logs_without_offered = 0
     pins: Counter[str] = Counter()
+    web_calls: Counter[str] = Counter()
+    cells_with_mcp = 0
+    cells_with_web = 0
+    web_without_mcp: Counter[str] = Counter()
     for path in sorted(data_root.rglob("retrieval_log.json")):
         log = read_model(path, RetrievalLog)
         logs += 1
@@ -100,10 +115,14 @@ def build_tool_usage(data_root: Path, offered_now: list[str] | None = None) -> T
         else:
             logs_without_offered += 1
         seen_here: set[str] = set()
+        used_web = False
         for call in log.calls:
             normalized = normalize_call(call.tool)
             if normalized is None:
                 builtin_calls[call.tool] += 1
+                if is_web_tool(call.tool):
+                    web_calls[call.tool] += 1
+                    used_web = True
                 continue
             calls_by_tool[normalized] += 1
             # `str()`, not `.value`: the models use `use_enum_values`, so at run
@@ -114,6 +133,10 @@ def build_tool_usage(data_root: Path, offered_now: list[str] | None = None) -> T
             seen_here.add(normalized)
         for normalized in seen_here:
             cells_by_tool[normalized] += 1
+        cells_with_mcp += bool(seen_here)
+        cells_with_web += used_web
+        if used_web and not seen_here:
+            web_without_mcp[str(log.engine)] += 1
 
     entries = [
         ToolUsageEntry(
@@ -133,6 +156,10 @@ def build_tool_usage(data_root: Path, offered_now: list[str] | None = None) -> T
         logs_without_offered_record=logs_without_offered,
         offered_now=sorted(offered_now or ()),
         pins=dict(sorted(pins.items())),
+        web_calls=dict(sorted(web_calls.items(), key=lambda kv: (-kv[1], kv[0]))),
+        cells_with_mcp=cells_with_mcp,
+        cells_with_web=cells_with_web,
+        web_without_mcp_by_engine=dict(sorted(web_without_mcp.items())),
         entries=entries,
         builtin_calls=dict(sorted(builtin_calls.items(), key=lambda kv: (-kv[1], kv[0]))),
     )
@@ -189,6 +216,34 @@ def render_tool_usage_markdown(usage: ToolUsage) -> str:
         "tell those apart. Read the offered count beside it — unused in 3 cells is "
         "not unused in 400 — and check the cause before retiring anything._",
     ]
+    if usage.cells_with_web or usage.cells_with_mcp:
+        web = ", ".join(f"`{name}` {count}" for name, count in usage.web_calls.items()) or "none"
+        lines += [
+            "",
+            "## Open web vs the MCP",
+            "",
+            f"**{usage.cells_with_mcp}** cell(s) called an MCP tool; "
+            f"**{usage.cells_with_web}** reached the open web ({web}).",
+        ]
+        if usage.web_without_mcp_by_engine:
+            per_engine = ", ".join(
+                f"{engine} {count}" for engine, count in usage.web_without_mcp_by_engine.items()
+            )
+            total = sum(usage.web_without_mcp_by_engine.values())
+            lines += [
+                "",
+                f"**{total}** cell(s) searched the web without calling the MCP at all "
+                f"({per_engine}) — the substitution signal, and the place to look for a "
+                "gap or a failure in the MCP surface.",
+            ]
+        lines += [
+            "",
+            "_Suggestive, not proof. A forward cell is explicitly allowed to use public "
+            "context the corpus does not carry, so web use is sanctioned rather than a "
+            "fault; what it flags is a cell that needed something and did not get it from "
+            "the configured tools. Read a codex zero as tooling, not restraint — the "
+            "engine ships no web tool._",
+        ]
     if usage.builtin_calls:
         shown = list(usage.builtin_calls.items())[:10]
         rows = ", ".join(f"`{name}` {count}" for name, count in shown)
