@@ -21,6 +21,10 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# The corpus read backends, defined here because `corpus` imports this module.
+# One definition, so the setting, the type hints, and the CLI help cannot drift.
+CorpusBackend = Literal["local", "ranged", "casestore", "service"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FEDCOURTS_", env_file=".env", extra="ignore")
@@ -52,7 +56,7 @@ class Settings(BaseSettings):
     # "service" forwards query/open-events to a corpus query service on
     # localhost (see fedcourtsai.corpus_service) so the caller needs no cloud
     # credentials at all. Writers always open local.
-    corpus_backend: Literal["local", "ranged", "casestore", "service"] = "local"
+    corpus_backend: CorpusBackend = "local"
     # The corpus remote's bucket URL, supplied out of band (never committed;
     # see SECURITY.md). corpus-pull/corpus-push and the ranged backend resolve
     # the committed corpus pointer against it. The bare workflow variable names

@@ -16,7 +16,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, get_args
 
 import typer
 from pydantic import BaseModel
@@ -66,6 +66,7 @@ from .collect import (
     render_stall_comment,
 )
 from .config import (
+    CorpusBackend,
     PredictScope,
     get_settings,
     load_courts,
@@ -109,7 +110,7 @@ from .pipeline.discover import discover_cases
 from .pipeline.live import live_poll_all
 from .pipeline.outcome import entry_descriptions, snapshot_shows_disposition
 from .pipeline.pull import evaluate_backlog, pull_case, pull_cases
-from .pipeline.runner import EngineFailed, EngineUnavailable
+from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
 from .pipeline.salience import reconcile_salience_selection
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
@@ -767,8 +768,9 @@ def cert_backtest_cmd(
         typer.Option(
             help="Also replay the enabled agentic predictors: 'auto' routes each "
             "predictor through its own configured engine (skipping any whose engine "
-            "has no registered runner); a concrete backend (stub, replay, "
-            "claude-code, codex, gemini) routes every predictor through that one backend "
+            "has no registered runner); a concrete backend ("
+            + ", ".join(available_backends())
+            + ") routes every predictor through that one backend "
             "(offline runs / single-engine sweeps). Omit to score only the offline "
             "reference baselines."
         ),
@@ -989,8 +991,10 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
     run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex | gemini).")],
-    role: Annotated[UsageRole, typer.Option(help="predictor (predict) | evaluator (evaluate).")],
+    # Typed as the enums, so typer renders the choice list into the metavar
+    # itself; restating it in the help would be a second copy to drift.
+    engine: Annotated[Engine, typer.Option(help="Engine that ran.")],
+    role: Annotated[UsageRole, typer.Option(help="Which agentic stage this cell was.")],
     actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
     model: Annotated[
         str | None, typer.Option(help="Model run; defaults to the engine's default model.")
@@ -1201,8 +1205,10 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
     run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
-    engine: Annotated[Engine, typer.Option(help="Engine that ran (claude-code | codex | gemini).")],
-    role: Annotated[UsageRole, typer.Option(help="predictor (predict) | evaluator (evaluate).")],
+    # Typed as the enums, so typer renders the choice list into the metavar
+    # itself; restating it in the help would be a second copy to drift.
+    engine: Annotated[Engine, typer.Option(help="Engine that ran.")],
+    role: Annotated[UsageRole, typer.Option(help="Which agentic stage this cell was.")],
     actor: Annotated[str, typer.Option(help="The predictor_id or evaluator_id for this cell.")],
     mode: Annotated[
         str, typer.Option(help="The cell's provisioned mode: forward | replay ('' = unknown).")
@@ -1501,10 +1507,12 @@ def export_schemas(
 @app.command("mcp-config")
 def mcp_config_cmd(
     engine: Annotated[
-        str, typer.Option(help="Which client format to emit: claude-code | codex | gemini.")
+        str,
+        typer.Option(help=f"Which client format to emit: {' | '.join(e.value for e in Engine)}."),
     ],
     role: Annotated[
-        str, typer.Option(help="Registry to read: predictor (predictors.yaml) | evaluator.")
+        str,
+        typer.Option(help=f"Registry to read: {' | '.join(r.value for r in UsageRole)}."),
     ],
     actor: Annotated[str, typer.Option(help="The predictor/evaluator id whose manifest to emit.")],
     base_settings: Annotated[
@@ -1584,7 +1592,8 @@ def mcp_config_cmd(
 @app.command("mcp-serve")
 def mcp_serve(
     role: Annotated[
-        str, typer.Option(help="Registry to read: predictor (predictors.yaml) | evaluator.")
+        str,
+        typer.Option(help=f"Registry to read: {' | '.join(r.value for r in UsageRole)}."),
     ],
     actor: Annotated[str, typer.Option(help="The predictor/evaluator id whose manifest to read.")],
     server: Annotated[
@@ -1635,15 +1644,22 @@ def mcp_serve(
     os.execvpe(command, [command, *args], {**os.environ, **env})
 
 
+# The cell modes `record/context.json` carries. One definition, so the option
+# help, the validation below, and the replay provisioner cannot disagree.
+CELL_MODES: tuple[str, ...] = ("forward", "replay")
+
+
 CorpusBackendOption = Annotated[
     str,
     typer.Option(
         "--corpus-backend",
-        help="Corpus read backend: local (the pulled file) or ranged (query "
-        "the blob in place on the corpus remote); query/open-events also accept "
-        "service (forward to a corpus query sidecar — see corpus-serve), and "
-        "the provisioning commands casestore (read the per-case content "
-        "objects). Default: the corpus-backend setting from the environment.",
+        help="Corpus read backend, one of "
+        + " / ".join(get_args(CorpusBackend))
+        + ": local reads the pulled file, ranged queries the blob in place on the "
+        "corpus remote; query/open-events also accept service (forward to a corpus "
+        "query sidecar — see corpus-serve), and the provisioning commands accept "
+        "casestore (read the per-case content objects). Default: the "
+        "corpus-backend setting from the environment.",
     ),
 ]
 
@@ -2393,9 +2409,10 @@ def provision_snapshot(
     mode: Annotated[
         str,
         typer.Option(
-            help="The cell's mode, written into record/context.json: forward "
-            "(a live cell — the default) | replay (a back-test cell; the replay "
-            "provisioner in cert_backtest writes this itself)."
+            help="The cell's mode, written into record/context.json, one of "
+            + " | ".join(CELL_MODES)
+            + ". forward is a live cell and the default; replay is a back-test "
+            "cell, which the replay provisioner in cert_backtest writes itself."
         ),
     ] = "forward",
     refuse_terminal: Annotated[
@@ -2444,7 +2461,7 @@ def provision_snapshot(
     if found is None:
         typer.echo(f"No snapshot in corpus for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
-    if mode not in ("forward", "replay"):
+    if mode not in CELL_MODES:
         typer.echo(f"unknown --mode '{mode}'; choose forward or replay", err=True)
         raise typer.Exit(code=2)
     snapshot_date, payload = found
@@ -2657,8 +2674,10 @@ def local_cascade(
     engine: Annotated[
         str,
         typer.Option(
-            help="Engine backend: stub (offline, default) | replay (offline, recorded "
-            "cassette) | claude-code | codex | gemini."
+            help="Engine backend, one of "
+            + " | ".join(available_backends())
+            + ". stub is offline and the default; replay is also offline, emitting "
+            "a recorded cassette."
         ),
     ] = "stub",
     run_id: Annotated[

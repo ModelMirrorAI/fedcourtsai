@@ -31,10 +31,16 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+# `CorpusBackend` is defined in `config` because this module imports that one,
+# and re-exported here because `corpus.CorpusBackend` is where every caller
+# reaches for it. One definition, so the setting, the annotations, and the CLI
+# help cannot drift apart. The `as` spelling is mypy's explicit re-export under
+# --strict; ruff reads it as a redundant alias, which is exactly what it is.
+from .config import CorpusBackend as CorpusBackend  # noqa: PLC0414
 from .config import get_settings
 from .corpus_ranged import RangedBackendError, connect_ranged, find_pointer
 from .schemas import Disposition, EventKind
@@ -682,9 +688,6 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         yield conn
     finally:
         conn.close()
-
-
-CorpusBackend = Literal["local", "ranged", "casestore", "service"]
 
 
 def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
