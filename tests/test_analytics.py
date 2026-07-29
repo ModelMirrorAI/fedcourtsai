@@ -8,6 +8,7 @@ the base-rate math has known answers.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -252,6 +253,52 @@ def test_cli_bad_group_by_errors(fixture_corpus: FixtureCorpus) -> None:
     result = runner.invoke(app, ["stats", "--group-by", "nope"])
     assert result.exit_code == 2
     assert "Unknown --group-by" in result.stderr
+    # The refusal is half of discoverability: it must name the real set.
+    for dimension in GroupBy:
+        assert dimension.value in result.stderr
+
+
+def test_stats_group_by_help_lists_every_dimension() -> None:
+    """`--help` is how a cell agent discovers the cuts it can ask for, so a
+    dimension the enum accepts but the help omits is invisible in practice.
+
+    Asserted against the joined enum rather than value-by-value: five of the
+    dimensions (`court`, `topic`, `judge`, `era`, `disposition`) also name
+    *other* options on the page, so a per-value search would pass even if
+    `--group-by` listed none of them.
+
+    Matching rendered output means normalizing what rich does to it, and both
+    axes differ between a local shell and CI: a wide `COLUMNS` stops it breaking
+    a value mid-word, and the ANSI strip handles colour, which it emits under
+    CI's environment but not under a plain local run.
+    """
+    result = runner.invoke(app, ["stats", "--help"], env={"COLUMNS": "200", "NO_COLOR": "1"})
+    assert result.exit_code == 0
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    rendered = " ".join(plain.replace("│", " ").split())
+    assert ", ".join(g.value for g in GroupBy) in rendered
+
+
+def test_the_dispatch_input_advertises_every_dimension() -> None:
+    """`run-analytics`'s `group_by` input is the surface a maintainer reads when
+    dispatching, and a workflow input description cannot render from the enum —
+    so it is pinned here instead, where the CLI help is pinned."""
+    described = (Path(".github") / "workflows" / "run-analytics.yml").read_text()
+    line = next(li for li in described.splitlines() if "corpus-stats: break base-rates" in li)
+    missing = [g.value for g in GroupBy if g.value not in line]
+    assert not missing, f"the group_by dispatch input omits: {missing}"
+
+
+@pytest.mark.parametrize("dimension", list(GroupBy))
+def test_every_advertised_dimension_actually_groups(
+    dimension: GroupBy, fixture_corpus: FixtureCorpus
+) -> None:
+    """Advertised implies works. The help now renders from the enum, so a new
+    member advertises itself the moment it is added; without this, a member with
+    no key function in `_KEY_FNS` would reach an agent as an offered dimension
+    and fail at runtime."""
+    result = runner.invoke(app, ["stats", "--group-by", dimension.value])
+    assert result.exit_code == 0, result.output
 
 
 def test_cli_bad_disposition_errors(fixture_corpus: FixtureCorpus) -> None:

@@ -2251,9 +2251,12 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     group_by: Annotated[
         str,
         typer.Option(
-            help="Break base-rates down by a dimension: court, topic, judge, "
-            "term_year, disposition, originating_court, or era. Omit for the "
-            "overall base rate only."
+            # Rendered from the enum, not restated: a hand-kept list drifts
+            # silently every time a dimension lands, and `--help` is what a cell
+            # agent reads to discover the cuts it can ask for.
+            help="Break base-rates down by a dimension: "
+            + ", ".join(g.value for g in GroupBy)
+            + ". Omit for the overall base rate only."
         ),
     ] = "",
     summary_out: Annotated[
@@ -2268,7 +2271,8 @@ def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
 
     The aggregate counterpart of `query`: instead of returning individual priors it
     rolls the whole matched set into base-rates — how the realized dispositions split,
-    overall and (with `--group-by`) per court / topic / judge / SCOTUS Term / disposition.
+    overall and, with `--group-by`, per bucket of the dimension you name (listed
+    under `--group-by` below).
     Shares the `query` filter grammar (`--court` / `--topic` / `--disposition` match
     exactly; `--judge` / `--citation` match on overlap), plus a `--date-from` / `--date-to`
     filed-date window. Strictly read-only. Emits the machine `AnalyticsReport` JSON on
