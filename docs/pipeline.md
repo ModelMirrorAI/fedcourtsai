@@ -342,10 +342,48 @@ alongside `gate` and `paths` — it reports `skipped`, which satisfies the
 requirement, on every PR that is not the promotion. `main-base` stays
 **unrequired** until its ci.yml definition has been **promoted to `main`**,
 because a required check that no workflow run reports leaves every collect
-auto-merge PR waiting forever. The `staging`
+auto-merge PR waiting forever.
+
+The `staging`
 *deployment environment* the freshness runs deploy to (deployment branches
 restricted to `staging`, read-only role trust, per-environment engine keys) is
 separate wiring, described in docs/security.md.
+
+### Adding a required status check
+
+The ordering is forced, and getting it wrong stops data production rather than
+failing loudly: a context nothing on `main` produces leaves every PR into
+`main` pending forever, and the auto-merging collect PRs hang first.
+
+```bash
+scripts/promotion-gate.sh contexts <candidate>   # e.g. main-base
+```
+
+It reads `main: require PR`'s live required contexts and `main`'s own workflow
+files, fails if anything already required has no producing job, and reports each
+candidate as ready or not-yet. It is **not** part of `all`: reading a ruleset
+needs repository-administration read, which `GITHUB_TOKEN` cannot hold at all,
+so automating it would mean handing a CI job the repo's most powerful scope to
+report an advisory fact. Run it with your own token.
+
+1. Land the job on `staging` and let it promote to `main` in an ordinary batch.
+2. `scripts/promotion-gate.sh contexts <candidate>` — proceed only on *ready to
+   require*.
+3. Confirm a real PR of the kind you are gating reports the context. For
+   `main-base` that means watching one collect PR, since those auto-merge and
+   are what a mistake strands.
+4. Add the context to the ruleset. Re-run step 2 afterwards: it now checks the
+   context you just added.
+5. Update the surfaces that record the required set — the pinned list in
+   `tests/test_required_checks.py`, which is the only part of this that runs
+   unattended, plus the inventories in docs/security.md and the promotion
+   section above. If the pinned list lags the ruleset, a later promotion that
+   renames the newly-required job hangs collect PRs with nothing red to show
+   for it.
+
+The same ordering applies to `staging`'s ruleset, which gates the unattended
+`main`→`staging` sync PR. The stage above reads `main`'s; check `staging` by
+hand until there is a reason to parameterize it.
 
 ## The predict/evaluate matrix
 
