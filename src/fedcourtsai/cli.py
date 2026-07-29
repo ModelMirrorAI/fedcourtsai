@@ -987,6 +987,7 @@ def _resolve_token_counts(
 
 @app.command("record-usage")
 def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
@@ -1201,6 +1202,7 @@ def process_digest_cmd(
 
 @app.command("record-retrieval")
 def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     event: Annotated[str, typer.Option(help="Event id this run predicted/scored.")],
@@ -1341,6 +1343,7 @@ def _read_best_effort[T: BaseModel](path: Path | None, model: type[T]) -> T | No
 
 @app.command("ops-report")
 def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
+    *,
     runs: Annotated[
         Path | None,
         typer.Option(
@@ -2050,6 +2053,7 @@ def build_index_cmd(
 
 @app.command()
 def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
+    *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
     topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
     judge: Annotated[
@@ -2217,6 +2221,7 @@ def corpus_serve(
 
 @app.command()
 def stats(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
+    *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
     topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
     judge: Annotated[
