@@ -127,7 +127,7 @@
       "additionalProperties": {
         "type": "integer"
       },
-      "description": "Calls to each engine's open-web tools. Codex ships none, so its absence here is a tooling fact about the engine, not a choice its cells made",
+      "description": "Calls to each engine's open-web tools, counted under that engine's own tool names; a zero is not by itself evidence a cell chose not to search \u2014 check the retrieval surface its process version records",
       "title": "Web Calls",
       "type": "object"
     },

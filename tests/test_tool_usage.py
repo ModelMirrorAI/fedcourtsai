@@ -261,8 +261,8 @@ def test_the_web_signal_is_reported_as_suggestive_not_as_failure(tmp_path: Path)
     md = render_tool_usage_markdown(build_tool_usage(tmp_path))
     assert "without calling the MCP at all" in md
     assert "Suggestive, not proof" in md
-    # And codex's structural zero is explained rather than read as restraint.
-    assert "the engine ships no web tool" in md
+    # And a zero is not read as a choice without checking the cell's surface.
+    assert "not by itself evidence that a cell chose not to search" in md
 
 
 # --- the shipped registries ----------------------------------------------------

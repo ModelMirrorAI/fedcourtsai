@@ -10,9 +10,13 @@ always replays against the process that produced it.
 
 ## What a "process" is, and how it is identified
 
-The process behind one predictor cell is its **prompt template plus its resolved
-registry config** — the engine, the resolved model (the registry override, else
-the engine default), and the pinned MCP tool manifest. The harness stamps each
+The process behind one predictor cell is its **prompt template plus the resolved
+configuration it ran under** — the engine, the resolved model (the registry
+override, else the engine default), the pinned MCP tool manifest, and the
+engine's retrieval surface (what a cell can reach beyond the snapshot: the open
+web, and for codex the subprocess-network grant). A cell that can reach the open
+web answers from a different information set than one that cannot, so the
+surface is a process input as much as the model is. The harness stamps each
 `prediction.json` / `evaluation.json` with a `ProcessVersion` carrying:
 
 - **`digest`** — a `sha256:` content hash of exactly those inputs (the prompt file

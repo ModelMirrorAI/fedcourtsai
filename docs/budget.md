@@ -49,6 +49,9 @@ artifacts over several tool-use turns — so effective token usage (≈280–400
 input, the large majority cache-served, plus ≈6K output) far exceeds the visible
 artifacts. Every run records its tokens and estimated cost (rates kept in
 `fedcourtsai.pricing`) to a `usage.json`, rolled up by `fedcourts usage-summary`.
+That estimate is token-derived, so hosted web search — billed per call rather
+than per token on all three APIs — sits outside it and makes a searching cell's
+recorded cost a mild undercount.
 Measured per-cell cost spans **≈$0.29–7.87 by model mix** (blended mean **≈$1.86**
 over the 413 cells on the ledger — predict: claude-baseline ≈$3.65, codex ≈$1.38,
 gemini ≈$0.55; evaluate, from the one graded event: claude-judge ≈$4.16, codex-judge

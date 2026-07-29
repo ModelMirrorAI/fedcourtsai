@@ -45,6 +45,24 @@ CURRENT_PROCESS_LABEL = "proc-v1"
 # blessed.
 FROZEN_PROCESS_DIGESTS: frozenset[str] = frozenset()
 
+# The retrieval surface each engine's cells run with. Folded into the digest
+# because it is a process input as much as the model or the prompt: a cell that
+# can reach the open web is answering from a different information set than one
+# that cannot, and without this a capability change would ride silently under
+# the digest that blessed the runs made before it.
+#
+# The engines are configured in `CodexRunner.build_command` and the engine steps
+# of run-predict / run-evaluate. Indexed rather than `.get`, so a new engine
+# fails loudly here instead of defaulting to a surface nobody declared; the
+# codex row is pinned to the runner's own argv by a test in `test_runner.py`.
+ENGINE_RETRIEVAL: dict[str, tuple[str, ...]] = {
+    "claude-code": ("web",),
+    # Codex additionally needs the subprocess-network grant to reach the
+    # localhost corpus service the other two engines reach unsandboxed.
+    "codex": ("subprocess-network", "web"),
+    "gemini": ("web",),
+}
+
 
 def compute_process_digest(prompt_bytes: bytes, config_canonical: dict[str, object]) -> str:
     """The reproducible content digest of one actor's process inputs.
@@ -77,15 +95,17 @@ def _config_canonical(
     """The resolved registry subset that defines an actor's process.
 
     Predictor and evaluator entries share the same shape, so one helper serves
-    both. Resolves the model (registry override, else engine default) and the
-    pinned MCP manifest *entries* (not just the ids a pin bump would leave
-    unchanged), so any of them moving is a new process.
+    both. Resolves the model (registry override, else engine default), the
+    engine's retrieval surface, and the pinned MCP manifest *entries* (not just
+    the ids a pin bump would leave unchanged), so any of them moving is a new
+    process.
     """
     servers = resolve_mcp_servers(load_mcp_servers(registry_path), actor.mcp_servers)
     return {
         "engine": actor.engine,
         "model": _resolved_model(actor.engine, actor.model),
         "prompt_path": actor.prompt,
+        "retrieval": list(ENGINE_RETRIEVAL[actor.engine]),
         # Exclude `description` — a manifest comment is documentation, not a
         # process input. Folding it in would bump every actor's version on a
         # cosmetic edit, and the actor-level description is already excluded
