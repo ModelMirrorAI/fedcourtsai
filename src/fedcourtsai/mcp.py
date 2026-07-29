@@ -210,3 +210,15 @@ def gemini_mcp_settings(
 def manifest_labels(servers: list[McpServerConfig]) -> list[str]:
     """The attribution strings recorded per cell: ``<id>=<pinned package>``."""
     return [f"{server.id}={server.package}" for server in servers]
+
+
+def manifest_tools(servers: list[McpServerConfig]) -> list[str]:
+    """The tool names those pinned servers advertise — a cell's OFFERED set.
+
+    Qualified ``<server id>.<tool>`` so two servers advertising the same bare
+    name stay distinct, and sorted for a stable record. Servers whose ``tools``
+    is unrecorded contribute nothing, which reads as offered-unknown rather than
+    nothing-offered — the caller cannot tell the two apart from this list alone,
+    which is why the manifest records the list rather than deriving it.
+    """
+    return sorted(f"{server.id}.{tool}" for server in servers for tool in server.tools)

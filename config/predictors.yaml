@@ -41,6 +41,30 @@ mcp_servers:
     # it from the emitting process's env. Unset, the release's tool calls
     # error and the cell degrades to corpus tooling (never blocks).
     token_env: COURTLISTENER_API_TOKEN
+    # What this pin advertises over `tools/list`, captured from the running
+    # server — the OFFERED set. A cell's retrieval log can only show what it
+    # *called*, so without this an unused tool is indistinguishable from an
+    # absent one and `fedcourts tool-usage` has no denominator. It sits beside
+    # `package` because it is a property of the pin: a bump may add or drop
+    # tools, and `mcp-integration-check` compares this list against the live
+    # server so drift is caught rather than assumed.
+    tools:
+      - search
+      - get_endpoint_schema
+      - call_endpoint
+      - get_endpoint_item
+      - get_choices
+      - get_counts
+      - get_more_results
+      - read_document
+      - search_document
+      - extract_citations
+      - analyze_citations
+      - resume_citation_analysis
+      - create_search_alert
+      - delete_search_alert
+      - subscribe_to_docket_alert
+      - unsubscribe_from_docket_alert
     description: >-
       Official CourtListener MCP: search, endpoint access, and citation tools
       over the full legal database. Retrieval under the leakage doctrine —

@@ -13,9 +13,31 @@ mcp_servers:
     package: "courtlistener-api-client[mcp]==1.1.0"
     command: courtlistener-mcp
     token_env: COURTLISTENER_API_TOKEN
+    # The pin's advertised `tools/list` — in lockstep with the predictor
+    # manifest, since the tools are a property of the pin. Without it every
+    # evaluator cell's retrieval log records an empty offered set, which reads
+    # as "unrecorded" forever and leaves `fedcourts tool-usage` with a
+    # denominator for only half the fan-out.
+    tools:
+      - search
+      - get_endpoint_schema
+      - call_endpoint
+      - get_endpoint_item
+      - get_choices
+      - get_counts
+      - get_more_results
+      - read_document
+      - search_document
+      - extract_citations
+      - analyze_citations
+      - resume_citation_analysis
+      - create_search_alert
+      - delete_search_alert
+      - subscribe_to_docket_alert
+      - unsubscribe_from_docket_alert
     description: >-
       Official CourtListener MCP (see config/predictors.yaml for the full
-      rationale; keep the two manifests' pins in lockstep).
+      rationale; keep the two manifests' pins and tool lists in lockstep).
 
 evaluators:
   - id: claude-judge
