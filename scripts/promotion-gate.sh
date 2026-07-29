@@ -27,10 +27,21 @@
 #       format here and there are coupled, and a workflow-shape test pins both
 #       ends (tests/test_workflow_promote.py).
 #
-#   scripts/promotion-gate.sh all <sha>
-#       Both stages, in order.
+#   scripts/promotion-gate.sh contexts [candidate...]
+#       Every context `main`'s ruleset requires must have a job on `main` that
+#       can report it: a required context nothing produces leaves every PR into
+#       `main` pending forever, and the auto-merging collect PRs hang first.
+#       The pre-flight before adding one, and the check that a promotion has
+#       not renamed or deleted a job already required. Candidates are reported
+#       as ready or not-yet, never fatally. Needs a token with repository
+#       administration read, which `GITHUB_TOKEN` cannot hold at all — hence
+#       not part of `all`, and the maintainer's to run.
 #
-# Needs `gh` with a token holding Actions read + issues read (GH_TOKEN in CI).
+#   scripts/promotion-gate.sh all <sha>
+#       The quiesce and freshness stages, in order.
+#
+# quiesce and freshness need `gh` with Actions read + issues read (GH_TOKEN in
+# CI); contexts additionally needs repository administration read (see above).
 # PROMOTION_SCENARIOS overrides the required scenario set (space-separated;
 # an entry is `<scenario>` or `engine-smoke/<engine>`) — for narrowing a local
 # re-check, never for weakening the gate in a workflow.
@@ -94,6 +105,70 @@ freshness() {
   done
 }
 
+# Every context `main`'s ruleset requires must have a job on `main` that can
+# report it. A required context nothing produces leaves every PR into `main`
+# pending forever — the auto-merging collect PRs first — so this is the
+# pre-flight before adding one, and the check that a promotion has not renamed
+# or deleted a job that is already required. Extra arguments are candidate
+# contexts: reported as ready or not-yet, never fatal.
+#
+# Deliberately NOT part of `all`: reading a ruleset needs admin-level access,
+# and ci.yml's promotion-gate job holds only contents/actions/issues read. A
+# required check that 403s would block promotions to report an advisory fact,
+# so this stage is the maintainer's to run with their own token.
+contexts() {
+  local workdir main_workflows ruleset_id contexts_raw ctx candidate
+  local required=() candidates=()
+
+  workdir="$(mktemp -d)"
+  # shellcheck disable=SC2064  # expand workdir now, not at trap time
+  trap "rm -rf '${workdir}'" RETURN
+  main_workflows="${workdir}/workflows"
+  git fetch --quiet origin main
+  git archive origin/main .github/workflows | tar -x -C "${workdir}" --strip-components=1
+
+  # `|| true` so the -z branch can report the likely cause; under `set -e` a
+  # 403 would otherwise kill the script before this message.
+  ruleset_id="$(gh api "repos/${REPO}/rulesets" \
+    --jq '.[] | select(.name=="main: require PR") | .id' 2>/dev/null | head -1 || true)"
+  if [ -z "$ruleset_id" ]; then
+    echo "::error::contexts: could not read the 'main: require PR' ruleset — a token with repository administration read is required"
+    fail=1
+    return
+  fi
+
+  # Read into a variable first: a failed call inside a process substitution
+  # escapes both `set -e` and `pipefail`, and an empty required set would then
+  # read as a clean run that checked nothing.
+  if ! contexts_raw="$(gh api "repos/${REPO}/rulesets/${ruleset_id}" \
+    --jq '.rules[] | select(.type=="required_status_checks")
+          | .parameters.required_status_checks[].context')"; then
+    echo "::error::contexts: could not read ruleset ${ruleset_id}'s required status checks"
+    fail=1
+    return
+  fi
+  while IFS= read -r ctx; do
+    [ -n "$ctx" ] && required+=(--context "$ctx")
+  done <<<"$contexts_raw"
+  if [ ${#required[@]} -eq 0 ]; then
+    echo "::error::contexts: ruleset ${ruleset_id} reported no required status checks — the read failed or the rule shape changed"
+    fail=1
+    return
+  fi
+
+  for candidate in "$@"; do
+    candidates+=(--candidate "$candidate")
+  done
+
+  # The comparison is tested Python (tests/test_required_checks.py); this only
+  # fetches what it compares.
+  if ! uv run fedcourts assert-required-contexts \
+    --workflows "$main_workflows" --base-branch main \
+    ${required[@]+"${required[@]}"} ${candidates[@]+"${candidates[@]}"}; then
+    fail=1
+  fi
+}
+
 case "${1:-}" in
   quiesce)
     quiesce
@@ -101,12 +176,15 @@ case "${1:-}" in
   freshness)
     freshness "${2:?usage: promotion-gate.sh freshness <sha>}"
     ;;
+  contexts)
+    contexts "${@:2}"
+    ;;
   all)
     quiesce
     freshness "${2:?usage: promotion-gate.sh all <sha>}"
     ;;
   *)
-    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha>|all <sha>}" >&2
+    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha>|contexts [candidate...]|all <sha>}" >&2
     exit 2
     ;;
 esac

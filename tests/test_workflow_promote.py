@@ -58,6 +58,19 @@ def test_promote_delegates_both_gates_to_the_script() -> None:
     assert "scripts/promotion-gate.sh freshness" in text
 
 
+def test_the_contexts_stage_stays_out_of_the_automated_gates() -> None:
+    """`contexts` reads a ruleset, which needs admin-level access; ci.yml's
+    promotion-gate job holds only contents/actions/issues read. Wiring it into
+    `all` — or into either automated call site — would turn a 403 on an advisory
+    fact into a blocked promotion, so it stays the maintainer's to run."""
+    script = GATE_SCRIPT.read_text()
+    assert "contexts)" in script, "the stage exists"
+    all_stage = script.split("  all)", 1)[1].split(";;", 1)[0]
+    assert "contexts" not in all_stage
+    for workflow in ("promote.yml", "ci.yml"):
+        assert "promotion-gate.sh contexts" not in (WORKFLOWS / workflow).read_text()
+
+
 def test_ci_promotion_gate_runs_only_on_the_same_repo_promotion_pr() -> None:
     job = _load(WORKFLOWS / "ci.yml")["jobs"]["promotion-gate"]
     condition = job["if"]

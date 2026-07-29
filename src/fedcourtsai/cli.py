@@ -121,6 +121,7 @@ from .registry import (
     load_predictors,
     resolve_mcp_servers,
 )
+from .required_checks import produced_contexts
 from .schemas import (
     EXPORTABLE_MODELS,
     AgentFlags,
@@ -3834,6 +3835,55 @@ def assert_cleanup_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"cleanup jail OK ({len(changes)} deletion(s))")
+
+
+@app.command("assert-required-contexts")
+def assert_required_contexts_cmd(
+    workflows: Annotated[
+        Path,
+        typer.Option(help="Workflow directory of the branch PRs are merged INTO (its files run)."),
+    ],
+    context: Annotated[
+        list[str] | None,
+        typer.Option(help="A context the branch's ruleset requires today (repeatable)."),
+    ] = None,
+    candidate: Annotated[
+        list[str] | None,
+        typer.Option(help="A context you are considering requiring; reported, never fatal."),
+    ] = None,
+    base_branch: Annotated[
+        str,
+        typer.Option(help="Branch PRs target, to honour workflows' `branches:` filters. '' = any."),
+    ] = "",
+) -> None:
+    """Check that every required status check has a job that can report it.
+
+    A required context with no producing job on the base branch leaves every PR
+    into that branch pending forever — the auto-merging collect PRs first, so
+    data production stops on a rule that reads like a tightening. Exits non-zero
+    naming any such context.
+
+    ``--candidate`` answers the other half: whether a context is *safe* to
+    require yet. A candidate whose job has landed on the branch is ready; one
+    that has not promoted is not, and requiring it now would hang.
+    """
+    required = list(context or [])
+    branch = base_branch or None
+    # One scan, so the fatal and advisory answers cannot disagree.
+    produced = produced_contexts(workflows, branch)
+    hanging = sorted({name for name in required if name and name not in produced})
+    for name in sorted({name for name in (candidate or []) if name}):
+        verdict = "ready to require" if name in produced else "NOT yet requireable"
+        reason = "a job on this branch reports it" if name in produced else "no job reports it"
+        typer.echo(f"{verdict}: {name!r} — {reason}")
+    if hanging:
+        typer.echo(
+            "::error::required context(s) no job on this branch reports, so every PR "
+            f"into it would hang: {', '.join(hanging)}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"required contexts OK ({len(required)} checked)")
 
 
 @app.command("cleanup-out-of-scope-predictions")
