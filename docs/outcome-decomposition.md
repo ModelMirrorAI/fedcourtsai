@@ -7,19 +7,15 @@ worth far more, and none of it is scored by a disposition label. This document
 defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
-This began as pure pre-registration — the decomposition and the rule settled
-before there was data to fit them to, which is the only order in which the choice
-of rule is credible. The scoring half is now built: the rule, the per-claim
-baselines under the leakage guard, and the floor all exist in code for the two
-cert-signal claims, and the statpack carries the per-Term rates they pool.
+**Only the scoring rule is implemented** (`pipeline.evaluate.claim_score`). No
+schema carries a claim, no prompt asks for one, and no claim set is declared —
+because the first set proposed for it turned out not to be forecastable. *A claim
+set that failed* records why, in detail, because the failure is the most useful
+thing this document currently contains.
 
-**No prompt asks a predictor for a claim probability yet**, so nothing is being
-scored end to end. That is the next step, and it waits on the claim set being
-declared closed — see *Why the set is mandatory*.
-
-The merits claims — vote splits, authorship, doctrinal grounds — remain blocked on
-data that is not scheduled. *What is scoreable today* separates the two, because
-the difference is the whole plan.
+The rest is pre-registration: the decomposition and the rule are settled before
+there is data to fit them to, which is the only order in which the choice of rule
+is credible.
 
 ## Naming
 
@@ -215,25 +211,6 @@ exactly where the history is thinnest; and the baseline's lookback window has to
 be stated with the figure, because moving it re-bases every claim score at once
 and a comparison across the change is not a comparison.
 
-Two such choices are already made and belong on the record rather than in the
-code alone.
-
-**The population is the paid scored segment, not every modern-cert petition.**
-IFP petitions draw a CVSG at a rate of exactly zero across every walked Term, and
-they are about two thirds of the modern-cert denominator — so pooling them sets
-the CVSG baseline near a third of the rate a *predicted* petition actually faces.
-That gap is free score by the arithmetic above, and it is not a population any
-scored claim is made about: the salience gate excludes IFP at its first tier. The
-baseline is computed over the population the claims are made about.
-
-**The floor's window is five Terms**, against a baseline lookback that ships
-unbounded. The gap between the two is deliberate and is what the floor measures:
-if both used the same window the control would score identically zero and the
-floor would report nothing. Five is a judgement with no deeper justification than
-matching the order of the band-rate drift the salience document records, and
-moving it re-bases every floor at once — so it is stated here rather than left to
-be discovered in a constant.
-
 ### Why the set is mandatory
 
 Letting a predictor decline claims looks generous and is a trap.
@@ -375,17 +352,80 @@ digest at all. What folding-in would break is comparability with cells already
 blessed under an earlier digest, which is a promotion-time decision rather than a
 digest one.
 
+## A claim set that failed
+
+The first set proposed against this rule was the two cert-signal claims — *the
+petition is relisted at least once* and *the Court calls for the Solicitor
+General's views* — chosen because the corpus already carried both signals and the
+outcome record could be made to freeze them. Signals being *populated* is not the
+same as a claim being *forecastable*, and the difference is what the set failed
+on. It is recorded here so the next set is chosen against these tests rather than
+rediscovering them.
+
+**The band already answers it.** `salience_band` is computed from
+`distribution_count`, and the band's cutpoints sit in the gaps between relist
+tiers by design (`docs/salience.md`). Measured over the live modern-cert
+population, the band determines "relisted at least once" for **9,919 of 9,924**
+rows. The band is disclosed to the predictor, so the claim is a lookup wearing a
+forecast's clothes.
+
+**The level is visible, and the claim was about the level.** The resolver asked
+whether the count reached two *by resolution*, not whether it rose past what the
+predictor could see. A forward cell's snapshot carries the docket's proceedings
+intact — only a replay snapshot redacts them — so distributions already recorded
+are readable. About **37%** of selected petitions already sit at two or more
+distributions when they are predicted, and some already carry a CVSG date. For
+those, a predictor writing `1.0` scores near the maximum without forecasting
+anything.
+
+**The floor priced none of it.** The control was to report a recent-window rate
+while the baseline pooled every prior Term, and the gap between the two windows
+was to bound the free score. On real data that gap is under three percentage
+points, so the floor came to roughly zero — and negative in expectation wherever
+the pooled baseline is the better calibrated of the two. Meanwhile a predictor
+knowing only the *selected* population's rate banks an order of magnitude more
+than the floor charges. A floor built from a window difference measures window
+drift, not information-free score.
+
+**A published rate was censored.** The per-Term CVSG rates counted resolved
+petitions only, on the reasoning that a pending petition can still draw a CVSG
+and counting it would understate the rate. That is right for relists and backwards
+for a CVSG, which *adds* six to twelve months to resolution — so in the open Term
+most CVSG petitions are still pending and the published rate was about a third of
+the true one.
+
+### The tests a claim has to pass
+
+Drawn from the above, and cheaper to apply than to rediscover:
+
+1. **Is it determined by something the predictor is shown?** Check against the
+   provisioned snapshot and every derived field in it, not just the raw columns.
+2. **Is it about a change from the prediction's vantage point, or an absolute
+   level?** A level the snapshot already discloses is not a forecast. If the claim
+   is about an increment, the record has to carry the value *as at prediction*,
+   not only as at resolution.
+3. **Is its baseline conditioned on what the predictor sees?** A baseline coarser
+   than the disclosed conditioning makes an uninformative claim look informative —
+   which is how the relist claim survived the first review.
+4. **Does the floor bound the actual free score?** Not a window difference: a
+   control conditioned the way the predictor is conditioned.
+5. **Is the rate that feeds the baseline censored?** Ask which side of the
+   observation the event sits on, and whether the open Term belongs in the pool.
+
 ## What is scoreable today
 
-Three claims can be scored on the events the pipeline actually produces. What
-remains for them is the prediction side: a declared claim set and a prompt that
-asks for a probability against it. The baselines and the floor are built.
+**Nothing, yet.** The signals are recorded and the rule exists, but the two
+claims that looked scoreable are withdrawn for the reasons above, and no
+replacement set is declared. Disposition remains the only claim whose resolution
+and baseline both exist — and it is deliberately not a claim here, because it
+already has `segment_base_rate` and the headline Brier path, so scoring it again
+would pay one belief twice.
 
 | Claim | State |
 | --- | --- |
-| Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same guard, but nothing builds one yet — and the claim is deliberately out of the cert-signal set, since scoring it there as well would pay one belief twice |
-| Relisted at least once | Scoreable, and built. `Outcome.signals.distribution_count` records the count as at resolution; `claim_base_rate` pools the statpack's per-Term rate under the strictly-prior-Term guard |
-| CVSG | Scoreable, and built. `Outcome.signals.cvsg_date`, where a null inside the block means no CVSG rather than no record |
+| Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
+| Relisted at least once | **Withdrawn.** The salience band determines it for 9,919 of 9,924 rows, and the band is disclosed to the predictor |
+| CVSG | **Withdrawn.** Already present at prediction time on some selected petitions, and its per-Term rate is censored in any open Term |
 | Each justice's vote | `Outcome.votes` is `[]` in every committed outcome, and nothing populates it. `JudgeVote.vote` is also typed as a disposition, a vocabulary with no majority/dissent member, so a merits vote claim needs a schema change as well as data |
 | Majority author, concurrence, dissent | No field on `Outcome`, and nothing on the corpus row carries authorship for a modern case |
 | All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
@@ -423,11 +463,10 @@ The merits half of this document is blocked on data that is not scheduled:
 per-justice votes and opinion bodies. That is the honest state of it, and it is
 why the taxonomy is pre-registered rather than implemented.
 
-But the cert-stage half is **not** blocked on data, and no longer on the record
-either: three claims, on every petition the pipeline already predicts, resolving
-against committed immutable fields. What they still need is a baseline apiece,
-computed by the harness under the strictly-prior-Term guard, and the floor beside
-the total. That is the cheapest path to a claim set that scores something real.
+The cert-stage half is not blocked on data or on the record — `Outcome.signals`
+freezes what a cert-stage claim would resolve against. It is blocked on finding
+claims that are actually forecasts, which the first attempt was not. The five
+tests above are what a replacement has to pass.
 
 Two consequences worth stating plainly:
 

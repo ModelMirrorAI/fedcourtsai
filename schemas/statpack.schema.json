@@ -210,7 +210,7 @@
     },
     "StatPackTerm": {
       "additionalProperties": false,
-      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.\n\nThe cert-signal rates (``est_relist_rate``, ``est_cvsg_rate``) are the per-Term\nhistory a cert-stage claim baseline pools, so they are conditioned on the\npopulation those claims are made about \u2014 the **paid scored segment**, the same\nrows :class:`StatPackTermSegment` covers. IFP petitions sit outside the salience\ngate and their observed CVSG rate is flatly zero, so pooling them in would drag a\nCVSG baseline well below the rate any predicted petition faces. Their denominator\nis narrower than the Term's ``weighted_resolved`` twice over: a row counts only\nonce it has **resolved** (a pending petition can still be relisted, so counting it\nwould understate the rate) and only where the proceedings were **live-parsed**\n(``CorpusRow.distribution_count`` is the family's coverage sentinel, and an\nunobserved signal is not an absent one).",
+      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.",
       "properties": {
         "base_rates": {
           "$ref": "#/$defs/BaseRateBucket",
@@ -223,43 +223,6 @@
           },
           "title": "Classes",
           "type": "array"
-        },
-        "cvsg_weighted_resolved": {
-          "default": 0,
-          "description": "Weighted denominator behind `est_cvsg_rate`. Equal to `relist_weighted_resolved` while `distribution_count` is the coverage sentinel for the whole live-signal family; carried separately so each rate states the denominator it was actually divided by",
-          "minimum": 0,
-          "title": "Cvsg Weighted Resolved",
-          "type": "integer"
-        },
-        "est_cvsg_rate": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Weighted share of the Term's scored-segment petitions on which the Court called for the Solicitor General's views; None when none of them carry the signal",
-          "title": "Est Cvsg Rate"
-        },
-        "est_relist_rate": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Weighted share of the Term's scored-segment petitions distributed for at least two conferences \u2014 relisted at least once; None when none of them carry the signal",
-          "title": "Est Relist Rate"
         },
         "grants": {
           "default": 0,
@@ -288,13 +251,6 @@
           "default": null,
           "description": "Nearest-rank median days filing \u2192 cert grant over this Term's granted petitions; None when none carry both dates",
           "title": "Median Days To Grant"
-        },
-        "relist_weighted_resolved": {
-          "default": 0,
-          "description": "Weighted denominator behind `est_relist_rate`: resolved paid modern-cert rows whose proceedings were live-parsed",
-          "minimum": 0,
-          "title": "Relist Weighted Resolved",
-          "type": "integer"
         },
         "salience_version": {
           "default": "",

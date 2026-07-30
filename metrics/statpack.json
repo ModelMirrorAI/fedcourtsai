@@ -5473,13 +5473,9 @@
           "weighted_resolved": 2252
         }
       ],
-      "cvsg_weighted_resolved": 1176,
-      "est_cvsg_rate": 0.003401360544217687,
-      "est_relist_rate": 0.25595238095238093,
       "grants": 94,
       "ingested": 4156,
       "median_days_to_grant": 154.0,
-      "relist_weighted_resolved": 1176,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -5602,13 +5598,9 @@
           "weighted_resolved": 2396
         }
       ],
-      "cvsg_weighted_resolved": 1305,
-      "est_cvsg_rate": 0.022988505747126436,
-      "est_relist_rate": 0.29042145593869734,
       "grants": 115,
       "ingested": 548,
       "median_days_to_grant": 138.0,
-      "relist_weighted_resolved": 1305,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -5731,13 +5723,9 @@
           "weighted_resolved": 2700
         }
       ],
-      "cvsg_weighted_resolved": 1326,
-      "est_cvsg_rate": 0.01809954751131222,
-      "est_relist_rate": 0.31825037707390647,
       "grants": 137,
       "ingested": 608,
       "median_days_to_grant": 152.0,
-      "relist_weighted_resolved": 1326,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -5875,13 +5863,9 @@
           "weighted_resolved": 2745
         }
       ],
-      "cvsg_weighted_resolved": 1232,
-      "est_cvsg_rate": 0.004058441558441558,
-      "est_relist_rate": 0.2621753246753247,
       "grants": 109,
       "ingested": 596,
       "median_days_to_grant": 143.0,
-      "relist_weighted_resolved": 1232,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -6019,13 +6003,9 @@
           "weighted_resolved": 3118
         }
       ],
-      "cvsg_weighted_resolved": 1620,
-      "est_cvsg_rate": 0.014814814814814815,
-      "est_relist_rate": 0.3055555555555556,
       "grants": 147,
       "ingested": 706,
       "median_days_to_grant": 163.0,
-      "relist_weighted_resolved": 1620,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -6163,13 +6143,9 @@
           "weighted_resolved": 3305
         }
       ],
-      "cvsg_weighted_resolved": 1747,
-      "est_cvsg_rate": 0.004006868918145392,
-      "est_relist_rate": 0.22266742987979393,
       "grants": 163,
       "ingested": 780,
       "median_days_to_grant": 144.0,
-      "relist_weighted_resolved": 1747,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -6307,13 +6283,9 @@
           "weighted_resolved": 3718
         }
       ],
-      "cvsg_weighted_resolved": 1464,
-      "est_cvsg_rate": 0.011612021857923498,
-      "est_relist_rate": 0.23292349726775957,
       "grants": 160,
       "ingested": 774,
       "median_days_to_grant": 140.0,
-      "relist_weighted_resolved": 1464,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -6451,13 +6423,9 @@
           "weighted_resolved": 4537
         }
       ],
-      "cvsg_weighted_resolved": 1590,
-      "est_cvsg_rate": 0.01761006289308176,
-      "est_relist_rate": 0.2440251572327044,
       "grants": 145,
       "ingested": 878,
       "median_days_to_grant": 154.0,
-      "relist_weighted_resolved": 1590,
       "salience_version": "sal-v1",
       "segments": [
         {
@@ -6595,13 +6563,9 @@
           "weighted_resolved": 4288
         }
       ],
-      "cvsg_weighted_resolved": 1675,
-      "est_cvsg_rate": 0.014925373134328358,
-      "est_relist_rate": 0.23880597014925373,
       "grants": 164,
       "ingested": 878,
       "median_days_to_grant": 166.0,
-      "relist_weighted_resolved": 1675,
       "salience_version": "sal-v1",
       "segments": [
         {

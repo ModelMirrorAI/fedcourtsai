@@ -339,60 +339,6 @@ def test_per_term_segments_carry_the_salience_band_base_rate(
     assert high_2024.est_grant_rate is None
 
 
-def test_per_term_cert_signal_rates_count_only_resolved_parsed_rows(
-    fixture_corpus: FixtureCorpus,
-) -> None:
-    # scotus/304: OT22 paid, denied, distributed twice -> one relist, no CVSG, and
-    # its weight-5 denial sample sets the denominator.
-    pack = _pack(fixture_corpus)
-    resolved_term = _term(pack, 2022)
-    assert (resolved_term.est_relist_rate, resolved_term.relist_weighted_resolved) == (1.0, 5)
-    assert (resolved_term.est_cvsg_rate, resolved_term.cvsg_weighted_resolved) == (0.0, 5)
-    # scotus/305 is OT24, paid, and carries a CVSG — but it is still pending, so it
-    # is outside the denominator entirely. Counting it would understate both rates:
-    # a pending petition can still be relisted, and its own CVSG only resolves the
-    # claim once the petition does.
-    open_term = _term(pack, 2024)
-    assert (open_term.est_relist_rate, open_term.relist_weighted_resolved) == (None, 0)
-    assert (open_term.est_cvsg_rate, open_term.cvsg_weighted_resolved) == (None, 0)
-
-
-def test_cert_signal_rates_exclude_ifp_and_unparsed_rows(tmp_path: Path) -> None:
-    # The denominator is the paid scored segment, live-parsed only. An IFP petition
-    # is outside the salience gate, so pooling it in would drag the baseline below
-    # the rate any predicted petition faces; a row whose proceedings were never
-    # parsed carries no observation at all (`distribution_count` is the sentinel),
-    # and counting its absent signal as a negative would fabricate one.
-    db = tmp_path / "corpus.db"
-    rows = [
-        ("scotus/1", "24-500", 1, 3, None),  # paid, parsed, relisted -> counted
-        ("scotus/2", "24-5501", 1, 3, None),  # IFP -> excluded
-        ("scotus/3", "24-501", 1, None, None),  # never live-parsed -> excluded
-    ]
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(
-            conn,
-            [
-                corpus.CorpusRow(
-                    case_id=case_id,
-                    court="scotus",
-                    docket_number=docket,
-                    disposition=Disposition.denied,
-                    date_filed=date(2024, 10, 1),
-                    date_cert_denied=date(2025, 1, 8),
-                    last_live_polled=date(2026, 7, 1),
-                    sample_weight=weight,
-                    distribution_count=distributions,
-                    cvsg_date=cvsg,
-                )
-                for case_id, docket, weight, distributions, cvsg in rows
-            ],
-        )
-    entry = _term(analytics.build_statpack(corpus_db_path=db), 2024)
-    assert (entry.est_relist_rate, entry.relist_weighted_resolved) == (1.0, 1)
-    assert (entry.est_cvsg_rate, entry.cvsg_weighted_resolved) == (0.0, 1)
-
-
 def test_segment_base_rate_is_per_term_not_blended(tmp_path: Path) -> None:
     # The leakage crux: a high-band grant in a later Term must NOT lift an earlier
     # Term's high-band rate. Two relist-2 (high) petitions, granted in OT24, denied

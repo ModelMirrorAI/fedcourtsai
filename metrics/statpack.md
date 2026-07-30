@@ -158,7 +158,7 @@ _Live/historical slice; denial-reweighted estimates. Most recent 9 of 9 Term(s);
 | 2017 | 1718/4595 | 878 | 6260 | denied 95.5%, dismissed 1.9%, gvr 1.4%, granted 1.3% | 2.6% | 164 | 67 | ✓/✓ |
 
 ### Segment base rate by salience band (sal-v1)
-_Paid scored-segment grant rate per band, this Term's live slice only (denial-reweighted); the leakage-safe base rate the predict prompt is designed to anchor on and the evaluator will score skill against. `n` is the weighted resolved denominator. Most recent 9 of 9 Term(s) — pooling a band over the rows below is bounded by what this table renders._
+_Paid scored-segment grant rate per band, this Term's live slice only (denial-reweighted); the leakage-safe base rate the predict prompt is designed to anchor on and the evaluator will score skill against. `n` is the weighted resolved denominator._
 
 | Term | high | elevated | baseline |
 | --- | --- | --- | --- |
@@ -171,20 +171,5 @@ _Paid scored-segment grant rate per band, this Term's live slice only (denial-re
 | 2019 | 47.5% (n=61) | 14.3% (n=280) | 2.6% (n=1123) |
 | 2018 | 31.0% (n=116) | 10.7% (n=272) | 1.7% (n=1202) |
 | 2017 | 48.0% (n=123) | 10.1% (n=278) | 0.9% (n=1274) |
-
-### Cert-stage signal rates
-_Over the same paid scored segment (denial-reweighted): the share of petitions relisted at least once — distributed for two or more conferences — and the share on which the Court called for the Solicitor General's views. The per-Term history a cert-stage claim baseline pools, so it is conditioned on the population those claims are made about. Each rate repeats its own weighted denominator, narrower than the band table's: a row counts only once it has resolved, and only where the proceedings were live-parsed — an unobserved signal is not an absent one._
-
-| Term | relisted at least once | CVSG |
-| --- | --- | --- |
-| 2025 | 25.6% (est. n=1176) | 0.3% (est. n=1176) |
-| 2024 | 29.0% (est. n=1305) | 2.3% (est. n=1305) |
-| 2023 | 31.8% (est. n=1326) | 1.8% (est. n=1326) |
-| 2022 | 26.2% (est. n=1232) | 0.4% (est. n=1232) |
-| 2021 | 30.6% (est. n=1620) | 1.5% (est. n=1620) |
-| 2020 | 22.3% (est. n=1747) | 0.4% (est. n=1747) |
-| 2019 | 23.3% (est. n=1464) | 1.2% (est. n=1464) |
-| 2018 | 24.4% (est. n=1590) | 1.8% (est. n=1590) |
-| 2017 | 23.9% (est. n=1675) | 1.5% (est. n=1675) |
 
 _Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): anchor only on Term rows strictly preceding your clock — later Terms post-date what you are allowed to know._

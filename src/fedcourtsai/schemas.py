@@ -1721,18 +1721,6 @@ class StatPackTerm(_Strict):
     cursors still appears, carrying its census with zero ingested rows. **This is
     the replay self-selection surface**: a time-masked cell anchors only on Term
     entries strictly preceding its ``DECIDED_BEFORE`` clock.
-
-    The cert-signal rates (``est_relist_rate``, ``est_cvsg_rate``) are the per-Term
-    history a cert-stage claim baseline pools, so they are conditioned on the
-    population those claims are made about — the **paid scored segment**, the same
-    rows :class:`StatPackTermSegment` covers. IFP petitions sit outside the salience
-    gate and their observed CVSG rate is flatly zero, so pooling them in would drag a
-    CVSG baseline well below the rate any predicted petition faces. Their denominator
-    is narrower than the Term's ``weighted_resolved`` twice over: a row counts only
-    once it has **resolved** (a pending petition can still be relisted, so counting it
-    would understate the rate) and only where the proceedings were **live-parsed**
-    (``CorpusRow.distribution_count`` is the family's coverage sentinel, and an
-    unobserved signal is not an absent one).
     """
 
     term: int = Field(description="The October-Term year, e.g. 2024")
@@ -1769,36 +1757,6 @@ class StatPackTerm(_Strict):
         "petitions (high, elevated, baseline), leakage-safe by construction — the segment "
         "base rate the predict prompt is designed to anchor on and the evaluator will score "
         "skill against",
-    )
-    est_relist_rate: float | None = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Weighted share of the Term's scored-segment petitions distributed "
-        "for at least two conferences — relisted at least once; None when none of them "
-        "carry the signal",
-    )
-    relist_weighted_resolved: int = Field(
-        default=0,
-        ge=0,
-        description="Weighted denominator behind `est_relist_rate`: resolved paid "
-        "modern-cert rows whose proceedings were live-parsed",
-    )
-    est_cvsg_rate: float | None = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Weighted share of the Term's scored-segment petitions on which the "
-        "Court called for the Solicitor General's views; None when none of them carry "
-        "the signal",
-    )
-    cvsg_weighted_resolved: int = Field(
-        default=0,
-        ge=0,
-        description="Weighted denominator behind `est_cvsg_rate`. Equal to "
-        "`relist_weighted_resolved` while `distribution_count` is the coverage sentinel "
-        "for the whole live-signal family; carried separately so each rate states the "
-        "denominator it was actually divided by",
     )
     median_days_to_grant: float | None = Field(
         default=None,

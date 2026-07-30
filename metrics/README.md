@@ -60,16 +60,6 @@ stays outside the gate:
   `fedcourts leaderboard` produces it — a deterministic, offline
   roll-up — empty (`{}` plus the zero counts) until the first evaluation lands.
 
-  One caution on the reasoning-quality mean specifically: it grades the
-  predictor's own rationale (`reasoning.md`) and only that, since the forecast of
-  the court's reasoning is a separate document the evaluator is told not to
-  score. Cells graded before those were separate documents were graded on the
-  merged prose, so they answer a slightly different question. The mean pools on
-  the **prediction's** process stamp rather than the evaluation's, so two rubrics
-  can sit in one figure — read it per process version until the pre-split cells
-  age out, and treat a cross-version comparison of it as a comparison of two
-  measurements rather than of two predictors.
-
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
 but not what its model already *knows*: a prediction over an event that resolved
 before the model's training cutoff has the outcome inside the model's weights —
@@ -135,15 +125,7 @@ calibration with vacatur-practice prediction.
   per-salience-band **segment base rate** (the leakage-safe grant rate the
   predict prompt is designed to anchor on and the evaluator will score skill
   against) — the surface a time-masked replay cell self-selects pre-cutoff
-  Terms from. Beside it, over that same paid scored segment, the per-Term
-  **cert-stage signal rates**: the share of petitions relisted at least once
-  (distributed for two or more conferences) and the share drawing a CVSG, each
-  carrying its own weighted denominator. That denominator is narrower than the
-  band table's — a row counts only once it has **resolved**, since a pending
-  petition can still be relisted, and only where the proceedings were
-  **live-parsed**, since an unobserved signal is not an absent one — so read the
-  two tables' `n`s as different denominators rather than the same one.
-  `fedcourts statpack` produces both the machine JSON and a
+  Terms from. `fedcourts statpack` produces both the machine JSON and a
   rendered Markdown document — a
   deterministic, offline roll-up of the corpus — empty
   (zero counts, empty sections) until a corpus is present.
