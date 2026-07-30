@@ -39,7 +39,12 @@ from ..registry import enabled_evaluators, enabled_predictors
 from ..schemas import Outcome, PredictableEvent, PredictorConfig, UsageRole
 from ..serialize import write_json, write_raw_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
-from .outcome import disposition_basis, granted_flag, is_machine_readable
+from .outcome import (
+    disposition_basis,
+    granted_flag,
+    is_machine_readable,
+    resolution_signals,
+)
 from .runner import RunRequest, get_runner
 
 
@@ -128,6 +133,7 @@ def _outcome_for_resolved(
         resolved_at=row.date_decided,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
+        signals=resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
     )

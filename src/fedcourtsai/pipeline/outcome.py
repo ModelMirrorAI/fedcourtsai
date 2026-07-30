@@ -36,7 +36,7 @@ from typing import Any, Literal
 
 from .. import corpus, ids
 from ..paths import CasePaths
-from ..schemas import Disposition, Outcome, PredictableEvent
+from ..schemas import Disposition, Outcome, PredictableEvent, ResolutionSignals
 from ..serialize import write_json, write_yaml
 from ..store import open_events
 from .cert_signals import match_disposition_signal, mootness_disposition
@@ -286,6 +286,25 @@ def disposition_basis(docket: Mapping[str, Any]) -> Literal["standard", "mootnes
     return "standard"
 
 
+def resolution_signals(
+    distribution_count: int | None, cvsg_date: date | None
+) -> ResolutionSignals | None:
+    """The live-parsed docket signals to freeze onto a resolving event's outcome.
+
+    Takes the two values rather than a row: the ingest-stage and the persisted row
+    are different models and both reach this, so passing the fields keeps one rule
+    in one place without coupling it to either.
+
+    ``None`` when the proceedings were never live-parsed, which is exactly what an
+    absent ``distribution_count`` means — the corpus treats it as the coverage
+    sentinel for the whole live-signal family, so emitting a block there would
+    assert an observation nobody made.
+    """
+    if distribution_count is None:
+        return None
+    return ResolutionSignals(distribution_count=distribution_count, cvsg_date=cvsg_date)
+
+
 def _build_outcome(
     row: CorpusRow, event_id: str, basis: Literal["standard", "mootness"]
 ) -> Outcome:
@@ -303,6 +322,7 @@ def _build_outcome(
         resolved_at=resolved_at,
         actual_disposition=row.disposition,
         actual_granted=granted_flag(row.disposition),
+        signals=resolution_signals(row.distribution_count, row.cvsg_date),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
     )

@@ -31,6 +31,37 @@
       ],
       "title": "JudgeVote",
       "type": "object"
+    },
+    "ResolutionSignals": {
+      "additionalProperties": false,
+      "description": "The docket-progress signals as at resolution, frozen into the outcome.\n\nThe corpus carries these as live-parsed columns, but a corpus column holds the\n*current* value, not the value at any fixed moment. A forecast about them \u2014\nwhether the petition would be relisted, whether the Court would call for the\nSolicitor General's views \u2014 therefore has nothing immutable to resolve\nagainst: re-scoring the same cell later reads a column that has moved on, and\na pre-registration record cannot rest on that. Copying them onto the outcome\nat resolution is what makes those forecasts scoreable, and reproducibly so.\n\nThe block is present only when the proceedings were live-parsed. That is the\nsame coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the\nsentinel for the whole live-signal family, so where it is absent nothing here\nwas observed. Absent block means *not observed*; present block means observed,\nand inside it ``cvsg_date`` of ``None`` genuinely means no CVSG rather than no\nrecord \u2014 which is the distinction a claim has to be able to make.",
+      "properties": {
+        "cvsg_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Date the Court called for the Solicitor General's views, or None for no CVSG \u2014 unambiguous here, because the block exists only where the proceedings were parsed",
+          "title": "Cvsg Date"
+        },
+        "distribution_count": {
+          "description": "Distinct conferences the petition was distributed for as at resolution; relists are this minus one, floored at 0",
+          "minimum": 0,
+          "title": "Distribution Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "distribution_count"
+      ],
+      "title": "ResolutionSignals",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -73,6 +104,18 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "signals": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResolutionSignals"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Docket-progress signals frozen as at resolution, so a forecast about them resolves against this record rather than a corpus column that keeps moving. Absent on outcomes written before the block existed, and on events whose proceedings were never live-parsed"
     },
     "source": {
       "anyOf": [

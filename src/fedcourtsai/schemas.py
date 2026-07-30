@@ -266,6 +266,38 @@ class Prediction(_Strict):
     )
 
 
+class ResolutionSignals(_Strict):
+    """The docket-progress signals as at resolution, frozen into the outcome.
+
+    The corpus carries these as live-parsed columns, but a corpus column holds the
+    *current* value, not the value at any fixed moment. A forecast about them —
+    whether the petition would be relisted, whether the Court would call for the
+    Solicitor General's views — therefore has nothing immutable to resolve
+    against: re-scoring the same cell later reads a column that has moved on, and
+    a pre-registration record cannot rest on that. Copying them onto the outcome
+    at resolution is what makes those forecasts scoreable, and reproducibly so.
+
+    The block is present only when the proceedings were live-parsed. That is the
+    same coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the
+    sentinel for the whole live-signal family, so where it is absent nothing here
+    was observed. Absent block means *not observed*; present block means observed,
+    and inside it ``cvsg_date`` of ``None`` genuinely means no CVSG rather than no
+    record — which is the distinction a claim has to be able to make.
+    """
+
+    distribution_count: int = Field(
+        ge=0,
+        description="Distinct conferences the petition was distributed for as at "
+        "resolution; relists are this minus one, floored at 0",
+    )
+    cvsg_date: date | None = Field(
+        default=None,
+        description="Date the Court called for the Solicitor General's views, or "
+        "None for no CVSG — unambiguous here, because the block exists only where "
+        "the proceedings were parsed",
+    )
+
+
 class Outcome(_Strict):
     """``outcome.json`` — realized ground truth, written once an event resolves."""
 
@@ -276,6 +308,13 @@ class Outcome(_Strict):
     actual_disposition: Disposition
     actual_granted: int = Field(ge=0, le=1)
     votes: list[JudgeVote] = Field(default_factory=list)
+    signals: ResolutionSignals | None = Field(
+        default=None,
+        description="Docket-progress signals frozen as at resolution, so a "
+        "forecast about them resolves against this record rather than a corpus "
+        "column that keeps moving. Absent on outcomes written before the block "
+        "existed, and on events whose proceedings were never live-parsed",
+    )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(
         default="standard",

@@ -13,6 +13,7 @@ from fedcourtsai.pipeline.outcome import (
     granted_flag,
     is_machine_readable,
     record_outcomes,
+    resolution_signals,
     resolve_case,
     snapshot_shows_disposition,
     termination_signal,
@@ -685,3 +686,48 @@ def test_disposition_basis_reads_the_payload_and_threads_into_the_outcome() -> N
     # And defaults to standard when the channel passes nothing.
     default = detect_resolution(row, "ca9", 64512345, ["evt-petition-review"])
     assert default.outcomes["evt-petition-review"].disposition_basis == "standard"
+
+
+def test_resolution_signals_are_frozen_onto_the_outcome() -> None:
+    """The signals a cert-stage forecast resolves against are copied out of the
+    mutable corpus columns and into the immutable record, so re-scoring the same
+    cell later reads what was true at resolution rather than what is true now."""
+    signals = resolution_signals(3, date(2026, 2, 1))
+    assert signals is not None
+    assert signals.distribution_count == 3  # two relists
+    assert signals.cvsg_date == date(2026, 2, 1)
+
+
+def test_unparsed_proceedings_record_no_signals_at_all() -> None:
+    """`distribution_count` is the corpus's coverage sentinel for the whole
+    live-signal family, so where it is absent nothing was observed — and the block
+    must be absent rather than present-with-nulls, or a reader cannot tell 'no
+    CVSG' from 'never looked'."""
+    assert resolution_signals(None, None) is None
+    assert resolution_signals(None, date(2026, 2, 1)) is None
+
+
+def test_a_parsed_petition_with_no_cvsg_says_so_unambiguously() -> None:
+    # The distinction the block exists to make: inside it, a null CVSG date is a
+    # statement that none was called for, not a gap in the record.
+    signals = resolution_signals(1, None)
+    assert signals is not None
+    assert signals.distribution_count == 1  # distributed once, never relisted
+    assert signals.cvsg_date is None
+
+
+def test_an_outcome_written_before_the_block_existed_still_parses() -> None:
+    """Every committed outcome predates the field, so its payload has no `signals`
+    key at all — not a null one. Reading the absent shape is what proves the
+    2971 records on disk keep validating."""
+    payload = {
+        "schema_version": "1.0",
+        "case_id": "ca9/1",
+        "event_id": "evt-petition-review",
+        "resolved_at": "2026-01-01",
+        "actual_disposition": "denied",
+        "actual_granted": 0,
+    }
+    assert "signals" not in payload
+    outcome = Outcome.model_validate(payload)
+    assert outcome.signals is None
