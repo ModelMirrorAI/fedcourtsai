@@ -354,25 +354,26 @@ digest one.
 
 ## What is scoreable today
 
-Three claims can be scored on the events the pipeline actually produces, and one
-of the three needs a schema change first.
+Three claims can be scored on the events the pipeline actually produces. What
+remains for them is a baseline apiece and the harness that computes it — not
+data, and no longer a schema change.
 
 | Claim | State |
 | --- | --- |
 | Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
-| Relisted at least once | Signal populated on every live SCOTUS row, but see *the resolution source* below |
-| CVSG | Signal populated where it applies, same caveat |
+| Relisted at least once | Scoreable. `Outcome.signals.distribution_count` records the count as at resolution; the claim is about an increment past its value when the prediction was made |
+| CVSG | Scoreable. `Outcome.signals.cvsg_date`, where a null inside the block means no CVSG rather than no record |
 | Each justice's vote | `Outcome.votes` is `[]` in every committed outcome, and nothing populates it. `JudgeVote.vote` is also typed as a disposition, a vocabulary with no majority/dissent member, so a merits vote claim needs a schema change as well as data |
 | Majority author, concurrence, dissent | No field on `Outcome`, and nothing on the corpus row carries authorship for a modern case |
 | All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
 
-### The resolution source, which is the real blocker for the cert-stage claims
+### Why the cert-stage claims resolve against the outcome, not the corpus
 
-`distribution_count` and `cvsg_date` are **corpus** columns, and the corpus is
-mutable: they carry the current value, not the value at any fixed moment. That
-breaks condition (1) — a claim has to resolve against a source fixed before
-scoring — in a way that is easy to miss, because the claim looks scoreable and the
-number looks right.
+`distribution_count` and `cvsg_date` are also **corpus** columns, and the corpus
+is mutable: there they carry the current value, not the value at any fixed
+moment. Resolving a claim against them would break condition (1) — a claim needs
+a source fixed before scoring — in a way that is easy to miss, because the claim
+looks scoreable and the number looks right.
 
 Two distinct problems. Resolving "relisted at least once" needs the value *after*
 the prediction and *at* resolution, but a petition already has one distribution
@@ -381,11 +382,17 @@ artifact records. And re-scoring the same cell a month later would read a
 different column value, so the score is not reproducible — which for a
 pre-registration record is disqualifying.
 
-The fix is small and belongs on the outcome, not on the scoring: `outcome.json`
-records the relist count and the CVSG status **as at resolution**, alongside the
-disposition it already records. Then the cert-stage claims resolve against an
-immutable committed artifact like everything else, and the same cell scores the
-same way forever.
+The fix belongs on the outcome rather than on the scoring, and it is in place:
+`outcome.json` carries a `signals` block recording the distribution count and the
+CVSG date **as at resolution**, beside the disposition it already records. The
+cert-stage claims now resolve against an immutable committed artifact like
+everything else, so the same cell scores the same way forever.
+
+The block's *presence* carries meaning too. It is written only where the
+proceedings were live-parsed, mirroring the corpus's own coverage rule, so an
+absent block means nothing was observed while a present one means it was — and
+inside it a null CVSG date says no CVSG was called for rather than that nobody
+looked. A claim cannot resolve against a field that conflates those two.
 
 ### What that adds up to
 
@@ -393,11 +400,11 @@ The merits half of this document is blocked on data that is not scheduled:
 per-justice votes and opinion bodies. That is the honest state of it, and it is
 why the taxonomy is pre-registered rather than implemented.
 
-But the cert-stage half is **not** blocked on data — it is blocked on one schema
-addition. That is a materially better position than a merits-only reading
-suggests, and it is the cheapest path to a claim set that scores something real:
-three claims, on every petition the pipeline already predicts, resolving against
-committed fields.
+But the cert-stage half is **not** blocked on data, and no longer on the record
+either: three claims, on every petition the pipeline already predicts, resolving
+against committed immutable fields. What they still need is a baseline apiece,
+computed by the harness under the strictly-prior-Term guard, and the floor beside
+the total. That is the cheapest path to a claim set that scores something real.
 
 Two consequences worth stating plainly:
 
