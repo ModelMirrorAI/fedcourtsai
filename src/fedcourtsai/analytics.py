@@ -549,6 +549,15 @@ _DOCKET_SECTIONS: tuple[_SectionSpec, ...] = (
 )
 
 
+def _row_weight(row: CorpusRow) -> int:
+    """A row's inclusion weight, floored at 1.
+
+    Writers guarantee weights >= 1, but the corpus blob is external input to these
+    pure roll-ups — flooring it means a corrupt 0 can never zero a denominator.
+    """
+    return max(1, row.sample_weight if row.sample_weight is not None else 1)
+
+
 class _Slice:
     """Streaming accumulator for one published slice (the whole set, a bucket, a Term).
 
@@ -586,9 +595,7 @@ class _Slice:
         self.dated_resolved = 0
 
     def add(self, row: CorpusRow) -> None:
-        # Writers guarantee weights >= 1, but the blob is external input to this
-        # pure function — floor it so a corrupt 0 can never zero a denominator.
-        weight = max(1, row.sample_weight if row.sample_weight is not None else 1)
+        weight = _row_weight(row)
         self.cases += 1
         self.weighted_cases += weight
         if row.disposition is not None:
@@ -616,10 +623,34 @@ class _Slice:
         return _timing_from_days([days for days, _ in self.day_pairs])
 
 
+class _SignalAcc:
+    """Weighted numerator and denominator for one cert-stage docket signal.
+
+    Separate from :class:`_Slice` because a signal rate divides by a different
+    population than a disposition rate: only rows whose proceedings were live-parsed
+    are in the denominator, since an unobserved signal is not an absent one.
+    """
+
+    __slots__ = ("observed", "positive")
+
+    def __init__(self) -> None:
+        self.observed = 0
+        self.positive = 0
+
+    def add(self, weight: int, *, hit: bool) -> None:
+        self.observed += weight
+        if hit:
+            self.positive += weight
+
+    def rate(self) -> float | None:
+        """The weighted rate, or ``None`` when nothing was observed."""
+        return self.positive / self.observed if self.observed else None
+
+
 class _TermAcc:
     """Streaming accumulator for one October Term's live-slice cert population."""
 
-    __slots__ = ("classes", "grant_days", "grants", "overall", "segments")
+    __slots__ = ("classes", "cvsg", "grant_days", "grants", "overall", "relist", "segments")
 
     def __init__(self) -> None:
         self.overall = _Slice(cert_timing=True)
@@ -631,6 +662,10 @@ class _TermAcc:
         # leakage-safe per-Term segment base rate. Pre-seeded for every band so a
         # Term with no rows in a band still emits that band (a stable JSON shape).
         self.segments: dict[str, _Slice] = {band: _Slice() for band in salience_bands()}
+        # The per-Term history a cert-stage claim baseline pools, over the same paid
+        # scored segment the bands cover — see `StatPackTerm`.
+        self.relist = _SignalAcc()
+        self.cvsg = _SignalAcc()
         self.grants = 0
         self.grant_days: list[int] = []
 
@@ -641,6 +676,15 @@ class _TermAcc:
             self.classes[fee].add(row)
         if _is_scored_segment_row(row):
             self.segments[salience_band(row)].add(row)
+            # Resolved, because a pending petition can still be relisted and counting
+            # it would understate the rate; parsed, because `distribution_count` is
+            # the live-signal family's coverage sentinel and its absence says nothing
+            # was observed rather than that nothing happened. A parsed row's null
+            # `cvsg_date` does assert no CVSG, so the two share a denominator today.
+            if row.disposition is not None and row.distribution_count is not None:
+                weight = _row_weight(row)
+                self.relist.add(weight, hit=row.distribution_count >= 2)
+                self.cvsg.add(weight, hit=row.cvsg_date is not None)
         if row.disposition in (Disposition.granted.value, Disposition.gvr.value):
             self.grants += 1
             if row.date_filed is not None and row.date_cert_granted is not None:
@@ -759,6 +803,10 @@ def _term_entry(
         grants=acc.grants,
         salience_version=SALIENCE_VERSION,
         segments=segments,
+        est_relist_rate=acc.relist.rate(),
+        relist_weighted_resolved=acc.relist.observed,
+        est_cvsg_rate=acc.cvsg.rate(),
+        cvsg_weighted_resolved=acc.cvsg.observed,
         median_days_to_grant=_nearest_rank(grant_days, 0.5) if grant_days else None,
     )
 
@@ -1139,6 +1187,26 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
             lines.append(_term_segment_row(entry, bands))
         lines += [
             "",
+            "### Cert-stage signal rates",
+            (
+                "_Over the same paid scored segment (denial-reweighted): the share of "
+                "petitions relisted at least once — distributed for two or more "
+                "conferences — and the share on which the Court called for the Solicitor "
+                "General's views. The per-Term history a cert-stage claim baseline pools, "
+                "so it is conditioned on the population those claims are made about. Each "
+                "rate repeats its own weighted denominator, narrower than the band "
+                "table's: a row counts only once it has resolved, and only where the "
+                "proceedings were live-parsed — an unobserved signal is not an absent "
+                "one._"
+            ),
+            "",
+            "| Term | relisted at least once | CVSG |",
+            "| --- | --- | --- |",
+        ]
+        for entry in shown:
+            lines.append(_term_signal_row(entry))
+        lines += [
+            "",
             (
                 "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
                 "anchor only on Term rows strictly preceding your clock — later Terms "
@@ -1159,6 +1227,26 @@ def _term_segment_row(entry: StatPackTerm, bands: tuple[str, ...]) -> str:
         return f"{_pct(seg.est_grant_rate)} (n={seg.weighted_resolved})"
 
     return f"| {entry.term} | " + " | ".join(_cell(band) for band in bands) + " |"
+
+
+def _term_signal_row(entry: StatPackTerm) -> str:
+    """One Term's row in the cert-stage signal-rate table.
+
+    Each rate prints the denominator it was divided by rather than sharing one
+    column, so the table stays readable if parse coverage ever diverges between the
+    two signals.
+    """
+
+    def _cell(rate: float | None, observed: int) -> str:
+        if rate is None:
+            return "—"
+        return f"{_pct(rate)} (est. n={observed})"
+
+    return (
+        f"| {entry.term} "
+        f"| {_cell(entry.est_relist_rate, entry.relist_weighted_resolved)} "
+        f"| {_cell(entry.est_cvsg_rate, entry.cvsg_weighted_resolved)} |"
+    )
 
 
 def _term_row(entry: StatPackTerm) -> str:

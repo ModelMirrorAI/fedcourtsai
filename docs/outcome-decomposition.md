@@ -7,15 +7,19 @@ worth far more, and none of it is scored by a disposition label. This document
 defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
-**Nothing in this document is implemented.** No code scores a claim, no schema
-carries one, and no prompt asks for one. It is pre-registration: the
-decomposition and the rule are settled here, before there is data to fit them to,
-because that is the only order in which the choice of rule is credible.
+This began as pure pre-registration — the decomposition and the rule settled
+before there was data to fit them to, which is the only order in which the choice
+of rule is credible. The scoring half is now built: the rule, the per-claim
+baselines under the leakage guard, and the floor all exist in code for the two
+cert-signal claims, and the statpack carries the per-Term rates they pool.
 
-The rule is implementable today, and so are three cert-stage claims once one
-field is added to the outcome record. The merits claims — vote splits, authorship,
-doctrinal grounds — are blocked on data that is not scheduled. *What is scoreable
-today* separates the two, because the difference is the whole plan.
+**No prompt asks a predictor for a claim probability yet**, so nothing is being
+scored end to end. That is the next step, and it waits on the claim set being
+declared closed — see *Why the set is mandatory*.
+
+The merits claims — vote splits, authorship, doctrinal grounds — remain blocked on
+data that is not scheduled. *What is scoreable today* separates the two, because
+the difference is the whole plan.
 
 ## Naming
 
@@ -211,6 +215,25 @@ exactly where the history is thinnest; and the baseline's lookback window has to
 be stated with the figure, because moving it re-bases every claim score at once
 and a comparison across the change is not a comparison.
 
+Two such choices are already made and belong on the record rather than in the
+code alone.
+
+**The population is the paid scored segment, not every modern-cert petition.**
+IFP petitions draw a CVSG at a rate of exactly zero across every walked Term, and
+they are about two thirds of the modern-cert denominator — so pooling them sets
+the CVSG baseline near a third of the rate a *predicted* petition actually faces.
+That gap is free score by the arithmetic above, and it is not a population any
+scored claim is made about: the salience gate excludes IFP at its first tier. The
+baseline is computed over the population the claims are made about.
+
+**The floor's window is five Terms**, against a baseline lookback that ships
+unbounded. The gap between the two is deliberate and is what the floor measures:
+if both used the same window the control would score identically zero and the
+floor would report nothing. Five is a judgement with no deeper justification than
+matching the order of the band-rate drift the salience document records, and
+moving it re-bases every floor at once — so it is stated here rather than left to
+be discovered in a constant.
+
 ### Why the set is mandatory
 
 Letting a predictor decline claims looks generous and is a trap.
@@ -355,14 +378,14 @@ digest one.
 ## What is scoreable today
 
 Three claims can be scored on the events the pipeline actually produces. What
-remains for them is a baseline apiece and the harness that computes it — not
-data, and no longer a schema change.
+remains for them is the prediction side: a declared claim set and a prompt that
+asks for a probability against it. The baselines and the floor are built.
 
 | Claim | State |
 | --- | --- |
-| Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
-| Relisted at least once | Scoreable. `Outcome.signals.distribution_count` records the count as at resolution; the claim is about an increment past its value when the prediction was made |
-| CVSG | Scoreable. `Outcome.signals.cvsg_date`, where a null inside the block means no CVSG rather than no record |
+| Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same guard, but nothing builds one yet — and the claim is deliberately out of the cert-signal set, since scoring it there as well would pay one belief twice |
+| Relisted at least once | Scoreable, and built. `Outcome.signals.distribution_count` records the count as at resolution; `claim_base_rate` pools the statpack's per-Term rate under the strictly-prior-Term guard |
+| CVSG | Scoreable, and built. `Outcome.signals.cvsg_date`, where a null inside the block means no CVSG rather than no record |
 | Each justice's vote | `Outcome.votes` is `[]` in every committed outcome, and nothing populates it. `JudgeVote.vote` is also typed as a disposition, a vocabulary with no majority/dissent member, so a merits vote claim needs a schema change as well as data |
 | Majority author, concurrence, dissent | No field on `Outcome`, and nothing on the corpus row carries authorship for a modern case |
 | All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
