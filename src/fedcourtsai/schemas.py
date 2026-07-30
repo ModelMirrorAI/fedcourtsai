@@ -275,7 +275,16 @@ class ResolutionSignals(_Strict):
     Solicitor General's views — therefore has nothing immutable to resolve
     against: re-scoring the same cell later reads a column that has moved on, and
     a pre-registration record cannot rest on that. Copying them onto the outcome
-    at resolution is what makes those forecasts scoreable, and reproducibly so.
+    at resolution fixes the *resolution* end of that comparison, and makes it
+    reproducible.
+
+    It is not sufficient on its own. These signals only ever grow, so a forecast
+    about them is a forecast about an increment, and an increment needs both ends
+    — the value as at prediction as well as as at resolution. Nothing committed
+    carries the prediction-time end today, so a claim resting on this block alone
+    can only be specified as an absolute level, which is trivially true wherever
+    the signal had already fired when the cell ran. See
+    ``docs/outcome-decomposition.md``.
 
     The block is present only when the proceedings were live-parsed. That is the
     same coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the
@@ -310,10 +319,12 @@ class Outcome(_Strict):
     votes: list[JudgeVote] = Field(default_factory=list)
     signals: ResolutionSignals | None = Field(
         default=None,
-        description="Docket-progress signals frozen as at resolution, so a "
-        "forecast about them resolves against this record rather than a corpus "
-        "column that keeps moving. Absent on outcomes written before the block "
-        "existed, and on events whose proceedings were never live-parsed",
+        description="Docket-progress signals frozen as at resolution, fixing the "
+        "resolution end of a forecast about them rather than leaving it on a "
+        "corpus column that keeps moving. These signals only grow, so resolving "
+        "an increment also needs the value as at prediction, which nothing "
+        "committed carries. Absent on outcomes written before the block existed, "
+        "and on events whose proceedings were never live-parsed",
     )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(
