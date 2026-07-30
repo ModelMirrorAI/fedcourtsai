@@ -57,6 +57,18 @@ stays outside the gate:
   also carries a `big_case` block — the predictor's `big_case_score`
   rank-agreement (Kendall's tau-b) with the evaluator panel's independent reads —
   a second, orthogonal skill dimension that never affects the ranking.
+  The board also carries an `evaluator_agreement` map — per evaluator, how far its
+  big-case reads track the rest of the panel's, computed **leave-one-out** so a
+  grader is never correlated against a mean containing itself. This is the check
+  on grader latitude that the per-predictor view cannot make: a uniformly generous
+  or strict judge biases every predictor it scores equally, so the distortion
+  cancels out of the predictor ordering and shows up only when graders are
+  compared to each other. Read it as a property of the **panel**, not of one
+  judge: with three evaluators a single dissenting grader sits inside both peers'
+  comparison and can turn all three negative, so a low figure locates a
+  disagreement rather than assigning blame. It never affects the ranking, and
+  `events` beside it is small enough to matter — tau-b over a handful of shared
+  events moves a long way on one disagreement.
   `fedcourts leaderboard` produces it — a deterministic, offline
   roll-up — empty (`{}` plus the zero counts) until the first evaluation lands.
 

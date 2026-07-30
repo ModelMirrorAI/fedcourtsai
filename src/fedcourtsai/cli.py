@@ -83,7 +83,7 @@ from .courtlistener import CourtListenerClient, default_rate_limiter
 from .finalize import FinalizeRole, agent_produced_output
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
-from .leaderboard import big_case_agreement, build_leaderboard
+from .leaderboard import big_case_agreement, build_leaderboard, evaluator_agreement
 from .matrix import (
     CappedMatrix,
     CaseRequest,
@@ -640,6 +640,7 @@ def leaderboard(
     board = build_leaderboard(
         iter_stratified_evaluations(settings.data_root, frozen_only=frozen_only),
         big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
+        evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"

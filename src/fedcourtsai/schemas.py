@@ -736,6 +736,43 @@ class LeaderboardStratum(_Strict):
     )
 
 
+class EvaluatorAgreement(_Strict):
+    """How far one evaluator's big-case reads track the rest of the panel's.
+
+    The check on grader latitude. An evaluator with room to judge can be
+    systematically generous or strict, and nothing in a per-predictor score would
+    show it — the distortion is spread evenly across everyone that evaluator
+    scored. Comparing each grader against its peers is what makes it visible.
+
+    Computed **leave-one-out**: the evaluator's ordering against the mean of the
+    *other* evaluators' reads on the events they share. Including the evaluator in
+    the panel it is scored against would correlate it partly with itself, and with
+    a three-judge panel that self-term is a third of the comparison.
+
+    A rank correlation for the same reason the predictor-side agreement is one:
+    bigness is comparative, so what matters is whether two graders order cases the
+    same way, not whether they pick the same numbers. Read it with ``events``
+    beside it — with a panel this small and few shared events, tau-b is noisy, and
+    a single disagreement moves it far.
+    """
+
+    rank_agreement: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall's tau-b between this evaluator's big-case ordering and "
+        "the mean of the other evaluators' reads, over the events they share "
+        "(+1 = same order, -1 = reversed); null with fewer than 2 shared events, "
+        "or when every pair ties on one side",
+    )
+    events: int = Field(
+        default=0,
+        ge=0,
+        description="Events this evaluator and at least one peer both read — the "
+        "sample the correlation rests on, and small enough to matter",
+    )
+
+
 class BigCaseLeaderboard(_Strict):
     """A predictor's big-case-score agreement with the independent evaluator panel.
 
@@ -839,6 +876,13 @@ class Leaderboard(_Strict):
     )
     retrospective_evaluations: int = Field(
         default=0, ge=0, description="Evaluations of retrospective (leakage-suspect) cells"
+    )
+    evaluator_agreement: dict[str, EvaluatorAgreement] = Field(
+        default_factory=dict,
+        description="Per evaluator, how far its big-case reads track the rest of "
+        "the panel's — the check on grader latitude, keyed by evaluator_id. "
+        "Orthogonal to the ranking and never part of it: it describes the judges, "
+        "not the competitors",
     )
     entries: list[LeaderboardEntry] = Field(default_factory=list)
 
