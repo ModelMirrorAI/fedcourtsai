@@ -243,7 +243,22 @@ class Prediction(_Strict):
         max_length=500,
         description="Optional one-line rationale for `big_case_score`; null if none",
     )
-    reasoning_doc: str = "reasoning.md"
+    reasoning_doc: str = Field(
+        default="reasoning.md",
+        description="Filename, beside this prediction, of the predictor's own "
+        "rationale for its numbers: why this probability, what in the snapshot "
+        "drove it, which base rates it consulted, where it is uncertain. "
+        "Self-justification — it resolves against nothing.",
+    )
+    predicted_reasoning_doc: str | None = Field(
+        default=None,
+        description="Filename, beside this prediction, of the forecast of the "
+        "*Court's* own reasoning — claims about the future that resolve against "
+        "the docket (relists, a CVSG, which question presented is taken, a "
+        "summary disposition). Distinct from `reasoning_doc`, which justifies the "
+        "number rather than predicting the Court. Optional (defaults None) so "
+        "records written before the field existed still validate.",
+    )
     process_version: ProcessVersion | None = Field(
         default=None,
         description="Harness-stamped process version (absent on shakedown cells "

@@ -122,9 +122,9 @@ class Runner(Protocol):
     """An engine that produces one cell's artifacts at the canonical paths.
 
     The same seam the agentic engines target in the workflow: given a
-    :class:`RunRequest`, write the cell's artifacts (a prediction pair for a
-    predict cell, an evaluation pair per scored predictor for an evaluate cell)
-    and return the paths written, in sorted order.
+    :class:`RunRequest`, write the cell's artifacts (a prediction and its prose
+    documents for a predict cell, an evaluation pair per scored predictor for an
+    evaluate cell) and return the paths written, in sorted order.
     """
 
     @property
@@ -171,8 +171,9 @@ class StubRunner:
 
     The runner counterpart to ``ConstantBacktester`` — no model call, no network,
     fully determined by the request. A predict cell yields ``prediction.json`` +
-    ``reasoning.md``; an evaluate cell scores every predictor that produced a
-    prediction for the event and yields an ``evaluation.json`` + ``evaluation.md``
+    ``reasoning.md`` + ``predicted_reasoning.md``; an evaluate cell scores every
+    predictor that produced a prediction for the event and yields an
+    ``evaluation.json`` + ``evaluation.md``
     pair each, with the quantitative fields computed by the same
     :mod:`fedcourtsai.pipeline.evaluate` helpers the live evaluator must match.
     Output is byte-stable and identical in shape to what the workflow commits, so
@@ -201,12 +202,17 @@ class StubRunner:
             probability=_STUB_PROBABILITY,
             predicted_disposition=_STUB_DISPOSITION,
             big_case_score=_STUB_BIG_CASE_SCORE,
+            predicted_reasoning_doc=events.predicted_reasoning(
+                request.actor_id, request.run_id
+            ).name,
         )
         json_path = events.prediction(request.actor_id, request.run_id)
         md_path = events.reasoning(request.actor_id, request.run_id)
+        predicted_md_path = events.predicted_reasoning(request.actor_id, request.run_id)
         write_json(json_path, prediction)
         _write_text(md_path, self._reasoning_md(request))
-        return sorted([json_path, md_path])
+        _write_text(predicted_md_path, self._predicted_reasoning_md(request))
+        return sorted([json_path, md_path, predicted_md_path])
 
     def _evaluate(self, request: RunRequest) -> list[Path]:
         events = request.event_paths
@@ -271,6 +277,22 @@ class StubRunner:
             f"`{_STUB_DISPOSITION.value}` floor with P(granted) "
             f"{_STUB_PROBABILITY:.1f}. This document stands in for a real "
             "predictor's qualitative analysis so the cell mechanics can be "
+            "exercised offline.\n"
+        )
+
+    def _predicted_reasoning_md(self, request: RunRequest) -> str:
+        return (
+            f"# Stub predicted reasoning for {request.event_id}\n\n"
+            f"Deterministic offline stub output for case `{request.case_id}`, "
+            f"predictor `{request.actor_id}`, run `{request.run_id}`. No facts were "
+            "read, so the stub forecasts nothing about the court's own reasoning: on "
+            f"the trivial `{_STUB_DISPOSITION.value}` floor it expects no further "
+            "step of any kind — no relist, no call for the Solicitor General's "
+            "views, no question presented taken, and no separate writing. Deliberately "
+            "not phrased as a claim about the event's stage, since a predict cell may "
+            "carry an application or a court-of-appeals matter as readily as a cert "
+            "petition. This document stands in for a real predictor's "
+            "forecast of the court's reasoning so the cell mechanics can be "
             "exercised offline.\n"
         )
 
@@ -430,14 +452,19 @@ def _produced_artifacts(request: RunRequest) -> list[Path]:
 
     The agent writes at the canonical paths derived from the env contract; this
     collects what landed so the runner reports it (and the caller can validate it).
-    A predict cell writes its prediction pair; an evaluate cell writes one pair per
-    predictor it scored, under this evaluator + run.
+    A predict cell writes ``prediction.json`` with its two prose documents — the
+    rationale for its numbers and the forecast of the court's reasoning; an evaluate
+    cell writes one pair per predictor it scored, under this evaluator + run. Only
+    files that exist are reported, so a cell that wrote no
+    ``predicted_reasoning.md`` reports the two it did write rather than failing here
+    — ``validate`` is what holds it to the pointer it declared.
     """
     events = request.event_paths
     if request.role == UsageRole.predictor:
         candidates: list[Path] = [
             events.prediction(request.actor_id, request.run_id),
             events.reasoning(request.actor_id, request.run_id),
+            events.predicted_reasoning(request.actor_id, request.run_id),
         ]
     else:
         base = events.base / "evaluations" / request.actor_id
@@ -866,6 +893,7 @@ class GeminiRunner(AgenticRunner):
 
 _CASSETTE_PREDICTION = "prediction.json"
 _CASSETTE_REASONING = "reasoning.md"
+_CASSETTE_PREDICTED_REASONING = "predicted_reasoning.md"
 
 
 class ReplayUnavailable(EngineUnavailable):
@@ -886,7 +914,11 @@ class ReplayRunner(StubRunner):
     A predict cell re-emits the cassette's recorded ``prediction.json`` /
     ``reasoning.md`` — a real calibrated forecast with panel votes — rebinding only
     the cell *identity* (case, event, predictor, run) to the request while keeping
-    the recorded forecast verbatim. An evaluate cell reuses :class:`StubRunner`'s
+    the recorded forecast verbatim. It replays a ``predicted_reasoning.md`` only when
+    the cassette carries one, so a cassette stays a faithful capture of whatever the
+    recorded cell wrote — and one without that document doubles as the fixture proving
+    a prediction naming no forecast still validates.
+    An evaluate cell reuses :class:`StubRunner`'s
     evaluate path unchanged, so the deterministic scoring (Brier, vote accuracy) —
     the consume path under test — runs over realistic input rather than the stub
     floor. The cassette is read-only; nothing here calls a model or the network.
@@ -899,6 +931,16 @@ class ReplayRunner(StubRunner):
         if self.cassette_root is None:
             raise ReplayUnavailable
         recorded = read_model(self.cassette_root / _CASSETTE_PREDICTION, Prediction)
+        events = request.event_paths
+        # A cassette need not carry a forecast document. The emitted pointer tracks
+        # what is actually replayed, so the prediction never names a file this run
+        # did not write.
+        recorded_forecast = self.cassette_root / _CASSETTE_PREDICTED_REASONING
+        predicted_md_path = (
+            events.predicted_reasoning(request.actor_id, request.run_id)
+            if recorded_forecast.is_file()
+            else None
+        )
         # Keep the recorded forecast (probability, disposition, votes, …); rebind
         # only the identity fields to the cell being produced.
         prediction = recorded.model_copy(
@@ -909,14 +951,20 @@ class ReplayRunner(StubRunner):
                 "run_id": request.run_id,
                 "created_at": _created_at(request.run_id),
                 "input_snapshot": _input_snapshot(request),
+                "predicted_reasoning_doc": (
+                    predicted_md_path.name if predicted_md_path is not None else None
+                ),
             }
         )
-        events = request.event_paths
         json_path = events.prediction(request.actor_id, request.run_id)
         md_path = events.reasoning(request.actor_id, request.run_id)
         write_json(json_path, prediction)
         _write_text(md_path, (self.cassette_root / _CASSETTE_REASONING).read_text())
-        return sorted([json_path, md_path])
+        written = [json_path, md_path]
+        if predicted_md_path is not None:
+            _write_text(predicted_md_path, recorded_forecast.read_text())
+            written.append(predicted_md_path)
+        return sorted(written)
 
 
 def _make_replay_runner() -> Runner:

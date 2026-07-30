@@ -286,7 +286,13 @@ substitute.
 
 Raw facts live in the corpus (a payload-free SQLite index in a private S3
 remote plus a per-case S3 content store); derived judgments live in git under
-`data/cases/<court_id>/<docket_id>/events/<event_id>/`. Full description: the
+`data/cases/<court_id>/<docket_id>/events/<event_id>/`. A predict cell's prose is
+two documents, not one, because they have different epistemic status:
+`predicted_reasoning.md` forecasts what the *court* will do (claims that resolve
+against the docket), while `reasoning.md` justifies the predictor's own number
+(which resolves against nothing). `prediction.json` names each by filename and
+`validate` resolves both pointers, so a named document must actually be there.
+Full description: the
 *Data model* section of `README.md`; pipeline design: `docs/data-pipeline.md`;
 task-specific instructions: the prompt file named in your run
 (`.github/prompts/`).
@@ -302,6 +308,7 @@ task-specific instructions: the prompt file named in your run
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` |
+| How would a predicted outcome be decomposed and scored? (pre-registered, not implemented) | `docs/outcome-decomposition.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | How do I test this, and what does CI run? | `docs/testing.md` |

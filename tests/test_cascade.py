@@ -26,6 +26,12 @@ RUN = "20260628T120000Z"
 _N_PRED = len(enabled_predictors(CONFIG_ROOT / "predictors.yaml"))
 _N_EVAL = len(enabled_evaluators(CONFIG_ROOT / "evaluators.yaml"))
 
+# A predict cell writes three documents: prediction.json, the predictor's
+# reasoning.md, and its predicted_reasoning.md forecast of the court's reasoning.
+_DOCS_PER_PREDICTION = 3
+# An evaluate cell writes an evaluation.json + evaluation.md pair per predictor.
+_DOCS_PER_EVALUATION = 2
+
 # A resolved fixture case (granted) and an open one, both in court ca9.
 RESOLVED_COURT, RESOLVED_DOCKET = "ca9", 101
 RESOLVED_EVENT = "evt-appeal-disposition"
@@ -61,12 +67,12 @@ def test_resolved_case_runs_the_full_cascade(corpus_db: Path, tmp_path: Path) ->
     assert report.valid, report.problems
     assert report.engine == "stub"
     assert report.events == (RESOLVED_EVENT,)
-    # Each enabled predictor wrote a prediction pair (prediction.json + reasoning.md).
-    assert len(report.predictions) == _N_PRED * 2
+    # Each enabled predictor wrote its three prediction documents.
+    assert len(report.predictions) == _N_PRED * _DOCS_PER_PREDICTION
     # One ground-truth outcome materialized from the resolved corpus row.
     assert len(report.outcomes) == 1
     # Each evaluator scored every predictor → evaluators x predictors evaluation pairs.
-    assert len(report.evaluations) == _N_EVAL * _N_PRED * 2
+    assert len(report.evaluations) == _N_EVAL * _N_PRED * _DOCS_PER_EVALUATION
 
     events = CasePaths(data_root, RESOLVED_COURT, RESOLVED_DOCKET).event(RESOLVED_EVENT)
     # The git event definition + ground truth the agents read were materialized.
@@ -79,6 +85,28 @@ def test_resolved_case_runs_the_full_cascade(corpus_db: Path, tmp_path: Path) ->
     evaluation = read_model(events.evaluation("claude-judge", "claude-baseline", RUN), Evaluation)
     # Stub predicted denied; the outcome is granted → scored wrong.
     assert evaluation.correct == 0
+
+
+def test_cascade_writes_both_prose_documents_beside_the_prediction(
+    corpus_db: Path, tmp_path: Path
+) -> None:
+    # The end-to-end acceptance for the prose split: a cell's rationale and its
+    # forecast of the court's reasoning both land, and `prediction.json` names each.
+    data_root = tmp_path / "data"
+    report = _run(corpus_db, data_root, RESOLVED_COURT, RESOLVED_DOCKET)
+    assert report.valid, report.problems
+
+    events = CasePaths(data_root, RESOLVED_COURT, RESOLVED_DOCKET).event(RESOLVED_EVENT)
+    prediction = read_model(events.prediction("claude-baseline", RUN), Prediction)
+    assert prediction.reasoning_doc == "reasoning.md"
+    assert prediction.predicted_reasoning_doc == "predicted_reasoning.md"
+    assert events.reasoning("claude-baseline", RUN).is_file()
+    assert events.predicted_reasoning("claude-baseline", RUN).is_file()
+    assert set(report.predictions) >= {
+        events.prediction("claude-baseline", RUN),
+        events.reasoning("claude-baseline", RUN),
+        events.predicted_reasoning("claude-baseline", RUN),
+    }
 
 
 def test_snapshot_is_provisioned_to_the_record_path(corpus_db: Path, tmp_path: Path) -> None:
@@ -98,7 +126,7 @@ def test_open_case_predicts_but_evaluates_nothing(corpus_db: Path, tmp_path: Pat
     # An unresolved case has no outcome, so predictions are produced but there is
     # nothing to score — and the ledger is still valid.
     assert report.valid, report.problems
-    assert len(report.predictions) == _N_PRED * 2
+    assert len(report.predictions) == _N_PRED * _DOCS_PER_PREDICTION
     assert report.outcomes == ()
     assert report.evaluations == ()
 
@@ -144,8 +172,8 @@ def test_predictor_filter_narrows_the_fanout_to_one_cell(corpus_db: Path, tmp_pa
     report = _run(corpus_db, data_root, OPEN_COURT, OPEN_DOCKET, predictor="claude-baseline")
 
     assert report.valid, report.problems
-    # One predictor pair (prediction.json + reasoning.md), not the whole registry.
-    assert len(report.predictions) == 2
+    # One predictor's documents, not the whole registry's.
+    assert len(report.predictions) == _DOCS_PER_PREDICTION
     assert all("claude-baseline" in p.parts for p in report.predictions)
 
 

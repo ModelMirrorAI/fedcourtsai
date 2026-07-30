@@ -185,7 +185,8 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
   outcome.json                   # ground truth, once the event resolves
   predictions/<predictor_id>/<run_id>/
     prediction.json              # quantitative: granted 1/0, P(granted), votes
-    reasoning.md                 # qualitative: predicted reasoning
+    reasoning.md                 # qualitative: why this number
+    predicted_reasoning.md       # qualitative: what the court will do, and why
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
     evaluation.json
     evaluation.md
@@ -245,6 +246,7 @@ docs/               design & operations references (see Documentation below)
 - [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) · [Data sources, terms & PII](docs/data-sources.md) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & labels](docs/pipeline.md) · [CLI reference](docs/cli.md)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md)
+- [Outcome decomposition](docs/outcome-decomposition.md) (pre-registered scoring of predicted reasoning)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Testing](docs/testing.md) · [Contributing](CONTRIBUTING.md)
