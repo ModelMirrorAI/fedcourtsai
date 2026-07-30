@@ -965,6 +965,44 @@ def statpack(
     )
 
 
+@app.command()
+def docket(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <metrics_root>/docket.json)."),
+    ] = None,
+    markdown_out: Annotated[
+        Path | None,
+        typer.Option(help="Markdown output path (default: <metrics_root>/docket.md)."),
+    ] = None,
+) -> None:
+    """Roll the corpus into the court-facing docket pack at ``metrics/docket.{json,md}``.
+
+    Facts about the dockets — composition by court and era, cert dispositions,
+    originating circuit and state courts, relist counts, CVSG status, the paid/IFP
+    fee split, and a per-Term census of docketed filings against grant rate.
+    Carries **no claim about this project's predictions**: no accuracy, no
+    leaderboard, no salience, so it is readable and citable by someone with no
+    interest in the models. Every cert cut is denial-reweighted, so its rates
+    estimate the population rather than the walked sample, and each states its
+    own denominator. Deterministic and
+    offline: a pure function of the corpus, so reruns reproduce both files byte
+    for byte. Writes the empty zero-count pack when the corpus is absent (run
+    after a corpus pull).
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    pack = analytics.build_docket_pack(corpus_db_path=db_path)
+    json_dest = out if out is not None else settings.metrics_root / "docket.json"
+    md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "docket.md"
+    write_json(json_dest, pack)
+    write_text(md_dest, analytics.render_docket_markdown(pack))
+    typer.echo(
+        f"docket: {pack.corpus_rows} case(s), {len(pack.sections)} section(s), "
+        f"{len(pack.terms)} Term(s) -> {json_dest}, {md_dest}"
+    )
+
+
 def _resolve_token_counts(
     explicit: TokenCounts,
     claude_execution_file: Path | None,

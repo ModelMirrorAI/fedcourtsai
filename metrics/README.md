@@ -2,10 +2,13 @@
 
 Pipeline metrics: small, deterministic, git-tracked roll-ups whose reviewed
 diffs track predictor and corpus quality over time. The offline gate
-(`fedcourts corpus-status`) checks that the four scheduled-refresh artifacts —
+(`fedcourts corpus-status`) checks that the four gate-tracked artifacts —
 `leaderboard.json`, `backtest.json`, `statpack.json`, `statpack.md` — exist
-and are committed; `cert-backtest.json` is maintainer-triggered and not
-gate-checked:
+and are committed. Two more are committed but not gate-checked:
+`cert-backtest.json`, which is maintainer-triggered, and `docket.{json,md}`,
+which is regenerated on demand by `fedcourts docket`. The gate's presence check
+tracks the set the weekly refresh regenerates, so an artifact outside that set
+stays outside the gate:
 
 - `backtest.json` — results of replaying predictors against historical *resolved*
   events in the corpus (outcome hidden at predict time, scored against the known
@@ -127,9 +130,42 @@ calibration with vacatur-practice prediction.
   deterministic, offline roll-up of the corpus — empty
   (zero counts, empty sections) until a corpus is present.
 
+- `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
+  dockets themselves, for a reader with no interest in whether this project's
+  models are any good. Composition by court and by decade era; then, over the
+  live/historical slice of modern discretionary-cert petitions, the disposition
+  split, the originating circuit, the relist count, the CVSG status, the paid/IFP
+  fee class, and a reader table that names the state courts a petition came from;
+  then a per-Term census of docketed filings against ingestion, grant rate, grants
+  observed, and pace to grant. `fedcourts docket` produces both files.
+
+  **It carries no prediction claim, by contract** — no accuracy, no ranking, no
+  Brier, and no salience band. The band is the line: it is a statement about which
+  petitions this project chooses to predict, so it belongs to `statpack.*` and
+  never here. That exclusion is what makes the pack citable on its own terms.
+
+  Read it the same way as the statpack's live-slice cuts: every section states its
+  own scope, and every rate repeats its denominator. **Every cert cut is
+  denial-reweighted** — including the by-originating-court table, which is the
+  statpack's raw reader cut recomputed as an estimate, because it is the only
+  place a state court appears and an unweighted rate over the walker's frame
+  inflates the grant family several-fold. A reweighted denominator is written
+  `est. n=` and a raw one `n=`, because the first estimates a population and the
+  second counts rows; a breakdown row carries no raw view of its own, so a small `est. n=`
+  is weaker evidence than it looks; the per-Term census is the exception and
+  prints the observed `ingested (rows)` beside the estimate.
+  `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
+  gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
+  *not yet parsed*, not *did not happen*. The document names the statistics it
+  cannot yet compute (what the petitions are about, which needs a claim taxonomy
+  that does not exist; summary reversals, which the disposition vocabulary has no
+  label for; justice-level statistics, which need a per-justice vote record) so a
+  citation is never read as a claim that the figure is zero.
+
 These files are deterministic, offline roll-ups that start empty (zero counts)
 until their input lands — the evaluations ledger for the leaderboard, a corpus
-with outcome labels for the back-test and statpack. All are small and worth reading
+with outcome labels for the back-test, statpack, and docket pack. All are small
+and worth reading
 in a diff, so they are git-tracked rather than pushed to the corpus remote like
 the corpus blob.
 
