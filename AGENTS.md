@@ -302,7 +302,7 @@ task-specific instructions: the prompt file named in your run
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` |
-| How is a predicted reasoning claim decomposed and scored? | `docs/claim-taxonomy.md` |
+| How would a predicted outcome be decomposed and scored? (pre-registered, not implemented) | `docs/outcome-decomposition.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What does a cell agent have to produce? | `.github/prompts/` |
 | How do I test this, and what does CI run? | `docs/testing.md` |

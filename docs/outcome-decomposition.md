@@ -1,4 +1,4 @@
-# The claim taxonomy
+# Decomposing a predicted outcome
 
 A binary grant/deny forecast carries at most one bit, and the base rate consumes
 most of it. What a strong forecast actually delivers — the vote split, who writes,
@@ -7,19 +7,30 @@ worth far more, and none of it is scored by a disposition label. This document
 defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
-It is the design half of the reasoning-scoring work. The scoring rule below is
-implementable today; most of the *claims* are not, because the corpus does not
-yet carry what they resolve against. *What is scoreable today* says exactly which,
-and that section is the honest state of the thing.
+**Nothing in this document is implemented.** No code scores a claim, no schema
+carries one, and no prompt asks for one. It is pre-registration: the
+decomposition and the rule are settled here, before there is data to fit them to,
+because that is the only order in which the choice of rule is credible.
+
+The rule is implementable today. Most of the *claims* are not — the corpus does
+not yet carry what they resolve against, and *What is scoreable today* says
+exactly which and why.
 
 ## Naming
 
 The two families are **mechanical** and **semantic**, after what distinguishes
 them: whether resolving a claim needs a reader.
 
-They are deliberately not called tiers. "Tier 0/1/2" already means the salience
-gate's funnel in `docs/salience.md`, and reusing the word for an orthogonal split
-would put two meanings of the same term in two prompts and a schema.
+They are deliberately not called tiers. "Tier" is already overloaded three ways —
+the salience gate's funnel (`docs/salience.md`), the grant-likelihood band the
+prompts and statpack schema call a tier, and an upstream API rate-limit tier in
+`config/tracking.yaml`. A fourth meaning would not survive contact.
+
+This is also not a "claim taxonomy", though that phrase fits it. That term is
+already spoken for: `metrics/docket.md` and `metrics/README.md` use it for a
+subject-matter classification of the questions presented — what petitions are
+*about* — which does not exist and is a different problem. This document
+decomposes a predicted *outcome* into scoreable propositions.
 
 ## What a claim is
 
@@ -44,12 +55,17 @@ Resolved in code against `outcome.json`. No reader, no latitude.
 | Claim | Resolves against |
 | --- | --- |
 | Disposition | `Outcome.actual_disposition` |
-| Petition granted | `Outcome.actual_granted` |
-| Vote split | `Outcome.votes`, tallied |
 | Each justice's vote | `Outcome.votes`, per justice |
 | Majority author | *no field yet* |
 | A concurrence is filed | *no field yet* |
 | A dissent is filed | *no field yet* |
+
+Disposition is **one** claim, not two. `Outcome.actual_granted` is a pure
+function of `actual_disposition` (`pipeline.outcome.granted_flag`), so scoring
+both would score one belief twice — see *No claim may be derived from another*.
+It is also the one multi-class claim here: the disposition vocabulary has seven
+values, so it takes a multi-class proper score (the sum of per-value Brier terms)
+rather than the binary form below. The binary form covers every other claim.
 
 ### Semantic claims
 
@@ -62,9 +78,19 @@ are graded by the cross-evaluator rather than computed.
 | What a concurrence splits off | The concurrence |
 | The argument a dissent rests on | The dissent |
 
-Semantic grades are formed **before** the grader sees which predictor produced
-the claim, for the same reason the big-case read is: a grader who knows whose
-claim it is will anchor, and the agreement number then measures the anchor.
+A semantic grade should be formed before the grader knows whose claim it is,
+because a grader who knows will anchor — and inter-evaluator agreement, the
+check on grader latitude, then partly measures the anchor instead of the claim.
+
+Stating that as a requirement rather than a fact, because the harness cannot
+currently deliver it: the evaluate contract has the evaluator read
+`predictions/<predictor_id>/<run_id>/prediction.json` and write under a path
+keyed on the same id, so identity is unavoidable today. The nearest existing
+precedent is narrower than blinding — the evaluator forms its big-case read
+before looking at the predictor's `big_case_score`, which blinds it to the
+predictor's *number*, not to which predictor it is. Closing the gap needs a
+harness change, and that is a precondition on scoring semantic claims, not a
+detail of it.
 
 ## The scoring rule
 
@@ -110,11 +136,11 @@ one, for two reasons:
 - **Ratios do not add up.** Summing `1 - b₁/b₀` across claims is not a quantity
   with a meaning; summing Brier differences is, and the whole point of a
   decomposition is that the parts compose.
-- **The ratio is undefined exactly where claims are most common.** It divides by
-  the baseline's Brier, which is zero whenever the baseline predicted the outcome
-  perfectly — and the existing implementation returns `None` there. On claims with
-  extreme baselines ("a dissent is filed" against a term where one always is) that
-  is most of the set.
+- **The ratio degenerates at the endpoints.** It divides by the baseline's
+  Brier, which is zero exactly when the baseline is 0 or 1 and matched the
+  outcome — the existing implementation returns `None` there. Near the endpoints
+  it is defined but explosive, and claims with near-certain baselines ("a dissent
+  is filed") are common in any real claim set.
 
 The two are not in conflict: the ratio answers "how much better than the
 baseline, proportionally", for one headline number. The difference answers "how
@@ -126,6 +152,28 @@ A mean rewards abstention. Drop the hardest claim and the mean rises, with no
 loss anywhere — precisely the wrong incentive when the point is to elicit more
 bits. Under a sum, declining a hard claim moves the total by zero and the
 predictor simply earns less.
+
+### No claim may be derived from another
+
+A sum over claims assumes the claims are separate bets. Where one claim is a
+deterministic function of others, they are not, and a predictor with a single
+genuine edge can bank it twice by claiming both — with no correlation penalty,
+because the rule scores each claim independently.
+
+This is a different exploit from the base-rate spray above, and the propriety
+argument does not rule it out: reporting your true belief on *both* a claim and
+its derivative is honest, and still collects the same insight twice.
+
+Two live instances: `actual_granted` is a projection of `actual_disposition`, and
+a vote split is a tally of the individual votes. So the claim set must be
+**non-redundant** — a set in which no claim is entailed by the others. Where a
+coarser and a finer claim both exist, the finer one is the claim (per-justice
+votes, not the split derived from them), because it carries more bits and the
+coarse one adds none.
+
+Non-redundancy is a property of the declared claim set, not something the scoring
+rule can enforce, which is why the set has to be declared and fixed rather than
+assembled per prediction.
 
 ### The comparability limit, which is real
 
@@ -155,20 +203,25 @@ Claim scores never alter `correct`, `brier_score`, `vote_accuracy`, or
 `brier_skill_score`. They are a separate block, segmented the way the leakage
 assessment is: they describe a cell without changing the numbers it is ranked on.
 
-That is a starting posture, not a permanent one. Folding claim scores into a
-headline would be a process change, so it moves the process digest and belongs to
-its own decision.
+That is a starting posture, not a permanent one — but note where the process
+digest actually moves, because it is not where it looks. The digest hashes the
+prompt bytes and the resolved actor config, so it moves as soon as a **prompt**
+asks for claims: that is the advisory step, not the folding-in step. Composing a
+headline differently is a `leaderboard` / `pipeline.evaluate` edit and moves no
+digest at all. What folding-in would break is comparability with cells already
+blessed under an earlier digest, which is a promotion-time decision rather than a
+digest one.
 
 ## What is scoreable today
 
-Of the ten claims above, **one** can be scored now.
+Of the eight claims above, **one** can be scored now.
 
 | Claim | Blocked on |
 | --- | --- |
-| Disposition, petition granted | — *scoreable now* |
-| Vote split, each justice's vote | `Outcome.votes` is `[]` in every committed outcome; nothing populates it |
+| Disposition | — *scoreable now* |
+| Each justice's vote | `Outcome.votes` is `[]` in every committed outcome; nothing populates it |
 | Majority author, concurrence, dissent | No field on `Outcome`, and no ingestion channel supplies one |
-| All semantic claims | `opinion_text` is empty on every corpus row; the evaluator has nothing to read |
+| All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
 
 There is a further gap above all of these: the taxonomy describes a **merits**
 prediction, and the pipeline currently produces none. Every committed event is a
