@@ -70,6 +70,28 @@ class EventKind(StrEnum):
     order = "order"
 
 
+class Stage(StrEnum):
+    """Which decision standard governs an event — the parameter that selects an
+    aggregation rule (:mod:`fedcourtsai.pipeline.aggregation`) and an observation
+    mask (``docs/decision-model.md``).
+
+    Orthogonal to :class:`EventKind`, which names the *filing that opened* an
+    event. A merits decision is not a filing, so it is a stage rather than a
+    kind. Stage is also the within-SCOTUS analogue of a caution
+    ``metrics/README.md`` already carries across courts: ``granted`` denotes cert
+    on a petition and relief on a stay application, and carrying the stage in the
+    record says so where prose otherwise has to.
+
+    Where an event declares no stage the rule lookup yields nothing rather than
+    guessing — true of a circuit motion, which has no Supreme Court decision
+    standard at all.
+    """
+
+    cert = "cert"
+    interim = "interim"
+    merits = "merits"
+
+
 class GroupBy(StrEnum):
     """A dimension the ``stats`` aggregation buckets base-rates by.
 
