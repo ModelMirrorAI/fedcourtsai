@@ -592,7 +592,9 @@ give the data **invariants** worth asserting on their own, distinct from
   id is duplicated (opinion-presence checks read the retained `has_opinion`
   bit; payload integrity is the content store's write-once discipline).
 - **Referential integrity** — every judgment references an event and case that
-  exist in the corpus, and every evaluation targets a real prediction.
+  exist in the corpus, every evaluation targets a real prediction, and every
+  prose document a prediction names exists beside it (so a pointer to a document
+  the cell never wrote fails rather than passing as a valid record).
 
 The corpus-dependent layers run as `fedcourts validate-corpus`, **produced
 where the corpus is already pulled** (a non-blocking trailing step on the

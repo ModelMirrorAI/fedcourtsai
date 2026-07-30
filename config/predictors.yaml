@@ -80,7 +80,8 @@ predictors:
     mcp_servers: [courtlistener]
     description: >-
       Baseline Claude Code predictor. Reads the case snapshot and event, emits a
-      calibrated grant/deny probability, panel votes, and a reasoning document.
+      calibrated grant/deny probability, panel votes, its own rationale, and a
+      separate forecast of the court's reasoning.
 
   - id: codex-baseline
     engine: codex

@@ -2,7 +2,7 @@
 # Each enabled evaluator scores EVERY predictor's prediction for a resolved
 # event (evaluator x predictor fan-out). Quantitative scores (correctness,
 # Brier, vote accuracy) are computed identically in code; evaluators add the
-# qualitative judgment of the predicted reasoning.
+# qualitative judgment of the predictor's own rationale (`reasoning.md`).
 
 # Tool manifest: same shape and rules as config/predictors.yaml —
 # pinned MCP servers, referenced per evaluator by id, echoed into each cell's

@@ -142,7 +142,10 @@ reuses the stub's deterministic evaluate path, so an evaluate cell computes a
 non-degenerate Brier score and vote accuracy, and the leaderboard rolls up real
 numbers — all offline and token-free. `tests/test_replay.py` drives that consume
 path over the cassette; capturing a fresh cassette is a record-once step (run a real
-cell, copy its `prediction.json` / `reasoning.md` under `tests/cassettes`).
+cell, copy its `prediction.json` / `reasoning.md` — and its `predicted_reasoning.md`
+if the cell wrote one — under `tests/cassettes`). A cassette carrying no
+`predicted_reasoning.md` replays as a prediction that names none, which is what makes
+the committed cassette double as the fixture for that valid shape.
 
 **A fixture corpus.** A tiny synthetic corpus, built deterministically by
 `fedcourts make-fixture-corpus`, stands in for the S3-hosted corpus so

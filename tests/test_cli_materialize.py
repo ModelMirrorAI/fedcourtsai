@@ -13,6 +13,7 @@ runner = CliRunner()
 
 
 def _write_prediction(data_root: Path, court: str, docket: int, event: str) -> None:
+    """A complete predict cell: the prediction plus the prose its pointers name."""
     ep = CasePaths(data_root, court, docket).event(event)
     write_json(
         ep.prediction("claude-baseline", "2026-06-28T00-00-00Z"),
@@ -27,7 +28,12 @@ def _write_prediction(data_root: Path, court: str, docket: int, event: str) -> N
             granted=1,
             probability=0.7,
             predicted_disposition=Disposition.granted,
+            predicted_reasoning_doc="predicted_reasoning.md",
         ),
+    )
+    ep.reasoning("claude-baseline", "2026-06-28T00-00-00Z").write_text("why this number\n")
+    ep.predicted_reasoning("claude-baseline", "2026-06-28T00-00-00Z").write_text(
+        "what the court will do\n"
     )
 
 

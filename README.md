@@ -185,7 +185,8 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
   outcome.json                   # ground truth, once the event resolves
   predictions/<predictor_id>/<run_id>/
     prediction.json              # quantitative: granted 1/0, P(granted), votes
-    reasoning.md                 # qualitative: predicted reasoning
+    reasoning.md                 # qualitative: why this number
+    predicted_reasoning.md       # qualitative: what the court will do, and why
   evaluations/<evaluator_id>/<predictor_id>/<run_id>/
     evaluation.json
     evaluation.md

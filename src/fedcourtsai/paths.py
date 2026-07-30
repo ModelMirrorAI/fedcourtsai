@@ -16,7 +16,8 @@ there, read-only for one run (the tree is gitignored, never committed).
         events/<event_id>/
             event.yaml
             outcome.json
-            predictions/<predictor_id>/<run_id>/{prediction.json,reasoning.md,flags.json?}
+            predictions/<predictor_id>/<run_id>/{prediction.json,reasoning.md,
+                                                predicted_reasoning.md?,flags.json?}
             evaluations/<evaluator_id>/<predictor_id>/<run_id>/{evaluation.json,evaluation.md}
             evaluations/<evaluator_id>/<run_id>/flags.json?
 
@@ -53,7 +54,15 @@ class EventPaths:
         return self.prediction_dir(predictor_id, run_id) / "prediction.json"
 
     def reasoning(self, predictor_id: str, run_id: str) -> Path:
+        # The predictor's rationale for its own numbers (`reasoning_doc`).
         return self.prediction_dir(predictor_id, run_id) / "reasoning.md"
+
+    def predicted_reasoning(self, predictor_id: str, run_id: str) -> Path:
+        # The forecast of the Court's own reasoning (`predicted_reasoning_doc`) —
+        # claims that resolve against the docket, kept out of the rationale above
+        # so the two can be read, and later scored, separately. The pointer is
+        # optional, so a prediction may name no document here.
+        return self.prediction_dir(predictor_id, run_id) / "predicted_reasoning.md"
 
     def prediction_flags(self, predictor_id: str, run_id: str) -> Path:
         # A predict cell's optional flags.json, alongside its prediction.

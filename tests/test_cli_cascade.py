@@ -17,6 +17,11 @@ RESOLVED = ["--court", "ca9", "--docket", "101"]
 _N_PRED = len(enabled_predictors(Path("config") / "predictors.yaml"))
 _N_EVAL = len(enabled_evaluators(Path("config") / "evaluators.yaml"))
 
+# A predict cell writes prediction.json, reasoning.md, and predicted_reasoning.md;
+# an evaluate cell an evaluation.json + evaluation.md pair per predictor scored.
+_DOCS_PER_PREDICTION = 3
+_DOCS_PER_EVALUATION = 2
+
 
 def test_local_cascade_stub_reports_a_valid_run(fixture_corpus: FixtureCorpus) -> None:
     result = CliRunner().invoke(app, ["local-cascade", *RESOLVED, "--run-id", "20260628T120000Z"])
@@ -24,8 +29,8 @@ def test_local_cascade_stub_reports_a_valid_run(fixture_corpus: FixtureCorpus) -
     assert result.exit_code == 0, result.output
     assert "local-cascade ca9/101 via stub" in result.output
     assert "validate:    OK" in result.output
-    assert f"predictions: {_N_PRED * 2} file(s)" in result.output
-    assert f"evaluations: {_N_EVAL * _N_PRED * 2} file(s)" in result.output
+    assert f"predictions: {_N_PRED * _DOCS_PER_PREDICTION} file(s)" in result.output
+    assert f"evaluations: {_N_EVAL * _N_PRED * _DOCS_PER_EVALUATION} file(s)" in result.output
 
 
 def test_local_cascade_writes_validatable_artifacts(fixture_corpus: FixtureCorpus) -> None:

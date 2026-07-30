@@ -14,7 +14,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
-from fedcourtsai.paths import CasePaths
+from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.runner import (
     ClaudeCodeRunner,
     CodexRunner,
@@ -87,6 +87,17 @@ def _predict_request(data_root: Path, *, run: str = RUN, actor: str = PREDICTOR)
     )
 
 
+def _predict_artifacts(events: EventPaths, actor: str = PREDICTOR) -> list[Path]:
+    """The three documents a predict cell leaves, in the sorted order runners report."""
+    return sorted(
+        [
+            events.prediction(actor, RUN),
+            events.reasoning(actor, RUN),
+            events.predicted_reasoning(actor, RUN),
+        ]
+    )
+
+
 def _evaluate_request(data_root: Path) -> RunRequest:
     return RunRequest(
         role=UsageRole.evaluator,
@@ -155,7 +166,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     recorder = _Recorder()
     runner = ClaudeCodeRunner(command_runner=recorder)
 
-    # The agent "writes" the prediction pair the runner then reports.
+    # The agent "writes" the prediction documents the runner then reports.
     request = _predict_request(tmp_path / "data")
     StubRunner().run(request)
     written = runner.run(request)
@@ -179,7 +190,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert ".github/prompts/predict.md" in recorder.argv[recorder.argv.index("-p") + 1]
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
 
 
 def test_replay_request_exports_the_decided_before_clock(tmp_path: Path) -> None:
@@ -237,7 +248,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
     assert recorder.env["MODEL_ID"] == "gemini-3.1-pro-preview"
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
 
 
 def test_nonzero_exit_raises_engine_failed(tmp_path: Path) -> None:
@@ -252,7 +263,7 @@ def test_missing_binary_raises_engine_unavailable() -> None:
         _run_subprocess(["fedcourts-no-such-binary-xyz"], {})
 
 
-# --- transient-retry-with-backoff (issue #788 part 1) --------------------------
+# --- transient-retry-with-backoff --------------------------
 #
 # A cell that fails on a transient fault (429 / quota / 5xx / timeout) is retried
 # with exponential backoff + jitter; a permanent fault (content filter, context
@@ -291,7 +302,7 @@ def test_transient_failure_retries_then_succeeds(tmp_path: Path) -> None:
     assert seq.calls == 2  # failed once (transient), retried, succeeded
     assert len(sleeps) == 1  # exactly one backoff wait between the two tries
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
 
 
 def test_permanent_failure_is_not_retried(tmp_path: Path) -> None:
@@ -429,13 +440,13 @@ def test_backoff_delay_prefers_a_capped_retry_after() -> None:
 # --- predict -------------------------------------------------------------------
 
 
-def test_predict_writes_a_schema_valid_prediction_pair(tmp_path: Path) -> None:
+def test_predict_writes_the_schema_valid_prediction_documents(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     events = CasePaths(data_root, COURT, DOCKET).event(EVENT)
 
     written = StubRunner().run(_predict_request(data_root))
 
-    assert written == sorted([events.prediction(PREDICTOR, RUN), events.reasoning(PREDICTOR, RUN)])
+    assert written == _predict_artifacts(events)
     assert all(p.is_file() for p in written)
 
     prediction = read_model(events.prediction(PREDICTOR, RUN), Prediction)
@@ -451,6 +462,25 @@ def test_predict_writes_a_schema_valid_prediction_pair(tmp_path: Path) -> None:
         f"data/cases/{COURT}/{DOCKET}/record/snapshots/2026-06-28.json"
     )
     assert events.reasoning(PREDICTOR, RUN).read_text().endswith("\n")
+    # Both prose pointers name a document that is actually beside the prediction.
+    assert prediction.reasoning_doc == "reasoning.md"
+    assert prediction.predicted_reasoning_doc == "predicted_reasoning.md"
+    assert events.predicted_reasoning(PREDICTOR, RUN).read_text().endswith("\n")
+
+
+def test_predict_prose_documents_are_distinct(tmp_path: Path) -> None:
+    # The split's point: the forecast of the court's reasoning is its own document,
+    # not a copy of the predictor's rationale for its number.
+    data_root = tmp_path / "data"
+    events = CasePaths(data_root, COURT, DOCKET).event(EVENT)
+    StubRunner().run(_predict_request(data_root))
+
+    rationale = events.reasoning(PREDICTOR, RUN).read_text()
+    forecast = events.predicted_reasoning(PREDICTOR, RUN).read_text()
+    assert rationale != forecast
+    # The forecast speaks to what the court will do; the rationale to the number.
+    assert "Solicitor General" in forecast
+    assert "P(granted)" in rationale
 
 
 def test_predict_is_deterministic(tmp_path: Path) -> None:

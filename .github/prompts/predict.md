@@ -160,7 +160,7 @@ it wholesale. Each `query` prior carries its caption, dates, and derived
 `era`, and `--era` restricts retrieval to the case's own period. See
 `docs/cli.md`.
 
-## Outputs (your two files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)
+## Outputs (your three files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)
 
 Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTOR_ID/$RUN_ID/`:
 
@@ -190,11 +190,72 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     `big_case_rationale`. It is judged later by an independent evaluator's
     agreement with its own read, never against a ground truth.
   - `reasoning_doc` — `reasoning.md` (the default).
+  - `predicted_reasoning_doc` — `predicted_reasoning.md`. Always write the
+    document and name it. The field is nullable only so records written before it
+    existed still validate — not so a live cell can skip it. `validate` resolves
+    both pointers against the directory, so a named document that is not there
+    fails the cell, and so does a name carrying a path separator.
   - Do **not** write `process_version` — the harness stamps it after you run, from
     the registry in force at run time. Anything you put there is overwritten.
-- **`reasoning.md`** — your qualitative analysis: the legal question, the governing
-  standard, the facts from the snapshot that drive the outcome, and the reasoning
-  behind your probability and any predicted votes.
+
+**Your two prose documents are different objects — keep them apart.** One is a
+*forecast* that the docket will later confirm or refute; the other is your
+*self-justification* for the number you wrote. Merged, neither can be read for what
+it is, and the forecast cannot be scored because it cannot be separated from the
+rationale. Write both.
+
+Two of the claims below are the ones this forecast is designed to make scoreable:
+whether the petition is relisted and whether the Court calls for the Solicitor
+General's views. The corpus already tracks both signals, so a specific forecast
+here is one a reader can check against what happened — though scoring it
+mechanically also needs the value *as at resolution* recorded on the outcome,
+which nothing does yet (`docs/outcome-decomposition.md`). Write it as if it will
+be scored, because that is the point of separating it.
+
+- **`predicted_reasoning.md`** — your forecast of what the **Court** will do with
+  this event and why: claims about the future, no hedging about your own process.
+  Most events are cert petitions, and there the resolvable claims are procedural
+  rather than doctrinal: no *majority* opinion accompanies a denial, so predicting
+  an author or a concurrence forecasts nothing. Where the event is something else —
+  a stay or other substantive application, or a court-of-appeals matter — forecast
+  what that event actually resolves to, not a relist that cannot happen to it.
+  Cover what you can commit to:
+  - Whether the petition will be **relisted**, and roughly how many times (the
+    corpus counts conference distributions).
+  - Whether the Court will **call for the views of the Solicitor General** (a CVSG),
+    and if so roughly when.
+  - **Which question presented** the Court would take, if it takes one — the
+    petition's QP as written, a narrowed version, or a reformulation.
+  - Whether a **summary disposition** is the likelier route than plenary review (a
+    GVR in light of an intervening decision, a per curiam reversal).
+  - Any **dissent from denial** or statement respecting denial you expect, and from
+    whom.
+  Merits-shaped content belongs here only **conditionally**: "if granted, the
+  likely ground is …", never as an unconditional claim about an opinion that a
+  denial will never produce.
+  Worked example, in miniature: *"Expect two relists before a decision on the
+  petition — the QP is a clean circuit split and the CA5 opinion is short, so the
+  Court has little to work around; no CVSG, because no federal party's interest is
+  implicated. If granted, the Court would take QP 1 as written and leave QP 2's
+  vagueness challenge behind. A summary GVR is unlikely: no intervening decision
+  bears on the split. Should it deny, expect no separate writing."*
+- **`reasoning.md`** — your rationale for **your own numbers**: why this probability
+  (and any predicted votes) and not another. What in the provisioned snapshot and
+  the filed documents drove it, which base rates you anchored on and what you
+  adjusted from them, what you are uncertain about, and where a reader should
+  discount you. This is where a
+  degraded input, a missing snapshot, or an outcome you already knew gets recorded.
+  It resolves against nothing and is not scored as a forecast — so be candid rather
+  than confident.
+  Worked example, in miniature: *"P(grant) 0.11. The prior-Term salience band for a
+  once-distributed paid petition is ~4%; I adjust up because the QP is a
+  well-developed split the BIO does not contest, and the petitioner is a repeat
+  Supreme Court advocate. I adjust back down because the CA5 opinion is unpublished,
+  which the Court usually treats as a poor vehicle. My main uncertainty is vehicle
+  quality: the record on the second question is thin and I cannot tell from the
+  filings whether the issue was preserved below. `documents.json` shows the BIO
+  fetched with `empty_text: true`, so my read of the opposition is inference from
+  the docket, not from its text."*
 - **`retrieval.md`** — your retrieval log: what you consulted beyond the provisioned
   inputs, so the record shows what informed this prediction (what you consult is
   logged, not limited). List each corpus lookup (the `fedcourts` command line and the
