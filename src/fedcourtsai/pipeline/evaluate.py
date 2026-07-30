@@ -112,6 +112,31 @@ def brier_skill_score(
     return brier_skill(brier_score(prediction, outcome), outcome.actual_granted, base_rate)
 
 
+def claim_score(p: float, y: int, b: float) -> float:
+    """One claim's score: the baseline's Brier minus the forecast's.
+
+    ``(b - y)**2 - (p - y)**2``, for predicted probability ``p``, realized outcome
+    ``y`` in {0, 1}, and harness-computed baseline ``b``. Positive when the forecast
+    landed closer to the outcome than the baseline did, negative when a bold call
+    missed.
+
+    **Proper.** For a fixed ``b`` the score differs from ``-(p - y)**2`` by a term
+    that depends on ``b`` and ``y`` but not on ``p``, so nothing done to ``p`` can
+    move it; expected score is therefore maximized by reporting the probability
+    actually held. (Not an affine transform in the usual sense — the added term
+    varies with ``y`` — but the ``p``-independence is what propriety needs, and it is
+    exact.)
+
+    **Restating the baseline is worth nothing.** At ``p == b`` the score is
+    identically 0 for *either* outcome, realized and not merely in expectation.
+
+    The difference form rather than :func:`brier_skill`'s ratio, because per-claim
+    scores are summed and a ratio does not compose — and because the ratio explodes
+    near the endpoints where these baselines live.
+    """
+    return (b - y) ** 2 - (p - y) ** 2
+
+
 def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
     """Fraction of predicted panel votes that matched, if votes were predicted."""
     if not prediction.votes or not outcome.votes:

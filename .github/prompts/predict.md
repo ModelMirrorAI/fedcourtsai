@@ -206,11 +206,10 @@ rationale. Write both.
 
 Two of the claims below are the ones this forecast is designed to make scoreable:
 whether the petition is relisted and whether the Court calls for the Solicitor
-General's views. The corpus already tracks both signals, so a specific forecast
-here is one a reader can check against what happened — though scoring it
-mechanically also needs the value *as at resolution* recorded on the outcome,
-which nothing does yet (`docs/outcome-decomposition.md`). Write it as if it will
-be scored, because that is the point of separating it.
+General's views. Both are recorded on the outcome as at resolution, so a specific
+forecast here resolves against a fixed record rather than a moving column — it
+is checkable, and meant to be checked. Write it that way: a claim you would be
+willing to be scored on, not a hedge.
 
 - **`predicted_reasoning.md`** — your forecast of what the **Court** will do with
   this event and why: claims about the future, no hedging about your own process.
