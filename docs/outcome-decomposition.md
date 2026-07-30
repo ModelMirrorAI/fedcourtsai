@@ -12,9 +12,10 @@ carries one, and no prompt asks for one. It is pre-registration: the
 decomposition and the rule are settled here, before there is data to fit them to,
 because that is the only order in which the choice of rule is credible.
 
-The rule is implementable today. Most of the *claims* are not — the corpus does
-not yet carry what they resolve against, and *What is scoreable today* says
-exactly which and why.
+The rule is implementable today, and so are three cert-stage claims once one
+field is added to the outcome record. The merits claims — vote splits, authorship,
+doctrinal grounds — are blocked on data that is not scheduled. *What is scoreable
+today* separates the two, because the difference is the whole plan.
 
 ## Naming
 
@@ -38,23 +39,45 @@ A **claim** is a proposition about a case's outcome that
 
 1. resolves to true or false from a source fixed before the prediction is scored,
 2. carries the predictor's probability that it is true, and
-3. has a **baseline** probability derived from history, independent of the
-   forecast.
+3. has a **baseline** probability computed by the harness from history strictly
+   prior to the prediction, never supplied by the predictor.
 
 All three are load-bearing. Without (1) a claim is rhetoric. Without (2) it
-cannot be properly scored. Without (3) there is nothing to beat, and a claim that
-cannot be beaten cannot earn credit.
+cannot be properly scored. Without (3) there is nothing to beat — and if the
+predictor sets the baseline, the rule is trivially gamed.
 
-A predictor may **decline** any claim. Declining is not an admission and carries
-no penalty — see the scoring rule.
+Condition (1) binds the baseline as well as the outcome: both have to be fixed
+before scoring, or a claim resolves against a moving target. That is a live
+constraint rather than a formality, because the cert-stage signals below live in
+mutable corpus columns — see *What is scoreable today*.
+
+Every claim in the declared set is answered. There is no declining, for reasons
+set out under *Why the set is mandatory*.
 
 ### Mechanical claims
 
-Resolved in code against `outcome.json`. No reader, no latitude.
+Resolved in code, no reader and no latitude. They split by event kind, because
+the pipeline predicts cert-stage events and the merits claims below describe a
+decided case.
+
+**Cert-stage** — the events that actually exist:
 
 | Claim | Resolves against |
 | --- | --- |
 | Disposition | `Outcome.actual_disposition` |
+| The petition is relisted at least once | `distribution_count` past its value at prediction time |
+| The Court calls for the Solicitor General's views | `cvsg_date` becoming non-null |
+
+These are the ones worth attention, because their signals are already populated:
+`distribution_count` is set on every live SCOTUS row and `cvsg_date` on the
+petitions that have one. A relist or a CVSG is also a genuine forward call — it
+happens days after a conference distribution, which is exactly when a prediction
+is committed.
+
+**Merits** — a decided case, which the pipeline does not yet produce:
+
+| Claim | Resolves against |
+| --- | --- |
 | Each justice's vote | `Outcome.votes`, per justice |
 | Majority author | *no field yet* |
 | A concurrence is filed | *no field yet* |
@@ -94,108 +117,225 @@ detail of it.
 
 ## The scoring rule
 
-Each claim is scored **against its own baseline**, and the claim set's score is
-the **sum** of those per-claim scores.
+The claim set is **fixed and mandatory**: the harness declares, per event kind,
+exactly which claims a prediction carries, and a predictor states a probability
+for every one of them. It cannot add claims and it cannot skip them. *Why the set
+is mandatory* explains why that is not the obvious design and is nonetheless the
+right one.
 
-For a claim with predicted probability `p`, outcome `y ∈ {0,1}`, and baseline
-`b`:
+For a claim with predicted probability `p`, outcome `y` in {0,1}, and a
+harness-computed baseline `b`:
 
 ```
-score = (b - y)² - (p - y)²
+score = (b - y)^2 - (p - y)^2
 ```
 
-That is the Brier score of the baseline minus the Brier score of the forecast —
-the *difference* form of Brier skill. Three properties follow, and they are
-exactly the three constraints the decomposition has to satisfy.
+the Brier score of the baseline minus the Brier score of the forecast. The claim
+set's score is the **sum** over its claims.
 
-**Declining forgoes bits rather than being penalized.** A declined claim scores
-0, and is excluded from any per-claim average. Silence is neutral, so a predictor
-never gains by claiming something it has no view on, and never loses by admitting
-it has none.
+`b` is the harness's, never the predictor's. A predictor that supplied its own
+baseline would maximize trivially by declaring one far from the outcome — at
+`b = 0` against `y = 1`, a full point per claim. So `b` is computed from history
+under the same strictly-prior-Term guard `segment_base_rate` uses, pinned before
+the outcome exists, and stamped into the evaluation like `usage.json` and the
+process version: a harness field, not an agent's word.
 
-**A claim at the baseline earns nothing.** Set `p = b` and the score is exactly
-0. Restating the base rate is worth precisely as much as saying nothing, which is
-what it is worth. This is what stops shotgunning: a spray of claims at their base
-rates sums to zero.
+Disposition is the one multi-class claim; it takes the sum of per-value Brier
+terms, which has the same properties. Everything else is binary.
 
-**Being confidently wrong costs.** The score is negative whenever the forecast is
-further from the outcome than the baseline was, so volume is not free. A
-predictor maximizes its total by claiming exactly what it knows and no more.
+### What the rule does and does not protect against
 
-And it stays **proper**. For a fixed `b` the score is a positive affine transform
-of `-(p - y)²`, so it is maximized in expectation by reporting the probability the
-predictor actually believes. Because `b` comes from history and never from the
-forecast, the transform cannot be gamed by moving `p`.
+Three properties hold exactly, and one hoped-for property does not.
 
-### Why the difference form, not the repo's ratio form
+**Reporting the baseline scores exactly zero.** Set `p = b` and the score is 0
+for *either* outcome — realized, not merely in expectation. Restating the
+baseline is worth precisely nothing, which is what it is worth.
 
-`pipeline.evaluate.brier_skill` uses the **ratio** `1 - brier / baseline_brier`,
-and the headline metrics keep using it. Per claim the difference form is the right
-one, for two reasons:
+**Honest reporting is optimal.** For a fixed `b`, the score differs from
+`-(p - y)^2` by a term that depends on `b` and `y` but **not on `p`**, so nothing
+a predictor does to `p` can move it. Expected score is therefore maximized by
+reporting the probability the predictor actually holds. (Not an affine transform
+in the usual sense — the added term varies with `y` — but the `p`-independence is
+what propriety needs, and it is exact.)
 
-- **Ratios do not add up.** Summing `1 - b₁/b₀` across claims is not a quantity
-  with a meaning; summing Brier differences is, and the whole point of a
-  decomposition is that the parts compose.
-- **The ratio degenerates at the endpoints.** It divides by the baseline's
-  Brier, which is zero exactly when the baseline is 0 or 1 and matched the
-  outcome — the existing implementation returns `None` there. Near the endpoints
-  it is defined but explosive, and claims with near-certain baselines ("a dissent
-  is filed") are common in any real claim set.
+**A confident miss costs.** The score is negative whenever the forecast sits
+further from the outcome than the baseline did, so a bold wrong call is paid for.
 
-The two are not in conflict: the ratio answers "how much better than the
-baseline, proportionally", for one headline number. The difference answers "how
-many Brier units did this claim earn", which is what a sum needs.
+**But volume is not penalized, and information-free volume is not worthless.**
+This is the correction that matters most, and it is where the first draft of this
+document was wrong.
 
-### Why a sum, not a mean
+Writing `pi` for a claim's true probability, the expectation is
 
-A mean rewards abstention. Drop the hardest claim and the mean rises, with no
-loss anywhere — precisely the wrong incentive when the point is to elicit more
-bits. Under a sum, declining a hard claim moves the total by zero and the
-predictor simply earns less.
+```
+E[score] = (pi - b)^2 - (pi - p)^2
+```
+
+Two things follow. Honest reporting (`p = pi`) earns `(pi - b)^2`, which is **at
+least 0 always and strictly positive whenever the baseline is not exactly
+right**. And there is no `pi` and `b` for which declining a claim beats
+attempting it honestly — so attempting everything is weakly dominant, and
+"declining forgoes bits" was never a real trade-off.
+
+The consequence is sharper than it looks. A predictor with **no case-specific
+information at all**, reporting only the correct long-run rate for that claim
+type, collects `(pi - b)^2` per claim, every claim, forever. It grows linearly in
+the size of the claim set.
+
+That is not hypothetical here. This repo's baseline configuration pools every
+prior Term (`salience.base_rate_lookback_terms` ships at `0`), while the per-Term
+band rates span roughly 26%–48%. A predictor that reports the *recent* rate
+rather than the pooled one banks about `(0.40 - 0.30)^2 = 0.01` a claim, knowing
+nothing about the case. Where `b` is estimated from `n` prior observations at
+all, the free expectation is about `pi(1-pi)/n`.
+
+So a positive claim total is **not** evidence of case-level skill.
+
+### The floor, which is not optional
+
+Because information-free volume pays, a claim total is unreadable alone. It
+travels with a **floor** and the **lift** over it, exactly as an accuracy figure
+travels with the always-deny floor:
+
+- the **floor** is the total earned by a control that reports, for every claim,
+  the unconditional rate for that claim type over a recent window;
+- the **lift** is the predictor's total minus that floor.
+
+The lift is the number that carries a claim about skill. The raw total is
+descriptive. Publishing the total without the floor beside it would repeat, on a
+new surface, the mistake `metrics/README.md` already forbids for accuracy.
+
+Two supporting requirements: each claim's baseline needs a stated minimum
+observation count and a smoothing rule, since the free expectation is largest
+exactly where the history is thinnest; and the baseline's lookback window has to
+be stated with the figure, because moving it re-bases every claim score at once
+and a comparison across the change is not a comparison.
+
+### Why the set is mandatory
+
+Letting a predictor decline claims looks generous and is a trap.
+
+Reporting `p = b` already scores identically zero, so a predictor with no view
+loses nothing by saying so numerically. Declining buys it nothing the baseline
+does not already give — except concealment. And it introduces two problems that a
+mandatory set does not have.
+
+**Coverage becomes a confound.** Two predictors attempting different claim sets
+have incomparable totals: one that claimed only the easy half can outscore one
+that took on everything and did well.
+
+**Restricting to the shared claims does not fix it.** The intersection is itself
+selected. A predictor attempts a claim when it expects to do well on it, so
+attempt and error correlate by construction, and a predictor with good
+*self-knowledge* — declining precisely the claims it would botch — wins every
+intersection comparison without being a better forecaster over the fixed set.
+That is skill at claim selection wearing forecasting's clothes. The intersection
+describes the selection; it does not remove it. Worse, the intersection differs
+per pair, so intersection totals are not transitive and there is no comparable
+column to rank on at all.
+
+A fixed mandatory set dissolves all of this: coverage is 100% by construction,
+totals share a denominator, and the selection effect has nowhere to live.
 
 ### No claim may be derived from another
 
 A sum over claims assumes the claims are separate bets. Where one claim is a
-deterministic function of others, they are not, and a predictor with a single
-genuine edge can bank it twice by claiming both — with no correlation penalty,
-because the rule scores each claim independently.
+deterministic function of others they are not, and a single insight gets paid for
+twice — with no correlation penalty, because each claim is scored independently.
+Propriety does not rule this out: reporting an honest belief on both a claim and
+its derivative is honest, and still double-counts.
 
-This is a different exploit from the base-rate spray above, and the propriety
-argument does not rule it out: reporting your true belief on *both* a claim and
-its derivative is honest, and still collects the same insight twice.
+Two live instances. `actual_granted` is a projection of `actual_disposition`
+(`pipeline.outcome.granted_flag`), so they are one claim, not two. And a vote
+split is a tally of the individual votes, so a predictor could re-encode "6-3" as
+nine per-justice claims and multiply the same information ninefold.
 
-Two live instances: `actual_granted` is a projection of `actual_disposition`, and
-a vote split is a tally of the individual votes. So the claim set must be
-**non-redundant** — a set in which no claim is entailed by the others. Where a
-coarser and a finer claim both exist, the finer one is the claim (per-justice
-votes, not the split derived from them), because it carries more bits and the
-coarse one adds none.
+So the declared set must be **non-redundant** — no claim entailed by the others —
+and where a coarse and a fine claim both exist, the fine one is the claim,
+because it carries more and the coarse one adds nothing.
 
-Non-redundancy is a property of the declared claim set, not something the scoring
-rule can enforce, which is why the set has to be declared and fixed rather than
-assembled per prediction.
+This also fixes the weighting, which is otherwise silent and accidental: nine
+per-justice claims against one disposition claim weights the vote dimension nine
+to one. That ratio is a real choice about what the score measures, so the harness
+declares it rather than letting the claim census decide it.
 
-### The comparability limit, which is real
+### Why the difference form, not the repo's ratio form
 
-Because declining is free, two predictors can attempt **different claim sets**,
-and their totals are then not comparable — a predictor that claimed only the easy
-half can post a higher total than one that took on everything and did well.
+`pipeline.evaluate.brier_skill` uses the **ratio** `1 - brier / baseline_brier`,
+and the headline metrics keep using it. Per claim the difference is the right
+form:
 
-So a total is comparable only at equal coverage. Reporting requires:
+- **The baseline cancels in a head-to-head.** On a shared claim set,
+  `score_A - score_B = (pi - p_B)^2 - (pi - p_A)^2` — the baseline term drops out
+  entirely. So a pairwise comparison at equal coverage is *immune* to the
+  baseline error the floor above exists to bound. This is the strongest argument
+  for the difference form, and it is why head-to-head is the defensible
+  comparison.
+- **Ratios do not compose.** Summing `1 - b1/b0` across claims is not a quantity
+  with a meaning; summing Brier differences is, and a decomposition whose parts
+  cannot be added is not a decomposition.
+- **The ratio is unstable where the baselines live.** It is undefined when the
+  baseline's Brier is zero (the implementation returns `None`), and near the
+  endpoints it explodes: at the baseline band's `b = 0.009`, a `y = 0` outcome
+  and `p = 0.3` give a ratio skill of about **-1110** where the difference form
+  gives **-0.09**.
 
-- the attempted and declined counts beside every total, and
-- for any comparison between predictors, the per-claim scores restricted to the
-  claims **both** attempted.
+The two forms answer different questions, so both stay. Worth noting that the
+existing code already takes *means of ratios* (`leaderboard`'s
+`mean_brier_skill_score`, and the cert back-test's equivalent), which inherits
+that unbounded negative tail — one baseline-band cell can dominate the mean. That
+is a live property of the current metrics, not something this document introduces.
 
-Publishing a bare total across predictors with unequal coverage would be a
-ranking of claim selection dressed as a ranking of forecasting.
+### Why a sum, not a mean
 
-### The claim set is a grid
+Over a mandatory set the two differ only by a constant factor, so the choice is
+presentational. It matters for what gets reported: a mean over *attempted* claims
+would reward declining, which is one more reason the set is mandatory.
 
-A scored claim set is a per-claim score table, and a table invites picking the row
-that came out well. The headline is the total over a stated claim set; a
-per-claim score is diagnostic. A claim singled out after the fact is a
-description of that claim, not evidence about the predictor.
+### Reading a total honestly
+
+**It is not bits.** The motivation for decomposing an outcome is that the parts
+carry far more information than a disposition label, but Brier differences are
+not information and do not add as bits. The rule whose sum *is* bits over
+baseline is the log-score difference; Brier is chosen instead because the log
+score is unbounded as `p` approaches 0, and an agent-authored probability of zero
+is a live risk rather than a theoretical one. The total is in Brier units and
+should never be described as bits earned.
+
+**It needs a denominator and a stratum.** A total accumulates over claims and
+over events, so it is reported per event with the event count beside it, and it
+is never pooled across the forward, retrospective, and procedural strata —
+`metrics/README.md` forbids that for every other metric and nothing here is an
+exception.
+
+**One claim can be the whole total.** Extreme baselines are asymmetric: at
+`b = 0.95` a `y = 1` outcome caps the earnable at 0.0025, while a `y = 0`
+surprise pays up to 0.90. So a single lucky surprise can swamp dozens of honest
+calls. Report the largest single-claim contribution beside the total, so a total
+that is one claim in disguise is visible in the same breath.
+
+**It is a grid.** A per-claim score table invites picking the row that came out
+well. The headline is the total over the declared set; a per-claim score is
+diagnostic, and a claim singled out afterwards describes that claim rather than
+the predictor.
+
+**It is not a rank key.** Its variance is unbounded above and a bold uninformed
+spray has a fat right tail, so on the leaderboard's N-unweighted point estimates
+variance-seeking would buy rank. Claim totals report head-to-head at equal
+coverage, with the floor and the event count.
+
+### Replay cells cannot produce a claimable total
+
+A replay cell's case is decided and its opinion is public, so every claim in the
+set is *retrievable* rather than forecastable. Each claim can earn up to about a
+full Brier unit, so a contaminated replay total is the largest number this
+surface can produce — an impressive figure manufactured entirely by retrieval.
+
+Replay claim totals are iteration instruments only, and never claimable, on the
+same footing as every other back-test number. The leakage grading also has to
+reach claim level before the block is populated: it currently grades
+outcome-revealing retrieval for the disposition, and a claim set widens what
+"the outcome" means.
 
 ## Advisory, and segmented
 
@@ -214,32 +354,57 @@ digest one.
 
 ## What is scoreable today
 
-Of the eight claims above, **one** can be scored now.
+Three claims can be scored on the events the pipeline actually produces, and one
+of the three needs a schema change first.
 
-| Claim | Blocked on |
+| Claim | State |
 | --- | --- |
-| Disposition | — *scoreable now* |
-| Each justice's vote | `Outcome.votes` is `[]` in every committed outcome; nothing populates it |
-| Majority author, concurrence, dissent | No field on `Outcome`, and no ingestion channel supplies one |
+| Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
+| Relisted at least once | Signal populated on every live SCOTUS row, but see *the resolution source* below |
+| CVSG | Signal populated where it applies, same caveat |
+| Each justice's vote | `Outcome.votes` is `[]` in every committed outcome, and nothing populates it. `JudgeVote.vote` is also typed as a disposition, a vocabulary with no majority/dissent member, so a merits vote claim needs a schema change as well as data |
+| Majority author, concurrence, dissent | No field on `Outcome`, and nothing on the corpus row carries authorship for a modern case |
 | All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
 
-There is a further gap above all of these: the taxonomy describes a **merits**
-prediction, and the pipeline currently produces none. Every committed event is a
-petition, appeal, or motion disposition — cert-stage work. Vote splits, authorship
-and concurrences are properties of a decided case on the merits, which is a class
-of prediction that does not exist yet.
+### The resolution source, which is the real blocker for the cert-stage claims
 
-So this document is pre-registration, deliberately. The decomposition and the
-scoring rule are settled now, before there is data to fit them to, which is the
-only order in which the choice of rule is credible. `metrics/README.md` governs
-what may be claimed from a number; nothing here may be published as a result
-until the claims it scores can actually resolve.
+`distribution_count` and `cvsg_date` are **corpus** columns, and the corpus is
+mutable: they carry the current value, not the value at any fixed moment. That
+breaks condition (1) — a claim has to resolve against a source fixed before
+scoring — in a way that is easy to miss, because the claim looks scoreable and the
+number looks right.
+
+Two distinct problems. Resolving "relisted at least once" needs the value *after*
+the prediction and *at* resolution, but a petition already has one distribution
+when it is predicted, so the claim is about a later increment that no committed
+artifact records. And re-scoring the same cell a month later would read a
+different column value, so the score is not reproducible — which for a
+pre-registration record is disqualifying.
+
+The fix is small and belongs on the outcome, not on the scoring: `outcome.json`
+records the relist count and the CVSG status **as at resolution**, alongside the
+disposition it already records. Then the cert-stage claims resolve against an
+immutable committed artifact like everything else, and the same cell scores the
+same way forever.
+
+### What that adds up to
+
+The merits half of this document is blocked on data that is not scheduled:
+per-justice votes and opinion bodies. That is the honest state of it, and it is
+why the taxonomy is pre-registered rather than implemented.
+
+But the cert-stage half is **not** blocked on data — it is blocked on one schema
+addition. That is a materially better position than a merits-only reading
+suggests, and it is the cheapest path to a claim set that scores something real:
+three claims, on every petition the pipeline already predicts, resolving against
+committed fields.
 
 Two consequences worth stating plainly:
 
-- **Implementing mechanical scoring for disposition alone is not worth a
-  schema.** It would duplicate `brier_score` under a new name and report one
-  claim as a "claim set". The unit that earns the block is a per-justice vote
-  set, which needs the vote data.
-- **The data work is the blocker, not the design.** Per-justice votes and opinion
-  text are what convert this from a document into a measurement.
+- **Disposition alone is not worth a schema.** It would duplicate `brier_score`
+  under a new name and report one claim as a "claim set". A cert-stage set of
+  three, or a merits per-justice vote set, is the unit that earns the block.
+- **Nothing here may be published as a result** until the claims it scores
+  resolve against fixed sources and the floor above is computed beside them.
+  `metrics/README.md` governs what may be claimed from a number, and a claim
+  total is not an exception to it.
