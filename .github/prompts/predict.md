@@ -204,11 +204,29 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
 it is, and the forecast cannot be scored because it cannot be separated from the
 rationale. Write both.
 
-Two of the claims below are the ones this forecast is designed to make scoreable:
-whether the petition is relisted and whether the Court calls for the Solicitor
-General's views. Both are recorded on the outcome as at resolution, so a specific
-forecast here resolves against a fixed record rather than a moving column — it
-is checkable, and meant to be checked. Write it that way: a claim you would be
+Two of the claims below carry particular weight: whether the petition is relisted
+and whether the Court calls for the Solicitor General's views. **Forecast the
+increment, not the level.** The docket in front of you already shows the
+distributions and any CVSG recorded so far; restating those forecasts nothing.
+What is uncertain is what happens *from here* — whether this petition draws
+another conference, whether a CVSG issues that has not yet. State plainly how
+many distributions the docket shows, so the reader knows which state you are
+forecasting *from*, then give your claim for what follows it.
+
+Read the statpack's **"Cert petitions by relist count"** and **"by CVSG status"**
+cuts rather than working from intuition — but read them for **shape, not level**.
+Both are denial-reweighted over the live/historical slice **including IFP
+petitions**, and IFP petitions relist far less often — no IFP petition in this
+corpus has ever drawn a CVSG at all, so the CVSG table's level is diluted harder
+still. A paid selected petition like the one in front of you therefore sits
+**above** both tables' rates: adjust upward from what they show, and treat their
+levels as a floor rather than an anchor. The statpack publishes no paid-only
+relist or CVSG cut, which is the only reason this correction is yours to make.
+
+The shape is what carries: most petitions are never relisted at all, and the
+first relist barely raises the chance of a second — but past that the hazard
+climbs steeply, so a petition already distributed several times is in a very
+different position from one at its first conference. Write a claim you would be
 willing to be scored on, not a hedge.
 
 - **`predicted_reasoning.md`** — your forecast of what the **Court** will do with
@@ -219,10 +237,12 @@ willing to be scored on, not a hedge.
   a stay or other substantive application, or a court-of-appeals matter — forecast
   what that event actually resolves to, not a relist that cannot happen to it.
   Cover what you can commit to:
-  - Whether the petition will be **relisted**, and roughly how many times (the
-    corpus counts conference distributions).
+  - Whether the petition will be **relisted further** past the distributions the
+    docket already records, and roughly how many more times. Most petitions
+    reaching you sit at a single distribution and have never been relisted; say
+    which case yours is.
   - Whether the Court will **call for the views of the Solicitor General** (a CVSG),
-    and if so roughly when.
+    and if so roughly when — unless the docket already shows one.
   - **Which question presented** the Court would take, if it takes one — the
     petition's QP as written, a narrowed version, or a reformulation.
   - Whether a **summary disposition** is the likelier route than plenary review (a
@@ -232,7 +252,8 @@ willing to be scored on, not a hedge.
   Merits-shaped content belongs here only **conditionally**: "if granted, the
   likely ground is …", never as an unconditional claim about an opinion that a
   denial will never produce.
-  Worked example, in miniature: *"Expect two relists before a decision on the
+  Worked example, in miniature: *"Distributed once so far; expect two further
+  relists before a decision on the
   petition — the QP is a clean circuit split and the CA5 opinion is short, so the
   Court has little to work around; no CVSG, because no federal party's interest is
   implicated. If granted, the Court would take QP 1 as written and leave QP 2's

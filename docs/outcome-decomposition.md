@@ -9,9 +9,11 @@ scores them.
 
 **Only the scoring rule is implemented** (`pipeline.evaluate.claim_score`). No
 schema carries a claim, no prompt asks for one, and no claim set is declared —
-because the first set proposed for it turned out not to be forecastable. *A claim
-set that failed* records why, in detail, because the failure is the most useful
-thing this document currently contains.
+because the first set proposed for it was specified in a way that did not
+resolve. *A claim set that failed* records why, in detail, because the failure is
+the most useful thing this document currently contains. The events those claims
+named are forecastable; the claims about them were not, which is a different and
+more recoverable problem.
 
 The rest is pre-registration: the decomposition and the rule are settled before
 there is data to fit them to, which is the only order in which the choice of rule
@@ -358,25 +360,79 @@ The first set proposed against this rule was the two cert-signal claims — *the
 petition is relisted at least once* and *the Court calls for the Solicitor
 General's views* — chosen because the corpus already carried both signals and the
 outcome record could be made to freeze them. Signals being *populated* is not the
-same as a claim being *forecastable*, and the difference is what the set failed
-on. It is recorded here so the next set is chosen against these tests rather than
+same as a claim being *resolvable*, and the difference is what the set failed on.
+It is recorded here so the next set is chosen against these tests rather than
 rediscovering them.
 
-**The band already answers it.** `salience_band` is computed from
-`distribution_count`, and the band's cutpoints sit in the gaps between relist
-tiers by design (`docs/salience.md`). Measured over the live modern-cert
-population, the band determines "relisted at least once" for **9,919 of 9,924**
-rows. The band is disclosed to the predictor, so the claim is a lookup wearing a
-forecast's clothes.
+**The claim was resolved as a level, not an increment.** This is what actually
+sank it. The resolver asked whether the count reached two *by resolution*, not
+whether it rose past what the predictor could see. A forward cell's snapshot
+carries the docket's proceedings intact, so distributions already recorded are
+readable; for a petition already relisted when it is predicted, "will be relisted
+at least once" is trivially true and a predictor writing `1.0` scores near the
+maximum without forecasting anything. Fixing this needs the value **as at
+prediction** on a committed artifact, which nothing carries — the corpus column is
+mutable and `Outcome.signals` freezes only the resolution-time value. The
+provisioned snapshot does hold it, but `record/` is never committed.
 
-**The level is visible, and the claim was about the level.** The resolver asked
-whether the count reached two *by resolution*, not whether it rose past what the
-predictor could see. A forward cell's snapshot carries the docket's proceedings
-intact — only a replay snapshot redacts them — so distributions already recorded
-are readable. About **37%** of selected petitions already sit at two or more
-distributions when they are predicted, and some already carry a CVSG date. For
-those, a predictor writing `1.0` scores near the maximum without forecasting
-anything.
+**Two figures that argued the withdrawal are retracted.** The first: that
+`salience_band` determines "relisted at least once" for 9,919 of 9,924 rows,
+making the claim a lookup. `salience_band` is a function of `distribution_count`
+and `cvsg_date` (plus a circuit nudge bounded below any cutpoint), so that
+measurement compared a derived field against a predicate on *its own input, at the
+same instant*. It is an identity up to the CVSG carve-out — the 5 residual rows
+are exactly the petitions with a CVSG at one distribution or fewer. The band a
+predictor is shown is computed from the count **as at prediction** and is silent
+about whether the count will later rise.
+
+The second: that about 37% of selected petitions already sit at two or more
+distributions when predicted. Wrong on both axes. It described *selected*
+petitions while claiming something about predicted ones, and only 410 of 3,516
+selected rows carry a prediction at all. And it was read off each row's **final**
+count rather than its count as at prediction. Since the count never falls below
+its earlier value, 37% *bounds that share above* rather than estimating it — a
+tight bound, because for most petitions the count has not moved since prediction,
+but a bound. The honest quantity needs the provisioned snapshot re-parsed. The
+underlying point survives either way: for a petition already relisted, "will be
+relisted at least once" is trivially true.
+
+Measured over the population the gate actually predicts on — paid modern-cert
+petitions, live/historical slice, resolved, denial-reweighted, conditioned on
+sitting at a single distribution — a petition faces about a **26%** chance of
+being relisted at all (est. n≈13,100). Over the whole live-parsed slice with IFP
+included the same rate is **19%** (est. n≈43,300).
+
+The hazard is flat through the first relist and sharp after it, which is the part
+worth knowing: 26.3% at one distribution (est. n≈13,100), 27.1% at two
+(est. n≈3,400), 46.7% at three (est. n≈930), 71.3% at four (est. n≈440). The
+first step moves under a point; the modal relisted petition sits at two. Read the
+tail with its denominator — at four distributions the raw rate is 55.5% against
+71.3% reweighted, so the weighting is doing most of the work there.
+
+Both rates pool OT2017–OT2025 including any given case's own Term. That is
+tolerable for a figure in a document and disqualifying for a claim baseline,
+which would need the strictly-prior-Term guard `segment_base_rate` already
+applies. They are also resolved-only, which understates slightly because
+relisting delays resolution — under a point pooled, but roughly ten points wide
+in an open Term.
+
+Neither figure is published. The statpack's relist cut pools IFP petitions, which
+relist far less often, and no paid-only relist cut exists — so both were computed
+directly over the corpus for this document. A figure with no artifact behind it
+is the same maintenance hazard as a constant in a prompt; adding
+`row_filter=_is_scored_segment_row` to the relist cut, as the salience-band cut
+already carries, is what would fix it.
+
+A base rate far enough from 0 to be worth forecasting leaves room for a forecast
+to move it; whether the docket and the briefs support *skill* over that base rate
+is unmeasured, because nothing here has ever scored a predictor on relist.
+
+The weighting is not optional bookkeeping. The historical walker keeps one denial
+in ten, and relists correlate with non-denial, so a raw count over that frame
+runs high — 26.2% unweighted against 19.0% reweighted on the same rows. Worse,
+the frame is not uniform: OT2025 comes from the live poller at weight 1 while
+earlier Terms come from the walker, so a row-count pool silently mixes two
+sampling designs. `metrics/README.md` states the rule this paragraph is obeying.
 
 **The floor priced none of it.** The control was to report a recent-window rate
 while the baseline pooled every prior Term, and the gap between the two windows
@@ -398,39 +454,59 @@ the true one.
 
 Drawn from the above, and cheaper to apply than to rediscover:
 
-1. **Is it determined by something the predictor is shown?** Check against the
-   provisioned snapshot and every derived field in it, not just the raw columns.
+1. **Is it determined by something the predictor is shown *at prediction time*?**
+   Check against the provisioned snapshot and every derived field in it, not just
+   the raw columns — and evaluate those fields as they stood when the cell ran,
+   not as they stand now. A field that grows over a docket's life answers a
+   different question at each of those moments.
 2. **Is it about a change from the prediction's vantage point, or an absolute
    level?** A level the snapshot already discloses is not a forecast. If the claim
    is about an increment, the record has to carry the value *as at prediction*,
    not only as at resolution.
 3. **Is its baseline conditioned on what the predictor sees?** A baseline coarser
-   than the disclosed conditioning makes an uninformative claim look informative —
-   which is how the relist claim survived the first review.
+   than the disclosed conditioning makes an uninformative claim look informative.
+   A baseline conditioned on the *outcome* of the trajectory rather than its state
+   at prediction is worse: it is leakage wearing a baseline's clothes.
 4. **Does the floor bound the actual free score?** Not a window difference: a
    control conditioned the way the predictor is conditioned.
 5. **Is the rate that feeds the baseline censored?** Ask which side of the
    observation the event sits on, and whether the open Term belongs in the pool.
+6. **Is either side of the comparison derived from the other?** A field measured
+   against its own input agrees with itself by construction. Name the two
+   quantities and confirm neither is a function of the other — being two stored
+   columns is not enough when one is a materialized function of the other — and
+   confirm they are read at two different times. The reach is wider than
+   agreement figures: it covers a calibration bin scored against a band-derived
+   baseline, or a leakage grade computed from the parser that produced the log.
+7. **Is the rate weighted the way the frame demands, and is the frame uniform?**
+   The corpus's denial subsampling means a raw count over the walker's rows
+   overstates anything that correlates with non-denial. Pooling Terms drawn under
+   different sampling designs compounds it. A reweighted rate prints `est. n=`
+   and a raw one plain `n`; `metrics/README.md` is the governing statement. The
+   docket pack reweights every cert cut; the statpack keeps one raw reader cut on
+   purpose, so read the scope line rather than assuming.
 
 ## What is scoreable today
 
 **Nothing, yet.** The signals are recorded and the rule exists, but the two
 claims that looked scoreable are withdrawn for the reasons above, and no
-replacement set is declared. Disposition remains the only claim whose resolution
-and baseline both exist — and it is deliberately not a claim here, because it
-already has `segment_base_rate` and the headline Brier path, so scoring it again
-would pay one belief twice.
+replacement set is declared. Withdrawn **as specified**, not as unforecastable:
+both name events that are genuinely uncertain at prediction time, and both become
+resolvable once a committed artifact carries the signal values as at prediction.
+Disposition remains the only claim whose resolution and baseline both exist — and
+it is deliberately not a claim here, because it already has `segment_base_rate`
+and the headline Brier path, so scoring it again would pay one belief twice.
 
 | Claim | State |
 | --- | --- |
 | Disposition | Scoreable. `Outcome.actual_disposition` is committed and immutable, and `segment_base_rate` already supplies a leakage-safe baseline for the binary projection — a per-label baseline is constructible from the statpack's per-Term rates under the same strictly-prior-Term guard, but nothing builds one yet |
-| Relisted at least once | **Withdrawn.** The salience band determines it for 9,919 of 9,924 rows, and the band is disclosed to the predictor |
-| CVSG | **Withdrawn.** Already present at prediction time on some selected petitions, and its per-Term rate is censored in any open Term |
+| Relisted at least once | **Withdrawn as specified** — resolved as an absolute level while no committed artifact records the count as at prediction, so the claim is trivially true wherever the petition was already relisted. The underlying event is forecastable: about 26% of paid petitions at a single distribution draw a first relist (denial-reweighted, est. n≈13,100) |
+| CVSG | **Withdrawn as specified** — same level-versus-increment defect, and its per-Term rate is censored in any open Term |
 | Each justice's vote | `Outcome.votes` is `[]` in every committed outcome, and nothing populates it. `JudgeVote.vote` is also typed as a disposition, a vocabulary with no majority/dissent member, so a merits vote claim needs a schema change as well as data |
 | Majority author, concurrence, dissent | No field on `Outcome`, and nothing on the corpus row carries authorship for a modern case |
 | All semantic claims | `has_opinion` is 0 on every corpus row, so no opinion body has been ingested and the grader has nothing to read |
 
-### Why the cert-stage claims resolve against the outcome, not the corpus
+### Why a cert-stage claim resolves against the outcome, not the corpus
 
 `distribution_count` and `cvsg_date` are also **corpus** columns, and the corpus
 is mutable: there they carry the current value, not the value at any fixed
@@ -438,18 +514,27 @@ moment. Resolving a claim against them would break condition (1) — a claim nee
 a source fixed before scoring — in a way that is easy to miss, because the claim
 looks scoreable and the number looks right.
 
-Two distinct problems. Resolving "relisted at least once" needs the value *after*
-the prediction and *at* resolution, but a petition already has one distribution
-when it is predicted, so the claim is about a later increment that no committed
-artifact records. And re-scoring the same cell a month later would read a
-different column value, so the score is not reproducible — which for a
-pre-registration record is disqualifying.
+Two distinct problems, and only one of them is solved. Re-scoring the same cell a
+month later would read a different column value, so the score is not reproducible
+— which for a pre-registration record is disqualifying. Separately, an increment
+claim needs the value at *both* ends: as at prediction and as at resolution.
 
-The fix belongs on the outcome rather than on the scoring, and it is in place:
+The reproducibility half is fixed, on the outcome rather than on the scoring:
 `outcome.json` carries a `signals` block recording the distribution count and the
-CVSG date **as at resolution**, beside the disposition it already records. The
-cert-stage claims now resolve against an immutable committed artifact like
-everything else, so the same cell scores the same way forever.
+CVSG date **as at resolution**, beside the disposition it already records. That
+end is immutable and committed, so it scores the same way forever.
+
+The other end is missing. Nothing committed records the count as at prediction,
+so the increment is not computable and the claim can only be specified as a
+level — which is what sank the first set. Wherever a cell was provisioned and the
+store still holds the dated snapshot it named, the value is recoverable rather
+than lost: the snapshot carries the proceedings, and the ingest parser re-derives
+the count from them. That is not everywhere. Provisioning is `continue-on-error`,
+so a cell can run snapshot-less — 12 of the 410 committed predictions name no
+path at all — and `input_snapshot` is the agent's own string, written four
+different ways across the set and validated against nothing. A field the harness
+writes is what closes both gaps; until then a cert-stage increment claim has one
+end fixed and one end floating.
 
 The block's *presence* carries meaning too. It is written only where the
 proceedings were live-parsed, mirroring the corpus's own coverage rule, so an
@@ -463,10 +548,13 @@ The merits half of this document is blocked on data that is not scheduled:
 per-justice votes and opinion bodies. That is the honest state of it, and it is
 why the taxonomy is pre-registered rather than implemented.
 
-The cert-stage half is not blocked on data or on the record — `Outcome.signals`
-freezes what a cert-stage claim would resolve against. It is blocked on finding
-claims that are actually forecasts, which the first attempt was not. The five
-tests above are what a replacement has to pass.
+The cert-stage half is blocked on neither data nor the resolution record —
+`Outcome.signals` already freezes what a cert-stage claim resolves *against*.
+What is missing is the other end: the signal values **as at prediction**, without
+which an increment cannot be computed and a claim about a growing column can only
+be specified as a level. That is one committed field away, not a research
+problem, and the seven tests above are what a replacement has to pass once it
+exists.
 
 Two consequences worth stating plainly:
 
