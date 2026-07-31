@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from dateutil import parser as date_parser
@@ -251,8 +251,12 @@ DISTRIBUTED_RE = re.compile(r"DISTRIBUTED\s+for\s+Conference\s+of\s+([\d/A-Za-z,
 CVSG_RE = re.compile(r"Solicitor\s+General\s+is\s+invited\s+to\s+file", re.I)
 
 
-def _entry_texts(payload: Mapping[str, Any]) -> list[tuple[str, str | None]]:
-    """(description, ISO date) per proceedings entry, over either payload shape.
+def proceedings_entries(payload: Mapping[str, Any]) -> list[tuple[str, str | None]]:
+    """(description, date string) per proceedings entry, over either payload shape.
+
+    The single reading of "what an entry is", shared by the signal parsers and by
+    replay truncation, so a rule that keeps an entry and a rule that reads a
+    signal off it cannot disagree about which entries exist.
 
     Returns an empty list when the payload carries no proceedings key at all —
     which a caller must distinguish from a docket with zero entries, since a
@@ -274,6 +278,35 @@ def _entry_texts(payload: Mapping[str, Any]) -> list[tuple[str, str | None]]:
             if isinstance(e, Mapping)
         ]
     return []
+
+
+#: The two payload shapes' proceedings keys — live supremecourt.gov JSON and the
+#: CourtListener REST record. Named once so a reader, a redactor, and a truncator
+#: all mean the same thing by "the entries".
+PROCEEDINGS_KEYS: tuple[str, ...] = ("ProceedingsandOrder", "docket_entries")
+
+
+def entry_date(raw: str | None) -> date | None:
+    """An entry's own filing date, or ``None`` unless it is fully specified.
+
+    Strict, because this decides retention rather than merely reading a signal.
+    ``dateutil`` fills missing components from *today*, so a partial string like
+    "2025" or "Mar" yields a plausible-looking date that is really a function of
+    the day the parser ran — which would both keep entries it should drop and make
+    the retained set differ between two runs of the same replay.
+
+    Parsing twice against two different defaults and rejecting a disagreement
+    catches exactly that: a fully specified date is identical under both, and
+    anything relying on a default is not.
+    """
+    if not raw:
+        return None
+    try:
+        first = date_parser.parse(raw, default=datetime(1000, 1, 1)).date()
+        second = date_parser.parse(raw, default=datetime(2000, 6, 15)).date()
+    except (ValueError, OverflowError, TypeError):
+        return None
+    return first if first == second else None
 
 
 def snapshot_carries_proceedings(payload: Mapping[str, Any]) -> bool:
@@ -301,7 +334,7 @@ def snapshot_distribution_count(payload: Mapping[str, Any]) -> int | None:
     if not snapshot_carries_proceedings(payload):
         return None
     conferences: set[date] = set()
-    for text, _ in _entry_texts(payload):
+    for text, _ in proceedings_entries(payload):
         match = DISTRIBUTED_RE.search(text)
         if match is None:
             continue
@@ -333,7 +366,7 @@ def snapshot_cvsg_date(payload: Mapping[str, Any]) -> str | None:
     """
     if not snapshot_carries_proceedings(payload):
         return None
-    for text, entry_date in _entry_texts(payload):
+    for text, entry_date in proceedings_entries(payload):
         if CVSG_RE.search(text) and entry_date:
             return entry_date
     return None

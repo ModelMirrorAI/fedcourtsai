@@ -173,7 +173,20 @@ predictor:
    Information that merely *predates* the snapshot — a companion or lead case's
    ruling, news context — is legitimate forward signal, not leakage; a predictor's
    own honest disclosure of such a signal is a point *for* the cell, not against it.
-3. **`replay`** → grade two things. `retrieved_outcome_material`: does the log
+3. **`replay`** → grade two things. **First, know what the cell was legitimately
+   given.** A replay snapshot now carries the case's own docket *as it stood
+   before the cell's cutoff* — filings, distributions, a CVSG — with only the
+   post-cutoff entries removed. So a prediction citing this petition's relist
+   history, its conference dates, or its posture is reading its **provisioned
+   input**, not retrieving; that is not leakage and must not be graded as such.
+   What remains leakage is material dated at or after that cutoff, which the
+   prediction's own stamped `context.cutoff` records — **not** your own cell's
+   `record/context.json`, which is provisioned from the decided docket and knows
+   nothing about the replay. Where the prediction carries no `context`, the cutoff
+   is unavailable and the honest grade falls back to the event's resolution date;
+   say so in `evaluation.md` rather than substituting a date that is later.
+
+   `retrieved_outcome_material`: does the log
    or reasoning show outcome-revealing material about *this case* was retrieved
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
    case's own docket/caption reaching past the event date, the disposing order

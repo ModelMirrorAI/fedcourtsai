@@ -2560,6 +2560,42 @@ def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str,
     return date.fromisoformat(record["snapshot_date"]), payload
 
 
+def snapshot_at(
+    conn: ReadConnection, case_id: str, *, before: date
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest dated snapshot strictly before ``before``, or ``None``.
+
+    Exclusive, matching the truncation cutoff it is used with: a snapshot pulled
+    *on* the cutoff day may already carry that day's entries, which truncation
+    would have dropped. Inclusive would make the two provenances two different
+    instants while claiming to be one.
+
+    A genuine point-in-time read, which is strictly better than reconstructing one
+    by truncating a later payload: it is what the docket *actually* served then,
+    including whatever had not yet been added. Truncation can only remove entries
+    dated after a cutoff; it cannot know that an entry dated before the cutoff was
+    back-filled later, which is the residual a replay carries when no real
+    snapshot exists for the moment it wants.
+
+    Under corpus-split mode the payloads live in the content store and only the
+    newest is directly addressable, so this returns ``None`` there rather than
+    pretending — the caller falls back to truncation and records which it got.
+    """
+    if _payload_read_source() is not None:
+        return None
+    cur = conn.execute(
+        "SELECT snapshot_date, payload FROM snapshots "
+        "WHERE case_id = ? AND snapshot_date < ? "
+        "ORDER BY snapshot_date DESC LIMIT 1",
+        (case_id, before.isoformat()),
+    )
+    record = cur.fetchone()
+    if record is None:
+        return None
+    payload: dict[str, Any] = json.loads(record["payload"])
+    return date.fromisoformat(record["snapshot_date"]), payload
+
+
 def latest_live_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str, Any]] | None:
     """The most recent **live-shaped** snapshot for a case, or ``None``.
 

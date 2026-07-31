@@ -74,6 +74,20 @@
           "description": "The sal-v1 salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then falls back to the terminal band rather than guessing",
           "title": "Band"
         },
+        "cutoff": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The instant this cell was placed at: entries filed strictly before it are what the snapshot carries. Null on a forward cell, whose snapshot is simply the latest. This is the date leakage is judged against \u2014 material about this case dated at or after it postdates what the cell was allowed to see, and no other recorded date stands in for it",
+          "title": "Cutoff"
+        },
         "cvsg_date": {
           "anyOf": [
             {
@@ -87,6 +101,19 @@
           "default": null,
           "description": "CVSG invitation date the snapshot showed, or None for no CVSG \u2014 ambiguous unless signals_observable is true",
           "title": "Cvsg Date"
+        },
+        "decided_before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The replay clock: retrieval about this case must not postdate it. Null on a forward cell, whose outcome does not exist yet",
+          "title": "Decided Before"
         },
         "distribution_count": {
           "anyOf": [
@@ -135,6 +162,18 @@
           "description": "Date of the provisioned snapshot the cell read",
           "format": "date",
           "title": "Snapshot Date",
+          "type": "string"
+        },
+        "snapshot_provenance": {
+          "default": "as-stored",
+          "description": "How the provisioned snapshot was obtained. 'as-stored' is the corpus payload unmodified, which is every forward cell. 'dated' is a snapshot the docket really served at or before the replay cutoff \u2014 the strongest point-in-time evidence, because it also reflects what had not yet been filed. 'truncated' is a later payload with its post-cutoff entries removed, which cannot know that a pre-cutoff entry was back-filled later. 'blind' is neither: no forward moment could be identified, so the proceedings were removed outright and the cell saw no trajectory at all. Recorded so the three can be separated; a figure pooling them is pooling three different information sets",
+          "enum": [
+            "as-stored",
+            "dated",
+            "truncated",
+            "blind"
+          ],
+          "title": "Snapshot Provenance",
           "type": "string"
         },
         "term": {

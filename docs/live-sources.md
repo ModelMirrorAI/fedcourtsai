@@ -78,31 +78,15 @@ The live source follows the replica guardrails exactly
   is stored as the case's dated **snapshot**, exactly like a REST pull. The
   proceedings list is the docket-entries analogue, so event extraction and
   resolution detection work unchanged. One caveat:
-  replay redaction is a **key-name** blocklist, so the raw JSON's
-  outcome-bearing keys (`ProceedingsandOrder`, `sJsonCreationDate`) sit on it
-  alongside `docket_entries` — a new channel's snapshot shape must always
-  be checked against that list.
-- **The corpus stays the system of record.** Live-ness comes from trigger and
-  cadence, not from bypassing the corpus: a watchlist refresh that finds a
-  changed docket ingests it and queues `predict` through the same seams the
-  rotation uses. Replay integrity, fan-out comparability (every predictor reads
-  the same snapshot), validation, and stratification all depend on this — a
-  predictor never fetches the live site itself.
-- **Identity is reconciled by docket number.** The corpus keys cases on
-  CourtListener docket ids, which a petition first seen at supremecourt.gov
-  does not have. The join key is the normalized Term-form docket number, which
-  both sources carry: a live ingest first looks for an existing SCOTUS row with
-  the same normalized number and enriches it; only a genuinely unseen petition
-  mints a new row. The minted id is deterministic and
-  permanent — `9,000,000,000 + term×1,000,000 + serial` (`25-1234` →
-  `scotus/9025001234`), collision-proof against CourtListener ids and decodable
-  back to the Term-form number — and is **never merged**: `case_id`
-  immutability wins (the ledger and snapshots key on it), so when CourtListener
-  later ingests the same docket, a symmetric guard on its discovery path
-  enriches the live-keyed row by the same docket-number join instead of minting
-  a duplicate. Implemented in `fedcourtsai.supremecourt` (client + identity),
-  `pipeline/live.py` (poller), and the `live-poll` CLI cycle; the per-Term
-  discovery cursor persists in the corpus like the other watermarks.
+  replay redaction has two halves. Derived, decision-only keys
+(`sJsonCreationDate`, `QPLink`, `disposition`, the decision dates) come off by a
+**key-name** blocklist, so a new channel's snapshot shape must be checked against
+it. The proceedings entries are removed by **date** instead — content offers no
+rule separating a disposing order from a pre-decision entry, but an entry filed
+before a cutoff cannot record a decision that came after it. A new channel must
+therefore register its entries key in `PROCEEDINGS_KEYS` **and** expose a
+per-entry date, or its entries are unprotected; and the surviving entries are
+scanned for a disposition, falling back to removing them outright on a hit
 
 ## The live cert watchlist and conference detection
 

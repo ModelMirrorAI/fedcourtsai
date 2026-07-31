@@ -383,6 +383,32 @@ class PredictionContext(_Strict):
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     mode: str = Field(description="The cell's mode: forward or replay")
     snapshot_date: date = Field(description="Date of the provisioned snapshot the cell read")
+    snapshot_provenance: Literal["as-stored", "dated", "truncated", "blind"] = Field(
+        default="as-stored",
+        description="How the provisioned snapshot was obtained. 'as-stored' is the "
+        "corpus payload unmodified, which is every forward cell. 'dated' is a "
+        "snapshot the docket really served at or before the replay cutoff — the "
+        "strongest point-in-time evidence, because it also reflects what had not "
+        "yet been filed. 'truncated' is a later payload with its post-cutoff "
+        "entries removed, which cannot know that a pre-cutoff entry was "
+        "back-filled later. 'blind' is neither: no forward moment could be "
+        "identified, so the proceedings were removed outright and the cell saw no "
+        "trajectory at all. Recorded so the three can be separated; a figure "
+        "pooling them is pooling three different information sets",
+    )
+    cutoff: date | None = Field(
+        default=None,
+        description="The instant this cell was placed at: entries filed strictly "
+        "before it are what the snapshot carries. Null on a forward cell, whose "
+        "snapshot is simply the latest. This is the date leakage is judged against "
+        "— material about this case dated at or after it postdates what the cell "
+        "was allowed to see, and no other recorded date stands in for it",
+    )
+    decided_before: str | None = Field(
+        default=None,
+        description="The replay clock: retrieval about this case must not postdate "
+        "it. Null on a forward cell, whose outcome does not exist yet",
+    )
     signals_observable: bool = Field(
         description="Whether the payload disclosed a proceedings list at all. False "
         "means the docket-progress signals below are UNOBSERVABLE from what the cell "
@@ -1466,8 +1492,17 @@ class CertBacktest(_Strict):
 
     The standing instrument for vetting cert predictors and prompt changes:
     replay over a curated set of resolved modern discretionary-cert petitions
-    (outcome hidden — the replay provisions a redacted snapshot), scored against
-    the realized grant/deny. Produced by the maintainer-triggered
+    (outcome hidden — the replay provisions the docket as it stood before a
+    cutoff, with the decision-only fields redacted), scored against the realized
+    grant/deny.
+
+    **Its band mix is not the forward channel's.** One cell per petition, placed
+    at the *last* distribution before resolution, so the replay population sits in
+    stronger bands than the forward trigger produces — that fires on any
+    distribution transition, most often the first. So the always-deny floor here
+    is lower than the forward stratum's, and neither the top line nor the band mix
+    estimates forward performance. ``metrics/README.md``'s stratum rule bars the
+    pooled comparison regardless. Produced by the maintainer-triggered
     ``run-backtest`` workflow via ``fedcourts cert-backtest``
     (it spends tokens when agentic engines are replayed), never by a schedule.
     """
@@ -1488,6 +1523,18 @@ class CertBacktest(_Strict):
         le=1.0,
         description="The always-deny floor's disposition accuracy over this set "
         "(the denial base rate every lift figure is measured against)",
+    )
+    provisioning: dict[str, int] = Field(
+        default_factory=dict,
+        description="How many replayed cells were provisioned under each "
+        "snapshot_provenance — 'dated' (a snapshot the docket really served before "
+        "the cutoff), 'truncated' (a later payload with its post-cutoff entries "
+        "removed), 'blind' (no forward moment identifiable, so no trajectory was "
+        "shown). These are three different information sets, and a figure over "
+        "their union is a figure over a mixture: a blind cell cannot observe its "
+        "own relist history at all, which is most of what a cert forecast turns "
+        "on. Read the mix before reading the scores. Empty on reports written "
+        "before the split existed",
     )
     entries: list[CertBacktestEntry] = Field(default_factory=list)
 

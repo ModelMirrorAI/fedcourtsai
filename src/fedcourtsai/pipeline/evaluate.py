@@ -86,9 +86,13 @@ def segment_base_rate(
 
     This is the fallback, not the preferred path. Prefer
     :func:`prediction_base_rate` wherever the cell froze its own conditioning;
-    use this only where it did not, which today means the cert back-test (whose
-    replay snapshot has its proceedings stripped, so the cell could not observe
-    its band at all) and any prediction written before the frozen block existed.
+    use this only where it did not, and note that the cert back-test stays here
+    deliberately rather than by omission: its replay is placed at the *last*
+    distribution before resolution, so the band it freezes is the band the
+    petition ended at, and the population of replay cells at a given band is the
+    terminal population. The risk-set rate against that band would be the very
+    mismatch this pairing exists to prevent. Also used by any prediction written
+    before the frozen block existed.
 
     Leakage-safe by construction: only Terms preceding the case contribute, so
     the rate never sees the case's own — or any later — Term. ``None`` when the
